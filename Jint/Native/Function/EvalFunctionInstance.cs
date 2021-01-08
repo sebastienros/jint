@@ -92,16 +92,16 @@ namespace Jint.Native.Function
 
             using (new StrictModeScope(strictEval))
             {
-                LexicalEnvironment lexEnv;
-                LexicalEnvironment varEnv;
+                EnvironmentRecord lexEnv;
+                EnvironmentRecord varEnv;
                 if (direct)
                 {
-                    lexEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, ctx.LexicalEnvironment);
+                    lexEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, ctx.LexicalEnvironment);
                     varEnv = ctx.VariableEnvironment;
                 }
                 else
                 {
-                    lexEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, Engine.GlobalEnvironment);
+                    lexEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, Engine.GlobalEnvironment);
                     varEnv = Engine.GlobalEnvironment;
                 }
 

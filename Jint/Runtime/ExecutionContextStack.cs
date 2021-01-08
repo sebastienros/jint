@@ -15,14 +15,14 @@ namespace Jint.Runtime
             _stack = new RefStack<ExecutionContext>(capacity);
         }
 
-        public void ReplaceTopLexicalEnvironment(LexicalEnvironment newEnv)
+        public void ReplaceTopLexicalEnvironment(EnvironmentRecord newEnv)
         {
             var array = _stack._array;
             var size = _stack._size;
             array[size - 1] = array[size - 1].UpdateLexicalEnvironment(newEnv);
         }
 
-        public void ReplaceTopVariableEnvironment(LexicalEnvironment newEnv)
+        public void ReplaceTopVariableEnvironment(EnvironmentRecord newEnv)
         {
             var array = _stack._array;
             var size = _stack._size;

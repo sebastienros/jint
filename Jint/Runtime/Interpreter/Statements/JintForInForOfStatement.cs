@@ -112,10 +112,10 @@ namespace Jint.Runtime.Interpreter.Statements
         private bool HeadEvaluation(out IIterator result)
         {
             var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-            var tdz = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+            var tdz = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
             if (_tdzNames != null)
             {
-                var TDZEnvRec = tdz._record;
+                var TDZEnvRec = tdz;
                 foreach (var name in _tdzNames)
                 {
                     TDZEnvRec.CreateMutableBinding(name);
@@ -169,7 +169,7 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 while (true)
                 {
-                    LexicalEnvironment iterationEnv = null;
+                    EnvironmentRecord iterationEnv = null;
                     if (!iteratorRecord.TryIteratorStep(out var nextResult))
                     {
                         close = true;
@@ -194,7 +194,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                     else
                     {
-                        iterationEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+                        iterationEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
                         if (_tdzNames != null)
                         {
                             BindingInstantiation(iterationEnv);
@@ -295,9 +295,9 @@ namespace Jint.Runtime.Interpreter.Statements
             }
         }
 
-        private void BindingInstantiation(LexicalEnvironment environment)
+        private void BindingInstantiation(EnvironmentRecord environment)
         {
-            var envRec = (DeclarativeEnvironmentRecord) environment._record;
+            var envRec = (DeclarativeEnvironmentRecord) environment;
             var variableDeclaration = (VariableDeclaration) _leftNode;
             var boundNames = new List<string>();
             variableDeclaration.GetBoundNames(boundNames);

@@ -82,7 +82,7 @@ namespace Jint.Native.Proxy
         }
 
         internal override bool IsConstructor => 
-            _handler != null
+            _handler is not null
             && _handler.TryGetValue(TrapConstruct, out var handlerFunction) 
             && handlerFunction is IConstructor;
 

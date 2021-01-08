@@ -17,7 +17,7 @@ namespace Jint.Native.Function
         protected internal PropertyDescriptor _length;
         private PropertyDescriptor _nameDescriptor;
 
-        protected internal LexicalEnvironment _environment;
+        protected internal EnvironmentRecord _environment;
         internal readonly JintFunctionDefinition _functionDefinition;
         internal readonly FunctionThisMode _thisMode;
         internal JsValue _homeObject = Undefined;
@@ -26,7 +26,7 @@ namespace Jint.Native.Function
         internal FunctionInstance(
             Engine engine,
             JintFunctionDefinition function,
-            LexicalEnvironment scope,
+            EnvironmentRecord scope,
             FunctionThisMode thisMode)
             : this(engine, !string.IsNullOrWhiteSpace(function.Name) ? new JsString(function.Name) : null, thisMode)
         {
@@ -255,7 +255,7 @@ namespace Jint.Native.Function
 
             // Let calleeRealm be F.[[Realm]].
 
-            var localEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment._record;
+            var localEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment;
 
             JsValue thisValue;
             if (_thisMode == FunctionThisMode.Strict)
@@ -268,8 +268,7 @@ namespace Jint.Native.Function
                 {
                     // Let globalEnv be calleeRealm.[[GlobalEnv]].
                     var globalEnv = _engine.GlobalEnvironment;
-                    var globalEnvRec = (GlobalEnvironmentRecord) globalEnv._record;
-                    thisValue = globalEnvRec.GlobalThisValue;
+                    thisValue = globalEnv.GlobalThisValue;
                 }
                 else
                 {
@@ -307,7 +306,7 @@ namespace Jint.Native.Function
             // Let calleeRealm be F.[[Realm]].
             // Set the Realm of calleeContext to calleeRealm.
             // Set the ScriptOrModule of calleeContext to F.[[ScriptOrModule]].
-            var calleeContext = LexicalEnvironment.NewFunctionEnvironment(_engine, this, newTarget);
+            var calleeContext = JintEnvironment.NewFunctionEnvironment(_engine, this, newTarget);
             // If callerContext is not already suspended, suspend callerContext.
             // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.
             // NOTE: Any exception objects produced after this point are associated with calleeRealm.

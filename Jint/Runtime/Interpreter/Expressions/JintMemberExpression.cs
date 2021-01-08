@@ -52,7 +52,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 baseReferenceName = identifierExpression._expressionName.Key.Name;
                 var strict = isStrictModeCode;
                 var env = _engine.ExecutionContext.LexicalEnvironment;
-                LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                    _engine,
                     env,
                     identifierExpression._expressionName,
                     strict,

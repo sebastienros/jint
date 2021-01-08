@@ -39,7 +39,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             Engine engine,
             BindingPattern pattern,
             JsValue argument,
-            LexicalEnvironment environment,
+            EnvironmentRecord environment,
             bool checkObjectPatternPropertyReference = true)
         {
             if (pattern is ArrayPattern ap)
@@ -67,7 +67,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return true;
         }
         
-        private static void HandleArrayPattern(Engine engine, ArrayPattern pattern, JsValue argument, LexicalEnvironment environment)
+        private static void HandleArrayPattern(Engine engine, ArrayPattern pattern, JsValue argument, EnvironmentRecord environment)
         {
             var obj = TypeConverter.ToObject(engine, argument);
             ArrayOperations arrayOperations = null;
@@ -270,7 +270,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        private static void HandleObjectPattern(Engine engine, ObjectPattern pattern, JsValue argument, LexicalEnvironment environment, bool checkReference)
+        private static void HandleObjectPattern(Engine engine, ObjectPattern pattern, JsValue argument, EnvironmentRecord environment, bool checkReference)
         {
             var processedProperties = pattern.Properties.Count > 0 && pattern.Properties[pattern.Properties.Count - 1] is RestElement
                 ? new HashSet<JsValue>()
@@ -370,7 +370,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             Engine engine,
             Reference lhs,
             JsValue v,
-            LexicalEnvironment environment)
+            EnvironmentRecord environment)
         {
             if (environment is null)
             {
@@ -395,11 +395,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             Engine engine,
             string name,
             JsValue rval,
-            LexicalEnvironment environment,
+            EnvironmentRecord environment,
             bool checkReference = true)
         {
             var lhs = engine.ResolveBinding(name, environment);
-            if (environment != null)
+            if (environment is not null)
             {
                 lhs.InitializeReferencedBinding(rval);
             }

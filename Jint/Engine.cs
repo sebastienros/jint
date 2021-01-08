@@ -186,7 +186,7 @@ namespace Jint
             Object._prototype = Function.PrototypeObject;
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
-            GlobalEnvironment = LexicalEnvironment.NewGlobalEnvironment(this, Global);
+            GlobalEnvironment = JintEnvironment.NewGlobalEnvironment(this, Global, Global);
 
             // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
             EnterExecutionContext(GlobalEnvironment, GlobalEnvironment);
@@ -213,7 +213,7 @@ namespace Jint
             Options.Apply(this);
         }
 
-        internal LexicalEnvironment GlobalEnvironment { get; }
+        internal GlobalEnvironmentRecord GlobalEnvironment { get; }
         public GlobalObject Global { get; }
         public ObjectConstructor Object { get; }
         public FunctionConstructor Function { get; }
@@ -274,13 +274,19 @@ namespace Jint
         public DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this);
 
         public ExecutionContext EnterExecutionContext(
-            LexicalEnvironment lexicalEnvironment,
-            LexicalEnvironment variableEnvironment)
+            EnvironmentRecord lexicalEnvironment,
+            EnvironmentRecord variableEnvironment)
         {
             var context = new ExecutionContext(
                 lexicalEnvironment,
                 variableEnvironment);
 
+            _executionContexts.Push(context);
+            return context;
+        }
+
+        internal ExecutionContext EnterExecutionContext(ExecutionContext context)
+        {
             _executionContexts.Push(context);
             return context;
         }
@@ -791,26 +797,26 @@ namespace Jint
         /// <summary>
         /// https://tc39.es/ecma262/#sec-resolvebinding
         /// </summary>
-        internal Reference ResolveBinding(string name, LexicalEnvironment env = null)
+        internal Reference ResolveBinding(string name, EnvironmentRecord env = null)
         {
             env ??= ExecutionContext.LexicalEnvironment;
             return GetIdentifierReference(env, name, StrictModeScope.IsStrictModeCode);
         }
 
-        private Reference GetIdentifierReference(LexicalEnvironment env, string name, bool strict)
+        private Reference GetIdentifierReference(EnvironmentRecord env, string name, bool strict)
         {
             if (env is null)
             {
                 return new Reference(JsValue.Undefined, name, strict);
             }
 
-            var envRec = env._record;
+            var envRec = env;
             if (envRec.HasBinding(name))
             {
                 return new Reference(envRec, name, strict);
             }
 
-            return GetIdentifierReference(env._outer, name, strict);
+            return GetIdentifierReference(env._outerEnv, name, strict);
         }
 
         /// <summary>
@@ -837,10 +843,8 @@ namespace Jint
         /// </summary>
         private void GlobalDeclarationInstantiation(
             Script script,
-            LexicalEnvironment env)
+            GlobalEnvironmentRecord env)
         {
-            var envRec = (GlobalEnvironmentRecord) env._record;
-
             var hoistingScope = HoistingScope.GetProgramLevelDeclarations(script);
             var functionDeclarations = hoistingScope._functionDeclarations;
             var varDeclarations = hoistingScope._variablesDeclarations;
@@ -858,7 +862,7 @@ namespace Jint
                     var fn = d.Id.Name;
                     if (!declaredFunctionNames.Contains(fn))
                     {
-                        var fnDefinable = envRec.CanDeclareGlobalFunction(fn);
+                        var fnDefinable = env.CanDeclareGlobalFunction(fn);
                         if (!fnDefinable)
                         {
                             ExceptionHelper.ThrowTypeError(this);
@@ -882,14 +886,14 @@ namespace Jint
                     {
                         var vn = boundNames[j];
 
-                        if (envRec.HasLexicalDeclaration(vn))
+                        if (env.HasLexicalDeclaration(vn))
                         {
                             ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{vn}' has already been declared");
                         }
 
                         if (!declaredFunctionNames.Contains(vn))
                         {
-                            var vnDefinable = envRec.CanDeclareGlobalVar(vn);
+                            var vnDefinable = env.CanDeclareGlobalVar(vn);
                             if (!vnDefinable)
                             {
                                 ExceptionHelper.ThrowTypeError(this);
@@ -911,20 +915,20 @@ namespace Jint
                     for (var j = 0; j < boundNames.Count; j++)
                     {
                         var dn = boundNames[j];
-                        if (envRec.HasVarDeclaration(dn)
-                            || envRec.HasLexicalDeclaration(dn)
-                            || envRec.HasRestrictedGlobalProperty(dn))
+                        if (env.HasVarDeclaration(dn)
+                            || env.HasLexicalDeclaration(dn)
+                            || env.HasRestrictedGlobalProperty(dn))
                         {
                             ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{dn}' has already been declared");
                         }
 
                         if (d.Kind == VariableDeclarationKind.Const)
                         {
-                            envRec.CreateImmutableBinding(dn, strict: true);
+                            env.CreateImmutableBinding(dn, strict: true);
                         }
                         else
                         {
-                            envRec.CreateMutableBinding(dn, canBeDeleted: false);
+                            env.CreateMutableBinding(dn, canBeDeleted: false);
                         }
                     }
                 }
@@ -934,19 +938,19 @@ namespace Jint
             {
                 var fn = f.Id!.Name;
 
-                if (envRec.HasLexicalDeclaration(fn))
+                if (env.HasLexicalDeclaration(fn))
                 {
                     ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{fn}' has already been declared");
                 }
 
                 var fo = Function.InstantiateFunctionObject(f, env);
-                envRec.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: false);
+                env.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: false);
             }
 
             for (var i = 0; i < declaredVarNames.Count; i++)
             {
                 var vn = declaredVarNames[i];
-                envRec.CreateGlobalVarBinding(vn, canBeDeleted: false);
+                env.CreateGlobalVarBinding(vn, canBeDeleted: false);
             }
         }
 
@@ -956,11 +960,11 @@ namespace Jint
         internal ArgumentsInstance FunctionDeclarationInstantiation(
             FunctionInstance functionInstance,
             JsValue[] argumentsList,
-            LexicalEnvironment env)
+            EnvironmentRecord env)
         {
             var func = functionInstance._functionDefinition;
 
-            var envRec = (FunctionEnvironmentRecord) env._record;
+            var envRec = (FunctionEnvironmentRecord) env;
             var strict = StrictModeScope.IsStrictModeCode;
 
             var configuration = func.Initialize(this, functionInstance);
@@ -1010,7 +1014,7 @@ namespace Jint
             // Else,
             //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
 
-            LexicalEnvironment varEnv;
+            EnvironmentRecord varEnv;
             DeclarativeEnvironmentRecord varEnvRec;
             if (!hasParameterExpressions)
             {
@@ -1028,8 +1032,8 @@ namespace Jint
             {
                 // NOTE: A separate Environment Record is needed to ensure that closures created by expressions
                 // in the formal parameter list do not have visibility of declarations in the function body.
-                varEnv = LexicalEnvironment.NewDeclarativeEnvironment(this, env);
-                varEnvRec = (DeclarativeEnvironmentRecord) varEnv._record;
+                varEnv = JintEnvironment.NewDeclarativeEnvironment(this, env);
+                varEnvRec = (DeclarativeEnvironmentRecord) varEnv;
 
                 UpdateVariableEnvironment(varEnv);
 
@@ -1044,10 +1048,10 @@ namespace Jint
             // NOTE: Annex B.3.3.1 adds additional steps at this point. 
             // A https://tc39.es/ecma262/#sec-web-compat-functiondeclarationinstantiation
 
-            LexicalEnvironment lexEnv;
+            EnvironmentRecord lexEnv;
             if (!strict)
             {
-                lexEnv = LexicalEnvironment.NewDeclarativeEnvironment(this, varEnv);
+                lexEnv = JintEnvironment.NewDeclarativeEnvironment(this, varEnv);
                 // NOTE: Non-strict functions use a separate lexical Environment Record for top-level lexical declarations
                 // so that a direct eval can determine whether any var scoped declarations introduced by the eval code conflict
                 // with pre-existing top-level lexically scoped declarations. This is not needed for strict functions
@@ -1058,7 +1062,7 @@ namespace Jint
                 lexEnv = varEnv;
             }
 
-            var lexEnvRec = lexEnv._record;
+            var lexEnvRec = lexEnv;
 
             UpdateLexicalEnvironment(lexEnv);
 
@@ -1077,7 +1081,7 @@ namespace Jint
 
         private void InitializeFunctions(
             LinkedList<FunctionDeclaration> functionsToInitialize,
-            LexicalEnvironment lexEnv,
+            EnvironmentRecord lexEnv,
             DeclarativeEnvironmentRecord varEnvRec)
         {
             foreach (var f in functionsToInitialize)
@@ -1129,14 +1133,14 @@ namespace Jint
         /// </summary>
         internal void EvalDeclarationInstantiation(
             Script script,
-            LexicalEnvironment varEnv,
-            LexicalEnvironment lexEnv,
+            EnvironmentRecord varEnv,
+            EnvironmentRecord lexEnv,
             bool strict)
         {
             var hoistingScope = HoistingScope.GetProgramLevelDeclarations(script);
 
-            var lexEnvRec = (DeclarativeEnvironmentRecord) lexEnv._record;
-            var varEnvRec = varEnv._record;
+            var lexEnvRec = (DeclarativeEnvironmentRecord) lexEnv;
+            var varEnvRec = varEnv;
 
             if (!strict && hoistingScope._variablesDeclarations != null)
             {
@@ -1156,9 +1160,9 @@ namespace Jint
                 }
 
                 var thisLex = lexEnv;
-                while (thisLex != varEnv)
+                while (!ReferenceEquals(thisLex, varEnv))
                 {
-                    var thisEnvRec = thisLex._record;
+                    var thisEnvRec = thisLex;
                     if (!(thisEnvRec is ObjectEnvironmentRecord))
                     {
                         ref readonly var nodes = ref hoistingScope._variablesDeclarations;
@@ -1173,7 +1177,7 @@ namespace Jint
                         }
                     }
 
-                    thisLex = thisLex._outer;
+                    thisLex = thisLex._outerEnv;
                 }
             }
 
@@ -1295,13 +1299,13 @@ namespace Jint
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void UpdateLexicalEnvironment(LexicalEnvironment newEnv)
+        internal void UpdateLexicalEnvironment(EnvironmentRecord newEnv)
         {
             _executionContexts.ReplaceTopLexicalEnvironment(newEnv);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void UpdateVariableEnvironment(LexicalEnvironment newEnv)
+        internal void UpdateVariableEnvironment(EnvironmentRecord newEnv)
         {
             _executionContexts.ReplaceTopVariableEnvironment(newEnv);
         }

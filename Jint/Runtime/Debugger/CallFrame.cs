@@ -23,7 +23,7 @@ namespace Jint.Runtime.Debugger
             _scopeChain = new Lazy<DebugScopes>(() => new DebugScopes(Environment));
         }
 
-        private LexicalEnvironment Environment => _context.LexicalEnvironment;
+        private EnvironmentRecord Environment => _context.LexicalEnvironment;
 
         // TODO: CallFrameId
         /// <summary>
