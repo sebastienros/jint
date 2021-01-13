@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -37,6 +37,14 @@ namespace Jint.Native.Global
                 ["Function"] = new PropertyDescriptor(Engine.Function, propertyFlags),
                 ["Symbol"] = new PropertyDescriptor(Engine.Symbol, propertyFlags),
                 ["Array"] = new PropertyDescriptor(Engine.Array, propertyFlags),
+                ["Uint8Array"] = new PropertyDescriptor(Engine.Array, propertyFlags),
+                ["Int8Array"] = new PropertyDescriptor(Engine.Array, propertyFlags),
+                ["Int16Array"] = new PropertyDescriptor(Engine.Array, propertyFlags),
+                ["Uint16Array"] = new PropertyDescriptor(Engine.Array, propertyFlags),
+                ["Int32Array"] = new PropertyDescriptor(Engine.Array, propertyFlags),
+                ["Uint32Array"] = new PropertyDescriptor(Engine.Array, propertyFlags),
+                ["Float32Array"] = new PropertyDescriptor(Engine.Array, propertyFlags),
+                ["Float64Array"] = new PropertyDescriptor(Engine.Array, propertyFlags),
                 ["Map"] = new PropertyDescriptor(Engine.Map, propertyFlags),
                 ["Set"] = new PropertyDescriptor(Engine.Set, propertyFlags),
                 ["String"] = new PropertyDescriptor(Engine.String, propertyFlags),
