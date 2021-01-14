@@ -797,7 +797,7 @@ namespace Jint.Native.Json
         {
             _source = code;
             _index = 0;
-            _lineNumber = (_source.Length > 0) ? 1 : 0;
+            _lineNumber = 1;
             _lineStart = 0;
             _length = _source.Length;
             _lookahead = null;
