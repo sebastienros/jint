@@ -1217,6 +1217,13 @@ myarr[0](0);
         }
 
         [Fact]
+        public void JsonParserShouldHandleEmptyString()
+        {
+            var ex = Assert.Throws<ParserException>(() => _engine.Execute("JSON.parse('');"));
+            Assert.Equal("Line 1: Unexpected end of input", ex.Message);
+       }
+
+        [Fact]
         [ReplaceCulture("fr-FR")]
         public void ShouldBeCultureInvariant()
         {
