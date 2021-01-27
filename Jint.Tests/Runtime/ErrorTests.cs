@@ -64,9 +64,9 @@ var c = a(b().Length);
 
 var b = function(v) {
 	return a(v);
-}", new ParserOptions("custom.js") { Loc = true });
+}", new ParserOptions("custom.js"));
 
-            var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", new ParserOptions("main.js") { Loc = true } ));
+            var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", new ParserOptions("main.js")));
             Assert.Equal("Cannot read property 'yyy' of undefined", e.Message);
             Assert.Equal(2, e.Location.Start.Line);
             Assert.Equal(17, e.Location.Start.Column);
