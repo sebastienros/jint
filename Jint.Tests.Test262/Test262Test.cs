@@ -370,8 +370,7 @@ namespace Jint.Tests.Test262
             new ParserOptions(fileName)
             {
                 AdaptRegexp = true,
-                Tolerant = true,
-                Loc = true
+                Tolerant = true
             };
     }
     

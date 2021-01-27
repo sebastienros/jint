@@ -39,11 +39,10 @@ namespace Jint
 {
     public class Engine
     {
-        internal static readonly ParserOptions DefaultParserOptions = new("<anonymous>")
+        private static readonly ParserOptions DefaultParserOptions = new("<anonymous>")
         {
             AdaptRegexp = true,
-            Tolerant = true,
-            Loc = true
+            Tolerant = true
         };
 
         private static readonly JsString _errorFunctionName = new JsString("Error");

@@ -159,7 +159,7 @@ namespace Jint.Tests.Parser
 \
 '
 ";
-            var program = new JavaScriptParser(source, new ParserOptions { Loc = true }).ParseScript();
+            var program = new JavaScriptParser(source, new ParserOptions()).ParseScript();
             var expr = program.Body.First().As<ExpressionStatement>().Expression;
             Assert.Equal(1, expr.Location.Start.Line);
             Assert.Equal(0, expr.Location.Start.Column);

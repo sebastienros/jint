@@ -64,15 +64,15 @@ test(z);";
 
             // We need to specify the source to the parser.
             // And we need locations too (Jint specifies that in its default options)
-            engine.Execute(script1, new ParserOptions("script1") { Loc = true });
+            engine.Execute(script1, new ParserOptions("script1"));
             Assert.False(didBreak);
 
-            engine.Execute(script2, new ParserOptions("script2") { Loc = true });
+            engine.Execute(script2, new ParserOptions("script2"));
             Assert.False(didBreak); 
 
             // Note that it's actually script3 that executes the function in script2
             // and triggers the breakpoint
-            engine.Execute(script3, new ParserOptions("script3") { Loc = true });
+            engine.Execute(script3, new ParserOptions("script3"));
             Assert.True(didBreak);
         }
 
