@@ -11,13 +11,11 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly JintExpression _left;
         private readonly JintExpression _right;
-        private readonly BinaryOperator _operatorType;
 
         private JintBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
         {
             _left = Build(engine, expression.Left);
             _right = Build(engine, expression.Right);
-            _operatorType = expression.Operator;
         }
 
         internal static JintExpression Build(Engine engine, BinaryExpression expression)
@@ -82,7 +80,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     result = new InBinaryExpression(engine, expression);
                     break;                
                 default:
-                    result = ExceptionHelper.ThrowArgumentOutOfRangeException<JintBinaryExpression>(nameof(_operatorType), "cannot handle operator");
+                    result = ExceptionHelper.ThrowArgumentOutOfRangeException<JintBinaryExpression>(nameof(expression.Operator), "cannot handle operator");
                     break;
             }
 
@@ -94,7 +92,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var lval = JintLiteralExpression.ConvertToJsValue(leftLiteral);
                 var rval = JintLiteralExpression.ConvertToJsValue(rightLiteral);
 
-                if (!(lval is null) && !(rval is null))
+                if (lval is not null && rval is not null)
                 {
                     // we have fixed result
                     return new JintConstantExpression(engine, expression, result.GetValue());
@@ -530,5 +528,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
         }
+
     }
 }

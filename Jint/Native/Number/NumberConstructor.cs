@@ -131,21 +131,24 @@ namespace Jint.Native.Number
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.7.2.1
+        /// https://tc39.es/ecma262/#sec-number-constructor-number-value
         /// </summary>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            return Construct(arguments.Length > 0 ? TypeConverter.ToNumber(arguments[0]) : 0);
+            var value = arguments.Length > 0 
+                ? JsNumber.Create(TypeConverter.ToNumber(arguments[0]))
+                : JsNumber.PositiveZero;
+
+            if (newTarget.IsUndefined())
+            {
+                return Construct(value);
+            }
+
+            var o = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, state) => new NumberInstance(engine, (JsNumber) state), value);
+            return o;
         }
 
         public NumberPrototype PrototypeObject { get; private set; }
-
-        public NumberInstance Construct(double value)
-        {
-            return Construct(JsNumber.Create(value));
-        }
 
         public NumberInstance Construct(JsNumber value)
         {

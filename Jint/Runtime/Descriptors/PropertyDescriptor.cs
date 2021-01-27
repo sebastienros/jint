@@ -3,7 +3,6 @@ using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Object;
-using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Runtime.Descriptors
 {

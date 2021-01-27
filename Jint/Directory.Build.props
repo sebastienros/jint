@@ -1,29 +1,36 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <PropertyGroup>
+
+    <Copyright>Sebastien Ros</Copyright>
+    <Authors>Sebastien Ros</Authors>
+
     <PackageId>Jint</PackageId>
     <AssemblyTitle>Jint</AssemblyTitle>
-    <Description>Javascript interpreter for .NET which provides full ECMA 5.1 compliance.</Description>
+    <Description>Javascript interpreter for .NET.</Description>
+
     <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
-    <VersionPrefix>3.0.0-beta-$(BuildNumber)</VersionPrefix>
-    <VersionSuffix></VersionSuffix>
+    <VersionPrefix>3.0.0</VersionPrefix>
+    <VersionSuffix>beta-$(BuildNumber)</VersionSuffix>
+    <FileVersion>$(VersionPrefix).$(BuildNumber)</FileVersion>
+
     <PackageId>Jint</PackageId>
-    <PackageTags>javascript, interpreter</PackageTags>
+    <PackageTags>javascript, interpreter, es5, es2015, es6, ecmascript, interop</PackageTags>
     <PackageProjectUrl>https://github.com/sebastienros/jint</PackageProjectUrl>
     <PackageLicenseExpression>BSD-2-Clause</PackageLicenseExpression>
 
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
+    <DebugType>portable</DebugType>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
   </PropertyGroup>
 
   <ItemGroup Condition="'$(SourceLinkEnabled)' != 'false'">
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All"/>
   </ItemGroup>
-
-  <!-- Called after so that the <VersionSuffix> is built after the local ones -->
-  <Import Project="../Common.props"/>
 
 </Project>

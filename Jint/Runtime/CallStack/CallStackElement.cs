@@ -1,26 +1,44 @@
-﻿using Esprima.Ast;
-using Jint.Native;
+﻿#nullable enable
 
-namespace Jint.Runtime
+using Esprima;
+using Esprima.Ast;
+using Jint.Native.Function;
+using Jint.Runtime.Interpreter.Expressions;
+
+namespace Jint.Runtime.CallStack
 {
-    public class CallStackElement
+    internal readonly struct CallStackElement
     {
-        private readonly string _shortDescription;
-
-        public CallStackElement(CallExpression callExpression, JsValue function, string shortDescription)
+        public CallStackElement(
+            FunctionInstance function,
+            JintExpression expression)
         {
-            _shortDescription = shortDescription;
-            CallExpression = callExpression;
             Function = function;
+            Expression = expression;
         }
 
-        public CallExpression CallExpression { get; }
+        public readonly FunctionInstance Function;
+        public readonly JintExpression? Expression;
 
-        public JsValue Function { get; }
+        public Location Location =>
+            Expression?._expression.Location ?? ((Node?) Function._functionDefinition?.Function)?.Location ?? default;
+
+        public NodeList<Expression>? Arguments =>
+            Function._functionDefinition?.Function.Params;
 
         public override string ToString()
         {
-            return _shortDescription;
+            var name = TypeConverter.ToString(Function.Get(CommonProperties.Name));
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                if (Expression is not null)
+                {
+                    name = JintExpression.ToString(Expression._expression);
+                }
+            }
+            
+            return name ?? "(anonymous)";
         }
     }
 }

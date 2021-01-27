@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -5,7 +7,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Array
 {
-    internal abstract class ArrayOperations
+    internal abstract class ArrayOperations : IEnumerable<JsValue>
     {
         protected internal const ulong MaxArrayLength = 4294967295;
         protected internal const ulong MaxArrayLikeLength = NumberConstructor.MaxSafeInteger;
@@ -67,6 +69,69 @@ namespace Jint.Native.Array
         public abstract void Set(ulong index, JsValue value, bool updateLength, bool throwOnError);
 
         public abstract void DeletePropertyOrThrow(ulong index);
+
+        internal ArrayLikeIterator GetEnumerator() => new ArrayLikeIterator(this);
+
+        IEnumerator<JsValue> IEnumerable<JsValue>.GetEnumerator() => new ArrayLikeIterator(this);
+
+        IEnumerator IEnumerable.GetEnumerator() => new ArrayLikeIterator(this);
+
+        internal sealed class ArrayLikeIterator : IEnumerator<JsValue>
+        {
+            private readonly ArrayOperations _obj;
+            private ulong _current;
+            private bool _initialized;
+            private readonly uint _length;
+
+            public ArrayLikeIterator(ArrayOperations obj)
+            {
+                _obj = obj;
+                _length = obj.GetLength();
+
+                Reset();
+            }
+
+            public JsValue Current 
+            {
+                get 
+                {
+                    if (!_initialized)
+                    {
+                        return null;
+                    }
+                    else
+                    {
+                        return _obj.TryGetValue(_current, out var temp) ? temp : null;
+                    }
+                }
+            }
+
+            object IEnumerator.Current => Current;
+
+            public void Dispose()
+            {
+            }
+
+            public bool MoveNext()
+            {
+                if (!_initialized)
+                {
+                    _initialized = true;
+                }
+                else
+                {
+                    _current++;
+                }
+
+                return _current < _length;
+            }
+
+            public void Reset()
+            {
+                _initialized = false;
+                _current = 0;
+            }
+        }
 
         private sealed class ObjectInstanceOperations : ArrayOperations<ObjectInstance>
         {

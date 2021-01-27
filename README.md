@@ -240,7 +240,7 @@ for (var i = 0; i < 10; i++)
 
 ES6 features which are being implemented:
 - [x] [arrows](https://github.com/lukehoban/es6features/blob/master/README.md#arrows)
-- [ ] [classes](https://github.com/lukehoban/es6features/blob/master/README.md#classes)
+- [x] [classes](https://github.com/lukehoban/es6features/blob/master/README.md#classes)
 - [x] [enhanced object literals](https://github.com/lukehoban/es6features/blob/master/README.md#enhanced-object-literals)
 - [x] [template strings](https://github.com/lukehoban/es6features/blob/master/README.md#template-strings)
 - [x] [destructuring](https://github.com/lukehoban/es6features/blob/master/README.md#destructuring)
@@ -255,7 +255,6 @@ ES6 features which are being implemented:
 - [ ] [weakmap + weakset](https://github.com/lukehoban/es6features/blob/master/README.md#map--set--weakmap--weakset)
 - [x] [proxies](https://github.com/lukehoban/es6features/blob/master/README.md#proxies)
 - [x] [symbols](https://github.com/lukehoban/es6features/blob/master/README.md#symbols)
-- [ ] [subclassable built-ins](https://github.com/lukehoban/es6features/blob/master/README.md#subclassable-built-ins)
 - [ ] [promises](https://github.com/lukehoban/es6features/blob/master/README.md#promises)
 - [x] [math APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)
 - [x] [number APIs](https://github.com/lukehoban/es6features/blob/master/README.md#math--number--string--array--object-apis)

@@ -1,5 +1,6 @@
 ﻿using Jint.Collections;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -8,8 +9,6 @@ namespace Jint.Native.Json
 {
     public sealed class JsonInstance : ObjectInstance
     {
-        private JsValue _reviver;
-
         private JsonInstance(Engine engine)
             : base(engine, objectClass: ObjectClass.JSON)
         {
@@ -32,107 +31,95 @@ namespace Jint.Native.Json
                 ["stringify"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "stringify", Stringify, 3), true, false, true)
             };
             SetProperties(properties);
+            
+            var symbols = new SymbolDictionary(1)
+            {
+                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("JSON", false, false, true),
+            };
+            SetSymbols(symbols);
         }
 
-        private JsValue AbstractWalkOperation(ObjectInstance thisObject, JsValue prop)
+        private static JsValue InternalizeJSONProperty(JsValue holder, JsValue name, ICallable reviver)
         {
-            JsValue value = thisObject.Get(prop, thisObject);
-            if (value.IsObject())
+            JsValue temp = holder.Get(name, holder);
+            if (temp is ObjectInstance val)
             {
-                var valueAsObject = value.AsObject();
-                if (valueAsObject.Class == ObjectClass.Array)
+                if (val.IsArray())
                 {
-                    var valAsArray = value.AsArray();
-                    var i = 0;
-                    var arrLen = valAsArray.GetLength();
-                    while (i < arrLen)
+                    var i = 0UL;
+                    var len = TypeConverter.ToLength(val.Get(CommonProperties.Length));
+                    while (i < len)
                     {
-                        var newValue = AbstractWalkOperation(valAsArray, JsString.Create(i));
-                        if (newValue.IsUndefined())
+                        var prop = JsString.Create(i);
+                        var newElement = InternalizeJSONProperty(val, prop, reviver);
+                        if (newElement.IsUndefined())
                         {
-                            valAsArray.Delete(JsString.Create(i));
+                            val.Delete(prop);
                         }
                         else
                         {
-                            valAsArray.DefineOwnProperty
-                            (
-                                JsString.Create(i),
-                                new PropertyDescriptor
-                                (
-                                    value: newValue,
-                                    PropertyFlag.ConfigurableEnumerableWritable
-                                ));
+                            val.CreateDataProperty(prop, newElement);
                         }
                         i = i + 1;
                     }
                 }
                 else
                 {
-                    var keys = valueAsObject.GetOwnProperties();
+                    var keys = val.EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind.Key);
                     foreach (var p in keys)
                     {
-                        var newElement = AbstractWalkOperation(valueAsObject, p.Key);
+                        var newElement = InternalizeJSONProperty(val, p, reviver);
                         if (newElement.IsUndefined())
                         {
-                            valueAsObject.Delete(p.Key);
+                            val.Delete(p);
                         }
                         else
                         {
-                            valueAsObject.DefineOwnProperty(
-                                p.Key,
-                                new PropertyDescriptor
-                                (
-                                    value: newElement,
-                                    PropertyFlag.ConfigurableEnumerableWritable
-                                ));
+                            val.CreateDataProperty(p, newElement);
                         }
                     }
                 }
             }
-            return _reviver.Invoke(thisObject, new[] { prop, value });
+
+            return reviver.Call(holder, new[] { name, temp });
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-json.parse
+        /// </summary>
         public JsValue Parse(JsValue thisObject, JsValue[] arguments)
         {
+            var jsonString = TypeConverter.ToString(arguments.At(0));
+            var reviver = arguments.At(1);
+
             var parser = new JsonParser(_engine);
-            var res = parser.Parse(TypeConverter.ToString(arguments[0]));
-            if (arguments.Length > 1)
+            var unfiltered = parser.Parse(jsonString);
+
+            if (reviver.IsCallable)
             {
-                _reviver = arguments[1];
-                ObjectInstance revRes = _engine.Object.Construct(Arguments.Empty);
-                revRes.SetProperty("", new PropertyDescriptor(value: res, PropertyFlag.ConfigurableEnumerableWritable));
-                return AbstractWalkOperation(revRes, JsString.Empty);
+                var root = _engine.Object.Construct(Arguments.Empty);
+                var rootName = JsString.Empty;
+                root.CreateDataPropertyOrThrow(rootName, unfiltered);
+                return InternalizeJSONProperty(root, rootName, (ICallable) reviver);
             }
-            return res;
+            else
+            {
+                return unfiltered;
+            }
         }
 
         public JsValue Stringify(JsValue thisObject, JsValue[] arguments)
         {
-            JsValue
-                value = Undefined,
-                replacer = Undefined,
-                space = Undefined;
+            var value = arguments.At(0);
+            var replacer = arguments.At(1);
+            var space = arguments.At(2);
 
-            if (arguments.Length > 2)
+            if (value.IsUndefined() && replacer.IsUndefined()) 
             {
-                space = arguments[2];
-            }
-
-            if (arguments.Length > 1)
-            {
-                replacer = arguments[1];
-            }
-
-            if (arguments.Length > 0)
-            {
-                value = arguments[0];
-            }
-
-            var serializer = new JsonSerializer(_engine);
-            if (value.IsUndefined() && replacer.IsUndefined()) {
                 return Undefined;
             }
 
+            var serializer = new JsonSerializer(_engine);
             return serializer.Serialize(value, replacer, space);
         }
     }

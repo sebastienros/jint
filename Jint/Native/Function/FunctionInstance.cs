@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -10,21 +12,16 @@ namespace Jint.Native.Function
 {
     public abstract class FunctionInstance : ObjectInstance, ICallable
     {
-        internal enum FunctionThisMode
-        {
-            Lexical,
-            Strict,
-            Global
-        }
-
-        protected internal PropertyDescriptor _prototypeDescriptor;
+        protected PropertyDescriptor _prototypeDescriptor;
 
         protected internal PropertyDescriptor _length;
-        internal PropertyDescriptor _nameDescriptor;
+        private PropertyDescriptor _nameDescriptor;
 
         protected internal LexicalEnvironment _environment;
         internal readonly JintFunctionDefinition _functionDefinition;
         internal readonly FunctionThisMode _thisMode;
+        internal JsValue _homeObject = Undefined;
+        internal ConstructorKind _constructorKind = ConstructorKind.Base;
 
         internal FunctionInstance(
             Engine engine,
@@ -44,7 +41,7 @@ namespace Jint.Native.Function
             ObjectClass objectClass = ObjectClass.Function)
             : base(engine, objectClass)
         {
-            if (!(name is null))
+            if (name is not null)
             {
                 _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
             }
@@ -57,6 +54,9 @@ namespace Jint.Native.Function
             : this(engine, name, FunctionThisMode.Global, ObjectClass.Function)
         {
         }
+        
+        // for example RavenDB wants to inspect this
+        public IFunction FunctionDeclaration => _functionDefinition.Function;
 
         /// <summary>
         /// Executed when a function object is used as a function
@@ -67,6 +67,8 @@ namespace Jint.Native.Function
         public abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
 
         public bool Strict => _thisMode == FunctionThisMode.Strict;
+
+        internal override bool IsConstructor => this is IConstructor;
 
         public virtual bool HasInstance(JsValue v)
         {
@@ -234,15 +236,23 @@ namespace Jint.Native.Function
             _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-ordinarycreatefromconstructor
+        /// </summary>
+        /// <remarks>
+        /// Uses separate builder to get correct type with state support to prevent allocations.
+        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal ObjectInstance OrdinaryCreateFromConstructor(JsValue constructor, ObjectInstance intrinsicDefaultProto)
+        internal T OrdinaryCreateFromConstructor<T>(
+            JsValue constructor,
+            ObjectInstance intrinsicDefaultProto,
+            Func<Engine, JsValue, T> objectCreator,
+            JsValue state = null) where T : ObjectInstance
         {
             var proto = GetPrototypeFromConstructor(constructor, intrinsicDefaultProto);
 
-            var obj = new ObjectInstance(_engine)
-            {
-                _prototype = proto
-            };
+            var obj = objectCreator(_engine, state);
+            obj._prototype = proto;
             return obj;
         }
 
@@ -254,6 +264,85 @@ namespace Jint.Native.Function
             //    Let realm be ? GetFunctionRealm(constructor).
             //    Set proto to realm's intrinsic object named intrinsicDefaultProto.
             return proto ?? intrinsicDefaultProto;
+        }
+        
+        internal void MakeMethod(ObjectInstance homeObject)
+        {
+            _homeObject = homeObject;
+        }
+        
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-ordinarycallbindthis
+        /// </summary>
+        protected void OrdinaryCallBindThis(ExecutionContext calleeContext, JsValue thisArgument)
+        {
+            var thisMode = _thisMode;
+            if (thisMode == FunctionThisMode.Lexical)
+            {
+                return;
+            }
+
+            // Let calleeRealm be F.[[Realm]].
+
+            var localEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment._record;
+            
+            JsValue thisValue;
+            if (_thisMode == FunctionThisMode.Strict)
+            {
+                thisValue = thisArgument;
+            }
+            else
+            {
+                if (thisArgument.IsNullOrUndefined())
+                {
+                    // Let globalEnv be calleeRealm.[[GlobalEnv]].
+                    var globalEnv = _engine.GlobalEnvironment;
+                    var globalEnvRec = (GlobalEnvironmentRecord) globalEnv._record;
+                    thisValue = globalEnvRec.GlobalThisValue;
+                }
+                else
+                {
+                    thisValue = TypeConverter.ToObject(_engine, thisArgument);
+                }
+            }
+
+            localEnv.BindThisValue(thisValue);
+        }
+
+        protected Completion OrdinaryCallEvaluateBody(
+            JsValue[] arguments,
+            ExecutionContext calleeContext)
+        {
+            var argumentsInstance = _engine.FunctionDeclarationInstantiation(
+                functionInstance: this,
+                arguments,
+                calleeContext.LexicalEnvironment);
+
+            var result = _functionDefinition.Execute();
+            var value = result.GetValueOrDefault().Clone();
+
+            argumentsInstance?.FunctionWasCalled();
+
+            return new Completion(result.Type, value, result.Identifier, result.Location);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-prepareforordinarycall
+        /// </summary>
+        protected ExecutionContext PrepareForOrdinaryCall(JsValue newTarget)
+        {
+            // ** PrepareForOrdinaryCall **
+            // var callerContext = _engine.ExecutionContext;
+            // Let calleeRealm be F.[[Realm]].
+            // Set the Realm of calleeContext to calleeRealm.
+            // Set the ScriptOrModule of calleeContext to F.[[ScriptOrModule]].
+            var calleeContext = LexicalEnvironment.NewFunctionEnvironment(_engine, this, newTarget);
+            // If callerContext is not already suspended, suspend callerContext.
+            // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.
+            // NOTE: Any exception objects produced after this point are associated with calleeRealm.
+            // Return calleeContext.
+
+            return _engine.EnterExecutionContext(calleeContext, calleeContext);
         }
 
         public override string ToString()

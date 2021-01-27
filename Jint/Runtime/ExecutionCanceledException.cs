@@ -1,6 +1,6 @@
 ﻿namespace Jint.Runtime
 {
-    public class ExecutionCanceledException : JintException
+    public sealed class ExecutionCanceledException : JintException
     {
         public ExecutionCanceledException() : base("The script execution was canceled.")
         {

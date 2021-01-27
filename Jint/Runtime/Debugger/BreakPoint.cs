@@ -14,6 +14,17 @@
             Condition = condition;
         }
 
+        public BreakPoint(string source, int line, int character) : this(line, character)
+        {
+            Source = source;
+        }
+
+        public BreakPoint(string source, int line, int character, string condition) : this(source, line, character)
+        {
+            Condition = condition;
+        }
+
+        public string Source { get; }
         public int Line { get; }
         public int Char { get; }
         public string Condition { get; }

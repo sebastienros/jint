@@ -19,14 +19,16 @@ namespace Jint.Runtime.Interpreter.Expressions
             var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
 
             var functionThisMode = _function.Strict || _engine._isStrict
-                ? FunctionInstance.FunctionThisMode.Strict 
-                : FunctionInstance.FunctionThisMode.Global;
+                ? FunctionThisMode.Strict 
+                : FunctionThisMode.Global;
 
             var closure = new ScriptFunctionInstance(
                 _engine,
                 _function,
                 funcEnv,
                 functionThisMode);
+
+            closure.MakeConstructor();
 
             if (_function.Name != null)
             {

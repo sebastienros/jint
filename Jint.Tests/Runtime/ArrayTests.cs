@@ -74,5 +74,45 @@ namespace Jint.Tests.Runtime
             var length = (int) array.Length;
             Assert.Equal(0, length);
         }
+
+        [Fact]
+        public void ArraySortIsStable()
+        {
+            const string code = @"
+                var items = [
+                    { name: 'Edward', value: 0 },
+                    { name: 'Sharpe', value: 0 },
+                    { name: 'And', value: 0 },
+                    { name: 'The', value: 1 },
+                    { name: 'Magnetic', value: 0 },
+                    { name: 'Zeros', value: 0 }
+                ];
+
+                // sort by value
+                function compare(a, b) {
+                    return a.value - b.value;
+                }
+
+                var a = items.sort();
+
+                assert(a[0].name == 'Edward');
+                assert(a[1].name == 'Sharpe');
+                assert(a[2].name == 'And');
+                assert(a[3].name == 'The');
+                assert(a[4].name == 'Magnetic');
+                assert(a[5].name == 'Zeros');
+
+                var a = items.sort(compare);
+
+                assert(a[0].name == 'Edward');
+                assert(a[1].name == 'Sharpe');
+                assert(a[2].name == 'And');
+                assert(a[3].name == 'Magnetic');
+                assert(a[4].name == 'Zeros');
+                assert(a[5].name == 'The');
+            ";
+
+            _engine.Execute(code);
+        }
     }
 }

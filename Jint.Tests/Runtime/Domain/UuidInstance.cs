@@ -5,7 +5,7 @@ namespace Jint.Tests.Runtime.Domain
 {
     internal class UuidInstance : ObjectInstance, IObjectWrapper
     {
-        protected override ObjectInstance GetPrototypeOf() => _prototype;
+        protected internal override ObjectInstance GetPrototypeOf() => _prototype;
 
         internal ObjectInstance _prototype;
 

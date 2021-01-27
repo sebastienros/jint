@@ -271,7 +271,7 @@ namespace Jint.Native
                 : (Types) (_type & ~InternalTypes.InternalFlags);
         }
 
-        internal virtual bool IsConstructor => this is IConstructor;
+        internal virtual bool IsConstructor => false;
 
         /// <summary>
         /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance

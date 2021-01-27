@@ -1,9 +1,12 @@
+#nullable enable
+
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
+using Jint.Native.Symbol;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -52,6 +55,40 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected abstract object EvaluateInternal();
 
+        /// <summary>
+        /// If we'd get Esprima source, we would just refer to it, but this makes error messages easier to decipher.
+        /// </summary>
+        internal string SourceText => ToString(_expression) ?? "*unknown*";
+
+        internal static string? ToString(Expression expression)
+        {
+            while (true)
+            {
+                if (expression is Literal literal)
+                {
+                    return EsprimaExtensions.LiteralKeyToString(literal);
+                }
+
+                if (expression is Identifier identifier)
+                {
+                    return identifier.Name;
+                }
+
+                if (expression is MemberExpression memberExpression)
+                {
+                    return ToString(memberExpression.Object) + "." + ToString(memberExpression.Property);
+                }
+
+                if (expression is CallExpression callExpression)
+                {
+                    expression = callExpression.Callee;
+                    continue;
+                }
+
+                return null;
+            }
+        }
+
         protected internal static JintExpression Build(Engine engine, Expression expression)
         {
             return expression.Type switch
@@ -69,6 +106,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     BinaryOperator.LogicalAnd => new JintLogicalAndExpression(engine, (BinaryExpression) expression),
                     BinaryOperator.LogicalOr => new JintLogicalOrExpression(engine, (BinaryExpression) expression),
+                    BinaryOperator.NullishCoalescing => new NullishCoalescingExpression(engine, (BinaryExpression) expression),
                     _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>()
                 },
                 Nodes.MemberExpression => new JintMemberExpression(engine, (MemberExpression) expression),
@@ -81,6 +119,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 Nodes.SpreadElement => new JintSpreadExpression(engine, (SpreadElement) expression),
                 Nodes.TemplateLiteral => new JintTemplateLiteralExpression(engine, (TemplateLiteral) expression),
                 Nodes.TaggedTemplateExpression => new JintTaggedTemplateExpression(engine, (TaggedTemplateExpression) expression),
+                Nodes.ClassExpression => new JintClassExpression(engine, (ClassExpression) expression),
+                Nodes.Super => new JintSuperExpression(engine, (Super) expression),
                 _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>(nameof(expression), $"unsupported expression type '{expression.Type}'")
             };
         }
@@ -320,8 +360,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (jintExpression is JintSpreadExpression jse)
                 {
                     jse.GetValueAndCheckIterator(out var objectInstance, out var iterator);
-                    // optimize for array
-                    if (objectInstance is ArrayInstance ai)
+                    // optimize for array unless someone has touched the iterator
+                    if (objectInstance is ArrayInstance ai 
+                        && ReferenceEquals(ai.Get(GlobalSymbolRegistry.Iterator), _engine.Array.PrototypeObject._originalIteratorFunction))
                     {
                         var length = ai.GetLength();
                         for (uint j = 0; j < length; ++j)

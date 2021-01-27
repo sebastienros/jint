@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Jint.Native.Array;
 using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -28,7 +27,7 @@ namespace Jint.Native.Json
 
             // for JSON.stringify(), any function passed as the first argument will return undefined
             // if the replacer is not defined. The function is not called either.
-            if (value is ICallable callable && ReferenceEquals(replacer, Undefined.Instance))
+            if (value.IsCallable && ReferenceEquals(replacer, Undefined.Instance))
             {
                 return Undefined.Instance;
             }
@@ -119,9 +118,8 @@ namespace Jint.Native.Json
             return Str(JsString.Empty, wrapper);
         }
 
-        private JsValue Str(JsValue key, ObjectInstance holder)
+        private JsValue Str(JsValue key, JsValue holder)
         {
-
             var value = holder.Get(key, holder);
             if (value.IsObject())
             {
@@ -141,7 +139,6 @@ namespace Jint.Native.Json
                 value = replacerFunctionCallable.Call(holder, Arguments.From(key, value));
             }
 
-
             if (value.IsObject())
             {
                 var valueObj = value.AsObject();
@@ -157,7 +154,7 @@ namespace Jint.Native.Json
                         value = TypeConverter.ToPrimitive(value);
                         break;
                     case ObjectClass.Array:
-                        value = SerializeArray(value.As<ArrayInstance>());
+                        value = SerializeArray(value);
                         return value;
                     case ObjectClass.Object:
                         value = SerializeObject(value.AsObject());
@@ -195,12 +192,9 @@ namespace Jint.Native.Json
 
             if (value.IsObject() && isCallable == false)
             {
-                if (value.AsObject().Class == ObjectClass.Array)
-                {
-                    return SerializeArray(value.As<ArrayInstance>());
-                }
-
-                return SerializeObject(value.AsObject());
+                return value.AsObject().Class == ObjectClass.Array 
+                    ? SerializeArray(value)
+                    : SerializeObject(value.AsObject());
             }
 
             return JsValue.Undefined;
@@ -251,7 +245,7 @@ namespace Jint.Native.Json
             return sb.ToString();
         }
 
-        private string SerializeArray(ArrayInstance value)
+        private string SerializeArray(JsValue value)
         {
             EnsureNonCyclicity(value);
             _stack.Push(value);
