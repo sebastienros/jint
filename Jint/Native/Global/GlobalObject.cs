@@ -66,8 +66,8 @@ namespace Jint.Native.Global
                 ["decodeURIComponent"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "decodeURIComponent", DecodeUriComponent, 1, lengthFlags), propertyFlags),
                 ["encodeURI"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURI", EncodeUri, 1, lengthFlags), propertyFlags),
                 ["encodeURIComponent"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1, lengthFlags), propertyFlags),
-                ["escape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "escape", Escape, 1), propertyFlags),
-                ["unescape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unescape", Unescape, 1), propertyFlags),
+                ["escape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "escape", Escape, 1, lengthFlags), propertyFlags),
+                ["unescape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unescape", Unescape, 1, lengthFlags), propertyFlags),
                 ["globalThis"] = new PropertyDescriptor(this, propertyFlags),
 
                 // toString is not mentioned or actually required in spec, but some tests rely on it
@@ -679,7 +679,7 @@ namespace Jint.Native.Global
                 var c = uriString[k];
                 if (c == '%')
                 {
-                    if (k < strLen - 6
+                    if (k <= strLen - 6
                         && uriString[k + 1] == 'u'
                         && uriString.Skip(k + 2).Take(4).All(IsValidHexaChar))
                     {
@@ -689,7 +689,7 @@ namespace Jint.Native.Global
 
                         k += 5;
                     }
-                    else if (k < strLen - 3
+                    else if (k <= strLen - 3
                         && uriString.Skip(k + 1).Take(2).All(IsValidHexaChar))
                     {
                         c = (char)int.Parse(
