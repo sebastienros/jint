@@ -26,7 +26,7 @@ New and more optimized runner. All the features of 2.x and more:
 - ✔ Arrow function expression
 - ✔ Class support
 - ✔ Enhanced object literals
-- ✔ Ttemplate strings
+- ✔ Template strings
 - ✔ Destructuring
 - ✔ Default, rest and spread
 - ✔ Lexical scoping of variables (let and const)
