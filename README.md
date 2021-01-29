@@ -14,12 +14,12 @@ Jint is a __Javascript interpreter__ for .NET which can run on __any modern .NET
 
 ### Version 2.x
 
-- Full support for ECMAScript 5.1 (ES5) - http://www.ecma-international.org/ecma-262/5.1/
+-  ✔ Full support for [ECMAScript 5.1 (ES5)](http://www.ecma-international.org/ecma-262/5.1/)
 - .NET Interoperability 
 
 ### Version 3.x
 
-New and more optimized runner. All the features of 2.x and more:
+The entire execution engine was rebuild with performance in mind, in many cases at least twice as fast as the old engine.  All the features of 2.x and more:
 
 #### ECMAScript 2015 (ES6)
 
@@ -153,7 +153,7 @@ And even create shortcuts to common .NET methods
 ```javascript
 jint> var log = System.Console.WriteLine;
 jint> log('Hello World !');
-  => "Hello World !"
+=> "Hello World !"
 ```
 
 When allowing the CLR, you can optionally pass custom assemblies to load types from. 
