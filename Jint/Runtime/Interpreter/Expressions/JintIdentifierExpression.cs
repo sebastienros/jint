@@ -19,7 +19,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         }
 
         public bool HasEvalOrArguments
-            => _expressionName.StringValue._value == KnownKeys.Eval || _expressionName.Key == KnownKeys.Arguments;
+            => _expressionName.Key == KnownKeys.Eval || _expressionName.Key == KnownKeys.Arguments;
 
         protected override object EvaluateInternal()
         {

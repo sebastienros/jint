@@ -77,7 +77,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private object SuperCall()
         {
             var thisEnvironment = (FunctionEnvironmentRecord) _engine.GetThisEnvironment();
-            var newTarget = GetNewTarget(thisEnvironment);
+            var newTarget = _engine.GetNewTarget(thisEnvironment);
             var func = GetSuperConstructor(thisEnvironment);
             if (!func.IsConstructor)
             {
@@ -99,14 +99,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             var activeFunction = envRec._functionObject;
             var superConstructor = activeFunction.GetPrototypeOf();
             return superConstructor;
-        }
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-getnewtarget
-        /// </summary>
-        private JsValue GetNewTarget(FunctionEnvironmentRecord thisEnvironment)
-        {
-            return thisEnvironment.NewTarget;
         }
 
         private object Call()

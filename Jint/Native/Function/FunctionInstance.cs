@@ -354,7 +354,7 @@ namespace Jint.Native.Function
             {
                 name = TypeConverter.ToString(nameValue);
             }
-            return "function " + name + "() {{[native code]}}";
+            return "function " + name + "() { [native code] }";
         }
     }
 }
