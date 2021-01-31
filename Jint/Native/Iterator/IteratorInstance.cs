@@ -7,6 +7,7 @@ using Jint.Native.Map;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.Set;
+using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -62,7 +63,7 @@ namespace Jint.Native.Iterator
             return obj;
         }
 
-        private class KeyValueIteratorPosition : ObjectInstance
+        private sealed class KeyValueIteratorPosition : ObjectInstance
         {
             internal static readonly ObjectInstance Done = new KeyValueIteratorPosition(null, null, null);
 
@@ -80,7 +81,7 @@ namespace Jint.Native.Iterator
             }
         }
 
-        private class ValueIteratorPosition : ObjectInstance
+        private sealed class ValueIteratorPosition : ObjectInstance
         {
             internal static readonly ObjectInstance Done = new KeyValueIteratorPosition(null, null, null);
 
@@ -95,7 +96,7 @@ namespace Jint.Native.Iterator
             }
         }
 
-        public class MapIterator : IteratorInstance
+        public sealed class MapIterator : IteratorInstance
         {
             private readonly MapInstance _map;
 
@@ -124,44 +125,7 @@ namespace Jint.Native.Iterator
             }
         }
 
-        public class ArrayLikeIterator : IteratorInstance
-        {
-            private readonly ArrayOperations _array;
-            private uint? _end;
-            private uint _position;
-
-            public ArrayLikeIterator(Engine engine, JsValue target) : base(engine)
-            {
-                var objectInstance = target as ObjectInstance;
-                if (objectInstance is null)
-                {
-                    ExceptionHelper.ThrowTypeError(engine.Realm, "Target must be an object");
-                }
-
-                _array = ArrayOperations.For(objectInstance);
-                _position = 0;
-            }
-
-            public override bool TryIteratorStep(out ObjectInstance nextItem)
-            {
-                if (_end == null)
-                {
-                    _end = _array.GetLength();
-                }
-
-                if (_position < _end.Value)
-                {
-                    _array.TryGetValue(_position, out var value);
-                    nextItem = new KeyValueIteratorPosition(_engine, _position++, value);
-                    return true;
-                }
-
-                nextItem = KeyValueIteratorPosition.Done;
-                return false;
-            }
-        }
-
-        public class SetEntryIterator : IteratorInstance
+        public sealed class SetEntryIterator : IteratorInstance
         {
             private readonly SetInstance _set;
             private int _position;
@@ -187,7 +151,7 @@ namespace Jint.Native.Iterator
             }
         }
 
-        public class ListIterator : IteratorInstance
+        public sealed class ListIterator : IteratorInstance
         {
             private readonly List<JsValue> _values;
             private int _position;
@@ -215,80 +179,67 @@ namespace Jint.Native.Iterator
             }
         }
 
-        public class ArrayLikeKeyIterator : IteratorInstance
+        internal sealed class ArrayLikeIterator : IteratorInstance
         {
+            private readonly ArrayIteratorType _kind;
+            private readonly TypedArrayInstance _typedArray;
             private readonly ArrayOperations _operations;
             private uint _position;
             private bool _closed;
 
-            public ArrayLikeKeyIterator(Engine engine, ObjectInstance objectInstance) : base(engine)
+            public ArrayLikeIterator(Engine engine, ObjectInstance objectInstance, ArrayIteratorType kind) : base(engine)
             {
-                _operations = ArrayOperations.For(objectInstance);
+                _kind = kind;
+                _typedArray = objectInstance as TypedArrayInstance;
+                if (_typedArray is null)
+                {
+                    _operations = ArrayOperations.For(objectInstance);
+                }
                 _position = 0;
             }
 
             public override bool TryIteratorStep(out ObjectInstance nextItem)
             {
-                var length = _operations.GetLength();
-                if (!_closed && _position < length)
+                uint len;
+                if (_typedArray is not null)
                 {
-                    nextItem = new ValueIteratorPosition(_engine, _position++);
-                    return true;
+                    _typedArray._viewedArrayBuffer.AssertNotDetached();
+                    len = _typedArray.Length;
+                }
+                else
+                {
+                    len = _operations.GetLength();
                 }
 
-                _closed = true;
-                nextItem = KeyValueIteratorPosition.Done;
-                return false;
-            }
-        }
-
-        public class ArrayLikeValueIterator : IteratorInstance
-        {
-            private readonly ArrayOperations _operations;
-            private uint _position;
-            private bool _closed;
-
-            public ArrayLikeValueIterator(Engine engine, ObjectInstance objectInstance) : base(engine)
-            {
-                _operations = ArrayOperations.For(objectInstance);
-                _position = 0;
-            }
-
-            public override bool TryIteratorStep(out ObjectInstance nextItem)
-            {
-                var length = _operations.GetLength();
-                if (!_closed && _position < length)
+                if (!_closed && _position < len)
                 {
-                    _operations.TryGetValue(_position++, out var value);
-                    nextItem = new ValueIteratorPosition(_engine, value);
-                    return true;
-                }
+                    JsValue value;
+                    if (_typedArray is not null)
+                    {
+                        nextItem = _kind switch
+                        {
+                            ArrayIteratorType.Key => new ValueIteratorPosition(_engine, _position),
+                            ArrayIteratorType.Value => new ValueIteratorPosition(_engine, _typedArray[(int) _position]),
+                            _ => new KeyValueIteratorPosition(_engine, _position, _typedArray[(int) _position])
+                        };
+                    }
+                    else
+                    {
+                        _operations.TryGetValue(_position, out value);
+                        if (_kind == ArrayIteratorType.Key)
+                        {
+                            nextItem = new ValueIteratorPosition(_engine, _position);
+                        }
+                        else if (_kind == ArrayIteratorType.Value)
+                        {
+                            nextItem = new ValueIteratorPosition(_engine, value);
+                        }
+                        else
+                        {
+                            nextItem = new KeyValueIteratorPosition(_engine, _position, value);
+                        }
+                    }
 
-                _closed = true;
-                nextItem = KeyValueIteratorPosition.Done;
-                return false;
-            }
-        }
-
-        public class ArrayLikeEntriesIterator : IteratorInstance
-        {
-            private readonly ArrayOperations _operations;
-            private uint _position;
-            private bool _closed;
-
-            public ArrayLikeEntriesIterator(Engine engine, ObjectInstance objectInstance) : base(engine)
-            {
-                _operations = ArrayOperations.For(objectInstance);
-                _position = 0;
-            }
-
-            public override bool TryIteratorStep(out ObjectInstance nextItem)
-            {
-                var length = _operations.GetLength();
-                if (!_closed && _position < length)
-                {
-                    _operations.TryGetValue(_position, out var value);
-                    nextItem = new KeyValueIteratorPosition(_engine, _position, value);
                     _position++;
                     return true;
                 }
@@ -299,7 +250,7 @@ namespace Jint.Native.Iterator
             }
         }
 
-        internal class ObjectIterator : IIterator
+        internal sealed class ObjectIterator : IIterator
         {
             private readonly ObjectInstance _target;
             private readonly ICallable _nextMethod;
@@ -372,7 +323,7 @@ namespace Jint.Native.Iterator
             }
         }
 
-        internal class StringIterator : IteratorInstance
+        internal sealed class StringIterator : IteratorInstance
         {
             private readonly TextElementEnumerator _iterator;
 
@@ -394,7 +345,7 @@ namespace Jint.Native.Iterator
             }
         }
 
-        internal class RegExpStringIterator : IteratorInstance
+        internal sealed class RegExpStringIterator : IteratorInstance
         {
             private readonly RegExpInstance _iteratingRegExp;
             private readonly string _s;

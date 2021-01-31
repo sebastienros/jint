@@ -493,17 +493,22 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-touint8clamp
         /// </summary>
-        internal static double ToUint8Clamp(JsValue o)
+        internal static byte ToUint8Clamp(JsValue o)
         {
             if (o._type == InternalTypes.Integer)
             {
                 var intValue = o.AsInteger();
                 if (intValue is > -1 and < 256)
                 {
-                    return intValue;
+                    return (byte) intValue;
                 }
             }
 
+            return ToUint8ClampUnlikely(o);
+        }
+
+        private static byte ToUint8ClampUnlikely(JsValue o)
+        {
             var number = ToNumber(o);
             if (double.IsNaN(number))
             {
@@ -523,20 +528,29 @@ namespace Jint.Runtime
             var f = Math.Floor(number);
             if (f + 0.5 < number)
             {
-                return f + 1;
+                return (byte) (f + 1);
             }
 
             if (number < f + 0.5)
             {
-                return f;
+                return (byte) f;
             }
 
             if (f % 2 != 0)
             {
-                return f + 1;
+                return (byte) (f + 1);
             }
 
-            return f;
+            return (byte) f;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-tobigint
+        /// </summary>
+        public static double ToBigInt(JsValue value)
+        {
+            ExceptionHelper.ThrowNotImplementedException("BigInt not implemented");
+            return 0;
         }
 
         /// <summary>
@@ -555,6 +569,36 @@ namespace Jint.Runtime
         {
             ExceptionHelper.ThrowNotImplementedException("BigInt not implemented");
             return 0;
+        }
+
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-canonicalnumericindexstring
+        /// </summary>
+        internal static double? CanonicalNumericIndexString(JsValue value)
+        {
+            if (value is JsNumber jsNumber)
+            {
+                return jsNumber._value;
+            }
+
+            if (value is JsString jsString)
+            {
+                if (jsString.ToString() == "-0")
+                {
+                    return -0d;
+                }
+
+                var n = ToNumber(value);
+                if (!JsValue.SameValue(ToString(n), value))
+                {
+                    return null;
+                }
+
+                return n;
+            }
+
+            return null;
         }
 
         /// <summary>

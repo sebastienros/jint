@@ -1,6 +1,8 @@
+using Jint.Runtime;
+
 namespace Jint.Native.TypedArray
 {
-    internal enum TypedArrayElementType
+    internal enum TypedArrayElementType : byte
     {
         // we have signed first to make comparison vaster to check if signed or unsigned type
         Int8,
@@ -19,7 +21,7 @@ namespace Jint.Native.TypedArray
 
     internal static class TypedArrayExtensions
     {
-        internal static int GetElementSize(this TypedArrayElementType type)
+        internal static byte GetElementSize(this TypedArrayElementType type)
         {
             return type switch
             {
@@ -34,13 +36,56 @@ namespace Jint.Native.TypedArray
                 TypedArrayElementType.BigUint64 => 8,
                 TypedArrayElementType.Float32 => 4,
                 TypedArrayElementType.Float64 => 8,
-                _ => -1
+                _ => 0
+            };
+        }
+
+        internal static string GetTypedArrayName(this TypedArrayElementType type)
+        {
+            return type switch
+            {
+                TypedArrayElementType.Int8 => "Int8Array",
+                TypedArrayElementType.Uint8 => "Uint8Array",
+                TypedArrayElementType.Uint8C => "Uint8ClampedArray",
+                TypedArrayElementType.Int16 => "Int16Array",
+                TypedArrayElementType.Uint16 => "Uint16Array",
+                TypedArrayElementType.Int32 => "Int32Array",
+                TypedArrayElementType.Uint32 => "Uint32Array",
+                TypedArrayElementType.BigInt64 => "BigInt64Array",
+                TypedArrayElementType.BigUint64 => "BigUint64Array",
+                TypedArrayElementType.Float32 => "Float32Array",
+                TypedArrayElementType.Float64 => "Float64Array",
+                _ => null
+            };
+        }
+
+        internal static IConstructor GetConstructor(this TypedArrayElementType type, Intrinsics intrinsics)
+        {
+            return type switch
+            {
+                TypedArrayElementType.Int8 => intrinsics.Int8Array,
+                TypedArrayElementType.Uint8 => intrinsics.Uint8Array,
+                TypedArrayElementType.Uint8C => intrinsics.Uint8ClampedArray,
+                TypedArrayElementType.Int16 => intrinsics.Int16Array,
+                TypedArrayElementType.Uint16 => intrinsics.Uint16Array,
+                TypedArrayElementType.Int32 => intrinsics.Int32Array,
+                TypedArrayElementType.Uint32 => intrinsics.Uint32Array,
+                TypedArrayElementType.BigInt64 => intrinsics.BigInt64Array,
+                TypedArrayElementType.BigUint64 => intrinsics.BigUint64Array,
+                TypedArrayElementType.Float32 => intrinsics.Float32Array,
+                TypedArrayElementType.Float64 => intrinsics.Float64Array,
+                _ => null
             };
         }
 
         internal static bool IsUnsignedElementType(this TypedArrayElementType type)
         {
             return type > TypedArrayElementType.Float64;
+        }
+
+        internal static bool FitsInt32(this TypedArrayElementType type)
+        {
+            return type <= TypedArrayElementType.Int32;
         }
 
         internal static bool IsBigIntElementType(this TypedArrayElementType type)

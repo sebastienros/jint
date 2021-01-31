@@ -115,14 +115,6 @@
     "reason": "for-of not implemented"
   },
   {
-    "source": "built-ins/Array/prototype/concat/Array.prototype.concat_large-typed-array.js",
-    "reason": "Uint8Array not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/Array.prototype.concat_small-typed-array.js",
-    "reason": "Uint8Array not implemented"
-  },
-  {
     "source": "built-ins/Map/prototype/forEach/iterates-values-deleted-then-readded.js",
     "reason": "delete/add detection not implemented for map iterator during iteration"
   },
@@ -188,6 +180,10 @@
   },
   {
     "source": "language/expressions/object/accessor-name-computed.js",
+    "reason": "yield not implemented"
+  },
+  {
+    "source": "built-ins/TypedArrayConstructors/ctors/object-arg/as-generator-iterable-returns.js",
     "reason": "yield not implemented"
   },
   {
@@ -274,6 +270,10 @@
 
   // Esprima problems
 
+  {
+    "source": "language/expressions/object/method-definition/name-super-prop-param.js",
+    "reason": "Esprima problem"
+  },
   {
     "source": "language/expressions/optional-chaining/member-expression.js",
     "reason": "Esprima problem"

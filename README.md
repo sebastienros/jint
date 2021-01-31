@@ -43,7 +43,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ✔ Reflect
 - ✔ Symbols
 - ❌ Tail calls
-- ❌ Typed arrays
+- ✔ Typed arrays
 - ❌ Unicode
 - ✔ Weakmap and Weakset
 

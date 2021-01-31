@@ -25,7 +25,7 @@ namespace Jint.Native.Function
         internal ConstructorKind _constructorKind = ConstructorKind.Base;
 
         internal Realm _realm;
-        private PrivateEnvironmentRecord  _privateEnvironment;
+        private PrivateEnvironmentRecord _privateEnvironment;
 
         protected FunctionInstance(
             Engine engine,

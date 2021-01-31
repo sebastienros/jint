@@ -421,7 +421,7 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool IsArrayIndex(JsValue p, out uint index)
+        private static bool IsArrayIndex(JsValue p, out uint index)
         {
             if (p is JsNumber number)
             {

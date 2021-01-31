@@ -25,9 +25,10 @@ namespace Jint.Native.Argument
         private DeclarativeEnvironmentRecord _env;
         private bool _canReturnToPool;
         private bool _hasRestParameter;
+        private bool _materialized;
 
         internal ArgumentsInstance(Engine engine)
-            : base(engine, ObjectClass.Arguments, InternalTypes.Object | InternalTypes.RequiresCloning)
+            : base(engine, ObjectClass.Arguments)
         {
         }
 
@@ -236,9 +237,15 @@ namespace Jint.Native.Argument
             return base.Delete(property);
         }
 
-        internal override JsValue DoClone()
+        internal void Materialize()
         {
-            // there's an assignment or return value of function, need to create persistent state
+            if (_materialized)
+            {
+                // already done
+                return;
+            }
+
+            _materialized = true;
 
             EnsureInitialized();
 
@@ -248,8 +255,6 @@ namespace Jint.Native.Argument
             _args = copiedArgs;
 
             _canReturnToPool = false;
-
-            return this;
         }
 
         internal void FunctionWasCalled()

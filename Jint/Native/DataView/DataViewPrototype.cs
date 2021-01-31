@@ -231,7 +231,7 @@ namespace Jint.Native.DataView
                 ExceptionHelper.ThrowTypeError(_realm, "Method called on incompatible receiver " + view);
             }
 
-            var getIndex = TypeConverter.ToIndex(_realm, requestIndex);
+            var getIndex = (int) TypeConverter.ToIndex(_realm, requestIndex);
             var isLittleEndianBoolean = TypeConverter.ToBoolean(isLittleEndian);
             var buffer = dataView._viewedArrayBuffer;
 
@@ -245,7 +245,7 @@ namespace Jint.Native.DataView
                 ExceptionHelper.ThrowRangeError(_realm, "Offset is outside the bounds of the DataView");
             }
 
-            var bufferIndex = getIndex + viewOffset;
+            var bufferIndex = (int) (getIndex + viewOffset);
             return buffer.GetValueFromBuffer(bufferIndex, type, false, ArrayBufferOrder.Unordered, isLittleEndianBoolean);
         }
 
@@ -291,7 +291,7 @@ namespace Jint.Native.DataView
                 ExceptionHelper.ThrowRangeError(_realm, "Offset is outside the bounds of the DataView");
             }
 
-            var bufferIndex = getIndex + viewOffset;
+            var bufferIndex = (int) (getIndex + viewOffset);
             buffer.SetValueInBuffer(bufferIndex, type, numberValue, false, ArrayBufferOrder.Unordered, isLittleEndianBoolean);
             return Undefined;
         }

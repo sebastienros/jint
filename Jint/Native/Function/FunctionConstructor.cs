@@ -22,7 +22,7 @@ namespace Jint.Native.Function
             PrototypeObject = new FunctionPrototype(engine, realm, objectPrototype);
             _prototype = PrototypeObject;
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
-            _length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
+            _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
         }
 
         public FunctionPrototype PrototypeObject { get; }

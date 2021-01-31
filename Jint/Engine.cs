@@ -422,7 +422,7 @@ namespace Jint
         {
             var baseValue = reference.GetBase();
 
-            if (baseValue._type == InternalTypes.Undefined)
+            if (baseValue.IsUndefined())
             {
                 if (_referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
                 {
