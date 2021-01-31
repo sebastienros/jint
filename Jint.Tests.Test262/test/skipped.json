@@ -115,14 +115,6 @@
     "reason": "for-of not implemented"
   },
   {
-    "source": "built-ins/Array/prototype/concat/Array.prototype.concat_large-typed-array.js",
-    "reason": "Uint8Array not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/Array.prototype.concat_small-typed-array.js",
-    "reason": "Uint8Array not implemented"
-  },
-  {
     "source": "built-ins/Map/prototype/forEach/iterates-values-deleted-then-readded.js",
     "reason": "delete/add detection not implemented for map iterator during iteration"
   },

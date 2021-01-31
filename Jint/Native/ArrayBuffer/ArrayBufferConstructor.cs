@@ -3,6 +3,7 @@ using Jint.Native.DataView;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
+using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -53,7 +54,7 @@ namespace Jint.Native.ArrayBuffer
         private static JsValue IsView(JsValue thisObject, JsValue[] arguments)
         {
             var arg = arguments.At(0);
-            return arg is DataViewInstance;
+            return arg is DataViewInstance or TypedArrayInstance;
         }
 
         /// <summary>

@@ -540,6 +540,15 @@ namespace Jint.Runtime
         }
 
         /// <summary>
+        /// https://tc39.es/ecma262/#sec-tobigint
+        /// </summary>
+        public static double ToBigInt(JsValue value)
+        {
+            ExceptionHelper.ThrowNotImplementedException("BigInt not implemented");
+            return 0;
+        }
+
+        /// <summary>
         /// https://tc39.es/ecma262/#sec-tobigint64
         /// </summary>
         internal static double ToBigInt64(JsValue value)

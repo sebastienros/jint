@@ -44,7 +44,7 @@ namespace Jint.Native.Iterator
             return Construct(Enumerable.Empty<JsValue>());
         }
 
-        internal ObjectInstance Construct(IEnumerable<JsValue> enumerable)
+        internal IteratorInstance Construct(IEnumerable<JsValue> enumerable)
         {
             var instance = new IteratorInstance(Engine, enumerable)
             {
@@ -54,7 +54,7 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance Construct(List<JsValue> enumerable)
+        internal IteratorInstance Construct(List<JsValue> enumerable)
         {
             var instance = new IteratorInstance.ListIterator(Engine, enumerable)
             {
@@ -64,7 +64,7 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance Construct(ObjectInstance array, Func<Intrinsics, Prototype> prototypeSelector)
+        internal IteratorInstance Construct(ObjectInstance array, Func<Intrinsics, Prototype> prototypeSelector)
         {
             var instance = new IteratorInstance.ArrayLikeIterator(Engine, array)
             {
@@ -74,7 +74,7 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance ConstructEntryIterator(MapInstance map)
+        internal IteratorInstance ConstructEntryIterator(MapInstance map)
         {
             var instance = new IteratorInstance.MapIterator(Engine, map)
             {
@@ -84,7 +84,7 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance ConstructKeyIterator(MapInstance map)
+        internal IteratorInstance ConstructKeyIterator(MapInstance map)
         {
             var instance = new IteratorInstance(Engine, map._map.Keys)
             {
@@ -94,7 +94,7 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance ConstructValueIterator(MapInstance map)
+        internal IteratorInstance ConstructValueIterator(MapInstance map)
         {
             var instance = new IteratorInstance(Engine, map._map.Values)
             {
@@ -104,7 +104,7 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance ConstructEntryIterator(SetInstance set)
+        internal IteratorInstance ConstructEntryIterator(SetInstance set)
         {
             var instance = new IteratorInstance.SetEntryIterator(Engine, set)
             {
@@ -114,7 +114,7 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance ConstructValueIterator(SetInstance set)
+        internal IteratorInstance ConstructValueIterator(SetInstance set)
         {
             var instance = new IteratorInstance.ListIterator(Engine, set._set._list)
             {
@@ -124,7 +124,7 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance ConstructArrayLikeKeyIterator(ObjectInstance array)
+        internal IteratorInstance ConstructArrayLikeKeyIterator(ObjectInstance array)
         {
             var instance = new IteratorInstance.ArrayLikeKeyIterator(Engine, array)
             {
@@ -134,7 +134,7 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance ConstructArrayLikeValueIterator(ObjectInstance array)
+        internal IteratorInstance ConstructArrayLikeValueIterator(ObjectInstance array)
         {
             var instance = new IteratorInstance.ArrayLikeValueIterator(Engine, array)
             {
@@ -144,7 +144,7 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance ConstructArrayLikeEntriesIterator(ObjectInstance array)
+        internal IteratorInstance ConstructArrayLikeEntriesIterator(ObjectInstance array)
         {
             var instance = new IteratorInstance.ArrayLikeEntriesIterator(Engine, array)
             {
@@ -154,7 +154,7 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance CreateRegExpStringIterator(ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode)
+        internal IteratorInstance CreateRegExpStringIterator(ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode)
         {
             var instance = new IteratorInstance.RegExpStringIterator(Engine, iteratingRegExp, iteratedString, global, unicode)
             {
