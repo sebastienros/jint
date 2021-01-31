@@ -65,7 +65,9 @@ namespace Jint.Tests.Test262
                 "compareIterator.js",
                 "nativeFunctionMatcher.js",
                 "wellKnownIntrinsicObjects.js",
-                "fnGlobalObject.js"
+                "fnGlobalObject.js",
+                "testTypedArray.js",
+                "detachArrayBuffer.js"
             };
 
             Sources = new Dictionary<string, Script>(files.Length);
@@ -114,7 +116,8 @@ namespace Jint.Tests.Test262
                     var script = parser.ParseScript(strict);
 
                     return engine.Evaluate(script);
-                }), true, true, true));   
+                }), true, true, true));
+
             o.FastSetProperty("createRealm", new PropertyDescriptor(new ClrFunctionInstance(engine, "createRealm",
                 (thisObj, args) =>
                 {
@@ -318,7 +321,7 @@ namespace Jint.Tests.Test262
                     skip = true;
                     reason = "TypedArray not implemented";
                 }
-                
+
                 if (name.StartsWith("language/statements/class/subclass/builtin-objects/ArrayBuffer/"))
                 {
                     skip = true;
