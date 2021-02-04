@@ -2934,6 +2934,19 @@ x.test = {
             Assert.Equal(1, Convert.ToInt32(engine2.GetValue("x").ToObject()));
         }
 
+        [Fact]
+        public void RecursiveCallStack()
+        {
+            var engine = new Engine();
+            Func<string, object> evaluateCode = code => engine.Execute(code).GetCompletionValue();
+            var evaluateCodeValue = JsValue.FromObject(engine, evaluateCode);
+
+            engine.SetValue("evaluateCode", evaluateCodeValue);
+            var result = (int) engine.Execute(@"evaluateCode('678 + 711')").GetCompletionValue().AsNumber();
+
+            Assert.Equal(1389, result);
+        }
+
         private class Wrapper
         {
             public Testificate Test { get; set; }

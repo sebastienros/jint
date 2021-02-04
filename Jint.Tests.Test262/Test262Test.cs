@@ -100,7 +100,7 @@ namespace Jint.Tests.Test262
                 var parser = new JavaScriptParser(args.At(0).AsString(), options);
                 var script = parser.ParseScript(strict);
 
-                var value = engine.Execute(script, false).GetCompletionValue();
+                var value = engine.Execute(script).GetCompletionValue();
                 
                 return value;
             }), true, true, true));

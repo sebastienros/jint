@@ -349,17 +349,8 @@ namespace Jint
 
         public Engine Execute(Script script)
         {
-            return Execute(script, true);
-        }
-
-        internal Engine Execute(Script script, bool resetState)
-        {
-            if (resetState)
-            {
-                ResetConstraints();
-                ResetLastStatement();
-                ResetCallStack();
-            }
+            ResetConstraints();
+            ResetLastStatement();
 
             using (new StrictModeScope(_isStrict || script.Strict))
             {
@@ -368,11 +359,23 @@ namespace Jint
                     GlobalEnvironment);
 
                 var list = new JintStatementList(this, null, script.Body);
-                
-                var result = list.Execute();
+
+                Completion result;
+                try
+                {
+                    result = list.Execute();
+                }
+                catch
+                {
+                    // unhandled exception
+                    ResetCallStack();
+                    throw;
+                }
+
                 if (result.Type == CompletionType.Throw)
                 {
                     var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
+                    ResetCallStack();
                     throw ex;
                 }
 
