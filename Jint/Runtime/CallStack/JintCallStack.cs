@@ -78,8 +78,8 @@ namespace Jint.Runtime.CallStack
             static void AppendLocation(
                 StringBuilder sb,
                 string shortDescription,
-                Location loc,
-                in NodeList<Expression>? arguments)
+                in Location loc,
+                in CallStackElement? element)
             {
                 sb
                     .Append("   at");
@@ -91,18 +91,18 @@ namespace Jint.Runtime.CallStack
                         .Append(shortDescription);
                 }
 
-                if (arguments is not null)
+                if (element?.Arguments is not null)
                 {
                     // it's a function
                     sb.Append(" (");
-                    for (var index = 0; index < arguments.Value.Count; index++)
+                    for (var index = 0; index < element.Value.Arguments.Value.Count; index++)
                     {
                         if (index != 0)
                         {
                             sb.Append(", ");
                         }
 
-                        var arg = arguments.Value[index];
+                        var arg = element.Value.Arguments.Value[index];
                         sb.Append(GetPropertyKey(arg));
                     }
                     sb.Append(")");
@@ -112,7 +112,7 @@ namespace Jint.Runtime.CallStack
                     .Append(" ")
                     .Append(loc.Source)
                     .Append(":")
-                    .Append(loc.Start.Line)
+                    .Append(loc.End.Line)
                     .Append(":")
                     .Append(loc.Start.Column + 1) // report column number instead of index
                     .AppendLine();
@@ -125,7 +125,7 @@ namespace Jint.Runtime.CallStack
             var element = index >= 0 ? _stack[index] : (CallStackElement?) null;
             var shortDescription = element?.ToString() ?? "";
 
-            AppendLocation(sb.Builder, shortDescription, location, element?.Arguments);
+            AppendLocation(sb.Builder, shortDescription, location, element);
 
             location = element?.Location ?? default;
             index--;
@@ -135,7 +135,7 @@ namespace Jint.Runtime.CallStack
                 element = index >= 0 ? _stack[index] : null;
                 shortDescription = element?.ToString() ?? "";
 
-                AppendLocation(sb.Builder, shortDescription, location, element?.Arguments);
+                AppendLocation(sb.Builder, shortDescription, location, element);
 
                 location = element?.Location ?? default;
                 index--;

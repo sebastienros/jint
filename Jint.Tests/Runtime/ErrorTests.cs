@@ -158,6 +158,40 @@ var x = b(7);";
             
             EqualIgnoringNewLineDifferences(expected, ex.ToString());
         }
+        
+        [Fact]
+        public void StackTraceCollectedForImmediatelyInvokedFunctionExpression()
+        {
+            var engine = new Engine();
+            const string script = @"function getItem(items, itemIndex) {
+    var item = items[itemIndex];
+
+    return item;
+}
+
+(function (getItem) {
+    var items = null,
+        item = getItem(items, 5)
+        ;
+
+    return item;
+})(getItem);";
+
+            var parserOptions = new ParserOptions("get-item.js")
+            {
+                AdaptRegexp = true,
+                Tolerant = true
+            };
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script, parserOptions));
+
+            const string expected = @"Jint.Runtime.JavaScriptException: Cannot read property '5' of null
+   at getItem (items, itemIndex) get-item.js:2:22
+   at (anonymous) (getItem) get-item.js:9:16
+   at get-item.js:13:2";
+            
+            EqualIgnoringNewLineDifferences(expected, ex.ToString());
+        }
+
 
         private static void EqualIgnoringNewLineDifferences(string expected, string actual)
         {

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Number;
@@ -552,7 +551,7 @@ namespace Jint.Runtime
         {
             if (!engine.Options.ReferenceResolver.CheckCoercible(o))
             {
-                ThrowMemberNullOrUndefinedError(engine, o, sourceNode.Location, referenceName);
+                ThrowMemberNullOrUndefinedError(engine, o, sourceNode, referenceName);
             }
         }
 
@@ -560,12 +559,12 @@ namespace Jint.Runtime
         private static void ThrowMemberNullOrUndefinedError(
             Engine engine,
             JsValue o,
-            in Location location,
+            Node sourceNode,
             string referencedName)
         {
             referencedName ??= "unknown";
             var message = $"Cannot read property '{referencedName}' of {o}";
-            throw new JavaScriptException(engine.TypeError, message).SetCallstack(engine, location);
+            throw new JavaScriptException(engine.TypeError, message).SetCallstack(engine, sourceNode.Location);
         }
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)
