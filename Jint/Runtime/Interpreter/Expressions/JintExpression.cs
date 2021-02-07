@@ -121,6 +121,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 Nodes.TaggedTemplateExpression => new JintTaggedTemplateExpression(engine, (TaggedTemplateExpression) expression),
                 Nodes.ClassExpression => new JintClassExpression(engine, (ClassExpression) expression),
                 Nodes.Super => new JintSuperExpression(engine, (Super) expression),
+                Nodes.MetaProperty => new JintMetaPropertyExpression(engine, (MetaProperty) expression),
                 _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>(nameof(expression), $"unsupported expression type '{expression.Type}'")
             };
         }

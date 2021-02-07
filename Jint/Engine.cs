@@ -715,6 +715,16 @@ namespace Jint
         }
 
         /// <summary>
+        /// https://tc39.es/ecma262/#sec-getnewtarget
+        /// </summary>
+        internal JsValue GetNewTarget(EnvironmentRecord thisEnvironment = null)
+        {
+            // we can take as argument if caller site has already determined the value, otherwise resolve
+            thisEnvironment ??= GetThisEnvironment();
+            return thisEnvironment.NewTarget;
+        }
+        
+        /// <summary>
         /// https://tc39.es/ecma262/#sec-getthisenvironment
         /// </summary>
         internal EnvironmentRecord GetThisEnvironment()

@@ -44,6 +44,7 @@ namespace Jint.Tests.Test262
                 "sta.js",
                 "assert.js",
                 "arrayContains.js",
+                "isConstructor.js",
                 "propertyHelper.js",
                 "compareArray.js",
                 "decimalToHexString.js",
@@ -231,10 +232,6 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "private/public class fields not implemented in esprima";
                                 break;
-                            case "new.target":
-                                skip = true;
-                                reason = "MetaProperty not implemented";
-                                break;
                             case "super":
                                 skip = true;
                                 reason = "super not implemented";
@@ -262,6 +259,10 @@ namespace Jint.Tests.Test262
                             case "TypedArray":
                                 skip = true;
                                 reason = "TypedArray not implemented";
+                                break;
+                            case "Int32Array":
+                                skip = true;
+                                reason = "Int32Array not implemented";
                                 break;
                         }
                     }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Jint.Collections;
 using Jint.Native.Number;
@@ -57,7 +58,7 @@ namespace Jint.Native.Array
             unscopables.SetDataProperty("values", JsBoolean.True);
             
             const PropertyFlag propertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-            var properties = new PropertyDictionary(30, checkExistingKeys: false)
+            var properties = new PropertyDictionary(32, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_arrayConstructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), propertyFlags),
@@ -88,7 +89,9 @@ namespace Jint.Native.Array
                 ["find"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), propertyFlags),
                 ["findIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), propertyFlags),
                 ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), propertyFlags),
-                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags)
+                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
+                ["flat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Flat, 0, PropertyFlag.Configurable), propertyFlags),
+                ["flatMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", FlatMap, 0, PropertyFlag.Configurable), propertyFlags),
             };
             SetProperties(properties);
 
@@ -439,6 +442,127 @@ namespace Jint.Native.Array
             }
             _engine._jsValueArrayPool.ReturnArray(args);
             return a.Target;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-array.prototype.flat
+        /// </summary>
+        private JsValue Flat(JsValue thisObj, JsValue[] arguments)
+        {
+            var O = TypeConverter.ToObject(_engine, thisObj);
+            var operations = ArrayOperations.For(O);
+            var sourceLen = operations.GetLength();
+            double depthNum = 1;
+            var depth = arguments.At(0);
+            if (!depth.IsUndefined())
+            {
+                depthNum = TypeConverter.ToIntegerOrInfinity(depth);
+            }
+
+            if (depthNum < 0)
+            {
+                depthNum = 0;
+            }
+
+            var A = _engine.Array.ArraySpeciesCreate(O, 0);
+            FlattenIntoArray(A, O, sourceLen, 0, depthNum);
+            return A;
+        }
+        
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-array.prototype.flatmap
+        /// </summary>
+        private JsValue FlatMap(JsValue thisObj, JsValue[] arguments)
+        {
+            var O = TypeConverter.ToObject(_engine, thisObj);
+            var mapperFunction = arguments.At(0);
+            var thisArg = arguments.At(1);
+            
+            var sourceLen = O.Length;
+
+            if (!mapperFunction.IsCallable)
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "flatMap mapper function is not callable");
+            }
+            
+            var A = _engine.Array.ArraySpeciesCreate(O, 0);
+            FlattenIntoArray(A, O, sourceLen, 0, 1, (ICallable) mapperFunction, thisArg);
+            return A;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-flattenintoarray
+        /// </summary>
+        private long FlattenIntoArray(
+            ObjectInstance target,
+            ObjectInstance source,
+            uint sourceLen,
+            long start, 
+            double depth, 
+            ICallable mapperFunction = null,
+            JsValue thisArg = null)
+        {
+            var targetIndex = start;
+            var sourceIndex = 0;
+
+            var callArguments = System.Array.Empty<JsValue>();
+            if (mapperFunction is not null)
+            {
+                callArguments = _engine._jsValueArrayPool.RentArray(3);
+                callArguments[2] = source;
+            }
+
+            while (sourceIndex < sourceLen)
+            {
+                var P = TypeConverter.ToString(sourceIndex);
+                var exists = source.HasProperty(P);
+                if (exists)
+                {
+                    var element = source.Get(P);
+                    if (mapperFunction is not null)
+                    {
+                        callArguments[0] = element;
+                        callArguments[1] = JsNumber.Create(sourceIndex);
+                        mapperFunction.Call(thisArg, callArguments);
+                    }
+
+                    var shouldFlatten = false;
+                    if (depth > 0)
+                    {
+                        shouldFlatten = element.IsArray();
+                    }
+
+                    if (shouldFlatten)
+                    {
+                        var newDepth = double.IsPositiveInfinity(depth)
+                            ? depth
+                            : depth - 1;
+
+                        var objectInstance = (ObjectInstance) element;
+                        var elementLen = objectInstance.Length;
+                        targetIndex = FlattenIntoArray(target, objectInstance, elementLen, targetIndex, newDepth);
+                    }
+                    else
+                    {
+                        if (targetIndex >= NumberConstructor.MaxSafeInteger)
+                        {
+                            ExceptionHelper.ThrowTypeError(_engine);
+                        }
+
+                        target.CreateDataPropertyOrThrow(targetIndex, element);
+                        targetIndex += 1;
+                    }
+                }
+
+                sourceIndex++;
+            }
+
+            if (mapperFunction is not null)
+            {
+                _engine._jsValueArrayPool.ReturnArray(callArguments);
+            }
+
+            return targetIndex;
         }
 
         private JsValue ForEach(JsValue thisObj, JsValue[] arguments)

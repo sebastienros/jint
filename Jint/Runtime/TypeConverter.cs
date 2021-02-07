@@ -313,6 +313,31 @@ namespace Jint.Runtime
         }
 
         /// <summary>
+        /// https://tc39.es/ecma262/#sec-tointegerorinfinity
+        /// </summary>
+        public static double ToIntegerOrInfinity(JsValue argument)
+        {
+            var number = ToNumber(argument);
+            if (double.IsNaN(number) || number == 0)
+            {
+                return 0;
+            }
+
+            if (double.IsInfinity(number))
+            {
+                return number;
+            }
+
+            var integer = (long) Math.Floor(Math.Abs(number));
+            if (number < 0)
+            {
+                integer *= -1;
+            }
+
+            return integer;
+        }
+        
+        /// <summary>
         /// https://tc39.es/ecma262/#sec-tointeger
         /// </summary>
         public static double ToInteger(JsValue o)
