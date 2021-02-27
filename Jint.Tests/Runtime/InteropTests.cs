@@ -2318,5 +2318,43 @@ namespace Jint.Tests.Runtime
             Assert.True(_engine.Execute("animals[0].Type == 'Cat'").GetCompletionValue().AsBoolean());
             Assert.True(_engine.Execute("animals[0].Id == 1").GetCompletionValue().AsBoolean());
         }
+
+        [Fact]
+        public void CanAccessDynamicObject()
+        {
+            var test = new DynamicClass();
+            var engine = new Engine();
+
+            engine.SetValue("test", test);
+
+            Assert.Equal("a", engine.Execute("test.a").GetCompletionValue().AsString());
+            Assert.Equal("b", engine.Execute("test.b").GetCompletionValue().AsString());
+
+            engine.Execute("test.a = 5; test.b = 10;");
+
+            Assert.Equal(5, engine.Execute("test.a").GetCompletionValue().AsNumber());
+            Assert.Equal(10, engine.Execute("test.b").GetCompletionValue().AsNumber());
+        }
+        
+        private class DynamicClass : DynamicObject
+        {
+            private readonly Dictionary<string, object> _properties = new Dictionary<string, object>();
+            
+            public override bool TryGetMember(GetMemberBinder binder, out object result)
+            {
+                result = binder.Name;
+                if (_properties.TryGetValue(binder.Name, out var value))
+                {
+                    result = value;
+                }
+                return true;
+            }
+        
+            public override bool TrySetMember(SetMemberBinder binder, object value)
+            {
+                _properties[binder.Name] = value;
+                return true;
+            }
+        }
     }
 }

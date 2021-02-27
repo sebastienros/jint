@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Globalization;
 using System.Reflection;
 using System.Threading;
@@ -265,6 +266,11 @@ namespace Jint.Runtime.Interop
 
         private static ReflectionAccessor ResolvePropertyDescriptorFactory(Engine engine, Type type, string memberName)
         {
+            if (typeof(DynamicObject).IsAssignableFrom(type))
+            {
+                return new DynamicObjectAccessor(typeof(void), memberName);
+            }
+            
             var isNumber = uint.TryParse(memberName, out _);
 
             // we can always check indexer if there's one, and then fall back to properties if indexer returns null

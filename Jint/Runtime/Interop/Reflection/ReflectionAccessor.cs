@@ -101,7 +101,7 @@ namespace Jint.Runtime.Interop.Reflection
                 converted = value.ToObject();
                 if (converted != null && converted.GetType() != _memberType)
                 {
-                    converted = engine.ClrTypeConverter.Convert(converted, _memberType, CultureInfo.InvariantCulture);
+                    converted = ConvertValueToSet(engine, converted);
                 }
             }
 
@@ -113,6 +113,11 @@ namespace Jint.Runtime.Interop.Reflection
             {
                 ExceptionHelper.ThrowMeaningfulException(engine, exception);
             }
+        }
+
+        protected virtual object ConvertValueToSet(Engine engine, object value)
+        {
+            return engine.ClrTypeConverter.Convert(value, _memberType, CultureInfo.InvariantCulture);
         }
 
         public virtual PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target)
