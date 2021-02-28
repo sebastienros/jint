@@ -1,13 +1,12 @@
 using Esprima.Ast;
 using Jint.Native;
-using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
     /// <summary>
     /// Constant JsValue returning expression.
     /// </summary>
-    internal sealed class JintConstantExpression : JintExpression
+    internal sealed partial class JintConstantExpression : JintExpression
     {
         private readonly JsValue _value;
 
@@ -30,7 +29,5 @@ namespace Jint.Runtime.Interpreter.Expressions
         }
 
         protected override object EvaluateInternal() => _value;
-
-        protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
     }
 }

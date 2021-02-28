@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
@@ -14,7 +13,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
 {
-    public sealed class ArrayConstructor : FunctionInstance, IConstructor
+    public sealed partial class ArrayConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new JsString("Array");
 
@@ -430,7 +429,5 @@ namespace Jint.Native.Array
                 ExceptionHelper.ThrowRangeError<object>(_engine, "Invalid array length");
             }
         }
-
-        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

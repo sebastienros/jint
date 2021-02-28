@@ -271,6 +271,7 @@ namespace Jint.Tests.Runtime
                    .GetCompletionValue().ToObject();
             });
         }
+
         [Fact]
         public async void DelegatesAreAwaited()
         {

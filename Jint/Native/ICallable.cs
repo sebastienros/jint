@@ -1,11 +1,7 @@
-﻿using System.Threading.Tasks;
-
-namespace Jint.Native
+﻿namespace Jint.Native
 {
-    public interface ICallable
+    public partial interface ICallable
     {
         JsValue Call(JsValue thisObject, JsValue[] arguments);
-
-        Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments);
     }
 }

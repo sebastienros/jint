@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Globalization;
-using System.Threading.Tasks;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -10,7 +9,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Date
 {
-    public sealed class DateConstructor : FunctionInstance, IConstructor
+    public sealed partial class DateConstructor : FunctionInstance, IConstructor
     {
         internal static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
@@ -255,7 +254,5 @@ namespace Jint.Native.Date
 
             return System.Math.Floor(result);
         }
-
-        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

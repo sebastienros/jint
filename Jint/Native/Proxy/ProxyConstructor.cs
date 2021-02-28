@@ -4,11 +4,10 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
-using System.Threading.Tasks;
 
 namespace Jint.Native.Proxy
 {
-    public sealed class ProxyConstructor : FunctionInstance, IConstructor
+    public sealed partial class ProxyConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _name = new JsString("Proxy");
         private static readonly JsString PropertyProxy = new JsString("proxy");
@@ -91,7 +90,5 @@ namespace Jint.Native.Proxy
             proxy._target = null;
             return Undefined;
         }
-
-        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

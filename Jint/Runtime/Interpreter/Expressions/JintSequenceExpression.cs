@@ -1,10 +1,9 @@
 using Esprima.Ast;
 using Jint.Native;
-using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintSequenceExpression : JintExpression
+    internal sealed partial class JintSequenceExpression : JintExpression
     {
         private JintExpression[] _expressions;
 
@@ -15,7 +14,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize()
         {
-            var expression = (SequenceExpression) _expression;
+            var expression = (SequenceExpression)_expression;
             _expressions = new JintExpression[expression.Expressions.Count];
             for (var i = 0; i < expression.Expressions.Count; i++)
             {
@@ -27,23 +26,10 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             var result = Undefined.Instance;
             var expressions = _expressions;
-            for (var i = 0; i < (uint) expressions.Length; i++)
-            {
-                var expression = expressions[i];
-                result = expression.GetValue();
-            }
-
-            return result;
-        }
-
-        protected async override Task<object> EvaluateInternalAsync()
-        {
-            var result = Undefined.Instance;
-            var expressions = _expressions;
             for (var i = 0; i < (uint)expressions.Length; i++)
             {
                 var expression = expressions[i];
-                result = await expression.GetValueAsync();
+                result = expression.GetValue();
             }
 
             return result;

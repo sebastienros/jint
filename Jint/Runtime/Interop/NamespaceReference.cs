@@ -15,7 +15,7 @@ namespace Jint.Runtime.Interop
     /// a new <see cref="NamespaceReference"/> as it assumes that the property is a deeper
     /// level of the current namespace
     /// </summary>
-    public class NamespaceReference : ObjectInstance, ICallable
+    public partial class NamespaceReference : ObjectInstance, ICallable
     {
         private readonly string _path;
 
@@ -69,9 +69,6 @@ namespace Jint.Runtime.Interop
                 return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?", e);
             }
         }
-
-        public Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) 
-            => Task.FromResult(Call(thisObject, arguments));
 
         public override JsValue Get(JsValue property, JsValue receiver)
         {

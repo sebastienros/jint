@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
@@ -11,7 +10,7 @@ using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class BindingPatternAssignmentExpression : JintExpression
+    internal sealed partial class BindingPatternAssignmentExpression : JintExpression
     {
         private readonly BindingPattern _pattern;
         private JintExpression _right;
@@ -411,7 +410,5 @@ namespace Jint.Runtime.Interpreter.Expressions
                 engine.PutValue(lhs, rval);
             }
         }
-
-        protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
     }
 }

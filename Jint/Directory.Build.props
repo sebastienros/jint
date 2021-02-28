@@ -26,4 +26,8 @@
   <!-- Called after so that the <VersionSuffix> is built after the local ones -->
   <Import Project="../Common.props"/>
 
+  <ItemGroup>
+  	<ProjectCapability Include="DynamicDependentFile" />
+  	<ProjectCapability Include="DynamicFileNesting" />
+  </ItemGroup>
 </Project>

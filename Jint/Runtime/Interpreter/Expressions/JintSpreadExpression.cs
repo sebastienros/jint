@@ -1,11 +1,10 @@
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Iterator;
-using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintSpreadExpression : JintExpression
+    internal sealed partial class JintSpreadExpression : JintExpression
     {
         private readonly JintExpression _argument;
         private readonly string _argumentName;
@@ -40,7 +39,5 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ExceptionHelper.ThrowTypeError(_engine, _argumentName + " is not iterable");
             }
         }
-
-        protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
     }
 }

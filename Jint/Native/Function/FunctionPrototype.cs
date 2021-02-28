@@ -12,7 +12,7 @@ namespace Jint.Native.Function
     /// <summary>
     ///     http://www.ecma-international.org/ecma-262/5.1/#sec-15.3.4
     /// </summary>
-    public sealed class FunctionPrototype : FunctionInstance
+    public sealed partial class FunctionPrototype : FunctionInstance
     {
         private FunctionPrototype(Engine engine)
             : base(engine, JsString.Empty)
@@ -173,7 +173,5 @@ namespace Jint.Native.Function
         {
             return Undefined;
         }
-
-        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

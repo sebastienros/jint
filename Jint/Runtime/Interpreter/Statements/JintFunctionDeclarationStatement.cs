@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
-    internal sealed class JintFunctionDeclarationStatement : JintStatement<FunctionDeclaration>
+    internal sealed partial class JintFunctionDeclarationStatement : JintStatement<FunctionDeclaration>
     {
         public JintFunctionDeclarationStatement(Engine engine, FunctionDeclaration statement) : base(engine, statement)
         {
@@ -13,7 +13,5 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             return new Completion(CompletionType.Normal, null, null, Location);
         }
-
-        protected override Task<Completion> ExecuteInternalAsync() => Task.FromResult(ExecuteInternal());
     }
 }

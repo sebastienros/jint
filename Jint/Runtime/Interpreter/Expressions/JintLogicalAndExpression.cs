@@ -1,10 +1,9 @@
 using Esprima.Ast;
 using Jint.Native;
-using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintLogicalAndExpression : JintExpression
+    internal sealed partial class JintLogicalAndExpression : JintExpression
     {
         private readonly JintExpression _left;
         private readonly JintExpression _right;
@@ -30,23 +29,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             return _right.GetValue();
-        }
-
-        protected async override Task<object> EvaluateInternalAsync()
-        {
-            var left = await _left.GetValueAsync();
-
-            if (left is JsBoolean b && !b._value)
-            {
-                return b;
-            }
-
-            if (!TypeConverter.ToBoolean(left))
-            {
-                return left;
-            }
-
-            return await _right.GetValueAsync();
         }
     }
 }

@@ -5,14 +5,13 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
-using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/#sec-object-initializer
     /// </summary>
-    internal sealed class JintObjectExpression : JintExpression
+    internal sealed partial class JintObjectExpression : JintExpression
     {
         private JintExpression[] _valueExpressions = System.Array.Empty<JintExpression>();
         private ObjectProperty[] _properties = System.Array.Empty<ObjectProperty>();
@@ -191,7 +190,5 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             return obj;
         }
-
-        protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
     }
 }

@@ -6,7 +6,7 @@ using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal class JintLiteralExpression : JintExpression
+    internal partial class JintLiteralExpression : JintExpression
     {
         private JintLiteralExpression(Engine engine, Literal expression) : base(engine, expression)
         {
@@ -61,8 +61,6 @@ namespace Jint.Runtime.Interpreter.Expressions
         }
 
         protected override object EvaluateInternal() => ResolveValue();
-        protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
-
 
         private JsValue ResolveValue()
         {

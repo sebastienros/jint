@@ -4,11 +4,10 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
-using System.Threading.Tasks;
 
 namespace Jint.Native.Function
 {
-    public sealed class FunctionConstructor : FunctionInstance, IConstructor
+    public sealed partial class FunctionConstructor : FunctionInstance, IConstructor
     {
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
         private static readonly JsString _functionName = new JsString("Function");
@@ -175,7 +174,5 @@ namespace Jint.Native.Function
             }
             return func.Call(thisArg, argList);
         }
-
-        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

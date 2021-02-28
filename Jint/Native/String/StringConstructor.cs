@@ -12,7 +12,7 @@ using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.String
 {
-    public sealed class StringConstructor : FunctionInstance, IConstructor
+    public sealed partial class StringConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new JsString("String");
 
@@ -182,7 +182,5 @@ namespace Jint.Native.String
 
             return instance;
         }
-
-        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

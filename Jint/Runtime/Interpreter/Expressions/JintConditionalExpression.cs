@@ -1,9 +1,8 @@
 using Esprima.Ast;
-using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintConditionalExpression : JintExpression
+    internal sealed partial class JintConditionalExpression : JintExpression
     {
         private readonly JintExpression _test;
         private readonly JintExpression _consequent;
@@ -21,13 +20,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             return TypeConverter.ToBoolean(_test.GetValue())
                 ? _consequent.GetValue()
                 : _alternate.GetValue();
-        }
-
-        protected async override Task<object> EvaluateInternalAsync()
-        {
-            return TypeConverter.ToBoolean(await _test.GetValueAsync())
-                ? await _consequent.GetValueAsync()
-                : await _alternate.GetValueAsync();
         }
     }
 }

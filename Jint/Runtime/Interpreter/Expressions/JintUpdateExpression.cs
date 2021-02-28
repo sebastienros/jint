@@ -2,11 +2,10 @@ using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
-using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintUpdateExpression : JintExpression
+    internal sealed partial class JintUpdateExpression : JintExpression
     {
         private JintExpression _argument;
         private int _change;
@@ -104,7 +103,5 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             return null;
         }
-
-        protected override Task<object> EvaluateInternalAsync() => Task.FromResult(EvaluateInternal());
     }
 }

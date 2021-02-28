@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
@@ -11,7 +10,7 @@ namespace Jint.Runtime.Interpreter
     /// <summary>
     /// Works as memento for function execution. Optimization to cache things that don't change.
     /// </summary>
-    internal sealed class JintFunctionDefinition
+    internal sealed partial class JintFunctionDefinition
     {
         private readonly Engine _engine;
         
@@ -61,20 +60,6 @@ namespace Jint.Runtime.Interpreter
             var blockStatement = (BlockStatement) Function.Body;
             _bodyStatementList ??= new JintStatementList(_engine, blockStatement, blockStatement.Body);
             return _bodyStatementList.Execute();
-        }
-
-        internal async Task<Completion> ExecuteAsync()
-        {
-            if (Function.Expression)
-            {
-                _bodyExpression ??= JintExpression.Build(_engine, (Expression)Function.Body);
-                var jsValue = await _bodyExpression?.GetValueAsync() ?? Undefined.Instance;
-                return new Completion(CompletionType.Return, jsValue, null, Function.Body.Location);
-            }
-
-            var blockStatement = (BlockStatement)Function.Body;
-            _bodyStatementList ??= new JintStatementList(_engine, blockStatement, blockStatement.Body);
-            return await _bodyStatementList.ExecuteAsync();
         }
 
         internal State Initialize(Engine engine, FunctionInstance functionInstance)

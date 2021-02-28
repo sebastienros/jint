@@ -8,7 +8,7 @@ namespace Jint.Runtime.Interop
     /// <summary>
     /// Represents a FunctionInstance wrapping a Clr getter.
     /// </summary>
-    public sealed class GetterFunctionInstance: FunctionInstance
+    public sealed partial class GetterFunctionInstance: FunctionInstance
     {
         private static readonly JsString _name = new JsString("get");
         private readonly Func<JsValue, JsValue> _getter;
@@ -23,7 +23,5 @@ namespace Jint.Runtime.Interop
         {
             return _getter(thisObject);
         }
-
-        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

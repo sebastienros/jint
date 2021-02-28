@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Threading.Tasks;
 using Jint.Native;
 using Jint.Native.Function;
 
@@ -8,7 +7,7 @@ namespace Jint.Runtime.Interop
     /// <summary>
     /// Represents a FunctionInstance wrapping a Clr setter.
     /// </summary>
-    public sealed class SetterFunctionInstance : FunctionInstance
+    public sealed partial class SetterFunctionInstance : FunctionInstance
     {
         private static readonly JsString _name = new JsString("set");
         private readonly Action<JsValue, JsValue> _setter;
@@ -25,7 +24,5 @@ namespace Jint.Runtime.Interop
 
             return Null;
         }
-
-        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

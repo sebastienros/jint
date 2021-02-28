@@ -1,6 +1,4 @@
 using System;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
@@ -9,7 +7,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal abstract class JintBinaryExpression : JintExpression
+    internal abstract partial class JintBinaryExpression : JintExpression
     {
         private readonly JintExpression _left;
         private readonly JintExpression _right;
@@ -115,26 +113,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             return (JsValue) EvaluateInternal();
         }
 
-        public async override Task<JsValue> GetValueAsync()
-        {
-            // need to notify correct node when taking shortcut
-            _engine._lastSyntaxNode = _expression;
-
-            // we always create a JsValue
-            return (JsValue) await EvaluateInternalAsync();
-        }
-
         protected override object EvaluateInternal()
         {
             var left = _left.GetValue();
             var right = _right.GetValue();
-            return EvaluateBinaryExpression(left, right);
-        }
-
-        protected async override Task<object> EvaluateInternalAsync()
-        {
-            var left = await _left.GetValueAsync();
-            var right = await _right.GetValueAsync();
             return EvaluateBinaryExpression(left, right);
         }
 

@@ -1,10 +1,9 @@
 ﻿using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using System.Threading.Tasks;
 
 namespace Jint.Native.Function
 {
-    public sealed class ThrowTypeError : FunctionInstance
+    public sealed partial class ThrowTypeError : FunctionInstance
     {
         private static readonly JsString _functionName = new JsString("throwTypeError");
 
@@ -23,7 +22,5 @@ namespace Jint.Native.Function
         {
             return ExceptionHelper.ThrowTypeError<JsValue>(_engine, _message);
         }
-
-        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
     }
 }

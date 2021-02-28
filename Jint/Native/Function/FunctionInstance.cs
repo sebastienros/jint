@@ -9,7 +9,7 @@ using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Function
 {
-    public abstract class FunctionInstance : ObjectInstance, ICallable
+    public abstract partial class FunctionInstance : ObjectInstance, ICallable
     {
         internal enum FunctionThisMode
         {
@@ -66,7 +66,6 @@ namespace Jint.Native.Function
         /// <param name="arguments"></param>
         /// <returns></returns>
         public abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
-        public abstract Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments);
 
         public bool Strict => _thisMode == FunctionThisMode.Strict;
 

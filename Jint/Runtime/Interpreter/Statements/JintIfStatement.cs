@@ -1,10 +1,9 @@
 using Esprima.Ast;
 using Jint.Runtime.Interpreter.Expressions;
-using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
-    internal sealed class JintIfStatement : JintStatement<IfStatement>
+    internal sealed partial class JintIfStatement : JintStatement<IfStatement>
     {
         private readonly JintStatement _statementConsequent;
         private readonly JintExpression _test;
@@ -27,25 +26,6 @@ namespace Jint.Runtime.Interpreter.Statements
             else if (_alternate != null)
             {
                 result = _alternate.Execute();
-            }
-            else
-            {
-                return new Completion(CompletionType.Normal, null, null, Location);
-            }
-
-            return result;
-        }
-
-        protected async override Task<Completion> ExecuteInternalAsync()
-        {
-            Completion result;
-            if (TypeConverter.ToBoolean(await _test.GetValueAsync()))
-            {
-                result = await _statementConsequent.ExecuteAsync();
-            }
-            else if (_alternate != null)
-            {
-                result = await _alternate.ExecuteAsync();
             }
             else
             {
