@@ -2356,5 +2356,22 @@ namespace Jint.Tests.Runtime
                 return true;
             }
         }
+            
+        [Fact]
+        public void IntegerEnumResolutionShouldWork()
+        {
+            var engine = new Engine(options => options.AllowClr(GetType().Assembly));
+            engine.SetValue("a", new OverLoading());
+            engine.SetValue("E", TypeReference.CreateTypeReference(engine, typeof(IntegerEnum)));
+            Assert.Equal("integer-enum", engine.Execute("a.testFunc(E.a);").GetCompletionValue().AsString());
+        }
+
+        [Fact]
+        public void UnsignedIntegerEnumResolutionShouldWork()
+        {
+            var engine = new Engine(options => options.AllowClr(GetType().Assembly));
+            engine.SetValue("E", TypeReference.CreateTypeReference(engine, typeof(UintEnum)));
+            Assert.Equal(1, engine.Execute("E.b;").GetCompletionValue().AsNumber());
+        }
     }
 }
