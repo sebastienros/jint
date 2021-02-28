@@ -86,7 +86,9 @@ namespace Jint.Runtime.Interop
                 // todo: cache method info
                 try
                 {
-                    return FromObject(Engine, method.Invoke(thisObject.ToObject(), parameters));
+                    var result = method.Invoke(thisObject.ToObject(), parameters).AwaitWhenAsyncResult();
+                    if (!result.IsCompleted) ExceptionHelper.ThrowError(_engine, "Cannot not await call to async method from a synchroneous context. The current async invocation is possibly executing synchroneous due to an implementation limitation (check call stack).");
+                    return FromObject(Engine, result.Result);
                 }
                 catch (TargetInvocationException exception)
                 {
