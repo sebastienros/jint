@@ -34,7 +34,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public async virtual Task<JsValue> GetValueAsync()
         {
-            return _engine.GetValue(await EvaluateAsync(), true);
+            return await _engine.GetValueAsync(await EvaluateAsync(), true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

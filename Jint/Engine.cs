@@ -476,6 +476,22 @@ namespace Jint
             return GetValue(reference, returnReferenceToPool);
         }
 
+        async internal Task<JsValue> GetValueAsync(object value, bool returnReferenceToPool)
+        {
+            if (value is JsValue jsValue)
+            {
+                return jsValue;
+            }
+
+            if (!(value is Reference reference))
+            {
+                return ((Completion)value).Value;
+            }
+
+            return await GetValueAsync(reference, returnReferenceToPool);
+        }
+
+
         internal JsValue GetValue(Reference reference, bool returnReferenceToPool)
         {
             var baseValue = reference.GetBase();
@@ -546,6 +562,94 @@ namespace Jint
 
                     var callable = (ICallable) getter.AsObject();
                     return callable.Call(baseValue, Arguments.Empty);
+                }
+            }
+
+            if (!(baseValue is EnvironmentRecord record))
+            {
+                return ExceptionHelper.ThrowArgumentException<JsValue>();
+            }
+
+            var bindingValue = record.GetBindingValue(reference.GetReferencedName().ToString(), reference.IsStrictReference());
+
+            if (returnReferenceToPool)
+            {
+                _referencePool.Return(reference);
+            }
+
+            return bindingValue;
+        }
+
+        async internal Task<JsValue> GetValueAsync(Reference reference, bool returnReferenceToPool)
+        {
+            var baseValue = reference.GetBase();
+
+            if (baseValue._type == InternalTypes.Undefined)
+            {
+                if (_referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
+                {
+                    return val;
+                }
+
+                ExceptionHelper.ThrowReferenceError(this, reference);
+            }
+
+            if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0
+                && _referenceResolver.TryPropertyReference(this, reference, ref baseValue))
+            {
+                return baseValue;
+            }
+
+            if (reference.IsPropertyReference())
+            {
+                var property = reference.GetReferencedName();
+                if (returnReferenceToPool)
+                {
+                    _referencePool.Return(reference);
+                }
+
+                if (baseValue.IsObject())
+                {
+                    var o = TypeConverter.ToObject(this, baseValue);
+                    var v = o.Get(property);
+                    return v;
+                }
+                else
+                {
+                    // check if we are accessing a string, boxing operation can be costly to do index access
+                    // we have good chance to have fast path with integer or string indexer
+                    ObjectInstance o = null;
+                    if ((property._type & (InternalTypes.String | InternalTypes.Integer)) != 0
+                        && baseValue is JsString s
+                        && TryHandleStringValue(property, s, ref o, out var jsValue))
+                    {
+                        return jsValue;
+                    }
+
+                    if (o is null)
+                    {
+                        o = TypeConverter.ToObject(this, baseValue);
+                    }
+
+                    var desc = o.GetProperty(property);
+                    if (desc == PropertyDescriptor.Undefined)
+                    {
+                        return JsValue.Undefined;
+                    }
+
+                    if (desc.IsDataDescriptor())
+                    {
+                        return desc.Value;
+                    }
+
+                    var getter = desc.Get;
+                    if (getter.IsUndefined())
+                    {
+                        return Undefined.Instance;
+                    }
+
+                    var callable = (ICallable)getter.AsObject();
+                    return await callable.CallAsync(baseValue, Arguments.Empty);
                 }
             }
 
@@ -789,7 +893,7 @@ namespace Jint
             _referencePool.Return(reference);
             return jsValue;
         }
-        
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-resolvebinding
         /// </summary>
