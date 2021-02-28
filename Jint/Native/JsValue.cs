@@ -276,9 +276,6 @@ namespace Jint.Native
         /// <summary>
         /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance
         /// </summary>
-        /// <param name="engine"></param>
-        /// <param name="value"></param>
-        /// <returns></returns>
         public static JsValue FromObject(Engine engine, object value)
         {
             if (value == null)
@@ -309,13 +306,6 @@ namespace Jint.Native
             if (typeMappers.TryGetValue(valueType, out var typeMapper))
             {
                 return typeMapper(engine, value);
-            }
-
-            var type = value as Type;
-            if (type != null)
-            {
-                var typeReference = TypeReference.CreateTypeReference(engine, type);
-                return typeReference;
             }
 
             if (value is System.Array a)
