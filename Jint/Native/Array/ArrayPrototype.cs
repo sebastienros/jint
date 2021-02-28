@@ -90,8 +90,8 @@ namespace Jint.Native.Array
                 ["findIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), propertyFlags),
                 ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), propertyFlags),
                 ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
-                ["flat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Flat, 0, PropertyFlag.Configurable), propertyFlags),
-                ["flatMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", FlatMap, 0, PropertyFlag.Configurable), propertyFlags),
+                ["flat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flat", Flat, 0, PropertyFlag.Configurable), propertyFlags),
+                ["flatMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flatMap", FlatMap, 1, PropertyFlag.Configurable), propertyFlags),
             };
             SetProperties(properties);
 
@@ -523,7 +523,7 @@ namespace Jint.Native.Array
                     {
                         callArguments[0] = element;
                         callArguments[1] = JsNumber.Create(sourceIndex);
-                        mapperFunction.Call(thisArg, callArguments);
+                        element = mapperFunction.Call(thisArg, callArguments);
                     }
 
                     var shouldFlatten = false;
