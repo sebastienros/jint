@@ -14,7 +14,6 @@ using Jint.Native.String;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter.Expressions;
 
@@ -257,7 +256,6 @@ namespace Jint.Native.Object
             return keys;
         }
 
-
         protected virtual void AddProperty(JsValue property, PropertyDescriptor descriptor)
         {
             SetProperty(property, descriptor);
@@ -343,9 +341,8 @@ namespace Jint.Native.Object
                 return Undefined;
             }
 
-            // if getter is not undefined it must be ICallable
-            var callable = getter.TryCast<ICallable>();
-            return callable.Call(thisObject, Arguments.Empty);
+            var functionInstance = (FunctionInstance) getter;
+            return functionInstance._engine.Call(functionInstance, thisObject, Arguments.Empty, expression: null);
         }
 
         /// <summary>
@@ -503,7 +500,8 @@ namespace Jint.Native.Object
                 return false;
             }
 
-            setter.Call(receiver, new[] {value});
+            var functionInstance = (FunctionInstance) setter;
+            _engine.Call(functionInstance, receiver, new[] { value }, expression: null);
 
             return true;
         }
@@ -624,7 +622,7 @@ namespace Jint.Native.Object
         {
             if (!DefineOwnProperty(property, desc))
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine, "Cannot redefine property: " + property);
             }
 
             return true;
@@ -861,7 +859,7 @@ namespace Jint.Native.Object
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected void EnsureInitialized()
+        protected internal void EnsureInitialized()
         {
             if (_initialized)
             {
@@ -1095,6 +1093,7 @@ namespace Jint.Native.Object
                                            && lengthValue.IsNumber()
                                            && ((JsNumber) lengthValue)._value >= 0;
 
+        internal override bool IsIntegerIndexedArray => false;
 
         public virtual uint Length => (uint) TypeConverter.ToLength(Get(CommonProperties.Length));
 
@@ -1104,7 +1103,7 @@ namespace Jint.Native.Object
             return JsBoolean.True;
         }
 
-        protected virtual ObjectInstance GetPrototypeOf()
+        protected internal virtual ObjectInstance GetPrototypeOf()
         {
             return _prototype;
         }
@@ -1160,6 +1159,15 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
+        /// https://tc39.es/ecma262/#sec-createmethodproperty
+        /// </summary>
+        internal virtual bool CreateMethodProperty(JsValue p, JsValue v)
+        {
+            var newDesc = new PropertyDescriptor(v, PropertyFlag.NonEnumerable);
+            return DefineOwnProperty(p, newDesc);
+        }
+        
+        /// <summary>
         /// https://tc39.es/ecma262/#sec-createdatapropertyorthrow
         /// </summary>
         internal bool CreateDataProperty(JsValue p, JsValue v)
@@ -1200,13 +1208,13 @@ namespace Jint.Native.Object
 
         internal void CopyDataProperties(
             ObjectInstance target,
-            HashSet<JsValue> processedProperties)
+            HashSet<JsValue> excludedItems)
         {
             var keys = GetOwnPropertyKeys();
             for (var i = 0; i < keys.Count; i++)
             {
                 var key = keys[i];
-                if (processedProperties == null || !processedProperties.Contains(key))
+                if (excludedItems == null || !excludedItems.Contains(key))
                 {
                     var desc = GetOwnProperty(key);
                     if (desc.Enumerable)
@@ -1217,7 +1225,7 @@ namespace Jint.Native.Object
             }
         }
 
-        internal JsValue EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind kind)
+        internal ArrayInstance EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind kind)
         {
             var ownKeys = GetOwnPropertyKeys(Types.String);
 

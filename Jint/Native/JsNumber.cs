@@ -166,7 +166,7 @@ namespace Jint.Native
 
         public override string ToString()
         {
-            return EsprimaExtensions.DoubleToString(_value);
+            return TypeConverter.ToString(_value);
         }
 
         public override bool Equals(JsValue obj)

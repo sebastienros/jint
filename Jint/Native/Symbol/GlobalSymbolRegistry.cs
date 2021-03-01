@@ -4,6 +4,7 @@ namespace Jint.Native.Symbol
 {
     public class GlobalSymbolRegistry
     {
+        public static readonly JsSymbol AsyncIterator = new JsSymbol("Symbol.asyncIterator");
         public static readonly JsSymbol HasInstance = new JsSymbol("Symbol.hasInstance");
         public static readonly JsSymbol IsConcatSpreadable = new JsSymbol("Symbol.isConcatSpreadable");
         public static readonly JsSymbol Iterator = new JsSymbol("Symbol.iterator");

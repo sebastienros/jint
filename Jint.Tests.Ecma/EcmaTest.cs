@@ -197,7 +197,9 @@ namespace Jint.Tests.Ecma
 
             //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
             var pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
-            var engine = new Engine(cfg => cfg.LocalTimeZone(pacificTimeZone));
+            var engine = new Engine(cfg => cfg
+                .LocalTimeZone(pacificTimeZone)
+            );
 
             // loading driver
             if (staSource == null)

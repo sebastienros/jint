@@ -54,7 +54,7 @@ namespace Jint.Native.Proxy
             SetProperties(properties);
         }
 
-        protected override ObjectInstance GetPrototypeOf()
+        protected internal override ObjectInstance GetPrototypeOf()
         {
             return _engine.Function.Prototype;
         }
@@ -75,20 +75,20 @@ namespace Jint.Native.Proxy
 
         private JsValue Revocable(JsValue thisObject, JsValue[] arguments)
         {
-            var p = _engine.Proxy.Construct(arguments, Undefined);
-            var result = _engine.Object.Construct(System.Array.Empty<JsValue>());
-            result.DefineOwnProperty(PropertyRevoke, new PropertyDescriptor(new ClrFunctionInstance(_engine, name: null, Revoke, 0, PropertyFlag.Configurable), PropertyFlag.ConfigurableEnumerableWritable));
-            result.DefineOwnProperty(PropertyProxy, new PropertyDescriptor(Construct(arguments, thisObject), PropertyFlag.ConfigurableEnumerableWritable));
-            return result;
-        }
+            var p = Construct(arguments, thisObject);
 
-        private JsValue Revoke(JsValue thisObject, JsValue[] arguments)
-        {
-            var o = thisObject.AsObject();
-            var proxy = (ProxyInstance) o.Get(PropertyProxy);
-            proxy._handler = null;
-            proxy._target = null;
-            return Undefined;
+            System.Func<JsValue, JsValue[], JsValue> revoke = (JsValue thisObject, JsValue[] arguments) =>
+            {
+                var proxy = (ProxyInstance) p;
+                proxy._handler = null;
+                proxy._target = null;
+                return Undefined;
+            };
+
+            var result = _engine.Object.Construct(System.Array.Empty<JsValue>());
+            result.DefineOwnProperty(PropertyRevoke, new PropertyDescriptor(new ClrFunctionInstance(_engine, name: null, revoke, 0, PropertyFlag.Configurable), PropertyFlag.ConfigurableEnumerableWritable));
+            result.DefineOwnProperty(PropertyProxy, new PropertyDescriptor(p, PropertyFlag.ConfigurableEnumerableWritable));
+            return result;
         }
     }
 }

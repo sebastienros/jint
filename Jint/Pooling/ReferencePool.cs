@@ -18,12 +18,12 @@ namespace Jint.Pooling
 
         private static Reference Factory()
         {
-            return new Reference(JsValue.Undefined, JsString.Empty, false);
+            return new Reference(JsValue.Undefined, JsString.Empty, false, null);
         }
 
-        public Reference Rent(JsValue baseValue, JsValue name, bool strict)
+        public Reference Rent(JsValue baseValue, JsValue name, bool strict, JsValue thisValue)
         {
-            return _pool.Allocate().Reassign(baseValue, name, strict);
+            return _pool.Allocate().Reassign(baseValue, name, strict, thisValue);
         }
 
         public void Return(Reference reference)

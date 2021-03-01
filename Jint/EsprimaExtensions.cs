@@ -1,19 +1,23 @@
+#nullable enable
+
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Function;
+using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint
 {
     public static class EsprimaExtensions
     {
-        public static JsValue GetKey(this Property property, Engine engine) => GetKey(property.Key, engine, property.Computed);
+        public static JsValue GetKey(this ClassProperty property, Engine engine) => GetKey(property.Key, engine, property.Computed);
 
-        public static JsValue GetKey<T>(this T expression, Engine engine, bool resolveComputed = false) where T : Expression
+        public static JsValue GetKey(this Expression expression, Engine engine, bool resolveComputed = false)
         {
             if (expression is Literal literal)
             {
@@ -40,6 +44,7 @@ namespace Jint
                 || expression.Type == Nodes.CallExpression
                 || expression.Type == Nodes.BinaryExpression
                 || expression.Type == Nodes.UpdateExpression
+                || expression.Type == Nodes.AssignmentExpression
                 || expression is StaticMemberExpression)
             {
                 propertyKey = TypeConverter.ToPropertyKey(JintExpression.Build(engine, expression).GetValue());
@@ -54,7 +59,10 @@ namespace Jint
         internal static bool IsFunctionWithName<T>(this T node) where T : Node
         {
             var type = node.Type;
-            return type == Nodes.FunctionExpression || type == Nodes.ArrowFunctionExpression || type == Nodes.ArrowParameterPlaceHolder;
+            return type == Nodes.FunctionExpression 
+                   || type == Nodes.ArrowFunctionExpression 
+                   || type == Nodes.ArrowParameterPlaceHolder 
+                   || type == Nodes.ClassExpression;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -63,15 +71,9 @@ namespace Jint
             // prevent conversion to scientific notation
             if (literal.Value is double d)
             {
-                return DoubleToString(d);
+                return TypeConverter.ToString(d);
             }
             return literal.Value as string ?? Convert.ToString(literal.Value, provider: null);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static string DoubleToString(double d)
-        {
-            return (d - (long) d) == 0 ? ((long) d).ToString() : d.ToString(CultureInfo.InvariantCulture);
         }
         
         internal static void GetBoundNames(this VariableDeclaration variableDeclaration, List<string> target)
@@ -84,7 +86,7 @@ namespace Jint
             }
         }
 
-        internal static void GetBoundNames(this Node parameter, List<string> target)
+        internal static void GetBoundNames(this Node? parameter, List<string> target)
         {
             if (parameter is null || parameter.Type == Nodes.Literal)
             {
@@ -94,7 +96,7 @@ namespace Jint
             // try to get away without a loop
             if (parameter is Identifier id)
             {
-                target.Add(id.Name);
+                target.Add(id.Name!);
                 return;
             }
 
@@ -102,7 +104,7 @@ namespace Jint
             {
                 if (parameter is Identifier identifier)
                 {
-                    target.Add(identifier.Name);
+                    target.Add(identifier.Name!);
                     return;
                 }
                 
@@ -139,10 +141,56 @@ namespace Jint
                 else if (parameter is AssignmentPattern assignmentPattern)
                 {
                     parameter = assignmentPattern.Left;
+                    if (assignmentPattern.Right is ClassExpression classExpression)
+                    {
+                        // TODO check if there's more generic rule
+                        if (classExpression.Id is not null)
+                        {
+                            target.Add(classExpression.Id.Name!);
+                        }
+                    }
                     continue;
                 }
                 break;
             }
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-runtime-semantics-definemethod
+        /// </summary>
+        internal static Record DefineMethod(this ClassProperty m, ObjectInstance obj, ObjectInstance? functionPrototype = null)
+        {
+            var engine = obj.Engine;
+            var property = TypeConverter.ToPropertyKey(m.GetKey(engine));
+            var prototype = functionPrototype ?? engine.Function.PrototypeObject;
+            var function = m.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(engine);
+            var functionDefinition = new JintFunctionDefinition(engine, function);
+            var functionThisMode = functionDefinition.Strict || engine._isStrict
+                ? FunctionThisMode.Strict 
+                : FunctionThisMode.Global;
+
+            var closure = new ScriptFunctionInstance(
+                engine,
+                functionDefinition,
+                engine.ExecutionContext.LexicalEnvironment,
+                functionThisMode,
+                prototype);
+
+            closure.MakeMethod(obj);
+
+            return new Record(property, closure);
+        }
+
+        internal readonly struct Record
+        {
+            public Record(JsValue key, ScriptFunctionInstance closure)
+            {
+                Key = key;
+                Closure = closure;
+            }
+
+            public readonly JsValue Key;
+            public readonly ScriptFunctionInstance Closure;
         }
     }
 }

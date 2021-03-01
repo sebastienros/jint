@@ -1,7 +1,7 @@
 ﻿using Jint.Native;
 using Jint.Native.Function;
 
-namespace Jint.Runtime.Descriptors.Specialized
+namespace Jint.Runtime.Descriptors
 {
     public sealed class GetSetPropertyDescriptor : PropertyDescriptor
     {

@@ -4,7 +4,6 @@ using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Set
@@ -63,12 +62,17 @@ namespace Jint.Native.Set
             return Construct(arguments, thisObject);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-set-iterable
+        /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var set = new SetInstance(Engine)
+            if (newTarget.IsUndefined())
             {
-                _prototype = PrototypeObject
-            };
+                ExceptionHelper.ThrowTypeError(_engine);
+            }
+
+            var set = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, _) => new SetInstance(engine));
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adderValue = set.Get("add");

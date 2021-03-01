@@ -68,9 +68,6 @@ namespace Jint.Runtime.Interop
             return false;
         }
 
-        public override string ToString()
-        {
-            return $"function {_name}() {{ [native code] }}";
-        }
+        public override string ToString() => "function " + _name + "() { [native code] }";
     }
 }

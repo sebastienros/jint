@@ -8,9 +8,12 @@ using System.Reflection;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
+using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
+using MongoDB.Bson;
+using Newtonsoft.Json.Linq;
 using Shapes;
 using Xunit;
 
@@ -1107,7 +1110,7 @@ namespace Jint.Tests.Runtime
                 var x= 10;
             ");
 
-            Assert.Throws<ArgumentException>(() => _engine.Invoke("x", 1, 2));
+            Assert.Throws<JavaScriptException>(() => _engine.Invoke("x", 1, 2));
         }
 
         [Fact]
@@ -2249,6 +2252,110 @@ namespace Jint.Tests.Runtime
             engine.SetValue("m", new HiddenMembers());
 
             Assert.Equal("Orange", engine.Execute("m.Member1").GetCompletionValue().ToString());
+        }
+
+        [Fact]
+        public void SettingValueViaIntegerIndexer()
+        {
+            var engine = new Engine(cfg => cfg.AllowClr(typeof(FloatIndexer).GetTypeInfo().Assembly));
+            engine.SetValue("log", new Action<object>(Console.WriteLine));
+            engine.Execute(@"
+                var domain = importNamespace('Jint.Tests.Runtime.Domain');
+                var fia = new domain.IntegerIndexer();
+                log(fia[0]);
+            ");
+
+            Assert.Equal(123, engine.Execute("fia[0]").GetCompletionValue().AsNumber());
+            engine.Execute("fia[0] = 678;");
+            Assert.Equal(678, engine.Execute("fia[0]").GetCompletionValue().AsNumber());
+        }
+
+        [Fact]
+        public void AccessingJObjectShouldWork()
+        {
+            var o = new JObject
+            {
+                new JProperty("name", "test-name")
+            };
+            _engine.SetValue("o", o);
+            Assert.True(_engine.Execute("return o.name == 'test-name'").GetCompletionValue().AsBoolean());
+        }
+
+        [Fact]
+        public void AccessingJArrayViaIntegerIndexShouldWork()
+        {
+            var o = new JArray("item1", "item2");
+            _engine.SetValue("o", o);
+            Assert.True(_engine.Execute("return o[0] == 'item1'").GetCompletionValue().AsBoolean());
+            Assert.True(_engine.Execute("return o[1] == 'item2'").GetCompletionValue().AsBoolean());
+        }
+        
+        [Fact]
+        public void DictionaryLikeShouldCheckIndexerAndFallBackToProperty()
+        {
+            const string json = @"{ ""Type"": ""Cat"" }";
+            var jObjectWithTypeProperty = JObject.Parse(json);
+        
+            _engine.SetValue("o", jObjectWithTypeProperty);
+        
+            var typeResult = _engine.Execute("o.Type").GetCompletionValue();
+            
+            // JToken requires conversion
+            Assert.Equal("Cat", TypeConverter.ToString(typeResult));
+
+            // weak equality does conversions from native types
+            Assert.True(_engine.Execute("o.Type == 'Cat'").GetCompletionValue().AsBoolean());
+        }        
+
+        [Fact]
+        public void IndexingBsonProperties()
+        {
+            const string jsonAnimals = @" { ""Animals"": [ { ""Id"": 1, ""Type"": ""Cat"" } ] }";
+            var bsonAnimals = BsonDocument.Parse(jsonAnimals);
+            
+            _engine.SetValue("animals", bsonAnimals["Animals"]);
+
+            // weak equality does conversions from native types
+            Assert.True(_engine.Execute("animals[0].Type == 'Cat'").GetCompletionValue().AsBoolean());
+            Assert.True(_engine.Execute("animals[0].Id == 1").GetCompletionValue().AsBoolean());
+        }
+
+        [Fact]
+        public void CanAccessDynamicObject()
+        {
+            var test = new DynamicClass();
+            var engine = new Engine();
+
+            engine.SetValue("test", test);
+
+            Assert.Equal("a", engine.Execute("test.a").GetCompletionValue().AsString());
+            Assert.Equal("b", engine.Execute("test.b").GetCompletionValue().AsString());
+
+            engine.Execute("test.a = 5; test.b = 10;");
+
+            Assert.Equal(5, engine.Execute("test.a").GetCompletionValue().AsNumber());
+            Assert.Equal(10, engine.Execute("test.b").GetCompletionValue().AsNumber());
+        }
+        
+        private class DynamicClass : DynamicObject
+        {
+            private readonly Dictionary<string, object> _properties = new Dictionary<string, object>();
+            
+            public override bool TryGetMember(GetMemberBinder binder, out object result)
+            {
+                result = binder.Name;
+                if (_properties.TryGetValue(binder.Name, out var value))
+                {
+                    result = value;
+                }
+                return true;
+            }
+        
+            public override bool TrySetMember(SetMemberBinder binder, object value)
+            {
+                _properties[binder.Name] = value;
+                return true;
+            }
         }
     }
 }

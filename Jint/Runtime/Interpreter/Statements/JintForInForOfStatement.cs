@@ -255,11 +255,13 @@ namespace Jint.Runtime.Interpreter.Statements
 
                     if (result.Type == CompletionType.Break && (result.Identifier == null || result.Identifier == _statement?.LabelSet?.Name))
                     {
+                        completionType = CompletionType.Normal;
                         return new Completion(CompletionType.Normal, v, null, Location);
                     }
 
                     if (result.Type != CompletionType.Continue || (result.Identifier != null && result.Identifier != _statement?.LabelSet?.Name))
                     {
+                        completionType = result.Type;
                         if (result.Type != CompletionType.Normal)
                         {
                             return result;
@@ -276,7 +278,18 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 if (close)
                 {
-                    iteratorRecord.Close(completionType);
+                    try
+                    {
+                        iteratorRecord.Close(completionType);
+                    }
+                    catch
+                    {
+                        // if we already have and exception, use it
+                        if (completionType != CompletionType.Throw)
+                        {
+                            throw;
+                        }
+                    }
                 }
                 _engine.UpdateLexicalEnvironment(oldEnv);
             }

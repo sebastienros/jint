@@ -95,6 +95,10 @@
     "reason": "Promise not implemented"
   },
   {
+    "source": "language/statements/class/definition/class-method-returns-promise.js",
+    "reason": "Promise not implemented"
+  },
+  {
     "source": "built-ins/Symbol/species/subclassing.js",
     "reason": "subclassing not implemented"
   },
@@ -319,249 +323,6 @@
     "reason": "inner binding rejects modification (from parameters) Expected a Error to be thrown but no exception was thrown at all"
   },
 
-  // class support
-  {
-    "source": "built-ins/Function/prototype/toString/class-declaration-complex-heritage.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/class-declaration-explicit-ctor.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/class-declaration-implicit-ctor.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/class-expression-explicit-ctor.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/class-expression-implicit-ctor.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/getter-class-expression-static.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/getter-class-expression.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/getter-class-statement-static.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/getter-class-statement.js",
-    "reason": "class not implemented"
-  }, 
-  {
-    "source": "built-ins/Function/prototype/toString/method-class-expression-static.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/method-class-expression.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/method-class-statement-static.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/method-class-statement.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/setter-class-expression-static.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/setter-class-expression.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/setter-class-statement-static.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Function/prototype/toString/setter-class-statement.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/global-code/script-decl-lex.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/global-code/script-decl-lex-deletion.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/global-code/script-decl-var-collision.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/global-code/script-decl-lex-lex.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/global-code/decl-lex.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/let/dstr-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/global-code/decl-lex-deletion.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/let/dstr-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/const/dstr-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/const/dstr-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/arrow-function/dstr-dflt-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "built-ins/Array/prototype/concat/Array.prototype.concat_non-array.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/rest-parameters/with-new-target.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/arrow-function/dstr-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/for/dstr-const-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/for/dstr-let-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/for/dstr-let-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/for/dstr-const-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/for/dstr-var-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/for/dstr-var-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/arrow-function/dstr-dflt-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/arrow-function/dstr-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/arrow-function/lexical-super-property-from-within-constructor.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/arrow-function/lexical-supercall-from-immediately-invoked-arrow.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/arrow-function/lexical-super-property.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/arrow-function/lexical-super-call-from-within-constructor.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/function/dstr-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/function/dstr-dflt-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/function/dstr-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/function/dstr-dflt-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/object/dstr-meth-dflt-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/object/dstr-meth-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/object/dstr-meth-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/object/dstr-meth-dflt-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/object/method-definition/name-invoke-ctor",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/object/method-definition/name-invoke-ctor.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/expressions/object/method-definition/name-prototype-prop.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/for-of/dstr-const-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/for-of/dstr-const-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/for-of/dstr-let-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/for-of/dstr-let-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/for-of/dstr-var-ary-ptrn-elem-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-  {
-    "source": "language/statements/for-of/dstr-var-obj-ptrn-id-init-fn-name-class.js",
-    "reason": "class not implemented"
-  },
-
-
   {
     "source": "language/expressions/object/accessor-name-computed-yield-id.js",
     "reason": "accessor / yield not implemented"
@@ -623,7 +384,6 @@
 
 
   {
-    "source": "language/expressions/object/fn-name-arrow.js",
     "source": "language/expressions/arrow-function/scope-paramsbody-var-open.js",
     "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
   },
@@ -642,6 +402,14 @@
 
   {
     "source": "built-ins/Object/prototype/toString/proxy-function.js",
+    "reason": "generators not implemented"
+  },
+  {
+    "source": "language/statements/class/subclass/builtin-objects/GeneratorFunction/instance-prototype.js",
+    "reason": "generators not implemented"
+  },
+  {
+    "source": "language/statements/class/subclass/builtin-objects/GeneratorFunction/regular-subclassing.js",
     "reason": "generators not implemented"
   },
 

@@ -31,7 +31,7 @@ namespace Jint.Tests.Runtime.Domain
             return Undefined;
         }
 
-        protected override ObjectInstance GetPrototypeOf() => _prototype;
+        protected internal override ObjectInstance GetPrototypeOf() => _prototype;
 
         internal ObjectInstance _prototype;
 

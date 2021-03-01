@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Reflection;
 using System.Runtime.CompilerServices;
+using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Number;
@@ -11,6 +11,7 @@ using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Native.Symbol;
 using Jint.Pooling;
+using Jint.Runtime.Interop;
 
 namespace Jint.Runtime
 {
@@ -111,37 +112,45 @@ namespace Jint.Runtime
             return OrdinaryToPrimitive(oi, preferredType == Types.None ? Types.Number :  preferredType);
         }
 
-        private static readonly JsString[] StringHintCallOrder = { (JsString) "toString", (JsString) "valueOf"};
-        private static readonly JsString[] NumberHintCallOrder = { (JsString) "valueOf", (JsString) "toString"};
-        
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ordinarytoprimitive
         /// </summary>
         internal static JsValue OrdinaryToPrimitive(ObjectInstance input, Types hint = Types.None)
         {
-            var callOrder = Array.Empty<JsString>();
+            JsString property1;
+            JsString property2;
+            
             if (hint == Types.String)
             {
-                callOrder = StringHintCallOrder;
+                property1 = (JsString) "toString";
+                property2 = (JsString) "valueOf";
+            }
+            else if (hint == Types.Number)
+            {
+                property1 = (JsString) "valueOf";
+                property2 = (JsString) "toString";
+            }
+            else
+            {
+                return ExceptionHelper.ThrowTypeError<JsValue>(input.Engine);
             }
 
-            if (hint == Types.Number)
+            if (input.Get(property1) is ICallable method1)
             {
-                callOrder = NumberHintCallOrder;
-            }
-
-            foreach (var property in callOrder)
-            {
-                var method = input.Get(property) as ICallable;
-                if (method is object)
+                var val = method1.Call(input, Arguments.Empty);
+                if (val.IsPrimitive())
                 {
-                    var val = method.Call(input, Arguments.Empty);
-                    if (val.IsPrimitive())
-                    {
-                        return val;
-                    }
+                    return val;
                 }
- 
+            }
+
+            if (input.Get(property2) is ICallable method2)
+            {
+                var val = method2.Call(input, Arguments.Empty);
+                if (val.IsPrimitive())
+                {
+                    return val;
+                }
             }
 
             return ExceptionHelper.ThrowTypeError<JsValue>(input.Engine);
@@ -304,6 +313,31 @@ namespace Jint.Runtime
         }
 
         /// <summary>
+        /// https://tc39.es/ecma262/#sec-tointegerorinfinity
+        /// </summary>
+        public static double ToIntegerOrInfinity(JsValue argument)
+        {
+            var number = ToNumber(argument);
+            if (double.IsNaN(number) || number == 0)
+            {
+                return 0;
+            }
+
+            if (double.IsInfinity(number))
+            {
+                return number;
+            }
+
+            var integer = (long) Math.Floor(Math.Abs(number));
+            if (number < 0)
+            {
+                integer *= -1;
+            }
+
+            return integer;
+        }
+        
+        /// <summary>
         /// https://tc39.es/ecma262/#sec-tointeger
         /// </summary>
         public static double ToInteger(JsValue o)
@@ -411,7 +445,7 @@ namespace Jint.Runtime
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static string  ToString(double d)
+        internal static string ToString(double d)
         {
             if (d > long.MinValue && d < long.MaxValue  && Math.Abs(d % 1) <= DoubleIsIntegerTolerance)
             {
@@ -419,11 +453,9 @@ namespace Jint.Runtime
                 return ToString((long) d);
             }
 
-            using (var stringBuilder = StringBuilderPool.Rent())
-            {
-                // we can create smaller array as we know the format to be short
-                return NumberPrototype.NumberToString(d, new DtoaBuilder(17), stringBuilder.Builder);
-            }
+            using var stringBuilder = StringBuilderPool.Rent();
+            // we can create smaller array as we know the format to be short
+            return NumberPrototype.NumberToString(d, new DtoaBuilder(17), stringBuilder.Builder);
         }
 
         /// <summary>
@@ -479,7 +511,7 @@ namespace Jint.Runtime
                 InternalTypes.Undefined => Undefined.Text,
                 InternalTypes.Null => Null.Text,
                 InternalTypes.Object when o is IPrimitiveInstance p => ToString(ToPrimitive(p.PrimitiveValue, Types.String)),
-                InternalTypes.Object when o is Interop.IObjectWrapper p => p.Target?.ToString(),
+                InternalTypes.Object when o is IObjectWrapper p => p.Target?.ToString(),
                 _ => ToString(ToPrimitive(o, Types.String))
             };
         }
@@ -487,13 +519,22 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ObjectInstance ToObject(Engine engine, JsValue value)
         {
+            if (value is ObjectInstance oi)
+            {
+                return oi;
+            }
+
+            return ToObjectNonObject(engine, value);
+        }
+
+        private static ObjectInstance ToObjectNonObject(Engine engine, JsValue value)
+        {
             var type = value._type & ~InternalTypes.InternalFlags;
             return type switch
             {
-                InternalTypes.Object => (ObjectInstance) value,
-                InternalTypes.Boolean => engine.Boolean.Construct(((JsBoolean) value)._value),
-                InternalTypes.Number => engine.Number.Construct(((JsNumber) value)._value),
-                InternalTypes.Integer => engine.Number.Construct(((JsNumber) value)._value),
+                InternalTypes.Boolean => engine.Boolean.Construct((JsBoolean) value),
+                InternalTypes.Number => engine.Number.Construct((JsNumber) value),
+                InternalTypes.Integer => engine.Number.Construct((JsNumber) value),
                 InternalTypes.String => engine.String.Construct(value.ToString()),
                 InternalTypes.Symbol => engine.Symbol.Construct((JsSymbol) value),
                 InternalTypes.Null => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Cannot convert undefined or null to object"),
@@ -501,28 +542,30 @@ namespace Jint.Runtime
                 _ => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Cannot convert given item to object")
             };
         }
-        
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
         internal static void CheckObjectCoercible(
             Engine engine,
             JsValue o,
-            MemberExpression expression,
+            Node sourceNode,
             string referenceName)
         {
-            if (o._type < InternalTypes.Boolean && !engine.Options.ReferenceResolver.CheckCoercible(o))
+            if (!engine.Options.ReferenceResolver.CheckCoercible(o))
             {
-                ThrowTypeError(engine, o, expression, referenceName);
+                ThrowMemberNullOrUndefinedError(engine, o, sourceNode.Location, referenceName);
             }
         }
 
-        private static void ThrowTypeError(
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ThrowMemberNullOrUndefinedError(
             Engine engine,
             JsValue o,
-            MemberExpression expression,
+            in Location location,
             string referencedName)
         {
             referencedName ??= "unknown";
             var message = $"Cannot read property '{referencedName}' of {o}";
-            throw new JavaScriptException(engine.TypeError, message).SetCallstack(engine, expression.Location);
+            throw new JavaScriptException(engine.TypeError, message).SetCallstack(engine, location);
         }
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)
@@ -533,58 +576,27 @@ namespace Jint.Runtime
             }
         }
 
-        public static IEnumerable<Tuple<MethodBase, JsValue[]>> FindBestMatch<T>(Engine engine, T[] methods, Func<T, bool, JsValue[]> argumentProvider) where T : MethodBase
+        internal static IEnumerable<Tuple<MethodDescriptor, JsValue[]>> FindBestMatch(
+            Engine engine,
+            MethodDescriptor[] methods,
+            Func<MethodDescriptor, JsValue[]> argumentProvider)
         {
-            List<Tuple<T, JsValue[]>> matchingByParameterCount = null;
+            List<Tuple<MethodDescriptor, JsValue[]>> matchingByParameterCount = null;
             foreach (var m in methods)
             {
-                bool hasParams = false;
-                var parameterInfos = m.GetParameters();
-                foreach (var parameter in parameterInfos)
-                {
-                    if (Attribute.IsDefined(parameter, typeof(ParamArrayAttribute)))
-                    {
-                        hasParams = true;
-                        break;
-                    }
-                }
-
-                var arguments = argumentProvider(m, hasParams);
-                if (parameterInfos.Length == arguments.Length)
+                var parameterInfos = m.Parameters;
+                var arguments = argumentProvider(m);
+                if (arguments.Length <= parameterInfos.Length 
+                    && arguments.Length >= parameterInfos.Length - m.ParameterDefaultValuesCount)
                 {
                     if (methods.Length == 0 && arguments.Length == 0)
                     {
-                        yield return new Tuple<MethodBase, JsValue[]>(m, arguments);
+                        yield return new Tuple<MethodDescriptor, JsValue[]>(m, arguments);
                         yield break;
                     }
 
-                    matchingByParameterCount ??= new List<Tuple<T, JsValue[]>>();
-                    matchingByParameterCount.Add(new Tuple<T, JsValue[]>(m, arguments));
-                }
-                else if (parameterInfos.Length > arguments.Length)
-                {
-                    // check if we got enough default values to provide all parameters (or more in case some default values are provided/overwritten)
-                    var defaultValuesCount = 0;
-                    foreach (var param in parameterInfos)
-                    {
-                        if (param.HasDefaultValue) defaultValuesCount++;
-                    }
-
-                    if (parameterInfos.Length <= arguments.Length + defaultValuesCount)
-                    {
-                        // create missing arguments from default values
-
-                        var argsWithDefaults = new List<JsValue>(arguments);
-                        for (var i = arguments.Length; i < parameterInfos.Length; i++)
-                        {
-                            var param = parameterInfos[i];
-                            var value = JsValue.FromObject(engine, param.DefaultValue);
-                            argsWithDefaults.Add(value);
-                        }
-
-                        matchingByParameterCount = matchingByParameterCount ?? new List<Tuple<T, JsValue[]>>();
-                        matchingByParameterCount.Add(new Tuple<T, JsValue[]>(m, argsWithDefaults.ToArray()));
-                    }
+                    matchingByParameterCount ??= new List<Tuple<MethodDescriptor, JsValue[]>>();
+                    matchingByParameterCount.Add(new Tuple<MethodDescriptor, JsValue[]>(m, arguments));
                 }
             }
 
@@ -596,7 +608,7 @@ namespace Jint.Runtime
             foreach (var tuple in matchingByParameterCount)
             {
                 var perfectMatch = true;
-                var parameters = tuple.Item1.GetParameters();
+                var parameters = tuple.Item1.Parameters;
                 var arguments = tuple.Item2;
                 for (var i = 0; i < arguments.Length; i++)
                 {
@@ -619,7 +631,7 @@ namespace Jint.Runtime
 
                 if (perfectMatch)
                 {
-                    yield return new Tuple<MethodBase, JsValue[]>(tuple.Item1, arguments);
+                    yield return new Tuple<MethodDescriptor, JsValue[]>(tuple.Item1, arguments);
                     yield break;
                 }
             }
@@ -627,11 +639,11 @@ namespace Jint.Runtime
             for (var i = 0; i < matchingByParameterCount.Count; i++)
             {
                 var tuple = matchingByParameterCount[i];
-                yield return new Tuple<MethodBase, JsValue[]>(tuple.Item1, tuple.Item2);
+                yield return new Tuple<MethodDescriptor, JsValue[]>(tuple.Item1, tuple.Item2);
             }
         }
 
-        public static bool TypeIsNullable(Type type)
+        internal static bool TypeIsNullable(Type type)
         {
             return !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
         }

@@ -21,17 +21,37 @@ namespace Jint.Native.Function
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return Call(thisObject, arguments, false);
+            return PerformEval(arguments, false);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-performeval
         /// </summary>
-        public JsValue Call(JsValue thisObject, JsValue[] arguments, bool direct)
+        public JsValue PerformEval(JsValue[] arguments, bool direct)
         {
             if (!(arguments.At(0) is JsString x))
             {
                 return arguments.At(0);
+            }
+
+            var inFunction = false;
+            var inMethod = false;
+            var inDerivedConstructor = false;
+
+            if (direct)
+            {
+                var thisEnvRec = _engine.GetThisEnvironment();
+                if (thisEnvRec is FunctionEnvironmentRecord functionEnvironmentRecord)
+                {
+                    var F = functionEnvironmentRecord._functionObject;
+                    inFunction = true;
+                    inMethod = thisEnvRec.HasSuperBinding();
+                    
+                    if (F._constructorKind == ConstructorKind.Derived)
+                    {
+                        inDerivedConstructor = true;
+                    }
+                }
             }
 
             var parser = new JavaScriptParser(x.ToString(), ParserOptions);
@@ -52,6 +72,19 @@ namespace Jint.Native.Function
             {
                 return Undefined;
             }
+
+            if (!inFunction)
+            {
+                // if body Contains NewTarget, throw a SyntaxError exception.
+            } 
+            if (!inMethod)
+            {
+                // if body Contains SuperProperty, throw a SyntaxError exception.
+            } 
+            if (!inDerivedConstructor)
+            {
+                // if body Contains SuperCall, throw a SyntaxError exception.
+            } 
 
             var strictEval = script.Strict || _engine._isStrict;
             var ctx = _engine.ExecutionContext;

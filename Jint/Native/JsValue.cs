@@ -128,6 +128,8 @@ namespace Jint.Native
             return _type == InternalTypes.Null;
         }
 
+        internal virtual bool IsIntegerIndexedArray => false;
+
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsSymbol()
@@ -269,7 +271,7 @@ namespace Jint.Native
                 : (Types) (_type & ~InternalTypes.InternalFlags);
         }
 
-        internal virtual bool IsConstructor => this is IConstructor;
+        internal virtual bool IsConstructor => false;
 
         /// <summary>
         /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance
@@ -395,7 +397,7 @@ namespace Jint.Native
         /// <returns>The value returned by the function call.</returns>
         internal JsValue Invoke(JsValue thisObj, JsValue[] arguments)
         {
-            var callable = this as ICallable ?? ExceptionHelper.ThrowArgumentException<ICallable>("Can only invoke functions");
+            var callable = this as ICallable ?? ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
             return callable.Call(thisObj, arguments);
         }
         

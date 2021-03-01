@@ -945,6 +945,37 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldLimitRecursionWithAllFunctionInstances()
+        {
+            var engine = new Engine(cfg =>
+            {
+                // Limit recursion to 5 invocations
+                cfg.LimitRecursion(5);
+                cfg.Strict();
+            });
+
+            var ex = Assert.Throws<RecursionDepthOverflowException>(() => engine.Execute(@"
+var myarr = new Array(5000);
+for (var i = 0; i < myarr.length; i++) {
+    myarr[i] = function(i) {
+        myarr[i + 1](i + 1);
+    }
+}
+
+myarr[0](0);
+"));
+        }
+
+        [Fact]
+        public void ShouldLimitRecursionWithGetters()
+        {
+            const string code = @"var obj = { get test() { return this.test + '2';  } }; obj.test;";
+            var engine = new Engine(cfg => cfg.LimitRecursion(10));
+            
+            Assert.Throws<RecursionDepthOverflowException>(() => engine.Execute(code).GetCompletionValue());
+        }
+
+        [Fact]
         public void ShouldConvertDoubleToStringWithoutLosingPrecision()
         {
             RunTest(@"
@@ -1032,7 +1063,7 @@ namespace Jint.Tests.Runtime
 
             var x = _engine.GetValue("x");
 
-            Assert.Throws<ArgumentException>(() => x.Invoke(1, 2));
+            Assert.Throws<TypeErrorException>(() => x.Invoke(1, 2));
         }
 
         [Fact]
@@ -1058,7 +1089,7 @@ namespace Jint.Tests.Runtime
             var obj = _engine.GetValue("obj").AsObject();
             var foo = obj.Get("foo", obj);
 
-            Assert.Throws<ArgumentException>(() => _engine.Invoke(foo, obj, new object[] { }));
+            Assert.Throws<JavaScriptException>(() => _engine.Invoke(foo, obj, new object[] { }));
         }
 
         [Fact]
@@ -1191,6 +1222,13 @@ namespace Jint.Tests.Runtime
                 });
             ");
         }
+
+        [Fact]
+        public void JsonParserShouldHandleEmptyString()
+        {
+            var ex = Assert.Throws<ParserException>(() => _engine.Execute("JSON.parse('');"));
+            Assert.Equal("Line 1: Unexpected end of input", ex.Message);
+       }
 
         [Fact]
         [ReplaceCulture("fr-FR")]
@@ -1727,9 +1765,10 @@ var prep = function (fn) { fn(); };
             Assert.NotNull(debugInfo.Locals);
 
             Assert.Single(debugInfo.CallStack);
-            Assert.Equal("func1()", debugInfo.CallStack.Peek());
+            Assert.Equal("func1", debugInfo.CallStack.Peek());
             Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal) && kvp.Value.AsBoolean() == true);
-            Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
+            // Globals no longer contain local variables
+            //Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
             Assert.Contains(debugInfo.Locals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
             Assert.DoesNotContain(debugInfo.Locals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal));
 
@@ -2026,15 +2065,17 @@ var prep = function (fn) { fn(); };
             var PDT = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
             var FR = new CultureInfo("fr-FR");
 
-            new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
+            var engine = new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
-                .Execute(@"
-                    var d = new Number(-1.23);
-                    equal('-1.23', d.toString());
-                    equal('-1,23', d.toLocaleString());
-            ");
+                .SetValue("equal", new Action<object, object>(Assert.Equal));
+
+            engine.Execute("var d = new Number(-1.23);");
+            engine.Execute("equal('-1.23', d.toString());");
+            
+            // NET 5 globalization APIs use ICU libraries on newer Windows 10 giving different result
+            // build server is older Windows...
+            engine.Execute("assert('-1,230' === d.toLocaleString() || '-1,23' === d.toLocaleString());");
         }
 
         [Fact]
@@ -2852,10 +2893,9 @@ x.test = {
         [Fact]
         public void ShouldOverrideDefaultTypeConverter()
         {
-            var engine = new Engine
-            {
-                ClrTypeConverter = new TestTypeConverter()
-            };
+            var engine = new Engine(options => options
+                .SetTypeConverter(e => new TestTypeConverter())
+            );
             Assert.IsType<TestTypeConverter>(engine.ClrTypeConverter);
             engine.SetValue("x", new Testificate());
             Assert.Throws<JavaScriptException>(() => engine.Execute("c.Name"));
@@ -2899,6 +2939,19 @@ x.test = {
 
             Assert.Equal(1, Convert.ToInt32(engine1.GetValue("x").ToObject()));
             Assert.Equal(1, Convert.ToInt32(engine2.GetValue("x").ToObject()));
+        }
+
+        [Fact]
+        public void RecursiveCallStack()
+        {
+            var engine = new Engine();
+            Func<string, object> evaluateCode = code => engine.Execute(code).GetCompletionValue();
+            var evaluateCodeValue = JsValue.FromObject(engine, evaluateCode);
+
+            engine.SetValue("evaluateCode", evaluateCodeValue);
+            var result = (int) engine.Execute(@"evaluateCode('678 + 711')").GetCompletionValue().AsNumber();
+
+            Assert.Equal(1389, result);
         }
 
         private class Wrapper

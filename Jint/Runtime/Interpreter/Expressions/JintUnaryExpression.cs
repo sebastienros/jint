@@ -79,6 +79,11 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (r.IsPropertyReference())
                     {
+                        if (r.IsSuperReference())
+                        {
+                            ExceptionHelper.ThrowReferenceError(_engine, r);
+                        }
+                        
                         var o = TypeConverter.ToObject(_engine, r.GetBase());
                         var deleteStatus  = o.Delete(r.GetReferencedName());
                         if (!deleteStatus && r.IsStrictReference())

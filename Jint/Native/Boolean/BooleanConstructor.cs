@@ -13,6 +13,8 @@ namespace Jint.Native.Boolean
             : base(engine, _functionName)
         {
         }
+        
+        public BooleanPrototype PrototypeObject { get; private set; }
 
         public static BooleanConstructor CreateBooleanConstructor(Engine engine)
         {
@@ -41,20 +43,23 @@ namespace Jint.Native.Boolean
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.7.2.1
+        /// https://tc39.es/ecma262/#sec-boolean-constructor-boolean-value
         /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            return Construct(TypeConverter.ToBoolean(arguments.At(0)));
+            var b = TypeConverter.ToBoolean(arguments.At(0)) 
+                ? JsBoolean.True
+                : JsBoolean.False;
+
+            if (newTarget.IsUndefined())
+            {
+                return Construct(b);
+            }
+
+            var o = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, state) => new BooleanInstance(engine, (JsBoolean) state), b);
+            return Construct(b);
         }
 
-        public BooleanPrototype PrototypeObject { get; private set; }
-
-        public BooleanInstance Construct(bool value)
-        {
-            return Construct(value ? JsBoolean.True : JsBoolean.False);
-        }
-        
         public BooleanInstance Construct(JsBoolean value)
         {
             var instance = new BooleanInstance(Engine)

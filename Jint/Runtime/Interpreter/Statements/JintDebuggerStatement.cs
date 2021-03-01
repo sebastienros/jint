@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Jint.Runtime.Debugger;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
@@ -10,14 +11,21 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
-            if (_engine.Options._IsDebuggerStatementAllowed)
+            switch (_engine.Options._DebuggerStatementHandling)
             {
-                if (!System.Diagnostics.Debugger.IsAttached)
-                {
-                    System.Diagnostics.Debugger.Launch();
-                }
+                case DebuggerStatementHandling.Clr:
+                    if (!System.Diagnostics.Debugger.IsAttached)
+                    {
+                        System.Diagnostics.Debugger.Launch();
+                    }
 
-                System.Diagnostics.Debugger.Break();
+                    System.Diagnostics.Debugger.Break();
+                    break;
+                case DebuggerStatementHandling.Script:
+                    _engine.DebugHandler?.Break(_statement);
+                    break;
+                case DebuggerStatementHandling.Ignore:
+                    break;
             }
 
             return new Completion(CompletionType.Normal, null, null, Location);

@@ -827,6 +827,8 @@ namespace Jint.Native.Array
 
         public override uint Length => GetLength();
 
+        internal override bool IsIntegerIndexedArray => true;
+
         public JsValue this[uint index]
         {
             get

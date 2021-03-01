@@ -45,23 +45,26 @@ namespace Jint.Native.Error
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var instance = new ErrorInstance(Engine, _name);
-            instance._prototype = PrototypeObject;
+            var o = OrdinaryCreateFromConstructor(
+                newTarget,
+                PrototypeObject, 
+                static (e, state) => new ErrorInstance(e, (JsString) state),
+                _name);
 
             var jsValue = arguments.At(0);
             if (!jsValue.IsUndefined())
             {
                 var msg = TypeConverter.ToString(jsValue);
                 var msgDesc = new PropertyDescriptor(msg, true, false, true);
-                instance.DefinePropertyOrThrow("message", msgDesc);
+                o.DefinePropertyOrThrow("message", msgDesc);
             }
 
-            return instance;
+            return o;
         }
 
         public ErrorPrototype PrototypeObject { get; private set; }
 
-        protected override ObjectInstance GetPrototypeOf()
+        protected internal override ObjectInstance GetPrototypeOf()
         {
             return _name._value != "Error" ? _engine.Error : _prototype;
         }

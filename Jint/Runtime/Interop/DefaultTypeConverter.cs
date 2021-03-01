@@ -224,7 +224,7 @@ namespace Jint.Runtime.Interop
                 // value types
                 if (type.IsValueType && constructors.Length > 0)
                 {
-                    return null;
+                    ExceptionHelper.ThrowArgumentException("No valid constructors found");
                 }
 
                 // reference types - return null if no valid constructor is found
@@ -242,8 +242,7 @@ namespace Jint.Runtime.Interop
 
                     if (!found)
                     {
-                        // found no valid constructor
-                        return null;
+                        ExceptionHelper.ThrowArgumentException("No valid constructors found");
                     }
                 }
 

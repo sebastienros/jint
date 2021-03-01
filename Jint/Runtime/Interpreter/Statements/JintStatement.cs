@@ -83,6 +83,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 Nodes.WithStatement => new JintWithStatement(engine, (WithStatement) statement),
                 Nodes.DebuggerStatement => new JintDebuggerStatement(engine, (DebuggerStatement) statement),
                 Nodes.Program => new JintScript(engine, statement as Script ?? ExceptionHelper.ThrowArgumentException<Script>("modules not supported")),
+                Nodes.ClassDeclaration => new JintClassDeclarationStatement(engine, (ClassDeclaration) statement),
                 _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JintStatement>(nameof(statement.Type), $"unsupported statement type '{statement.Type}'")
             };
         }

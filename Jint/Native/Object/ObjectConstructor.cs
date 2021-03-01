@@ -41,7 +41,7 @@ namespace Jint.Native.Object
                 ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Entries, 1, lengthFlags), propertyFlags),
                 ["fromEntries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "fromEntries", FromEntries, 1, lengthFlags), propertyFlags),
                 ["getPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getPrototypeOf", GetPrototypeOf, 1), propertyFlags),
-                ["getOwnPropertyDescriptor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyDescriptor", GetOwnPropertyDescriptor, 2), propertyFlags),
+                ["getOwnPropertyDescriptor"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyDescriptor", GetOwnPropertyDescriptor, 2, lengthFlags), propertyFlags),
                 ["getOwnPropertyDescriptors"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyDescriptors", GetOwnPropertyDescriptors, 1, lengthFlags), propertyFlags),
                 ["getOwnPropertyNames"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertyNames", GetOwnPropertyNames, 1), propertyFlags),
                 ["getOwnPropertySymbols"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "getOwnPropertySymbols", GetOwnPropertySymbols, 1, lengthFlags), propertyFlags),
@@ -153,6 +153,11 @@ namespace Jint.Native.Object
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
+            if (!ReferenceEquals(this, newTarget) && !newTarget.IsUndefined())
+            {
+                return OrdinaryCreateFromConstructor(newTarget, _engine.Object.PrototypeObject, (engine, state) => new ObjectInstance(engine));
+            }
+            
             if (arguments.Length > 0)
             {
                 var value = arguments[0];

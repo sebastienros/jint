@@ -104,6 +104,8 @@ namespace Jint.Runtime.Environments
 
         public abstract JsValue GetThisBinding();
 
+        public JsValue NewTarget { get; protected set; }
+
         /// <summary>
         /// Helper to cache JsString/Key when environments use different lookups.
         /// </summary>
