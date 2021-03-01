@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Dynamic;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Boolean;
@@ -19,7 +20,7 @@ using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.Object
 {
-    public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
+    public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         private bool _initialized;
         private readonly ObjectClass _class;

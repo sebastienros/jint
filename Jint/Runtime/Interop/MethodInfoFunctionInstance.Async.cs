@@ -1,50 +1,66 @@
-﻿using Jint.Native;
-using Jint.Native.Function;
+﻿using System;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
+using Jint.Native;
+using Jint.Native.Function;
 using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interop
 {
-    public sealed partial class MethodInfoFunctionInstance : FunctionInstance
+    internal sealed partial class MethodInfoFunctionInstance : FunctionInstance
     {
-        public override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments)
+        public async override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] jsArguments)
         {
-            return InvokeAsync(_methods, thisObject, arguments);
-        }
-
-        public async Task<JsValue> InvokeAsync(MethodInfo[] methodInfos, JsValue thisObject, JsValue[] jsArguments)
-        {
-            JsValue[] ArgumentProvider(MethodInfo method, bool hasParams) =>
-                hasParams
+            JsValue[] ArgumentProvider(MethodDescriptor method)
+            {
+                if (method.IsExtensionMethod)
+                {
+                    var jsArgumentsTemp = new JsValue[1 + jsArguments.Length];
+                    jsArgumentsTemp[0] = thisObject;
+                    Array.Copy(jsArguments, 0, jsArgumentsTemp, 1, jsArguments.Length);
+                    jsArguments = jsArgumentsTemp;
+                }
+                return method.HasParams
                     ? ProcessParamsArrays(jsArguments, method)
                     : jsArguments;
+            }
 
             var converter = Engine.ClrTypeConverter;
 
-            foreach (var tuple in TypeConverter.FindBestMatch(_engine, methodInfos, ArgumentProvider))
+            object[] parameters = null;
+            foreach (var tuple in TypeConverter.FindBestMatch(_engine, _methods, ArgumentProvider))
             {
                 var method = tuple.Item1;
                 var arguments = tuple.Item2;
+                var methodParameters = method.Parameters;
 
-                var parameters = new object[arguments.Length];
-                var methodParameters = method.GetParameters();
+                if (parameters == null || parameters.Length != methodParameters.Length)
+                {
+                    parameters = new object[methodParameters.Length];
+                }
                 var argumentsMatch = true;
 
-                for (var i = 0; i < arguments.Length; i++)
+                for (var i = 0; i < parameters.Length; i++)
                 {
-                    var parameterType = methodParameters[i].ParameterType;
+                    var methodParameter = methodParameters[i];
+                    var parameterType = methodParameter.ParameterType;
+                    var argument = arguments.Length > i ? arguments[i] : null;
 
                     if (typeof(JsValue).IsAssignableFrom(parameterType))
                     {
-                        parameters[i] = arguments[i];
+                        parameters[i] = argument;
                     }
-                    else if (parameterType == typeof(JsValue[]) && arguments[i].IsArray())
+                    else if (argument is null)
+                    {
+                        // optional
+                        parameters[i] = System.Type.Missing;
+                    }
+                    else if (parameterType == typeof(JsValue[]) && argument.IsArray())
                     {
                         // Handle specific case of F(params JsValue[])
 
-                        var arrayInstance = arguments[i].AsArray();
+                        var arrayInstance = argument.AsArray();
                         var len = TypeConverter.ToInt32(arrayInstance.Get(CommonProperties.Length, this));
                         var result = new JsValue[len];
                         for (uint k = 0; k < len; k++)
@@ -55,7 +71,7 @@ namespace Jint.Runtime.Interop
                     }
                     else
                     {
-                        if (!converter.TryConvert(arguments[i].ToObject(), parameterType, CultureInfo.InvariantCulture, out parameters[i]))
+                        if (!converter.TryConvert(argument.ToObject(), parameterType, CultureInfo.InvariantCulture, out parameters[i]))
                         {
                             argumentsMatch = false;
                             break;
@@ -74,29 +90,26 @@ namespace Jint.Runtime.Interop
                 }
 
                 // todo: cache method info
+
+                // Store and leave the current execution context while performing an async operation
+                var saveLexEnv = _engine.ExecutionContext.LexicalEnvironment;
+                var saveVarEnv = _engine.ExecutionContext.VariableEnvironment;
+                _engine.LeaveExecutionContext();
                 try
                 {
-                    // Store and leave the current execution context while performing an async operation
-                    var saveLexEnv = _engine.ExecutionContext.LexicalEnvironment;
-                    var saveVarEnv = _engine.ExecutionContext.VariableEnvironment;
-                    _engine.LeaveExecutionContext();
-                    try
-                    {
-                        var result = await method.Invoke(thisObject.ToObject(), parameters).AwaitWhenAsyncResult();
-                        return FromObject(Engine, result);
-                    }
-                    finally
-                    {
-                        // Return to the original context when continuing
-                        _engine.EnterExecutionContext(saveLexEnv, saveVarEnv);
-                    }
+                    var result = await method.Method.Invoke(thisObject.ToObject(), parameters).AwaitWhenAsyncResult();
+                    return FromObject(Engine, result);
                 }
                 catch (TargetInvocationException exception)
                 {
                     ExceptionHelper.ThrowMeaningfulException(_engine, exception);
                 }
+                finally
+                {
+                    // Return to the original context when continuing
+                    _engine.EnterExecutionContext(saveLexEnv, saveVarEnv);
+                }
             }
-
             return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "No public methods with the specified arguments were found.");
         }
     }

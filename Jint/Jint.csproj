@@ -10,4 +10,10 @@
     <PackageReference Include="Esprima" Version="2.0.0-beta-1338" />
     <PackageReference Include="Nullable" Version="1.3.0" PrivateAssets="all" />
   </ItemGroup>
+
+  <ItemGroup>
+	<!-- For dynamic CS0656 -->
+  	<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+  	<PackageReference Include="System.ValueTuple" Version="4.5.0" />
+  </ItemGroup>
 </Project>

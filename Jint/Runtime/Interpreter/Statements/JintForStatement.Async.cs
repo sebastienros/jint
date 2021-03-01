@@ -71,7 +71,7 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 if (_test != null)
                 {
-                    if (!TypeConverter.ToBoolean(_test.GetValue()))
+                    if (!TypeConverter.ToBoolean(await _test.GetValueAsync()))
                     {
                         return new Completion(CompletionType.Normal, v, null, Location);
                     }

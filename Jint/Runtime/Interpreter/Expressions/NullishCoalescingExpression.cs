@@ -1,10 +1,10 @@
-using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
+using System.Runtime.CompilerServices;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class NullishCoalescingExpression : JintExpression
+    internal sealed partial class NullishCoalescingExpression : JintExpression
     {
         private readonly JintExpression _left;
         private readonly JintExpression _right;

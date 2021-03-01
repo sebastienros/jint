@@ -1,495 +1,203 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Jint.Native;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 
 namespace Jint.Tests.Runtime
 {
+    /// <summary>
+    /// Setup new async tests here, and call echoAsync to return a result that matches the input, asynchroneosly.
+    /// Debug by setting a breakpoint in EchoAsync and run the test.
+    /// When the breakpoint hits, check the call stack and see where the Async execution path was swithed over to the synchroneos code path.
+    /// </summary>
     public class AsyncTests
     {
-        public class TestMethods
+        private static async Task<object> EchoAsync(object input)
         {
-            public class TestClass
-            {
-                public string Name { get; set; }
-            }
+            await Task.Delay(1).ConfigureAwait(true);
+            return input;
+        }
 
-            public class TestStruct
-            {
-                public string Name { get; set; }
-            }
-
-            public static Dictionary<string, object> ExpectedMethodResults = new Dictionary<string, object>
-            {
-                { nameof(GetAsyncObject), nameof(GetAsyncObject) },
-                { nameof(GetAsyncVoid), null },
-                { nameof(GetSynchronousObject), nameof(GetSynchronousObject) },
-                { nameof(GetSynchronousVoid), null },
-                { nameof(GetAsyncDouble), 42d },
-                { nameof(GetAsyncTestClass), new TestClass { Name = "MyTestClass" } },
-                { nameof(GetAsyncTestStruct), new TestStruct { Name = "MyTestStruct" } },
-                { nameof(GetAsyncDate), DateTime.Parse("1111-11-11 11:11:11").ToUniversalTime() },
-                { nameof(GetAsyncEcho), "Echo..." }
-            };
-
-            private const int _delay = 5;
-
-            public string MethodInvoked { get; private set; }
-
-            public async Task<DateTime> GetAsyncDate()
-            {
-                await Task.Delay(_delay).ConfigureAwait(true);
-                MethodInvoked = nameof(GetAsyncDate);
-                return (DateTime)ExpectedMethodResults[MethodInvoked];
-            }
-
-            public async Task<double> GetAsyncDouble()
-            {
-                await Task.Delay(_delay).ConfigureAwait(true);
-                MethodInvoked = nameof(GetAsyncDouble);
-                return (double)ExpectedMethodResults[MethodInvoked];
-            }
-
-            public async Task<string> GetAsyncEcho(string echo = "Echo...")
-            {
-                await Task.Delay(_delay).ConfigureAwait(true);
-                MethodInvoked = nameof(GetAsyncEcho);
-                return (string)ExpectedMethodResults[MethodInvoked];
-            }
-
-            public async Task<object> GetAsyncObject()
-            {
-                await Task.Delay(_delay).ConfigureAwait(true);
-                MethodInvoked = nameof(GetAsyncObject);
-                return (object)ExpectedMethodResults[MethodInvoked];
-            }
-
-            public async Task<int> GetAsyncSameInt(int value)
-            {
-                await Task.Delay(_delay).ConfigureAwait(true);
-                return value;
-            }
-
-            public async Task<string> GetAsyncSameString(string value)
-            {
-                await Task.Delay(_delay).ConfigureAwait(true);
-                return value;
-            }
-
-            public async Task<TestClass> GetAsyncTestClass()
-            {
-                await Task.Delay(_delay).ConfigureAwait(true);
-                MethodInvoked = nameof(GetAsyncTestClass);
-                return (TestClass)ExpectedMethodResults[MethodInvoked];
-            }
-
-            public async Task<TestStruct> GetAsyncTestStruct()
-            {
-                await Task.Delay(_delay).ConfigureAwait(true);
-                MethodInvoked = nameof(GetAsyncTestStruct);
-                return (TestStruct)ExpectedMethodResults[MethodInvoked];
-            }
-
-            public async Task GetAsyncVoid()
-            {
-                await Task.Delay(_delay);
-                MethodInvoked = nameof(GetAsyncVoid);
-            }
-
-            public object GetSynchronousObject()
-            {
-                Task.Delay(_delay).Wait();
-                MethodInvoked = nameof(GetSynchronousObject);
-                return ExpectedMethodResults[MethodInvoked];
-            }
-
-            public void GetSynchronousVoid()
-            {
-                Task.Delay(_delay).Wait();
-                MethodInvoked = nameof(GetSynchronousVoid);
-            }
+        private static async Task<JsValue> RunTest(string expression)
+        {
+            var engine = new Engine();
+            engine.SetValue("echoAsync", new Func<object, Task<object>>(obj => EchoAsync(obj)));
+            return (await engine.ExecuteAsync(expression)).GetCompletionValue();
         }
 
         [Fact]
-        public async void ClrMethodAreAwaited()
+        public async void GetPropertyIsAwaited()
         {
-            var engine = new Engine();
+            var code = @"
+                var obj = {};
+                Object.defineProperty(obj, 'value', {
+                    get: function() { return echoAsync(42) },
+                });
+                return obj.value;
+            ";
 
-            var testMethods = new TestMethods();
-            engine.SetValue("testMethods", testMethods);
+            var result = await RunTest(code);
 
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $"testMethods.{methodName}();";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+            Assert.Equal(42, result);
         }
 
         [Fact]
-        public async void ClrMethodAsFunctionArgumentIsAwaited()
+        public async void SpreadParametersAreAwaited()
         {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            engine.SetValue("testMethods", testMethods);
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $@"
-                    function echo(arg) {{
-                        return arg;
-                    }}
-                    var result = echo(testMethods.{methodName}());
+            var code = @"
+                function addSpread(...values) {
+                    var result = 0;
+                    for (var i=0; i<values.length; i++) {
+                        result+=values[i];
+                    }
                     return result;
-                ";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
+                }
+                return addSpread(...[echoAsync(10), echoAsync(20), echoAsync(30)]);
+            ";
 
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+            var result = await RunTest(code);
+
+            Assert.Equal(10 + 20 + 30, result);
         }
 
         [Fact]
-        public async void ClrMethodAssignmentsAreAwaited()
+        public async void FunctionArrayParameterAreAwaited()
         {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            engine.SetValue("testMethods", testMethods);
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $"var result = testMethods.{methodName}(); return result;";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
-        }
-
-        [Fact]
-        public async void ClrMethodAssignToIdentifierIsAwaited()
-        {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            engine.SetValue("testMethods", testMethods);
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $@"
-                    var result = null;
-                    result = testMethods.{methodName}();
+            var code = @"
+                function addArray(values) {
+                    var result = 0;
+                    for (var i=0; i<values.length; i++) {
+                        result+=values[i];
+                    }
                     return result;
-                ";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
+                }
+                return addArray([echoAsync(10), echoAsync(20), echoAsync(30)]);
+            ";
 
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+            var result = await RunTest(code);
+
+            Assert.Equal(10 + 20 + 30, result);
         }
 
         [Fact]
-        public async void ClrMethodAssignToThisIsAwaited()
+        public async void FunctionParametersAreAwaited()
         {
-            var engine = new Engine();
+            var code = @"
+                function addValues(a, b, c) {
+                    return a + b + c;
+                }
+                return addValues(echoAsync(10), echoAsync(20), echoAsync(30));
+            ";
 
-            var testMethods = new TestMethods();
-            engine.SetValue("testMethods", testMethods);
+            var result = await RunTest(code);
 
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $@"
-                    this.result = testMethods.{methodName}();
-                    return this.result;
-                ";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+            Assert.Equal(10 + 20 + 30, result);
         }
 
         [Fact]
-        public async void ClrMethodHandlesImmediateExceptions()
+        public async void BinaryExpressionsAwaits()
         {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            engine.SetValue("badMethod", new Func<Task>(() => throw new Exception("MyException")));
-
-            var script = "badMethod();";
-
-            await Assert.ThrowsAsync<Exception>(async () =>
-            {
-                var result = (await engine.ExecuteAsync(script))
-                   .GetCompletionValue().ToObject();
-            });
+            Assert.True((await RunTest("42 == echoAsync(42)")).AsBoolean());
+            Assert.True((await RunTest("echoAsync(42) == 42")).AsBoolean());
+            Assert.True((await RunTest("echoAsync(42) == echoAsync(42)")).AsBoolean());
         }
 
         [Fact]
-        public async void ClrMethodHandlesLateExceptions()
+        public async void AssignmentExpressionsAwaits()
         {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            engine.SetValue("badMethod", new Func<Task>(async () =>
-            {
-                await Task.Delay(200);
-                throw new Exception("MyException");
-            }));
-
-            var script = "badMethod();";
-
-            await Assert.ThrowsAsync<Exception>(async () =>
-            {
-                var result = (await engine.ExecuteAsync(script))
-                   .GetCompletionValue().ToObject();
-            });
+            Assert.Equal(42, await RunTest("var x = echoAsync(42); return x;"));
+            Assert.Equal(52, await RunTest("var x = echoAsync(42) + 10; return x;"));
+            Assert.Equal(62, await RunTest("var x = 20 + echoAsync(42); return x;"));
         }
 
         [Fact]
-        public async void DelegatesAreAwaited()
+        public async void AssignmentThisExpressionsAwaits()
         {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            SetupClrDelegates(engine, testMethods);
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $"{methodName}()";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+            Assert.Equal(42, await RunTest("this.x = echoAsync(42); return this.x;"));
+            Assert.Equal(52, await RunTest("this.x = echoAsync(42) + 10; return this.x;"));
+            Assert.Equal(62, await RunTest("this.x = 20 + echoAsync(42); return this.x;"));
         }
 
         [Fact]
-        public async void DelegatesAreAwaitedInsideDoWhile()
+        public async void ObjectInitializerAwaits()
         {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            SetupClrDelegates(engine, testMethods);
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $"var result = null; do {{ result = {methodName}(); }} while (false); result;";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+            Assert.Equal(42, await RunTest("var x = { value: echoAsync(42) }; return x.value;"));
+            Assert.Equal(52, await RunTest("var x = { value: echoAsync(42) + 10 }; return x.value;"));
+            Assert.Equal(62, await RunTest("var x = { value: 20 + echoAsync(42) }; return x.value;"));
         }
 
         [Fact]
-        public async void DelegatesAreAwaitedInsideFor()
+        public async void IfConditionAwaits()
         {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            SetupClrDelegates(engine, testMethods);
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $"for (var i = 0; i < 1; i++) {{ var result = {methodName}() }}; result;";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+            Assert.Equal(42, await RunTest("if (echoAsync(42)==42) return 42;"));
+            Assert.Equal(42, await RunTest("if (42 == echoAsync(42)) return 42;"));
+            Assert.Equal(52, await RunTest("if (52 == echoAsync(42) + 10) return 52;"));
         }
 
         [Fact]
-        public async void DelegatesAreAwaitedInsideFunction()
+        public async void IfElseBodyStatementAwaits()
         {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            SetupClrDelegates(engine, testMethods);
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $"function foo() {{ return {methodName}(); }} foo();";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+            Assert.Equal(42, await RunTest("if (true) return echoAsync(42); else return null;"));
+            Assert.Equal(42, await RunTest("if (false) return null; else return echoAsync(42);"));
+            Assert.Equal(42, await RunTest("if (true) { return echoAsync(42); } else {return null; }"));
+            Assert.Equal(42, await RunTest("if (false) { return null } else { return echoAsync(42); }"));
         }
 
         [Fact]
-        public async void DelegatesAreAwaitedInsideIfStatement()
+        public async void ForStatementAwaits()
         {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            SetupClrDelegates(engine, testMethods);
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $"if (true) {{ {methodName}() }} else {{ {methodName}() }}";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+            Assert.Equal(10, await RunTest("for (var i=0; i<echoAsync(10); i++) ; return i;"));
+            Assert.Equal(20, await RunTest("for (var i=0; i<10+echoAsync(10); i++) ; return i;"));
+            Assert.Equal(30, await RunTest("for (var i=0; i<echoAsync(10)+20; i++) ; return i;"));
         }
 
         [Fact]
-        public async void DelegatesAreAwaitedInsideSwitch()
+        public async void ArrayIndexAwaits()
         {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            SetupClrDelegates(engine, testMethods);
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $"var opt = 1; switch (opt) {{ case 1: var result = {methodName}(); break; default: result = null; break; }}; result;";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+            Assert.Equal(20, await RunTest("var x = [echoAsync(10), echoAsync(20), echoAsync(30)][1]; return x;"));
         }
 
         [Fact]
-        public async void DelegatesAreAwaitedInsideWhile()
+        public async void ObjectPropertyNameIndexerAwaits()
         {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            SetupClrDelegates(engine, testMethods);
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $"var finish = false; var result = null; while (!finish) {{ finish = true; result = {methodName}(); }}; result;";
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+            Assert.Equal(42, await RunTest("var x = { value: 42 }; return x[echoAsync('value')];"));
         }
 
         [Fact]
-        public async void DeligateAsArrayIndexIsAwaited()
+        public async void DoWhileConditionAwaits()
         {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            SetupClrDelegates(engine, testMethods);
-            // Deligate calculates an array index
-            engine.SetValue(nameof(TestMethods.GetAsyncSameInt), new Func<int, Task<int>>(async s => await testMethods.GetAsyncSameInt(s)));
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $"var index = 10; var arr = []; arr[GetAsyncSameInt(index)] = {methodName}(); arr[index]";
-                //var script = $"var index = 10; var arr = []; index2 = GetAsyncSameInt(index); arr[index2] = {methodName}(); arr[index]";
-
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+            Assert.Equal(42, await RunTest("var result = null; do {{ result = echoAsync(42); }} while (false) ; result;"));
         }
 
         [Fact]
-        public async void DeligateAsObjectPropertyNameIsAwaited()
+        public async void FunctionBodyAwaits()
         {
-            var engine = new Engine();
-
-            var testMethods = new TestMethods();
-            SetupClrDelegates(engine, testMethods);
-            // Deligate calculates an object property name
-            engine.SetValue(nameof(TestMethods.GetAsyncSameString), new Func<string, Task<string>>(async s => await testMethods.GetAsyncSameString(s)));
-
-            var methodNames = TestMethods.ExpectedMethodResults.Keys;
-
-            foreach (var methodName in methodNames)
-            {
-                var script = $"var key = 'somekey'; var obj = {{}}; obj[GetAsyncSameString(key)] = {methodName}(); obj[key]";
-                //var script = $"var key = 'somekey'; var obj = {{}}; key2 = GetAsyncSameString(key);obj[key2] = {methodName}(); obj[key]";
-
-                var result = (await engine.ExecuteAsync(script))
-                    .GetCompletionValue().ToObject();
-
-                var expected = TestMethods.ExpectedMethodResults[methodName];
-                Assert.Equal(expected, result);
-                Assert.Equal(methodName, testMethods.MethodInvoked);
-            }
+            Assert.Equal(42, await RunTest("function foo() {{ return echoAsync(42); }} foo();"));
         }
 
-        private static void SetupClrDelegates(Engine engine, TestMethods testMethods)
+        [Fact]
+        public async void SwitchCondtionAwaits()
         {
-            engine
-                .SetValue(nameof(TestMethods.GetAsyncDouble), new Func<Task<double>>(async () => await testMethods.GetAsyncDouble()))
-                .SetValue(nameof(TestMethods.GetAsyncObject), new Func<Task<object>>(async () => await testMethods.GetAsyncObject()))
-                .SetValue(nameof(TestMethods.GetAsyncVoid), new Func<Task>(async () => await testMethods.GetAsyncVoid()))
-                .SetValue(nameof(TestMethods.GetSynchronousObject), new Func<object>(() => testMethods.GetSynchronousObject()))
-                .SetValue(nameof(TestMethods.GetSynchronousVoid), new Action(() => testMethods.GetSynchronousVoid()))
-                .SetValue(nameof(TestMethods.GetAsyncTestClass), new Func<Task<TestMethods.TestClass>>(async () => await testMethods.GetAsyncTestClass()))
-                .SetValue(nameof(TestMethods.GetAsyncTestStruct), new Func<Task<TestMethods.TestStruct>>(async () => await testMethods.GetAsyncTestStruct()))
-                .SetValue(nameof(TestMethods.GetAsyncDate), new Func<Task<DateTime>>(async () => await testMethods.GetAsyncDate()))
-                .SetValue(nameof(TestMethods.GetAsyncEcho), new Func<string, Task<string>>(async s => await testMethods.GetAsyncEcho(s)));
+            Assert.Equal(42, await RunTest("switch (echoAsync('a')) { case 'a': return 42; default: return null; };"));
+        }
+
+        [Fact]
+        public async void SwitchCaseAwaits()
+        {
+            Assert.Equal(42, await RunTest("switch ('a') { case 'a': return echoAsync(42); default: return null; };"));
+        }
+
+        [Fact]
+        public async void WhileConditionAwaits()
+        {
+            Assert.Equal(42, await RunTest("index = 0; result = 0; while (echoAsync(index++) < 42) { result++}; return result;"));
+        }
+
+        [Fact]
+        public async void WhileBodyAwaits()
+        {
+            Assert.Equal(42, await RunTest("index = 0; result = 0; while (index++ < 42) { result = echoAsync(index) }; return result;"));
         }
     }
 }

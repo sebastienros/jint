@@ -3,7 +3,7 @@ using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintSuperExpression : JintExpression
+    internal sealed partial class JintSuperExpression : JintExpression
     {
         public JintSuperExpression(Engine engine, Super expression) : base(engine, expression)
         {

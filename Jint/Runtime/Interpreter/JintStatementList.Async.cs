@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter
 {
-    public partial class JintStatementList
+    internal partial class JintStatementList
     {
         internal async Task<Completion> ExecuteAsync()
         {

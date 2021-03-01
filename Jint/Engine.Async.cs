@@ -1,11 +1,14 @@
 ﻿using Esprima;
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.CallStack;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
+using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
 using System.Threading.Tasks;
 
@@ -13,6 +16,49 @@ namespace Jint
 {
     public partial class Engine
     {
+        internal async Task<JsValue> CallAsync(ICallable callable, JsValue thisObject, JsValue[] arguments, JintExpression expression)
+        {
+            if (callable is FunctionInstance functionInstance)
+            {
+                return await CallAsync(functionInstance, thisObject, arguments, expression);
+            }
+
+            return await callable.CallAsync(thisObject, arguments);
+        }
+
+        internal async Task<JsValue> CallAsync(
+            FunctionInstance functionInstance,
+            JsValue thisObject,
+            JsValue[] arguments,
+            JintExpression expression)
+        {
+            var callStackElement = new CallStackElement(functionInstance, expression);
+            var recursionDepth = CallStack.Push(callStackElement);
+
+            if (recursionDepth > Options.MaxRecursionDepth)
+            {
+                // pop the current element as it was never reached
+                CallStack.Pop();
+                ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
+            }
+
+            if (_isDebugMode)
+            {
+                DebugHandler.AddToDebugCallStack(functionInstance);
+            }
+
+            var result = await functionInstance.CallAsync(thisObject, arguments);
+
+            if (_isDebugMode)
+            {
+                DebugHandler.PopDebugCallStack();
+            }
+
+            CallStack.Pop();
+
+            return result;
+        }
+
         public Task<Engine> ExecuteAsync(string source)
         {
             return ExecuteAsync(source, DefaultParserOptions);
@@ -156,7 +202,7 @@ namespace Jint
                 if (baseValue.IsObject())
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
-                    var v = o.Get(property);
+                    var v = await o.GetAsync(property);
                     return v;
                 }
                 else

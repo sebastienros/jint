@@ -1,5 +1,4 @@
 ﻿using Jint.Runtime;
-using Jint.Runtime.Environments;
 using System.Threading.Tasks;
 
 namespace Jint.Native.Function
@@ -8,42 +7,14 @@ namespace Jint.Native.Function
     {
         public async override Task<JsValue> CallAsync(JsValue thisArgument, JsValue[] arguments)
         {
-            // ** PrepareForOrdinaryCall **
-            // var callerContext = _engine.ExecutionContext;
-            // Let calleeRealm be F.[[Realm]].
-            // Set the Realm of calleeContext to calleeRealm.
-            // Set the ScriptOrModule of calleeContext to F.[[ScriptOrModule]].
-            var localEnv = LexicalEnvironment.NewFunctionEnvironment(_engine, this, Undefined);
-            // If callerContext is not already suspended, suspend callerContext.
-            // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.
-            // NOTE: Any exception objects produced after this point are associated with calleeRealm.
-            // Return calleeContext.
-
-            _engine.EnterExecutionContext(localEnv, localEnv);
-
-            // ** OrdinaryCallBindThis **
-
-            JsValue thisValue;
-            if (_thisMode == FunctionThisMode.Strict)
+            if (_isClassConstructor)
             {
-                thisValue = thisArgument;
-            }
-            else
-            {
-                if (thisArgument.IsNullOrUndefined())
-                {
-                    var globalEnv = _engine.GlobalEnvironment;
-                    var globalEnvRec = (GlobalEnvironmentRecord)globalEnv._record;
-                    thisValue = globalEnvRec.GlobalThisValue;
-                }
-                else
-                {
-                    thisValue = TypeConverter.ToObject(_engine, thisArgument);
-                }
+                ExceptionHelper.ThrowTypeError(_engine, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
             }
 
-            var envRec = (FunctionEnvironmentRecord)localEnv._record;
-            envRec.BindThisValue(thisValue);
+            var calleeContext = PrepareForOrdinaryCall(Undefined);
+
+            OrdinaryCallBindThis(calleeContext, thisArgument);
 
             // actual call
 
@@ -52,23 +23,16 @@ namespace Jint.Native.Function
             {
                 try
                 {
-                    var argumentsInstance = _engine.FunctionDeclarationInstantiation(
-                        functionInstance: this,
-                        arguments,
-                        localEnv);
-
-                    var result = await _function.ExecuteAsync();
-                    var value = result.GetValueOrDefault().Clone();
-                    argumentsInstance?.FunctionWasCalled();
+                    var result = await OrdinaryCallEvaluateBodyAsync(arguments, calleeContext);
 
                     if (result.Type == CompletionType.Throw)
                     {
-                        ExceptionHelper.ThrowJavaScriptException(_engine, value, result);
+                        ExceptionHelper.ThrowJavaScriptException(_engine, result.Value, result);
                     }
 
                     if (result.Type == CompletionType.Return)
                     {
-                        return value;
+                        return result.Value;
                     }
                 }
                 finally

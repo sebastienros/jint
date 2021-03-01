@@ -1,8 +1,9 @@
 using Esprima.Ast;
+using System.Threading.Tasks;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class JintMetaPropertyExpression : JintExpression
+    internal sealed partial class JintMetaPropertyExpression : JintExpression
     {
         private readonly bool _newTarget;
 

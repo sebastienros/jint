@@ -14,7 +14,11 @@ namespace Jint.Native.Function
                 return ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
             }
 
-            return await f.CallAsync(BoundThis, CreateArguments(arguments));
+            var args = CreateArguments(arguments);
+            var value = await f.CallAsync(BoundThis, args);
+            _engine._jsValueArrayPool.ReturnArray(args);
+
+            return value;
         }
     }
 }

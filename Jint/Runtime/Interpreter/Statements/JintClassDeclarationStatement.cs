@@ -5,7 +5,7 @@ using Jint.Native.Function;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
-    internal sealed class JintClassDeclarationStatement : JintStatement<ClassDeclaration>
+    internal sealed partial class JintClassDeclarationStatement : JintStatement<ClassDeclaration>
     {
         private readonly ClassDefinition _classDefinition;
 

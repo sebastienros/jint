@@ -8,6 +8,9 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         protected async override Task<object> EvaluateInternalAsync()
         {
+            // todo: optimize by defining a common abstract class or interface
+            var jsValue = _calleeExpression.GetValue();
+
             JsValue[] arguments;
             if (_jintArguments.Length == 0)
             {
@@ -20,18 +23,16 @@ namespace Jint.Runtime.Interpreter.Expressions
             else
             {
                 arguments = _engine._jsValueArrayPool.RentArray(_jintArguments.Length);
-                BuildArguments(_jintArguments, arguments);
+                await BuildArgumentsAsync(_jintArguments, arguments);
             }
 
-            // todo: optimize by defining a common abstract class or interface
-            var jsValue = await _calleeExpression.GetValueAsync();
-            if (!(jsValue is IConstructor callee))
+            if (!jsValue.IsConstructor)
             {
-                return ExceptionHelper.ThrowTypeError<object>(_engine, "The object can't be used as constructor.");
+                ExceptionHelper.ThrowTypeError(_engine, _calleeExpression.SourceText + " is not a constructor");
             }
 
             // construct the new instance using the Function's constructor method
-            var instance = callee.Construct(arguments, jsValue);
+            var instance = _engine.Construct((IConstructor)jsValue, arguments, jsValue, _calleeExpression);
 
             _engine._jsValueArrayPool.ReturnArray(arguments);
 

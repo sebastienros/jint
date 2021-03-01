@@ -13,25 +13,32 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         protected async override Task<object> EvaluateInternalAsync()
         {
+            JsValue actualThis = null;
             string baseReferenceName = null;
             JsValue baseValue = null;
             var isStrictModeCode = StrictModeScope.IsStrictModeCode;
 
-            if (_objectIdentifierExpression != null)
+            if (_objectExpression is JintIdentifierExpression identifierExpression)
             {
-                baseReferenceName = _objectIdentifierExpression._expressionName.Key.Name;
+                baseReferenceName = identifierExpression._expressionName.Key.Name;
                 var strict = isStrictModeCode;
                 var env = _engine.ExecutionContext.LexicalEnvironment;
                 LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                     env,
-                    _objectIdentifierExpression._expressionName,
+                    identifierExpression._expressionName,
                     strict,
                     out _,
                     out baseValue);
             }
-            else if (_objectThisExpression != null)
+            else if (_objectExpression is JintThisExpression thisExpression)
             {
-                baseValue = await _objectThisExpression.GetValueAsync();
+                baseValue = await thisExpression.GetValueAsync();
+            }
+            else if (_objectExpression is JintSuperExpression)
+            {
+                var env = (FunctionEnvironmentRecord)_engine.GetThisEnvironment();
+                actualThis = env.GetThisBinding();
+                baseValue = env.GetSuperBase();
             }
 
             if (baseValue is null)
@@ -41,18 +48,27 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (baseReference is Reference reference)
                 {
                     baseReferenceName = reference.GetReferencedName().ToString();
-                    baseValue = _engine.GetValue(reference, false);
+                    baseValue = await _engine.GetValueAsync(reference, false);
                     _engine._referencePool.Return(reference);
                 }
                 else
                 {
-                    baseValue = _engine.GetValue(baseReference, false);
+                    baseValue = await _engine.GetValueAsync(baseReference, false);
                 }
             }
 
             var property = _determinedProperty ?? await _propertyExpression.GetValueAsync();
-            TypeConverter.CheckObjectCoercible(_engine, baseValue, (MemberExpression)_expression, _determinedProperty?.ToString() ?? baseReferenceName);
-            return _engine._referencePool.Rent(baseValue, TypeConverter.ToPropertyKey(property), isStrictModeCode);
+            if (baseValue.IsNullOrUndefined())
+            {
+                TypeConverter.CheckObjectCoercible(_engine, baseValue, _memberExpression.Property, _determinedProperty?.ToString() ?? baseReferenceName);
+            }
+
+            // only convert if necessary
+            var propertyKey = property.IsInteger() && baseValue.IsIntegerIndexedArray
+                ? property
+                : TypeConverter.ToPropertyKey(property);
+
+            return _engine._referencePool.Rent(baseValue, propertyKey, isStrictModeCode, thisValue: actualThis);
         }
     }
 }
