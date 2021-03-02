@@ -70,24 +70,35 @@ namespace Jint
             return ExecuteAsync(parser.ParseScript());
         }
 
-        public async Task<Engine> ExecuteAsync(Script program)
+        public async Task<Engine> ExecuteAsync(Script script)
         {
             ResetConstraints();
             ResetLastStatement();
-            ResetCallStack();
 
-            using (new StrictModeScope(_isStrict || program.Strict))
+            using (new StrictModeScope(_isStrict || script.Strict))
             {
                 GlobalDeclarationInstantiation(
-                    program,
+                    script,
                     GlobalEnvironment);
 
-                var list = new JintStatementList(this, null, program.Body);
+                var list = new JintStatementList(this, null, script.Body);
 
-                var result = await list.ExecuteAsync();
+                Completion result;
+                try
+                {
+                    result = await list.ExecuteAsync();
+                }
+                catch
+                {
+                    // unhandled exception
+                    ResetCallStack();
+                    throw;
+                }
+
                 if (result.Type == CompletionType.Throw)
                 {
                     var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
+                    ResetCallStack();
                     throw ex;
                 }
 
@@ -115,11 +126,11 @@ namespace Jint
         /// <param name="thisObj">The this value inside the function call.</param>
         /// <param name="arguments">The arguments of the function call.</param>
         /// <returns>The value returned by the function call.</returns>
-        public Task<JsValue> InvokeAsync(string propertyName, object thisObj, object[] arguments)
+        public async Task<JsValue> InvokeAsync(string propertyName, object thisObj, object[] arguments)
         {
-            var value = GetValue(propertyName);
+            var value = await GetValueAsync(propertyName);
 
-            return InvokeAsync(value, thisObj, arguments);
+            return await InvokeAsync(value, thisObj, arguments);
         }
 
         /// <summary>
@@ -156,19 +167,27 @@ namespace Jint
             return result;
         }
 
-        async internal Task<JsValue> GetValueAsync(object value, bool returnReferenceToPool)
+        /// <summary>
+        /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.1
+        /// </summary>
+        public Task<JsValue> GetValueAsync(object value)
+        {
+            return GetValueAsync(value, false);
+        }
+
+        internal Task<JsValue> GetValueAsync(object value, bool returnReferenceToPool)
         {
             if (value is JsValue jsValue)
             {
-                return jsValue;
+                return Task.FromResult(jsValue);
             }
 
             if (!(value is Reference reference))
             {
-                return ((Completion)value).Value;
+                return Task.FromResult(((Completion)value).Value);
             }
 
-            return await GetValueAsync(reference, returnReferenceToPool);
+            return GetValueAsync(reference, returnReferenceToPool);
         }
 
         async internal Task<JsValue> GetValueAsync(Reference reference, bool returnReferenceToPool)
@@ -202,7 +221,7 @@ namespace Jint
                 if (baseValue.IsObject())
                 {
                     var o = TypeConverter.ToObject(this, baseValue);
-                    var v = await o.GetAsync(property);
+                    var v = await o.GetAsync(property, reference.GetThisValue());
                     return v;
                 }
                 else
