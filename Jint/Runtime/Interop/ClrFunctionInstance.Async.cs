@@ -34,7 +34,7 @@ namespace Jint.Runtime.Interop
         public async override Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments)
         {
             if (_funcAsync != null) return await _funcAsync(thisObject, arguments);
-            else return Call(thisObject, arguments);
+            else return await CallAsync(thisObject, arguments);
         }
     }
 }
