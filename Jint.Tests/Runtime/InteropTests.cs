@@ -57,6 +57,20 @@ namespace Jint.Tests.Runtime
                 assert(z === 'foo');
             ");
         }
+        
+        [Fact]
+        public void TypePropertyAccess()
+        {
+            var userClass = new Person();
+
+            var result = new Engine()
+                .SetValue("userclass", userClass)
+                .Execute("userclass.TypeProperty.Name;")
+                .GetCompletionValue()
+                .AsString();
+            
+            Assert.Equal("Person", result);
+        }
 
         [Fact]
         public void CanAccessMemberNamedItem()

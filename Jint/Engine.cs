@@ -309,7 +309,11 @@ namespace Jint
 
         public Engine SetValue(JsValue name, object obj)
         {
-            return SetValue(name, JsValue.FromObject(this, obj));
+            var value = obj is Type t
+                ? TypeReference.CreateTypeReference(this, t)
+                : JsValue.FromObject(this, obj);
+
+            return SetValue(name, value);
         }
 
         public void LeaveExecutionContext()
