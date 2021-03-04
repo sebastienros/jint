@@ -89,7 +89,12 @@ namespace Jint.Runtime.Interpreter.Expressions
             var property = _determinedProperty ?? _propertyExpression.GetValue();
             if (baseValue.IsNullOrUndefined())
             {
-                TypeConverter.CheckObjectCoercible(_engine, baseValue, _memberExpression.Property, _determinedProperty?.ToString() ?? baseReferenceName);
+                // we can use base data types securely, object evaluation can mess things up
+                var referenceName = property.IsPrimitive()
+                    ? TypeConverter.ToString(property)
+                    : _determinedProperty?.ToString() ?? baseReferenceName;
+
+                TypeConverter.CheckObjectCoercible(_engine, baseValue, _memberExpression.Property, referenceName);
             }
 
             // only convert if necessary

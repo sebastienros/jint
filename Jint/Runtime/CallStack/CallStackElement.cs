@@ -20,8 +20,19 @@ namespace Jint.Runtime.CallStack
         public readonly FunctionInstance Function;
         public readonly JintExpression? Expression;
 
-        public Location Location =>
-            Expression?._expression.Location ?? ((Node?) Function._functionDefinition?.Function)?.Location ?? default;
+        public Location Location
+        {
+            get
+            {
+                var expressionLocation = Expression?._expression.Location;
+                if (expressionLocation != null && expressionLocation.Value != default)
+                {
+                    return expressionLocation.Value;
+                }
+
+                return ((Node?) Function._functionDefinition?.Function)?.Location ?? default;
+            }
+        }
 
         public NodeList<Expression>? Arguments =>
             Function._functionDefinition?.Function.Params;
