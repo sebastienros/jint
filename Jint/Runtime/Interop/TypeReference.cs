@@ -183,7 +183,8 @@ namespace Jint.Runtime.Interop
                 {
                     if (enumNames.GetValue(i) as string == name)
                     {
-                        return new ConstantValueAccessor((int) enumValues.GetValue(i));
+                        var value = enumValues.GetValue(i);
+                        return new ConstantValueAccessor(JsNumber.Create(value));
                     }
                 }
 

@@ -611,7 +611,8 @@ namespace Jint.Runtime
                 var arguments = tuple.Item2;
                 for (var i = 0; i < arguments.Length; i++)
                 {
-                    var arg = arguments[i].ToObject();
+                    var jsValue = arguments[i];
+                    var arg = jsValue.ToObject();
                     var paramType = parameters[i].ParameterType;
                     if (arg == null)
                     {
@@ -623,8 +624,20 @@ namespace Jint.Runtime
                     }
                     else if (arg.GetType() != paramType)
                     {
-                        perfectMatch = false;
-                        break;
+                        // check if we can do conversion from int value to enum
+                        if (paramType.IsEnum && 
+                            jsValue is JsNumber jsNumber
+                            && jsNumber.IsInteger()
+                            && Enum.IsDefined(paramType, jsNumber.AsInteger()))
+                        {
+                            // OK
+                        }
+                        else
+                        {
+                            // no can do
+                            perfectMatch = false;
+                            break;
+                        }
                     }
                 }
 
