@@ -81,6 +81,13 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 
 Join the chat on [Gitter](https://gitter.im/sebastienros/jint) or post your questions with the `jint` tag on [stackoverflow](http://stackoverflow.com/questions/tagged/jint).
 
+## Video
+
+Here is a short video of how Jint works and some sample usage
+
+https://channel9.msdn.com/Shows/Code-Conversations/Sebastien-Ros-on-jint-a-Javascript-Interpreter-for-NET
+
+
 ## Examples
 
 This example defines a new value named `log` pointing to `Console.WriteLine`, then executes 
