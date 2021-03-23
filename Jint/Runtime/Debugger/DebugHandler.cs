@@ -142,7 +142,7 @@ namespace Jint.Runtime.Debugger
             var info = new DebugInformation
             {
                 CurrentStatement = statement,
-                CallStack = new DebugCallStack(_engine.CallStack),
+                CallStack = new DebugCallStack(statement.Location, _engine.CallStack),
                 CurrentMemoryUsage = _engine.CurrentMemoryUsage
             };
 

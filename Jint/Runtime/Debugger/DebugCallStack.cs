@@ -13,11 +13,12 @@ namespace Jint.Runtime.Debugger
         public NodeList<Expression>? Arguments { get; }
         public Location Location { get; }
 
-        internal DebugCallStackElement(CallStackElement element)
+        internal DebugCallStackElement(Location location, CallStackElement? element)
         {
-            ShortDescription = element.ToString();
-            Arguments = element.Arguments;
-            Location = element.Location;
+            // e.g. Chromium uses "(anonymous)" for call from global scope - we do the same:
+            ShortDescription = element?.ToString() ?? "(anonymous)";
+            Arguments = element?.Arguments;
+            Location = location;
         }
     }
 
@@ -29,9 +30,16 @@ namespace Jint.Runtime.Debugger
 
         public int Count => _stack.Count;
 
-        internal DebugCallStack(JintCallStack callStack)
+        internal DebugCallStack(Location location, JintCallStack callStack)
         {
-            _stack = callStack.Stack.Select(e => new DebugCallStackElement(e)).ToList();
+            _stack = new List<DebugCallStackElement>();
+            foreach (var element in callStack.Stack)
+            {
+                _stack.Add(new DebugCallStackElement(location, element));
+                location = element.Location;
+            }
+            // Add root location
+            _stack.Add(new DebugCallStackElement(location, null));
         }
 
         public IEnumerator<DebugCallStackElement> GetEnumerator()
