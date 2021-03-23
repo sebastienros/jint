@@ -1757,7 +1757,7 @@ var prep = function (fn) { fn(); };
             Assert.NotNull(debugInfo.CurrentStatement);
             Assert.NotNull(debugInfo.Locals);
 
-            Assert.Single(debugInfo.CallStack);
+            Assert.Equal(2, debugInfo.CallStack.Count);
             Assert.Equal("func1", debugInfo.CallStack[0].ShortDescription);
             Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("global", StringComparison.Ordinal) && kvp.Value.AsBoolean() == true);
             // Globals no longer contain local variables
@@ -1847,7 +1847,7 @@ var prep = function (fn) { fn(); };
             Assert.NotNull(debugInfo);
 
             countBreak++;
-            if (debugInfo.CallStack.Count > 0)
+            if (debugInfo.CallStack.Count > 1) // CallStack always has at least one element
                 return StepMode.Out;
 
             return StepMode.Into;
