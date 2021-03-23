@@ -3,10 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Function;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
-using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Debugger
 {
@@ -19,47 +16,13 @@ namespace Jint.Runtime.Debugger
         }
 
         private bool _paused;
-        private readonly Stack<string> _debugCallStack;
         private int _steppingDepth;
         private readonly Engine _engine;
 
         public DebugHandler(Engine engine)
         {
             _engine = engine;
-            _debugCallStack = new Stack<string>();
             _steppingDepth = int.MaxValue;
-        }
-
-        internal void AddToDebugCallStack(JsValue function)
-        {
-            string name = GetCalleeName(function);
-
-            _debugCallStack.Push(name);
-        }
-
-        internal void PopDebugCallStack()
-        {
-            if (_debugCallStack.Count > 0)
-            {
-                _debugCallStack.Pop();
-            }
-        }
-
-        private string GetCalleeName(JsValue function)
-        {
-            switch (function)
-            {
-                case DelegateWrapper _:
-                    return "(native code)";
-
-                case FunctionInstance instance:
-                    PropertyDescriptor nameDescriptor = instance.GetOwnProperty(CommonProperties.Name);
-                    JsValue nameValue = nameDescriptor != null ? instance.UnwrapJsValue(nameDescriptor) : JsString.Empty;
-                    return !nameValue.IsUndefined() ? TypeConverter.ToString(nameValue) : "(anonymous)";
-
-                default:
-                    return "(unknown)";
-            }
         }
 
         internal void OnStep(Statement statement)
@@ -76,7 +39,7 @@ namespace Jint.Runtime.Debugger
             {
                 Pause(statement, PauseType.Break);
             }
-            else if (_debugCallStack.Count <= _steppingDepth)
+            else if (_engine.CallStack.Count <= _steppingDepth)
             {
                 Pause(statement, PauseType.Step);
             }
@@ -118,11 +81,11 @@ namespace Jint.Runtime.Debugger
                 {
                     case StepMode.Over:
                         // Resume stepping when we're back at this level of the call stack
-                        _steppingDepth = _debugCallStack.Count;
+                        _steppingDepth = _engine.CallStack.Count;
                         break;
                     case StepMode.Out:
                         // Resume stepping when we've popped the call stack
-                        _steppingDepth = _debugCallStack.Count - 1;
+                        _steppingDepth = _engine.CallStack.Count - 1;
                         break;
                     case StepMode.None:
                         // Never step
@@ -179,7 +142,7 @@ namespace Jint.Runtime.Debugger
             var info = new DebugInformation
             {
                 CurrentStatement = statement,
-                CallStack = _debugCallStack,
+                CallStack = new DebugCallStack(_engine.CallStack),
                 CurrentMemoryUsage = _engine.CurrentMemoryUsage
             };
 

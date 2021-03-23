@@ -15,6 +15,9 @@ namespace Jint.Runtime.CallStack
         private readonly RefStack<CallStackElement> _stack = new();
         private readonly Dictionary<CallStackElement, int>? _statistics;
 
+        // Internal for use by DebugHandler
+        internal RefStack<CallStackElement> Stack => _stack;
+
         public JintCallStack(bool trackRecursionDepth)
         {
             if (trackRecursionDepth)

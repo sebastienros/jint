@@ -1266,16 +1266,11 @@ namespace Jint
                 ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
             }
 
-            if (_isDebugMode)
-            {
-                DebugHandler.AddToDebugCallStack(functionInstance);
-            }
-
             var result = functionInstance.Call(thisObject, arguments);
 
             if (_isDebugMode)
             {
-                DebugHandler.PopDebugCallStack();
+                // TODO: Likely candidate spot for calling OnStep before return
             }
 
             CallStack.Pop();
@@ -1299,16 +1294,11 @@ namespace Jint
                 ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
             }
 
-            if (_isDebugMode)
-            {
-                DebugHandler.AddToDebugCallStack(functionInstance);
-            }
-
             var result = ((IConstructor) functionInstance).Construct(arguments, newTarget);
 
             if (_isDebugMode)
             {
-                DebugHandler.PopDebugCallStack();
+                // TODO: Likely candidate spot for calling OnStep before return
             }
 
             CallStack.Pop();
