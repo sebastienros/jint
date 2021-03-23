@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Esprima.Ast;
@@ -11,6 +12,13 @@ namespace Jint.Runtime.Debugger
 {
     internal class DebugHandler
     {
+        private enum PauseType
+        {
+            Step,
+            Break
+        }
+
+        private bool _paused;
         private readonly Stack<string> _debugCallStack;
         private int _steppingDepth;
         private readonly Engine _engine;
@@ -56,30 +64,50 @@ namespace Jint.Runtime.Debugger
 
         internal void OnStep(Statement statement)
         {
+            // Don't reenter if we're already paused (e.g. when evaluating a getter in a Break/Step handler)
+            if (_paused)
+            {
+                return;
+            }
+
             BreakPoint breakpoint = _engine.BreakPoints.FirstOrDefault(breakPoint => BpTest(statement, breakPoint));
 
             if (breakpoint != null)
             {
-                Break(statement);
+                Pause(statement, PauseType.Break);
             }
             else if (_debugCallStack.Count <= _steppingDepth)
             {
-                Step(statement);
+                Pause(statement, PauseType.Step);
             }
         }
 
-        private void Step(Statement statement)
+        private void Pause(Statement statement, PauseType type)
         {
+            _paused = true;
+            
             DebugInformation info = CreateDebugInformation(statement);
-            StepMode? result = _engine.InvokeStepEvent(info);
+            StepMode? result = type switch
+            {
+                PauseType.Step => _engine.InvokeStepEvent(info),
+                PauseType.Break => _engine.InvokeBreakEvent(info),
+                _ => throw new ArgumentException("Invalid pause type", nameof(type))
+            };
+            
+            _paused = false;
+            
             HandleNewStepMode(result);
         }
 
         internal void Break(Statement statement)
         {
-            DebugInformation info = CreateDebugInformation(statement);
-            StepMode? result = _engine.InvokeBreakEvent(info);
-            HandleNewStepMode(result);
+            // Don't reenter if we're already paused
+            if (_paused)
+            {
+                return;
+            }
+
+            Pause(statement, PauseType.Break);
         }
 
         private void HandleNewStepMode(StepMode? newStepMode)
