@@ -210,7 +210,7 @@ namespace Jint.Tests.Runtime.Debugger
             Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Into));
         }
 
-        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        [Fact]
         public void StepsOverGetAccessor()
         {
             var script = @"
@@ -227,7 +227,7 @@ namespace Jint.Tests.Runtime.Debugger
             Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Over));
         }
 
-        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        [Fact]
         public void StepsOutOfGetAccessor()
         {
             var script = @"
@@ -262,7 +262,7 @@ namespace Jint.Tests.Runtime.Debugger
             Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Into));
         }
 
-        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        [Fact]
         public void StepsOverSetAccessor()
         {
             var script = @"
@@ -276,10 +276,10 @@ namespace Jint.Tests.Runtime.Debugger
                 obj.test = 37;
                 'target';";
 
-            Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Over));
+            Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Over));
         }
 
-        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        [Fact]
         public void StepsOutOfSetAccessor()
         {
             var script = @"

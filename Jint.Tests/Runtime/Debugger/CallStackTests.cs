@@ -162,7 +162,7 @@ namespace Jint.Tests.Runtime.Debugger
             Assert.True(didBreak);
         }
 
-        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        [Fact]
         public void NamesGetAccessor()
         {
             var engine = new Engine(options => options
@@ -191,7 +191,7 @@ namespace Jint.Tests.Runtime.Debugger
             Assert.True(didBreak);
         }
 
-        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        [Fact]
         public void NamesSetAccessor()
         {
             var engine = new Engine(options => options
