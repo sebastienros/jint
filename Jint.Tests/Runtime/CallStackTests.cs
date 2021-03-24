@@ -14,19 +14,20 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
             engine.Execute(@"
-function thrower()
-{
-    throw new Error('test');
-}
+                function thrower()
+                {
+                    throw new Error('test');
+                }
 
-try
-{
-    thrower();
-}
-catch (error)
-{
-}
-");
+                try
+                {
+                    thrower();
+                }
+                catch (error)
+                {
+                }
+                "
+            );
             Assert.Equal(0, engine.CallStack.Count);
         }
 
@@ -35,24 +36,24 @@ catch (error)
         {
             var engine = new Engine();
             engine.Execute(@"
-function thrower2()
-{
-    throw new Error('test');
-}
+                function thrower2()
+                {
+                    throw new Error('test');
+                }
 
-function thrower1()
-{
-    thrower2();
-}
+                function thrower1()
+                {
+                    thrower2();
+                }
 
-try
-{
-    thrower1();
-}
-catch (error)
-{
-}
-");
+                try
+                {
+                    thrower1();
+                }
+                catch (error)
+                {
+                }
+            ");
             Assert.Equal(0, engine.CallStack.Count);
         }
     }
