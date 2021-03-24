@@ -143,76 +143,90 @@ namespace Jint.Runtime.Debugger
             {
                 CurrentStatement = statement,
                 CallStack = new DebugCallStack(statement.Location, _engine.CallStack),
-                CurrentMemoryUsage = _engine.CurrentMemoryUsage
+                CurrentMemoryUsage = _engine.CurrentMemoryUsage,
+                Scopes = new DebugScopes()
             };
 
-            info.Locals = GetLocalVariables(_engine.ExecutionContext);
-            info.Globals = GetGlobalVariables(_engine.ExecutionContext);
+            PopulateScopes(info.Scopes, _engine.ExecutionContext);
 
             return info;
         }
 
-        private static Dictionary<string, JsValue> GetLocalVariables(ExecutionContext context)
+        private void PopulateScopes(DebugScopes scopes, ExecutionContext context)
         {
-            Dictionary<string, JsValue> locals = new Dictionary<string, JsValue>();
-
-            // Local variables are the union of function scope (VariableEnvironment)
-            // and any current block scope (LexicalEnvironment)
-            if (!ReferenceEquals(context.VariableEnvironment?._record, null))
+            var lexEnv = context.LexicalEnvironment;
+            var varEnv = context.VariableEnvironment;
+            HashSet<string> foundBindings = new HashSet<string>();
+            while (!ReferenceEquals(lexEnv?._record, null))
             {
-                AddRecordsFromEnvironment(context.VariableEnvironment, locals);
+                PopulateScopesFromLexicalEnvironment(scopes, lexEnv, foundBindings);
+                lexEnv = lexEnv._outer;
             }
-            if (!ReferenceEquals(context.LexicalEnvironment?._record, null))
-            {
-                AddRecordsFromEnvironment(context.LexicalEnvironment, locals);
-            }
-            return locals;
         }
 
-        private static Dictionary<string, JsValue> GetGlobalVariables(ExecutionContext context)
+        private static void PopulateScopesFromLexicalEnvironment(DebugScopes scopes, LexicalEnvironment env, HashSet<string> foundBindings)
         {
-            Dictionary<string, JsValue> globals = new Dictionary<string, JsValue>();
-            
-            // Unless we're in the global scope (_outer is null), don't include function local variables.
-            // The function local variables are in the variable environment (function scope) and any current
-            // lexical environment (block scope), which will be a "child" of that VariableEnvironment.
-            // Hence, we should only use the VariableEnvironment's outer environment for global scope. This
-            // also means that block scoped variables will never be included - they'll be listed as local variables.
-            LexicalEnvironment tempLex = context.VariableEnvironment._outer ?? context.VariableEnvironment;
-
-            while (!ReferenceEquals(tempLex?._record, null))
+            var bindings = GetBindings(env, foundBindings);
+            if (bindings.Count > 0)
             {
-                AddRecordsFromEnvironment(tempLex, globals);
-                tempLex = tempLex._outer;
-            }
-            return globals;
-        }
-
-        private static void AddRecordsFromEnvironment(LexicalEnvironment lex, Dictionary<string, JsValue> locals)
-        {
-            var bindings = lex._record.GetAllBindingNames();
-            foreach (var binding in bindings)
-            {
-                if (!locals.ContainsKey(binding))
+                switch (env._record)
                 {
-                    var jsValue = lex._record.GetBindingValue(binding, false);
-
-                    switch (jsValue)
-                    {
-                        case ICallable _:
-                            // TODO: Callables aren't added - but maybe they should be.
-                            break;
-                        case null:
-                            // Uninitialized consts in scope are shown as "undefined" in e.g. Chromium debugger.
-                            // Uninitialized lets aren't displayed.
-                            // TODO: Check if null result from GetBindingValue is only true for uninitialized const/let.
-                            break;
-                        default:
-                            locals.Add(binding, jsValue);
-                            break;
-                    }
+                    case GlobalEnvironmentRecord:
+                        scopes.Add(new DebugScope(DebugScopeType.Global, bindings));
+                        break;
+                    case FunctionEnvironmentRecord:
+                        scopes.Add(new DebugScope(DebugScopeType.Local, bindings));
+                        break;
+                    case ObjectEnvironmentRecord:
+                        // If an ObjectEnvironmentRecord is not a GlobalEnvironmentRecords, it's With
+                        scopes.Add(new DebugScope(DebugScopeType.With, bindings));
+                        break;
+                    case DeclarativeEnvironmentRecord der:
+                        scopes.Add(new DebugScope(
+                            der._catchEnvironment ? DebugScopeType.Catch : DebugScopeType.Block,
+                            bindings
+                        ));
+                        break;
                 }
             }
+        }
+
+        private static IReadOnlyDictionary<string, JsValue> GetBindings(LexicalEnvironment lex, HashSet<string> foundBindings)
+        {
+            var bindings = lex._record.GetAllBindingNames();
+            var result = new Dictionary<string, JsValue>();
+            
+            if (!foundBindings.Contains("this") && lex._record.HasThisBinding())
+            {
+                result.Add("this", lex._record.GetThisBinding());
+                foundBindings.Add("this");
+            }
+
+            foreach (var binding in bindings)
+            {
+                if (foundBindings.Contains(binding))
+                {
+                    // This binding is shadowed by earlier scope
+                    continue;
+                }
+                var jsValue = lex._record.GetBindingValue(binding, false);
+
+                switch (jsValue)
+                {
+                    case ICallable _:
+                        // TODO: Callables aren't added - but maybe they should be.
+                        break;
+                    case null:
+                        // Uninitialized consts and lets in scope are shown as "undefined" in recent Chromium debugger.
+                        // TODO: Check if null result from GetBindingValue is only true for uninitialized const/let.
+                        break;
+                    default:
+                        foundBindings.Add(binding);
+                        result.Add(binding, jsValue);
+                        break;
+                }
+            }
+            return result;
         }
     }
 }

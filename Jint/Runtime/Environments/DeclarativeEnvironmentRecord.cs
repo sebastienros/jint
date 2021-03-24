@@ -12,9 +12,11 @@ namespace Jint.Runtime.Environments
     {
         internal readonly HybridDictionary<Binding> _dictionary = new HybridDictionary<Binding>();
         internal bool _hasBindings;
+        internal bool _catchEnvironment;
 
-        public DeclarativeEnvironmentRecord(Engine engine) : base(engine)
+        public DeclarativeEnvironmentRecord(Engine engine, bool catchEnvironment = false) : base(engine)
         {
+            _catchEnvironment = catchEnvironment;
         }
 
         public sealed override bool HasBinding(string name)
