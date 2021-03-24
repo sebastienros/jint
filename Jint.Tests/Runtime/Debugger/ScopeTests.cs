@@ -6,8 +6,31 @@ namespace Jint.Tests.Runtime.Debugger
 {
     public class ScopeTests
     {
+        private JsValue AssertOnlyScopeContains(string name, DebugScopes scopes, DebugScopeType type)
+        {
+            var entry = Assert.Single(scopes[type], g => g.Key == name);
+            foreach (var scope in scopes)
+            {
+                if (scope.ScopeType == type)
+                {
+                    continue;
+                }
+                Assert.DoesNotContain(scope, g => g.Key == name);
+            }
+
+            return entry.Value;
+        }
+
+        private void AssertNoScopeContains(string name, DebugScopes scopes)
+        {
+            foreach (var scope in scopes)
+            {
+                Assert.DoesNotContain(scope, g => g.Key == name);
+            }
+        }
+
         [Fact]
-        public void GlobalsAndLocalsIncludeGlobalConst()
+        public void GlobalsIncludeGlobalConst()
         {
             string script = @"
                 const globalConstant = 'test';
@@ -16,16 +39,13 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var variable = Assert.Single(info.Scopes[DebugScopeType.Global], g => g.Key == "globalConstant");
-                Assert.Equal("test", variable.Value.AsString());
-
-                variable = Assert.Single(info.Scopes[DebugScopeType.Local], g => g.Key == "globalConstant");
-                Assert.Equal("test", variable.Value.AsString());
+                var value = AssertOnlyScopeContains("globalConstant", info.Scopes, DebugScopeType.Global);
+                Assert.Equal("test", value.AsString());
             });
         }
 
         [Fact]
-        public void GlobalsAndLocalsIncludeGlobalLet()
+        public void GlobalsIncludeGlobalLet()
         {
             string script = @"
                 let globalLet = 'test';
@@ -33,16 +53,13 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var variable = Assert.Single(info.Scopes[DebugScopeType.Global], g => g.Key == "globalLet");
-                Assert.Equal("test", variable.Value.AsString());
-
-                variable = Assert.Single(info.Scopes[DebugScopeType.Local], g => g.Key == "globalLet");
-                Assert.Equal("test", variable.Value.AsString());
+                var value = AssertOnlyScopeContains("globalLet", info.Scopes, DebugScopeType.Global);
+                Assert.Equal("test", value.AsString());
             });
         }
 
         [Fact]
-        public void GlobalsAndLocalsIncludeGlobalVar()
+        public void GlobalsIncludeGlobalVar()
         {
             string script = @"
                 var globalVar = 'test';
@@ -50,16 +67,13 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var variable = Assert.Single(info.Scopes[DebugScopeType.Global], g => g.Key == "globalVar");
-                Assert.Equal("test", variable.Value.AsString());
-
-                variable = Assert.Single(info.Scopes[DebugScopeType.Local], g => g.Key == "globalVar");
-                Assert.Equal("test", variable.Value.AsString());
+                var value = AssertOnlyScopeContains("globalVar", info.Scopes, DebugScopeType.Global);
+                Assert.Equal("test", value.AsString());
             });
         }
 
         [Fact]
-        public void OnlyLocalsIncludeLocalConst()
+        public void BlockIncludesLocalConst()
         {
             string script = @"
                 function test()
@@ -71,14 +85,13 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var variable = Assert.Single(info.Scopes[DebugScopeType.Local], g => g.Key == "localConst");
-                Assert.Equal("test", variable.Value.AsString());
-                Assert.DoesNotContain(info.Scopes[DebugScopeType.Global], g => g.Key == "localConst");
+                var value = AssertOnlyScopeContains("localConst", info.Scopes, DebugScopeType.Block);
+                Assert.Equal("test", value.AsString());
             });
         }
 
         [Fact]
-        public void OnlyLocalsIncludeLocalLet()
+        public void BlockIncludesLocalLet()
         {
             string script = @"
                 function test()
@@ -90,9 +103,8 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var variable = Assert.Single(info.Scopes[DebugScopeType.Local], g => g.Key == "localLet");
-                Assert.Equal("test", variable.Value.AsString());
-                Assert.DoesNotContain(info.Scopes[DebugScopeType.Global], g => g.Key == "localLet");
+                var value = AssertOnlyScopeContains("localLet", info.Scopes, DebugScopeType.Block);
+                Assert.Equal("test", value.AsString());
             });
         }
 
@@ -109,8 +121,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var variable = Assert.Single(info.Scopes[DebugScopeType.Local], g => g.Key == "localVar");
-                Assert.Equal("test", variable.Value.AsString());
+                var value = AssertOnlyScopeContains("localVar", info.Scopes, DebugScopeType.Local);
                 Assert.DoesNotContain(info.Scopes[DebugScopeType.Global], g => g.Key == "localVar");
             });
         }
@@ -127,8 +138,8 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                Assert.DoesNotContain(info.Scopes[DebugScopeType.Local], g => g.Key == "blockLet");
-                Assert.DoesNotContain(info.Scopes[DebugScopeType.Global], g => g.Key == "blockConst");
+                AssertNoScopeContains("blockLet", info.Scopes);
+                AssertNoScopeContains("blockConst", info.Scopes);
             });
         }
 
@@ -144,7 +155,8 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                Assert.Single(info.Scopes[DebugScopeType.Local], c => c.Key == "blockConst" && c.Value == JsUndefined.Undefined);
+                var value = AssertOnlyScopeContains("blockConst", info.Scopes, DebugScopeType.Block);
+                Assert.Equal(JsUndefined.Undefined, value);
             });
         }
 
@@ -160,7 +172,9 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                Assert.Single(info.Scopes[DebugScopeType.Local], v => v.Key == "blockLet" && v.Value.AsString() == "block");
+                AssertOnlyScopeContains("blockLet", info.Scopes, DebugScopeType.Block);
+
+                Assert.Single(info.Scopes[DebugScopeType.Block], v => v.Key == "blockLet" && v.Value.AsString() == "block");
             });
         }
     }
