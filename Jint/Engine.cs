@@ -70,7 +70,7 @@ namespace Jint
 
         // cached access
         private readonly List<IConstraint> _constraints;
-        private readonly bool _isDebugMode;
+        internal readonly bool _isDebugMode;
         internal readonly bool _isStrict;
         internal readonly IReferenceResolver _referenceResolver;
         internal readonly ReferencePool _referencePool;
@@ -1268,11 +1268,6 @@ namespace Jint
 
             var result = functionInstance.Call(thisObject, arguments);
 
-            if (_isDebugMode)
-            {
-                // TODO: Likely candidate spot for calling OnStep before return
-            }
-
             CallStack.Pop();
 
             return result;
@@ -1295,11 +1290,6 @@ namespace Jint
             }
 
             var result = ((IConstructor) functionInstance).Construct(arguments, newTarget);
-
-            if (_isDebugMode)
-            {
-                // TODO: Likely candidate spot for calling OnStep before return
-            }
 
             CallStack.Pop();
 

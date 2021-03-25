@@ -72,6 +72,17 @@ namespace Jint.Native.Function
                         ExceptionHelper.ThrowJavaScriptException(_engine, result.Value, result);
                     }
 
+                    // The DebugHandler needs the current execution context before the return for stepping through the return point
+                    if (_engine._isDebugMode)
+                    {
+                        // We don't have a statement, but we still need a Location for debuggers. DebugHandler will infer one from
+                        // the function body:
+                        _engine.DebugHandler.OnReturnPoint(
+                            _functionDefinition.Function.Body,
+                            result.Type == CompletionType.Normal ? Undefined : result.Value
+                        );
+                    }
+
                     if (result.Type == CompletionType.Return)
                     {
                         return result.Value;
@@ -119,6 +130,17 @@ namespace Jint.Native.Function
                 try
                 {
                     var result = OrdinaryCallEvaluateBody(arguments, calleeContext);
+
+                    // The DebugHandler needs the current execution context before the return for stepping through the return point
+                    if (_engine._isDebugMode && result.Type != CompletionType.Throw)
+                    {
+                        // We don't have a statement, but we still need a Location for debuggers. DebugHandler will infer one from
+                        // the function body:
+                        _engine.DebugHandler.OnReturnPoint(
+                            _functionDefinition.Function.Body,
+                            result.Type == CompletionType.Normal ? thisArgument : result.Value
+                        );
+                    }
 
                     if (result.Type == CompletionType.Return)
                     {
