@@ -2387,5 +2387,69 @@ namespace Jint.Tests.Runtime
             engine.SetValue("E", TypeReference.CreateTypeReference(engine, typeof(UintEnum)));
             Assert.Equal(1, engine.Execute("E.b;").GetCompletionValue().AsNumber());
         }
+
+        #region DelegateCanReturnValue
+
+        public class TestItem
+        {
+            public double Cost { get; set; }
+
+            public double Age { get; set; }
+
+            public string Name { get; set; }
+        }
+
+        public class TestItemList : List<TestItem>
+        {
+            public double Sum(Func<TestItem, double> calc)
+            {
+                double rc = 0;
+
+                foreach (var item in this)
+                {
+                    rc += calc(item);
+                }
+
+                return rc;
+            }
+
+            public TestItemList Where(Func<TestItem, bool> cond)
+            {
+                var rc = new TestItemList();
+
+                foreach (var item in this)
+                {
+                    if (cond(item))
+                    {
+                        rc.Add(item);
+                    }
+                }
+
+                return rc;
+            }
+        }
+
+        [Fact]
+        public void DelegateCanReturnValue()
+        {
+            var engine = new Engine(options => options.AllowClr(GetType().Assembly));
+
+            var lst = new TestItemList();
+
+            lst.Add(new TestItem() { Name = "a", Cost = 1, Age = 10 });
+            lst.Add(new TestItem() { Name = "a", Cost = 1, Age = 10 });
+            lst.Add(new TestItem() { Name = "b", Cost = 1, Age = 10 });
+            lst.Add(new TestItem() { Name = "b", Cost = 1, Age = 10 });
+            lst.Add(new TestItem() { Name = "b", Cost = 1, Age = 10 });
+
+            engine.SetValue("lst", lst);
+
+            Assert.Equal(5, engine.Execute("lst.Sum(x => x.Cost);").GetCompletionValue().AsNumber());
+            Assert.Equal(50, engine.Execute("lst.Sum(x => x.Age);").GetCompletionValue().AsNumber());
+            Assert.Equal(3, engine.Execute("lst.Where(x => x.Name == 'b').Count;").GetCompletionValue().AsNumber());
+            Assert.Equal(30, engine.Execute("lst.Where(x => x.Name == 'b').Sum(x => x.Age);").GetCompletionValue().AsNumber());
+        }
+
+        #endregion
     }
 }

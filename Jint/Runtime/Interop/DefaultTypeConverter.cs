@@ -181,14 +181,12 @@ namespace Jint.Runtime.Interop
 
                         var @vars = Expression.NewArrayInit(jsValueType, initializers);
 
-                        var callExpression = Expression.Block(
-                                                Expression.Call(
+                        var callExpression = Expression.Call(
                                                     Expression.Call(Expression.Constant(function.Target),
                                                         function.Method,
                                                         Expression.Constant(JsValue.Undefined, jsValueType),
                                                         @vars),
-                                                    jsValueType.GetMethod("ToObject")),
-                                                Expression.Empty());
+                                                    jsValueType.GetMethod("ToObject"));
 
                         var dynamicExpression = Expression.Invoke(Expression.Lambda(callExpression, new ReadOnlyCollection<ParameterExpression>(@params)), new ReadOnlyCollection<ParameterExpression>(@params));
 
