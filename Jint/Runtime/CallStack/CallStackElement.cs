@@ -3,6 +3,7 @@
 using Esprima;
 using Esprima.Ast;
 using Jint.Native.Function;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.CallStack
@@ -11,14 +12,17 @@ namespace Jint.Runtime.CallStack
     {
         public CallStackElement(
             FunctionInstance function,
-            JintExpression expression)
+            JintExpression expression,
+            ExecutionContext callingExecutionContext)
         {
             Function = function;
             Expression = expression;
+            CallingExecutionContext = callingExecutionContext;
         }
 
         public readonly FunctionInstance Function;
         public readonly JintExpression? Expression;
+        public readonly ExecutionContext CallingExecutionContext;
 
         public Location Location
         {

@@ -1256,7 +1256,7 @@ namespace Jint
             JsValue[] arguments,
             JintExpression expression)
         {
-            var callStackElement = new CallStackElement(functionInstance, expression);
+            var callStackElement = new CallStackElement(functionInstance, expression, ExecutionContext);
             var recursionDepth = CallStack.Push(callStackElement);
 
             if (recursionDepth > Options.MaxRecursionDepth)
@@ -1279,7 +1279,7 @@ namespace Jint
             JsValue newTarget,
             JintExpression expression)
         {
-            var callStackElement = new CallStackElement(functionInstance, expression);
+            var callStackElement = new CallStackElement(functionInstance, expression, ExecutionContext);
             var recursionDepth = CallStack.Push(callStackElement);
 
             if (recursionDepth > Options.MaxRecursionDepth)

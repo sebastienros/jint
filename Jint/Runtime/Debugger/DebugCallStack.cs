@@ -12,14 +12,11 @@ namespace Jint.Runtime.Debugger
 {
     public class CallFrame
     {
-        private readonly Engine _engine;
+        private readonly ExecutionContext _context;
         private readonly CallStackElement? _element;
         private readonly Lazy<DebugScopes> _scopeChain;
 
-        // Null call frame means we're in the global environment
-        // TODO: Find actual environment for non-global call frames - CallStackElement.Function._environment is obviously the ("outer")
-        // Function environment, not the currently executing environment (requires access to ExecutionContext for CallStackElement).
-        private LexicalEnvironment Environment => _element?.Function._environment ?? _engine.GlobalEnvironment;
+        private LexicalEnvironment Environment => _context.LexicalEnvironment;
 
         // TODO: CallFrameId
         // e.g. Chromium uses "(anonymous)" for call from global scope - we do the same:
@@ -33,10 +30,10 @@ namespace Jint.Runtime.Debugger
 
         public NodeList<Expression>? Arguments { get; }
 
-        internal CallFrame(Engine engine, Location location, CallStackElement? element, JsValue returnValue)
+        internal CallFrame(CallStackElement? element, ExecutionContext context, Location location, JsValue returnValue)
         {
-            _engine = engine;
             _element = element;
+            _context = context;
             Location = location;
             ReturnValue = returnValue;
 
@@ -70,14 +67,16 @@ namespace Jint.Runtime.Debugger
         internal DebugCallStack(Engine engine, Location location, JintCallStack callStack, JsValue returnValue)
         {
             _stack = new List<CallFrame>();
+            var executionContext = engine.ExecutionContext;
             foreach (var element in callStack.Stack)
             {
-                _stack.Add(new CallFrame(engine, location, element, returnValue));
+                _stack.Add(new CallFrame(element, executionContext, location, returnValue));
                 location = element.Location;
                 returnValue = null;
+                executionContext = element.CallingExecutionContext;
             }
             // Add root location
-            _stack.Add(new CallFrame(engine, location, element: null, returnValue: null));
+            _stack.Add(new CallFrame(null, executionContext, location, returnValue: null));
         }
 
         public IEnumerator<CallFrame> GetEnumerator()

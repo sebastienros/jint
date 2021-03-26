@@ -74,13 +74,53 @@ namespace Jint.Tests.Runtime.Debugger
         }
 
         [Fact]
+        public void LocalScopeIncludesTopLevelLocalConst()
+        {
+            string script = @"
+                function test()
+                {
+                    // const and let at the top level of a function are collapsed into the Local scope
+                    const localConst = 'test';
+                    debugger;
+                }
+                test();";
+
+            TestHelpers.TestAtBreak(script, info =>
+            {
+                var value = AssertOnlyScopeContains("localConst", info.CurrentScopeChain, DebugScopeType.Local);
+                Assert.Equal("test", value.AsString());
+            });
+        }
+
+        [Fact]
+        public void LocalScopeIncludesTopLevelLocalLet()
+        {
+            string script = @"
+                function test()
+                {
+                    // const and let at the top level of a function are collapsed into the Local scope
+                    let localLet = 'test';
+                    debugger;
+                }
+                test();";
+
+            TestHelpers.TestAtBreak(script, info =>
+            {
+                var value = AssertOnlyScopeContains("localLet", info.CurrentScopeChain, DebugScopeType.Local);
+                Assert.Equal("test", value.AsString());
+            });
+        }
+
+        [Fact]
         public void BlockScopeIncludesLocalConst()
         {
             string script = @"
                 function test()
                 {
-                    const localConst = 'test';
-                    debugger;
+                    {
+                        const localConst = 'test';
+                        debugger;
+                    }
                 }
                 test();";
 
@@ -90,15 +130,16 @@ namespace Jint.Tests.Runtime.Debugger
                 Assert.Equal("test", value.AsString());
             });
         }
-
         [Fact]
         public void BlockScopeIncludesLocalLet()
         {
             string script = @"
                 function test()
                 {
-                    let localLet = 'test';
-                    debugger;
+                    {
+                        let localLet = 'test';
+                        debugger;
+                    }
                 }
                 test();";
 
