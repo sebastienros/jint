@@ -8,19 +8,22 @@ namespace Jint.Runtime.Debugger
 {
     public class DebugScopes : IReadOnlyList<DebugScope>
     {
-        private readonly HashSet<string> foundBindings = new HashSet<string>();
-        private readonly List<DebugScope> scopes = new List<DebugScope>();
+        private readonly HashSet<string> _foundBindings = new HashSet<string>();
+        private readonly List<DebugScope> _scopes = new List<DebugScope>();
 
-        public DebugScopes(ExecutionContext context)
+        // Shortcuts to single instance scopes:
+        public DebugScope Global { get; private set; }
+        public DebugScope Local { get; private set; }
+
+        public DebugScopes(LexicalEnvironment environment)
         {
-            Populate(context);
+            Populate(environment);
         }
 
-        private void Populate(ExecutionContext context)
+        private void Populate(LexicalEnvironment environment)
         {
             bool inLocalScope = true;
-            var env = context.LexicalEnvironment;
-            while (env != null)
+            while (environment != null)
             {
                 // Chromium devtools (v89) lists the following scopes (in scope chain order):
                 // * Multiple Block scopes (limited to block scopes in innermost Local scope)
@@ -30,43 +33,43 @@ namespace Jint.Runtime.Debugger
                 // * Multiple With scopes (interestingly any inner Local scope will list normally Block scoped const/let as Local)
                 // * Script scope (= top level block scope - let/const at top level)
                 // * Global scope
-                switch (env._record)
+                switch (environment._record)
                 {
                     case GlobalEnvironmentRecord:
-                        AddScope(DebugScopeType.Global, env);
+                        AddScope(DebugScopeType.Global, environment);
                         break;
                     case FunctionEnvironmentRecord:
-                        AddScope(inLocalScope ? DebugScopeType.Local : DebugScopeType.Closure, env);
+                        AddScope(inLocalScope ? DebugScopeType.Local : DebugScopeType.Closure, environment);
                         // We're now in closure territory
                         inLocalScope = false;
                         break;
                     case ObjectEnvironmentRecord:
                         // If an ObjectEnvironmentRecord is not a GlobalEnvironmentRecord, it's With
-                        AddScope(DebugScopeType.With, env);
+                        AddScope(DebugScopeType.With, environment);
                         break;
                     case DeclarativeEnvironmentRecord der:
                         if (der._catchEnvironment)
                         {
-                            AddScope(DebugScopeType.Catch, env);
+                            AddScope(DebugScopeType.Catch, environment);
                         }
-                        else if (env._outer?._record is FunctionEnvironmentRecord)
+                        else if (environment._outer?._record is FunctionEnvironmentRecord)
                         {
                             // Like Chromium, we collapse a Function scope and function-top-level Block scope
                             // into a combined Local scope:
-                            AddScope(inLocalScope ? DebugScopeType.Local : DebugScopeType.Closure, env, env._outer);
+                            AddScope(inLocalScope ? DebugScopeType.Local : DebugScopeType.Closure, environment, environment._outer);
                             // We already handled the outer (function) scope, so skip it:
-                            env = env._outer;
+                            environment = environment._outer;
                             // We're now in closure territory
                             inLocalScope = false;
                         }
                         else
                         {
-                            AddScope(DebugScopeType.Block, env);
+                            AddScope(DebugScopeType.Block, environment);
                         }
                         break;
                 }
 
-                env = env._outer;
+                environment = environment._outer;
             }
         }
 
@@ -80,7 +83,21 @@ namespace Jint.Runtime.Debugger
 
             if (bindings.Count > 0)
             {
-                scopes.Add(new DebugScope(type, bindings));
+                var scope = new DebugScope(type, bindings);
+                _scopes.Add(scope);
+                switch (type)
+                {
+                    case DebugScopeType.Global:
+                        Global = scope;
+                        break;
+                    case DebugScopeType.Local:
+                        Local = scope;
+                        break;
+                }
+                if (type == DebugScopeType.Global)
+                {
+                    Global = scope;
+                }
             }
         }
 
@@ -88,15 +105,15 @@ namespace Jint.Runtime.Debugger
         {
             var bindingNames = lex._record.GetAllBindingNames();
 
-            if (!foundBindings.Contains("this") && lex._record.HasThisBinding())
+            if (!_foundBindings.Contains("this") && lex._record.HasThisBinding())
             {
                 bindings.Add("this", lex._record.GetThisBinding());
-                foundBindings.Add("this");
+                _foundBindings.Add("this");
             }
 
             foreach (var name in bindingNames)
             {
-                if (foundBindings.Contains(name))
+                if (_foundBindings.Contains(name))
                 {
                     // This binding is shadowed by earlier scope
                     continue;
@@ -110,7 +127,7 @@ namespace Jint.Runtime.Debugger
                         // TODO: Check if null result from GetBindingValue is only true for uninitialized const/let.
                         break;
                     default:
-                        foundBindings.Add(name);
+                        _foundBindings.Add(name);
                         bindings.Add(name, jsValue);
                         break;
                 }
@@ -119,17 +136,17 @@ namespace Jint.Runtime.Debugger
 
         #region IReadOnlyList implementation
 
-        public DebugScope this[int index] => scopes[index];
-        public int Count => scopes.Count;
+        public DebugScope this[int index] => _scopes[index];
+        public int Count => _scopes.Count;
 
         public IEnumerator<DebugScope> GetEnumerator()
         {
-            return scopes.GetEnumerator();
+            return _scopes.GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return scopes.GetEnumerator();
+            return _scopes.GetEnumerator();
         }
 
         #endregion

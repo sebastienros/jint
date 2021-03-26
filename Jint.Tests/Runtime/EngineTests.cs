@@ -1755,15 +1755,17 @@ var prep = function (fn) { fn(); };
 
             Assert.NotNull(debugInfo.CallStack);
             Assert.NotNull(debugInfo.CurrentStatement);
-            Assert.NotNull(debugInfo.Scopes);
+            Assert.NotNull(debugInfo.CurrentScopeChain);
+            Assert.NotNull(debugInfo.CurrentScopeChain.Global);
+            Assert.NotNull(debugInfo.CurrentScopeChain.Local);
 
             Assert.Equal(2, debugInfo.CallStack.Count);
-            Assert.Equal("func1", debugInfo.CallStack[0].ShortDescription);
-            Assert.Contains(debugInfo.Scopes[DebugScopeType.Global], kvp => kvp.Key.Equals("global", StringComparison.Ordinal) && kvp.Value.AsBoolean() == true);
+            Assert.Equal("func1", debugInfo.CurrentCallFrame.FunctionName);
+            Assert.Contains(debugInfo.CurrentScopeChain.Global, kvp => kvp.Key.Equals("global", StringComparison.Ordinal) && kvp.Value.AsBoolean() == true);
             // Globals no longer contain local variables
             //Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
-            Assert.Contains(debugInfo.Scopes[DebugScopeType.Local], kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
-            Assert.DoesNotContain(debugInfo.Scopes[DebugScopeType.Local], kvp => kvp.Key.Equals("global", StringComparison.Ordinal));
+            Assert.Contains(debugInfo.CurrentScopeChain.Local, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
+            Assert.DoesNotContain(debugInfo.CurrentScopeChain.Local, kvp => kvp.Key.Equals("global", StringComparison.Ordinal));
 
             countBreak++;
             return stepMode;

@@ -16,7 +16,7 @@ namespace Jint.Tests.Runtime.Debugger
             engine.Break += (sender, info) =>
             {
                 didBreak = true;
-                Assert.Equal("regularFunction", info.CallStack[0].ShortDescription);
+                Assert.Equal("regularFunction", info.CurrentCallFrame.FunctionName);
                 return StepMode.None;
             };
 
@@ -38,7 +38,7 @@ namespace Jint.Tests.Runtime.Debugger
             engine.Break += (sender, info) =>
             {
                 didBreak = true;
-                Assert.Equal("functionExpression", info.CallStack[0].ShortDescription);
+                Assert.Equal("functionExpression", info.CurrentCallFrame.FunctionName);
                 return StepMode.None;
             };
 
@@ -60,7 +60,7 @@ namespace Jint.Tests.Runtime.Debugger
             engine.Break += (sender, info) =>
             {
                 didBreak = true;
-                Assert.Equal("namedFunction", info.CallStack[0].ShortDescription);
+                Assert.Equal("namedFunction", info.CurrentCallFrame.FunctionName);
                 return StepMode.None;
             };
 
@@ -82,7 +82,7 @@ namespace Jint.Tests.Runtime.Debugger
             engine.Break += (sender, info) =>
             {
                 didBreak = true;
-                Assert.Equal("arrowFunction", info.CallStack[0].ShortDescription);
+                Assert.Equal("arrowFunction", info.CurrentCallFrame.FunctionName);
                 return StepMode.None;
             };
 
@@ -105,7 +105,7 @@ namespace Jint.Tests.Runtime.Debugger
             {
                 didBreak = true;
                 // Ideally, this should be "(anonymous)", but FunctionConstructor sets the "anonymous" name.
-                Assert.Equal("anonymous", info.CallStack[0].ShortDescription);
+                Assert.Equal("anonymous", info.CurrentCallFrame.FunctionName);
                 return StepMode.None;
             };
 
@@ -127,7 +127,7 @@ namespace Jint.Tests.Runtime.Debugger
             engine.Break += (sender, info) =>
             {
                 didBreak = true;
-                Assert.Equal("memberFunction", info.CallStack[0].ShortDescription);
+                Assert.Equal("memberFunction", info.CurrentCallFrame.FunctionName);
                 return StepMode.None;
             };
 
@@ -149,7 +149,7 @@ namespace Jint.Tests.Runtime.Debugger
             engine.Break += (sender, info) =>
             {
                 didBreak = true;
-                Assert.Equal("(anonymous)", info.CallStack[0].ShortDescription);
+                Assert.Equal("(anonymous)", info.CurrentCallFrame.FunctionName);
                 return StepMode.None;
             };
 
@@ -173,7 +173,7 @@ namespace Jint.Tests.Runtime.Debugger
             engine.Break += (sender, info) =>
             {
                 didBreak = true;
-                Assert.Equal("get accessor", info.CallStack[0].ShortDescription);
+                Assert.Equal("get accessor", info.CurrentCallFrame.FunctionName);
                 return StepMode.None;
             };
 
@@ -202,7 +202,7 @@ namespace Jint.Tests.Runtime.Debugger
             engine.Break += (sender, info) =>
             {
                 didBreak = true;
-                Assert.Equal("set accessor", info.CallStack[0].ShortDescription);
+                Assert.Equal("set accessor", info.CurrentCallFrame.FunctionName);
                 return StepMode.None;
             };
 

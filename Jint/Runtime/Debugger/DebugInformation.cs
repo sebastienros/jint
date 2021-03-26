@@ -25,13 +25,18 @@ namespace Jint.Runtime.Debugger
         public long CurrentMemoryUsage { get; set; }
 
         /// <summary>
+        /// The currently executing call frame.
+        /// </summary>
+        public CallFrame CurrentCallFrame => CallStack[0];
+
+        /// <summary>
         /// The current scope chain.
         /// </summary>
-        public DebugScopes Scopes { get; set; }
+        public DebugScopes CurrentScopeChain => CurrentCallFrame.ScopeChain;
 
         /// <summary>
         /// The return value. This is null if we're not at a return point. 
         /// </summary>
-        public JsValue ReturnValue { get; set; }
+        public JsValue ReturnValue => CurrentCallFrame.ReturnValue;
     }
 }

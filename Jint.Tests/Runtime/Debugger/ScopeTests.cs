@@ -1,5 +1,6 @@
 ﻿using Jint.Native;
 using Jint.Runtime.Debugger;
+using System.Linq;
 using Xunit;
 
 namespace Jint.Tests.Runtime.Debugger
@@ -8,17 +9,17 @@ namespace Jint.Tests.Runtime.Debugger
     {
         private JsValue AssertOnlyScopeContains(string name, DebugScopes scopes, DebugScopeType type)
         {
-            var entry = Assert.Single(scopes[type], g => g.Key == name);
+            var containingScope = Assert.Single(scopes, s => s.ScopeType == type && s.ContainsKey(name));
             foreach (var scope in scopes)
             {
-                if (scope.ScopeType == type)
+                if (scope == containingScope)
                 {
                     continue;
                 }
                 Assert.DoesNotContain(scope, g => g.Key == name);
             }
 
-            return entry.Value;
+            return containingScope[name];
         }
 
         private void AssertNoScopeContains(string name, DebugScopes scopes)
@@ -39,7 +40,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var value = AssertOnlyScopeContains("globalConstant", info.Scopes, DebugScopeType.Global);
+                var value = AssertOnlyScopeContains("globalConstant", info.CurrentScopeChain, DebugScopeType.Global);
                 Assert.Equal("test", value.AsString());
             });
         }
@@ -53,7 +54,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var value = AssertOnlyScopeContains("globalLet", info.Scopes, DebugScopeType.Global);
+                var value = AssertOnlyScopeContains("globalLet", info.CurrentScopeChain, DebugScopeType.Global);
                 Assert.Equal("test", value.AsString());
             });
         }
@@ -67,7 +68,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var value = AssertOnlyScopeContains("globalVar", info.Scopes, DebugScopeType.Global);
+                var value = AssertOnlyScopeContains("globalVar", info.CurrentScopeChain, DebugScopeType.Global);
                 Assert.Equal("test", value.AsString());
             });
         }
@@ -85,7 +86,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var value = AssertOnlyScopeContains("localConst", info.Scopes, DebugScopeType.Block);
+                var value = AssertOnlyScopeContains("localConst", info.CurrentScopeChain, DebugScopeType.Block);
                 Assert.Equal("test", value.AsString());
             });
         }
@@ -103,7 +104,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var value = AssertOnlyScopeContains("localLet", info.Scopes, DebugScopeType.Block);
+                var value = AssertOnlyScopeContains("localLet", info.CurrentScopeChain, DebugScopeType.Block);
                 Assert.Equal("test", value.AsString());
             });
         }
@@ -121,7 +122,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var value = AssertOnlyScopeContains("localVar", info.Scopes, DebugScopeType.Local);
+                var value = AssertOnlyScopeContains("localVar", info.CurrentScopeChain, DebugScopeType.Local);
             });
         }
 
@@ -137,7 +138,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var value = AssertOnlyScopeContains("blockConst", info.Scopes, DebugScopeType.Block);
+                var value = AssertOnlyScopeContains("blockConst", info.CurrentScopeChain, DebugScopeType.Block);
                 Assert.Equal(JsUndefined.Undefined, value);
             });
         }
@@ -154,9 +155,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                AssertOnlyScopeContains("blockLet", info.Scopes, DebugScopeType.Block);
-
-                Assert.Single(info.Scopes[DebugScopeType.Block], v => v.Key == "blockLet" && v.Value.AsString() == "block");
+                AssertOnlyScopeContains("blockLet", info.CurrentScopeChain, DebugScopeType.Block);
             });
         }
     }

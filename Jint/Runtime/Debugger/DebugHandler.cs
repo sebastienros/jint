@@ -169,10 +169,8 @@ namespace Jint.Runtime.Debugger
             {
                 CurrentStatement = statement,
                 Location = currentLocation ?? statement.Location,
-                CallStack = new DebugCallStack(currentLocation ?? statement.Location, _engine.CallStack),
-                CurrentMemoryUsage = _engine.CurrentMemoryUsage,
-                Scopes = new DebugScopes(_engine.ExecutionContext),
-                ReturnValue = returnValue
+                CallStack = new DebugCallStack(_engine, currentLocation ?? statement.Location, _engine.CallStack, returnValue),
+                CurrentMemoryUsage = _engine.CurrentMemoryUsage
             };
         }
     }
