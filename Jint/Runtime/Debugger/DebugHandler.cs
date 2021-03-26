@@ -59,9 +59,13 @@ namespace Jint.Runtime.Debugger
             var functionBodyEnd = bodyLocation.End;
             var location = new Location(functionBodyEnd, functionBodyEnd, bodyLocation.Source);
 
-            // TODO: Check Breakpoints (like OnStep)
+            BreakPoint breakpoint = _engine.BreakPoints.FirstOrDefault(breakPoint => BpTest(location, breakPoint));
 
-            if (_engine.CallStack.Count <= _steppingDepth)
+            if (breakpoint != null)
+            {
+                Pause(PauseType.Break, statement: null, location, returnValue);
+            }
+            else if (_engine.CallStack.Count <= _steppingDepth)
             {
                 Pause(PauseType.Step, statement: null, location, returnValue);
             }
@@ -161,103 +165,15 @@ namespace Jint.Runtime.Debugger
 
         private DebugInformation CreateDebugInformation(Statement statement, Location? currentLocation, JsValue returnValue)
         {
-            var info = new DebugInformation
+            return new DebugInformation
             {
                 CurrentStatement = statement,
                 Location = currentLocation ?? statement.Location,
                 CallStack = new DebugCallStack(currentLocation ?? statement.Location, _engine.CallStack),
                 CurrentMemoryUsage = _engine.CurrentMemoryUsage,
-                Scopes = new DebugScopes(),
+                Scopes = new DebugScopes(_engine.ExecutionContext),
                 ReturnValue = returnValue
             };
-
-            PopulateScopes(info.Scopes, _engine.ExecutionContext);
-
-            return info;
-        }
-
-        private void PopulateScopes(DebugScopes scopes, ExecutionContext context)
-        {
-            var lexEnv = context.LexicalEnvironment;
-            HashSet<string> foundBindings = new HashSet<string>();
-            while (!ReferenceEquals(lexEnv?._record, null))
-            {
-                PopulateScopesFromLexicalEnvironment(scopes, lexEnv, foundBindings);
-                lexEnv = lexEnv._outer;
-            }
-        }
-
-        private static void PopulateScopesFromLexicalEnvironment(DebugScopes scopes, LexicalEnvironment env, HashSet<string> foundBindings)
-        {
-            // Chromium devtools (v89) lists the following scopes (in scope chain order):
-            // * Multiple Block scopes (limited to block scopes in innermost Local scope)
-            // * Single Local scope (innermost, i.e. when in a nested function, outer function's Local scope will *not* be listed)
-            // * Multiple Closure scopes (named by function name, closure's Block and Local scopes combined)
-            // * Multiple Catch scopes
-            // * Multiple With scopes (interestingly any inner Local scope will list normally Block scoped const/let as Local)
-            // * Script scope (= top level block scope - let/const at top level)
-            // * Global scope
-            var bindings = GetBindings(env, foundBindings);
-            if (bindings.Count > 0)
-            {
-                switch (env._record)
-                {
-                    case GlobalEnvironmentRecord:
-                        scopes.Add(new DebugScope(DebugScopeType.Global, bindings));
-                        break;
-                    case FunctionEnvironmentRecord:
-                        scopes.Add(new DebugScope(DebugScopeType.Local, bindings));
-                        break;
-                    case ObjectEnvironmentRecord:
-                        // If an ObjectEnvironmentRecord is not a GlobalEnvironmentRecord, it's With
-                        scopes.Add(new DebugScope(DebugScopeType.With, bindings));
-                        break;
-                    case DeclarativeEnvironmentRecord der:
-                        scopes.Add(new DebugScope(
-                            der._catchEnvironment ? DebugScopeType.Catch : DebugScopeType.Block,
-                            bindings
-                        ));
-                        break;
-                }
-            }
-        }
-
-        private static IReadOnlyDictionary<string, JsValue> GetBindings(LexicalEnvironment lex, HashSet<string> foundBindings)
-        {
-            var bindings = lex._record.GetAllBindingNames();
-            var result = new Dictionary<string, JsValue>();
-            
-            if (!foundBindings.Contains("this") && lex._record.HasThisBinding())
-            {
-                result.Add("this", lex._record.GetThisBinding());
-                foundBindings.Add("this");
-            }
-
-            foreach (var binding in bindings)
-            {
-                if (foundBindings.Contains(binding))
-                {
-                    // This binding is shadowed by earlier scope
-                    continue;
-                }
-                var jsValue = lex._record.GetBindingValue(binding, false);
-
-                switch (jsValue)
-                {
-                    case ICallable _:
-                        // TODO: Callables aren't added - but maybe they should be.
-                        break;
-                    case null:
-                        // Uninitialized consts and lets in scope are shown as "undefined" in recent Chromium debugger.
-                        // TODO: Check if null result from GetBindingValue is only true for uninitialized const/let.
-                        break;
-                    default:
-                        foundBindings.Add(binding);
-                        result.Add(binding, jsValue);
-                        break;
-                }
-            }
-            return result;
         }
     }
 }

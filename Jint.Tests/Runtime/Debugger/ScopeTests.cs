@@ -30,7 +30,7 @@ namespace Jint.Tests.Runtime.Debugger
         }
 
         [Fact]
-        public void GlobalsIncludeGlobalConst()
+        public void GlobalScopeIncludesGlobalConst()
         {
             string script = @"
                 const globalConstant = 'test';
@@ -45,7 +45,7 @@ namespace Jint.Tests.Runtime.Debugger
         }
 
         [Fact]
-        public void GlobalsIncludeGlobalLet()
+        public void GlobalScopeIncludesGlobalLet()
         {
             string script = @"
                 let globalLet = 'test';
@@ -59,7 +59,7 @@ namespace Jint.Tests.Runtime.Debugger
         }
 
         [Fact]
-        public void GlobalsIncludeGlobalVar()
+        public void GlobalScopeIncludesGlobalVar()
         {
             string script = @"
                 var globalVar = 'test';
@@ -73,7 +73,7 @@ namespace Jint.Tests.Runtime.Debugger
         }
 
         [Fact]
-        public void BlockIncludesLocalConst()
+        public void BlockScopeIncludesLocalConst()
         {
             string script = @"
                 function test()
@@ -91,7 +91,7 @@ namespace Jint.Tests.Runtime.Debugger
         }
 
         [Fact]
-        public void BlockIncludesLocalLet()
+        public void BlockScopeIncludesLocalLet()
         {
             string script = @"
                 function test()
@@ -122,24 +122,6 @@ namespace Jint.Tests.Runtime.Debugger
             TestHelpers.TestAtBreak(script, info =>
             {
                 var value = AssertOnlyScopeContains("localVar", info.Scopes, DebugScopeType.Local);
-                Assert.DoesNotContain(info.Scopes[DebugScopeType.Global], g => g.Key == "localVar");
-            });
-        }
-
-        [Fact]
-        public void BlockScopedVariablesAreInvisibleOutsideBlock()
-        {
-            string script = @"
-            debugger;
-            {
-                let blockLet = 'block';
-                const blockConst = 'block';
-            }";
-
-            TestHelpers.TestAtBreak(script, info =>
-            {
-                AssertNoScopeContains("blockLet", info.Scopes);
-                AssertNoScopeContains("blockConst", info.Scopes);
             });
         }
 

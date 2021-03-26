@@ -8,20 +8,20 @@ namespace Jint.Runtime.Debugger
     {
         private IReadOnlyDictionary<string, JsValue> variables;
 
-        public JsValue this[string key] => variables[key];
-
-        public IEnumerable<string> Keys => variables.Keys;
-
-        public IEnumerable<JsValue> Values => variables.Values;
-
         public DebugScopeType ScopeType { get; }
-        public int Count => variables.Count;
 
         public DebugScope(DebugScopeType type, IReadOnlyDictionary<string, JsValue> variables)
         {
             ScopeType = type;
             this.variables = variables;
         }
+
+        #region IReadOnlyDictionary implementation
+
+        public JsValue this[string key] => variables[key];
+        public IEnumerable<string> Keys => variables.Keys;
+        public IEnumerable<JsValue> Values => variables.Values;
+        public int Count => variables.Count;
 
         public bool ContainsKey(string key)
         {
@@ -42,5 +42,7 @@ namespace Jint.Runtime.Debugger
         {
             return variables.GetEnumerator();
         }
+
+        #endregion
     }
 }
