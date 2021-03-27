@@ -168,7 +168,6 @@ namespace Jint.Runtime.Debugger
             return new DebugInformation
             {
                 CurrentStatement = statement,
-                Location = currentLocation ?? statement.Location,
                 CallStack = new DebugCallStack(_engine, currentLocation ?? statement.Location, _engine.CallStack, returnValue),
                 CurrentMemoryUsage = _engine.CurrentMemoryUsage
             };

@@ -13,14 +13,16 @@ namespace Jint.Runtime.Debugger
         public DebugCallStack CallStack { get; set; }
 
         /// <summary>
-        /// The Statement that will be executed on next step. Note that this will be null when at a return point.
+        /// The Statement that will be executed on next step.
+        /// Note that this will be null when execution is at a return point.
         /// </summary>
         public Statement CurrentStatement { get; set; }
 
         /// <summary>
-        /// The current source Location. For return points, this starts and ends at the end of the function body.
+        /// The current source Location.
+        /// For return points, this starts and ends at the end of the function body.
         /// </summary>
-        public Location Location { get; set; }
+        public Location Location => CurrentCallFrame.Location;
 
         public long CurrentMemoryUsage { get; set; }
 
@@ -30,12 +32,13 @@ namespace Jint.Runtime.Debugger
         public CallFrame CurrentCallFrame => CallStack[0];
 
         /// <summary>
-        /// The current scope chain.
+        /// The scope chain of the currently executing call frame.
         /// </summary>
         public DebugScopes CurrentScopeChain => CurrentCallFrame.ScopeChain;
 
         /// <summary>
-        /// The return value. This is null if we're not at a return point. 
+        /// The return value of the currently executing call frame.
+        /// This is null if execution is not at a return point. 
         /// </summary>
         public JsValue ReturnValue => CurrentCallFrame.ReturnValue;
     }
