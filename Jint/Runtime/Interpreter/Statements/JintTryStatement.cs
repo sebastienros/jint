@@ -30,12 +30,23 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
+            int callStackSizeBeforeExecution = _engine.CallStack.Count;
+
             var b = _block.Execute();
             if (b.Type == CompletionType.Throw)
             {
                 // execute catch
                 if (_catch != null)
                 {
+                    // Quick-patch for call stack not being unwinded when an exception is caught.
+                    // Ideally, this should instead be solved by always popping the stack when returning
+                    // from a call, regardless of whether it throws (i.e. CallStack.Pop() in finally clause
+                    // in Engine.Call/Engine.Construct - however, that method currently breaks stack traces
+                    // in error messages.
+                    while (callStackSizeBeforeExecution < _engine.CallStack.Count)
+                    {
+                        _engine.CallStack.Pop();
+                    }
                     var c = b.Value;
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
