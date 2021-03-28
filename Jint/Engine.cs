@@ -704,38 +704,16 @@ namespace Jint
         internal JsValue GetNewTarget(EnvironmentRecord thisEnvironment = null)
         {
             // we can take as argument if caller site has already determined the value, otherwise resolve
-            thisEnvironment ??= GetThisEnvironment();
+            thisEnvironment ??= ExecutionContext.GetThisEnvironment();
             return thisEnvironment.NewTarget;
         }
         
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-getthisenvironment
-        /// </summary>
-        internal EnvironmentRecord GetThisEnvironment()
-        {
-            // The loop will always terminate because the list of environments always
-            // ends with the global environment which has a this binding.
-            var lex = ExecutionContext.LexicalEnvironment;
-            while (true)
-            {
-                var envRec = lex._record;
-                var exists = envRec.HasThisBinding();
-                if (exists)
-                {
-                    return envRec;
-                }
-
-                var outer = lex._outer;
-                lex = outer;
-            }
-        }
-
         /// <summary>
         /// https://tc39.es/ecma262/#sec-resolvethisbinding
         /// </summary>
         internal JsValue ResolveThisBinding()
         {
-            var envRec = GetThisEnvironment();
+            var envRec = ExecutionContext.GetThisEnvironment();
             return envRec.GetThisBinding();
         }
         

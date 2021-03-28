@@ -11,7 +11,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            var envRec = (FunctionEnvironmentRecord) _engine.GetThisEnvironment();
+            var envRec = (FunctionEnvironmentRecord) _engine.ExecutionContext.GetThisEnvironment();
             var activeFunction = envRec._functionObject;
             var superConstructor = activeFunction.GetPrototypeOf();
             return superConstructor;

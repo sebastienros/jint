@@ -50,28 +50,19 @@ namespace Jint.Runtime.Debugger
         /// <summary>
         /// The value of <c>this</c> in this call frame.
         /// </summary>
-        public JsValue This => GetThis();
+        public JsValue This
+        {
+            get
+            {
+                var environment = _context.GetThisEnvironment();
+                return environment.GetThisBinding();
+            }
+        }
 
         /// <summary>
         /// The return value of this call frame. Will be null for call frames that aren't at the top of the stack,
         /// as well as if execution is not at a return point.
         /// </summary>
         public JsValue ReturnValue { get; }
-
-        private JsValue GetThis()
-        {
-            var environment = Environment;
-
-            while (environment?._record != null)
-            {
-                if (environment._record.HasThisBinding())
-                {
-                    return environment._record.GetThisBinding();
-                }
-                environment = environment._outer;
-            }
-
-            return null;
-        }
     }
 }

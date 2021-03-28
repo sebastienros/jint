@@ -22,5 +22,29 @@
         {
             return new ExecutionContext(LexicalEnvironment, variableEnvironment);
         }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getthisenvironment
+        /// </summary>
+        internal EnvironmentRecord GetThisEnvironment()
+        {
+            // The loop will always terminate because the list of environments always
+            // ends with the global environment which has a this binding.
+            var lex = LexicalEnvironment;
+            while (true)
+            {
+                var envRec = lex._record;
+                var exists = envRec.HasThisBinding();
+                if (exists)
+                {
+                    return envRec;
+                }
+
+                var outer = lex._outer;
+                lex = outer;
+            }
+        }
+
+
     }
 }
