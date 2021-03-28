@@ -14,9 +14,9 @@ namespace Jint.Runtime.Debugger
             Break
         }
 
+        private readonly Engine _engine;
         private bool _paused;
         private int _steppingDepth;
-        private readonly Engine _engine;
 
         public DebugHandler(Engine engine)
         {

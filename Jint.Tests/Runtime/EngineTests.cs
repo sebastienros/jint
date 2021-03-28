@@ -1761,12 +1761,13 @@ var prep = function (fn) { fn(); };
 
             Assert.Equal(2, debugInfo.CallStack.Count);
             Assert.Equal("func1", debugInfo.CurrentCallFrame.FunctionName);
-            Assert.Contains(debugInfo.CurrentScopeChain.Global.Bindings, binding => binding.Name.Equals("global", StringComparison.Ordinal) && binding.Value.AsBoolean() == true);
-            // Globals no longer contain local variables
-            //Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
-            Assert.Contains(debugInfo.CurrentScopeChain.Local.Bindings, binding => binding.Name.Equals("local", StringComparison.Ordinal) && binding.Value.AsBoolean() == false);
-            Assert.DoesNotContain(debugInfo.CurrentScopeChain.Local.Bindings, binding => binding.Name.Equals("global", StringComparison.Ordinal));
-
+            var globalScope = debugInfo.CurrentScopeChain.Global;
+            var localScope = debugInfo.CurrentScopeChain.Local;
+            Assert.Contains("global", globalScope.BindingNames);
+            Assert.Equal(true, globalScope.GetBindingValue("global").AsBoolean());
+            Assert.Contains("local", localScope.BindingNames);
+            Assert.Equal(false, localScope.GetBindingValue("local").AsBoolean());
+            Assert.DoesNotContain("global", localScope.BindingNames);
             countBreak++;
             return stepMode;
         }
