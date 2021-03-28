@@ -101,25 +101,13 @@ namespace Jint.Runtime.Debugger
         {
             if (newStepMode != null)
             {
-                switch (newStepMode)
+                _steppingDepth = newStepMode switch
                 {
-                    case StepMode.Over:
-                        // Resume stepping when we're back at this level of the call stack
-                        _steppingDepth = _engine.CallStack.Count;
-                        break;
-                    case StepMode.Out:
-                        // Resume stepping when we've popped the call stack
-                        _steppingDepth = _engine.CallStack.Count - 1;
-                        break;
-                    case StepMode.None:
-                        // Never step
-                        _steppingDepth = int.MinValue;
-                        break;
-                    default:
-                        // Always step
-                        _steppingDepth = int.MaxValue;
-                        break;
-                }
+                    StepMode.Over => _engine.CallStack.Count,// Resume stepping when we're back at this level of the call stack
+                    StepMode.Out => _engine.CallStack.Count - 1,// Resume stepping when we've popped the call stack
+                    StepMode.None => int.MinValue,// Never step
+                    _ => int.MaxValue,// Always step
+                };
             }
         }
 

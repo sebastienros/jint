@@ -7,31 +7,25 @@ namespace Jint.Tests.Runtime.Debugger
 {
     public class ScopeTests
     {
-        private JsValue AssertOnlyScopeContains(DebugScopes scopes, string name, DebugScopeType scopeType)
+        private static JsValue AssertOnlyScopeContains(DebugScopes scopes, string name, DebugScopeType scopeType)
         {
-            var containingScope = Assert.Single(scopes, s => s.ScopeType == scopeType && s.ContainsKey(name));
-            foreach (var scope in scopes)
-            {
-                if (scope != containingScope)
-                {
-                    Assert.DoesNotContain(scope, g => g.Key == name);
-                }
-            }
+            var containingScope = Assert.Single(scopes, s => s.ScopeType == scopeType && s.BindingNames.Contains(name));
+            Assert.DoesNotContain(scopes, s => s != containingScope && s.BindingNames.Contains(name));
 
             return containingScope[name];
         }
 
-        private void AssertScope(DebugScope actual, DebugScopeType expectedType, params string[] expectedBindingNames)
+        private static void AssertScope(DebugScope actual, DebugScopeType expectedType, params string[] expectedBindingNames)
         {
             Assert.Equal(expectedType, actual.ScopeType);
             // Global scope will have a number of intrinsic bindings that are outside the scope [no pun] of these tests
             if (actual.ScopeType != DebugScopeType.Global)
             {
-                Assert.Equal(expectedBindingNames.Length, actual.Count);
+                Assert.Equal(expectedBindingNames.Length, actual.BindingCount);
             }
             foreach (string expectedName in expectedBindingNames)
             {
-                Assert.Contains(expectedName, actual);
+                Assert.Contains(expectedName, actual.BindingNames);
             }
         }
 
@@ -79,12 +73,11 @@ namespace Jint.Tests.Runtime.Debugger
         }
 
         [Fact]
-        public void LocalScopeIncludesTopLevelLocalConst()
+        public void TopLevelBlockScopeIsIdentified()
         {
             string script = @"
                 function test()
                 {
-                    // const and let at the top level of a function are collapsed into the Local scope
                     const localConst = 'test';
                     debugger;
                 }
@@ -92,27 +85,31 @@ namespace Jint.Tests.Runtime.Debugger
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var value = AssertOnlyScopeContains(info.CurrentScopeChain, "localConst", DebugScopeType.Local);
-                Assert.Equal("test", value.AsString());
+                Assert.Equal(3, info.CurrentScopeChain.Count);
+                Assert.Equal(DebugScopeType.Block, info.CurrentScopeChain[0].ScopeType);
+                Assert.True(info.CurrentScopeChain[0].IsTopLevel);
             });
         }
 
         [Fact]
-        public void LocalScopeIncludesTopLevelLocalLet()
+        public void NonTopLevelBlockScopeIsIdentified()
         {
             string script = @"
                 function test()
                 {
-                    // const and let at the top level of a function are collapsed into the Local scope
-                    let localLet = 'test';
-                    debugger;
+                    {
+                        const localConst = 'test';
+                        debugger;
+                    }
                 }
                 test();";
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var value = AssertOnlyScopeContains(info.CurrentScopeChain, "localLet", DebugScopeType.Local);
-                Assert.Equal("test", value.AsString());
+                // We only have 3 scopes, because the function top level block scope is empty.
+                Assert.Equal(3, info.CurrentScopeChain.Count);
+                Assert.Equal(DebugScopeType.Block, info.CurrentScopeChain[0].ScopeType);
+                Assert.False(info.CurrentScopeChain[0].IsTopLevel);
             });
         }
 
@@ -240,7 +237,7 @@ namespace Jint.Tests.Runtime.Debugger
             TestHelpers.TestAtBreak(script, info =>
             {
                 Assert.Collection(info.CurrentScopeChain,
-                    scope => AssertScope(scope, DebugScopeType.Local, "this", "arguments", "a", "b"),
+                    scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a", "b"),
                     scope => AssertScope(scope, DebugScopeType.Global, "x", "y", "z", "add"));
             });
         }
@@ -265,7 +262,7 @@ namespace Jint.Tests.Runtime.Debugger
             TestHelpers.TestAtBreak(script, info =>
             {
                 Assert.Collection(info.CurrentScopeChain,
-                    scope => AssertScope(scope, DebugScopeType.Local, "this", "arguments", "a"),
+                    scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a"),
                     scope => AssertScope(scope, DebugScopeType.Closure, "b", "power"), // a, this, arguments shadowed by local
                     scope => AssertScope(scope, DebugScopeType.Global, "x", "y", "z", "add"));
             });
@@ -292,7 +289,7 @@ namespace Jint.Tests.Runtime.Debugger
             {
                 Assert.Collection(info.CurrentScopeChain,
                     scope => AssertScope(scope, DebugScopeType.Block, "y"),
-                    scope => AssertScope(scope, DebugScopeType.Local, "this", "arguments", "a", "b"),
+                    scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a", "b"),
                     scope => AssertScope(scope, DebugScopeType.Global, "x", "z", "add")); // y shadowed
             });
         }
@@ -323,7 +320,7 @@ namespace Jint.Tests.Runtime.Debugger
                 Assert.Collection(info.CurrentScopeChain,
                     scope => AssertScope(scope, DebugScopeType.Block, "x"),
                     scope => AssertScope(scope, DebugScopeType.Block, "y"),
-                    scope => AssertScope(scope, DebugScopeType.Local, "this", "arguments", "a", "b"),
+                    scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a", "b"),
                     scope => AssertScope(scope, DebugScopeType.Global, "z", "add")); // x, y shadowed
             });
         }
@@ -350,7 +347,8 @@ namespace Jint.Tests.Runtime.Debugger
             {
                 Assert.Collection(info.CurrentScopeChain,
                     scope => AssertScope(scope, DebugScopeType.Catch, "error"),
-                    scope => AssertScope(scope, DebugScopeType.Local, "this", "arguments", "a"),
+                    scope => AssertScope(scope, DebugScopeType.Block, "a"),
+                    scope => AssertScope(scope, DebugScopeType.Local, "arguments"),
                     scope => AssertScope(scope, DebugScopeType.Global, "func"));
             });
         }
@@ -443,12 +441,12 @@ namespace Jint.Tests.Runtime.Debugger
                 Assert.Collection(info.CallStack,
                     frame => Assert.Collection(frame.ScopeChain,
                         // in foo()
-                        scope => AssertScope(scope, DebugScopeType.Local, "this", "arguments", "a", "c"),
+                        scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a", "c"),
                         scope => AssertScope(scope, DebugScopeType.Global, "x", "foo", "bar")
                     ),
                     frame => Assert.Collection(frame.ScopeChain,
                         // in bar()
-                        scope => AssertScope(scope, DebugScopeType.Local, "this", "arguments", "b"),
+                        scope => AssertScope(scope, DebugScopeType.Local, "arguments", "b"),
                         scope => AssertScope(scope, DebugScopeType.Global, "x", "foo", "bar")
                     ),
                     frame => Assert.Collection(frame.ScopeChain,

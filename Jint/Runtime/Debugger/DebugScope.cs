@@ -1,20 +1,27 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using Jint.Native;
+using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Debugger
 {
     /// <summary>
-    /// Dictionary of bindings for a single scope in the scope chain
+    /// Scope information, bindings, and values for a single scope in the scope chain
     /// </summary>
-    public sealed class DebugScope : IReadOnlyDictionary<string, JsValue>
+    public sealed class DebugScope
     {
-        private IReadOnlyDictionary<string, JsValue> variables;
+        private readonly EnvironmentRecord _record;
+        private readonly List<string> _bindingNames;
+        private readonly DebugBindings _bindings;
 
-        internal DebugScope(DebugScopeType type, IReadOnlyDictionary<string, JsValue> variables)
+        internal DebugScope(DebugScopeType type, EnvironmentRecord record, List<string> bindingNames, bool isTopLevel)
         {
             ScopeType = type;
-            this.variables = variables;
+            _record = record;
+            _bindingNames = bindingNames;
+            IsTopLevel = isTopLevel;
+            _bindings = new DebugBindings(_record, bindingNames);
         }
 
         /// <summary>
@@ -22,29 +29,36 @@ namespace Jint.Runtime.Debugger
         /// </summary>
         public DebugScopeType ScopeType { get; }
 
-        public JsValue this[string key] => variables[key];
-        public IEnumerable<string> Keys => variables.Keys;
-        public IEnumerable<JsValue> Values => variables.Values;
-        public int Count => variables.Count;
+        /// <summary>
+        /// For <see cref="DebugScopeType.Block">block</see> scopes, indicates whether this scope is at the top level of a containing function.
+        /// </summary>
+        /// <remarks>
+        /// Block scopes at the top level of a function are combined with Local scope in Chromium and devtools protocol.
+        /// This property facilitates implementing the same "flattening" in e.g. a UI. Because empty scopes are excluded in the scope chain,
+        /// top level cannot be determined from the scope chain order alone.
+        /// </remarks>
+        public bool IsTopLevel { get; }
 
-        public bool ContainsKey(string key)
-        {
-            return variables.ContainsKey(key);
-        }
+        /// <summary>
+        /// Number of non-shadowed bindings in the scope.
+        /// </summary>
+        public int BindingCount => _bindingNames.Count;
 
-        public IEnumerator<KeyValuePair<string, JsValue>> GetEnumerator()
-        {
-            return variables.GetEnumerator();
-        }
+        /// <summary>
+        /// Names of all non-shadowed bindings in the scope.
+        /// </summary>
+        public IReadOnlyList<string> BindingNames => _bindingNames;
 
-        public bool TryGetValue(string key, out JsValue value)
-        {
-            return variables.TryGetValue(key, out value);
-        }
+        /// <summary>
+        /// Name and value of all non-shadowed bindings in the scope.
+        /// </summary>
+        public IReadOnlyList<DebugBinding> Bindings => _bindings;
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return variables.GetEnumerator();
-        }
+        /// <summary>
+        /// Retrieves the value of a specific binding. Note that some bindings (e.g. uninitialized let) may return null.
+        /// </summary>
+        /// <param name="name">Binding name</param>
+        /// <returns>Value of the binding</returns>
+        public JsValue this[string name] => _record.GetBindingValue(name, strict: false);
     }
 }

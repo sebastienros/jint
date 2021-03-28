@@ -22,8 +22,7 @@ namespace Jint.Runtime.Debugger
 
         /// <summary>
         /// Shortcut to Local scope. Note that this is only present inside functions, and only includes
-        /// function scope variables and block scope let/const that are declared at the top level of the
-        /// function.
+        /// function scope bindings.
         /// </summary>
         public DebugScope Local { get; private set; }
 
@@ -35,38 +34,30 @@ namespace Jint.Runtime.Debugger
             bool inLocalScope = true;
             while (environment != null)
             {
-                switch (environment._record)
+                EnvironmentRecord record = environment._record;
+                switch (record)
                 {
                     case GlobalEnvironmentRecord:
-                        AddScope(DebugScopeType.Global, environment);
+                        AddScope(DebugScopeType.Global, record);
                         break;
                     case FunctionEnvironmentRecord:
-                        AddScope(inLocalScope ? DebugScopeType.Local : DebugScopeType.Closure, environment);
+                        AddScope(inLocalScope ? DebugScopeType.Local : DebugScopeType.Closure, record);
                         // We're now in closure territory
                         inLocalScope = false;
                         break;
                     case ObjectEnvironmentRecord:
                         // If an ObjectEnvironmentRecord is not a GlobalEnvironmentRecord, it's With
-                        AddScope(DebugScopeType.With, environment);
+                        AddScope(DebugScopeType.With, record);
                         break;
                     case DeclarativeEnvironmentRecord der:
                         if (der._catchEnvironment)
                         {
-                            AddScope(DebugScopeType.Catch, environment);
-                        }
-                        else if (environment._outer?._record is FunctionEnvironmentRecord)
-                        {
-                            // Like Chromium, we collapse a Function scope and function-top-level Block scope
-                            // into a combined Local scope:
-                            AddScope(inLocalScope ? DebugScopeType.Local : DebugScopeType.Closure, environment, environment._outer);
-                            // We already handled the outer (function) scope, so skip it:
-                            environment = environment._outer;
-                            // We're now in closure territory
-                            inLocalScope = false;
+                            AddScope(DebugScopeType.Catch, record);
                         }
                         else
                         {
-                            AddScope(DebugScopeType.Block, environment);
+                            bool isTopLevel = environment._outer?._record is FunctionEnvironmentRecord;
+                            AddScope(DebugScopeType.Block, record, isTopLevel);
                         }
                         break;
                 }
@@ -75,17 +66,14 @@ namespace Jint.Runtime.Debugger
             }
         }
 
-        private void AddScope(DebugScopeType type, params LexicalEnvironment[] environments)
+        private void AddScope(DebugScopeType type, EnvironmentRecord record, bool isTopLevel = false)
         {
-            var bindings = new Dictionary<string, JsValue>();
-            foreach (var env in environments)
-            {
-                PopulateBindings(bindings, env);
-            }
+            var bindings = new List<string>();
+            PopulateBindings(bindings, record);
 
             if (bindings.Count > 0)
             {
-                var scope = new DebugScope(type, bindings);
+                var scope = new DebugScope(type, record, bindings, isTopLevel);
                 _scopes.Add(scope);
                 switch (type)
                 {
@@ -96,42 +84,20 @@ namespace Jint.Runtime.Debugger
                         Local = scope;
                         break;
                 }
-                if (type == DebugScopeType.Global)
-                {
-                    Global = scope;
-                }
             }
         }
 
-        private void PopulateBindings(Dictionary<string, JsValue> bindings, LexicalEnvironment lex)
+        private void PopulateBindings(List<string> bindings, EnvironmentRecord record)
         {
-            var bindingNames = lex._record.GetAllBindingNames();
-
-            if (!_foundBindings.Contains("this") && lex._record.HasThisBinding())
-            {
-                bindings.Add("this", lex._record.GetThisBinding());
-                _foundBindings.Add("this");
-            }
+            var bindingNames = record.GetAllBindingNames();
 
             foreach (var name in bindingNames)
             {
-                if (_foundBindings.Contains(name))
+                // Only add non-shadowed bindings
+                if (!_foundBindings.Contains(name))
                 {
-                    // This binding is shadowed by earlier scope
-                    continue;
-                }
-                var jsValue = lex._record.GetBindingValue(name, false);
-
-                switch (jsValue)
-                {
-                    case null:
-                        // Uninitialized consts and lets in scope are shown as "undefined" in recent Chromium debugger.
-                        // TODO: Check if null result from GetBindingValue is only true for uninitialized const/let.
-                        break;
-                    default:
-                        _foundBindings.Add(name);
-                        bindings.Add(name, jsValue);
-                        break;
+                    bindings.Add(name);
+                    _foundBindings.Add(name);
                 }
             }
         }

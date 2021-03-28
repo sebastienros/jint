@@ -1761,11 +1761,11 @@ var prep = function (fn) { fn(); };
 
             Assert.Equal(2, debugInfo.CallStack.Count);
             Assert.Equal("func1", debugInfo.CurrentCallFrame.FunctionName);
-            Assert.Contains(debugInfo.CurrentScopeChain.Global, kvp => kvp.Key.Equals("global", StringComparison.Ordinal) && kvp.Value.AsBoolean() == true);
+            Assert.Contains(debugInfo.CurrentScopeChain.Global.Bindings, binding => binding.Name.Equals("global", StringComparison.Ordinal) && binding.Value.AsBoolean() == true);
             // Globals no longer contain local variables
             //Assert.Contains(debugInfo.Globals, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
-            Assert.Contains(debugInfo.CurrentScopeChain.Local, kvp => kvp.Key.Equals("local", StringComparison.Ordinal) && kvp.Value.AsBoolean() == false);
-            Assert.DoesNotContain(debugInfo.CurrentScopeChain.Local, kvp => kvp.Key.Equals("global", StringComparison.Ordinal));
+            Assert.Contains(debugInfo.CurrentScopeChain.Local.Bindings, binding => binding.Name.Equals("local", StringComparison.Ordinal) && binding.Value.AsBoolean() == false);
+            Assert.DoesNotContain(debugInfo.CurrentScopeChain.Local.Bindings, binding => binding.Name.Equals("global", StringComparison.Ordinal));
 
             countBreak++;
             return stepMode;

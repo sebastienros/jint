@@ -25,7 +25,7 @@
         /// Function local bindings.
         /// </summary>
         /// <remarks>
-        /// Function scoped variables as well as block scoped variables declared at the top level of the function.
+        /// Function scoped variables.
         /// Note that variables in outer functions are in <see cref="Closure"/> scopes.
         /// A scope chain will only include one scope of this type.
         /// </remarks>
@@ -35,8 +35,8 @@
         /// Block scoped bindings.
         /// </summary>
         /// <remarks>
-        /// This scope excludes block scoped variables (let/const) declared at the top level of functions
-        /// (<see cref="Local">local</see> and <see cref="Closure">closure</see>) or the <see cref="Global">global</see> scope.
+        /// This scope is not used for block scoped variables (let/const) declared at the top level of the <see cref="Global">global</see> scope.
+        /// Unlike Chromium V8, it *is* used as a separate scope for block scoped variables declared at the top level of a function.
         /// A scope chain may include more than one scope of this type.
         /// </remarks>
         Block,
@@ -54,7 +54,7 @@
         /// Function scope bindings in outer functions.
         /// </summary>
         /// <remarks>
-        /// Unlike Chromium, which will optimize variables out that aren't referenced from the inner scope,
+        /// Unlike Chromium V8, which will optimize variables out that aren't referenced from the inner scope,
         /// Jint includes local variables from the outer function in this scope.
         /// A scope chain may include more than one scope of this type.
         /// </remarks>

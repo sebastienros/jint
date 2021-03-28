@@ -8,7 +8,7 @@ namespace Jint.Runtime.Debugger
 {
     public sealed class DebugCallStack : IReadOnlyList<CallFrame>
     {
-        private List<CallFrame> _stack;
+        private readonly List<CallFrame> _stack;
 
         internal DebugCallStack(Engine engine, Location location, JintCallStack callStack, JsValue returnValue)
         {
