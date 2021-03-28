@@ -18,7 +18,7 @@ x++; y *= 2;
             var engine = new Engine(options => options.DebugMode());
 
             bool didBreak = false;
-            engine.Break += (sender, info) =>
+            engine.DebugHandler.Break += (sender, info) =>
             {
                 Assert.Equal(4, info.CurrentStatement.Location.Start.Line);
                 Assert.Equal(5, info.CurrentStatement.Location.Start.Column);
@@ -26,7 +26,7 @@ x++; y *= 2;
                 return StepMode.None;
             };
 
-            engine.BreakPoints.Add(new BreakPoint(4, 5));
+            engine.DebugHandler.BreakPoints.Add(new BreakPoint(4, 5));
             engine.Execute(script);
             Assert.True(didBreak);
         }
@@ -50,10 +50,10 @@ test(z);";
 
             var engine = new Engine(options => { options.DebugMode(); });
             
-            engine.BreakPoints.Add(new BreakPoint("script2", 3, 0));
+            engine.DebugHandler.BreakPoints.Add(new BreakPoint("script2", 3, 0));
 
             bool didBreak = false;
-            engine.Break += (sender, info) =>
+            engine.DebugHandler.Break += (sender, info) =>
             {
                 Assert.Equal("script2", info.CurrentStatement.Location.Source);
                 Assert.Equal(3, info.CurrentStatement.Location.Start.Line);
@@ -88,7 +88,7 @@ debugger;
                 .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             bool didBreak = false;
-            engine.Break += (sender, info) =>
+            engine.DebugHandler.Break += (sender, info) =>
             {
                 didBreak = true;
                 return StepMode.None;
@@ -110,10 +110,10 @@ debugger;
                 .DebugMode()
                 .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
-            engine.BreakPoints.Add(new BreakPoint(2, 0));
+            engine.DebugHandler.BreakPoints.Add(new BreakPoint(2, 0));
 
             int breakTriggered = 0;
-            engine.Break += (sender, info) =>
+            engine.DebugHandler.Break += (sender, info) =>
             {
                 breakTriggered++;
                 return StepMode.None;
@@ -138,11 +138,11 @@ test();";
 
             var engine = new Engine(options => options.DebugMode());
 
-            engine.BreakPoints.Add(new BreakPoint(4, 0));
-            engine.BreakPoints.Add(new BreakPoint(6, 0));
+            engine.DebugHandler.BreakPoints.Add(new BreakPoint(4, 0));
+            engine.DebugHandler.BreakPoints.Add(new BreakPoint(6, 0));
 
             int step = 0;
-            engine.Break += (sender, info) =>
+            engine.DebugHandler.Break += (sender, info) =>
             {
                 step++;
                 switch (step)

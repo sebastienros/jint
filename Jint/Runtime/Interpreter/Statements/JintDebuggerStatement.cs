@@ -22,7 +22,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     System.Diagnostics.Debugger.Break();
                     break;
                 case DebuggerStatementHandling.Script:
-                    _engine.DebugHandler?.Break(_statement);
+                    _engine.DebugHandler?.OnBreak(_statement);
                     break;
                 case DebuggerStatementHandling.Ignore:
                     break;

@@ -6,8 +6,11 @@ using Jint.Native;
 
 namespace Jint.Runtime.Debugger
 {
-    internal class DebugHandler
+    public class DebugHandler
     {
+        public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
+        public delegate StepMode BreakDelegate(object sender, DebugInformation e);
+
         private enum PauseType
         {
             Step,
@@ -18,11 +21,16 @@ namespace Jint.Runtime.Debugger
         private bool _paused;
         private int _steppingDepth;
 
-        public DebugHandler(Engine engine)
+        public event DebugStepDelegate Step;
+        public event BreakDelegate Break;
+
+        internal DebugHandler(Engine engine)
         {
             _engine = engine;
             _steppingDepth = int.MaxValue;
         }
+
+        public BreakPointCollection BreakPoints { get; } = new BreakPointCollection();
 
         internal void OnStep(Statement statement)
         {
@@ -33,7 +41,7 @@ namespace Jint.Runtime.Debugger
             }
 
             Location location = statement.Location;
-            BreakPoint breakpoint = _engine.BreakPoints.FirstOrDefault(breakPoint => BpTest(location, breakPoint));
+            BreakPoint breakpoint = BreakPoints.FindMatch(_engine, location);
 
             if (breakpoint != null)
             {
@@ -57,7 +65,7 @@ namespace Jint.Runtime.Debugger
             var functionBodyEnd = bodyLocation.End;
             var location = new Location(functionBodyEnd, functionBodyEnd, bodyLocation.Source);
 
-            BreakPoint breakpoint = _engine.BreakPoints.FirstOrDefault(breakPoint => BpTest(location, breakPoint));
+            BreakPoint breakpoint = BreakPoints.FindMatch(_engine, location);
 
             if (breakpoint != null)
             {
@@ -74,10 +82,12 @@ namespace Jint.Runtime.Debugger
             _paused = true;
             
             DebugInformation info = CreateDebugInformation(statement, location ?? statement.Location, returnValue);
+            
             StepMode? result = type switch
             {
-                PauseType.Step => _engine.InvokeStepEvent(info),
-                PauseType.Break => _engine.InvokeBreakEvent(info),
+                // Conventionally, sender should be DebugHandler - but Engine is more useful
+                PauseType.Step => Step?.Invoke(_engine, info),
+                PauseType.Break => Break?.Invoke(_engine, info),
                 _ => throw new ArgumentException("Invalid pause type", nameof(type))
             };
             
@@ -86,7 +96,7 @@ namespace Jint.Runtime.Debugger
             HandleNewStepMode(result);
         }
 
-        internal void Break(Statement statement)
+        internal void OnBreak(Statement statement)
         {
             // Don't reenter if we're already paused
             if (_paused)
@@ -109,44 +119,6 @@ namespace Jint.Runtime.Debugger
                     _ => int.MaxValue,// Always step
                 };
             }
-        }
-
-        private bool BpTest(Location location, BreakPoint breakpoint)
-        {
-            if (breakpoint.Source != null)
-            {
-                if (breakpoint.Source != location.Source)
-                {
-                    return false;
-                }
-            }
-
-            bool afterStart, beforeEnd;
-
-            afterStart = (breakpoint.Line == location.Start.Line &&
-                             breakpoint.Char >= location.Start.Column);
-
-            if (!afterStart)
-            {
-                return false;
-            }
-
-            beforeEnd = breakpoint.Line < location.End.Line
-                        || (breakpoint.Line == location.End.Line &&
-                            breakpoint.Char <= location.End.Column);
-
-            if (!beforeEnd)
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrEmpty(breakpoint.Condition))
-            {
-                var completionValue = _engine.Execute(breakpoint.Condition).GetCompletionValue();
-                return ((JsBoolean) completionValue)._value;
-            }
-
-            return true;
         }
 
         private DebugInformation CreateDebugInformation(Statement statement, Location? currentLocation, JsValue returnValue)

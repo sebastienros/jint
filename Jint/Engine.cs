@@ -66,7 +66,6 @@ namespace Jint
         private ErrorConstructor _typeError;
         private ErrorConstructor _uriError;
         private DebugHandler _debugHandler;
-        private List<BreakPoint> _breakPoints;
 
         // cached access
         private readonly List<IConstraint> _constraints;
@@ -242,26 +241,7 @@ namespace Jint
 
         internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; private set; }
 
-        #region Debugger
-        public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
-        public delegate StepMode BreakDelegate(object sender, DebugInformation e);
-        public event DebugStepDelegate Step;
-        public event BreakDelegate Break;
-
-        internal DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this);
-
-        public List<BreakPoint> BreakPoints => _breakPoints ??= new List<BreakPoint>();
-
-        internal StepMode? InvokeStepEvent(DebugInformation info)
-        {
-            return Step?.Invoke(this, info);
-        }
-
-        internal StepMode? InvokeBreakEvent(DebugInformation info)
-        {
-            return Break?.Invoke(this, info);
-        }
-        #endregion
+        public DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this);
 
         public ExecutionContext EnterExecutionContext(
             LexicalEnvironment lexicalEnvironment,

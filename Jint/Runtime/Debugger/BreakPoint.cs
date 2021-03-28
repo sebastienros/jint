@@ -2,31 +2,31 @@
 {
     public sealed class BreakPoint
     {
-        public BreakPoint(int line, int character)
+        public BreakPoint(int line, int column)
         {
             Line = line;
-            Char = character;
+            Column = column;
         }
 
-        public BreakPoint(int line, int character, string condition)
-            : this(line, character)
+        public BreakPoint(int line, int column, string condition)
+            : this(line, column)
         {
             Condition = condition;
         }
 
-        public BreakPoint(string source, int line, int character) : this(line, character)
+        public BreakPoint(string source, int line, int column) : this(line, column)
         {
             Source = source;
         }
 
-        public BreakPoint(string source, int line, int character, string condition) : this(source, line, character)
+        public BreakPoint(string source, int line, int column, string condition) : this(source, line, column)
         {
             Condition = condition;
         }
 
         public string Source { get; }
         public int Line { get; }
-        public int Char { get; }
+        public int Column { get; }
         public string Condition { get; }
     }
 }

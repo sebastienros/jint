@@ -39,7 +39,7 @@ namespace Jint.Tests.Runtime.Debugger
             );
 
             bool didBreak = false;
-            engine.Break += (sender, info) =>
+            engine.DebugHandler.Break += (sender, info) =>
             {
                 didBreak = true;
                 breakHandler(info);
@@ -65,7 +65,7 @@ namespace Jint.Tests.Runtime.Debugger
             );
 
             bool didBreak = false;
-            engine.Break += (sender, info) =>
+            engine.DebugHandler.Break += (sender, info) =>
             {
                 didBreak = true;
                 breakHandler(engine, info);

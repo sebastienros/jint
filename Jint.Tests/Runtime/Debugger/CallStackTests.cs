@@ -111,7 +111,7 @@ bar()";
             bool atReturn = false;
             bool didCheckReturn = false;
 
-            engine.Step += (sender, info) =>
+            engine.DebugHandler.Step += (sender, info) =>
             {
                 if (atReturn)
                 {
