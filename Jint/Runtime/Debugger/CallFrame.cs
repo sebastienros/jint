@@ -7,11 +7,21 @@ using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Debugger
 {
-    public class CallFrame
+    public sealed class CallFrame
     {
         private readonly ExecutionContext _context;
         private readonly CallStackElement? _element;
         private readonly Lazy<DebugScopes> _scopeChain;
+
+        internal CallFrame(CallStackElement? element, ExecutionContext context, Location location, JsValue returnValue)
+        {
+            _element = element;
+            _context = context;
+            Location = location;
+            ReturnValue = returnValue;
+
+            _scopeChain = new Lazy<DebugScopes>(() => new DebugScopes(Environment));
+        }
 
         private LexicalEnvironment Environment => _context.LexicalEnvironment;
 
@@ -47,16 +57,6 @@ namespace Jint.Runtime.Debugger
         /// as well as if execution is not at a return point.
         /// </summary>
         public JsValue ReturnValue { get; }
-
-        internal CallFrame(CallStackElement? element, ExecutionContext context, Location location, JsValue returnValue)
-        {
-            _element = element;
-            _context = context;
-            Location = location;
-            ReturnValue = returnValue;
-
-            _scopeChain = new Lazy<DebugScopes>(() => new DebugScopes(Environment));
-        }
 
         private JsValue GetThis()
         {

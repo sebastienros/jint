@@ -311,6 +311,20 @@ namespace Jint.Tests.Runtime.Debugger
         }
 
         [Fact]
+        public void ReturnStatementIsAStep()
+        {
+            var script = @"
+                function test()
+                {
+                    'source';
+                    return 'result';
+                }
+                test();
+                'target';";
+            Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Over));
+        }
+
+        [Fact]
         public void StepOutOnlyStepsOutOneStackLevel()
         {
             var script = @"

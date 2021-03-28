@@ -7,14 +7,9 @@ namespace Jint.Runtime.Debugger
     /// <summary>
     /// Dictionary of bindings for a single scope in the scope chain
     /// </summary>
-    public class DebugScope : IReadOnlyDictionary<string, JsValue>
+    public sealed class DebugScope : IReadOnlyDictionary<string, JsValue>
     {
         private IReadOnlyDictionary<string, JsValue> variables;
-
-        /// <summary>
-        /// The type of scope. Scope types are the same as defined by Chrome devtools protocol.
-        /// </summary>
-        public DebugScopeType ScopeType { get; }
 
         internal DebugScope(DebugScopeType type, IReadOnlyDictionary<string, JsValue> variables)
         {
@@ -22,7 +17,10 @@ namespace Jint.Runtime.Debugger
             this.variables = variables;
         }
 
-        #region IReadOnlyDictionary implementation
+        /// <summary>
+        /// The type of scope. Scope types are the same as defined by Chrome devtools protocol.
+        /// </summary>
+        public DebugScopeType ScopeType { get; }
 
         public JsValue this[string key] => variables[key];
         public IEnumerable<string> Keys => variables.Keys;
@@ -48,7 +46,5 @@ namespace Jint.Runtime.Debugger
         {
             return variables.GetEnumerator();
         }
-
-        #endregion
     }
 }

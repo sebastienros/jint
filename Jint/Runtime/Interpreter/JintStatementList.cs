@@ -37,7 +37,8 @@ namespace Jint.Runtime.Interpreter
                 jintStatements[i] = new Pair
                 {
                     Statement = JintStatement.Build(_engine, esprimaStatement),
-                    Value = JintStatement.FastResolve(esprimaStatement)
+                    // When in debug mode, don't do FastResolve: Stepping requires each statement to be actually executed.
+                    Value = _engine._isDebugMode ? null : JintStatement.FastResolve(esprimaStatement)
                 };
             }
             _jintStatements = jintStatements;
@@ -68,19 +69,8 @@ namespace Jint.Runtime.Interpreter
                 foreach (var pair in _jintStatements)
                 {
                     s = pair.Statement;
+                    c = pair.Value ?? s.Execute();
 
-                    // @lahma: Am I completely ruining optimization with this check? We need to Execute return statements in debug
-                    // mode, even if they're fast-resolved. Otherwise debug stepping will always step past return statements.
-                    // Could also call OnStep directly here, if value isn't null, and we're in debug mode, but that seems more prone
-                    // to introduce errors with future developments.
-                    if (!_engine._isDebugMode)
-                    {
-                        c = pair.Value ?? s.Execute();
-                    }
-                    else
-                    {
-                        c = s.Execute();
-                    }
                     if (c.Type != CompletionType.Normal)
                     {
                         return new Completion(

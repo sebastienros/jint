@@ -1,10 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Debugger
 {
@@ -165,12 +163,11 @@ namespace Jint.Runtime.Debugger
 
         private DebugInformation CreateDebugInformation(Statement statement, Location? currentLocation, JsValue returnValue)
         {
-            return new DebugInformation
-            {
-                CurrentStatement = statement,
-                CallStack = new DebugCallStack(_engine, currentLocation ?? statement.Location, _engine.CallStack, returnValue),
-                CurrentMemoryUsage = _engine.CurrentMemoryUsage
-            };
+            return new DebugInformation(
+                statement,
+                new DebugCallStack(_engine, currentLocation ?? statement.Location, _engine.CallStack, returnValue),
+                _engine.CurrentMemoryUsage
+            );
         }
     }
 }

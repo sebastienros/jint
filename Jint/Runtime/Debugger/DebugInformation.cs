@@ -1,22 +1,30 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 
 namespace Jint.Runtime.Debugger
 {
-    public class DebugInformation : EventArgs
+    public sealed class DebugInformation : EventArgs
     {
+        internal DebugInformation(Statement currentStatement, DebugCallStack callStack, long currentMemoryUsage)
+        {
+            CurrentStatement = currentStatement;
+            CallStack = callStack;
+            CurrentMemoryUsage = currentMemoryUsage;
+        }
+
+        /// <summary>
+        /// The current call stack.
+        /// </summary>
+        /// <remarks>This will always include at least a call frame for the global environment.</remarks>
         public DebugCallStack CallStack { get; set; }
 
         /// <summary>
         /// The Statement that will be executed on next step.
         /// Note that this will be null when execution is at a return point.
         /// </summary>
-        public Statement CurrentStatement { get; set; }
+        public Statement CurrentStatement { get; }
 
         /// <summary>
         /// The current source Location.
@@ -24,7 +32,10 @@ namespace Jint.Runtime.Debugger
         /// </summary>
         public Location Location => CurrentCallFrame.Location;
 
-        public long CurrentMemoryUsage { get; set; }
+        /// <summary>
+        /// Not implemented. Will always return 0.
+        /// </summary>
+        public long CurrentMemoryUsage { get; }
 
         /// <summary>
         /// The currently executing call frame.

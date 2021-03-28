@@ -2,19 +2,24 @@
 using Jint.Runtime.Environments;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Jint.Runtime.Debugger
 {
-    public class DebugScopes : IReadOnlyList<DebugScope>
+    public sealed class DebugScopes : IReadOnlyList<DebugScope>
     {
         private readonly HashSet<string> _foundBindings = new HashSet<string>();
         private readonly List<DebugScope> _scopes = new List<DebugScope>();
+
+        internal DebugScopes(LexicalEnvironment environment)
+        {
+            Populate(environment);
+        }
 
         /// <summary>
         /// Shortcut to Global scope
         /// </summary>
         public DebugScope Global { get; private set; }
+
         /// <summary>
         /// Shortcut to Local scope. Note that this is only present inside functions, and only includes
         /// function scope variables and block scope let/const that are declared at the top level of the
@@ -22,25 +27,14 @@ namespace Jint.Runtime.Debugger
         /// </summary>
         public DebugScope Local { get; private set; }
 
-        public DebugScopes(LexicalEnvironment environment)
-        {
-            Populate(environment);
-        }
+        public DebugScope this[int index] => _scopes[index];
+        public int Count => _scopes.Count;
 
         private void Populate(LexicalEnvironment environment)
         {
             bool inLocalScope = true;
             while (environment != null)
             {
-                // Chromium devtools (v89) lists the following scopes (in scope chain order):
-                // * Multiple Block scopes (let/const that aren't at function top-level)
-                // * Single Local scope (combination of var and function's top-level let/const)
-                // * Multiple Closure scopes (named by function name, handled similarly to Local scope, but
-                //   - in Chromium - only including bindings referenced from inner scopes)
-                // * Multiple Catch scopes
-                // * Multiple With scopes
-                // * Script scope (= top level block scope - let/const at top level)
-                // * Global scope
                 switch (environment._record)
                 {
                     case GlobalEnvironmentRecord:
@@ -142,11 +136,6 @@ namespace Jint.Runtime.Debugger
             }
         }
 
-        #region IReadOnlyList implementation
-
-        public DebugScope this[int index] => _scopes[index];
-        public int Count => _scopes.Count;
-
         public IEnumerator<DebugScope> GetEnumerator()
         {
             return _scopes.GetEnumerator();
@@ -156,7 +145,5 @@ namespace Jint.Runtime.Debugger
         {
             return _scopes.GetEnumerator();
         }
-
-        #endregion
     }
 }
