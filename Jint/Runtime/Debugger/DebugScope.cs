@@ -13,7 +13,6 @@ namespace Jint.Runtime.Debugger
     {
         private readonly EnvironmentRecord _record;
         private readonly List<string> _bindingNames;
-        private readonly DebugBindings _bindings;
 
         internal DebugScope(DebugScopeType type, EnvironmentRecord record, List<string> bindingNames, bool isTopLevel)
         {
@@ -21,7 +20,6 @@ namespace Jint.Runtime.Debugger
             _record = record;
             _bindingNames = bindingNames;
             IsTopLevel = isTopLevel;
-            _bindings = new DebugBindings(_record, bindingNames);
         }
 
         /// <summary>
@@ -40,25 +38,18 @@ namespace Jint.Runtime.Debugger
         public bool IsTopLevel { get; }
 
         /// <summary>
-        /// Number of non-shadowed bindings in the scope.
-        /// </summary>
-        public int BindingCount => _bindingNames.Count;
-
-        /// <summary>
         /// Names of all non-shadowed bindings in the scope.
         /// </summary>
         public IReadOnlyList<string> BindingNames => _bindingNames;
-
-        /// <summary>
-        /// Name and value of all non-shadowed bindings in the scope.
-        /// </summary>
-        public IReadOnlyList<DebugBinding> Bindings => _bindings;
 
         /// <summary>
         /// Retrieves the value of a specific binding. Note that some bindings (e.g. uninitialized let) may return null.
         /// </summary>
         /// <param name="name">Binding name</param>
         /// <returns>Value of the binding</returns>
-        public JsValue this[string name] => _record.GetBindingValue(name, strict: false);
+        public JsValue GetBindingValue(string name)
+        {
+            return _record.GetBindingValue(name, strict: false);
+        }
     }
 }

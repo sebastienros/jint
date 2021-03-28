@@ -12,7 +12,7 @@ namespace Jint.Tests.Runtime.Debugger
             var containingScope = Assert.Single(scopes, s => s.ScopeType == scopeType && s.BindingNames.Contains(name));
             Assert.DoesNotContain(scopes, s => s != containingScope && s.BindingNames.Contains(name));
 
-            return containingScope[name];
+            return containingScope.GetBindingValue(name);
         }
 
         private static void AssertScope(DebugScope actual, DebugScopeType expectedType, params string[] expectedBindingNames)
@@ -21,7 +21,7 @@ namespace Jint.Tests.Runtime.Debugger
             // Global scope will have a number of intrinsic bindings that are outside the scope [no pun] of these tests
             if (actual.ScopeType != DebugScopeType.Global)
             {
-                Assert.Equal(expectedBindingNames.Length, actual.BindingCount);
+                Assert.Equal(expectedBindingNames.Length, actual.BindingNames.Count);
             }
             foreach (string expectedName in expectedBindingNames)
             {
