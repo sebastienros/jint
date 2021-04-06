@@ -76,7 +76,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private object SuperCall()
         {
-            var thisEnvironment = (FunctionEnvironmentRecord) _engine.GetThisEnvironment();
+            var thisEnvironment = (FunctionEnvironmentRecord) _engine.ExecutionContext.GetThisEnvironment();
             var newTarget = _engine.GetNewTarget(thisEnvironment);
             var func = GetSuperConstructor(thisEnvironment);
             if (!func.IsConstructor)
@@ -86,7 +86,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var argList = ArgumentListEvaluation();
             var result = ((IConstructor) func).Construct(argList, newTarget);
-            var thisER = (FunctionEnvironmentRecord) _engine.GetThisEnvironment();
+            var thisER = (FunctionEnvironmentRecord) _engine.ExecutionContext.GetThisEnvironment();
             return thisER.BindThisValue(result);
         }
 

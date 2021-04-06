@@ -58,11 +58,11 @@ namespace Jint.Runtime.Environments
             return false;
         }
 
-        public static LexicalEnvironment NewDeclarativeEnvironment(Engine engine, LexicalEnvironment outer = null)
+        public static LexicalEnvironment NewDeclarativeEnvironment(Engine engine, LexicalEnvironment outer = null, bool catchEnvironment = false)
         {
             var environment = new LexicalEnvironment(engine, null, null)
             {
-                _record = new DeclarativeEnvironmentRecord(engine),
+                _record = new DeclarativeEnvironmentRecord(engine, catchEnvironment),
                 _outer = outer
             };
 

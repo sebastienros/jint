@@ -1,4 +1,6 @@
-﻿using Jint.Runtime.Debugger;
+﻿using Esprima;
+using Esprima.Ast;
+using Jint.Runtime.Debugger;
 using Xunit;
 
 namespace Jint.Tests.Runtime.Debugger
@@ -6,218 +8,289 @@ namespace Jint.Tests.Runtime.Debugger
     public class CallStackTests
     {
         [Fact]
-        public void NamesRegularFunction()
+        public void IncludesFunctionNames()
         {
-            var engine = new Engine(options => options
-                .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
-
-            bool didBreak = false;
-            engine.Break += (sender, info) =>
+            var script = @"
+            function foo()
             {
-                didBreak = true;
-                Assert.Equal("regularFunction", info.CallStack.Peek());
-                return StepMode.None;
+                debugger;
+            }
+            
+            function bar()
+            {
+                foo();
+            }
+
+            bar()";
+
+            TestHelpers.TestAtBreak(script, info =>
+            {
+                Assert.Collection(info.CallStack,
+                    frame => Assert.Equal("foo", frame.FunctionName),
+                    frame => Assert.Equal("bar", frame.FunctionName),
+                    frame => Assert.Equal("(anonymous)", frame.FunctionName)
+                );
+            });
+        }
+
+        [Fact]
+        public void IncludesLocations()
+        {
+            var script = @"
+function foo()
+{
+debugger;
+}
+            
+function bar()
+{
+foo();
+}
+
+bar()";
+
+            TestHelpers.TestAtBreak(script, info =>
+            {
+                // The line numbers here may mislead - the positions are, as would be expected,
+                // at the position before the currently executing line, not the line after.
+                // Remember that Esprima (and hence Jint) line numbers are 1-based, not 0-based.
+                Assert.Collection(info.CallStack,
+                    // "debugger;"
+                    frame => Assert.Equal(new Position(4, 0), frame.Location.Start),
+                    // "foo();"
+                    frame => Assert.Equal(new Position(9, 0), frame.Location.Start),
+                    // "bar();"
+                    frame => Assert.Equal(new Position(12, 0), frame.Location.Start)
+                );
+            });
+        }
+
+        [Fact]
+        public void IncludesFunctionLocations()
+        {
+            var script = @"
+function foo()
+{
+debugger;
+}
+            
+function bar()
+{
+foo();
+}
+
+bar()";
+
+            TestHelpers.TestAtBreak(script, info =>
+            {
+                // Remember that Esprima (and hence Jint) line numbers are 1-based, not 0-based.
+                Assert.Collection(info.CallStack,
+                    // function foo()
+                    frame => Assert.Equal(new Position(2, 0), frame.FunctionLocation?.Start),
+                    // function bar()
+                    frame => Assert.Equal(new Position(7, 0), frame.FunctionLocation?.Start),
+                    // global - no function location
+                    frame => Assert.Equal(null, frame.FunctionLocation?.Start)
+                );
+            });
+        }
+
+        [Fact]
+        public void HasReturnValue()
+        {
+            string script = @"
+            function foo()
+            {
+                return 'result';
+            }
+
+            foo();";
+
+            var engine = new Engine(options => options.DebugMode());
+
+            bool atReturn = false;
+            bool didCheckReturn = false;
+
+            engine.DebugHandler.Step += (sender, info) =>
+            {
+                if (atReturn)
+                {
+                    Assert.NotNull(info.CurrentCallFrame.ReturnValue);
+                    Assert.Equal("result", info.CurrentCallFrame.ReturnValue.AsString());
+                    didCheckReturn = true;
+                    atReturn = false;
+                }
+
+                if (info.CurrentStatement is ReturnStatement)
+                {
+                    // Step one further, and we should have the return value
+                    atReturn = true;
+                }
+                return StepMode.Into;
             };
 
-            engine.Execute(
-                @"function regularFunction() { debugger; }
-                regularFunction()");
+            engine.Execute(script);
 
-            Assert.True(didBreak);
+            Assert.True(didCheckReturn);
+        }
+
+        [Fact]
+        public void HasThis()
+        {
+            string script = @"
+function Thing(name)
+{
+    this.name = name;
+}
+
+Thing.prototype.test = function()
+{
+    debugger;
+}
+
+var car = new Thing('car');
+car.test();
+";
+
+            TestHelpers.TestAtBreak(script, (engine, info) =>
+            {
+                Assert.Collection(info.CallStack,
+                    frame => Assert.Equal(engine.Global.Get("car"), frame.This),
+                    frame => Assert.Equal(engine.Global, frame.This)
+                );
+            });
+        }
+
+        [Fact]
+        public void NamesRegularFunction()
+        {
+            string script = @"
+            function regularFunction() { debugger; }
+            regularFunction();";
+
+            TestHelpers.TestAtBreak(script, info =>
+            {
+                Assert.Equal("regularFunction", info.CurrentCallFrame.FunctionName);
+            });
         }
 
         [Fact]
         public void NamesFunctionExpression()
         {
-            var engine = new Engine(options => options
-                .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
+            string script = @"
+            const functionExpression = function() { debugger; }
+            functionExpression()";
 
-            bool didBreak = false;
-            engine.Break += (sender, info) =>
+            TestHelpers.TestAtBreak(script, info =>
             {
-                didBreak = true;
-                Assert.Equal("functionExpression", info.CallStack.Peek());
-                return StepMode.None;
-            };
-
-            engine.Execute(
-                @"const functionExpression = function() { debugger; }
-                functionExpression()");
-
-            Assert.True(didBreak);
+                Assert.Equal("functionExpression", info.CurrentCallFrame.FunctionName);
+            });
         }
 
         [Fact]
         public void NamesNamedFunctionExpression()
         {
-            var engine = new Engine(options => options
-                .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
+            string script = @"
+            const functionExpression = function namedFunction() { debugger; }
+            functionExpression()";
 
-            bool didBreak = false;
-            engine.Break += (sender, info) =>
+            TestHelpers.TestAtBreak(script, info =>
             {
-                didBreak = true;
-                Assert.Equal("namedFunction", info.CallStack.Peek());
-                return StepMode.None;
-            };
-
-            engine.Execute(
-                @"const functionExpression = function namedFunction() { debugger; }
-                functionExpression()");
-
-            Assert.True(didBreak);
+                Assert.Equal("namedFunction", info.CurrentCallFrame.FunctionName);
+            });
         }
 
         [Fact]
         public void NamesArrowFunction()
         {
-            var engine = new Engine(options => options
-                .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
+            string script = @"
+            const arrowFunction = () => { debugger; }
+            arrowFunction()";
 
-            bool didBreak = false;
-            engine.Break += (sender, info) =>
+            TestHelpers.TestAtBreak(script, info =>
             {
-                didBreak = true;
-                Assert.Equal("arrowFunction", info.CallStack.Peek());
-                return StepMode.None;
-            };
-
-            engine.Execute(
-                @"const arrowFunction = () => { debugger; }
-                arrowFunction()");
-
-            Assert.True(didBreak);
+                Assert.Equal("arrowFunction", info.CurrentCallFrame.FunctionName);
+            });
         }
 
         [Fact]
         public void NamesNewFunction()
         {
-            var engine = new Engine(options => options
-                .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
+            string script = @"
+            const newFunction = new Function('debugger;');
+            newFunction()";
 
-            bool didBreak = false;
-            engine.Break += (sender, info) =>
+            TestHelpers.TestAtBreak(script, info =>
             {
-                didBreak = true;
                 // Ideally, this should be "(anonymous)", but FunctionConstructor sets the "anonymous" name.
-                Assert.Equal("anonymous", info.CallStack.Peek());
-                return StepMode.None;
-            };
-
-            engine.Execute(
-                @"const newFunction = new Function('debugger;');
-                newFunction()");
-
-            Assert.True(didBreak);
+                Assert.Equal("anonymous", info.CurrentCallFrame.FunctionName);
+            });
         }
 
         [Fact]
         public void NamesMemberFunction()
         {
-            var engine = new Engine(options => options
-                .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
+            string script = @"
+            const obj = { memberFunction() { debugger; } };
+            obj.memberFunction()";
 
-            bool didBreak = false;
-            engine.Break += (sender, info) =>
+            TestHelpers.TestAtBreak(script, info =>
             {
-                didBreak = true;
-                Assert.Equal("memberFunction", info.CallStack.Peek());
-                return StepMode.None;
-            };
-
-            engine.Execute(
-                @"const obj = { memberFunction() { debugger; } };
-                obj.memberFunction()");
-
-            Assert.True(didBreak);
+                Assert.Equal("memberFunction", info.CurrentCallFrame.FunctionName);
+            });
         }
 
         [Fact]
         public void NamesAnonymousFunction()
         {
-            var engine = new Engine(options => options
-                .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
-
-            bool didBreak = false;
-            engine.Break += (sender, info) =>
+            string script = @"
+            (function()
             {
-                didBreak = true;
-                Assert.Equal("(anonymous)", info.CallStack.Peek());
-                return StepMode.None;
-            };
+                debugger;
+            }());";
 
-            engine.Execute(
-                @"(function()
-                {
-                    debugger;
-                }());");
-
-            Assert.True(didBreak);
+            TestHelpers.TestAtBreak(script, info =>
+            {
+                Assert.Equal("(anonymous)", info.CurrentCallFrame.FunctionName);
+            });
         }
 
-        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        [Fact]
         public void NamesGetAccessor()
         {
-            var engine = new Engine(options => options
-                .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
-
-            bool didBreak = false;
-            engine.Break += (sender, info) =>
-            {
-                didBreak = true;
-                Assert.Equal("get accessor", info.CallStack.Peek());
-                return StepMode.None;
+            string script = @"
+            const obj = {
+                get accessor()
+                {
+                    debugger;
+                    return 'test';
+                }
             };
+            const x = obj.accessor;";
 
-            engine.Execute(
-                @"
-                const obj = {
-                    get accessor()
-                    {
-                        debugger;
-                        return 'test';
-                    }
-                };
-                const x = obj.accessor;");
-
-            Assert.True(didBreak);
+            TestHelpers.TestAtBreak(script, info =>
+            {
+                Assert.Equal("get accessor", info.CurrentCallFrame.FunctionName);
+            });
         }
 
-        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        [Fact]
         public void NamesSetAccessor()
         {
-            var engine = new Engine(options => options
-                .DebugMode()
-                .DebuggerStatementHandling(DebuggerStatementHandling.Script));
-
-            bool didBreak = false;
-            engine.Break += (sender, info) =>
-            {
-                didBreak = true;
-                Assert.Equal("set accessor", info.CallStack.Peek());
-                return StepMode.None;
+            string script = @"
+            const obj = {
+                set accessor(value)
+                {
+                    debugger;
+                    this.value = value;
+                }
             };
+            obj.accessor = 42;";
 
-            engine.Execute(
-                @"
-                const obj = {
-                    set accessor(value)
-                    {
-                        debugger;
-                        this.value = value;
-                    }
-                };
-                obj.accessor = 42;");
-
-            Assert.True(didBreak);
+            TestHelpers.TestAtBreak(script, info =>
+            {
+                Assert.Equal("set accessor", info.CurrentCallFrame.FunctionName);
+            });
         }
     }
 }

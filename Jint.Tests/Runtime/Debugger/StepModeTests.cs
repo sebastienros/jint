@@ -13,7 +13,7 @@ namespace Jint.Tests.Runtime.Debugger
         /// <param name="script">Script used as basis for test</param>
         /// <param name="stepMode">StepMode to use from source to target</param>
         /// <returns>Number of steps from source to target</returns>
-        private int StepsFromSourceToTarget(string script, StepMode stepMode)
+        private static int StepsFromSourceToTarget(string script, StepMode stepMode)
         {
             var engine = new Engine(options => options
                 .DebugMode()
@@ -22,7 +22,7 @@ namespace Jint.Tests.Runtime.Debugger
             int steps = 0;
             bool sourceReached = false;
             bool targetReached = false;
-            engine.Step += (sender, info) =>
+            engine.DebugHandler.Step += (sender, info) =>
             {
                 if (sourceReached)
                 {
@@ -210,7 +210,7 @@ namespace Jint.Tests.Runtime.Debugger
             Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Into));
         }
 
-        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        [Fact]
         public void StepsOverGetAccessor()
         {
             var script = @"
@@ -227,7 +227,7 @@ namespace Jint.Tests.Runtime.Debugger
             Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Over));
         }
 
-        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        [Fact]
         public void StepsOutOfGetAccessor()
         {
             var script = @"
@@ -262,7 +262,7 @@ namespace Jint.Tests.Runtime.Debugger
             Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Into));
         }
 
-        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        [Fact]
         public void StepsOverSetAccessor()
         {
             var script = @"
@@ -276,10 +276,10 @@ namespace Jint.Tests.Runtime.Debugger
                 obj.test = 37;
                 'target';";
 
-            Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Over));
+            Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Over));
         }
 
-        [Fact(Skip = "Debugger has no accessor awareness yet")]
+        [Fact]
         public void StepsOutOfSetAccessor()
         {
             var script = @"
@@ -295,6 +295,33 @@ namespace Jint.Tests.Runtime.Debugger
                 'target';";
 
             Assert.Equal(1, StepsFromSourceToTarget(script, StepMode.Out));
+        }
+
+        [Fact]
+        public void ReturnPointIsAStep()
+        {
+            var script = @"
+                function test()
+                {
+                    'source';
+                }
+                test();
+                'target';";
+            Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Over));
+        }
+
+        [Fact]
+        public void ReturnStatementIsAStep()
+        {
+            var script = @"
+                function test()
+                {
+                    'source';
+                    return 'result';
+                }
+                test();
+                'target';";
+            Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Over));
         }
 
         [Fact]
@@ -319,7 +346,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             var engine = new Engine(options => options.DebugMode());
             int step = 0;
-            engine.Step += (sender, info) =>
+            engine.DebugHandler.Step += (sender, info) =>
             {
                 switch (step)
                 {
@@ -360,12 +387,12 @@ namespace Jint.Tests.Runtime.Debugger
 
             bool stepping = false;
 
-            engine.Break += (sender, info) =>
+            engine.DebugHandler.Break += (sender, info) =>
             {
                 stepping = true;
                 return StepMode.Over;
             };
-            engine.Step += (sender, info) =>
+            engine.DebugHandler.Step += (sender, info) =>
             {
                 if (stepping)
                 {

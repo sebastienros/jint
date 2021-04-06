@@ -40,7 +40,7 @@ namespace Jint.Native.Function
 
             if (direct)
             {
-                var thisEnvRec = _engine.GetThisEnvironment();
+                var thisEnvRec = _engine.ExecutionContext.GetThisEnvironment();
                 if (thisEnvRec is FunctionEnvironmentRecord functionEnvironmentRecord)
                 {
                     var F = functionEnvironmentRecord._functionObject;

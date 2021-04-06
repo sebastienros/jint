@@ -66,11 +66,10 @@ namespace Jint
         private ErrorConstructor _typeError;
         private ErrorConstructor _uriError;
         private DebugHandler _debugHandler;
-        private List<BreakPoint> _breakPoints;
 
         // cached access
         private readonly List<IConstraint> _constraints;
-        private readonly bool _isDebugMode;
+        internal readonly bool _isDebugMode;
         internal readonly bool _isStrict;
         internal readonly IReferenceResolver _referenceResolver;
         internal readonly ReferencePool _referencePool;
@@ -242,26 +241,7 @@ namespace Jint
 
         internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; private set; }
 
-        #region Debugger
-        public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
-        public delegate StepMode BreakDelegate(object sender, DebugInformation e);
-        public event DebugStepDelegate Step;
-        public event BreakDelegate Break;
-
-        internal DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this);
-
-        public List<BreakPoint> BreakPoints => _breakPoints ??= new List<BreakPoint>();
-
-        internal StepMode? InvokeStepEvent(DebugInformation info)
-        {
-            return Step?.Invoke(this, info);
-        }
-
-        internal StepMode? InvokeBreakEvent(DebugInformation info)
-        {
-            return Break?.Invoke(this, info);
-        }
-        #endregion
+        public DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this);
 
         public ExecutionContext EnterExecutionContext(
             LexicalEnvironment lexicalEnvironment,
@@ -724,38 +704,16 @@ namespace Jint
         internal JsValue GetNewTarget(EnvironmentRecord thisEnvironment = null)
         {
             // we can take as argument if caller site has already determined the value, otherwise resolve
-            thisEnvironment ??= GetThisEnvironment();
+            thisEnvironment ??= ExecutionContext.GetThisEnvironment();
             return thisEnvironment.NewTarget;
         }
         
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-getthisenvironment
-        /// </summary>
-        internal EnvironmentRecord GetThisEnvironment()
-        {
-            // The loop will always terminate because the list of environments always
-            // ends with the global environment which has a this binding.
-            var lex = ExecutionContext.LexicalEnvironment;
-            while (true)
-            {
-                var envRec = lex._record;
-                var exists = envRec.HasThisBinding();
-                if (exists)
-                {
-                    return envRec;
-                }
-
-                var outer = lex._outer;
-                lex = outer;
-            }
-        }
-
         /// <summary>
         /// https://tc39.es/ecma262/#sec-resolvethisbinding
         /// </summary>
         internal JsValue ResolveThisBinding()
         {
-            var envRec = GetThisEnvironment();
+            var envRec = ExecutionContext.GetThisEnvironment();
             return envRec.GetThisBinding();
         }
         
@@ -1256,7 +1214,7 @@ namespace Jint
             JsValue[] arguments,
             JintExpression expression)
         {
-            var callStackElement = new CallStackElement(functionInstance, expression);
+            var callStackElement = new CallStackElement(functionInstance, expression, ExecutionContext);
             var recursionDepth = CallStack.Push(callStackElement);
 
             if (recursionDepth > Options.MaxRecursionDepth)
@@ -1266,17 +1224,7 @@ namespace Jint
                 ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
             }
 
-            if (_isDebugMode)
-            {
-                DebugHandler.AddToDebugCallStack(functionInstance);
-            }
-
             var result = functionInstance.Call(thisObject, arguments);
-
-            if (_isDebugMode)
-            {
-                DebugHandler.PopDebugCallStack();
-            }
 
             CallStack.Pop();
 
@@ -1289,7 +1237,7 @@ namespace Jint
             JsValue newTarget,
             JintExpression expression)
         {
-            var callStackElement = new CallStackElement(functionInstance, expression);
+            var callStackElement = new CallStackElement(functionInstance, expression, ExecutionContext);
             var recursionDepth = CallStack.Push(callStackElement);
 
             if (recursionDepth > Options.MaxRecursionDepth)
@@ -1299,17 +1247,7 @@ namespace Jint
                 ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
             }
 
-            if (_isDebugMode)
-            {
-                DebugHandler.AddToDebugCallStack(functionInstance);
-            }
-
             var result = ((IConstructor) functionInstance).Construct(arguments, newTarget);
-
-            if (_isDebugMode)
-            {
-                DebugHandler.PopDebugCallStack();
-            }
 
             CallStack.Pop();
 

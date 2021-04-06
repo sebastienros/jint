@@ -37,7 +37,8 @@ namespace Jint.Runtime.Interpreter
                 jintStatements[i] = new Pair
                 {
                     Statement = JintStatement.Build(_engine, esprimaStatement),
-                    Value = JintStatement.FastResolve(esprimaStatement)
+                    // When in debug mode, don't do FastResolve: Stepping requires each statement to be actually executed.
+                    Value = _engine._isDebugMode ? null : JintStatement.FastResolve(esprimaStatement)
                 };
             }
             _jintStatements = jintStatements;
@@ -69,6 +70,7 @@ namespace Jint.Runtime.Interpreter
                 {
                     s = pair.Statement;
                     c = pair.Value ?? s.Execute();
+
                     if (c.Type != CompletionType.Normal)
                     {
                         return new Completion(
