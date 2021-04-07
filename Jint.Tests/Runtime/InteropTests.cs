@@ -2344,12 +2344,17 @@ namespace Jint.Tests.Runtime
             Assert.Equal("a", engine.Execute("test.a").GetCompletionValue().AsString());
             Assert.Equal("b", engine.Execute("test.b").GetCompletionValue().AsString());
 
-            engine.Execute("test.a = 5; test.b = 10;");
+            engine.Execute("test.a = 5; test.b = 10; test.Name = 'Jint'");
 
             Assert.Equal(5, engine.Execute("test.a").GetCompletionValue().AsNumber());
             Assert.Equal(10, engine.Execute("test.b").GetCompletionValue().AsNumber());
+
+            Assert.Equal("Jint", engine.Execute("test.Name").GetCompletionValue().AsString());
+            Assert.True(engine.Execute("test.ContainsKey('a')").GetCompletionValue().AsBoolean());
+            Assert.True(engine.Execute("test.ContainsKey('b')").GetCompletionValue().AsBoolean());
+            Assert.False(engine.Execute("test.ContainsKey('c')").GetCompletionValue().AsBoolean());
         }
-        
+
         private class DynamicClass : DynamicObject
         {
             private readonly Dictionary<string, object> _properties = new Dictionary<string, object>();
@@ -2368,6 +2373,12 @@ namespace Jint.Tests.Runtime
             {
                 _properties[binder.Name] = value;
                 return true;
+            }
+
+            public string Name { get; set; }
+            public bool ContainsKey(string key)
+            {
+                return _properties.ContainsKey(key);
             }
         }
             
