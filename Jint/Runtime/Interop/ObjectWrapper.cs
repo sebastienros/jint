@@ -266,11 +266,6 @@ namespace Jint.Runtime.Interop
 
         private static ReflectionAccessor ResolvePropertyDescriptorFactory(Engine engine, Type type, string memberName)
         {
-            if (typeof(DynamicObject).IsAssignableFrom(type))
-            {
-                return new DynamicObjectAccessor(typeof(void), memberName);
-            }
-            
             var isNumber = uint.TryParse(memberName, out _);
 
             // we can always check indexer if there's one, and then fall back to properties if indexer returns null
@@ -280,6 +275,11 @@ namespace Jint.Runtime.Interop
             if (!isNumber && TryFindStringPropertyAccessor(type, memberName, indexer, out var temp))
             {
                 return temp;
+            }
+
+            if (typeof(DynamicObject).IsAssignableFrom(type))
+            {
+                return new DynamicObjectAccessor(type, memberName);
             }
 
             // if no methods are found check if target implemented indexing
