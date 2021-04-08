@@ -40,5 +40,32 @@ namespace Jint.Tests.Runtime
                     assert(a.foo === 'bar');
                 ");
         }
+        
+        [Fact]
+        public void BlockScopeFunctionShouldWork()
+        {
+            const string script = @"
+function execute(doc, args){
+    var i = doc;
+    {
+        function doSomething() {
+            return 'ayende';
+        }
+
+        i.Name = doSomething();
+    }
+}
+";
+
+            var engine = new Engine(options =>
+            {
+                options.Strict();
+            });
+            engine.Execute(script);
+
+            var obj = engine.Execute("var obj = {}; execute(obj); return obj;").GetCompletionValue().AsObject();
+
+            Assert.Equal("ayende", obj.Get("Name").AsString());
+        }
     }
 }

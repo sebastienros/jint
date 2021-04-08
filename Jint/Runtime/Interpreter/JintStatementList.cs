@@ -113,19 +113,19 @@ namespace Jint.Runtime.Interpreter
         /// </summary>
         internal static void BlockDeclarationInstantiation(
             LexicalEnvironment env,
-            List<VariableDeclaration> lexicalDeclarations)
+            List<Declaration> declarations)
         {
             var envRec = env._record;
             var boundNames = new List<string>();
-            for (var i = 0; i < lexicalDeclarations.Count; i++)
+            for (var i = 0; i < declarations.Count; i++)
             {
-                var variableDeclaration = lexicalDeclarations[i];
+                var d = declarations[i];
                 boundNames.Clear();
-                variableDeclaration.GetBoundNames(boundNames);
+                d.GetBoundNames(boundNames);
                 for (var j = 0; j < boundNames.Count; j++)
                 {
                     var dn = boundNames[j];
-                    if (variableDeclaration.Kind == VariableDeclarationKind.Const)
+                    if (d is VariableDeclaration { Kind: VariableDeclarationKind.Const })
                     {
                         envRec.CreateImmutableBinding(dn, strict: true);
                     }
@@ -135,11 +135,12 @@ namespace Jint.Runtime.Interpreter
                     }
                 }
 
-                /*  If d is a FunctionDeclaration, a GeneratorDeclaration, an AsyncFunctionDeclaration, or an AsyncGeneratorDeclaration, then
-                 * Let fn be the sole element of the BoundNames of d.
-                 * Let fo be the result of performing InstantiateFunctionObject for d with argument env.
-                 * Perform envRec.InitializeBinding(fn, fo).
-                 */
+                if (d is FunctionDeclaration functionDeclaration)
+                {
+                    var fn = functionDeclaration.Id!.Name;
+                    var fo = env._engine.Function.InstantiateFunctionObject(functionDeclaration, env);
+                    envRec.InitializeBinding(fn, fo);
+                }
             }
         }
     }

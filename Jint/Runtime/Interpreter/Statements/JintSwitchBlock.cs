@@ -121,7 +121,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             internal readonly JintStatementList Consequent;
             internal readonly JintExpression Test;
-            internal readonly List<VariableDeclaration> LexicalDeclarations;
+            internal readonly List<Declaration> LexicalDeclarations;
 
             public JintSwitchCase(Engine engine, SwitchCase switchCase)
             {

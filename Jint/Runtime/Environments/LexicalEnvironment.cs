@@ -12,7 +12,7 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class LexicalEnvironment
     {
-        private readonly Engine _engine;
+        internal readonly Engine _engine;
         internal EnvironmentRecord _record;
         internal LexicalEnvironment _outer;
 
