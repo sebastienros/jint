@@ -43,6 +43,66 @@ namespace Jint.Tests.Runtime
         {
             _engine.Execute(source);
         }
+        
+        public class Foo
+        {
+            public static Bar GetBar() => new Bar();
+        }
+
+        public class Bar
+        {
+            public string Test { get; set; } = "123";
+        }
+
+        [Fact]
+        public void ShouldStringifyNetObjects()
+        {
+            _engine.SetValue("foo", new Foo());
+            var json = _engine.Execute("JSON.stringify(foo.GetBar())").GetCompletionValue().AsString();
+            Assert.Equal("{\"Test\":\"123\"}", json);
+        }
+
+        [Fact]
+        public void EngineShouldStringifyAnExpandoObjectCorrectly()
+        {
+            var engine = new Engine();
+
+            dynamic expando = new ExpandoObject();
+            expando.foo = 5;
+            expando.bar = "A string";
+            engine.SetValue(nameof(expando), expando);
+
+            var result = engine.Execute($"JSON.stringify({nameof(expando)})").GetCompletionValue().AsString();
+            Assert.Equal("{\"foo\":5,\"bar\":\"A string\"}", result);
+        }
+
+        [Fact]
+        public void EngineShouldStringifyADictionaryOfStringAndObjectCorrectly()
+        {
+            var engine = new Engine();
+
+            var dictionary = new Dictionary<string,object> {
+                { "foo", 5 },
+                { "bar", "A string"},
+            };
+            engine.SetValue(nameof(dictionary), dictionary);
+
+            var result = engine.Execute($"JSON.stringify({nameof(dictionary)})").GetCompletionValue().AsString();
+            Assert.Equal("{\"foo\":5,\"bar\":\"A string\"}", result);
+        }
+
+        [Fact]
+        public void EngineShouldRoundtripParsedJSONBackToStringCorrectly()
+        {
+            var engine = new Engine();
+
+            const string json = "{\"foo\":5,\"bar\":\"A string\"}";
+            var parsed = engine.Execute($"JSON.parse('{json}')").GetCompletionValue().ToObject();
+            engine.SetValue(nameof(parsed), parsed);
+            
+            var result = engine.Execute($"JSON.stringify({nameof(parsed)})").GetCompletionValue().AsString();
+            Assert.Equal(json, result);
+        }
 
         [Fact]
         public void PrimitiveTypesCanBeSet()
