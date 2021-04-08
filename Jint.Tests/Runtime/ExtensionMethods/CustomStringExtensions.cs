@@ -1,4 +1,5 @@
-﻿using System.Dynamic;
+﻿using System;
+using System.Dynamic;
 using System.Linq;
 using Newtonsoft.Json;
 
@@ -19,6 +20,11 @@ namespace Jint.Tests.Runtime.ExtensionMethods
         public static ExpandoObject DeserializeObject(this string json)
         {
             return DeserializeObject<ExpandoObject>(json);
+        }
+        
+        public static string[] Split(this string value, string split, StringSplitOptions options)
+        {
+            return Array.Empty<string>();
         }
     }
 }

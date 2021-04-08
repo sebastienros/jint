@@ -57,5 +57,17 @@ namespace Jint.Tests.Runtime.ExtensionMethods
 
             Assert.Equal("Mickey", result.name);
         }
+
+        [Fact]
+        public void PrototypeFunctionsShouldNotBeOverridden()
+        {
+            var engine = new Engine(opts =>
+            {
+                opts.AddExtensionMethods(typeof(CustomStringExtensions));
+            });
+            var arr = engine.Execute("'yes,no'.split(',')").GetCompletionValue().AsArray();
+            Assert.Equal("yes", arr[0]);
+            Assert.Equal("no", arr[1]);
+        }
     }
 }

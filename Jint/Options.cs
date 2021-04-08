@@ -118,10 +118,18 @@ namespace Jint
                 var descriptor = new PropertyDescriptor(functionInstance, PropertyFlag.None);
 
                 // make sure we register both lower case and upper case
-                prototype.SetOwnProperty(overloads.Key, descriptor);
+                JsValue key = overloads.Key;
+                if (!prototype.HasOwnProperty(key))
+                {
+                    prototype.SetOwnProperty(key, descriptor);
+                }
                 if (char.IsUpper(overloads.Key[0]))
                 {
-                    prototype.SetOwnProperty(char.ToLower(overloads.Key[0]) + overloads.Key.Substring(1), descriptor);
+                    key = char.ToLower(overloads.Key[0]) + overloads.Key.Substring(1);
+                    if (!prototype.HasOwnProperty(key))
+                    {
+                        prototype.SetOwnProperty(key, descriptor);
+                    }
                 }
             }
         }
