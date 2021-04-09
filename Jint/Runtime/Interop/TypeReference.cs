@@ -94,9 +94,9 @@ namespace Jint.Runtime.Interop
 
                     return result;
                 }
-                catch
+                catch (TargetInvocationException exception)
                 {
-                    // ignore method
+                    ExceptionHelper.ThrowMeaningfulException(_engine, exception);
                 }
             }
 

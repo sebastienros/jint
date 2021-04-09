@@ -1899,7 +1899,7 @@ namespace Jint.Tests.Runtime
             public MemberExceptionTest(bool throwOnCreate)
             {
                 if (throwOnCreate)
-                    throw new InvalidOperationException();
+                    throw new InvalidOperationException("thrown as requested");
             }
 
             public JsValue ThrowingProperty1
@@ -2459,8 +2459,6 @@ namespace Jint.Tests.Runtime
             Assert.Equal(1, engine.Execute("E.b;").GetCompletionValue().AsNumber());
         }
 
-        #region DelegateCanReturnValue
-
         public class TestItem
         {
             public double Cost { get; set; }
@@ -2521,6 +2519,12 @@ namespace Jint.Tests.Runtime
             Assert.Equal(30, engine.Execute("lst.Where(x => x.Name == 'b').Sum(x => x.Age);").GetCompletionValue().AsNumber());
         }
 
-        #endregion
+        [Fact]
+        public void ExceptionFromConstructorShouldPropagate()
+        {
+            _engine.SetValue("Class", TypeReference.CreateTypeReference(_engine, typeof(MemberExceptionTest)));
+            var ex = Assert.Throws<InvalidOperationException>(() => _engine.Execute("new Class(true);"));
+            Assert.Equal("thrown as requested", ex.Message);
+        }
     }
 }
