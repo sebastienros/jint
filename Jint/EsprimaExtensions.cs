@@ -100,6 +100,12 @@ namespace Jint
                 return;
             }
 
+            if (parameter is VariableDeclaration variableDeclaration)
+            {
+                variableDeclaration.GetBoundNames(target);
+                return;
+            }
+
             while (true)
             {
                 if (parameter is Identifier identifier)
@@ -107,7 +113,7 @@ namespace Jint
                     target.Add(identifier.Name!);
                     return;
                 }
-                
+
                 if (parameter is RestElement restElement)
                 {
                     parameter = restElement.Argument;

@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Statements
     internal sealed class JintBlockStatement : JintStatement<BlockStatement>
     {
         private JintStatementList _statementList;
-        private List<VariableDeclaration> _lexicalDeclarations;
+        private List<Declaration> _lexicalDeclarations;
 
         public JintBlockStatement(Engine engine, BlockStatement blockStatement) : base(engine, blockStatement)
         {

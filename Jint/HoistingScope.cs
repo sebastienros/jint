@@ -58,34 +58,33 @@ namespace Jint
                 treeWalker._lexicalNames);
         }
 
-        public static List<VariableDeclaration> GetLexicalDeclarations(BlockStatement statement)
+        public static List<Declaration> GetLexicalDeclarations(BlockStatement statement)
         {
-            List<VariableDeclaration> lexicalDeclarations = null ;
+            List<Declaration> lexicalDeclarations = null ;
             ref readonly var statementListItems = ref statement.Body;
             for (var i = 0; i < statementListItems.Count; i++)
             {
                 var node = statementListItems[i];
-                if (node.Type != Nodes.VariableDeclaration)
+                if (node.Type != Nodes.VariableDeclaration && node.Type != Nodes.FunctionDeclaration)
                 {
                     continue;
                 }
 
-                var rootVariable = (VariableDeclaration) node;
-                if (rootVariable.Kind == VariableDeclarationKind.Var)
+                if (node is VariableDeclaration { Kind: VariableDeclarationKind.Var })
                 {
                     continue;
                 }
 
-                lexicalDeclarations ??= new List<VariableDeclaration>();
-                lexicalDeclarations.Add(rootVariable);
+                lexicalDeclarations ??= new List<Declaration>();
+                lexicalDeclarations.Add((Declaration) node);
             }
             
             return lexicalDeclarations;
         }
 
-        public static List<VariableDeclaration> GetLexicalDeclarations(SwitchCase statement)
+        public static List<Declaration> GetLexicalDeclarations(SwitchCase statement)
         {
-            List<VariableDeclaration> lexicalDeclarations = null ;
+            List<Declaration> lexicalDeclarations = null ;
             ref readonly var statementListItems = ref statement.Consequent;
             for (var i = 0; i < statementListItems.Count; i++)
             {
@@ -101,7 +100,7 @@ namespace Jint
                     continue;
                 }
 
-                lexicalDeclarations ??= new List<VariableDeclaration>();
+                lexicalDeclarations ??= new List<Declaration>();
                 lexicalDeclarations.Add(rootVariable);
             }
 

@@ -123,11 +123,9 @@ namespace Jint.Native.Function
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
+        /// https://tc39.es/ecma262/#sec-runtime-semantics-instantiatefunctionobject
         /// </summary>
-        /// <param name="functionDeclaration"></param>
-        /// <returns></returns>
-        public FunctionInstance CreateFunctionObject(FunctionDeclaration functionDeclaration, LexicalEnvironment env)
+        internal FunctionInstance InstantiateFunctionObject(FunctionDeclaration functionDeclaration, LexicalEnvironment env)
         {
             var functionObject = new ScriptFunctionInstance(
                 Engine,
