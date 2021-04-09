@@ -147,7 +147,16 @@ namespace Jint.Runtime.Interop
             var processed = basePropertyKeys.Count > 0 ? new HashSet<JsValue>() : null;
 
             var includeStrings = (types & Types.String) != 0;
-            if (Target is IDictionary dictionary && includeStrings)
+            if (includeStrings && Target is IDictionary<string, object> stringKeyedDictionary) // expando object for instance
+            {
+                foreach (var key in stringKeyedDictionary.Keys)
+                {
+                    var jsString = JsString.Create(key);
+                    processed?.Add(jsString);
+                    yield return jsString;
+                }
+            }
+            else if (includeStrings && Target is IDictionary dictionary)
             {
                 // we take values exposed as dictionary keys only 
                 foreach (var key in dictionary.Keys)
