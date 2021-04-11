@@ -43,7 +43,7 @@ namespace Jint.Runtime.Interop.Reflection
 
             if (methodLookup.TryGetValue(objectType, out methods))
             {
-                return true;
+                return methods.Length > 0;
             }
 
             var results = new List<MethodInfo>();

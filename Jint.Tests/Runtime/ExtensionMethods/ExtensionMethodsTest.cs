@@ -1,4 +1,5 @@
-﻿using Jint.Tests.Runtime.Domain;
+﻿using Jint.Native;
+using Jint.Tests.Runtime.Domain;
 using Xunit;
 
 namespace Jint.Tests.Runtime.ExtensionMethods
@@ -68,6 +69,24 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             var arr = engine.Execute("'yes,no'.split(',')").GetCompletionValue().AsArray();
             Assert.Equal("yes", arr[0]);
             Assert.Equal("no", arr[1]);
+        }
+
+        [Fact]
+        public void HasOwnPropertyShouldWorkCorrectlyInPresenceOfExtensionMethods()
+        {
+            var person = new Person();
+
+            var options = new Options();
+            options.AddExtensionMethods(typeof(PersonExtensions));
+
+            var engine = new Engine(options);
+            engine.SetValue("person", person);
+
+            var isBogusInPerson = engine.Execute("'bogus' in person").GetCompletionValue().AsBoolean();
+            Assert.False(isBogusInPerson);
+
+            var propertyValue = engine.Execute("person.bogus").GetCompletionValue();
+            Assert.Equal(JsValue.Undefined, propertyValue);
         }
     }
 }
