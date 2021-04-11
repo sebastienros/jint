@@ -354,7 +354,10 @@ namespace Jint.Runtime.Interop
                         matches.Add(method);
                     }
                 }
-                return new MethodAccessor(MethodDescriptor.Build(matches));
+                if (matches.Count > 0)
+                {
+                    return new MethodAccessor(MethodDescriptor.Build(matches));
+                }
             }
 
             return ConstantValueAccessor.NullAccessor;
