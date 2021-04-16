@@ -79,7 +79,7 @@ namespace Jint
         }
 
         /// <summary>
-         /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>
+        /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>
         /// </summary>
         public Options AddObjectConverter(IObjectConverter objectConverter)
         {
@@ -114,21 +114,45 @@ namespace Jint
 
             foreach (var overloads in methods.GroupBy(x => x.Name))
             {
-                var functionInstance = new MethodInfoFunctionInstance(engine, MethodDescriptor.Build(overloads.ToList()));
-                var descriptor = new PropertyDescriptor(functionInstance, PropertyFlag.None);
+
+                PropertyDescriptor CreateMethodInstancePropertyDescriptor(ClrFunctionInstance clrFunctionInstance)
+                {
+                    var instance = clrFunctionInstance == null
+                        ? new MethodInfoFunctionInstance(engine, MethodDescriptor.Build(overloads.ToList()))
+                        : new MethodInfoFunctionInstance(engine, MethodDescriptor.Build(overloads.ToList()), clrFunctionInstance);
+
+                    return new PropertyDescriptor(instance, PropertyFlag.NonConfigurable);
+                }
+
+                JsValue key = overloads.Key;
+                PropertyDescriptor descriptorWithFallback = null;
+                PropertyDescriptor descriptorWithoutFallback = null;
+                
+                if (prototype.HasOwnProperty(key) && prototype.GetOwnProperty(key).Value is ClrFunctionInstance clrFunctionInstance)
+                {
+                    descriptorWithFallback = CreateMethodInstancePropertyDescriptor(clrFunctionInstance);
+                    prototype.SetOwnProperty(key, descriptorWithFallback);
+                }
+                else
+                {
+                    descriptorWithoutFallback = CreateMethodInstancePropertyDescriptor(null);
+                    prototype.SetOwnProperty(key, descriptorWithoutFallback);
+                }
 
                 // make sure we register both lower case and upper case
-                JsValue key = overloads.Key;
-                if (!prototype.HasOwnProperty(key))
-                {
-                    prototype.SetOwnProperty(key, descriptor);
-                }
                 if (char.IsUpper(overloads.Key[0]))
                 {
                     key = char.ToLower(overloads.Key[0]) + overloads.Key.Substring(1);
-                    if (!prototype.HasOwnProperty(key))
+
+                    if (prototype.HasOwnProperty(key) && prototype.GetOwnProperty(key).Value is ClrFunctionInstance lowerclrFunctionInstance)
                     {
-                        prototype.SetOwnProperty(key, descriptor);
+                        descriptorWithFallback = descriptorWithFallback ?? CreateMethodInstancePropertyDescriptor(lowerclrFunctionInstance);
+                        prototype.SetOwnProperty(key, descriptorWithFallback);
+                    }
+                    else
+                    {
+                        descriptorWithoutFallback = descriptorWithoutFallback ?? CreateMethodInstancePropertyDescriptor(null);
+                        prototype.SetOwnProperty(key, descriptorWithoutFallback);
                     }
                 }
             }
@@ -283,13 +307,13 @@ namespace Jint
             {
                 configuration?.Invoke(engine);
             }
-            
+
             // add missing bits if needed
             if (_allowClr)
             {
                 engine.Global.SetProperty("System", new PropertyDescriptor(new NamespaceReference(engine, "System"), PropertyFlag.AllForbidden));
                 engine.Global.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunctionInstance(
-                    engine, 
+                    engine,
                     "importNamespace",
                     func: (thisObj, arguments) => new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));
             }
@@ -298,7 +322,7 @@ namespace Jint
             {
                 AttachExtensionMethodsToPrototypes(engine);
             }
-            
+
             // ensure defaults
             engine.ClrTypeConverter ??= new DefaultTypeConverter(engine);
         }
@@ -330,12 +354,12 @@ namespace Jint
 
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
 
-        internal IReferenceResolver  ReferenceResolver => _referenceResolver;
+        internal IReferenceResolver ReferenceResolver => _referenceResolver;
 
         private sealed class DefaultReferenceResolver : IReferenceResolver
         {
             public static readonly DefaultReferenceResolver Instance = new DefaultReferenceResolver();
-            
+
             private DefaultReferenceResolver()
             {
             }

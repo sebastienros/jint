@@ -11,12 +11,19 @@ namespace Jint.Runtime.Interop
     {
         private static readonly JsString _name = new JsString("Function");
         private readonly MethodDescriptor[] _methods;
+        private readonly ClrFunctionInstance _fallbackClrFunctionInstance;
 
         public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods)
             : base(engine, _name)
         {
             _methods = methods;
             _prototype = engine.Function.PrototypeObject;
+        }
+
+        public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods, ClrFunctionInstance fallbackClrFunctionInstance)
+            : this(engine, methods)
+        {
+            _fallbackClrFunctionInstance = fallbackClrFunctionInstance;
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
@@ -28,7 +35,9 @@ namespace Jint.Runtime.Interop
                     var jsArgumentsTemp = new JsValue[1 + jsArguments.Length];
                     jsArgumentsTemp[0] = thisObject;
                     Array.Copy(jsArguments, 0, jsArgumentsTemp, 1, jsArguments.Length);
-                    jsArguments = jsArgumentsTemp;
+                    return method.HasParams
+                        ? ProcessParamsArrays(jsArgumentsTemp, method)
+                        : jsArgumentsTemp;
                 }
                 return method.HasParams
                     ? ProcessParamsArrays(jsArguments, method)
@@ -109,6 +118,10 @@ namespace Jint.Runtime.Interop
                 }
             }
 
+            if (_fallbackClrFunctionInstance != null)
+            {
+                return _fallbackClrFunctionInstance.Call(thisObject, jsArguments);
+            }
             return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "No public methods with the specified arguments were found.");
         }
 
