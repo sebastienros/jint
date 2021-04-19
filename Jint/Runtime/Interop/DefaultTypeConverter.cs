@@ -78,122 +78,64 @@ namespace Jint.Runtime.Interop
             {
                 var function = (Func<JsValue, JsValue[], JsValue>)value;
 
-                if (type.IsGenericType)
+                if (typeof(Delegate).IsAssignableFrom(type) && !type.IsAbstract)
                 {
-                    var genericType = type.GetGenericTypeDefinition();
+                    var method = type.GetMethod("Invoke");
+                    var arguments = method.GetParameters();
 
-                    // create the requested Delegate
-                    if (genericType.Name.StartsWith("Action"))
+                    var @params = new ParameterExpression[arguments.Length];
+                    for (var i = 0; i < @params.Length; i++)
                     {
-                        var genericArguments = type.GetGenericArguments();
-
-                        var @params = new ParameterExpression[genericArguments.Length];
-                        for (var i = 0; i < @params.Length; i++)
-                        {
-                            @params[i] = Expression.Parameter(genericArguments[i], genericArguments[i].Name + i);
-                        }
-                        var tmpVars = new Expression[@params.Length];
-                        for (var i = 0; i < @params.Length; i++)
-                        {
-                            var param = @params[i];
-                            if (param.Type.IsValueType)
-                            {
-                                var boxing = Expression.Convert(param, objectType);
-                                tmpVars[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), boxing);
-                            }
-                            else
-                            {
-                                tmpVars[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), param);
-                            }
-                        }
-                        var @vars = Expression.NewArrayInit(jsValueType, tmpVars);
-
-                        var callExpresion = Expression.Block(Expression.Call(
-                                                Expression.Call(Expression.Constant(function.Target),
-                                                    function.Method,
-                                                    Expression.Constant(JsValue.Undefined, jsValueType),
-                                                    @vars),
-                                                jsValueToObject), Expression.Empty());
-
-                        return Expression.Lambda(callExpresion, new ReadOnlyCollection<ParameterExpression>(@params)).Compile();
+                        @params[i] = Expression.Parameter(arguments[i].ParameterType, arguments[i].Name);
                     }
-                    else if (genericType.Name.StartsWith("Func"))
+
+                    var initializers = new MethodCallExpression[@params.Length];
+                    for (int i = 0; i < @params.Length; i++)
                     {
-                        var genericArguments = type.GetGenericArguments();
-                        var returnType = genericArguments[genericArguments.Length - 1];
-
-                        var @params = new ParameterExpression[genericArguments.Length - 1];
-                        for (var i = 0; i < @params.Length; i++)
+                        var param = @params[i];
+                        if (param.Type.IsValueType)
                         {
-                            @params[i] = Expression.Parameter(genericArguments[i], genericArguments[i].Name + i);
+                            var boxing = Expression.Convert(param, objectType);
+                            initializers[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), boxing);
                         }
-
-                        var initializers = new MethodCallExpression[@params.Length];
-                        for (int i = 0; i < @params.Length; i++)
+                        else
                         {
-                            var boxingExpression = Expression.Convert(@params[i], objectType);
-                            initializers[i]= Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), boxingExpression);
+                            initializers[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), param);
                         }
-                        var @vars = Expression.NewArrayInit(jsValueType, initializers);
+                    }
 
-                        // the final result's type needs to be changed before casting,
-                        // for instance when a function returns a number (double) but C# expects an integer
+                    var @vars = Expression.NewArrayInit(jsValueType, initializers);
 
-                        var callExpresion = Expression.Convert(
-                                                Expression.Call(null,
-                                                    convertChangeType,
-                                                    Expression.Call(
-                                                            Expression.Call(Expression.Constant(function.Target),
-                                                                    function.Method,
-                                                                    Expression.Constant(JsValue.Undefined, jsValueType),
-                                                                    @vars),
-                                                            jsValueToObject),
-                                                        Expression.Constant(returnType, typeType),
-                                                        Expression.Constant(System.Globalization.CultureInfo.InvariantCulture, typeof(IFormatProvider))
-                                                        ),
-                                                    returnType);
+                    var callExpression = Expression.Call(
+                        Expression.Constant(function.Target),
+                        function.Method,
+                        Expression.Constant(JsValue.Undefined, jsValueType),
+                        @vars);
 
-                        return Expression.Lambda(callExpresion, new ReadOnlyCollection<ParameterExpression>(@params)).Compile();
+                    if (method.ReturnType != typeof(void))
+                    {
+                        return Expression.Lambda(
+                            type,
+                            Expression.Convert(
+                                Expression.Call(
+                                    null,
+                                    convertChangeType, 
+                                    Expression.Call(callExpression, jsValueToObject), 
+                                    Expression.Constant(method.ReturnType), 
+                                    Expression.Constant(System.Globalization.CultureInfo.InvariantCulture, typeof(IFormatProvider))
+                                    ), 
+                                method.ReturnType
+                                ),
+                            new ReadOnlyCollection<ParameterExpression>(@params)).Compile();
+                    }
+                    else
+                    {
+                        return Expression.Lambda(
+                            type,
+                            callExpression,
+                            new ReadOnlyCollection<ParameterExpression>(@params)).Compile();
                     }
                 }
-                else
-                {
-                    if (type == typeof(Action))
-                    {
-                        return (Action)(() => function(JsValue.Undefined, System.Array.Empty<JsValue>()));
-                    }
-                    else if (typeof(MulticastDelegate).IsAssignableFrom(type))
-                    {
-                        var method = type.GetMethod("Invoke");
-                        var arguments = method.GetParameters();
-
-                        var @params = new ParameterExpression[arguments.Length];
-                        for (var i = 0; i < @params.Length; i++)
-                        {
-                            @params[i] = Expression.Parameter(objectType, arguments[i].Name);
-                        }
-
-                        var initializers = new MethodCallExpression[@params.Length];
-                        for (int i = 0; i < @params.Length; i++)
-                        {
-                            initializers[i] = Expression.Call(null, jsValueType.GetMethod("FromObject"), Expression.Constant(_engine, engineType), @params[i]);
-                        }
-
-                        var @vars = Expression.NewArrayInit(jsValueType, initializers);
-
-                        var callExpression = Expression.Call(
-                                                    Expression.Call(Expression.Constant(function.Target),
-                                                        function.Method,
-                                                        Expression.Constant(JsValue.Undefined, jsValueType),
-                                                        @vars),
-                                                    jsValueType.GetMethod("ToObject"));
-
-                        var dynamicExpression = Expression.Invoke(Expression.Lambda(callExpression, new ReadOnlyCollection<ParameterExpression>(@params)), new ReadOnlyCollection<ParameterExpression>(@params));
-
-                        return Expression.Lambda(type, dynamicExpression, new ReadOnlyCollection<ParameterExpression>(@params)).Compile();
-                    }
-                }
-
             }
 
             if (type.IsArray)
