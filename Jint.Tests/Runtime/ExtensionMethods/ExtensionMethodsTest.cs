@@ -66,9 +66,30 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             {
                 opts.AddExtensionMethods(typeof(CustomStringExtensions));
             });
+
+            //uses split function from StringPrototype
             var arr = engine.Execute("'yes,no'.split(',')").GetCompletionValue().AsArray();
             Assert.Equal("yes", arr[0]);
             Assert.Equal("no", arr[1]);
+
+            //uses split function from CustomStringExtensions
+            var arr2 = engine.Execute("'yes,no'.split(2)").GetCompletionValue().AsArray();
+            Assert.Equal("ye", arr2[0]);
+            Assert.Equal("s,no", arr2[1]);
+        }
+
+        [Fact]
+        public void OverridePrototypeFunctions()
+        {
+            var engine = new Engine(opts =>
+            {
+                opts.AddExtensionMethods(typeof(OverrideStringPrototypeExtensions));
+            });
+
+            //uses the overridden split function from OverrideStringPrototypeExtensions
+            var arr = engine.Execute("'yes,no'.split(',')").GetCompletionValue().AsArray();
+            Assert.Equal("YES", arr[0]);
+            Assert.Equal("NO", arr[1]);
         }
 
         [Fact]

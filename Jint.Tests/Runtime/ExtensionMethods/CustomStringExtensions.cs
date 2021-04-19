@@ -26,5 +26,12 @@ namespace Jint.Tests.Runtime.ExtensionMethods
         {
             return Array.Empty<string>();
         }
+
+        public static string[] Split(this string value, int position)
+        {
+            var first = value.Substring(0, position);
+            var second = value.Substring(position);
+            return new string[] { first, second };
+        }
     }
 }
