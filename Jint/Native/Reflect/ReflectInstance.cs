@@ -58,16 +58,10 @@ namespace Jint.Native.Reflect
         private JsValue Construct(JsValue thisObject, JsValue[] arguments)
         {
             var targetArgument = arguments.At(0);
-            if (!(targetArgument is IConstructor target))
-            {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, targetArgument + " is not a constructor");
-            }
+            var target = AssertConstructor(_engine, targetArgument);
 
             var newTargetArgument = arguments.At(2, arguments[0]);
-            if (!(newTargetArgument is IConstructor newTarget))
-            {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, newTargetArgument + " is not a constructor");
-            }
+            AssertConstructor(_engine, newTargetArgument);
 
             var args = _engine.Function.PrototypeObject.CreateListFromArrayLike(arguments.At(1));
 

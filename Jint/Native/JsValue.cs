@@ -4,11 +4,13 @@ using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Jint.Native.Array;
 using Jint.Native.Date;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Native.RegExp;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -66,6 +68,13 @@ namespace Jint.Native
         public bool IsDate()
         {
             return this is DateInstance;
+        }
+        
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsPromise()
+        {
+            return this is PromiseInstance;
         }
 
         [Pure]
@@ -336,6 +345,13 @@ namespace Jint.Native
                     return JsNumber.Create(System.Convert.ToInt64(value));
 
                 return JsNumber.Create(System.Convert.ToInt32(value));
+            }
+            
+            //  If a net task we want to wrap as a js promise
+            //  todo - custom task types eg ValueTask<>.  Not sure these can be supported generically without writing the associated state machine code
+            if (value is Task task)
+            {
+                return new PromiseInstance(engine, task);
             }
 
             // if no known type could be guessed, wrap it as an ObjectInstance
@@ -677,6 +693,16 @@ namespace Jint.Native
                 default:
                     return ReferenceEquals(x, y);
             }
+        }
+        
+        internal static IConstructor AssertConstructor(Engine engine, JsValue c)
+        {
+            if (!(c is IConstructor constructor))
+            {
+                return ExceptionHelper.ThrowTypeError<IConstructor>(engine, c + " is not a constructor");
+            }
+
+            return constructor;
         }
     }
 }

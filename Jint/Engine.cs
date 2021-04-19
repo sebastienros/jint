@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+// using System.Threading;
+// using System.Threading.Tasks;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -17,6 +19,7 @@ using Jint.Native.Map;
 using Jint.Native.Math;
 using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Native.Proxy;
 using Jint.Native.Reflect;
 using Jint.Native.RegExp;
@@ -56,6 +59,11 @@ namespace Jint
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         internal Node _lastSyntaxNode;
+        
+        private readonly object _promiseContinuationsPadlock = new object();
+        private readonly System.Threading.SemaphoreSlim _threadLock = new System.Threading.SemaphoreSlim(1, 1);
+        private readonly Queue<Action> _promiseContinuations = new Queue<Action>();
+        private bool _continuationsTaskActive = false;
 
         // lazy properties
         private ErrorConstructor _error;
@@ -151,6 +159,7 @@ namespace Jint
             Array = ArrayConstructor.CreateArrayConstructor(this);
             Map = MapConstructor.CreateMapConstructor(this);
             Set = SetConstructor.CreateSetConstructor(this);
+            Promise = PromiseConstructor.CreatePromiseConstructor(this);
             Iterator = IteratorConstructor.CreateIteratorConstructor(this);
             String = StringConstructor.CreateStringConstructor(this);
             RegExp = RegExpConstructor.CreateRegExpConstructor(this);
@@ -208,6 +217,7 @@ namespace Jint
         public ArrayConstructor Array { get; }
         public MapConstructor Map { get; }
         public SetConstructor Set { get; }
+        public PromiseConstructor Promise { get; }
         public IteratorConstructor Iterator { get; }
         public StringConstructor String { get; }
         public RegExpConstructor RegExp { get; }
@@ -319,55 +329,131 @@ namespace Jint
         {
             CallStack.Clear();
         }
+        
+        public Engine Execute(string source) => Execute(source, true);
+        public Engine Execute(string source, ParserOptions parserOptions) => Execute(source, parserOptions, true);
+        public Engine Execute(Script program) => Execute(program, true);
 
-        public Engine Execute(string source)
+        internal Engine Execute(string source, bool threadLock)
         {
-            return Execute(source, DefaultParserOptions);
+            return Execute(source, DefaultParserOptions, threadLock);
         }
 
-        public Engine Execute(string source, ParserOptions parserOptions)
+        internal Engine Execute(string source, ParserOptions parserOptions, bool threadLock)
         {
             var parser = new JavaScriptParser(source, parserOptions);
             return Execute(parser.ParseScript());
         }
 
-        public Engine Execute(Script script)
+        internal Engine Execute(Script script, bool threadLock)
         {
-            ResetConstraints();
-            ResetLastStatement();
-
-            using (new StrictModeScope(_isStrict || script.Strict))
+            if (threadLock)
             {
-                GlobalDeclarationInstantiation(
-                    script,
-                    GlobalEnvironment);
+                _threadLock.Wait();
+            }
 
-                var list = new JintStatementList(this, null, script.Body);
+            try
+            {
+                ResetConstraints();
+                ResetLastStatement();
 
-                Completion result;
-                try
+                using (new StrictModeScope(_isStrict || script.Strict))
                 {
-                    result = list.Execute();
-                }
-                catch
-                {
-                    // unhandled exception
-                    ResetCallStack();
-                    throw;
-                }
+                    GlobalDeclarationInstantiation(
+                        script,
+                        GlobalEnvironment);
 
-                if (result.Type == CompletionType.Throw)
-                {
-                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
-                    ResetCallStack();
-                    throw ex;
-                }
+                    var list = new JintStatementList(this, null, script.Body);
 
-                _completionValue = result.GetValueOrDefault();
+                    Completion result;
+                    try
+                    {
+                        result = list.Execute();
+                    }
+                    catch
+                    {
+                        // unhandled exception
+                        ResetCallStack();
+                        throw;
+                    }
+
+                    if (result.Type == CompletionType.Throw)
+                    {
+                        var ex = new JavaScriptException(result.GetValueOrDefault())
+                            .SetCallstack(this, result.Location);
+                        ResetCallStack();
+                        throw ex;
+                    }
+
+                    _completionValue = result.GetValueOrDefault();
+                }
+            }
+            finally
+            {
+                if (threadLock)
+                {
+                    _threadLock.Release();
+                }
             }
 
             return this;
         }
+        
+        internal void QueuePromiseContinuation(Action continuation)
+        {
+            var startContinuationsTask = false;
+
+            lock (_promiseContinuationsPadlock)
+            {
+                _promiseContinuations.Enqueue(continuation);
+
+                if (_continuationsTaskActive == false)
+                {
+                    startContinuationsTask = true;
+                    _continuationsTaskActive = true;
+                }
+            }
+
+            if (startContinuationsTask)
+            {
+                System.Threading.Tasks.Task.Factory.StartNew(async () =>
+                {
+                    while (true)
+                    {
+                        Action nextContinuation;
+
+                        lock (_promiseContinuationsPadlock)
+                        {
+                            //  End task if no more continuations to process
+                            if (_promiseContinuations.Count == 0)
+                            {
+                                _continuationsTaskActive = false;
+                                return;
+                            }
+
+                            nextContinuation = _promiseContinuations.Dequeue();
+                        }
+
+                        //  Prevent a continuation using this engine concurrently with the user
+                        await _threadLock.WaitAsync();
+
+                        try
+                        {
+                            nextContinuation();
+                        }
+                        catch
+                        {
+                            continue;
+                        }
+                        finally
+                        {
+                            _threadLock.Release();
+                        }
+                    }
+                });
+            }
+        }
+
 
         private void ResetLastStatement()
         {
@@ -380,6 +466,28 @@ namespace Jint
         public JsValue GetCompletionValue()
         {
             return _completionValue;
+        }
+        
+        /// <summary>
+        /// Gets the last evaluated statement completion value.  If the completion value is a promise then the method asynchronously waits for the promise to resolve and returns the resolve result
+        /// </summary>
+        /// <returns></returns>
+        public async System.Threading.Tasks.Task<JsValue> GetCompletionValueAsync()
+        {
+            if (_completionValue is PromiseInstance promise)
+                _completionValue = await promise.Task;
+
+            return _completionValue;
+        }
+
+        /// <summary>
+        /// Asynchronously waits for a completion promise to resolve.  Returns immediately if the completion value is not a promise.
+        /// </summary>
+        /// <returns></returns>
+        public async System.Threading.Tasks.Task WaitForCompletionAsync()
+        {
+            if (_completionValue is PromiseInstance promise)
+                await promise.Task;
         }
 
         internal void RunBeforeExecuteStatementChecks(Statement statement)

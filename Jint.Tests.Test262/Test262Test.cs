@@ -31,6 +31,7 @@ namespace Jint.Tests.Test262
         
         static Test262Test()
         {
+            
             //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
             try
             {
