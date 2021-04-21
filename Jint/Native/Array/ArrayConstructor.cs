@@ -101,9 +101,9 @@ namespace Jint.Native.Array
             }
             else
             {
-                instance = _engine.Array.ConstructFast(0);                
+                instance = _engine.Array.ConstructFast(0);
             }
-            
+
             if (objectInstance.TryGetIterator(_engine, out var iterator))
             {
                 var protocol = new ArrayProtocol(_engine, thisArg, instance, iterator, callable);
@@ -115,8 +115,8 @@ namespace Jint.Native.Array
 
         private ObjectInstance ConstructArrayFromArrayLike(
             JsValue thisObj,
-            ObjectInstance objectInstance, 
-            ICallable callable, 
+            ObjectInstance objectInstance,
+            ICallable callable,
             JsValue thisArg)
         {
             var source = ArrayOperations.For(objectInstance);
@@ -133,9 +133,9 @@ namespace Jint.Native.Array
             }
             else
             {
-                a = _engine.Array.ConstructFast(length);                
+                a = _engine.Array.ConstructFast(length);
             }
-            
+
             var args = !ReferenceEquals(callable, null)
                 ? _engine._jsValueArrayPool.RentArray(2)
                 : null;
@@ -181,7 +181,7 @@ namespace Jint.Native.Array
             private long _index = -1;
 
             public ArrayProtocol(
-                Engine engine, 
+                Engine engine,
                 JsValue thisArg,
                 ObjectInstance instance,
                 IIterator iterator,
@@ -200,7 +200,7 @@ namespace Jint.Native.Array
                 if (!ReferenceEquals(_callable, null))
                 {
                     args[0] = sourceValue;
-                    args[1] = _index; 
+                    args[1] = _index;
                     jsValue = _callable.Call(_thisArg, args);
                 }
                 else
@@ -286,6 +286,13 @@ namespace Jint.Native.Array
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
+            if (newTarget.IsUndefined())
+            {
+                newTarget = this;
+            }
+
+            var proto = GetPrototypeFromConstructor(newTarget, PrototypeObject);
+
             // check if we can figure out good size
             var capacity = arguments.Length > 0 ? (uint) arguments.Length : 0;
             if (arguments.Length == 1 && arguments[0].IsNumber())
@@ -294,7 +301,7 @@ namespace Jint.Native.Array
                 ValidateLength(number);
                 capacity = (uint) number;
             }
-            return Construct(arguments, capacity);
+            return Construct(arguments, capacity, proto);
         }
 
         public ArrayInstance Construct(int capacity)
@@ -309,8 +316,12 @@ namespace Jint.Native.Array
 
         public ArrayInstance Construct(JsValue[] arguments, uint capacity)
         {
-            var instance = new ArrayInstance(Engine, capacity);
-            instance._prototype = PrototypeObject;
+            return Construct(arguments, capacity, PrototypeObject);
+        }
+
+        private ArrayInstance Construct(JsValue[] arguments, uint capacity, ObjectInstance prototypeObject)
+        {
+            var instance = ArrayCreate(capacity, prototypeObject);
 
             if (arguments.Length == 1 && arguments.At(0).IsNumber())
             {
@@ -339,6 +350,19 @@ namespace Jint.Native.Array
                 }
             }
 
+            return instance;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-arraycreate
+        /// </summary>
+        private ArrayInstance ArrayCreate(uint capacity, ObjectInstance proto)
+        {
+            proto ??= PrototypeObject;
+            var instance = new ArrayInstance(Engine, capacity)
+            {
+                _prototype = proto
+            };
             return instance;
         }
 

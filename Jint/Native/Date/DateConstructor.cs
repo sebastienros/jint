@@ -150,9 +150,10 @@ namespace Jint.Native.Date
         /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            if (arguments.Length == 0)
+            double dv;
+            if (arguments.Length == 0 || newTarget.IsUndefined())
             {
-                return Construct(DateTime.UtcNow);
+                dv = FromDateTime(DateTime.UtcNow);
             }
             else if (arguments.Length == 1)
             {
@@ -160,14 +161,14 @@ namespace Jint.Native.Date
                 {
                     return Construct(date.PrimitiveValue);
                 }
-                
+
                 var v = TypeConverter.ToPrimitive(arguments[0]);
                 if (v.IsString())
                 {
                     return Construct(((JsNumber) Parse(Undefined, Arguments.From(v)))._value);
                 }
 
-                return Construct(TimeClip(TypeConverter.ToNumber(v)));
+                dv = TimeClip(TypeConverter.ToNumber(v));
             }
             else
             {
@@ -189,8 +190,12 @@ namespace Jint.Native.Date
                     DatePrototype.MakeDay(y, m, dt),
                     DatePrototype.MakeTime(h, min, s, milli));
 
-                return Construct(TimeClip(PrototypeObject.Utc(finalDate)));
+                dv = TimeClip(PrototypeObject.Utc(finalDate));
             }
+
+            var o = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, _) => new DateInstance(engine));
+            o.PrimitiveValue = dv;
+            return o;
         }
 
         public DatePrototype PrototypeObject { get; private set; }
@@ -202,18 +207,12 @@ namespace Jint.Native.Date
 
         public DateInstance Construct(DateTime value)
         {
-            var instance = new DateInstance(Engine)
-            {
-                _prototype = PrototypeObject,
-                PrimitiveValue = FromDateTime(value)
-            };
-
-            return instance;
+            return Construct(FromDateTime(value));
         }
 
         public DateInstance Construct(double time)
         {
-            var instance = new DateInstance(Engine)
+            var instance = new DateInstance(_engine)
             {
                 _prototype = PrototypeObject,
                 PrimitiveValue = TimeClip(time)
@@ -222,7 +221,7 @@ namespace Jint.Native.Date
             return instance;
         }
 
-        public static double TimeClip(double time)
+        private static double TimeClip(double time)
         {
             if (double.IsInfinity(time) || double.IsNaN(time))
             {
@@ -237,7 +236,7 @@ namespace Jint.Native.Date
             return TypeConverter.ToInteger(time) + 0;
         }
 
-        public double FromDateTime(DateTime dt)
+        private double FromDateTime(DateTime dt)
         {
             var convertToUtcAfter = (dt.Kind == DateTimeKind.Unspecified);
 

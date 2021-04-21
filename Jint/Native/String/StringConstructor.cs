@@ -3,6 +3,7 @@ using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -19,6 +20,8 @@ namespace Jint.Native.String
             : base(engine, _functionName, FunctionThisMode.Global)
         {
         }
+
+        public StringPrototype PrototypeObject { get; private set; }
 
         public static StringConstructor CreateStringConstructor(Engine engine)
         {
@@ -64,9 +67,9 @@ namespace Jint.Native.String
         {
             var codeUnits = new List<JsValue>();
             string result = "";
-            for (var i = 0; i < arguments.Length; i++ )
+            foreach (var a in arguments)
             {
-                var codePoint = TypeConverter.ToNumber(arguments[i]);
+                var codePoint = TypeConverter.ToNumber(a);
                 if (codePoint < 0
                     || codePoint > 0x10FFFF
                     || double.IsInfinity(codePoint)
@@ -116,23 +119,21 @@ namespace Jint.Native.String
                 return JsString.Empty;
             }
 
-            using (var result = StringBuilderPool.Rent())
+            using var result = StringBuilderPool.Rent();
+            for (var i = 0; i < length; i++)
             {
-                for (var i = 0; i < length; i++)
+                if (i > 0)
                 {
-                    if (i > 0)
+                    if (i < arguments.Length && !arguments[i].IsUndefined())
                     {
-                        if (i < arguments.Length && !arguments[i].IsUndefined())
-                        {
-                            result.Builder.Append(TypeConverter.ToString(arguments[i]));
-                        }
+                        result.Builder.Append(TypeConverter.ToString(arguments[i]));
                     }
-
-                    result.Builder.Append(TypeConverter.ToString(operations.Get((ulong) i)));
                 }
 
-                return result.ToString();
+                result.Builder.Append(TypeConverter.ToString(operations.Get((ulong) i)));
             }
+
+            return result.ToString();
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -151,19 +152,32 @@ namespace Jint.Native.String
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.7.2.1
+        /// https://tc39.es/ecma262/#sec-string-constructor-string-value
         /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            string value = "";
-            if (arguments.Length > 0)
+            JsString s;
+            if (arguments.Length == 0)
             {
-                value = TypeConverter.ToString(arguments[0]);
+                s = JsString.Empty;
             }
-            return Construct(value);
-        }
+            else
+            {
+                var value = arguments.At(0);
+                if (newTarget.IsUndefined() && value.IsSymbol())
+                {
+                    return StringCreate(JsString.Create(SymbolPrototype.SymbolDescriptiveString((JsSymbol) value)), PrototypeObject);
+                }
+                s = TypeConverter.ToJsString(arguments[0]);
+            }
 
-        public StringPrototype PrototypeObject { get; private set; }
+            if (newTarget.IsUndefined())
+            {
+                return StringCreate(s, PrototypeObject);
+            }
+
+            return StringCreate(s, GetPrototypeFromConstructor(newTarget, PrototypeObject));
+        }
 
         public StringInstance Construct(string value)
         {
@@ -172,9 +186,17 @@ namespace Jint.Native.String
 
         public StringInstance Construct(JsString value)
         {
+            return StringCreate(value, PrototypeObject);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-stringcreate
+        /// </summary>
+        private StringInstance StringCreate(JsString value, ObjectInstance prototype)
+        {
             var instance = new StringInstance(Engine)
             {
-                _prototype = PrototypeObject,
+                _prototype = prototype,
                 PrimitiveValue = value,
                 _length = PropertyDescriptor.AllForbiddenDescriptor.ForNumber(value.Length)
             };

@@ -71,7 +71,7 @@ namespace Jint.Native.Symbol
             return ThisSymbolValue(thisObject);
         }
 
-        private static string SymbolDescriptiveString(JsSymbol symbol) => symbol.ToString();
+        internal static string SymbolDescriptiveString(JsSymbol symbol) => symbol.ToString();
 
         private JsSymbol ThisSymbolValue(JsValue thisObject)
         {
