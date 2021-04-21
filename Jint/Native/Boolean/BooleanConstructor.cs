@@ -13,7 +13,7 @@ namespace Jint.Native.Boolean
             : base(engine, _functionName)
         {
         }
-        
+
         public BooleanPrototype PrototypeObject { get; private set; }
 
         public static BooleanConstructor CreateBooleanConstructor(Engine engine)
@@ -47,7 +47,7 @@ namespace Jint.Native.Boolean
         /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var b = TypeConverter.ToBoolean(arguments.At(0)) 
+            var b = TypeConverter.ToBoolean(arguments.At(0))
                 ? JsBoolean.True
                 : JsBoolean.False;
 
@@ -57,7 +57,7 @@ namespace Jint.Native.Boolean
             }
 
             var o = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, state) => new BooleanInstance(engine, (JsBoolean) state), b);
-            return Construct(b);
+            return o;
         }
 
         public BooleanInstance Construct(JsBoolean value)

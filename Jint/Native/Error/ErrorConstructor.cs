@@ -10,13 +10,13 @@ namespace Jint.Native.Error
         private JsString _name;
         private static readonly JsString _functionName = new JsString("Error");
 
-        public ErrorConstructor(Engine engine) : base(engine, _functionName)
+        public ErrorConstructor(Engine engine, JsString functionName) : base(engine, functionName)
         {
         }
 
         public static ErrorConstructor CreateErrorConstructor(Engine engine, JsString name)
         {
-            var obj = new ErrorConstructor(engine)
+            var obj = new ErrorConstructor(engine, name)
             {
                 _name = name,
                 _prototype = engine.Function.PrototypeObject
@@ -47,7 +47,7 @@ namespace Jint.Native.Error
         {
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
-                PrototypeObject, 
+                PrototypeObject,
                 static (e, state) => new ErrorInstance(e, (JsString) state),
                 _name);
 

@@ -54,7 +54,7 @@ namespace Jint.Native.Function
             : this(engine, name, FunctionThisMode.Global, ObjectClass.Function)
         {
         }
-        
+
         // for example RavenDB wants to inspect this
         public IFunction FunctionDeclaration => _functionDefinition.Function;
 
@@ -257,7 +257,7 @@ namespace Jint.Native.Function
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static ObjectInstance GetPrototypeFromConstructor(JsValue constructor, ObjectInstance intrinsicDefaultProto)
+        internal static ObjectInstance GetPrototypeFromConstructor(JsValue constructor, ObjectInstance intrinsicDefaultProto)
         {
             var proto = constructor.Get(CommonProperties.Prototype, constructor) as ObjectInstance;
             // If Type(proto) is not Object, then
@@ -265,12 +265,12 @@ namespace Jint.Native.Function
             //    Set proto to realm's intrinsic object named intrinsicDefaultProto.
             return proto ?? intrinsicDefaultProto;
         }
-        
+
         internal void MakeMethod(ObjectInstance homeObject)
         {
             _homeObject = homeObject;
         }
-        
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ordinarycallbindthis
         /// </summary>
@@ -285,7 +285,7 @@ namespace Jint.Native.Function
             // Let calleeRealm be F.[[Realm]].
 
             var localEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment._record;
-            
+
             JsValue thisValue;
             if (_thisMode == FunctionThisMode.Strict)
             {

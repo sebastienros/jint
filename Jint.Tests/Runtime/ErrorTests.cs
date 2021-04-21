@@ -155,10 +155,10 @@ var x = b(7);";
    at a (v) <anonymous>:2:18
    at b (v) <anonymous>:6:12
    at <anonymous>:9:9";
-            
+
             EqualIgnoringNewLineDifferences(expected, ex.ToString());
         }
-        
+
         [Fact]
         public void StackTraceCollectedForImmediatelyInvokedFunctionExpression()
         {
@@ -188,10 +188,24 @@ var x = b(7);";
    at getItem (items, itemIndex) get-item.js:2:22
    at (anonymous) (getItem) get-item.js:9:16
    at get-item.js:13:2";
-            
+
             EqualIgnoringNewLineDifferences(expected, ex.ToString());
         }
 
+        [Theory]
+        [InlineData("Error")]
+        [InlineData("EvalError")]
+        [InlineData("RangeError")]
+        [InlineData("SyntaxError")]
+        [InlineData("TypeError")]
+        [InlineData("ReferenceError")]
+        public void ErrorsHaveCorrectConstructor(string type)
+        {
+            var engine = new Engine();
+            engine.Execute($"const o = new {type}();");
+            Assert.True(engine.Execute($"o.constructor === {type}").GetCompletionValue().AsBoolean());
+            Assert.Equal(type, engine.Execute("o.constructor.name").GetCompletionValue().AsString());
+        }
 
         private static void EqualIgnoringNewLineDifferences(string expected, string actual)
         {
