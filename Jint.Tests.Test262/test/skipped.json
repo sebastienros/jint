@@ -87,10 +87,6 @@
     "reason": "Windows line ending differences"
   },
   {
-    "source": "built-ins/Symbol/species/builtin-getter-name.js",
-    "reason": "Promise not implemented"
-  },
-  {
     "source": "language/expressions/object/method-definition/object-method-returns-promise.js",
     "reason": "Promise not implemented"
   },

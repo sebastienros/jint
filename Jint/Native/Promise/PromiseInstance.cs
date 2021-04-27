@@ -9,25 +9,40 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise
 {
-    public struct PromiseCapabilityRecord
+    public struct ResolvingFunctions
     {
-        public PromiseCapabilityRecord(ICallable resolveCallback, ICallable rejectCallback)
+        public ResolvingFunctions(Action<JsValue> resolveCallback, Action<JsValue> rejectCallback)
         {
             ResolveCallback = resolveCallback;
             RejectCallback = rejectCallback;
         }
 
-        public ICallable ResolveCallback { get; private set; }
-        public ICallable RejectCallback { get; private set; }
+        public Action<JsValue> ResolveCallback { get; private set; }
+        public Action<JsValue> RejectCallback { get; private set; }
     }
 
     public class PromiseInstance : ObjectInstance
     {
-        private readonly ICallable _promiseExecutor;
+        private ICallable _promiseExecutor;
+
+        // private ResolvingFunctions _resolvingFunctions = null;
         private readonly TaskCompletionSource<JsValue> _tcs = new TaskCompletionSource<JsValue>();
 
         public Task<JsValue> Task => _tcs.Task;
         public PromiseState State { get; private set; }
+
+
+        public static PromiseInstance FromExecutor(Engine engine, ICallable executor, ObjectInstance prototype)
+        {
+            var promise = new PromiseInstance(engine, executor)
+            {
+                _prototype = prototype,
+                // _promiseExecutor = executor,
+                // _resolvingFunctions = resolvingFunctions
+            };
+            
+            return promise;
+        }
 
         internal PromiseInstance(Engine engine) : base(engine, ObjectClass.Promise)
         {
