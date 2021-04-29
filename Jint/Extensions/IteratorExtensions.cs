@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Iterator;
+using Jint.Native.Object;
 using Jint.Runtime;
 
 namespace Jint.Extensions
