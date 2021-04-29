@@ -289,10 +289,6 @@ namespace Jint.Native.Promise
                                 return Undefined;
                             }, 1, PropertyFlag.Configurable);
 
-                        // https://github.com/tc39/test262/blob/main/test/built-ins/Promise/all/resolve-element-function-name.js
-                        // the function name needs to be ""
-                        onSuccess.SetFunctionName("");
-
                         thenFunc.Call(item, new JsValue[] {onSuccess, rejectObj});
                     }
                     else

@@ -37,7 +37,7 @@ namespace Jint.Native.Promise
             var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_promiseConstructor, PropertyFlag.NonEnumerable),
-                ["then"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "then", Then, 1, lengthFlags), propertyFlags),
+                ["then"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "then", Then, 2, lengthFlags), propertyFlags),
                 ["catch"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "catch", Catch, 1, lengthFlags), propertyFlags),
                 ["finally"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "finally", Finally, 1, lengthFlags), propertyFlags)
             };

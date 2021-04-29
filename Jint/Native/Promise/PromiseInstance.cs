@@ -26,7 +26,7 @@ namespace Jint.Native.Promise
                 // _promiseExecutor = executor,
                 // _resolvingFunctions = resolvingFunctions
             };
-            
+
             return promise;
         }
 
@@ -63,13 +63,9 @@ namespace Jint.Native.Promise
 
         internal void InvokePromiseExecutor(ICallable promiseExecutor)
         {
-            promiseExecutor.Call(
-                this,
-                new JsValue[]
-                {
-                    new ClrFunctionInstance(_engine, "", Resolve, 1, PropertyFlag.Configurable),
-                    new ClrFunctionInstance(_engine, "", Reject, 1, PropertyFlag.Configurable)
-                });
+            var resolve = new ClrFunctionInstance(_engine, "", Resolve, 1, PropertyFlag.Configurable);
+            var reject = new ClrFunctionInstance(_engine, "", Reject, 1, PropertyFlag.Configurable);
+            promiseExecutor.Call(Undefined, new JsValue[] {resolve, reject});
         }
 
         internal JsValue Resolve(JsValue thisObj, JsValue[] arguments)
