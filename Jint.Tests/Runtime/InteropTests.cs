@@ -2526,5 +2526,26 @@ namespace Jint.Tests.Runtime
             var ex = Assert.Throws<InvalidOperationException>(() => _engine.Execute("new Class(true);"));
             Assert.Equal("thrown as requested", ex.Message);
         }
+
+        [Fact]
+        public void ObjectWrapperOverridingEquality()
+        {
+            // equality same via name
+            _engine.SetValue("a", new Person { Name = "Name" });
+            _engine.SetValue("b", new Person { Name = "Name" });
+            _engine.Execute("const arr = [ null, a, undefined ];");
+            
+            Assert.Equal(1, _engine.Execute("arr.filter(x => x == b).length").GetCompletionValue().AsNumber());
+            Assert.Equal(1, _engine.Execute("arr.filter(x => x === b).length").GetCompletionValue().AsNumber());
+
+            Assert.True(_engine.Execute("arr.find(x => x == b) === a").GetCompletionValue().AsBoolean());
+            Assert.True(_engine.Execute("arr.find(x => x === b) == a").GetCompletionValue().AsBoolean());
+
+            Assert.Equal(1, _engine.Execute("arr.findIndex(x => x == b)").GetCompletionValue().AsNumber());
+            Assert.Equal(1, _engine.Execute("arr.findIndex(x => x === b)").GetCompletionValue().AsNumber());
+
+            Assert.Equal(1, _engine.Execute("arr.indexOf(b)").GetCompletionValue().AsNumber());
+            Assert.True(_engine.Execute("arr.includes(b)").GetCompletionValue().AsBoolean());
+        }
     }
 }
