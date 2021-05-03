@@ -16,7 +16,7 @@ namespace Jint.Runtime.Interop
 	/// <summary>
 	/// Wraps a CLR instance
 	/// </summary>
-	public sealed class ObjectWrapper : ObjectInstance, IObjectWrapper
+	public sealed class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWrapper>
     {
         private readonly TypeDescriptor _typeDescriptor;
 
@@ -448,6 +448,36 @@ namespace Jint.Runtime.Interop
 #endif
             }
             return equals;
+        }
+
+        public override bool Equals(JsValue obj)
+        {
+            return Equals(obj as ObjectWrapper);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as ObjectWrapper);
+        }
+
+        public bool Equals(ObjectWrapper other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return Equals(Target, other.Target);
+        }
+
+        public override int GetHashCode()
+        {
+            return Target?.GetHashCode() ?? 0;
         }
     }
 }
