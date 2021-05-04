@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Jint.Native;
-using Jint.Native.Promise;
 
 namespace Jint.Runtime
 {

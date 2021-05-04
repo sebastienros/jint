@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
-using System.Reflection;
 using Esprima.Ast;
 using Jint.Extensions;
 using Jint.Native;
@@ -24,8 +23,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private JintBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
         {
-            _left = Build(engine, expression.Left);
-            _right = Build(engine, expression.Right);
+            _left = Build(_engine, expression.Left);
+            _right = Build(_engine, expression.Right);
         }
 
         protected bool TryOperatorOverloading(string clrName, out object result)

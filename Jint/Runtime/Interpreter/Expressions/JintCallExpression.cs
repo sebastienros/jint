@@ -104,7 +104,11 @@ namespace Jint.Runtime.Interpreter.Expressions
         private object Call()
         {
             var callee = _calleeExpression.Evaluate();
-            var expression = (CallExpression) _expression;
+
+            if (ReferenceEquals(Undefined.Instance, callee))
+            {
+                return Undefined.Instance;
+            }
 
             // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
 

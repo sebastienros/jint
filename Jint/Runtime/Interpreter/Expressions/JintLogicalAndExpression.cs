@@ -5,13 +5,19 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintLogicalAndExpression : JintExpression
     {
-        private readonly JintExpression _left;
-        private readonly JintExpression _right;
+        private JintExpression _left;
+        private JintExpression _right;
 
         public JintLogicalAndExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
         {
-            _left = Build(engine, expression.Left);
-            _right = Build(engine, expression.Right);
+            _initialized = false;
+        }
+
+        protected override void Initialize()
+        {
+            var expression = (BinaryExpression) _expression;
+            _left = Build(_engine, expression.Left);
+            _right = Build(_engine, expression.Right);
         }
 
         protected override object EvaluateInternal()

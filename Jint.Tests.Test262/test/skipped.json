@@ -347,6 +347,10 @@
   // Esprima problems
 
   {
+    "source": "language/expressions/optional-chaining/member-expression.js",
+    "reason": "Esprima problem"
+  },
+  {
     "source": "language/statements/for-of/dstr-obj-id-init-let.js",
     "reason": "Esprima problem"
   },

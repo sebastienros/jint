@@ -6,7 +6,6 @@ using Jint.Runtime.Interop;
 using Jint.Runtime.References;
 using System.Collections.Concurrent;
 using System.Linq;
-using System.Reflection;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {

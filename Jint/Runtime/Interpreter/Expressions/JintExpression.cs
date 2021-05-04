@@ -122,6 +122,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 Nodes.ClassExpression => new JintClassExpression(engine, (ClassExpression) expression),
                 Nodes.Super => new JintSuperExpression(engine, (Super) expression),
                 Nodes.MetaProperty => new JintMetaPropertyExpression(engine, (MetaProperty) expression),
+                Nodes.ChainExpression => new JintChainExpression(engine, (ChainExpression) expression),
                 _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>(nameof(expression), $"unsupported expression type '{expression.Type}'")
             };
         }
@@ -362,7 +363,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     jse.GetValueAndCheckIterator(out var objectInstance, out var iterator);
                     // optimize for array unless someone has touched the iterator
-                    if (objectInstance is ArrayInstance ai 
+                    if (objectInstance is ArrayInstance ai
                         && ReferenceEquals(ai.Get(GlobalSymbolRegistry.Iterator), _engine.Array.PrototypeObject._originalIteratorFunction))
                     {
                         var length = ai.GetLength();

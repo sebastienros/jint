@@ -579,7 +579,7 @@ namespace Jint
                 }
             }
 
-            if (!(baseValue is EnvironmentRecord record))
+            if (baseValue is not EnvironmentRecord record)
             {
                 return ExceptionHelper.ThrowArgumentException<JsValue>();
             }
