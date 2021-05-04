@@ -69,7 +69,7 @@ namespace Jint.Native
         {
             return this is DateInstance;
         }
-        
+
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsPromise()
@@ -154,6 +154,7 @@ namespace Jint.Native
             {
                 ExceptionHelper.ThrowArgumentException("The value is not an object");
             }
+
             return this as ObjectInstance;
         }
 
@@ -165,6 +166,7 @@ namespace Jint.Native
             {
                 ExceptionHelper.ThrowArgumentException("The value is not an object");
             }
+
             return this as TInstance;
         }
 
@@ -176,6 +178,7 @@ namespace Jint.Native
             {
                 ExceptionHelper.ThrowArgumentException("The value is not an array");
             }
+
             return this as ArrayInstance;
         }
 
@@ -205,7 +208,8 @@ namespace Jint.Native
             }
 
             var obj = callable.Call(this, Arguments.Empty) as ObjectInstance
-                      ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Result of the Symbol.iterator method is not an object");
+                      ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(engine,
+                          "Result of the Symbol.iterator method is not an object");
 
             if (obj is IIterator i)
             {
@@ -215,6 +219,7 @@ namespace Jint.Native
             {
                 iterator = new IteratorInstance.ObjectIterator(obj);
             }
+
             return true;
         }
 
@@ -226,6 +231,7 @@ namespace Jint.Native
             {
                 ExceptionHelper.ThrowArgumentException("The value is not a date");
             }
+
             return this as DateInstance;
         }
 
@@ -269,6 +275,7 @@ namespace Jint.Native
             {
                 return this as T;
             }
+
             return null;
         }
 
@@ -320,10 +327,11 @@ namespace Jint.Native
             if (value is System.Array a)
             {
                 // racy, we don't care, worst case we'll catch up later
-                Interlocked.CompareExchange(ref Engine.TypeMappers, new Dictionary<Type, Func<Engine, object, JsValue>>(typeMappers)
-                {
-                    [valueType] = Convert
-                }, typeMappers);
+                Interlocked.CompareExchange(ref Engine.TypeMappers,
+                    new Dictionary<Type, Func<Engine, object, JsValue>>(typeMappers)
+                    {
+                        [valueType] = Convert
+                    }, typeMappers);
 
                 return Convert(engine, a);
             }
@@ -346,7 +354,7 @@ namespace Jint.Native
 
                 return JsNumber.Create(System.Convert.ToInt32(value));
             }
-            
+
             //  If a net task we want to wrap as a js promise
             //  todo - custom task types eg ValueTask<>.  Not sure these can be supported generically without writing the associated state machine code
             if (value is Task task)
@@ -374,7 +382,8 @@ namespace Jint.Native
                 jsArray.WriteArrayValue(i, new PropertyDescriptor(jsItem, PropertyFlag.ConfigurableEnumerableWritable));
             }
 
-            jsArray.SetOwnProperty(CommonProperties.Length, new PropertyDescriptor(arrayLength, PropertyFlag.OnlyWritable));
+            jsArray.SetOwnProperty(CommonProperties.Length,
+                new PropertyDescriptor(arrayLength, PropertyFlag.OnlyWritable));
 
             return jsArray;
         }
@@ -694,7 +703,7 @@ namespace Jint.Native
                     return ReferenceEquals(x, y);
             }
         }
-        
+
         internal static IConstructor AssertConstructor(Engine engine, JsValue c)
         {
             if (!(c is IConstructor constructor))

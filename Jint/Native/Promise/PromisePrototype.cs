@@ -36,21 +36,16 @@ namespace Jint.Native.Promise
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(_promiseConstructor, PropertyFlag.NonEnumerable),
-                ["then"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "then", Then, 2, lengthFlags),
-                    propertyFlags),
-                ["catch"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "catch", Catch, 1, lengthFlags),
-                    propertyFlags),
-                ["finally"] =
-                    new PropertyDescriptor(new ClrFunctionInstance(Engine, "finally", Finally, 1, lengthFlags),
-                        propertyFlags)
+                ["constructor"] = new(_promiseConstructor, PropertyFlag.NonEnumerable),
+                ["then"] = new(new ClrFunctionInstance(Engine, "then", Then, 2, lengthFlags), propertyFlags),
+                ["catch"] = new(new ClrFunctionInstance(Engine, "catch", Catch, 1, lengthFlags), propertyFlags),
+                ["finally"] = new(new ClrFunctionInstance(Engine, "finally", Finally, 1, lengthFlags), propertyFlags)
             };
             SetProperties(properties);
 
             var symbols = new SymbolDictionary(1)
             {
-                [GlobalSymbolRegistry.ToStringTag] =
-                    new PropertyDescriptor(new JsString("Promise"), PropertyFlag.Configurable)
+                [GlobalSymbolRegistry.ToStringTag] = new(new JsString("Promise"), PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
         }
@@ -73,7 +68,7 @@ namespace Jint.Native.Promise
 
             // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
             var ctor = SpeciesConstructor(promise, _engine.Promise);
-            
+
             // 4. Let resultCapability be ? NewPromiseCapability(C).
             var capability = PromiseConstructor.NewPromiseCapabilityCustom(_engine, ctor as JsValue);
 
@@ -81,171 +76,86 @@ namespace Jint.Native.Promise
             return PromiseOperations.PerformPromiseThen(_engine, promise, args.At(0), args.At(1), capability);
         }
 
-
-       
-
-        private JsValue PerformPromise_(JsValue thisValue, JsValue[] args)
-        {
-            var promise = thisValue as PromiseInstance;
-
-            if (promise == null)
-            {
-                ExceptionHelper.ThrowTypeError(_engine,
-                    "Method Promise.prototype.then called on incompatible receiver");
-                return null;
-            }
-
-
-            var chainedPromise = new PromiseInstance(Engine);
-
-            var resolvedCallback = (args.Length >= 1 ? args[0] : null) as FunctionInstance ?? Undefined;
-            var rejectedCallback = (args.Length >= 2 ? args[1] : null) as FunctionInstance ?? Undefined;
-
-            promise.Task.ContinueWith(t =>
-            {
-                var continuation = (Action) (() => { });
-
-                if (t.Status == TaskStatus.RanToCompletion)
-                {
-                    if (resolvedCallback == Undefined)
-                    {
-                        continuation = () =>
-                        {
-                            //  If no success callback then simply pass the return value to the next promise in chain
-                            chainedPromise.Resolve(null, new[] {t.Result});
-                        };
-                    }
-                    else
-                    {
-                        continuation = () =>
-                        {
-                            JsValue result;
-
-                            try
-                            {
-                                result = resolvedCallback.Invoke(t.Result);
-                            }
-                            catch (Exception ex)
-                            {
-                                var error = Undefined;
-
-                                if (ex is JavaScriptException jsEx)
-                                    error = jsEx.Error;
-
-                                chainedPromise.Reject(Undefined, new[] {error});
-                                return;
-                            }
-
-                            void HandleNestedPromiseResult(JsValue nestedResult)
-                            {
-                                //  If the result is a promise then we want to chain to this result instead!
-                                if (nestedResult is PromiseInstance resultPromise)
-                                {
-                                    resultPromise.Task.ContinueWith(ct =>
-                                    {
-                                        if (ct.Status == TaskStatus.RanToCompletion)
-                                            HandleNestedPromiseResult(ct.Result);
-
-                                        else if (ct.Status == TaskStatus.Faulted || ct.Status == TaskStatus.Canceled)
-                                        {
-                                            var rejectValue = Undefined;
-
-                                            if (ct.Exception?.InnerExceptions.FirstOrDefault() is
-                                                PromiseRejectedException promiseRejection)
-                                                rejectValue = promiseRejection.RejectedValue;
-
-                                            _engine.QueuePromiseContinuation(() =>
-                                                chainedPromise.Reject(null, new[] {rejectValue}));
-                                        }
-                                    });
-                                }
-                                else
-                                    _engine.QueuePromiseContinuation(() =>
-                                        chainedPromise.Resolve(null, new[] {nestedResult}));
-                            }
-
-                            HandleNestedPromiseResult(result);
-                        };
-                    }
-                }
-
-
-                else if (t.IsFaulted || t.IsCanceled)
-                {
-                    var rejectValue = Undefined;
-
-                    if (t.Exception?.InnerExceptions.FirstOrDefault() is PromiseRejectedException promiseRejection)
-                        rejectValue = promiseRejection.RejectedValue;
-
-                    if (rejectedCallback == Undefined)
-                    {
-                        continuation = () =>
-                        {
-                            //  If no error callback then simply pass the error value to the next promise in chain
-                            chainedPromise.Reject(null, new[] {rejectValue});
-                        };
-                    }
-                    else
-                    {
-                        continuation = () =>
-                        {
-                            rejectedCallback.Invoke(rejectValue);
-
-                            //  Chain is restored after handling catch
-                            chainedPromise.Resolve(Undefined, new[] {Undefined});
-                        };
-                    }
-                }
-
-                _engine.QueuePromiseContinuation(continuation);
-            });
-
-            return chainedPromise;
-        }
-
+        // https://tc39.es/ecma262/#sec-promise.prototype.catch
+        // 
+        // When the catch method is called with argument onRejected,
+        // the following steps are taken:
+        //
+        // 1. Let promise be the this value.
+        // 2. Return ? Invoke(promise, "then", « undefined, onRejected »).
         private JsValue Catch(JsValue thisValue, JsValue[] args) =>
-            Then(thisValue, new[] {Undefined, args.Length >= 1 ? args[0] : Undefined});
+            Invoke(thisValue, "then", new[] {Undefined, args.At(0)});
 
+        // https://tc39.es/ecma262/#sec-promise.prototype.finally
         private JsValue Finally(JsValue thisValue, JsValue[] args)
         {
-            var promise = thisValue as PromiseInstance;
+            // 1. Let promise be the this value.
+            // 2. If Type(promise) is not Object, throw a TypeError exception.
+            var promise = thisValue as ObjectInstance ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine,
+                "this passed to Promise.prototype.finally is not an object");
 
-            if (promise == null)
+            // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
+            // 4. Assert: IsConstructor(C) is true.
+            var ctor = SpeciesConstructor(promise, _engine.Promise);
+
+            JsValue thenFinally;
+            JsValue catchFinally;
+            var onFinally = args.At(0);
+
+            // 5. If IsCallable(onFinally) is false, then
+            if (onFinally is not ICallable onFinallyFunc)
             {
-                ExceptionHelper.ThrowTypeError(_engine,
-                    "Method Promise.prototype.then called on incompatible receiver");
-                return null;
+                // a. Let thenFinally be onFinally.
+                // b. Let catchFinally be onFinally.
+                thenFinally = onFinally;
+                catchFinally = onFinally;
+            }
+            else
+            {
+                thenFinally = ThenFinallyFunctions(onFinallyFunc, ctor);
+                catchFinally = CatchFinallyFunctions(onFinallyFunc, ctor);
             }
 
-            var chainedPromise = new PromiseInstance(Engine);
-
-            var callback = (args.Length >= 1 ? args[0] : null) as FunctionInstance ?? Undefined;
-
-            promise.Task.ContinueWith(t =>
-            {
-                _engine.QueuePromiseContinuation(() =>
-                {
-                    try
-                    {
-                        if (callback != Undefined)
-                            callback.Invoke();
-                    }
-                    catch (Exception ex)
-                    {
-                        var error = Undefined;
-
-                        if (ex is JavaScriptException jsEx)
-                            error = jsEx.Error;
-
-                        chainedPromise.Reject(Undefined, new[] {error});
-                        return;
-                    }
-
-                    chainedPromise.Resolve(Undefined, new[] {t.Result});
-                });
-            });
-
-            return chainedPromise;
+            // 7. Return ? Invoke(promise, "then", « thenFinally, catchFinally »).
+            return Invoke(promise, "then", new[] {thenFinally, catchFinally});
         }
+
+        // https://tc39.es/ecma262/#sec-thenfinallyfunctions
+        private JsValue ThenFinallyFunctions(ICallable onFinally, IConstructor ctor) =>
+            new ClrFunctionInstance(_engine, "", (_, args) =>
+            {
+                var value = args.At(0);
+
+                //4.  Let result be ? Call(onFinally, undefined).
+                var result = onFinally.Call(Undefined, Arguments.Empty);
+
+                // 7. Let promise be ? PromiseResolve(C, result).
+                var promise = _engine.Promise.Resolve(ctor as JsValue, new[] {result});
+
+                // 8. Let valueThunk be equivalent to a function that returns value.
+                var valueThunk = new ClrFunctionInstance(_engine, "", (_, _) => value);
+
+                // 9. Return ? Invoke(promise, "then", « valueThunk »).
+                return Invoke(promise, "then", new JsValue[] {valueThunk});
+            }, 1, PropertyFlag.Configurable);
+
+        // https://tc39.es/ecma262/#sec-catchfinallyfunctions
+        private JsValue CatchFinallyFunctions(ICallable onFinally, IConstructor ctor) =>
+            new ClrFunctionInstance(_engine, "", (_, args) =>
+            {
+                var reason = args.At(0);
+
+                //4.  Let result be ? Call(onFinally, undefined).
+                var result = onFinally.Call(Undefined, Arguments.Empty);
+
+                // 7. Let promise be ? PromiseResolve(C, result).
+                var promise = _engine.Promise.Resolve(ctor as JsValue, new[] {result});
+
+                // 8. Let thrower be equivalent to a function that throws reason.
+                var thrower = new ClrFunctionInstance(_engine, "", (_, _) => throw new JavaScriptException(reason));
+
+                // 9. Return ? Invoke(promise, "then", « thrower »).
+                return Invoke(promise, "then", new JsValue[] {thrower});
+            }, 1, PropertyFlag.Configurable);
     }
 }

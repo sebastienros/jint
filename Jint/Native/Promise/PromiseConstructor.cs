@@ -120,7 +120,7 @@ namespace Jint.Native.Promise
         // 3. Let promiseCapability be ? NewPromiseCapability(C).
         //     4. Perform ? Call(promiseCapability.[[Resolve]], undefined, « x »).
         // 5. Return promiseCapability.[[Promise]].
-        private JsValue Resolve(JsValue thisObj, JsValue[] arguments)
+        internal JsValue Resolve(JsValue thisObj, JsValue[] arguments)
         {
             if (!thisObj.IsObject())
             {

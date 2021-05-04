@@ -95,6 +95,10 @@
     "reason": "Promise not implemented"
   },
   {
+    "source": "built-ins/Promise/prototype/catch/this-value-obj-coercible.js",
+    "reason": "needs a fix for Invoke op: https://github.com/sebastienros/jint/issues/882"
+  },
+  {
     "source": "built-ins/Symbol/species/subclassing.js",
     "reason": "subclassing not implemented"
   },
