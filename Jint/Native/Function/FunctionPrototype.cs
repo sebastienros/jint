@@ -45,7 +45,7 @@ namespace Jint.Native.Function
                 ["caller"] = _engine._callerCalleeArgumentsThrowerConfigurable
             };
             SetProperties(properties);
-            
+
             var symbols = new SymbolDictionary(1)
             {
                 [GlobalSymbolRegistry.HasInstance] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "[Symbol.hasInstance]", HasInstance, 1, PropertyFlag.Configurable), PropertyFlag.AllForbidden)
@@ -55,12 +55,12 @@ namespace Jint.Native.Function
 
         private static JsValue HasInstance(JsValue thisObj, JsValue[] arguments)
         {
-            if (!(thisObj is FunctionInstance f))
+            if (thisObj is not FunctionInstance f)
             {
                 return false;
             }
-            
-            return f.HasInstance(arguments.At(0));
+
+            return f.OrdinaryHasInstance(arguments.At(0));
         }
 
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)
@@ -96,7 +96,7 @@ namespace Jint.Native.Function
             }
 
             f._length = new PropertyDescriptor(l, PropertyFlag.Configurable);
-            
+
             var targetName = thisObj.Get(CommonProperties.Name);
             if (!targetName.IsString())
             {
@@ -158,7 +158,7 @@ namespace Jint.Native.Function
             var operations = ArrayOperations.For(argArrayObj);
             var allowedTypes = elementTypes ??
                                Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.Object;
-            
+
             var argList = operations.GetAll(allowedTypes);
             return argList;
         }

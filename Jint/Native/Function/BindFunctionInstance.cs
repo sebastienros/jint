@@ -5,7 +5,7 @@ namespace Jint.Native.Function
 {
     public sealed class BindFunctionInstance : FunctionInstance, IConstructor
     {
-        public BindFunctionInstance(Engine engine) 
+        public BindFunctionInstance(Engine engine)
             : base(engine, name: null, thisMode: FunctionThisMode.Strict)
         {
         }
@@ -43,21 +43,21 @@ namespace Jint.Native.Function
             {
                 newTarget = TargetFunction;
             }
-            
+
             var value = target.Construct(args, newTarget);
             _engine._jsValueArrayPool.ReturnArray(args);
 
             return value;
         }
 
-        public override bool HasInstance(JsValue v)
+        internal override bool OrdinaryHasInstance(JsValue v)
         {
             var f = TargetFunction.TryCast<FunctionInstance>(x =>
             {
                 ExceptionHelper.ThrowTypeError(Engine);
             });
 
-            return f.HasInstance(v);
+            return f.OrdinaryHasInstance(v);
         }
 
         private JsValue[] CreateArguments(JsValue[] arguments)

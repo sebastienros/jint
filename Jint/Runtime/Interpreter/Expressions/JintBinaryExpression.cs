@@ -1,7 +1,6 @@
 using System;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.Interop;
 
@@ -66,19 +65,19 @@ namespace Jint.Runtime.Interpreter.Expressions
                 case BinaryOperator.RightShift:
                 case BinaryOperator.UnsignedRightShift:
                     result = new BitwiseBinaryExpression(engine, expression);
-                    break;                
+                    break;
                 case BinaryOperator.InstanceOf:
                     result = new InstanceOfBinaryExpression(engine, expression);
-                    break;                
+                    break;
                 case BinaryOperator.Exponentiation:
                     result = new ExponentiationBinaryExpression(engine, expression);
-                    break;                
+                    break;
                 case BinaryOperator.Modulo:
                     result = new ModuloBinaryExpression(engine, expression);
-                    break;                
+                    break;
                 case BinaryOperator.In:
                     result = new InBinaryExpression(engine, expression);
-                    break;                
+                    break;
                 default:
                     result = ExceptionHelper.ThrowArgumentOutOfRangeException<JintBinaryExpression>(nameof(expression.Operator), "cannot handle operator");
                     break;
@@ -238,7 +237,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     : value;
             }
         }
-        
+
         private sealed class PlusBinaryExpression : JintBinaryExpression
         {
             public PlusBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
@@ -249,7 +248,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
-                
+
                 if (AreIntegerOperands(left, right))
                 {
                     return JsNumber.Create(left.AsInteger() + right.AsInteger());
@@ -258,7 +257,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var lprim = TypeConverter.ToPrimitive(left);
                 var rprim = TypeConverter.ToPrimitive(right);
                 return lprim.IsString() || rprim.IsString()
-                    ? (JsValue) JsString.Create(TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim))
+                    ? JsString.Create(TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim))
                     : JsNumber.Create(TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim));
             }
         }
@@ -272,7 +271,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
-                
+
                 return AreIntegerOperands(left, right)
                     ? JsNumber.Create(left.AsInteger() - right.AsInteger())
                     : JsNumber.Create(TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right));
@@ -289,7 +288,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
-                
+
                 if (AreIntegerOperands(left, right))
                 {
                     return JsNumber.Create((long) left.AsInteger() * right.AsInteger());
@@ -352,7 +351,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var leftValue = _left.GetValue();
                 var rightValue = _right.GetValue();
-                
+
                 var left = _leftFirst ? leftValue : rightValue;
                 var right = _leftFirst ? rightValue : leftValue;
 
@@ -371,15 +370,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
-
-                if (!(right is FunctionInstance f))
-                {
-                    return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "instanceof can only be used with a function object");
-                }
-
-                return f.HasInstance(left) ? JsBoolean.True : JsBoolean.False;
+                var value = _left.GetValue();
+                return value.InstanceofOperator(_right.GetValue())
+                    ? JsBoolean.True
+                    : JsBoolean.False;
             }
         }
 
@@ -464,7 +458,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     int leftValue = left.AsInteger();
                     int rightValue = right.AsInteger();
-                    
+
                     switch (_operator)
                     {
                         case BinaryOperator.BitwiseAnd:
@@ -490,9 +484,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                             return ExceptionHelper.ThrowArgumentOutOfRangeException<object>(nameof(_operator),
                                 "unknown shift operator");
                     }
-  
+
                 }
-                
+
                 return EvaluateNonInteger(left, right);
             }
 

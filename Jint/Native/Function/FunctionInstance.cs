@@ -70,35 +70,6 @@ namespace Jint.Native.Function
 
         internal override bool IsConstructor => this is IConstructor;
 
-        public virtual bool HasInstance(JsValue v)
-        {
-            if (!(v is ObjectInstance o))
-            {
-                return false;
-            }
-
-            var p = Get(CommonProperties.Prototype);
-            if (!(p is ObjectInstance prototype))
-            {
-                ExceptionHelper.ThrowTypeError(_engine, $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");
-            }
-
-            while (true)
-            {
-                o = o.Prototype;
-
-                if (o is null)
-                {
-                    return false;
-                }
-
-                if (SameValue(p, o))
-                {
-                    return true;
-                }
-            }
-        }
-
         public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
         {
             if (_prototypeDescriptor != null)
