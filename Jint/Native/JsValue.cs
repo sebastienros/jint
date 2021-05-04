@@ -404,6 +404,30 @@ namespace Jint.Native
             return ExceptionHelper.ThrowNotSupportedException<bool>();
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-instanceofoperator
+        /// </summary>
+        internal bool InstanceofOperator(JsValue target)
+        {
+            if (target is not ObjectInstance oi)
+            {
+                return ExceptionHelper.ThrowTypeErrorNoEngine<bool>("not an object");
+            }
+
+            var instOfHandler = oi.GetMethod(GlobalSymbolRegistry.HasInstance);
+            if (instOfHandler is not null)
+            {
+                return TypeConverter.ToBoolean(instOfHandler.Call(target, new [] { this }));
+            }
+
+            if (!target.IsCallable)
+            {
+                return ExceptionHelper.ThrowTypeErrorNoEngine<bool>("not callable");
+            }
+
+            return target.OrdinaryHasInstance(this);
+        }
+
         public override string ToString()
         {
             return "None";
@@ -565,6 +589,43 @@ namespace Jint.Native
         }
 
         internal virtual bool IsCallable => this is ICallable;
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-ordinaryhasinstance
+        /// </summary>
+        internal virtual bool OrdinaryHasInstance(JsValue v)
+        {
+            if (!IsCallable)
+            {
+                return false;
+            }
+
+            if (v is not ObjectInstance o)
+            {
+                return false;
+            }
+
+            var p = Get(CommonProperties.Prototype);
+            if (p is not ObjectInstance)
+            {
+                ExceptionHelper.ThrowTypeError(o.Engine, $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");
+            }
+
+            while (true)
+            {
+                o = o.Prototype;
+
+                if (o is null)
+                {
+                    return false;
+                }
+
+                if (SameValue(p, o))
+                {
+                    return true;
+                }
+            }
+        }
 
         internal static bool SameValue(JsValue x, JsValue y)
         {

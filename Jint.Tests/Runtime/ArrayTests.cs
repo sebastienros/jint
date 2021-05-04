@@ -114,5 +114,20 @@ namespace Jint.Tests.Runtime
 
             _engine.Execute(code);
         }
+
+        [Fact]
+        public void ExtendingArrayAndInstanceOf()
+        {
+            const string script = @"
+                class MyArr extends Array {
+                    constructor(...args) {
+                        super(...args);
+                    } 
+                }";
+
+            _engine.Execute(script);
+            _engine.Execute("const a = new MyArr(1,2);");
+            Assert.True(_engine.Execute("a instanceof MyArr").GetCompletionValue().AsBoolean());
+        }
     }
 }

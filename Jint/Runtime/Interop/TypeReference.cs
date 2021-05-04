@@ -103,16 +103,14 @@ namespace Jint.Runtime.Interop
             return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "No public methods with the specified arguments were found.");
         }
 
-        public override bool HasInstance(JsValue v)
+        internal override bool OrdinaryHasInstance(JsValue v)
         {
-            if (v.IsObject())
+            if (v is IObjectWrapper wrapper)
             {
-                var wrapper = v.AsObject() as IObjectWrapper;
-                if (wrapper != null)
-                    return wrapper.Target.GetType() == ReferenceType;
+                return wrapper.Target.GetType() == ReferenceType;
             }
 
-            return base.HasInstance(v);
+            return base.OrdinaryHasInstance(v);
         }
 
         public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
@@ -149,7 +147,7 @@ namespace Jint.Runtime.Interop
             {
                 return PropertyDescriptor.Undefined;
             }
-            
+
             var key = jsString._value;
             var descriptor = PropertyDescriptor.Undefined;
 
