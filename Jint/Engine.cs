@@ -644,6 +644,25 @@ namespace Jint
         }
 
         /// <summary>
+        /// https://tc39.es/ecma262/#sec-invoke
+        /// </summary>
+        internal JsValue Invoke(JsValue v, JsValue p, JsValue[] arguments)
+        {
+            var func = GetV(v, p);
+            var callable = func as ICallable ?? ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
+            return callable.Call(v, arguments);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getv
+        /// </summary>
+        internal JsValue GetV(JsValue v, JsValue p)
+        {
+            var o = TypeConverter.ToObject(this, v);
+            return o.Get(p);
+        }
+
+        /// <summary>
         /// Gets a named value from the Global scope.
         /// </summary>
         /// <param name="propertyName">The name of the property to return.</param>
