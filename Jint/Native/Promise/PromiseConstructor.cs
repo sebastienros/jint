@@ -15,12 +15,21 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise
 {
-    public class PromiseCustomInstance : ObjectInstance
+    public struct PromiseCapability
     {
-        public PromiseState State { get; set; }
+        public JsValue PromiseInstance { get; set; }
+        public ICallable Resolve { get; set; }
+        public ICallable Reject { get; set; }
+        public JsValue RejectObj { get; set; }
 
-        public PromiseCustomInstance(Engine engine) : base(engine)
+        // Return the first and last name.
+        public void Deconstruct(out JsValue instance, out ICallable resolve, out ICallable reject,
+            out JsValue rejectObj)
         {
+            instance = PromiseInstance;
+            resolve = Resolve;
+            reject = Reject;
+            rejectObj = RejectObj;
         }
     }
 
@@ -133,7 +142,7 @@ namespace Jint.Native.Promise
                 }
             }
 
-            var (instance, resolve, _, _) = NewPromiseCapabilityCustom(thisObj);
+            var (instance, resolve, _, _) = NewPromiseCapabilityCustom(_engine, thisObj);
 
             resolve.Call(Undefined, new[] {x});
 
@@ -154,7 +163,7 @@ namespace Jint.Native.Promise
 
             var r = arguments.At(0);
 
-            var (instance, _, reject, _) = NewPromiseCapabilityCustom(thisObj);
+            var (instance, _, reject, _) = NewPromiseCapabilityCustom(_engine, thisObj);
 
             reject.Call(Undefined, new[] {r});
 
@@ -184,7 +193,7 @@ namespace Jint.Native.Promise
             }
 
             //2. Let promiseCapability be ? NewPromiseCapability(C).
-            var (resultingPromise, resolve, reject, rejectObj) = NewPromiseCapabilityCustom(thisObj);
+            var (resultingPromise, resolve, reject, rejectObj) = NewPromiseCapabilityCustom(_engine, thisObj);
 
             //3. Let promiseResolve be GetPromiseResolve(C).
             // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
@@ -455,9 +464,9 @@ namespace Jint.Native.Promise
         // 10. If IsCallable(promiseCapability.[[Reject]]) is false, throw a TypeError exception.
         // 11. Set promiseCapability.[[Promise]] to promise.
         // 12. Return promiseCapability.
-        private (JsValue, ICallable, ICallable, JsValue) NewPromiseCapabilityCustom(JsValue c)
+        internal static PromiseCapability NewPromiseCapabilityCustom(Engine engine, JsValue c)
         {
-            var ctor = AssertConstructor(_engine, c);
+            var ctor = AssertConstructor(engine, c);
 
             JsValue resolveArg = null;
             JsValue rejectArg = null;
@@ -472,7 +481,7 @@ namespace Jint.Native.Promise
                 if (resolveArg != null && resolveArg != Undefined ||
                     rejectArg != null && rejectArg != Undefined)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, "executor was already called with not undefined args");
+                    ExceptionHelper.ThrowTypeError(engine, "executor was already called with not undefined args");
                 }
 
                 resolveArg = arguments.At(0);
@@ -481,7 +490,7 @@ namespace Jint.Native.Promise
                 return Undefined;
             }
 
-            var executor = new ClrFunctionInstance(_engine, "", Executor, 2, PropertyFlag.Configurable);
+            var executor = new ClrFunctionInstance(engine, "", Executor, 2, PropertyFlag.Configurable);
 
             // var map = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, _) => new MapInstance(engine));
             // var i = OrdinaryCreateFromConstructor(c, _engine.Promise._prototype,)
@@ -497,7 +506,7 @@ namespace Jint.Native.Promise
             }
             else
             {
-                ExceptionHelper.ThrowTypeError(_engine, "resolve is not a function");
+                ExceptionHelper.ThrowTypeError(engine, "resolve is not a function");
             }
 
             if (rejectArg is ICallable rejFunc)
@@ -506,10 +515,16 @@ namespace Jint.Native.Promise
             }
             else
             {
-                ExceptionHelper.ThrowTypeError(_engine, "reject is not a function");
+                ExceptionHelper.ThrowTypeError(engine, "reject is not a function");
             }
 
-            return (instance, resolve, reject, rejectArg);
+            return new PromiseCapability
+            {
+                PromiseInstance = instance,
+                Resolve = resolve,
+                Reject = reject,
+                RejectObj = rejectArg
+            };
         }
     }
 }

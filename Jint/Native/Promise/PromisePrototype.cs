@@ -37,28 +37,64 @@ namespace Jint.Native.Promise
             var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_promiseConstructor, PropertyFlag.NonEnumerable),
-                ["then"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "then", Then, 2, lengthFlags), propertyFlags),
-                ["catch"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "catch", Catch, 1, lengthFlags), propertyFlags),
-                ["finally"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "finally", Finally, 1, lengthFlags), propertyFlags)
+                ["then"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "then", Then, 2, lengthFlags),
+                    propertyFlags),
+                ["catch"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "catch", Catch, 1, lengthFlags),
+                    propertyFlags),
+                ["finally"] =
+                    new PropertyDescriptor(new ClrFunctionInstance(Engine, "finally", Finally, 1, lengthFlags),
+                        propertyFlags)
             };
             SetProperties(properties);
 
             var symbols = new SymbolDictionary(1)
             {
-                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(new JsString("Promise"), PropertyFlag.Configurable)
+                [GlobalSymbolRegistry.ToStringTag] =
+                    new PropertyDescriptor(new JsString("Promise"), PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
         }
 
+        // https://tc39.es/ecma262/#sec-promise.prototype.then
+        // When the then method is called with arguments onFulfilled and onRejected,
+        // the following steps are taken:
+        //
+        // 1. Let promise be the this value.
+        // 2. If IsPromise(promise) is false, throw a TypeError exception.
+        // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
+        // 4. Let resultCapability be ? NewPromiseCapability(C).
+        // 5. Return PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability).
         private JsValue Then(JsValue thisValue, JsValue[] args)
+        {
+            // 1. Let promise be the this value.
+            // 2. If IsPromise(promise) is false, throw a TypeError exception.
+            var promise = thisValue as PromiseInstance ?? ExceptionHelper.ThrowTypeError<PromiseInstance>(_engine,
+                "Method Promise.prototype.then called on incompatible receiver");
+
+            // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
+            var ctor = SpeciesConstructor(promise, _engine.Promise);
+            
+            // 4. Let resultCapability be ? NewPromiseCapability(C).
+            var capability = PromiseConstructor.NewPromiseCapabilityCustom(_engine, ctor as JsValue);
+
+            // 5. Return PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability).
+            return PromiseOperations.PerformPromiseThen(_engine, promise, args.At(0), args.At(1), capability);
+        }
+
+
+       
+
+        private JsValue PerformPromise_(JsValue thisValue, JsValue[] args)
         {
             var promise = thisValue as PromiseInstance;
 
             if (promise == null)
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Method Promise.prototype.then called on incompatible receiver");
+                ExceptionHelper.ThrowTypeError(_engine,
+                    "Method Promise.prototype.then called on incompatible receiver");
                 return null;
             }
+
 
             var chainedPromise = new PromiseInstance(Engine);
 
@@ -76,7 +112,7 @@ namespace Jint.Native.Promise
                         continuation = () =>
                         {
                             //  If no success callback then simply pass the return value to the next promise in chain
-                            chainedPromise.Resolve(null, new[] { t.Result });
+                            chainedPromise.Resolve(null, new[] {t.Result});
                         };
                     }
                     else
@@ -114,24 +150,25 @@ namespace Jint.Native.Promise
                                         {
                                             var rejectValue = Undefined;
 
-                                            if (ct.Exception?.InnerExceptions.FirstOrDefault() is PromiseRejectedException promiseRejection)
+                                            if (ct.Exception?.InnerExceptions.FirstOrDefault() is
+                                                PromiseRejectedException promiseRejection)
                                                 rejectValue = promiseRejection.RejectedValue;
 
-                                            _engine.QueuePromiseContinuation(() => chainedPromise.Reject(null, new[] {rejectValue}));
+                                            _engine.QueuePromiseContinuation(() =>
+                                                chainedPromise.Reject(null, new[] {rejectValue}));
                                         }
-
                                     });
                                 }
                                 else
-                                    _engine.QueuePromiseContinuation(() => chainedPromise.Resolve(null, new[] {nestedResult}));
+                                    _engine.QueuePromiseContinuation(() =>
+                                        chainedPromise.Resolve(null, new[] {nestedResult}));
                             }
 
                             HandleNestedPromiseResult(result);
                         };
                     }
-
                 }
-                
+
 
                 else if (t.IsFaulted || t.IsCanceled)
                 {
@@ -145,7 +182,7 @@ namespace Jint.Native.Promise
                         continuation = () =>
                         {
                             //  If no error callback then simply pass the error value to the next promise in chain
-                            chainedPromise.Reject(null, new[] { rejectValue });
+                            chainedPromise.Reject(null, new[] {rejectValue});
                         };
                     }
                     else
@@ -166,7 +203,8 @@ namespace Jint.Native.Promise
             return chainedPromise;
         }
 
-        private JsValue Catch(JsValue thisValue, JsValue[] args) => Then(thisValue, new[] { Undefined, args.Length >= 1 ? args[0] : Undefined });
+        private JsValue Catch(JsValue thisValue, JsValue[] args) =>
+            Then(thisValue, new[] {Undefined, args.Length >= 1 ? args[0] : Undefined});
 
         private JsValue Finally(JsValue thisValue, JsValue[] args)
         {
@@ -174,7 +212,8 @@ namespace Jint.Native.Promise
 
             if (promise == null)
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Method Promise.prototype.then called on incompatible receiver");
+                ExceptionHelper.ThrowTypeError(_engine,
+                    "Method Promise.prototype.then called on incompatible receiver");
                 return null;
             }
 
@@ -208,6 +247,5 @@ namespace Jint.Native.Promise
 
             return chainedPromise;
         }
-
     }
 }

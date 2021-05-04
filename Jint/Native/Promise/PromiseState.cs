@@ -2,8 +2,8 @@ namespace Jint.Native.Promise
  {
      public enum PromiseState
      {
-         Resolving,
-         Resolved,
+         Pending,
+         Fulfilled,
          Rejected
      }
  }
