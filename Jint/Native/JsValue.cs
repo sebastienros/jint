@@ -76,7 +76,7 @@ namespace Jint.Native
             {
                 return false;
             }
-            
+
             var matcher = oi.Get(GlobalSymbolRegistry.Match);
             if (!matcher.IsUndefined())
             {
@@ -251,7 +251,7 @@ namespace Jint.Native
 
             return null;
         }
-        
+
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T As<T>() where T : ObjectInstance
@@ -376,37 +376,12 @@ namespace Jint.Native
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(params JsValue[] arguments)
         {
-            return Invoke(Undefined, arguments);
-        }
-
-        /// <summary>
-        /// Invoke the current value as function.
-        /// </summary>
-        /// <param name="thisObj">The this value inside the function call.</param>
-        /// <param name="arguments">The arguments of the function call.</param>
-        /// <returns>The value returned by the function call.</returns>
-        internal JsValue Invoke(JsValue thisObj, JsValue[] arguments)
-        {
             var callable = this as ICallable ?? ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
-            return callable.Call(thisObj, arguments);
-        }
-        
-        /// <summary>
-        /// Invoke the given property as function.
-        /// </summary>
-        /// <param name="v">Serves as both the lookup point for the property and the this value of the call</param>
-        /// <param name="propertyName">Property that should be ICallable</param>
-        /// <param name="arguments">The arguments of the function call.</param>
-        /// <returns>The value returned by the function call.</returns>
-        internal static JsValue Invoke(JsValue v, JsValue propertyName, JsValue[] arguments)
-        {
-            var func = v.Get(propertyName);
-            var callable = func as ICallable ?? ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
-            return callable.Call(v, arguments);
+            return callable.Call(Undefined, arguments);
         }
 
         public virtual bool HasOwnProperty(JsValue property) => false;
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue Get(JsValue property)
         {
@@ -446,9 +421,9 @@ namespace Jint.Native
 
         public static bool operator !=(JsValue a, JsValue b)
         {
-            if ((object)a == null)
+            if ((object) a == null)
             {
-                if ((object)b == null)
+                if ((object) b == null)
                 {
                     return false;
                 }
@@ -456,7 +431,7 @@ namespace Jint.Native
                 return true;
             }
 
-            if ((object)b == null)
+            if ((object) b == null)
             {
                 return true;
             }
@@ -588,7 +563,7 @@ namespace Jint.Native
         {
             return this;
         }
-        
+
         internal virtual bool IsCallable => this is ICallable;
 
         internal static bool SameValue(JsValue x, JsValue y)

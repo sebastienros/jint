@@ -323,7 +323,7 @@ namespace Jint.Native.String
             {
                 separator = JsString.Empty;
             }
-            
+
             if (separator is ObjectInstance oi)
             {
                 var splitter = GetMethod(_engine, oi, GlobalSymbolRegistry.Split);
@@ -446,7 +446,7 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
             var regex = arguments.At(0);
-            
+
             if (regex is ObjectInstance oi)
             {
                 var searcher = GetMethod(_engine, oi, GlobalSymbolRegistry.Search);
@@ -458,7 +458,7 @@ namespace Jint.Native.String
 
             var rx = (RegExpInstance) Engine.RegExp.Construct(new[] {regex});
             var s = TypeConverter.ToString(thisObj);
-            return Invoke(rx, GlobalSymbolRegistry.Search, new JsValue[] { s });
+            return _engine.Invoke(rx, GlobalSymbolRegistry.Search, new JsValue[] { s });
         }
 
         private JsValue Replace(JsValue thisObj, JsValue[] arguments)
@@ -476,7 +476,7 @@ namespace Jint.Native.String
                     return replacer.Call(searchValue, new[] { thisObj, replaceValue});
                 }
             }
-            
+
             var thisString = TypeConverter.ToJsString(thisObj);
             var searchString = TypeConverter.ToString(searchValue);
             var functionalReplace = replaceValue is ICallable;
@@ -524,11 +524,11 @@ namespace Jint.Native.String
                     return matcher.Call(regex, new[] { thisObj });
                 }
             }
-            
+
             var rx = (RegExpInstance) Engine.RegExp.Construct(new[] {regex});
 
             var s = TypeConverter.ToString(thisObj);
-            return Invoke(rx, GlobalSymbolRegistry.Match, new JsValue[] { s });
+            return _engine.Invoke(rx, GlobalSymbolRegistry.Match, new JsValue[] { s });
         }
 
         private JsValue MatchAll(JsValue thisObj, JsValue[] arguments)
@@ -553,11 +553,11 @@ namespace Jint.Native.String
                     return matcher.Call(regex, new[] { thisObj });
                 }
             }
-            
+
             var s = TypeConverter.ToString(thisObj);
             var rx = (RegExpInstance) Engine.RegExp.Construct(new[] { regex, "g" });
 
-            return Invoke(rx, GlobalSymbolRegistry.MatchAll, new JsValue[] { s });
+            return _engine.Invoke(rx, GlobalSymbolRegistry.MatchAll, new JsValue[] { s });
         }
 
         private JsValue LocaleCompare(JsValue thisObj, JsValue[] arguments)
