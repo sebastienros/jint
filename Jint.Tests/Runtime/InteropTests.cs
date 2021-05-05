@@ -43,7 +43,7 @@ namespace Jint.Tests.Runtime
         {
             _engine.Execute(source);
         }
-        
+
         public class Foo
         {
             public static Bar GetBar() => new Bar();
@@ -99,7 +99,7 @@ namespace Jint.Tests.Runtime
             const string json = "{\"foo\":5,\"bar\":\"A string\"}";
             var parsed = engine.Execute($"JSON.parse('{json}')").GetCompletionValue().ToObject();
             engine.SetValue(nameof(parsed), parsed);
-            
+
             var result = engine.Execute($"JSON.stringify({nameof(parsed)})").GetCompletionValue().AsString();
             Assert.Equal(json, result);
         }
@@ -117,7 +117,7 @@ namespace Jint.Tests.Runtime
                 assert(z === 'foo');
             ");
         }
-        
+
         [Fact]
         public void TypePropertyAccess()
         {
@@ -128,7 +128,7 @@ namespace Jint.Tests.Runtime
                 .Execute("userclass.TypeProperty.Name;")
                 .GetCompletionValue()
                 .AsString();
-            
+
             Assert.Equal("Person", result);
         }
 
@@ -807,7 +807,7 @@ namespace Jint.Tests.Runtime
 
             public Person this[int index] => _data[index];
         }
-        
+
         [Fact]
         public void CanAddArrayPrototypeForArrayLikeClrObjects()
         {
@@ -829,7 +829,7 @@ namespace Jint.Tests.Runtime
                 Age = 12,
                 Name = "John"
             };
-            
+
             dynamic obj = new
             {
                 values = new ReadOnlyList(person)
@@ -840,7 +840,7 @@ namespace Jint.Tests.Runtime
             var name = e.Execute("o.values.filter(x => x.age == 12)[0].name").GetCompletionValue().ToString();
             Assert.Equal("John", name);
         }
-        
+
         [Fact]
         public void CanAccessExpandoObject()
         {
@@ -2144,7 +2144,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldNotResolveToPrimitiveSymbol()
         {
-            var engine = new Engine(options => 
+            var engine = new Engine(options =>
                 options.AllowClr(typeof(FloatIndexer).GetTypeInfo().Assembly));
             var c = engine.Execute(@"
                 var domain = importNamespace('Jint.Tests.Runtime.Domain');
@@ -2205,9 +2205,9 @@ namespace Jint.Tests.Runtime
                 .ToObject();
 
             Assert.Equal("S1", result["supplier"]);
-            Assert.Equal("42", result["number"]);            
+            Assert.Equal("42", result["number"]);
         }
-        
+
         [Fact]
         public void ShouldSupportSpreadForDictionary2()
         {
@@ -2222,10 +2222,10 @@ namespace Jint.Tests.Runtime
                 .Execute("function getValue() { return {supplier: 'S1', ...state.invoice}; }")
                 .Invoke("getValue")
                 .ToObject();
-            
+
             Assert.Equal("S1", result["supplier"]);
-            Assert.Equal("42", result["number"]);    
-        }        
+            Assert.Equal("42", result["number"]);
+        }
 
         [Fact]
         public void ShouldSupportSpreadForObject()
@@ -2244,8 +2244,8 @@ namespace Jint.Tests.Runtime
                 .ToObject();
 
             Assert.Equal("S1", result["supplier"]);
-            Assert.Equal("Mike", result["Name"]);         
-            Assert.Equal(20d, result["Age"]);         
+            Assert.Equal("Mike", result["Name"]);
+            Assert.Equal(20d, result["Age"]);
         }
 
         [Fact]
@@ -2321,7 +2321,7 @@ namespace Jint.Tests.Runtime
 
                 return null;
             }));
-            
+
             engine.SetValue("m", new HiddenMembers());
 
             Assert.Equal("Orange", engine.Execute("m.Member1").GetCompletionValue().ToString());
@@ -2362,30 +2362,30 @@ namespace Jint.Tests.Runtime
             Assert.True(_engine.Execute("return o[0] == 'item1'").GetCompletionValue().AsBoolean());
             Assert.True(_engine.Execute("return o[1] == 'item2'").GetCompletionValue().AsBoolean());
         }
-        
+
         [Fact]
         public void DictionaryLikeShouldCheckIndexerAndFallBackToProperty()
         {
             const string json = @"{ ""Type"": ""Cat"" }";
             var jObjectWithTypeProperty = JObject.Parse(json);
-        
+
             _engine.SetValue("o", jObjectWithTypeProperty);
-        
+
             var typeResult = _engine.Execute("o.Type").GetCompletionValue();
-            
+
             // JToken requires conversion
             Assert.Equal("Cat", TypeConverter.ToString(typeResult));
 
             // weak equality does conversions from native types
             Assert.True(_engine.Execute("o.Type == 'Cat'").GetCompletionValue().AsBoolean());
-        }        
+        }
 
         [Fact]
         public void IndexingBsonProperties()
         {
             const string jsonAnimals = @" { ""Animals"": [ { ""Id"": 1, ""Type"": ""Cat"" } ] }";
             var bsonAnimals = BsonDocument.Parse(jsonAnimals);
-            
+
             _engine.SetValue("animals", bsonAnimals["Animals"]);
 
             // weak equality does conversions from native types
@@ -2415,10 +2415,25 @@ namespace Jint.Tests.Runtime
             Assert.False(engine.Execute("test.ContainsKey('c')").GetCompletionValue().AsBoolean());
         }
 
+        [Fact]
+        public void CanAccessMemberNamedItemThroughExpando()
+        {
+            var parent = (IDictionary<string, object>) new ExpandoObject();
+            var child = (IDictionary<string, object>) new ExpandoObject();
+            var values = (IDictionary<string, object>) new ExpandoObject();
+
+            parent["child"] = child;
+            child["item"] = values;
+            values["title"] = "abc";
+
+            _engine.SetValue("parent", parent);
+            Assert.Equal("abc", _engine.Execute("parent.child.item.title").GetCompletionValue());
+        }
+
         private class DynamicClass : DynamicObject
         {
             private readonly Dictionary<string, object> _properties = new Dictionary<string, object>();
-            
+
             public override bool TryGetMember(GetMemberBinder binder, out object result)
             {
                 result = binder.Name;
@@ -2428,7 +2443,7 @@ namespace Jint.Tests.Runtime
                 }
                 return true;
             }
-        
+
             public override bool TrySetMember(SetMemberBinder binder, object value)
             {
                 _properties[binder.Name] = value;
@@ -2441,7 +2456,7 @@ namespace Jint.Tests.Runtime
                 return _properties.ContainsKey(key);
             }
         }
-            
+
         [Fact]
         public void IntegerEnumResolutionShouldWork()
         {
@@ -2534,7 +2549,7 @@ namespace Jint.Tests.Runtime
             _engine.SetValue("a", new Person { Name = "Name" });
             _engine.SetValue("b", new Person { Name = "Name" });
             _engine.Execute("const arr = [ null, a, undefined ];");
-            
+
             Assert.Equal(1, _engine.Execute("arr.filter(x => x == b).length").GetCompletionValue().AsNumber());
             Assert.Equal(1, _engine.Execute("arr.filter(x => x === b).length").GetCompletionValue().AsNumber());
 
