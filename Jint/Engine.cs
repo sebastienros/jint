@@ -475,7 +475,7 @@ namespace Jint
         public async System.Threading.Tasks.Task<JsValue> GetCompletionValueAsync()
         {
             if (_completionValue is PromiseInstance promise)
-                _completionValue = await promise.Task;
+                _completionValue = await promise.ToTask();
 
             return _completionValue;
         }
@@ -487,7 +487,7 @@ namespace Jint
         public async System.Threading.Tasks.Task WaitForCompletionAsync()
         {
             if (_completionValue is PromiseInstance promise)
-                await promise.Task;
+                await promise.ToTask();
         }
 
         internal void RunBeforeExecuteStatementChecks(Statement statement)

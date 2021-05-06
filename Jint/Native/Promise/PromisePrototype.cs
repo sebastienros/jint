@@ -70,7 +70,7 @@ namespace Jint.Native.Promise
             var ctor = SpeciesConstructor(promise, _engine.Promise);
 
             // 4. Let resultCapability be ? NewPromiseCapability(C).
-            var capability = PromiseConstructor.NewPromiseCapabilityCustom(_engine, ctor as JsValue);
+            var capability = PromiseConstructor.NewPromiseCapability(_engine, ctor as JsValue);
 
             // 5. Return PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability).
             return PromiseOperations.PerformPromiseThen(_engine, promise, args.At(0), args.At(1), capability);

@@ -10,60 +10,56 @@ namespace Jint.Native.Promise
         // https://tc39.es/ecma262/#sec-newpromisereactionjob
         //
         // 1. Let job be a new Job Abstract Closure with no parameters that captures reaction and argument and performs the following steps when called:
-        // a. Assert: reaction is a PromiseReaction Record.
-        //     b. Let promiseCapability be reaction.[[Capability]].
-        // c. Let type be reaction.[[Type]].
-        // d. Let handler be reaction.[[Handler]].
-        // e. If handler is empty, then
-        //     i. If type is Fulfill, let handlerResult be NormalCompletion(argument).
-        // ii. Else,
-        // 1. Assert: type is Reject.
-        // 2. Let handlerResult be ThrowCompletion(argument).
-        // f. Else, let handlerResult be HostCallJobCallback(handler, undefined, « argument »).
-        // g. If promiseCapability is undefined, then
-        //     i. Assert: handlerResult is not an abrupt completion.
-        //     ii. Return NormalCompletion(empty).
-        // h. Assert: promiseCapability is a PromiseCapability Record.
-        //     i. If handlerResult is an abrupt completion, then
-        //     i. Let status be Call(promiseCapability.[[Reject]], undefined, « handlerResult.[[Value]] »).
-        // j. Else,
-        // i. Let status be Call(promiseCapability.[[Resolve]], undefined, « handlerResult.[[Value]] »).
-        // k. Return Completion(status).
+        //      a. Assert: reaction is a PromiseReaction Record.
+        //      b. Let promiseCapability be reaction.[[Capability]].
+        //      c. Let type be reaction.[[Type]].
+        //      d. Let handler be reaction.[[Handler]].
+        //      e. If handler is empty, then
+        //          i. If type is Fulfill, let handlerResult be NormalCompletion(argument).
+        //          ii. Else,
+        //              1. Assert: type is Reject.
+        //              2. Let handlerResult be ThrowCompletion(argument).
+        //      f. Else, let handlerResult be HostCallJobCallback(handler, undefined, « argument »).
+        //      g. If promiseCapability is undefined, then
+        //          i. Assert: handlerResult is not an abrupt completion.
+        //          ii. Return NormalCompletion(empty).
+        //      h. Assert: promiseCapability is a PromiseCapability Record.
+        //          i. If handlerResult is an abrupt completion, then
+        //          i. Let status be Call(promiseCapability.[[Reject]], undefined, « handlerResult.[[Value]] »).
+        //      j. Else,
+        //          i. Let status be Call(promiseCapability.[[Resolve]], undefined, « handlerResult.[[Value]] »).
+        //      k. Return Completion(status).
         internal static Action NewPromiseReactionJob(PromiseReaction reaction, JsValue value)
         {
             return () =>
             {
-                JsValue result;
-
                 if (reaction.Handler is ICallable handler)
                 {
                     try
                     {
-                        result = handler.Call(JsValue.Undefined, new[] {value});
+                        var result = handler.Call(JsValue.Undefined, new[] {value});
+                        reaction.Capability.Resolve.Call(JsValue.Undefined, new[] {result});
                     }
                     catch (JavaScriptException e)
                     {
                         reaction.Capability.Reject.Call(JsValue.Undefined, new[] {e.Error});
-                        return;
                     }
                 }
                 else
                 {
-                    result = value;
-                }
+                    switch (reaction.Type)
+                    {
+                        case ReactionType.Fulfill:
+                            reaction.Capability.Resolve.Call(JsValue.Undefined, new[] {value});
+                            break;
 
-                switch (reaction.Type)
-                {
-                    case ReactionType.Fulfill:
-                        reaction.Capability.Resolve.Call(JsValue.Undefined, new[] {result});
-                        break;
+                        case ReactionType.Reject:
+                            reaction.Capability.Reject.Call(JsValue.Undefined, new[] {value});
 
-                    case ReactionType.Reject:
-                        reaction.Capability.Reject.Call(JsValue.Undefined, new[] {result});
-
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
                 }
             };
         }

@@ -142,7 +142,7 @@ namespace Jint.Native.Promise
                 }
             }
 
-            var (instance, resolve, _, _) = NewPromiseCapabilityCustom(_engine, thisObj);
+            var (instance, resolve, _, _) = NewPromiseCapability(_engine, thisObj);
 
             resolve.Call(Undefined, new[] {x});
 
@@ -163,7 +163,7 @@ namespace Jint.Native.Promise
 
             var r = arguments.At(0);
 
-            var (instance, _, reject, _) = NewPromiseCapabilityCustom(_engine, thisObj);
+            var (instance, _, reject, _) = NewPromiseCapability(_engine, thisObj);
 
             reject.Call(Undefined, new[] {r});
 
@@ -193,7 +193,7 @@ namespace Jint.Native.Promise
             }
 
             //2. Let promiseCapability be ? NewPromiseCapability(C).
-            var (resultingPromise, resolve, reject, rejectObj) = NewPromiseCapabilityCustom(_engine, thisObj);
+            var (resultingPromise, resolve, reject, rejectObj) = NewPromiseCapability(_engine, thisObj);
 
             //3. Let promiseResolve be GetPromiseResolve(C).
             // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
@@ -326,102 +326,98 @@ namespace Jint.Native.Promise
             return resultingPromise;
         }
 
-        private PromiseInstance Race(JsValue thisObj, JsValue[] arguments)
+        // https://tc39.es/ecma262/#sec-promise.race
+        private JsValue Race(JsValue thisObj, JsValue[] arguments)
         {
-            var c = thisObj;
-            if (!c.IsObject())
+            if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "PromiseReject called on non-object");
+                ExceptionHelper.ThrowTypeError(_engine, "Promise.all called on non-object");
             }
 
-            var s = c.Get(GlobalSymbolRegistry.Species);
-            if (!s.IsNullOrUndefined())
+            // 2. Let promiseCapability be ? NewPromiseCapability(C).
+            var (resultingPromise, resolve, reject, rejectObj) = NewPromiseCapability(_engine, thisObj);
+
+            // 3. Let promiseResolve be GetPromiseResolve(C).
+            // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
+            ICallable promiseResolve;
+            try
             {
-                c = s;
+                promiseResolve = GetPromiseResolve(thisObj);
+            }
+            catch (JavaScriptException e)
+            {
+                reject.Call(Undefined, new[] {e.Error});
+                return resultingPromise;
             }
 
-            var chainedPromise = NewPromiseCapability(c);
-            var iterable = arguments.At(0);
-            var iterator = iterable.GetIterator(_engine);
 
-            var items = iterator.CopyToList();
+            IIterator iterator;
+            // 5. Let iteratorRecord be GetIterator(iterable).
+            // 6. IfAbruptRejectPromise(iteratorRecord, promiseCapability).
 
-            //  If no promises passed then the spec says to pend forever!
-            if (items.Count == 0)
-                return chainedPromise;
-
-            for (var i = 0; i < items.Count; i++)
+            try
             {
-                var item = items[i];
-
-                if (item is PromiseInstance promise)
+                if (arguments.Length == 0)
                 {
-                    if (promise.Task.Status == TaskStatus.RanToCompletion)
-                        Engine.QueuePromiseContinuation(() =>
-                        {
-                            chainedPromise.Resolve(Undefined, new[] {promise.Task.Result});
-                        });
-                    else if (promise.Task.IsFaulted || promise.Task.IsCanceled)
-                        Engine.QueuePromiseContinuation(() =>
-                        {
-                            var error = Undefined;
-
-                            if (promise.Task.Exception?.InnerExceptions.FirstOrDefault() is PromiseRejectedException
-                                jsEx)
-                                error = jsEx.RejectedValue;
-
-                            chainedPromise.Reject(Undefined, new[] {error});
-                        });
-                    else
-                        continue;
+                    ExceptionHelper.ThrowTypeError(_engine, "no arguments were passed to Promise.all");
                 }
-                else
-                    Engine.QueuePromiseContinuation(() => { chainedPromise.Resolve(Undefined, new[] {item}); });
 
-                return chainedPromise;
+                var iterable = arguments.At(0);
+
+                iterator = iterable.GetIterator(_engine);
             }
-
-            //  Else all unresolved promises so wait first
-            var promises = items.Cast<PromiseInstance>().ToArray();
-
-            Task.WhenAny(promises.Select(p => p.Task)).ContinueWith(t =>
+            catch (JavaScriptException e)
             {
-                if (t.Status == TaskStatus.RanToCompletion)
+                reject.Call(Undefined, new[] {e.Error});
+                return resultingPromise;
+            }
+            
+            // 7. Let result be PerformPromiseRace(iteratorRecord, C, promiseCapability, promiseResolve).
+            // https://tc39.es/ecma262/#sec-performpromiserace
+            try
+            {
+                do
                 {
-                    Engine.QueuePromiseContinuation(() =>
+                    JsValue nextValue;
+                    try
                     {
-                        chainedPromise.Resolve(Undefined, new[] {t.Result.Result});
-                    });
+                        if (!iterator.TryIteratorStep(out var nextItem))
+                        {
+                            break;
+                        }
 
-                    return;
-                }
+                        nextValue = nextItem.Get(CommonProperties.Value);
+                    }
+                    catch (JavaScriptException e)
+                    {
+                        reject.Call(Undefined, new[] {e.Error});
+                        return resultingPromise;
+                    }
+                    
+                    // h. Let nextPromise be ? Call(promiseResolve, constructor, « nextValue »).
+                    var nextPromise = promiseResolve.Call(thisObj, new JsValue[] {nextValue});
+                    
+                    // i. Perform ? Invoke(nextPromise, "then", « resultCapability.[[Resolve]], resultCapability.[[Reject]] »).
 
-                Engine.QueuePromiseContinuation(() =>
-                {
-                    var error = Undefined;
-
-                    if (t.Exception?.InnerExceptions.FirstOrDefault() is PromiseRejectedException jsEx)
-                        error = jsEx.RejectedValue;
-
-                    chainedPromise.Reject(Undefined, new[] {error});
-                });
-            });
-
-            return chainedPromise;
+                    Invoke(nextPromise, "then", new[] {resolve as JsValue, rejectObj});
+                } while (true);
+            }
+            catch (JavaScriptException e)
+            {
+                // 8. If result is an abrupt completion, then
+                // a. If iteratorRecord.[[Done]] is false, set result to IteratorClose(iteratorRecord, result).
+                //     b. IfAbruptRejectPromise(result, promiseCapability).
+                iterator.Close(CompletionType.Throw);
+                reject.Call(Undefined, new[] {e.Error});
+                return resultingPromise;
+            }
+            
+            // 9. Return Completion(result).
+            // Note that PerformPromiseRace returns a Promise instance in success case
+            return resultingPromise;
         }
 
-        private PromiseInstance NewPromiseCapability(JsValue c)
-        {
-            var ctor = AssertConstructor(_engine, c);
-
-            //ctor.Construct(new JsValue[] { executor }, )
-            //ctor.Construct(c, new JsValue[] { executor })
-            return new PromiseInstance(_engine);
-            // var test = Construct(c, new JsValue[] { executor });
-            // var promiseCapability = executor;
-            // return promiseCapability;
-        }
-
+ 
         // https://tc39.es/ecma262/#sec-getpromiseresolve
         // 27.2.4.1.1 GetPromiseResolve ( promiseConstructor )
         // The abstract operation GetPromiseResolve takes argument promiseConstructor. It performs the following steps when called:
@@ -464,7 +460,7 @@ namespace Jint.Native.Promise
         // 10. If IsCallable(promiseCapability.[[Reject]]) is false, throw a TypeError exception.
         // 11. Set promiseCapability.[[Promise]] to promise.
         // 12. Return promiseCapability.
-        internal static PromiseCapability NewPromiseCapabilityCustom(Engine engine, JsValue c)
+        internal static PromiseCapability NewPromiseCapability(Engine engine, JsValue c)
         {
             var ctor = AssertConstructor(engine, c);
 

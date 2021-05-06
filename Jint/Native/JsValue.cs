@@ -355,13 +355,6 @@ namespace Jint.Native
                 return JsNumber.Create(System.Convert.ToInt32(value));
             }
 
-            //  If a net task we want to wrap as a js promise
-            //  todo - custom task types eg ValueTask<>.  Not sure these can be supported generically without writing the associated state machine code
-            if (value is Task task)
-            {
-                return new PromiseInstance(engine, task);
-            }
-
             // if no known type could be guessed, wrap it as an ObjectInstance
             var h = engine.Options._WrapObjectHandler;
             var o = h?.Invoke(engine, value) ?? new ObjectWrapper(engine, value);
