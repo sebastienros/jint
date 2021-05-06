@@ -394,7 +394,8 @@ namespace Jint.Native
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(params JsValue[] arguments)
         {
-            var callable = this as ICallable ?? ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
+            var callable = this as ICallable ??
+                           ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
             return callable.Call(Undefined, arguments);
         }
 
@@ -435,7 +436,7 @@ namespace Jint.Native
             var instOfHandler = oi.GetMethod(GlobalSymbolRegistry.HasInstance);
             if (instOfHandler is not null)
             {
-                return TypeConverter.ToBoolean(instOfHandler.Call(target, new [] { this }));
+                return TypeConverter.ToBoolean(instOfHandler.Call(target, new[] {this}));
             }
 
             if (!target.IsCallable)
@@ -626,7 +627,8 @@ namespace Jint.Native
             var p = Get(CommonProperties.Prototype);
             if (p is not ObjectInstance)
             {
-                ExceptionHelper.ThrowTypeError(o.Engine, $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");
+                ExceptionHelper.ThrowTypeError(o.Engine,
+                    $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");
             }
 
             while (true)
