@@ -28,12 +28,6 @@ namespace Jint.Native.Promise
     public class PromiseInstance : ObjectInstance
     {
         private readonly List<TaskCompletionSource<JsValue>> _awaitingTasks = new();
-
-        private static int count = 0;
-#pragma warning disable 414
-        private int id = 0;
-#pragma warning restore 414
-
         internal PromiseState State { get; private set; }
 
         // valid only in settled state (Fulfilled or Rejected) 
@@ -42,31 +36,9 @@ namespace Jint.Native.Promise
         internal List<PromiseReaction> PromiseRejectReactions = new();
         internal List<PromiseReaction> PromiseFulfillReactions = new();
 
-        public static PromiseInstance New(Engine engine, ObjectInstance prototype)
+        internal PromiseInstance(Engine engine) : base(engine, ObjectClass.Promise)
         {
-            
-            var promise = new PromiseInstance(engine)
-            {
-                
-                _prototype = prototype,
-                // _promiseExecutor = executor,
-                // _resolvingFunctions = resolvingFunctions
-            };
-
-            return promise;
-        }
-
-        private PromiseInstance(Engine engine) : base(engine, ObjectClass.Promise)
-        {
-            id = count;
-            count += 1;
             _prototype = engine.Promise._prototype;
-        }
-
-        internal void InvokePromiseExecutor(ICallable promiseExecutor)
-        {
-            var (resolve, reject) = CreateResolvingFunctions();
-            promiseExecutor.Call(Undefined, new JsValue[] {resolve, reject});
         }
 
         // https://tc39.es/ecma262/#sec-createresolvingfunctions

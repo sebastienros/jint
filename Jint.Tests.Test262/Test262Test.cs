@@ -54,6 +54,7 @@ namespace Jint.Tests.Test262
                 "assert.js",
                 "arrayContains.js",
                 "isConstructor.js",
+                "promiseHelper.js",
                 "propertyHelper.js",
                 "compareArray.js",
                 "decimalToHexString.js",

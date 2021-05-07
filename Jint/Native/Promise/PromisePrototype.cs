@@ -84,7 +84,7 @@ namespace Jint.Native.Promise
         // 1. Let promise be the this value.
         // 2. Return ? Invoke(promise, "then", « undefined, onRejected »).
         private JsValue Catch(JsValue thisValue, JsValue[] args) =>
-            Invoke(thisValue, "then", new[] {Undefined, args.At(0)});
+            _engine.Invoke(thisValue, "then", new[] {Undefined, args.At(0)});
 
         // https://tc39.es/ecma262/#sec-promise.prototype.finally
         private JsValue Finally(JsValue thisValue, JsValue[] args)
@@ -117,7 +117,7 @@ namespace Jint.Native.Promise
             }
 
             // 7. Return ? Invoke(promise, "then", « thenFinally, catchFinally »).
-            return Invoke(promise, "then", new[] {thenFinally, catchFinally});
+            return _engine.Invoke(promise, "then", new[] {thenFinally, catchFinally});
         }
 
         // https://tc39.es/ecma262/#sec-thenfinallyfunctions
@@ -136,7 +136,7 @@ namespace Jint.Native.Promise
                 var valueThunk = new ClrFunctionInstance(_engine, "", (_, _) => value);
 
                 // 9. Return ? Invoke(promise, "then", « valueThunk »).
-                return Invoke(promise, "then", new JsValue[] {valueThunk});
+                return _engine.Invoke(promise, "then", new JsValue[] {valueThunk});
             }, 1, PropertyFlag.Configurable);
 
         // https://tc39.es/ecma262/#sec-catchfinallyfunctions
@@ -155,7 +155,7 @@ namespace Jint.Native.Promise
                 var thrower = new ClrFunctionInstance(_engine, "", (_, _) => throw new JavaScriptException(reason));
 
                 // 9. Return ? Invoke(promise, "then", « thrower »).
-                return Invoke(promise, "then", new JsValue[] {thrower});
+                return _engine.Invoke(promise, "then", new JsValue[] {thrower});
             }, 1, PropertyFlag.Configurable);
     }
 }

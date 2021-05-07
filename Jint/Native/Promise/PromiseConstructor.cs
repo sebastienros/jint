@@ -92,7 +92,7 @@ namespace Jint.Native.Promise
             return Construct(arguments, thisObject);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments, JsValue receiver)
+        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (arguments.At(0) is not ICallable promiseExecutor)
             {
@@ -101,11 +101,11 @@ namespace Jint.Native.Promise
                     $"Promise executor {(arguments.At(0))} is not a function");
             }
 
-            var proto = GetPrototypeFromConstructor(receiver, Prototype);
+            var instance = OrdinaryCreateFromConstructor(newTarget, _prototype,
+                static(engine, _) => new PromiseInstance(engine));
 
-            var instance = PromiseInstance.New(Engine, proto);
-
-            instance.InvokePromiseExecutor(promiseExecutor);
+            var (resolve, reject) = instance.CreateResolvingFunctions();
+            promiseExecutor.Call(Undefined, new JsValue[] {resolve, reject});
 
             return instance;
         }
@@ -371,7 +371,7 @@ namespace Jint.Native.Promise
                 reject.Call(Undefined, new[] {e.Error});
                 return resultingPromise;
             }
-            
+
             // 7. Let result be PerformPromiseRace(iteratorRecord, C, promiseCapability, promiseResolve).
             // https://tc39.es/ecma262/#sec-performpromiserace
             try
@@ -393,13 +393,13 @@ namespace Jint.Native.Promise
                         reject.Call(Undefined, new[] {e.Error});
                         return resultingPromise;
                     }
-                    
+
                     // h. Let nextPromise be ? Call(promiseResolve, constructor, « nextValue »).
                     var nextPromise = promiseResolve.Call(thisObj, new JsValue[] {nextValue});
-                    
+
                     // i. Perform ? Invoke(nextPromise, "then", « resultCapability.[[Resolve]], resultCapability.[[Reject]] »).
 
-                    Invoke(nextPromise, "then", new[] {resolve as JsValue, rejectObj});
+                    _engine.Invoke(nextPromise, "then", new[] {resolve as JsValue, rejectObj});
                 } while (true);
             }
             catch (JavaScriptException e)
@@ -411,13 +411,13 @@ namespace Jint.Native.Promise
                 reject.Call(Undefined, new[] {e.Error});
                 return resultingPromise;
             }
-            
+
             // 9. Return Completion(result).
             // Note that PerformPromiseRace returns a Promise instance in success case
             return resultingPromise;
         }
 
- 
+
         // https://tc39.es/ecma262/#sec-getpromiseresolve
         // 27.2.4.1.1 GetPromiseResolve ( promiseConstructor )
         // The abstract operation GetPromiseResolve takes argument promiseConstructor. It performs the following steps when called:
