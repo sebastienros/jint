@@ -25,30 +25,10 @@ jobs:
     - name: Checkout source code
       uses: actions/checkout@v2
 
-    - name: Setup dotnet 2.1
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: 2.1.*
-    - name: Setup dotnet 3.1
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: 3.1.*
     - name: Setup dotnet 5.0
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 5.0.*
 
-    # - name: Test
-    #   run: dotnet test --configuration Release
-
-    # - name: Test
-    #   run: dotnet test ./Jint.Tests/Jint.Tests.csproj -c Release
-
-    # - name: CommonScripts
-    #   run: dotnet test ./Jint.Tests.CommonScripts/Jint.Tests.CommonScripts.csproj -c Release
-
-    # - name: Ecma
-    #   run: dotnet test ./Jint.Tests.Ecma/Jint.Tests.Ecma.csproj -c Release
-
-    - name: Test262
-      run: dotnet test ./Jint.Tests.Test262/Jint.Tests.Test262.csproj -c Release
+    - name: Test
+      run: dotnet test --configuration Release
