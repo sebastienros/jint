@@ -20,6 +20,21 @@ namespace Jint.Tests.Runtime
         private readonly Engine _engine;
         private int countBreak = 0;
         private StepMode stepMode;
+        private static readonly TimeZoneInfo _pacificTimeZone;
+
+        static EngineTests()
+        {
+            try
+            {
+                _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
+                // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
+                _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Los_Angeles");
+            }
+        }
 
         public EngineTests(ITestOutputHelper output)
         {
@@ -1995,7 +2010,7 @@ var prep = function (fn) { fn(); };
         {
             // Forcing to PDT and FR for tests
             // var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
-            var PDT = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            var PDT = _pacificTimeZone;
             var FR = new CultureInfo("fr-FR");
 
             var engine = new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
@@ -2039,7 +2054,7 @@ var prep = function (fn) { fn(); };
         {
             // Forcing to PDT and FR for tests
             // var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
-            var PDT = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            var PDT = _pacificTimeZone;
             var FR = new CultureInfo("fr-FR");
 
             new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
@@ -2058,7 +2073,7 @@ var prep = function (fn) { fn(); };
         {
             // Forcing to PDT and FR for tests
             // var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
-            var PDT = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            var PDT = _pacificTimeZone;
             var FR = new CultureInfo("fr-FR");
 
             var engine = new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
