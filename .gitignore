@@ -13,7 +13,6 @@ Jint.Tests/Scripts/
 [Dd]ebug/
 [Rr]elease/
 x64/
-build/
 [Bb]in/
 [Oo]bj/
 
@@ -161,3 +160,4 @@ project.lock.json
 
 .idea
 BenchmarkDotNet.Artifacts*
+/artifacts

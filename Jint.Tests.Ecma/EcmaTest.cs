@@ -156,9 +156,21 @@ namespace Jint.Tests.Ecma
         private static string staSource;
         private static readonly string BasePath;
         private static readonly List<SourceFile> _sourceFiles = new List<SourceFile>(10_000);
+        private static readonly TimeZoneInfo _pacificTimeZone;
 
         static EcmaTest()
         {
+            try
+            {
+                _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
+                // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
+                _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Los_Angeles");
+            }
+
             var assemblyPath = new Uri(typeof(EcmaTest).GetTypeInfo().Assembly.CodeBase).LocalPath;
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
             BasePath = assemblyDirectory.Parent.Parent.Parent.FullName;
@@ -195,10 +207,8 @@ namespace Jint.Tests.Ecma
         {
             _lastError = null;
 
-            //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
-            var pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
             var engine = new Engine(cfg => cfg
-                .LocalTimeZone(pacificTimeZone)
+                .LocalTimeZone(_pacificTimeZone)
             );
 
             // loading driver
