@@ -215,7 +215,7 @@ namespace Jint.Tests.Ecma
             // loading driver
             if (staSource == null)
             {
-                var driverFilename = Path.Combine(BasePath, "TestCases\\sta.js");
+                var driverFilename = Path.Combine(BasePath, "TestCases/sta.js");
                 staSource = File.ReadAllText(driverFilename);
             }
 
