@@ -1446,7 +1446,7 @@ myarr[0](0);
         [Theory, MemberData("TestDates")]
         public void TestDateToISOStringFormat(DateTime testDate)
         {
-            var customTimeZone = _tongaTimeZone;
+            var customTimeZone = _pacificTimeZone;
 
             var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
             var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
@@ -1458,7 +1458,7 @@ myarr[0](0);
         [Theory, MemberData("TestDates")]
         public void TestDateToStringFormat(DateTime testDate)
         {
-            var customTimeZone = _tongaTimeZone;
+            var customTimeZone = _pacificTimeZone;
 
             var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
             var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
