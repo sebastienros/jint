@@ -43,3 +43,6 @@ jobs:
 
     - name: Test
       run: dotnet test ./Jint.Tests/Jint.Tests.csproj -c Release
+
+    - name: CommonScripts
+      run dotnet test .\Jint.Tests.CommonScripts\Jint.Tests.CommonScripts.csproj -c Release
