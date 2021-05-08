@@ -1337,7 +1337,7 @@ myarr[0](0);
         [Fact]
         public void UtcShouldUseUtc()
         {
-            var customTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central Europe Standard Time");
+            var customTimeZone = _tongaTimeZone;
 
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
@@ -1391,12 +1391,7 @@ myarr[0](0);
         [InlineData("1970-01-01T00:00:00.000-00:00")]
         public void ShouldParseAsUtc(string date)
         {
-#if NET451
-            const string customName = "Custom Time";
-            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(7, 11, 0), customName, customName, customName, null, false);
-#else
             var customTimeZone = _tongaTimeZone;
-#endif
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
             engine.SetValue("d", date);
