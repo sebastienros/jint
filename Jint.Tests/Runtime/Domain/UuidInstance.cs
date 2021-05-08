@@ -7,7 +7,7 @@ namespace Jint.Tests.Runtime.Domain
     {
         protected internal override ObjectInstance GetPrototypeOf() => _prototype;
 
-        internal ObjectInstance _prototype;
+        internal new ObjectInstance _prototype;
 
         public JsUuid PrimitiveValue { get; set; }
 

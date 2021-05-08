@@ -43,7 +43,7 @@ namespace Jint.Tests.Test262
                 _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Los_Angeles");
             }
 
-            var assemblyPath = new Uri(typeof(Test262Test).GetTypeInfo().Assembly.CodeBase).LocalPath;
+            var assemblyPath = new Uri(typeof(Test262Test).GetTypeInfo().Assembly.Location).LocalPath;
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
 
             BasePath = assemblyDirectory.Parent.Parent.Parent.FullName;
