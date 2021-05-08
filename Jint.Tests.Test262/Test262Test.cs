@@ -176,7 +176,8 @@ namespace Jint.Tests.Test262
         {
             var results = new ConcurrentBag<object[]>();
             var fixturesPath = Path.Combine(BasePath, "test");
-            var searchPath = Path.Combine(fixturesPath, pathPrefix);
+            var segments = pathPrefix.Split('\\');
+            var searchPath = Path.Combine(fixturesPath, Path.Combine(segments));
             var files = Directory.GetFiles(searchPath, "*", SearchOption.AllDirectories);
 
             foreach (var file in files)
