@@ -2,6 +2,7 @@
   <PropertyGroup>
     <NeutralLanguage>en-US</NeutralLanguage>
     <TargetFrameworks>net461;netstandard2.0;netstandard2.1</TargetFrameworks>
+    <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net461</TargetFrameworks>
     <AssemblyOriginatorKeyFile>Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
     <LangVersion>latest</LangVersion>
