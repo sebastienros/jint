@@ -3,6 +3,7 @@
     <TargetFrameworks>net461;net5.0</TargetFrameworks>
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
