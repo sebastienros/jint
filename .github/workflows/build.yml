@@ -38,5 +38,8 @@ jobs:
       with:
         dotnet-version: 5.0.*
 
+    # - name: Test
+    #   run: dotnet test --configuration Release
+
     - name: Test
-      run: dotnet test --configuration Release
+      run: dotnet test ./Jint.Tests/Jint.Tests.csproj -c Release
