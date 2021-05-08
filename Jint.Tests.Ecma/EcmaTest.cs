@@ -177,7 +177,7 @@ namespace Jint.Tests.Ecma
 
             var localPath = assemblyDirectory.Parent.Parent.Parent.FullName;
 
-            var fixturesPath = Path.Combine(localPath, @"TestCases\alltests.json");
+            var fixturesPath = Path.Combine(localPath, "TestCases/alltests.json");
 
             var content = File.ReadAllText(fixturesPath);
             var doc = JArray.Parse(content);
