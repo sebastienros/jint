@@ -46,3 +46,6 @@ jobs:
 
     - name: CommonScripts
       run: dotnet test ./Jint.Tests.CommonScripts/Jint.Tests.CommonScripts.csproj -c Release
+
+    - name: CommonScripts
+      run: dotnet test .\Jint.Tests.Ecma\Jint.Tests.Ecma.csproj -c Release
