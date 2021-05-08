@@ -22,6 +22,8 @@ namespace Jint.Tests.Runtime
         private StepMode stepMode;
         private static readonly TimeZoneInfo _pacificTimeZone;
         private static readonly TimeZoneInfo _tongaTimeZone;
+        private static readonly TimeZoneInfo _easternTimeZone;
+
 
         static EngineTests()
         {
@@ -45,6 +47,17 @@ namespace Jint.Tests.Runtime
                 // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
                 // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
                 _tongaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific/Tongatapu");
+            }
+
+            try
+            {
+                _easternTimeZone = TimeZoneInfo.FindSystemTimeZoneById("US Eastern Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
+                // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
+                _easternTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
             }
         }
 
@@ -2046,7 +2059,7 @@ var prep = function (fn) { fn(); };
         [Fact]
         public void DateShouldHonorTimezoneDaylightSavingRules()
         {
-            var EST = TimeZoneInfo.FindSystemTimeZoneById("US Eastern Standard Time");
+            var EST = _easternTimeZone;
             var engine = new Engine(options => options.LocalTimeZone(EST))
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
