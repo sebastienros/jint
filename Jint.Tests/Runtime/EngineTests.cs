@@ -21,6 +21,7 @@ namespace Jint.Tests.Runtime
         private int countBreak = 0;
         private StepMode stepMode;
         private static readonly TimeZoneInfo _pacificTimeZone;
+        private static readonly TimeZoneInfo _tongaTimeZone;
 
         static EngineTests()
         {
@@ -33,6 +34,17 @@ namespace Jint.Tests.Runtime
                 // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
                 // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
                 _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Los_Angeles");
+            }
+
+            try
+            {
+                _tongaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Tonga Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
+                // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
+                _tongaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific/Tongatapu");
             }
         }
 
@@ -1370,7 +1382,7 @@ myarr[0](0);
             const string customName = "Custom Time";
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(7, 11, 0), customName, customName, customName, null, false);
 #else
-            var customTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Tonga Standard Time");
+            var customTimeZone = _tongaTimeZone;
 #endif
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
@@ -1426,7 +1438,7 @@ myarr[0](0);
         [Theory, MemberData("TestDates")]
         public void TestDateToISOStringFormat(DateTime testDate)
         {
-            var customTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Tonga Standard Time");
+            var customTimeZone = _tongaTimeZone;
 
             var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
             var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
@@ -1438,7 +1450,7 @@ myarr[0](0);
         [Theory, MemberData("TestDates")]
         public void TestDateToStringFormat(DateTime testDate)
         {
-            var customTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Tonga Standard Time");
+            var customTimeZone = _tongaTimeZone;
 
             var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
             var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
