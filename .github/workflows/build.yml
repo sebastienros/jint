@@ -47,5 +47,8 @@ jobs:
     # - name: CommonScripts
     #   run: dotnet test ./Jint.Tests.CommonScripts/Jint.Tests.CommonScripts.csproj -c Release
 
-    - name: Ecma
-      run: dotnet test ./Jint.Tests.Ecma/Jint.Tests.Ecma.csproj -c Release
+    # - name: Ecma
+    #   run: dotnet test ./Jint.Tests.Ecma/Jint.Tests.Ecma.csproj -c Release
+
+    - name: Test262
+      run: dotnet test ./Jint.Tests.Test262/Jint.Tests.Test262.csproj -c Release
