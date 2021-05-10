@@ -20,6 +20,46 @@ namespace Jint.Tests.Runtime
         private readonly Engine _engine;
         private int countBreak = 0;
         private StepMode stepMode;
+        private static readonly TimeZoneInfo _pacificTimeZone;
+        private static readonly TimeZoneInfo _tongaTimeZone;
+        private static readonly TimeZoneInfo _easternTimeZone;
+
+
+        static EngineTests()
+        {
+            try
+            {
+                _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
+                // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
+                _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Los_Angeles");
+            }
+
+            try
+            {
+                _tongaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Tonga Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
+                // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
+                _tongaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific/Tongatapu");
+            }
+
+            try
+            {
+                _easternTimeZone = TimeZoneInfo.FindSystemTimeZoneById("US Eastern Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
+                // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
+                _easternTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+            }
+        }
 
         public EngineTests(ITestOutputHelper output)
         {
@@ -1297,7 +1337,7 @@ myarr[0](0);
         [Fact]
         public void UtcShouldUseUtc()
         {
-            var customTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central Europe Standard Time");
+            var customTimeZone = _tongaTimeZone;
 
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
@@ -1351,12 +1391,7 @@ myarr[0](0);
         [InlineData("1970-01-01T00:00:00.000-00:00")]
         public void ShouldParseAsUtc(string date)
         {
-#if NET451
-            const string customName = "Custom Time";
-            var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(7, 11, 0), customName, customName, customName, null, false);
-#else
-            var customTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Tonga Standard Time");
-#endif
+            var customTimeZone = _tongaTimeZone;
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
             engine.SetValue("d", date);
@@ -1411,7 +1446,7 @@ myarr[0](0);
         [Theory, MemberData("TestDates")]
         public void TestDateToISOStringFormat(DateTime testDate)
         {
-            var customTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Tonga Standard Time");
+            var customTimeZone = _pacificTimeZone;
 
             var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
             var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
@@ -1423,7 +1458,7 @@ myarr[0](0);
         [Theory, MemberData("TestDates")]
         public void TestDateToStringFormat(DateTime testDate)
         {
-            var customTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Tonga Standard Time");
+            var customTimeZone = _pacificTimeZone;
 
             var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
             var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
@@ -1995,7 +2030,7 @@ var prep = function (fn) { fn(); };
         {
             // Forcing to PDT and FR for tests
             // var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
-            var PDT = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            var PDT = _pacificTimeZone;
             var FR = new CultureInfo("fr-FR");
 
             var engine = new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
@@ -2019,7 +2054,7 @@ var prep = function (fn) { fn(); };
         [Fact]
         public void DateShouldHonorTimezoneDaylightSavingRules()
         {
-            var EST = TimeZoneInfo.FindSystemTimeZoneById("US Eastern Standard Time");
+            var EST = _easternTimeZone;
             var engine = new Engine(options => options.LocalTimeZone(EST))
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
@@ -2039,7 +2074,7 @@ var prep = function (fn) { fn(); };
         {
             // Forcing to PDT and FR for tests
             // var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
-            var PDT = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            var PDT = _pacificTimeZone;
             var FR = new CultureInfo("fr-FR");
 
             new Engine(options => options.LocalTimeZone(PDT).Culture(FR))
@@ -2058,7 +2093,7 @@ var prep = function (fn) { fn(); };
         {
             // Forcing to PDT and FR for tests
             // var PDT = TimeZoneInfo.CreateCustomTimeZone("Pacific Daylight Time", new TimeSpan(-7, 0, 0), "Pacific Daylight Time", "Pacific Daylight Time");
-            var PDT = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            var PDT = _pacificTimeZone;
             var FR = new CultureInfo("fr-FR");
 
             var engine = new Engine(options => options.LocalTimeZone(PDT).Culture(FR))

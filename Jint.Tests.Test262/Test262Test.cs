@@ -32,9 +32,18 @@ namespace Jint.Tests.Test262
         static Test262Test()
         {
             //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
-            _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            try
+            {
+                _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
+                // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
+                _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Los_Angeles");
+            }
 
-            var assemblyPath = new Uri(typeof(Test262Test).GetTypeInfo().Assembly.CodeBase).LocalPath;
+            var assemblyPath = new Uri(typeof(Test262Test).GetTypeInfo().Assembly.Location).LocalPath;
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
 
             BasePath = assemblyDirectory.Parent.Parent.Parent.FullName;
@@ -167,7 +176,8 @@ namespace Jint.Tests.Test262
         {
             var results = new ConcurrentBag<object[]>();
             var fixturesPath = Path.Combine(BasePath, "test");
-            var searchPath = Path.Combine(fixturesPath, pathPrefix);
+            var segments = pathPrefix.Split('\\');
+            var searchPath = Path.Combine(fixturesPath, Path.Combine(segments));
             var files = Directory.GetFiles(searchPath, "*", SearchOption.AllDirectories);
 
             foreach (var file in files)
