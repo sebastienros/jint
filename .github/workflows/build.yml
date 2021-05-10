@@ -31,7 +31,7 @@ jobs:
         dotnet-version: 5.0.*
 
     - name: Test
-      run: dotnet test --configuration Release --framework net461
+      run: dotnet test --configuration Release
 
   linux:
     runs-on: ubuntu-latest
