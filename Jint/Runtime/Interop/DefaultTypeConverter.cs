@@ -17,8 +17,10 @@ namespace Jint.Runtime.Interop
 
 #if NETSTANDARD
         private static readonly ConcurrentDictionary<(Type Source, Type Target), bool> _knownConversions = new ConcurrentDictionary<(Type Source, Type Target), bool>();
+        private static readonly ConcurrentDictionary<(Type Source, Type Target), MethodInfo> _knownCastOperators = new ConcurrentDictionary<(Type Source, Type Target), MethodInfo>();
 #else
         private static readonly ConcurrentDictionary<string, bool> _knownConversions = new ConcurrentDictionary<string, bool>();
+        private static readonly ConcurrentDictionary<string, MethodInfo> _knownCastOperators = new ConcurrentDictionary<string, MethodInfo>();
 #endif
 
         private static readonly Type nullableType = typeof(Nullable<>);
@@ -77,7 +79,7 @@ namespace Jint.Runtime.Interop
             // is the javascript value an ICallable instance ?
             if (valueType == iCallableType)
             {
-                var function = (Func<JsValue, JsValue[], JsValue>)value;
+                var function = (Func<JsValue, JsValue[], JsValue>) value;
 
                 if (typeof(Delegate).IsAssignableFrom(type) && !type.IsAbstract)
                 {
@@ -187,7 +189,7 @@ namespace Jint.Runtime.Interop
                     }
                 }
 
-                var dict = (IDictionary<string, object>)eObj;
+                var dict = (IDictionary<string, object>) eObj;
                 var obj = Activator.CreateInstance(type, System.Array.Empty<object>());
 
                 var members = type.GetMembers();
@@ -213,13 +215,20 @@ namespace Jint.Runtime.Interop
 
             if (_engine.Options._IsOperatorOverloadingAllowed)
             {
-                var castOperator = valueType
+#if NETSTANDARD
+                var key = (valueType, type);
+#else
+                var key = $"{valueType}->{type}";
+#endif
+
+                var castOperator = _knownCastOperators.GetOrAdd(key, _ =>
+                    valueType
                     .GetMethods(BindingFlags.Public | BindingFlags.Static)
                     .Concat(type.GetMethods(BindingFlags.Public | BindingFlags.Static))
                     .FirstOrDefault(m =>
                         m.IsSpecialName
                         && type.IsAssignableFrom(m.ReturnType)
-                        && (m.Name == "op_Implicit" || m.Name == "op_Explicit"));
+                        && (m.Name == "op_Implicit" || m.Name == "op_Explicit")));
 
                 if (castOperator != null)
                 {

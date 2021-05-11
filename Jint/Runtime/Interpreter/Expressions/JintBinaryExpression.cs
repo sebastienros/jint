@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -12,6 +13,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal abstract class JintBinaryExpression : JintExpression
     {
+#if NETSTANDARD
+        private static readonly ConcurrentDictionary<(string OperatorName, Type Source, Type Target), MethodDescriptor> _knownOperators = 
+            new ConcurrentDictionary<(string OperatorName, Type Source, Type Target), MethodDescriptor>();
+#else
+        private static readonly ConcurrentDictionary<string, MethodDescriptor> _knownOperators = new ConcurrentDictionary<string, MethodDescriptor>();
+#endif
+
         protected abstract string OperatorClrName { get; }
         private readonly JintExpression _left;
         private readonly JintExpression _right;
@@ -32,30 +40,36 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (clrName != null)
                 {
-                    var lv = _left.GetValue();
-                    var rv = _right.GetValue();
+                    var leftValue = _left.GetValue();
+                    var rightValue = _right.GetValue();
 
-                    var left = lv.ToObject();
-                    var right = rv.ToObject();
+                    var left = leftValue.ToObject();
+                    var right = rightValue.ToObject();
 
                     if (left != null && right != null)
                     {
                         var leftType = left.GetType();
                         var rightType = right.GetType();
+                        var arguments = new[] { leftValue, rightValue };
 
-                        var leftMethods = leftType.GetMethods(BindingFlags.Static | BindingFlags.Public);
-                        var rightMethods = rightType.GetMethods(BindingFlags.Static | BindingFlags.Public);
-
-                        var methods = leftMethods.Concat(rightMethods).Where(x => x.Name == clrName);
-                        var _methods = MethodDescriptor.Build(methods.ToArray());
-
-                        var arguments = new[] { lv, rv };
-                        var matches = TypeConverter.FindBestMatch(_engine, _methods, _ => arguments);
-
-                        foreach (var tuple in matches)
+#if NETSTANDARD
+                        var key = (clrName, leftType, rightType);
+#else
+                        var key = $"{clrName}->{leftType}->{rightType}";
+#endif
+                        var method = _knownOperators.GetOrAdd(key, _ =>
                         {
-                            var method = tuple.Item1;
+                            var leftMethods = leftType.GetMethods(BindingFlags.Static | BindingFlags.Public);
+                            var rightMethods = rightType.GetMethods(BindingFlags.Static | BindingFlags.Public);
 
+                            var methods = leftMethods.Concat(rightMethods).Where(x => x.Name == clrName);
+                            var _methods = MethodDescriptor.Build(methods.ToArray());
+
+                            return TypeConverter.FindBestMatch(_engine, _methods, _ => arguments).FirstOrDefault()?.Item1;
+                        });
+
+                        if (method != null)
+                        {
                             var parameters = new object[arguments.Length];
                             var methodParameters = method.Parameters;
                             try
