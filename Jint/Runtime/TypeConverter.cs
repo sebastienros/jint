@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
@@ -108,7 +110,7 @@ namespace Jint.Runtime
                 }
             }
 
-            return OrdinaryToPrimitive(oi, preferredType == Types.None ? Types.Number :  preferredType);
+            return OrdinaryToPrimitive(oi, preferredType == Types.None ? Types.Number : preferredType);
         }
 
         /// <summary>
@@ -118,7 +120,7 @@ namespace Jint.Runtime
         {
             JsString property1;
             JsString property2;
-            
+
             if (hint == Types.String)
             {
                 property1 = (JsString) "toString";
@@ -335,7 +337,7 @@ namespace Jint.Runtime
 
             return integer;
         }
-        
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-tointeger
         /// </summary>
@@ -398,7 +400,7 @@ namespace Jint.Runtime
         /// </summary>
         public static ushort ToUint16(JsValue o)
         {
-            return  o._type == InternalTypes.Integer
+            return o._type == InternalTypes.Integer
                 ? (ushort) (uint) o.AsInteger()
                 : (ushort) (uint) ToNumber(o);
         }
@@ -446,7 +448,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(double d)
         {
-            if (d > long.MinValue && d < long.MaxValue  && Math.Abs(d % 1) <= DoubleIsIntegerTolerance)
+            if (d > long.MinValue && d < long.MaxValue && Math.Abs(d % 1) <= DoubleIsIntegerTolerance)
             {
                 // we are dealing with integer that can be cached
                 return ToString((long) d);
@@ -585,7 +587,7 @@ namespace Jint.Runtime
             {
                 var parameterInfos = m.Parameters;
                 var arguments = argumentProvider(m);
-                if (arguments.Length <= parameterInfos.Length 
+                if (arguments.Length <= parameterInfos.Length
                     && arguments.Length >= parameterInfos.Length - m.ParameterDefaultValuesCount)
                 {
                     if (methods.Length == 0 && arguments.Length == 0)
@@ -604,28 +606,30 @@ namespace Jint.Runtime
                 yield break;
             }
 
+            List<Tuple<int, Tuple<MethodDescriptor, JsValue[]>>> scoredList = null;
+
             foreach (var tuple in matchingByParameterCount)
             {
-                var perfectMatch = true;
+                var score = 0;
                 var parameters = tuple.Item1.Parameters;
                 var arguments = tuple.Item2;
                 for (var i = 0; i < arguments.Length; i++)
                 {
                     var jsValue = arguments[i];
                     var arg = jsValue.ToObject();
+                    var argType = arg?.GetType();
                     var paramType = parameters[i].ParameterType;
                     if (arg == null)
                     {
                         if (!TypeIsNullable(paramType))
                         {
-                            perfectMatch = false;
-                            break;
+                            score -= 10000;
                         }
                     }
-                    else if (arg.GetType() != paramType)
+                    else if (argType != paramType)
                     {
                         // check if we can do conversion from int value to enum
-                        if (paramType.IsEnum && 
+                        if (paramType.IsEnum &&
                             jsValue is JsNumber jsNumber
                             && jsNumber.IsInteger()
                             && Enum.IsDefined(paramType, jsNumber.AsInteger()))
@@ -634,24 +638,47 @@ namespace Jint.Runtime
                         }
                         else
                         {
-                            // no can do
-                            perfectMatch = false;
-                            break;
+                            if (paramType.IsAssignableFrom(argType))
+                            {
+                                score -= 1;
+                            }
+                            else
+                            {
+                                if (argType.GetMethods(BindingFlags.Public | BindingFlags.Static)
+                                  .Any(m => m.IsSpecialName &&
+                                      paramType.IsAssignableFrom(m.ReturnType) &&
+                                           (m.Name == "op_Implicit" ||
+                                            m.Name == "op_Explicit")))
+                                {
+                                    score -= 100;
+                                }
+                                else
+                                {
+                                    score -= 10000;
+                                }
+                            }
                         }
                     }
                 }
 
-                if (perfectMatch)
+                if (score == 0)
                 {
-                    yield return new Tuple<MethodDescriptor, JsValue[]>(tuple.Item1, arguments);
+                    yield return Tuple.Create(tuple.Item1, arguments);
                     yield break;
+                }
+                else
+                {
+                    scoredList ??= new List<Tuple<int, Tuple<MethodDescriptor, JsValue[]>>>();
+                    scoredList.Add(Tuple.Create(score, tuple));
                 }
             }
 
-            for (var i = 0; i < matchingByParameterCount.Count; i++)
+            if (scoredList != null)
             {
-                var tuple = matchingByParameterCount[i];
-                yield return new Tuple<MethodDescriptor, JsValue[]>(tuple.Item1, tuple.Item2);
+                foreach (var item in scoredList.OrderByDescending(x => x.Item1))
+                {
+                    yield return item.Item2;
+                }
             }
         }
 

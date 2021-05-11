@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Dynamic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Extensions;
@@ -28,7 +29,7 @@ namespace Jint.Runtime.Interop
         private static readonly Type engineType = typeof(Engine);
         private static readonly Type typeType = typeof(Type);
 
-        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new [] { objectType, typeType, typeof(IFormatProvider) });
+        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new[] { objectType, typeType, typeof(IFormatProvider) });
         private static readonly MethodInfo jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject));
         private static readonly MethodInfo jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject));
 
@@ -119,11 +120,11 @@ namespace Jint.Runtime.Interop
                             Expression.Convert(
                                 Expression.Call(
                                     null,
-                                    convertChangeType, 
-                                    Expression.Call(callExpression, jsValueToObject), 
-                                    Expression.Constant(method.ReturnType), 
+                                    convertChangeType,
+                                    Expression.Call(callExpression, jsValueToObject),
+                                    Expression.Constant(method.ReturnType),
                                     Expression.Constant(System.Globalization.CultureInfo.InvariantCulture, typeof(IFormatProvider))
-                                    ), 
+                                    ),
                                 method.ReturnType
                                 ),
                             new ReadOnlyCollection<ParameterExpression>(@params)).Compile();
@@ -168,7 +169,7 @@ namespace Jint.Runtime.Interop
                 }
 
                 // reference types - return null if no valid constructor is found
-                if(!type.IsValueType)
+                if (!type.IsValueType)
                 {
                     var found = false;
                     foreach (var constructor in constructors)
@@ -186,7 +187,7 @@ namespace Jint.Runtime.Interop
                     }
                 }
 
-                var dict = (IDictionary<string, object>) eObj;
+                var dict = (IDictionary<string, object>)eObj;
                 var obj = Activator.CreateInstance(type, System.Array.Empty<object>());
 
                 var members = type.GetMembers();
@@ -208,6 +209,22 @@ namespace Jint.Runtime.Interop
                 }
 
                 return obj;
+            }
+
+            if (_engine.Options._IsOperatorOverloadingAllowed)
+            {
+                var castOperator = valueType
+                    .GetMethods(BindingFlags.Public | BindingFlags.Static)
+                    .Concat(type.GetMethods(BindingFlags.Public | BindingFlags.Static))
+                    .FirstOrDefault(m =>
+                        m.IsSpecialName
+                        && type.IsAssignableFrom(m.ReturnType)
+                        && (m.Name == "op_Implicit" || m.Name == "op_Explicit"));
+
+                if (castOperator != null)
+                {
+                    return castOperator.Invoke(null, new[] { value });
+                }
             }
 
             return System.Convert.ChangeType(value, type, formatProvider);

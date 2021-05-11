@@ -161,3 +161,4 @@ project.lock.json
 
 .idea
 BenchmarkDotNet.Artifacts*
+.vscode

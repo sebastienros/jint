@@ -1,4 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Reflection;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Object;
@@ -8,6 +12,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal abstract class JintBinaryExpression : JintExpression
     {
+        protected abstract string OperatorClrName { get; }
         private readonly JintExpression _left;
         private readonly JintExpression _right;
 
@@ -15,6 +20,79 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             _left = Build(engine, expression.Left);
             _right = Build(engine, expression.Right);
+        }
+
+        protected abstract object EvaluateBinaryExpression();
+
+        protected override object EvaluateInternal()
+        {
+            if (_engine.Options._IsOperatorOverloadingAllowed)
+            {
+                var clrName = OperatorClrName;
+
+                if (clrName != null)
+                {
+                    var lv = _left.GetValue();
+                    var rv = _right.GetValue();
+
+                    var left = lv.ToObject();
+                    var right = rv.ToObject();
+
+                    if (left != null && right != null)
+                    {
+                        var leftType = left.GetType();
+                        var rightType = right.GetType();
+
+                        var leftMethods = leftType.GetMethods(BindingFlags.Static | BindingFlags.Public);
+                        var rightMethods = rightType.GetMethods(BindingFlags.Static | BindingFlags.Public);
+
+                        var methods = leftMethods.Concat(rightMethods).Where(x => x.Name == clrName);
+                        var _methods = MethodDescriptor.Build(methods.ToArray());
+
+                        var arguments = new[] { lv, rv };
+                        var matches = TypeConverter.FindBestMatch(_engine, _methods, _ => arguments);
+
+                        foreach (var tuple in matches)
+                        {
+                            var method = tuple.Item1;
+
+                            var parameters = new object[arguments.Length];
+                            var methodParameters = method.Parameters;
+                            try
+                            {
+                                for (var i = 0; i < arguments.Length; i++)
+                                {
+                                    var parameterType = methodParameters[i].ParameterType;
+
+                                    if (typeof(JsValue).IsAssignableFrom(parameterType))
+                                    {
+                                        parameters[i] = arguments[i];
+                                    }
+                                    else
+                                    {
+                                        parameters[i] = _engine.ClrTypeConverter.Convert(
+                                            arguments[i].ToObject(),
+                                            parameterType,
+                                            CultureInfo.InvariantCulture);
+                                    }
+                                }
+
+                                if (method.Method is MethodInfo m)
+                                {
+                                    var retVal = m.Invoke(null, parameters);
+                                    var result = JsValue.FromObject(_engine, retVal);
+                                    return result;
+                                }
+                            }
+                            catch (TargetInvocationException exception)
+                            {
+                                ExceptionHelper.ThrowMeaningfulException(_engine, exception);
+                            }
+                        }
+                    }
+                }
+            }
+            return EvaluateBinaryExpression();
         }
 
         internal static JintExpression Build(Engine engine, BinaryExpression expression)
@@ -173,11 +251,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class StrictlyEqualBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => null;
+
             public StrictlyEqualBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
@@ -188,11 +268,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class StrictlyNotEqualBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => null;
+
             public StrictlyNotEqualBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
@@ -204,11 +286,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class LessBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => "op_LessThan";
+
             public LessBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
@@ -222,11 +306,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class GreaterBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => "op_GreaterThan";
+
             public GreaterBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
@@ -240,11 +326,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class PlusBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => "op_Addition";
+
             public PlusBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
@@ -263,11 +351,13 @@ namespace Jint.Runtime.Interpreter.Expressions
         }
         private sealed class MinusBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => "op_Subtraction";
+
             public MinusBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
@@ -280,11 +370,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class TimesBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => "op_Multiply";
+
             public TimesBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
@@ -305,11 +397,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class DivideBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => "op_Division";
+
             public DivideBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
@@ -320,6 +414,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class EqualBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => _invert ? "op_Inequality" : "op_Equality";
+
             private readonly bool _invert;
 
             public EqualBinaryExpression(Engine engine, BinaryExpression expression, bool invert = false) : base(engine, expression)
@@ -327,7 +423,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _invert = invert;
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
@@ -340,6 +436,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class CompareBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => _leftFirst ? "op_GreaterThanOrEqual" : "op_LessThanOrEqual";
+
             private readonly bool _leftFirst;
 
             public CompareBinaryExpression(Engine engine, BinaryExpression expression, bool leftFirst) : base(engine, expression)
@@ -347,7 +445,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _leftFirst = leftFirst;
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var leftValue = _left.GetValue();
                 var rightValue = _right.GetValue();
@@ -364,11 +462,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class InstanceOfBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => null;
+
             public InstanceOfBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var value = _left.GetValue();
                 return value.InstanceofOperator(_right.GetValue())
@@ -379,11 +479,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class ExponentiationBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => null;
+
             public ExponentiationBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
@@ -393,11 +495,13 @@ namespace Jint.Runtime.Interpreter.Expressions
         }
         private sealed class InBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => null;
+
             public InBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
@@ -413,11 +517,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class ModuloBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName => "op_Modulus";
+
             public ModuloBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
@@ -437,11 +543,36 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return Undefined.Instance;
                 }
 
-                return JsNumber.Create(TypeConverter.ToNumber(left) % TypeConverter.ToNumber(right));            }
+                return JsNumber.Create(TypeConverter.ToNumber(left) % TypeConverter.ToNumber(right));
+            }
         }
 
         private sealed class BitwiseBinaryExpression : JintBinaryExpression
         {
+            protected override string OperatorClrName
+            {
+                get
+                {
+                    switch (_operator)
+                    {
+                        case BinaryOperator.BitwiseAnd:
+                            return "op_BitwiseAnd";
+                        case BinaryOperator.BitwiseOr:
+                            return "op_BitwiseOr";
+                        case BinaryOperator.BitwiseXOr:
+                            return "op_ExclusiveOr";
+                        case BinaryOperator.LeftShift:
+                            return "op_LeftShift";
+                        case BinaryOperator.RightShift:
+                            return "op_RightShift";
+                        case BinaryOperator.UnsignedRightShift:
+                            return "op_UnsignedRightShift";
+                        default:
+                            return null;
+                    }
+                }
+            }
+
             private readonly BinaryOperator _operator;
 
             public BitwiseBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
@@ -449,7 +580,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _operator = expression.Operator;
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateBinaryExpression()
             {
                 var left = _left.GetValue();
                 var right = _right.GetValue();
