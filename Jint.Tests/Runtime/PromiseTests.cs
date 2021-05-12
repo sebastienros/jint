@@ -1,9 +1,7 @@
 using System;
-using System.Threading.Tasks;
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime;
-using Jint.Runtime.Interop;
 using Xunit;
 
 namespace Jint.Tests.Runtime
@@ -62,14 +60,105 @@ namespace Jint.Tests.Runtime
             var finished = false;
             engine.ExecuteWithEventLoop("f();", () => { finished = true; });
             Assert.False(finished);
-            
+
             resolveFunc(66);
             Assert.True(finished);
             Assert.Equal(66, engine.GetPromiseCompletionValue());
         }
 
+        [Fact]
+        public void RegisterPromise_CalledWithinExecuteWithEventLoop_RejectsCorrectly()
+        {
+            Action<JsValue> rejectFunc = null;
+
+            var engine = new Engine();
+            engine.SetValue('f', new Func<JsValue>(() =>
+            {
+                var (promise, _, reject) = engine.RegisterPromise();
+                rejectFunc = reject;
+                return promise;
+            }));
+
+            var finished = false;
+            engine.ExecuteWithEventLoop("f();", () => { finished = true; });
+            Assert.False(finished);
+
+            rejectFunc("oops!");
+            Assert.True(finished);
+
+            var ex = Assert.Throws<PromiseRejectedException>(() => { engine.GetPromiseCompletionValue(); });
+
+            Assert.Equal("oops!", ex.RejectedValue.AsString());
+        }
+
+        [Fact]
+        public void RegisterPromise_UsedWithRace_WorksFlawlessly()
+        {
+            var engine = new Engine();
+            
+            Action<JsValue> resolve1 = null;
+            engine.SetValue("f1", new Func<JsValue>(() =>
+            {
+                var (promise, resolve, _) = engine.RegisterPromise();
+                resolve1 = resolve;
+                return promise;
+            }));
+            
+            Action<JsValue> resolve2 = null;
+            engine.SetValue("f2", new Func<JsValue>(() =>
+            {
+                var (promise, resolve, _) = engine.RegisterPromise();
+                resolve2 = resolve;
+                return promise;
+            }));
+
+            var finished = false;
+            engine.ExecuteWithEventLoop("Promise.race([f1(), f2()]);", () => { finished = true; });
+            Assert.False(finished);
+            
+            resolve1("first");
+            
+            // still not finished but the promise is fulfilled
+            Assert.False(finished);  
+            Assert.Equal("first", engine.GetPromiseCompletionValue());
+            
+            resolve2("second");
+            
+            Assert.True(finished);
+            // completion value hasn't changed
+            Assert.Equal("first", engine.GetPromiseCompletionValue()); 
+        }
         #endregion
 
+        #region ExecuteWithEventLoop
+
+        [Fact]
+        public void ExecuteWithEventLoop_ConcurrentCall_ThrowsException()
+        {
+            var engine = new Engine();
+            engine.SetValue('f', new Func<JsValue>(() => engine.RegisterPromise().Promise));
+
+            var finished = false;
+            engine.ExecuteWithEventLoop("f();", () => { finished = true; });
+            Assert.False(finished);
+            
+            Assert.Throws<InvalidOperationException>(() => engine.ExecuteWithEventLoop("f();", () => { finished = true; }));
+        }
+        
+        [Fact]
+        public void ExecuteWithEventLoop_ConcurrentNormalExecuteCall_WorksFine()
+        {
+            var engine = new Engine();
+            engine.SetValue('f', new Func<JsValue>(() => engine.RegisterPromise().Promise));
+
+            var finished = false;
+            engine.ExecuteWithEventLoop("f();", () => { finished = true; });
+            Assert.False(finished);
+            
+            Assert.Equal(true, engine.Execute(" 1 + 1 === 2").GetCompletionValue());
+        }
+
+        #endregion
 
         #region Ctor
 

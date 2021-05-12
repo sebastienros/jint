@@ -400,8 +400,24 @@ namespace Jint
             return this;
         }
 
+        /// <summary>
+        /// EXPERIMENTAL! Subject to change.
+        /// 
+        /// Executes a script and then tries to process all schedules events.
+        /// It triggers onFinished callback when there are no scheduled events in the EventLoop
+        /// and when there are no user registered promises left unresolved.
+        /// </summary>
+        /// <param name="script"></param>
+        /// <param name="onFinished">called when EventLoop had no more events neither pending user promises</param>
+        /// <returns></returns>
         public Engine ExecuteWithEventLoop(Script script, Action onFinished)
         {
+            if (_eventLoop != null)
+            {
+                ExceptionHelper.ThrowInvalidOperationException(
+                    "CreatePromise should be called within ExecuteWithEventLoop method");
+            }
+
             _eventLoop = new EventLoop(onFinished);
 
             Execute(script);
@@ -419,12 +435,32 @@ namespace Jint
             return this;
         }
 
+        /// <summary>
+        /// EXPERIMENTAL! Subject to change.
+        /// 
+        /// Executes a script and then tries to process all schedules events.
+        /// It triggers onFinished callback when there are no scheduled events in the EventLoop
+        /// and when there are no user registered promises left unresolved.
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="onFinished">called when EventLoop had no more events neither pending user promises</param>
+        /// <returns></returns>
         public Engine ExecuteWithEventLoop(string source, Action onFinished)
         {
             var parser = new JavaScriptParser(source, DefaultParserOptions);
             return ExecuteWithEventLoop(parser.ParseScript(), onFinished);
         }
 
+        /// <summary>
+        /// EXPERIMENTAL! Subject to change.
+        /// 
+        /// Registers a promise within the currently running EventLoop (has to be called within "ExecuteWithEventLoop" call).
+        /// Note that ExecuteWithEventLoop will not trigger "onFinished" callback until ALL manual promises are settled.
+        ///
+        /// NOTE: that resolve and reject need to be called withing the same thread as "ExecuteWithEventLoop".
+        /// The API assumes that the Engine is called from a single thread.
+        /// </summary>
+        /// <returns>a Promise instance and functions to either resolve or reject it</returns>
         public ManualPromise RegisterPromise()
         {
             if (_eventLoop == null)
@@ -443,7 +479,7 @@ namespace Jint
                 _eventLoop.ManualPromises.Remove(promise);
                 settle.Call(JsValue.Undefined, new[] {value});
                 bool hasUserPromises = RunAvailableContinuations(_eventLoop);
-                
+
                 if (!hasUserPromises)
                 {
                     // that means that EventLoop is empty and there are no user Promises left
@@ -456,7 +492,7 @@ namespace Jint
         }
 
         internal void AddToEventLoop(Action continuation)
-        {   
+        {
             if (_eventLoop == null)
             {
                 ExceptionHelper.ThrowInvalidOperationException(
@@ -480,7 +516,7 @@ namespace Jint
 
                 var nextContinuation = queue.Dequeue();
 
-                // note that continuation can enqueue events
+                // note that continuation can enqueue new events
                 nextContinuation();
             }
         }
@@ -510,10 +546,9 @@ namespace Jint
                 return promise.State switch
                 {
                     PromiseState.Pending => ExceptionHelper.ThrowInvalidOperationException<JsValue>(
-                        "GetCompletionValue called before Promise was resolved, use ExecuteAsync instead"),
+                        "GetCompletionValue called before Promise was resolved, make sure to use ExecuteWithEventLoop"),
                     PromiseState.Fulfilled => promise.Value,
-                    PromiseState.Rejected => throw new PromiseRejectedException(promise
-                        .Value), // TODO use exception helper
+                    PromiseState.Rejected => ExceptionHelper.ThrowPromiseRejectedException<JsValue>(promise.Value),
                     _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JsValue>()
                 };
             }

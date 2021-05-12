@@ -141,7 +141,7 @@ namespace Jint.Tests.Test262
             {
                 if (withEventLoop)
                 {
-                    engine.ExecuteWithEventLoop(code);
+                    engine.ExecuteWithEventLoop(code, () => {});
                 }
                 else
                 {
