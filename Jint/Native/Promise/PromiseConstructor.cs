@@ -1,21 +1,16 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Jint.Collections;
-using Jint.Extensions;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise
 {
-    public struct PromiseCapability
+    internal struct PromiseCapability
     {
         public JsValue PromiseInstance { get; set; }
         public ICallable Resolve { get; set; }
@@ -44,7 +39,7 @@ namespace Jint.Native.Promise
         {
         }
 
-        public static PromiseConstructor CreatePromiseConstructor(Engine engine)
+        internal static PromiseConstructor CreatePromiseConstructor(Engine engine)
         {
             var obj = new PromiseConstructor(engine);
             obj._prototype = PromisePrototype.CreatePrototypeObject(engine, obj);
@@ -60,16 +55,15 @@ namespace Jint.Native.Promise
             var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
                 ["resolve"] =
-                    new PropertyDescriptor(new PropertyDescriptor(
-                        new ClrFunctionInstance(Engine, "resolve", Resolve, 1, lengthFlags), propertyFlags)),
-                ["reject"] =
-                    new PropertyDescriptor(new PropertyDescriptor(
-                        new ClrFunctionInstance(Engine, "reject", Reject, 1, lengthFlags), propertyFlags)),
-                ["all"] = new PropertyDescriptor(
-                    new PropertyDescriptor(new ClrFunctionInstance(Engine, "all", All, 1, lengthFlags), propertyFlags)),
-                ["race"] = new PropertyDescriptor(
-                    new PropertyDescriptor(new ClrFunctionInstance(Engine, "race", Race, 1, lengthFlags),
+                    new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "resolve", Resolve, 1, lengthFlags),
                         propertyFlags)),
+                ["reject"] =
+                    new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "reject", Reject, 1, lengthFlags),
+                        propertyFlags)),
+                ["all"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "all", All, 1, lengthFlags),
+                    propertyFlags)),
+                ["race"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "race", Race, 1, lengthFlags),
+                    propertyFlags)),
             };
             SetProperties(properties);
 
@@ -77,7 +71,8 @@ namespace Jint.Native.Promise
             {
                 [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(
                     get: new ClrFunctionInstance(_engine, "get [Symbol.species]", (thisObj, _) => thisObj, 0,
-                        PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
+                        PropertyFlag.Configurable),
+                    set: Undefined, PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
         }

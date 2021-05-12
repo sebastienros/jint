@@ -34,12 +34,12 @@ namespace Jint.Tests.Test262
 
             if (code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0)
             {
-                RunTestCode(code, strict: false);
+                RunTestCode(code, strict: false, withEventLoop:false);
             }
 
             if (code.IndexOf("noStrict", StringComparison.Ordinal) < 0)
             {
-                RunTestCode(code, strict: true);
+                RunTestCode(code, strict: true, withEventLoop:false);
             }
         }
     }

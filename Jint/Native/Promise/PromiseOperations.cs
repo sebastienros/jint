@@ -106,7 +106,7 @@ namespace Jint.Native.Promise
         {
             foreach (var reaction in reactions)
             {
-                engine.QueuePromiseContinuation(NewPromiseReactionJob(reaction, result));
+                engine.AddToEventLoop(NewPromiseReactionJob(reaction, result));
             }
 
             return JsValue.Undefined;
@@ -120,19 +120,8 @@ namespace Jint.Native.Promise
             JsValue onRejected,
             PromiseCapability resultCapability)
         {
-            var fulfilReaction = new PromiseReaction
-            {
-                Type = ReactionType.Fulfill,
-                Capability = resultCapability,
-                Handler = onFulfilled
-            };
-
-            var rejectReaction = new PromiseReaction
-            {
-                Type = ReactionType.Reject,
-                Capability = resultCapability,
-                Handler = onRejected
-            };
+            var fulfilReaction = new PromiseReaction(ReactionType.Fulfill, resultCapability, onFulfilled);
+            var rejectReaction = new PromiseReaction(ReactionType.Reject, resultCapability, onRejected);
 
             switch (promise.State)
             {
@@ -142,15 +131,16 @@ namespace Jint.Native.Promise
                     break;
 
                 case PromiseState.Fulfilled:
-                    engine.QueuePromiseContinuation(NewPromiseReactionJob(fulfilReaction, promise.Value));
+                    engine.AddToEventLoop(NewPromiseReactionJob(fulfilReaction, promise.Value));
 
                     break;
                 case PromiseState.Rejected:
-                    engine.QueuePromiseContinuation(NewPromiseReactionJob(rejectReaction, promise.Value));
+                    engine.AddToEventLoop(NewPromiseReactionJob(rejectReaction, promise.Value));
 
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    ExceptionHelper.ThrowArgumentOutOfRangeException();
+                    break;
             }
 
             // TODO do we actually need to track that? 

@@ -1,9 +1,5 @@
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
-using System.Threading.Tasks;
+using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -12,22 +8,36 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise
 {
+    internal enum PromiseState
+    {
+        Pending,
+        Fulfilled,
+        Rejected
+    }
+
     internal enum ReactionType
     {
         Fulfill,
         Reject
     }
 
-    internal struct PromiseReaction
+    // Note that this should probably be a "record"
+    internal readonly struct PromiseReaction
     {
-        public PromiseCapability Capability { get; set; }
-        public ReactionType Type { get; set; }
-        public JsValue Handler { get; set; }
+        internal PromiseReaction(ReactionType type, PromiseCapability capability, JsValue handler)
+        {
+            Capability = capability;
+            Type = type;
+            Handler = handler;
+        }
+
+        public PromiseCapability Capability { get; }
+        public ReactionType Type { get; }
+        public JsValue Handler { get; }
     }
 
-    public class PromiseInstance : ObjectInstance
+    public sealed class PromiseInstance : ObjectInstance
     {
-        private readonly List<TaskCompletionSource<JsValue>> _awaitingTasks = new();
         internal PromiseState State { get; private set; }
 
         // valid only in settled state (Fulfilled or Rejected) 
@@ -44,7 +54,7 @@ namespace Jint.Native.Promise
         // https://tc39.es/ecma262/#sec-createresolvingfunctions
         // Note that functions capture over alreadyResolved
         // that does imply that the same promise can be resolved twice but with different resolving functions
-        internal (FunctionInstance resolve, FunctionInstance reject) CreateResolvingFunctions()
+        internal Tuple<FunctionInstance, FunctionInstance> CreateResolvingFunctions()
         {
             var alreadyResolved = false;
             var resolve = new ClrFunctionInstance(_engine, "", (thisObj, args) =>
@@ -53,28 +63,30 @@ namespace Jint.Native.Promise
                 {
                     return Undefined;
                 }
+
                 alreadyResolved = true;
                 return Resolve(thisObj, args);
             }, 1, PropertyFlag.Configurable);
-            
+
             var reject = new ClrFunctionInstance(_engine, "", (thisObj, args) =>
             {
                 if (alreadyResolved)
                 {
                     return Undefined;
                 }
+
                 alreadyResolved = true;
                 return Reject(thisObj, args);
             }, 1, PropertyFlag.Configurable);
 
-            return (resolve, reject);
+            return new Tuple<FunctionInstance, FunctionInstance>(resolve, reject);
         }
 
         // https://tc39.es/ecma262/#sec-promise-resolve-functions
         private JsValue Resolve(JsValue thisObj, JsValue[] arguments)
         {
             // Note that alreadyResolved logic lives in CreateResolvingFunctions method
-            
+
             var result = arguments.At(0);
 
             if (result == this)
@@ -104,7 +116,7 @@ namespace Jint.Native.Promise
                 return FulfillPromise(result);
             }
 
-            _engine.QueuePromiseContinuation(
+            _engine.AddToEventLoop(
                 PromiseOperations.NewPromiseResolveThenableJob(this, resultObj, thenMethod));
 
             return Undefined;
@@ -114,7 +126,7 @@ namespace Jint.Native.Promise
         private JsValue Reject(JsValue thisObj, JsValue[] arguments)
         {
             // Note that alreadyResolved logic lives in CreateResolvingFunctions method
-            
+
             var reason = arguments.At(0);
 
             return RejectPromise(reason);
@@ -134,8 +146,7 @@ namespace Jint.Native.Promise
         {
             if (State != PromiseState.Pending)
             {
-                // TODO what is a proper way to assert?
-                throw new Exception("Promise should be in Pending state");
+                ExceptionHelper.ThrowInvalidOperationException("Promise should be in Pending state");
             }
 
             Settle(PromiseState.Rejected, reason);
@@ -155,8 +166,7 @@ namespace Jint.Native.Promise
         {
             if (State != PromiseState.Pending)
             {
-                // TODO what is a proper way to assert?
-                throw new Exception("Promise should be in Pending state");
+                ExceptionHelper.ThrowInvalidOperationException("Promise should be in Pending state");
             }
 
             Settle(PromiseState.Fulfilled, result);
@@ -171,46 +181,6 @@ namespace Jint.Native.Promise
         {
             State = state;
             Value = result;
-
-            // TODO should be just a single task perhaps? 
-            // if not should the list be copied first?
-            // I guess not because otherwise the task will be immediately resolved
-            foreach (var taskCompletionSource in _awaitingTasks)
-            {
-                switch (state)
-                {
-                    case PromiseState.Pending:
-                        throw new Exception("Promise should be in Settled state");
-                    case PromiseState.Fulfilled:
-                        taskCompletionSource.SetResult(result);
-                        break;
-                    case PromiseState.Rejected:
-                        taskCompletionSource.SetException(new PromiseRejectedException(result));
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(state), state, null);
-                }
-            }
-            _awaitingTasks.Clear();
-        }
-
-
-        internal Task<JsValue> ToTask()
-        {
-            Task<JsValue> AddAwaitedTask()
-            {
-                var task = new TaskCompletionSource<JsValue>();
-                _awaitingTasks.Add(task);
-                return task.Task;
-            }
-
-            return State switch
-            {
-                PromiseState.Pending => AddAwaitedTask(),
-                PromiseState.Fulfilled => Task.FromResult(Value),
-                PromiseState.Rejected => Task.FromException<JsValue>(new PromiseRejectedException(Value)),
-                _ => throw new ArgumentOutOfRangeException()
-            };
         }
     }
 }

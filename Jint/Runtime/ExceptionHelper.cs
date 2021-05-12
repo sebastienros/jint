@@ -152,6 +152,11 @@ namespace Jint.Runtime
         {
             throw new InvalidOperationException(message);
         }
+        
+        public static T ThrowInvalidOperationException<T>(string message = null)
+        {
+            throw new InvalidOperationException(message);
+        }
 
         [DoesNotReturn]
         public static void ThrowJavaScriptException(Engine engine, JsValue value, in Completion result)

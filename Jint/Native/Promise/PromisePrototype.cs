@@ -1,8 +1,4 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 using Jint.Collections;
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -11,7 +7,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise
 {
-    public sealed class PromisePrototype : ObjectInstance
+    internal sealed class PromisePrototype : ObjectInstance
     {
         private PromiseConstructor _promiseConstructor;
 
