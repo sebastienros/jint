@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using Jint.Native.Promise;
 
 namespace Jint.Runtime
 {
-    public sealed class EventLoop
+    internal sealed record EventLoop(Action OnFinished)
     {
-        internal readonly Queue<Action> PromiseContinuations = new();
+        internal readonly Queue<Action> Events = new();
+        internal readonly List<PromiseInstance> ManualPromises = new();
     }
 }

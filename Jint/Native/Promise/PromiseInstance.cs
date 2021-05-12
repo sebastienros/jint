@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -31,6 +32,12 @@ namespace Jint.Native.Promise
     internal sealed record ResolvingFunctions(
         FunctionInstance Resolve,
         FunctionInstance Reject
+    );
+    
+    public sealed record ManualPromise(
+        PromiseInstance Promise,
+        Action<JsValue> Resolve,
+        Action<JsValue> Reject
     );
 
 

@@ -58,11 +58,6 @@ namespace Jint
         private JsValue _completionValue = JsValue.Undefined;
         internal Node _lastSyntaxNode;
 
-        // private readonly object _promiseContinuationsPadlock = new object();
-        // private readonly System.Threading.SemaphoreSlim _threadLock = new System.Threading.SemaphoreSlim(1, 1);
-        // private readonly Queue<Action> _promiseContinuations = new Queue<Action>();
-        // private bool _continuationsTaskActive = false;
-
         private EventLoop _eventLoop = null;
 
         // lazy properties
@@ -405,45 +400,82 @@ namespace Jint
             return this;
         }
 
-        public EventLoop ExecuteWithEventLoop(Script script)
+        public Engine ExecuteWithEventLoop(Script script, Action onFinished)
         {
-            _eventLoop = new EventLoop();
+            _eventLoop = new EventLoop(onFinished);
 
             Execute(script);
 
-            RunAvailableContinuations(_eventLoop);
+            bool hasUserPromises = RunAvailableContinuations(_eventLoop);
 
-            _eventLoop = null; // TODO figure out custom async operations
+            if (!hasUserPromises)
+            {
+                // that means that EventLoop is empty and there are no user Promises left
+                _eventLoop = null;
+                onFinished();
+            }
 
-            return _eventLoop;
+
+            return this;
         }
 
-        public EventLoop ExecuteWithEventLoop(string source)
+        public Engine ExecuteWithEventLoop(string source, Action onFinished)
         {
             var parser = new JavaScriptParser(source, DefaultParserOptions);
-            return ExecuteWithEventLoop(parser.ParseScript());
+            return ExecuteWithEventLoop(parser.ParseScript(), onFinished);
+        }
+
+        public ManualPromise RegisterPromise()
+        {
+            if (_eventLoop == null)
+            {
+                ExceptionHelper.ThrowInvalidOperationException(
+                    "CreatePromise should be called within ExecuteWithEventLoop method");
+            }
+
+            var promise = new PromiseInstance(this);
+            var (resolve, reject) = promise.CreateResolvingFunctions();
+
+            _eventLoop.ManualPromises.Add(promise);
+
+            Action<JsValue> SettleWith(FunctionInstance settle) => value =>
+            {
+                _eventLoop.ManualPromises.Remove(promise);
+                settle.Call(JsValue.Undefined, new[] {value});
+                bool hasUserPromises = RunAvailableContinuations(_eventLoop);
+                
+                if (!hasUserPromises)
+                {
+                    // that means that EventLoop is empty and there are no user Promises left
+                    _eventLoop.OnFinished();
+                    _eventLoop = null;
+                }
+            };
+
+            return new ManualPromise(promise, SettleWith(resolve), SettleWith(reject));
         }
 
         internal void AddToEventLoop(Action continuation)
-        {
+        {   
             if (_eventLoop == null)
             {
                 ExceptionHelper.ThrowInvalidOperationException(
                     "You need to run this code with ExecuteWithEventLoop instead");
             }
 
-            _eventLoop.PromiseContinuations.Enqueue(continuation);
+            _eventLoop.Events.Enqueue(continuation);
         }
 
-        private static void RunAvailableContinuations(EventLoop context)
+
+        private static bool RunAvailableContinuations(EventLoop loop)
         {
-            var queue = context.PromiseContinuations;
+            var queue = loop.Events;
 
             while (true)
             {
                 if (queue.Count == 0)
                 {
-                    return;
+                    return loop.ManualPromises.Count > 0;
                 }
 
                 var nextContinuation = queue.Dequeue();
@@ -465,14 +497,14 @@ namespace Jint
         {
             return _completionValue;
         }
-        
+
         /// <summary>
         /// Gets the last evaluated statement completion value, if it is a Promise unwraps it
         /// </summary>
         public JsValue GetPromiseCompletionValue()
         {
             var completion = GetCompletionValue();
-            
+
             if (completion is PromiseInstance promise)
             {
                 return promise.State switch
@@ -480,11 +512,12 @@ namespace Jint
                     PromiseState.Pending => ExceptionHelper.ThrowInvalidOperationException<JsValue>(
                         "GetCompletionValue called before Promise was resolved, use ExecuteAsync instead"),
                     PromiseState.Fulfilled => promise.Value,
-                    PromiseState.Rejected => throw new PromiseRejectedException(promise.Value), // TODO use exception helper
+                    PromiseState.Rejected => throw new PromiseRejectedException(promise
+                        .Value), // TODO use exception helper
                     _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JsValue>()
                 };
             }
-            
+
             return completion;
         }
 
