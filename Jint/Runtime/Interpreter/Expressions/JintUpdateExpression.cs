@@ -30,7 +30,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else if (expression.Operator == UnaryOperator.Decrement)
             {
-                _change = - 1;
+                _change = -1;
             }
             else
             {

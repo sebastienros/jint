@@ -64,40 +64,12 @@ namespace Jint.Runtime.Interop
             foreach (var tuple in TypeConverter.FindBestMatch(_engine, constructors, _ => arguments))
             {
                 var method = tuple.Item1;
+                var retVal = method.Call(Engine, null, arguments);
+                var result = TypeConverter.ToObject(Engine, retVal);
 
-                var parameters = new object[arguments.Length];
-                var methodParameters = method.Parameters;
-                try
-                {
-                    for (var i = 0; i < arguments.Length; i++)
-                    {
-                        var parameterType = methodParameters[i].ParameterType;
+                // todo: cache method info
 
-                        if (typeof(JsValue).IsAssignableFrom(parameterType))
-                        {
-                            parameters[i] = arguments[i];
-                        }
-                        else
-                        {
-                            parameters[i] = Engine.ClrTypeConverter.Convert(
-                                arguments[i].ToObject(),
-                                parameterType,
-                                CultureInfo.InvariantCulture);
-                        }
-                    }
-
-                    var constructor = (ConstructorInfo) method.Method;
-                    var instance = constructor.Invoke(parameters);
-                    var result = TypeConverter.ToObject(Engine, FromObject(Engine, instance));
-
-                    // todo: cache method info
-
-                    return result;
-                }
-                catch (TargetInvocationException exception)
-                {
-                    ExceptionHelper.ThrowMeaningfulException(_engine, exception);
-                }
+                return result;
             }
 
             return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "No public methods with the specified arguments were found.");

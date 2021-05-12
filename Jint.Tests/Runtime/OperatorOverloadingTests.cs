@@ -13,6 +13,7 @@ namespace Jint.Tests.Runtime
                 .AllowOperatorOverloading())
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("assertFalse", new Action<bool>(Assert.False))
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
                 .SetValue("Vector2", typeof(Vector2))
                 .SetValue("Vector3", typeof(Vector3))
@@ -94,6 +95,26 @@ namespace Jint.Tests.Runtime
             {
                 return X.GetHashCode() + Y.GetHashCode();
             }
+
+            public static double operator +(Vector2 operand)
+            {
+                return Math.Sqrt(operand.X * operand.X + operand.Y * operand.Y);
+            }
+
+            public static Vector2 operator -(Vector2 operand)
+            {
+                return new Vector2(-operand.X, -operand.Y);
+            }
+
+            public static bool operator !(Vector2 operand)
+            {
+                return (+operand) == 0;
+            }
+
+            public static Vector2 operator ~(Vector2 operand)
+            {
+                return new Vector2(operand.Y, operand.X);
+            }
         }
 
         public class Vector3
@@ -126,7 +147,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void OperatorOverloading_ShouldWork()
+        public void OperatorOverloading_BinaryOperators()
         {
             RunTest(@"
                 var v1 = new Vector2(1, 2);
@@ -134,24 +155,24 @@ namespace Jint.Tests.Runtime
                 var n = 6;
 
                 var r1 = v1 + v2;
-                assert(r1.X === 4);
-                assert(r1.Y === 6);
+                equal(r1.X, 4);
+                equal(r1.Y, 6);
 
                 var r2 = n + v1;
-                assert(r2.X === 7);
-                assert(r2.Y === 8);
+                equal(r2.X, 7);
+                equal(r2.Y, 8);
 
                 var r3 = v1 + n;
-                assert(r3.X === 7);
-                assert(r3.Y === 8);
+                equal(r3.X, 7);
+                equal(r3.Y, 8);
 
                 var r4 = v1 * n;
-                assert(r4.X === 6);
-                assert(r4.Y === 12);
+                equal(r4.X, 6);
+                equal(r4.Y, 12);
 
                 var r5 = v1 / n;
-                assert(r5.X === (1 / 6));
-                assert(r5.Y === (2 / 6));
+                equal(r5.X, 1 / 6);
+                equal(r5.Y, 2 / 6);
             ");
         }
 
@@ -162,9 +183,9 @@ namespace Jint.Tests.Runtime
                 var v1 = new Vector2(1, 2);
                 var v2 = new Vector3(4, 5, 6);
                 var res = v1 + v2;
-                assert(res.X === 5);
-                assert(res.Y === 7);
-                assert(res.Z === 6);
+                equal(res.X, 5);
+                equal(res.Y, 7);
+                equal(res.Z, 6);
             ");
         }
 
@@ -175,15 +196,39 @@ namespace Jint.Tests.Runtime
                 var v1 = new Vector2(1, 2);
                 var v2 = new Vector2(1, 2);
                 assert(v1 == v2);
-                assert(!(v1 != v2));
+                assertFalse(v1 != v2);
                 assert(v1 !== v2);
-                assert(!(v1 === v2));
+                assertFalse(v1 === v2);
 
 
                 var z1 = new Vector3(1, 2, 3);
                 var z2 = new Vector3(1, 2, 3);
-                assert(!(z1 == z2));
+                assertFalse(z1 == z2);
             ");
         }
+
+        [Fact]
+        public void OperatorOverloading_UnaryOperators()
+        {
+            RunTest(@"
+                var v0 = new Vector2(0, 0);
+                var v = new Vector2(3, 4);
+                var rv = -v;
+                var bv = ~v;
+                
+                assert(!v0);
+                assertFalse(!v);
+
+                equal(+v0, 0);
+                equal(+v, 5);
+                equal(+rv, 5);
+                equal(rv.X, -3);
+                equal(rv.Y, -4);
+
+                equal(bv.X, 4);
+                equal(bv.Y, 3);
+            ");
+        }
+
     }
 }

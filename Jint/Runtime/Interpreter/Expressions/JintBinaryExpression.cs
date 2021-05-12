@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Esprima.Ast;
@@ -14,8 +12,8 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal abstract class JintBinaryExpression : JintExpression
     {
 #if NETSTANDARD
-        private static readonly ConcurrentDictionary<(string OperatorName, Type Source, Type Target), MethodDescriptor> _knownOperators = 
-            new ConcurrentDictionary<(string OperatorName, Type Source, Type Target), MethodDescriptor>();
+        private static readonly ConcurrentDictionary<(string OperatorName, System.Type Left, System.Type Right), MethodDescriptor> _knownOperators = 
+            new ConcurrentDictionary<(string OperatorName, System.Type Left, System.Type Right), MethodDescriptor>();
 #else
         private static readonly ConcurrentDictionary<string, MethodDescriptor> _knownOperators = new ConcurrentDictionary<string, MethodDescriptor>();
 #endif
@@ -53,7 +51,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var leftMethods = leftType.GetMethods(BindingFlags.Static | BindingFlags.Public);
                     var rightMethods = rightType.GetMethods(BindingFlags.Static | BindingFlags.Public);
 
-                    var methods = leftMethods.Concat(rightMethods).Where(x => x.Name == clrName);
+                    var methods = leftMethods.Concat(rightMethods).Where(x => x.IsSpecialName && x.Name == clrName && x.GetParameters().Length == 2);
                     var _methods = MethodDescriptor.Build(methods.ToArray());
 
                     return TypeConverter.FindBestMatch(_engine, _methods, _ => arguments).FirstOrDefault()?.Item1;
@@ -61,38 +59,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (method != null)
                 {
-                    var parameters = new object[arguments.Length];
-                    var methodParameters = method.Parameters;
-                    try
-                    {
-                        for (var i = 0; i < arguments.Length; i++)
-                        {
-                            var parameterType = methodParameters[i].ParameterType;
-
-                            if (typeof(JsValue).IsAssignableFrom(parameterType))
-                            {
-                                parameters[i] = arguments[i];
-                            }
-                            else
-                            {
-                                parameters[i] = _engine.ClrTypeConverter.Convert(
-                                    arguments[i].ToObject(),
-                                    parameterType,
-                                    CultureInfo.InvariantCulture);
-                            }
-                        }
-
-                        if (method.Method is MethodInfo m)
-                        {
-                            var retVal = m.Invoke(null, parameters);
-                            result = JsValue.FromObject(_engine, retVal);
-                            return true;
-                        }
-                    }
-                    catch (TargetInvocationException exception)
-                    {
-                        ExceptionHelper.ThrowMeaningfulException(_engine, exception);
-                    }
+                    result = method.Call(_engine, null, arguments);
+                    return true;
                 }
             }
             result = null;

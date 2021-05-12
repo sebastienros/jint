@@ -1,3 +1,4 @@
+using Jint.Native;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -7,7 +8,7 @@ namespace Jint.Runtime.Interop
 {
     internal class MethodDescriptor
     {
-        private MethodDescriptor(MethodBase method)
+        internal MethodDescriptor(MethodBase method)
         {
             Method = method;
             Parameters = method.GetParameters();
@@ -99,6 +100,51 @@ namespace Jint.Runtime.Interop
             Array.Sort(descriptors, CreateComparison);
 
             return descriptors;
+        }
+
+        public JsValue Call(Engine _engine, object instance, JsValue[] arguments)
+        {
+            var parameters = new object[arguments.Length];
+            var methodParameters = Parameters;
+            try
+            {
+                for (var i = 0; i < arguments.Length; i++)
+                {
+                    var parameterType = methodParameters[i].ParameterType;
+
+                    if (typeof(JsValue).IsAssignableFrom(parameterType))
+                    {
+                        parameters[i] = arguments[i];
+                    }
+                    else
+                    {
+                        parameters[i] = _engine.ClrTypeConverter.Convert(
+                            arguments[i].ToObject(),
+                            parameterType,
+                            System.Globalization.CultureInfo.InvariantCulture);
+                    }
+                }
+
+                if (Method is MethodInfo m)
+                {
+                    var retVal = m.Invoke(instance, parameters);
+                    return JsValue.FromObject(_engine, retVal);
+                }
+                else if (Method is ConstructorInfo c)
+                {
+                    var retVal = c.Invoke(parameters);
+                    return JsValue.FromObject(_engine, retVal);
+                }
+                else
+                {
+                    throw new Exception("Method is unknown type");
+                }
+            }
+            catch (TargetInvocationException exception)
+            {
+                ExceptionHelper.ThrowMeaningfulException(_engine, exception);
+                return null;
+            }
         }
     }
 }
