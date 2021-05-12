@@ -41,27 +41,11 @@ namespace Jint.Tests.Runtime
             }
 
             public static Vector2 operator +(Vector2 left, Vector2 right) => new Vector2(left.X + right.X, left.Y + right.Y);
-
             public static Vector2 operator +(Vector2 left, double right) => new Vector2(left.X + right, left.Y + right);
-
-            // This exists to test if the operator overloading can choose the correct method
             public static Vector2 operator +(string left, Vector2 right) => new Vector2(right.X, right.Y);
-
-            public static Vector2 operator *(Vector2 left, double right) => new Vector2(left.X * right, left.Y * right);
-
-            public static Vector2 operator /(Vector2 left, double right) => new Vector2(left.X / right, left.Y / right);
-
             public static Vector2 operator +(double left, Vector2 right) => new Vector2(right.X + left, right.Y + left);
-
-            public static implicit operator Vector3(Vector2 val) => new Vector3(val.X, val.Y, 0);
-
-            public static bool operator !=(Vector2 left, Vector2 right) => !(left == right);
-
-            public static bool operator ==(Vector2 left, Vector2 right) => left.X == right.X && left.Y == right.Y;
-
-            public override bool Equals(object obj) => ReferenceEquals(this, obj);
-
-            public override int GetHashCode() => X.GetHashCode() + Y.GetHashCode();
+            public static Vector2 operator *(Vector2 left, double right) => new Vector2(left.X * right, left.Y * right);
+            public static Vector2 operator /(Vector2 left, double right) => new Vector2(left.X / right, left.Y / right);
 
             public static double operator +(Vector2 operand) => Math.Sqrt(operand.X * operand.X + operand.Y * operand.Y);
             public static Vector2 operator -(Vector2 operand) => new Vector2(-operand.X, -operand.Y);
@@ -69,6 +53,12 @@ namespace Jint.Tests.Runtime
             public static Vector2 operator ~(Vector2 operand) => new Vector2(operand.Y, operand.X);
             public static Vector2 operator ++(Vector2 operand) => new Vector2(operand.X + 1, operand.Y + 1);
             public static Vector2 operator --(Vector2 operand) => new Vector2(operand.X - 1, operand.Y - 1);
+            
+            public static implicit operator Vector3(Vector2 val) => new Vector3(val.X, val.Y, 0);
+            public static bool operator !=(Vector2 left, Vector2 right) => !(left == right);
+            public static bool operator ==(Vector2 left, Vector2 right) => left.X == right.X && left.Y == right.Y;
+            public override bool Equals(object obj) => ReferenceEquals(this, obj);
+            public override int GetHashCode() => X.GetHashCode() + Y.GetHashCode();
         }
 
         public class Vector3
@@ -109,24 +99,24 @@ namespace Jint.Tests.Runtime
                 var n = 6;
 
                 var r1 = v1 + v2;
-                equal(r1.X, 4);
-                equal(r1.Y, 6);
+                equal(4, r1.X);
+                equal(6, r1.Y);
 
                 var r2 = n + v1;
-                equal(r2.X, 7);
-                equal(r2.Y, 8);
+                equal(7, r2.X);
+                equal(8, r2.Y);
 
                 var r3 = v1 + n;
-                equal(r3.X, 7);
-                equal(r3.Y, 8);
+                equal(7, r3.X);
+                equal(8, r3.Y);
 
                 var r4 = v1 * n;
-                equal(r4.X, 6);
-                equal(r4.Y, 12);
+                equal(6, r4.X);
+                equal(12, r4.Y);
 
                 var r5 = v1 / n;
-                equal(r5.X, 1 / 6);
-                equal(r5.Y, 2 / 6);
+                equal(1 / 6, r5.X);
+                equal(2 / 6, r5.Y);
             ");
         }
 
@@ -137,9 +127,9 @@ namespace Jint.Tests.Runtime
                 var v1 = new Vector2(1, 2);
                 var v2 = new Vector3(4, 5, 6);
                 var res = v1 + v2;
-                equal(res.X, 5);
-                equal(res.Y, 7);
-                equal(res.Z, 6);
+                equal(5, res.X);
+                equal(7, res.Y);
+                equal(6, res.Z);
             ");
         }
 
@@ -173,14 +163,14 @@ namespace Jint.Tests.Runtime
                 assert(!v0);
                 assertFalse(!v);
 
-                equal(+v0, 0);
-                equal(+v, 5);
-                equal(+rv, 5);
-                equal(rv.X, -3);
-                equal(rv.Y, -4);
+                equal(0, +v0);
+                equal(5, +v);
+                equal(5, +rv);
+                equal(-3, rv.X);
+                equal(-4, rv.Y);
 
-                equal(bv.X, 4);
-                equal(bv.Y, 3);
+                equal(4, bv.X);
+                equal(3, bv.Y);
             ");
         }
 
@@ -193,17 +183,17 @@ namespace Jint.Tests.Runtime
                 var pre = ++v;
                 var post = v++;
 
-                equal(original.X, 3);
-                equal(pre.X, 4);
-                equal(post.X, 4);
-                equal(v.X, 5);
+                equal(3, original.X);
+                equal(4, pre.X);
+                equal(4, post.X);
+                equal(5, v.X);
 
                 var decPre = --v;
                 var decPost = v--;
 
-                equal(decPre.X, 4);
-                equal(decPost.X, 4);
-                equal(v.X, 3);
+                equal(4, decPre.X);
+                equal(4, decPost.X);
+                equal(3, v.X);
             ");
         }
 
