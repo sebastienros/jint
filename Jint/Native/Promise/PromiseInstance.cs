@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -21,20 +20,19 @@ namespace Jint.Native.Promise
         Reject
     }
 
-    // Note that this should probably be a "record"
-    internal readonly struct PromiseReaction
-    {
-        internal PromiseReaction(ReactionType type, PromiseCapability capability, JsValue handler)
-        {
-            Capability = capability;
-            Type = type;
-            Handler = handler;
-        }
 
-        public PromiseCapability Capability { get; }
-        public ReactionType Type { get; }
-        public JsValue Handler { get; }
-    }
+    internal sealed record PromiseReaction(
+        ReactionType Type,
+        PromiseCapability Capability,
+        JsValue Handler
+    );
+
+
+    internal sealed record ResolvingFunctions(
+        FunctionInstance Resolve,
+        FunctionInstance Reject
+    );
+
 
     public sealed class PromiseInstance : ObjectInstance
     {
@@ -54,7 +52,7 @@ namespace Jint.Native.Promise
         // https://tc39.es/ecma262/#sec-createresolvingfunctions
         // Note that functions capture over alreadyResolved
         // that does imply that the same promise can be resolved twice but with different resolving functions
-        internal Tuple<FunctionInstance, FunctionInstance> CreateResolvingFunctions()
+        internal ResolvingFunctions CreateResolvingFunctions()
         {
             var alreadyResolved = false;
             var resolve = new ClrFunctionInstance(_engine, "", (thisObj, args) =>
@@ -79,7 +77,7 @@ namespace Jint.Native.Promise
                 return Reject(thisObj, args);
             }, 1, PropertyFlag.Configurable);
 
-            return new Tuple<FunctionInstance, FunctionInstance>(resolve, reject);
+            return new ResolvingFunctions(resolve, reject);
         }
 
         // https://tc39.es/ecma262/#sec-promise-resolve-functions
