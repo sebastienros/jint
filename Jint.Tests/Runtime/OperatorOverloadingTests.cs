@@ -84,6 +84,16 @@ namespace Jint.Tests.Runtime
             {
                 return left.X == right.X && left.Y == right.Y;
             }
+
+            public override bool Equals(object obj)
+            {
+                return ReferenceEquals(this, obj);
+            }
+
+            public override int GetHashCode()
+            {
+                return X.GetHashCode() + Y.GetHashCode();
+            }
         }
 
         public class Vector3
