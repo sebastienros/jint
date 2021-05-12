@@ -33,6 +33,8 @@ namespace Jint.Tests.Runtime
         {
             public double X { get; }
             public double Y { get; }
+            public double SqrMagnitude => X * X + Y * Y;
+            public double Magnitude => Math.Sqrt(SqrMagnitude);
 
             public Vector2(double x, double y)
             {
@@ -47,13 +49,22 @@ namespace Jint.Tests.Runtime
             public static Vector2 operator *(Vector2 left, double right) => new Vector2(left.X * right, left.Y * right);
             public static Vector2 operator /(Vector2 left, double right) => new Vector2(left.X / right, left.Y / right);
 
-            public static double operator +(Vector2 operand) => Math.Sqrt(operand.X * operand.X + operand.Y * operand.Y);
+            public static bool operator >(Vector2 left, Vector2 right) => left.Magnitude > right.Magnitude;
+            public static bool operator <(Vector2 left, Vector2 right) => left.Magnitude < right.Magnitude;
+            public static bool operator >=(Vector2 left, Vector2 right) => left.Magnitude >= right.Magnitude;
+            public static bool operator <=(Vector2 left, Vector2 right) => left.Magnitude <= right.Magnitude;
+            public static Vector2 operator %(Vector2 left, Vector2 right) => new Vector2(left.X % right.X, left.Y % right.Y);
+            public static double operator &(Vector2 left, Vector2 right) => left.X * right.X + left.Y * right.Y;
+            public static Vector2 operator |(Vector2 left, Vector2 right) => right * ((left & right) / right.SqrMagnitude);
+
+
+            public static double operator +(Vector2 operand) => operand.Magnitude;
             public static Vector2 operator -(Vector2 operand) => new Vector2(-operand.X, -operand.Y);
-            public static bool operator !(Vector2 operand) => (+operand) == 0;
+            public static bool operator !(Vector2 operand) => operand.Magnitude == 0;
             public static Vector2 operator ~(Vector2 operand) => new Vector2(operand.Y, operand.X);
             public static Vector2 operator ++(Vector2 operand) => new Vector2(operand.X + 1, operand.Y + 1);
             public static Vector2 operator --(Vector2 operand) => new Vector2(operand.X - 1, operand.Y - 1);
-            
+
             public static implicit operator Vector3(Vector2 val) => new Vector3(val.X, val.Y, 0);
             public static bool operator !=(Vector2 left, Vector2 right) => !(left == right);
             public static bool operator ==(Vector2 left, Vector2 right) => left.X == right.X && left.Y == right.Y;
@@ -74,20 +85,9 @@ namespace Jint.Tests.Runtime
                 Z = z;
             }
 
-            public static Vector3 operator +(Vector3 left, double right)
-            {
-                return new Vector3(left.X + right, left.Y + right, left.Z + right);
-            }
-
-            public static Vector3 operator +(double left, Vector3 right)
-            {
-                return new Vector3(right.X + left, right.Y + left, right.Z + left);
-            }
-
-            public static Vector3 operator +(Vector3 left, Vector3 right)
-            {
-                return new Vector3(left.X + right.X, left.Y + right.Y, left.Z + right.Z);
-            }
+            public static Vector3 operator +(Vector3 left, double right) => new Vector3(left.X + right, left.Y + right, left.Z + right);
+            public static Vector3 operator +(double left, Vector3 right) => new Vector3(right.X + left, right.Y + left, right.Z + left);
+            public static Vector3 operator +(Vector3 left, Vector3 right) => new Vector3(left.X + right.X, left.Y + right.Y, left.Z + right.Z);
         }
 
         [Fact]
@@ -117,6 +117,37 @@ namespace Jint.Tests.Runtime
                 var r5 = v1 / n;
                 equal(1 / 6, r5.X);
                 equal(2 / 6, r5.Y);
+
+                var r6 = v2 % new Vector2(2, 3);
+                equal(1, r6.X);
+                equal(1, r6.Y);
+
+                var r7 = v2 & v1;
+                equal(11, r7);
+
+                var r8 = new Vector2(3, 4) | new Vector2(2, 0);
+                equal(3, r8.X);
+                equal(0, r8.Y);
+
+                
+                var vSmall = new Vector2(3, 4);
+                var vBig = new Vector2(4, 4);
+
+                assert(vSmall < vBig);
+                assert(vSmall <= vBig);
+                assert(vSmall <= vSmall);
+                assert(vBig > vSmall);
+                assert(vBig >= vSmall);
+                assert(vBig >= vBig);
+
+                assertFalse(vSmall > vSmall);
+                assertFalse(vSmall < vSmall);
+                assertFalse(vSmall > vBig);
+                assertFalse(vSmall >= vBig);
+                assertFalse(vBig < vBig);
+                assertFalse(vBig > vBig);
+                assertFalse(vBig < vSmall);
+                assertFalse(vBig <= vSmall);
             ");
         }
 
