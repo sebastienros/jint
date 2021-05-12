@@ -74,7 +74,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                         break;
                 }
 
-                if (operatorClrName != null && TryOperatorOverloading(operatorClrName, out var result))
+                if (operatorClrName != null &&
+                    TryOperatorOverloading(_engine, _argument.GetValue(), operatorClrName, out var result))
                 {
                     return result;
                 }
@@ -208,9 +209,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             return JsNumber.Create(double.IsNaN(n) ? double.NaN : n * -1);
         }
 
-        private bool TryOperatorOverloading(string clrName, out object result)
+        internal static bool TryOperatorOverloading(Engine _engine, JsValue value, string clrName, out JsValue result)
         {
-            var value = _argument.GetValue();
             var operand = value.ToObject();
 
             if (operand != null)

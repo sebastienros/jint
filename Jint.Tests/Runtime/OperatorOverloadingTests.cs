@@ -40,81 +40,35 @@ namespace Jint.Tests.Runtime
                 Y = y;
             }
 
-            public static Vector2 operator +(Vector2 left, Vector2 right)
-            {
-                return new Vector2(left.X + right.X, left.Y + right.Y);
-            }
+            public static Vector2 operator +(Vector2 left, Vector2 right) => new Vector2(left.X + right.X, left.Y + right.Y);
 
-            public static Vector2 operator +(Vector2 left, double right)
-            {
-                return new Vector2(left.X + right, left.Y + right);
-            }
+            public static Vector2 operator +(Vector2 left, double right) => new Vector2(left.X + right, left.Y + right);
 
-            public static Vector2 operator +(string left, Vector2 right)
-            {
-                // This exists to test if the operator overloading can choose the correct method
-                return new Vector2(right.X, right.Y);
-            }
+            // This exists to test if the operator overloading can choose the correct method
+            public static Vector2 operator +(string left, Vector2 right) => new Vector2(right.X, right.Y);
 
-            public static Vector2 operator *(Vector2 left, double right)
-            {
-                return new Vector2(left.X * right, left.Y * right);
-            }
+            public static Vector2 operator *(Vector2 left, double right) => new Vector2(left.X * right, left.Y * right);
 
-            public static Vector2 operator /(Vector2 left, double right)
-            {
-                return new Vector2(left.X / right, left.Y / right);
-            }
+            public static Vector2 operator /(Vector2 left, double right) => new Vector2(left.X / right, left.Y / right);
 
-            public static Vector2 operator +(double left, Vector2 right)
-            {
-                return new Vector2(right.X + left, right.Y + left);
-            }
+            public static Vector2 operator +(double left, Vector2 right) => new Vector2(right.X + left, right.Y + left);
 
-            public static implicit operator Vector3(Vector2 val)
-            {
-                return new Vector3(val.X, val.Y, 0);
-            }
+            public static implicit operator Vector3(Vector2 val) => new Vector3(val.X, val.Y, 0);
 
-            public static bool operator !=(Vector2 left, Vector2 right)
-            {
-                return !(left == right);
-            }
+            public static bool operator !=(Vector2 left, Vector2 right) => !(left == right);
 
-            public static bool operator ==(Vector2 left, Vector2 right)
-            {
-                return left.X == right.X && left.Y == right.Y;
-            }
+            public static bool operator ==(Vector2 left, Vector2 right) => left.X == right.X && left.Y == right.Y;
 
-            public override bool Equals(object obj)
-            {
-                return ReferenceEquals(this, obj);
-            }
+            public override bool Equals(object obj) => ReferenceEquals(this, obj);
 
-            public override int GetHashCode()
-            {
-                return X.GetHashCode() + Y.GetHashCode();
-            }
+            public override int GetHashCode() => X.GetHashCode() + Y.GetHashCode();
 
-            public static double operator +(Vector2 operand)
-            {
-                return Math.Sqrt(operand.X * operand.X + operand.Y * operand.Y);
-            }
-
-            public static Vector2 operator -(Vector2 operand)
-            {
-                return new Vector2(-operand.X, -operand.Y);
-            }
-
-            public static bool operator !(Vector2 operand)
-            {
-                return (+operand) == 0;
-            }
-
-            public static Vector2 operator ~(Vector2 operand)
-            {
-                return new Vector2(operand.Y, operand.X);
-            }
+            public static double operator +(Vector2 operand) => Math.Sqrt(operand.X * operand.X + operand.Y * operand.Y);
+            public static Vector2 operator -(Vector2 operand) => new Vector2(-operand.X, -operand.Y);
+            public static bool operator !(Vector2 operand) => (+operand) == 0;
+            public static Vector2 operator ~(Vector2 operand) => new Vector2(operand.Y, operand.X);
+            public static Vector2 operator ++(Vector2 operand) => new Vector2(operand.X + 1, operand.Y + 1);
+            public static Vector2 operator --(Vector2 operand) => new Vector2(operand.X - 1, operand.Y - 1);
         }
 
         public class Vector3
@@ -227,6 +181,29 @@ namespace Jint.Tests.Runtime
 
                 equal(bv.X, 4);
                 equal(bv.Y, 3);
+            ");
+        }
+
+        [Fact]
+        public void OperatorOverloading_IncrementOperatorShouldWork()
+        {
+            RunTest(@"
+                var v = new Vector2(3, 22);
+                var original = v;
+                var pre = ++v;
+                var post = v++;
+
+                equal(original.X, 3);
+                equal(pre.X, 4);
+                equal(post.X, 4);
+                equal(v.X, 5);
+
+                var decPre = --v;
+                var decPost = v--;
+
+                equal(decPre.X, 4);
+                equal(decPost.X, 4);
+                equal(v.X, 3);
             ");
         }
 
