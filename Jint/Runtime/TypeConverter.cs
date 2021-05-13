@@ -627,6 +627,11 @@ namespace Jint.Runtime
                             score -= 10000;
                         }
                     }
+                    else if (paramType == typeof(JsValue))
+                    {
+                        // JsValue is convertible to. But it is still not a perfect match
+                        score -= 1;
+                    }
                     else if (argType != paramType)
                     {
                         // check if we can do conversion from int value to enum
@@ -641,7 +646,7 @@ namespace Jint.Runtime
                         {
                             if (paramType.IsAssignableFrom(argType))
                             {
-                                score -= 1;
+                                score -= 10;
                             }
                             else
                             {
@@ -654,7 +659,7 @@ namespace Jint.Runtime
                                 }
                                 else
                                 {
-                                    score -= 10000;
+                                    score -= 1000;
                                 }
                             }
                         }

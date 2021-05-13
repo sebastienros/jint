@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Jint.Native;
+using System;
 using Xunit;
 
 namespace Jint.Tests.Runtime
@@ -39,6 +40,7 @@ namespace Jint.Tests.Runtime
             public int TestMethod(TestClass a, TestClass b, TestClass c) => 4;
             public int TestMethod(TestClass a, double b, string c) => 5;
             public int TestMethod(ChildTestClass a, double b, string c) => 6;
+            public int TestMethod(ChildTestClass a, string b, JsValue c) => 7;
 
             public static implicit operator TestClass(double i) => new TestClass();
             public static implicit operator double(TestClass tc) => 0;
@@ -64,7 +66,9 @@ namespace Jint.Tests.Runtime
 
                 equal(6, tc.TestMethod(cc, 0, ''));
                 equal(1, tc.TestMethod(cc, 0, 0));
+                equal(6, tc.TestMethod(cc, cc, ''));
                 equal(6, tc.TestMethod(cc, 0, tc));
+                equal(7, tc.TestMethod(cc, '', {}));
             ");
         }
     }
