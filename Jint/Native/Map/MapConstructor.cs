@@ -54,12 +54,8 @@ namespace Jint.Native.Map
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            if (thisObject.IsUndefined())
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "Constructor Map requires 'new'");
-            }
-
-            return Construct(arguments, thisObject);
+            ExceptionHelper.ThrowTypeError(_engine, "Constructor Map requires 'new'");
+            return null;
         }
 
         /// <summary>

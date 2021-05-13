@@ -54,12 +54,8 @@ namespace Jint.Native.Set
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            if (thisObject.IsUndefined())
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "Constructor Set requires 'new'");
-            }
-
-            return Construct(arguments, thisObject);
+            ExceptionHelper.ThrowTypeError(_engine, "Constructor Set requires 'new'");
+            return null;
         }
 
         /// <summary>
