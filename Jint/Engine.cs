@@ -58,7 +58,7 @@ namespace Jint
         private JsValue _completionValue = JsValue.Undefined;
         internal Node _lastSyntaxNode;
 
-        private EventLoop _eventLoop = null;
+        private readonly EventLoop _eventLoop = new();
 
         // lazy properties
         private ErrorConstructor _error;
@@ -394,61 +394,13 @@ namespace Jint
                     throw ex;
                 }
 
+                // TODO what about callstack and thrown exceptions?
+                RunAvailableContinuations(_eventLoop);
+
                 _completionValue = result.GetValueOrDefault();
             }
 
             return this;
-        }
-
-        /// <summary>
-        /// EXPERIMENTAL! Subject to change.
-        /// 
-        /// Executes a script and then tries to process all schedules events.
-        /// It triggers onFinished callback when there are no scheduled events in the EventLoop
-        /// and when there are no user registered promises left unresolved.
-        /// </summary>
-        /// <param name="script"></param>
-        /// <param name="onFinished">called when EventLoop had no more events neither pending user promises</param>
-        /// <returns></returns>
-        public Engine ExecuteWithEventLoop(Script script, Action onFinished)
-        {
-            if (_eventLoop != null)
-            {
-                ExceptionHelper.ThrowInvalidOperationException(
-                    "CreatePromise should be called within ExecuteWithEventLoop method");
-            }
-
-            _eventLoop = new EventLoop(onFinished);
-
-            Execute(script);
-
-            bool hasUserPromises = RunAvailableContinuations(_eventLoop);
-
-            if (!hasUserPromises)
-            {
-                // that means that EventLoop is empty and there are no user Promises left
-                _eventLoop = null;
-                onFinished();
-            }
-
-
-            return this;
-        }
-
-        /// <summary>
-        /// EXPERIMENTAL! Subject to change.
-        /// 
-        /// Executes a script and then tries to process all schedules events.
-        /// It triggers onFinished callback when there are no scheduled events in the EventLoop
-        /// and when there are no user registered promises left unresolved.
-        /// </summary>
-        /// <param name="source"></param>
-        /// <param name="onFinished">called when EventLoop had no more events neither pending user promises</param>
-        /// <returns></returns>
-        public Engine ExecuteWithEventLoop(string source, Action onFinished)
-        {
-            var parser = new JavaScriptParser(source, DefaultParserOptions);
-            return ExecuteWithEventLoop(parser.ParseScript(), onFinished);
         }
 
         /// <summary>
@@ -463,12 +415,6 @@ namespace Jint
         /// <returns>a Promise instance and functions to either resolve or reject it</returns>
         public ManualPromise RegisterPromise()
         {
-            if (_eventLoop == null)
-            {
-                ExceptionHelper.ThrowInvalidOperationException(
-                    "CreatePromise should be called within ExecuteWithEventLoop method");
-            }
-
             var promise = new PromiseInstance(this)
             {
                 _prototype = Promise.PrototypeObject 
@@ -476,20 +422,11 @@ namespace Jint
             
             var (resolve, reject) = promise.CreateResolvingFunctions();
 
-            _eventLoop.ManualPromises.Add(promise);
 
             Action<JsValue> SettleWith(FunctionInstance settle) => value =>
             {
-                _eventLoop.ManualPromises.Remove(promise);
                 settle.Call(JsValue.Undefined, new[] {value});
-                bool hasUserPromises = RunAvailableContinuations(_eventLoop);
-
-                if (!hasUserPromises)
-                {
-                    // that means that EventLoop is empty and there are no user Promises left
-                    _eventLoop.OnFinished();
-                    _eventLoop = null;
-                }
+                RunAvailableContinuations(_eventLoop);
             };
 
             return new ManualPromise(promise, SettleWith(resolve), SettleWith(reject));
@@ -497,17 +434,11 @@ namespace Jint
 
         internal void AddToEventLoop(Action continuation)
         {
-            if (_eventLoop == null)
-            {
-                ExceptionHelper.ThrowInvalidOperationException(
-                    "You need to run this code with ExecuteWithEventLoop instead");
-            }
-
             _eventLoop.Events.Enqueue(continuation);
         }
 
 
-        private static bool RunAvailableContinuations(EventLoop loop)
+        private static void RunAvailableContinuations(EventLoop loop)
         {
             var queue = loop.Events;
 
@@ -515,7 +446,7 @@ namespace Jint
             {
                 if (queue.Count == 0)
                 {
-                    return loop.ManualPromises.Count > 0;
+                    return;
                 }
 
                 var nextContinuation = queue.Dequeue();

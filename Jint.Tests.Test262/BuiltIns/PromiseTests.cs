@@ -9,7 +9,7 @@ namespace Jint.Tests.Test262.BuiltIns
         [MemberData(nameof(SourceFiles), "built-ins\\Promise", true, Skip = "Skipped")]
         protected void Promise(SourceFile sourceFile)
         {
-            RunTestInternal(sourceFile, withEventLoop: true);
+            RunTestInternal(sourceFile);
         }
     }
 }

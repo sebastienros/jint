@@ -88,7 +88,7 @@ namespace Jint.Tests.Test262
             }
         }
 
-        protected void RunTestCode(string code, bool strict, bool withEventLoop)
+        protected void RunTestCode(string code, bool strict)
         {
             var engine = new Engine(cfg => cfg
                 .LocalTimeZone(_pacificTimeZone)
@@ -139,14 +139,7 @@ namespace Jint.Tests.Test262
             bool negative = code.IndexOf("negative:", StringComparison.Ordinal) > -1;
             try
             {
-                if (withEventLoop)
-                {
-                    engine.ExecuteWithEventLoop(code, () => {});
-                }
-                else
-                {
-                    engine.Execute(code);
-                }
+                engine.Execute(code);
             }
             catch (JavaScriptException j)
             {
@@ -163,7 +156,7 @@ namespace Jint.Tests.Test262
             }
         }
 
-        protected void RunTestInternal(SourceFile sourceFile, bool withEventLoop = false)
+        protected void RunTestInternal(SourceFile sourceFile)
         {
             if (sourceFile.Skip)
             {
@@ -172,13 +165,13 @@ namespace Jint.Tests.Test262
 
             if (sourceFile.Code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0)
             {
-                RunTestCode(sourceFile.Code, strict: false, withEventLoop);
+                RunTestCode(sourceFile.Code, strict: false);
             }
 
             if (!_strictSkips.Contains(sourceFile.Source)
                 && sourceFile.Code.IndexOf("noStrict", StringComparison.Ordinal) < 0)
             {
-                RunTestCode(sourceFile.Code, strict: true, withEventLoop);
+                RunTestCode(sourceFile.Code, strict: true);
             }
         }
 

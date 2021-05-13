@@ -5,9 +5,8 @@ using Jint.Native.Promise;
 
 namespace Jint.Runtime
 {
-    internal sealed record EventLoop(Action OnFinished)
+    internal sealed record EventLoop
     {
         internal readonly Queue<Action> Events = new();
-        internal readonly List<JsValue> ManualPromises = new();
     }
 }
