@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Reflection;
 using Esprima.Ast;
+using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Interop;
@@ -48,10 +49,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 #endif
                 var method = _knownOperators.GetOrAdd(key, _ =>
                 {
-                    var leftMethods = leftType.GetMethods(BindingFlags.Static | BindingFlags.Public);
-                    var rightMethods = rightType.GetMethods(BindingFlags.Static | BindingFlags.Public);
+                    var leftMethods = leftType.GetOperatorOverloadMethods();
+                    var rightMethods = rightType.GetOperatorOverloadMethods();
 
-                    var methods = leftMethods.Concat(rightMethods).Where(x => x.IsSpecialName && x.Name == clrName && x.GetParameters().Length == 2);
+                    var methods = leftMethods.Concat(rightMethods).Where(x => x.Name == clrName && x.GetParameters().Length == 2);
                     var _methods = MethodDescriptor.Build(methods.ToArray());
 
                     return TypeConverter.FindBestMatch(_engine, _methods, _ => arguments).FirstOrDefault()?.Item1;

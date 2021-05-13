@@ -222,12 +222,9 @@ namespace Jint.Runtime.Interop
 #endif
 
                 var castOperator = _knownCastOperators.GetOrAdd(key, _ =>
-                    valueType
-                    .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                    .Concat(type.GetMethods(BindingFlags.Public | BindingFlags.Static))
-                    .FirstOrDefault(m =>
-                        m.IsSpecialName
-                        && type.IsAssignableFrom(m.ReturnType)
+                    valueType.GetOperatorOverloadMethods()
+                    .Concat(type.GetOperatorOverloadMethods())
+                    .FirstOrDefault(m => type.IsAssignableFrom(m.ReturnType)
                         && (m.Name == "op_Implicit" || m.Name == "op_Explicit")));
 
                 if (castOperator != null)

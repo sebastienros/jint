@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
+using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Number;
 using Jint.Native.Number.Dtoa;
@@ -644,11 +645,10 @@ namespace Jint.Runtime
                             }
                             else
                             {
-                                if (argType.GetMethods(BindingFlags.Public | BindingFlags.Static)
-                                  .Any(m => m.IsSpecialName &&
-                                      paramType.IsAssignableFrom(m.ReturnType) &&
-                                           (m.Name == "op_Implicit" ||
-                                            m.Name == "op_Explicit")))
+                                if (argType.GetOperatorOverloadMethods()
+                                  .Any(m => paramType.IsAssignableFrom(m.ReturnType) &&
+                                    (m.Name == "op_Implicit" ||
+                                    m.Name == "op_Explicit")))
                                 {
                                     score -= 100;
                                 }

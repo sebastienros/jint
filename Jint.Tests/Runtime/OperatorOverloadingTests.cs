@@ -17,6 +17,7 @@ namespace Jint.Tests.Runtime
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
                 .SetValue("Vector2", typeof(Vector2))
                 .SetValue("Vector3", typeof(Vector3))
+                .SetValue("Vector2Child", typeof(Vector2Child))
             ;
         }
 
@@ -70,6 +71,13 @@ namespace Jint.Tests.Runtime
             public static bool operator ==(Vector2 left, Vector2 right) => left.X == right.X && left.Y == right.Y;
             public override bool Equals(object obj) => ReferenceEquals(this, obj);
             public override int GetHashCode() => X.GetHashCode() + Y.GetHashCode();
+        }
+
+        public class Vector2Child : Vector2
+        {
+            public Vector2Child(double x, double y) : base(x, y) { }
+
+            public static Vector2Child operator +(Vector2Child left, double right) => new Vector2Child(left.X + 2 * right, left.Y + 2 * right);
         }
 
         public class Vector3
@@ -225,6 +233,27 @@ namespace Jint.Tests.Runtime
                 equal(4, decPre.X);
                 equal(4, decPost.X);
                 equal(3, v.X);
+            ");
+        }
+
+        [Fact]
+        public void OperatorOverloading_ShouldWorkOnDerivedClasses()
+        {
+            RunTest(@"
+                var v1 = new Vector2Child(1, 2);
+                var v2 = new Vector2Child(3, 4);
+                var n = 5;
+
+                var v1v2 = v1 + v2;
+                var v1n = v1 + n;
+
+                // Uses the (Vector2 + Vector2) operator on the parent class
+                equal(4, v1v2.X);
+                equal(6, v1v2.Y);
+
+                // Uses the (Vector2Child + double) operator on the child class
+                equal(11, v1n.X);
+                equal(12, v1n.Y);
             ");
         }
 

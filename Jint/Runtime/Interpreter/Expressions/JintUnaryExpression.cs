@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Jint.Extensions;
 using Jint.Native;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
@@ -225,8 +226,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 #endif
                 var method = _knownOperators.GetOrAdd(key, _ =>
                 {
-                    var foundMethod = operandType.GetMethods(BindingFlags.Static | BindingFlags.Public)
-                        .FirstOrDefault(x => x.IsSpecialName && x.Name == clrName && x.GetParameters().Length == 1);
+                    var foundMethod = operandType.GetOperatorOverloadMethods()
+                        .FirstOrDefault(x => x.Name == clrName && x.GetParameters().Length == 1);
 
                     if (foundMethod != null)
                     {
