@@ -44,6 +44,12 @@ namespace Jint.Extensions
                 .Where(m => m.IsExtensionMethod());
         }
 
+        internal static IEnumerable<MethodInfo> GetOperatorOverloadMethods(this Type type)
+        {
+            return type.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
+                .Where(m => m.IsSpecialName);
+        }
+
         private static bool IsExtensionMethod(this MethodBase methodInfo)
         {
             return methodInfo.IsDefined(typeof(ExtensionAttribute), true);

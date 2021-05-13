@@ -1,12 +1,24 @@
 using Esprima.Ast;
+using Jint.Extensions;
 using Jint.Native;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interop;
 using Jint.Runtime.References;
+using System.Collections.Concurrent;
+using System.Linq;
+using System.Reflection;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintUnaryExpression : JintExpression
     {
+#if NETSTANDARD
+        private static readonly ConcurrentDictionary<(string OperatorName, System.Type Operand), MethodDescriptor> _knownOperators = 
+            new ConcurrentDictionary<(string OperatorName, System.Type Operand), MethodDescriptor>();
+#else
+        private static readonly ConcurrentDictionary<string, MethodDescriptor> _knownOperators = new ConcurrentDictionary<string, MethodDescriptor>();
+#endif
+
         private readonly JintExpression _argument;
         private readonly UnaryOperator _operator;
 
@@ -42,6 +54,34 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
+            if (_engine.Options._IsOperatorOverloadingAllowed)
+            {
+                string operatorClrName = null;
+                switch (_operator)
+                {
+                    case UnaryOperator.Plus:
+                        operatorClrName = "op_UnaryPlus";
+                        break;
+                    case UnaryOperator.Minus:
+                        operatorClrName = "op_UnaryNegation";
+                        break;
+                    case UnaryOperator.BitwiseNot:
+                        operatorClrName = "op_OnesComplement";
+                        break;
+                    case UnaryOperator.LogicalNot:
+                        operatorClrName = "op_LogicalNot";
+                        break;
+                    default:
+                        break;
+                }
+
+                if (operatorClrName != null &&
+                    TryOperatorOverloading(_engine, _argument.GetValue(), operatorClrName, out var result))
+                {
+                    return result;
+                }
+            }
+
             switch (_operator)
             {
                 case UnaryOperator.Plus:
@@ -83,9 +123,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             ExceptionHelper.ThrowReferenceError(_engine, r);
                         }
-                        
+
                         var o = TypeConverter.ToObject(_engine, r.GetBase());
-                        var deleteStatus  = o.Delete(r.GetReferencedName());
+                        var deleteStatus = o.Delete(r.GetReferencedName());
                         if (!deleteStatus && r.IsStrictReference())
                         {
                             ExceptionHelper.ThrowTypeError(_engine);
@@ -168,6 +208,42 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var n = TypeConverter.ToNumber(minusValue);
             return JsNumber.Create(double.IsNaN(n) ? double.NaN : n * -1);
+        }
+
+        internal static bool TryOperatorOverloading(Engine _engine, JsValue value, string clrName, out JsValue result)
+        {
+            var operand = value.ToObject();
+
+            if (operand != null)
+            {
+                var operandType = operand.GetType();
+                var arguments = new[] { value };
+
+#if NETSTANDARD
+                var key = (clrName, operandType);
+#else
+                var key = $"{clrName}->{operandType}";
+#endif
+                var method = _knownOperators.GetOrAdd(key, _ =>
+                {
+                    var foundMethod = operandType.GetOperatorOverloadMethods()
+                        .FirstOrDefault(x => x.Name == clrName && x.GetParameters().Length == 1);
+
+                    if (foundMethod != null)
+                    {
+                        return new MethodDescriptor(foundMethod);
+                    }
+                    return null;
+                });
+
+                if (method != null)
+                {
+                    result = method.Call(_engine, null, arguments);
+                    return true;
+                }
+            }
+            result = null;
+            return false;
         }
     }
 }

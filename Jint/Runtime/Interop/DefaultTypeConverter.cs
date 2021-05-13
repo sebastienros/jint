@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Dynamic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Extensions;
@@ -16,8 +17,10 @@ namespace Jint.Runtime.Interop
 
 #if NETSTANDARD
         private static readonly ConcurrentDictionary<(Type Source, Type Target), bool> _knownConversions = new ConcurrentDictionary<(Type Source, Type Target), bool>();
+        private static readonly ConcurrentDictionary<(Type Source, Type Target), MethodInfo> _knownCastOperators = new ConcurrentDictionary<(Type Source, Type Target), MethodInfo>();
 #else
         private static readonly ConcurrentDictionary<string, bool> _knownConversions = new ConcurrentDictionary<string, bool>();
+        private static readonly ConcurrentDictionary<string, MethodInfo> _knownCastOperators = new ConcurrentDictionary<string, MethodInfo>();
 #endif
 
         private static readonly Type nullableType = typeof(Nullable<>);
@@ -28,7 +31,7 @@ namespace Jint.Runtime.Interop
         private static readonly Type engineType = typeof(Engine);
         private static readonly Type typeType = typeof(Type);
 
-        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new [] { objectType, typeType, typeof(IFormatProvider) });
+        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new[] { objectType, typeType, typeof(IFormatProvider) });
         private static readonly MethodInfo jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject));
         private static readonly MethodInfo jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject));
 
@@ -76,7 +79,7 @@ namespace Jint.Runtime.Interop
             // is the javascript value an ICallable instance ?
             if (valueType == iCallableType)
             {
-                var function = (Func<JsValue, JsValue[], JsValue>)value;
+                var function = (Func<JsValue, JsValue[], JsValue>) value;
 
                 if (typeof(Delegate).IsAssignableFrom(type) && !type.IsAbstract)
                 {
@@ -119,11 +122,11 @@ namespace Jint.Runtime.Interop
                             Expression.Convert(
                                 Expression.Call(
                                     null,
-                                    convertChangeType, 
-                                    Expression.Call(callExpression, jsValueToObject), 
-                                    Expression.Constant(method.ReturnType), 
+                                    convertChangeType,
+                                    Expression.Call(callExpression, jsValueToObject),
+                                    Expression.Constant(method.ReturnType),
                                     Expression.Constant(System.Globalization.CultureInfo.InvariantCulture, typeof(IFormatProvider))
-                                    ), 
+                                    ),
                                 method.ReturnType
                                 ),
                             new ReadOnlyCollection<ParameterExpression>(@params)).Compile();
@@ -168,7 +171,7 @@ namespace Jint.Runtime.Interop
                 }
 
                 // reference types - return null if no valid constructor is found
-                if(!type.IsValueType)
+                if (!type.IsValueType)
                 {
                     var found = false;
                     foreach (var constructor in constructors)
@@ -208,6 +211,26 @@ namespace Jint.Runtime.Interop
                 }
 
                 return obj;
+            }
+
+            if (_engine.Options._IsOperatorOverloadingAllowed)
+            {
+#if NETSTANDARD
+                var key = (valueType, type);
+#else
+                var key = $"{valueType}->{type}";
+#endif
+
+                var castOperator = _knownCastOperators.GetOrAdd(key, _ =>
+                    valueType.GetOperatorOverloadMethods()
+                    .Concat(type.GetOperatorOverloadMethods())
+                    .FirstOrDefault(m => type.IsAssignableFrom(m.ReturnType)
+                        && (m.Name == "op_Implicit" || m.Name == "op_Explicit")));
+
+                if (castOperator != null)
+                {
+                    return castOperator.Invoke(null, new[] { value });
+                }
             }
 
             return System.Convert.ChangeType(value, type, formatProvider);

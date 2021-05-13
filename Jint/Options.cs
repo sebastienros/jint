@@ -24,6 +24,7 @@ namespace Jint
         private DebuggerStatementHandling _debuggerStatementHandling;
         private bool _allowClr;
         private bool _allowClrWrite = true;
+        private bool _allowOperatorOverloading;
         private readonly List<IObjectConverter> _objectConverters = new();
         private Func<Engine, object, ObjectInstance> _wrapObjectHandler;
         private MemberAccessorDelegate _memberAccessor;
@@ -127,7 +128,7 @@ namespace Jint
                 JsValue key = overloads.Key;
                 PropertyDescriptor descriptorWithFallback = null;
                 PropertyDescriptor descriptorWithoutFallback = null;
-                
+
                 if (prototype.HasOwnProperty(key) && prototype.GetOwnProperty(key).Value is ClrFunctionInstance clrFunctionInstance)
                 {
                     descriptorWithFallback = CreateMethodInstancePropertyDescriptor(clrFunctionInstance);
@@ -207,6 +208,12 @@ namespace Jint
         public Options AllowClrWrite(bool allow = true)
         {
             _allowClrWrite = allow;
+            return this;
+        }
+
+        public Options AllowOperatorOverloading(bool allow = true)
+        {
+            _allowOperatorOverloading = allow;
             return this;
         }
 
@@ -334,6 +341,8 @@ namespace Jint
         internal bool IsDebugMode { get; private set; }
 
         internal bool _IsClrWriteAllowed => _allowClrWrite;
+
+        internal bool _IsOperatorOverloadingAllowed => _allowOperatorOverloading;
 
         internal Predicate<Exception> _ClrExceptionsHandler => _clrExceptionsHandler;
 
