@@ -28,7 +28,7 @@ namespace Jint.Tests.Test262
 
         private static readonly HashSet<string> _strictSkips =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        
+
         static Test262Test()
         {
             //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
@@ -54,6 +54,7 @@ namespace Jint.Tests.Test262
                 "assert.js",
                 "arrayContains.js",
                 "isConstructor.js",
+                "promiseHelper.js",
                 "propertyHelper.js",
                 "compareArray.js",
                 "decimalToHexString.js",
@@ -96,26 +97,28 @@ namespace Jint.Tests.Test262
 
             engine.Execute(Sources["sta.js"], CreateParserOptions("sta.js"));
             engine.Execute(Sources["assert.js"], CreateParserOptions("assert.js"));
-            engine.SetValue("print", new ClrFunctionInstance(engine, "print", (thisObj, args) => TypeConverter.ToString(args.At(0))));
+            engine.SetValue("print",
+                new ClrFunctionInstance(engine, "print", (thisObj, args) => TypeConverter.ToString(args.At(0))));
 
             var o = engine.Object.Construct(Arguments.Empty);
-            o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunctionInstance(engine, "evalScript", (thisObj, args) =>
-            {
-                if (args.Length > 1)
+            o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunctionInstance(engine, "evalScript",
+                (thisObj, args) =>
                 {
-                    throw new Exception("only script parsing supported");
-                }
+                    if (args.Length > 1)
+                    {
+                        throw new Exception("only script parsing supported");
+                    }
 
-                var options = new ParserOptions { AdaptRegexp = true, Tolerant = false };
-                var parser = new JavaScriptParser(args.At(0).AsString(), options);
-                var script = parser.ParseScript(strict);
+                    var options = new ParserOptions {AdaptRegexp = true, Tolerant = false};
+                    var parser = new JavaScriptParser(args.At(0).AsString(), options);
+                    var script = parser.ParseScript(strict);
 
-                var value = engine.Execute(script).GetCompletionValue();
-                
-                return value;
-            }), true, true, true));
+                    var value = engine.Execute(script).GetCompletionValue();
+
+                    return value;
+                }), true, true, true));
             engine.SetValue("$262", o);
-            
+
             var includes = Regex.Match(code, @"includes: \[(.+?)\]");
             if (includes.Success)
             {
@@ -130,7 +133,7 @@ namespace Jint.Tests.Test262
             {
                 engine.Execute(Sources["propertyHelper.js"], CreateParserOptions("propertyHelper.js"));
             }
-            
+
             string lastError = null;
 
             bool negative = code.IndexOf("negative:", StringComparison.Ordinal) > -1;
@@ -277,7 +280,7 @@ namespace Jint.Tests.Test262
                         }
                     }
                 }
-                
+
                 if (code.IndexOf("SpecialCasing.txt") > -1)
                 {
                     skip = true;
@@ -307,47 +310,55 @@ namespace Jint.Tests.Test262
                     skip = true;
                     reason = "Promise not implemented";
                 }
-                
+
                 if (name.StartsWith("language/statements/class/subclass/builtin-objects/TypedArray"))
                 {
                     skip = true;
                     reason = "TypedArray not implemented";
                 }
-                
+
                 if (name.StartsWith("language/statements/class/subclass/builtin-objects/WeakMap"))
                 {
                     skip = true;
                     reason = "WeakMap not implemented";
                 }
-                
+
                 if (name.StartsWith("language/statements/class/subclass/builtin-objects/WeakSet"))
                 {
                     skip = true;
                     reason = "WeakSet not implemented";
                 }
-                
+
                 if (name.StartsWith("language/statements/class/subclass/builtin-objects/ArrayBuffer/"))
                 {
                     skip = true;
                     reason = "ArrayBuffer not implemented";
                 }
-                
+
                 if (name.StartsWith("language/statements/class/subclass/builtin-objects/DataView"))
                 {
                     skip = true;
                     reason = "DataView not implemented";
                 }
-                                
+
                 if (name.StartsWith("language/statements/class/subclass/builtins.js"))
                 {
                     skip = true;
                     reason = "Uint8Array not implemented";
                 }
-                
+
                 if (name.StartsWith("built-ins/RegExp/CharacterClassEscapes/"))
                 {
                     skip = true;
                     reason = "for-of not implemented";
+                }
+
+                // Promises
+                if (name.StartsWith("built-ins/Promise/allSettled") ||
+                    name.StartsWith("built-ins/Promise/any"))
+                {
+                    skip = true;
+                    reason = "Promise.any and Promise.allSettled are not implemented yet";
                 }
 
                 if (file.EndsWith("tv-line-continuation.js")
@@ -376,20 +387,19 @@ namespace Jint.Tests.Test262
 
             return results;
         }
-        
-        private static ParserOptions CreateParserOptions(string fileName) => 
+
+        private static ParserOptions CreateParserOptions(string fileName) =>
             new ParserOptions(fileName)
             {
                 AdaptRegexp = true,
                 Tolerant = true
             };
     }
-    
+
     public class SourceFile : IXunitSerializable
     {
         public SourceFile()
         {
-
         }
 
         public SourceFile(

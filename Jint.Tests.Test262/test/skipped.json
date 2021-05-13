@@ -87,16 +87,16 @@
     "reason": "Windows line ending differences"
   },
   {
-    "source": "built-ins/Symbol/species/builtin-getter-name.js",
-    "reason": "Promise not implemented"
-  },
-  {
     "source": "language/expressions/object/method-definition/object-method-returns-promise.js",
     "reason": "Promise not implemented"
   },
   {
     "source": "language/statements/class/definition/class-method-returns-promise.js",
     "reason": "Promise not implemented"
+  },
+  {
+    "source": "built-ins/Promise/race/resolve-element-function-name.js",
+    "reason": "there is bug in suite and bug in Jint, refer to https://github.com/sebastienros/jint/issues/888 and https://github.com/tc39/test262/issues/2985"
   },
   {
     "source": "built-ins/Symbol/species/subclassing.js",

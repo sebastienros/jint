@@ -17,6 +17,7 @@ using Jint.Native.Map;
 using Jint.Native.Math;
 using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Native.Proxy;
 using Jint.Native.Reflect;
 using Jint.Native.RegExp;
@@ -57,6 +58,8 @@ namespace Jint
         private JsValue _completionValue = JsValue.Undefined;
         internal Node _lastSyntaxNode;
 
+        private readonly EventLoop _eventLoop = new();
+
         // lazy properties
         private ErrorConstructor _error;
         private ErrorConstructor _evalError;
@@ -83,23 +86,26 @@ namespace Jint
 
         internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new()
         {
-            { typeof(bool), (engine, v) => (bool) v ? JsBoolean.True : JsBoolean.False },
-            { typeof(byte), (engine, v) => JsNumber.Create((byte)v) },
-            { typeof(char), (engine, v) => JsString.Create((char)v) },
-            { typeof(DateTime), (engine, v) => engine.Date.Construct((DateTime)v) },
-            { typeof(DateTimeOffset), (engine, v) => engine.Date.Construct((DateTimeOffset)v) },
-            { typeof(decimal), (engine, v) => (JsValue) (double)(decimal)v },
-            { typeof(double), (engine, v) => (JsValue)(double)v },
-            { typeof(Int16), (engine, v) => JsNumber.Create((Int16)v) },
-            { typeof(Int32), (engine, v) => JsNumber.Create((Int32)v) },
-            { typeof(Int64), (engine, v) => (JsValue)(Int64)v },
-            { typeof(SByte), (engine, v) => JsNumber.Create((SByte)v) },
-            { typeof(Single), (engine, v) => (JsValue)(Single)v },
-            { typeof(string), (engine, v) => JsString.Create((string) v) },
-            { typeof(UInt16), (engine, v) => JsNumber.Create((UInt16)v) },
-            { typeof(UInt32), (engine, v) => JsNumber.Create((UInt32)v) },
-            { typeof(UInt64), (engine, v) => JsNumber.Create((UInt64)v) },
-            { typeof(System.Text.RegularExpressions.Regex), (engine, v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "") }
+            {typeof(bool), (engine, v) => (bool) v ? JsBoolean.True : JsBoolean.False},
+            {typeof(byte), (engine, v) => JsNumber.Create((byte) v)},
+            {typeof(char), (engine, v) => JsString.Create((char) v)},
+            {typeof(DateTime), (engine, v) => engine.Date.Construct((DateTime) v)},
+            {typeof(DateTimeOffset), (engine, v) => engine.Date.Construct((DateTimeOffset) v)},
+            {typeof(decimal), (engine, v) => (JsValue) (double) (decimal) v},
+            {typeof(double), (engine, v) => (JsValue) (double) v},
+            {typeof(Int16), (engine, v) => JsNumber.Create((Int16) v)},
+            {typeof(Int32), (engine, v) => JsNumber.Create((Int32) v)},
+            {typeof(Int64), (engine, v) => (JsValue) (Int64) v},
+            {typeof(SByte), (engine, v) => JsNumber.Create((SByte) v)},
+            {typeof(Single), (engine, v) => (JsValue) (Single) v},
+            {typeof(string), (engine, v) => JsString.Create((string) v)},
+            {typeof(UInt16), (engine, v) => JsNumber.Create((UInt16) v)},
+            {typeof(UInt32), (engine, v) => JsNumber.Create((UInt32) v)},
+            {typeof(UInt64), (engine, v) => JsNumber.Create((UInt64) v)},
+            {
+                typeof(System.Text.RegularExpressions.Regex),
+                (engine, v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex) v, "")
+            }
         };
 
         // shared frozen version
@@ -144,13 +150,18 @@ namespace Jint
 
             Object = ObjectConstructor.CreateObjectConstructor(this);
             Function = FunctionConstructor.CreateFunctionConstructor(this);
-            _callerCalleeArgumentsThrowerConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this,  PropertyFlag.Configurable | PropertyFlag.CustomJsValue, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
-            _callerCalleeArgumentsThrowerNonConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this, PropertyFlag.CustomJsValue, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
+            _callerCalleeArgumentsThrowerConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this,
+                PropertyFlag.Configurable | PropertyFlag.CustomJsValue,
+                "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
+            _callerCalleeArgumentsThrowerNonConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this,
+                PropertyFlag.CustomJsValue,
+                "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
 
             Symbol = SymbolConstructor.CreateSymbolConstructor(this);
             Array = ArrayConstructor.CreateArrayConstructor(this);
             Map = MapConstructor.CreateMapConstructor(this);
             Set = SetConstructor.CreateSetConstructor(this);
+            Promise = PromiseConstructor.CreatePromiseConstructor(this);
             Iterator = IteratorConstructor.CreateIteratorConstructor(this);
             String = StringConstructor.CreateStringConstructor(this);
             RegExp = RegExpConstructor.CreateRegExpConstructor(this);
@@ -181,7 +192,8 @@ namespace Jint
             EnterExecutionContext(GlobalEnvironment, GlobalEnvironment);
 
             Eval = new EvalFunctionInstance(this);
-            Global.SetProperty(CommonProperties.Eval, new PropertyDescriptor(Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
+            Global.SetProperty(CommonProperties.Eval,
+                new PropertyDescriptor(Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
 
             Options = new Options();
 
@@ -208,6 +220,7 @@ namespace Jint
         public ArrayConstructor Array { get; }
         public MapConstructor Map { get; }
         public SetConstructor Set { get; }
+        public PromiseConstructor Promise { get; }
         public IteratorConstructor Iterator { get; }
         public StringConstructor String { get; }
         public RegExpConstructor RegExp { get; }
@@ -222,12 +235,24 @@ namespace Jint
         public EvalFunctionInstance Eval { get; }
 
         public ErrorConstructor Error => _error ??= ErrorConstructor.CreateErrorConstructor(this, _errorFunctionName);
-        public ErrorConstructor EvalError => _evalError ??= ErrorConstructor.CreateErrorConstructor(this, _evalErrorFunctionName);
-        public ErrorConstructor SyntaxError => _syntaxError ??= ErrorConstructor.CreateErrorConstructor(this, _syntaxErrorFunctionName);
-        public ErrorConstructor TypeError => _typeError ??= ErrorConstructor.CreateErrorConstructor(this, _typeErrorFunctionName);
-        public ErrorConstructor RangeError => _rangeError ??= ErrorConstructor.CreateErrorConstructor(this, _rangeErrorFunctionName);
-        public ErrorConstructor ReferenceError => _referenceError ??= ErrorConstructor.CreateErrorConstructor(this, _referenceErrorFunctionName);
-        public ErrorConstructor UriError => _uriError ??= ErrorConstructor.CreateErrorConstructor(this, _uriErrorFunctionName);
+
+        public ErrorConstructor EvalError =>
+            _evalError ??= ErrorConstructor.CreateErrorConstructor(this, _evalErrorFunctionName);
+
+        public ErrorConstructor SyntaxError =>
+            _syntaxError ??= ErrorConstructor.CreateErrorConstructor(this, _syntaxErrorFunctionName);
+
+        public ErrorConstructor TypeError =>
+            _typeError ??= ErrorConstructor.CreateErrorConstructor(this, _typeErrorFunctionName);
+
+        public ErrorConstructor RangeError =>
+            _rangeError ??= ErrorConstructor.CreateErrorConstructor(this, _rangeErrorFunctionName);
+
+        public ErrorConstructor ReferenceError => _referenceError ??=
+            ErrorConstructor.CreateErrorConstructor(this, _referenceErrorFunctionName);
+
+        public ErrorConstructor UriError =>
+            _uriError ??= ErrorConstructor.CreateErrorConstructor(this, _uriErrorFunctionName);
 
         public ref readonly ExecutionContext ExecutionContext
         {
@@ -239,7 +264,12 @@ namespace Jint
 
         internal long CurrentMemoryUsage { get; private set; }
 
-        internal Options Options { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; private set; }
+        internal Options Options
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get;
+            private set;
+        }
 
         public DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this);
 
@@ -358,15 +388,72 @@ namespace Jint
 
                 if (result.Type == CompletionType.Throw)
                 {
-                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
+                    var ex = new JavaScriptException(result.GetValueOrDefault())
+                        .SetCallstack(this, result.Location);
                     ResetCallStack();
                     throw ex;
                 }
+
+                // TODO what about callstack and thrown exceptions?
+                RunAvailableContinuations(_eventLoop);
 
                 _completionValue = result.GetValueOrDefault();
             }
 
             return this;
+        }
+
+        /// <summary>
+        /// EXPERIMENTAL! Subject to change.
+        /// 
+        /// Registers a promise within the currently running EventLoop (has to be called within "ExecuteWithEventLoop" call).
+        /// Note that ExecuteWithEventLoop will not trigger "onFinished" callback until ALL manual promises are settled.
+        ///
+        /// NOTE: that resolve and reject need to be called withing the same thread as "ExecuteWithEventLoop".
+        /// The API assumes that the Engine is called from a single thread.
+        /// </summary>
+        /// <returns>a Promise instance and functions to either resolve or reject it</returns>
+        public ManualPromise RegisterPromise()
+        {
+            var promise = new PromiseInstance(this)
+            {
+                _prototype = Promise.PrototypeObject 
+            };
+            
+            var (resolve, reject) = promise.CreateResolvingFunctions();
+
+
+            Action<JsValue> SettleWith(FunctionInstance settle) => value =>
+            {
+                settle.Call(JsValue.Undefined, new[] {value});
+                RunAvailableContinuations(_eventLoop);
+            };
+
+            return new ManualPromise(promise, SettleWith(resolve), SettleWith(reject));
+        }
+
+        internal void AddToEventLoop(Action continuation)
+        {
+            _eventLoop.Events.Enqueue(continuation);
+        }
+
+
+        private static void RunAvailableContinuations(EventLoop loop)
+        {
+            var queue = loop.Events;
+
+            while (true)
+            {
+                if (queue.Count == 0)
+                {
+                    return;
+                }
+
+                var nextContinuation = queue.Dequeue();
+
+                // note that continuation can enqueue new events
+                nextContinuation();
+            }
         }
 
         private void ResetLastStatement()
@@ -438,7 +525,7 @@ namespace Jint
             {
                 return baseValue;
             }
-            
+
             if (reference.IsPropertyReference())
             {
                 var property = reference.GetReferencedName();
@@ -497,7 +584,8 @@ namespace Jint
                 return ExceptionHelper.ThrowArgumentException<JsValue>();
             }
 
-            var bindingValue = record.GetBindingValue(reference.GetReferencedName().ToString(), reference.IsStrictReference());
+            var bindingValue =
+                record.GetBindingValue(reference.GetReferencedName().ToString(), reference.IsStrictReference());
 
             if (returnReferenceToPool)
             {
@@ -571,10 +659,11 @@ namespace Jint
             }
             else
             {
-                ((EnvironmentRecord) baseValue).SetMutableBinding(TypeConverter.ToString(reference.GetReferencedName()), value, reference.IsStrictReference());
+                ((EnvironmentRecord) baseValue).SetMutableBinding(TypeConverter.ToString(reference.GetReferencedName()),
+                    value, reference.IsStrictReference());
             }
         }
-        
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/#sec-initializereferencedbinding
         /// </summary>
@@ -629,7 +718,8 @@ namespace Jint
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(JsValue value, object thisObj, object[] arguments)
         {
-            var callable = value as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(this, "Can only invoke functions");
+            var callable = value as ICallable ??
+                           ExceptionHelper.ThrowTypeError<ICallable>(this, "Can only invoke functions");
 
             var items = _jsValueArrayPool.RentArray(arguments.Length);
             for (int i = 0; i < arguments.Length; ++i)
@@ -649,7 +739,8 @@ namespace Jint
         internal JsValue Invoke(JsValue v, JsValue p, JsValue[] arguments)
         {
             var func = GetV(v, p);
-            var callable = func as ICallable ?? ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
+            var callable = func as ICallable ??
+                           ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
             return callable.Call(v, arguments);
         }
 
@@ -691,7 +782,7 @@ namespace Jint
             _referencePool.Return(reference);
             return jsValue;
         }
-        
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-resolvebinding
         /// </summary>
@@ -726,7 +817,7 @@ namespace Jint
             thisEnvironment ??= ExecutionContext.GetThisEnvironment();
             return thisEnvironment.NewTarget;
         }
-        
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-resolvethisbinding
         /// </summary>
@@ -735,7 +826,7 @@ namespace Jint
             var envRec = ExecutionContext.GetThisEnvironment();
             return envRec.GetThisBinding();
         }
-        
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-globaldeclarationinstantiation
         /// </summary>
@@ -749,7 +840,7 @@ namespace Jint
             var functionDeclarations = hoistingScope._functionDeclarations;
             var varDeclarations = hoistingScope._variablesDeclarations;
             var lexDeclarations = hoistingScope._lexicalDeclarations;
-            
+
             var functionToInitialize = new LinkedList<FunctionDeclaration>();
             var declaredFunctionNames = new HashSet<string>();
             var declaredVarNames = new List<string>();
@@ -790,7 +881,7 @@ namespace Jint
                         {
                             ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{vn}' has already been declared");
                         }
-                        
+
                         if (!declaredFunctionNames.Contains(vn))
                         {
                             var vnDefinable = envRec.CanDeclareGlobalVar(vn);
@@ -815,13 +906,13 @@ namespace Jint
                     for (var j = 0; j < boundNames.Count; j++)
                     {
                         var dn = boundNames[j];
-                        if (envRec.HasVarDeclaration(dn) 
+                        if (envRec.HasVarDeclaration(dn)
                             || envRec.HasLexicalDeclaration(dn)
                             || envRec.HasRestrictedGlobalProperty(dn))
                         {
                             ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{dn}' has already been declared");
                         }
-                        
+
                         if (d.Kind == VariableDeclarationKind.Const)
                         {
                             envRec.CreateImmutableBinding(dn, strict: true);
@@ -837,12 +928,12 @@ namespace Jint
             foreach (var f in functionToInitialize)
             {
                 var fn = f.Id!.Name;
-                
+
                 if (envRec.HasLexicalDeclaration(fn))
                 {
                     ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{fn}' has already been declared");
                 }
-                
+
                 var fo = Function.InstantiateFunctionObject(f, env);
                 envRec.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: false);
             }
@@ -874,7 +965,8 @@ namespace Jint
             var hasParameterExpressions = configuration.HasParameterExpressions;
 
             var canInitializeParametersOnDeclaration = simpleParameterList && !configuration.HasDuplicates;
-            envRec.InitializeParameters(parameterNames, hasDuplicates, canInitializeParametersOnDeclaration ? argumentsList : null);
+            envRec.InitializeParameters(parameterNames, hasDuplicates,
+                canInitializeParametersOnDeclaration ? argumentsList : null);
 
             ArgumentsInstance ao = null;
             if (configuration.ArgumentsObjectNeeded)
@@ -887,7 +979,8 @@ namespace Jint
                 {
                     // NOTE: mapped argument object is only provided for non-strict functions that don't have a rest parameter,
                     // any parameter default value initializers, or any destructured parameters.
-                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, envRec, configuration.HasRestParameter);
+                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, envRec,
+                        configuration.HasRestParameter);
                 }
 
                 if (strict)
@@ -905,7 +998,7 @@ namespace Jint
                 // slower set
                 envRec.AddFunctionParameters(func.Function, argumentsList);
             }
-            
+
             // Let iteratorRecord be CreateListIteratorRecord(argumentsList).
             // If hasDuplicates is true, then
             //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and undefined as arguments.
@@ -932,7 +1025,7 @@ namespace Jint
                 // in the formal parameter list do not have visibility of declarations in the function body.
                 varEnv = LexicalEnvironment.NewDeclarativeEnvironment(this, env);
                 varEnvRec = (DeclarativeEnvironmentRecord) varEnv._record;
-                
+
                 UpdateVariableEnvironment(varEnv);
 
                 for (var i = 0; i < configuration.VarsToInitialize.Count; i++)
@@ -942,7 +1035,7 @@ namespace Jint
                     varEnvRec.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, initialValue);
                 }
             }
-            
+
             // NOTE: Annex B.3.3.1 adds additional steps at this point. 
             // A https://tc39.es/ecma262/#sec-web-compat-functiondeclarationinstantiation
 
@@ -961,7 +1054,7 @@ namespace Jint
             }
 
             var lexEnvRec = lexEnv._record;
-            
+
             UpdateLexicalEnvironment(lexEnv);
 
             if (configuration.LexicalDeclarations.Length > 0)
@@ -991,7 +1084,7 @@ namespace Jint
         }
 
         private static void InitializeLexicalDeclarations(
-            JintFunctionDefinition.State.LexicalVariableDeclaration[] lexicalDeclarations, 
+            JintFunctionDefinition.State.LexicalVariableDeclaration[] lexicalDeclarations,
             EnvironmentRecord lexEnvRec)
         {
             foreach (var d in lexicalDeclarations)
@@ -1012,9 +1105,9 @@ namespace Jint
         }
 
         private ArgumentsInstance CreateMappedArgumentsObject(
-            FunctionInstance func, 
+            FunctionInstance func,
             Key[] formals,
-            JsValue[] argumentsList, 
+            JsValue[] argumentsList,
             DeclarativeEnvironmentRecord envRec,
             bool hasRestParameter)
         {
@@ -1036,7 +1129,7 @@ namespace Jint
             bool strict)
         {
             var hoistingScope = HoistingScope.GetProgramLevelDeclarations(script);
-            
+
             var lexEnvRec = (DeclarativeEnvironmentRecord) lexEnv._record;
             var varEnvRec = varEnv._record;
 
@@ -1051,7 +1144,8 @@ namespace Jint
                         var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
                         if (globalEnvironmentRecord.HasLexicalDeclaration(identifier.Name))
                         {
-                            ExceptionHelper.ThrowSyntaxError(this, "Identifier '" + identifier.Name + "' has already been declared");
+                            ExceptionHelper.ThrowSyntaxError(this,
+                                "Identifier '" + identifier.Name + "' has already been declared");
                         }
                     }
                 }
@@ -1077,7 +1171,7 @@ namespace Jint
                     thisLex = thisLex._outer;
                 }
             }
-            
+
             var functionDeclarations = hoistingScope._functionDeclarations;
             var functionsToInitialize = new LinkedList<FunctionDeclaration>();
             var declaredFunctionNames = new HashSet<string>();
@@ -1098,6 +1192,7 @@ namespace Jint
                                 ExceptionHelper.ThrowTypeError(this);
                             }
                         }
+
                         declaredFunctionNames.Add(fn);
                         functionsToInitialize.AddFirst(d);
                     }
@@ -1131,7 +1226,7 @@ namespace Jint
                     }
                 }
             }
-            
+
             var lexicalDeclarations = hoistingScope._lexicalDeclarations;
             var lexicalDeclarationsCount = lexicalDeclarations?.Count;
             for (var i = 0; i < lexicalDeclarationsCount; i++)
@@ -1192,7 +1287,6 @@ namespace Jint
                     }
                 }
             }
-
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1213,17 +1307,18 @@ namespace Jint
             {
                 return Call(functionInstance, thisObject, arguments, expression);
             }
-            
+
             return callable.Call(thisObject, arguments);
         }
 
-        internal JsValue Construct(IConstructor constructor, JsValue[] arguments, JsValue newTarget, JintExpression expression)
+        internal JsValue Construct(IConstructor constructor, JsValue[] arguments, JsValue newTarget,
+            JintExpression expression)
         {
             if (constructor is FunctionInstance functionInstance)
             {
                 return Construct(functionInstance, arguments, newTarget, expression);
             }
-            
+
             return constructor.Construct(arguments, newTarget);
         }
 

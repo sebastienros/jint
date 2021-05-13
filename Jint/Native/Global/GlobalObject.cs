@@ -39,6 +39,7 @@ namespace Jint.Native.Global
                 ["Array"] = new PropertyDescriptor(Engine.Array, propertyFlags),
                 ["Map"] = new PropertyDescriptor(Engine.Map, propertyFlags),
                 ["Set"] = new PropertyDescriptor(Engine.Set, propertyFlags),
+                ["Promise"] = new PropertyDescriptor(Engine.Promise, propertyFlags),
                 ["String"] = new PropertyDescriptor(Engine.String, propertyFlags),
                 ["RegExp"] = new PropertyDescriptor(Engine.RegExp, propertyFlags),
                 ["Number"] = new PropertyDescriptor(Engine.Number, propertyFlags),
