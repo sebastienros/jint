@@ -33,15 +33,15 @@ namespace Jint.Native.Promise
         FunctionInstance Resolve,
         FunctionInstance Reject
     );
-    
+
     public sealed record ManualPromise(
-        PromiseInstance Promise,
+        JsValue Promise,
         Action<JsValue> Resolve,
         Action<JsValue> Reject
     );
 
 
-    public sealed class PromiseInstance : ObjectInstance
+    internal sealed class PromiseInstance : ObjectInstance
     {
         internal PromiseState State { get; private set; }
 
@@ -53,7 +53,6 @@ namespace Jint.Native.Promise
 
         internal PromiseInstance(Engine engine) : base(engine, ObjectClass.Promise)
         {
-            _prototype = engine.Promise._prototype;
         }
 
         // https://tc39.es/ecma262/#sec-createresolvingfunctions

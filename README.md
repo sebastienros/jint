@@ -40,7 +40,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ❌ Unicode
 - ❌ Modules and module loaders
 - ❌ Weakmap and Weakset
-- ❌ Promises
+- ✔ Promises (Experimental, API is unstable)
 - ❌ Tail calls
 
 #### ECMAScript 2016
@@ -58,7 +58,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 #### ECMAScript 2018
 
 - ✔ Rest/spread operators for object literals (`...identifier`),
-- ❌ `Promise.prototype.finally`
+- ✔ `Promise.prototype.finally`
 
 #### ECMAScript 2019
 

@@ -10,41 +10,35 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise
 {
-    internal struct PromiseCapability
-    {
-        public JsValue PromiseInstance { get; set; }
-        public ICallable Resolve { get; set; }
-        public ICallable Reject { get; set; }
-        public JsValue RejectObj { get; set; }
+    internal sealed record PromiseCapability(
+        JsValue PromiseInstance,
+        ICallable Resolve,
+        ICallable Reject,
+        JsValue RejectObj
+    );
 
-        // Return the first and last name.
-        public void Deconstruct(out JsValue instance, out ICallable resolve, out ICallable reject,
-            out JsValue rejectObj)
-        {
-            instance = PromiseInstance;
-            resolve = Resolve;
-            reject = Reject;
-            rejectObj = RejectObj;
-        }
-    }
 
     public sealed class PromiseConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new JsString("Promise");
 
+        internal PromisePrototype PrototypeObject { get; private set; }
+
         private PromiseConstructor(Engine engine)
-            // TODO should it be strict?
-            // Note originally was strict = false
-            : base(engine, _functionName, FunctionThisMode.Lexical)
+            : base(engine, _functionName)
         {
         }
 
         internal static PromiseConstructor CreatePromiseConstructor(Engine engine)
         {
-            var obj = new PromiseConstructor(engine);
-            obj._prototype = PromisePrototype.CreatePrototypeObject(engine, obj);
+            var obj = new PromiseConstructor(engine)
+            {
+                _prototype = engine.Function.PrototypeObject
+            };
+
+            obj.PrototypeObject = PromisePrototype.CreatePrototypeObject(engine, obj);
             obj._length = new PropertyDescriptor(1, PropertyFlag.Configurable);
-            obj._prototypeDescriptor = new PropertyDescriptor(obj._prototype, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
             return obj;
         }
 
@@ -78,17 +72,17 @@ namespace Jint.Native.Promise
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
-        {
-            if (thisObject.IsUndefined())
-            {
-                ExceptionHelper.ThrowTypeError(_engine, "undefined is not a promise");
-            }
-
-            return Construct(arguments, thisObject);
+        { 
+            return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Constructor Promise requires 'new'");
         }
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
+            if (newTarget.IsUndefined())
+            {
+                ExceptionHelper.ThrowTypeError(_engine, "Constructor Promise requires 'new'");
+            }
+            
             if (arguments.At(0) is not ICallable promiseExecutor)
             {
                 return ExceptionHelper.ThrowTypeError<ObjectInstance>(
@@ -96,7 +90,7 @@ namespace Jint.Native.Promise
                     $"Promise executor {(arguments.At(0))} is not a function");
             }
 
-            var instance = OrdinaryCreateFromConstructor(newTarget, _prototype,
+            var instance = OrdinaryCreateFromConstructor(newTarget, PrototypeObject,
                 static(engine, _) => new PromiseInstance(engine));
 
             var (resolve, reject) = instance.CreateResolvingFunctions();
@@ -483,9 +477,6 @@ namespace Jint.Native.Promise
 
             var executor = new ClrFunctionInstance(engine, "", Executor, 2, PropertyFlag.Configurable);
 
-            // var map = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, _) => new MapInstance(engine));
-            // var i = OrdinaryCreateFromConstructor(c, _engine.Promise._prototype,)
-
             var instance = ctor.Construct(new JsValue[] {executor}, c);
 
             ICallable resolve = null;
@@ -509,13 +500,7 @@ namespace Jint.Native.Promise
                 ExceptionHelper.ThrowTypeError(engine, "reject is not a function");
             }
 
-            return new PromiseCapability
-            {
-                PromiseInstance = instance,
-                Resolve = resolve,
-                Reject = reject,
-                RejectObj = rejectArg
-            };
+            return new PromiseCapability(instance, resolve, reject, rejectArg);
         }
     }
 }

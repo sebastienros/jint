@@ -469,7 +469,11 @@ namespace Jint
                     "CreatePromise should be called within ExecuteWithEventLoop method");
             }
 
-            var promise = new PromiseInstance(this);
+            var promise = new PromiseInstance(this)
+            {
+                _prototype = Promise.PrototypeObject 
+            };
+            
             var (resolve, reject) = promise.CreateResolvingFunctions();
 
             _eventLoop.ManualPromises.Add(promise);
