@@ -6,6 +6,12 @@ using Xunit;
 
 namespace Jint.Tests.Runtime
 {
+    internal static class EngineExtensions
+    {
+        internal static JsValue Evaluate(this Engine engine, string code) =>
+            engine.Execute(code).GetCompletionValue().UnwrapIfPromise();
+    }
+
     public class PromiseTests
     {
         #region Manual Promise
@@ -26,7 +32,7 @@ namespace Jint.Tests.Runtime
             engine.Execute("f();");
 
             resolveFunc(66);
-            Assert.Equal(66, engine.GetPromiseCompletionValue());
+            Assert.Equal(66, engine.GetCompletionValue().UnwrapIfPromise());
         }
 
         [Fact]
@@ -44,9 +50,11 @@ namespace Jint.Tests.Runtime
 
             engine.Execute("f();");
 
+            var completion = engine.Execute("f();").GetCompletionValue();
+
             rejectFunc("oops!");
 
-            var ex = Assert.Throws<PromiseRejectedException>(() => { engine.GetPromiseCompletionValue(); });
+            var ex = Assert.Throws<PromiseRejectedException>(() => { completion.UnwrapIfPromise(); });
 
             Assert.Equal("oops!", ex.RejectedValue.AsString());
         }
@@ -72,17 +80,17 @@ namespace Jint.Tests.Runtime
                 return promise;
             }));
 
-            engine.Execute("Promise.race([f1(), f2()]);");
+            var completion = engine.Execute("Promise.race([f1(), f2()]);").GetCompletionValue();
 
             resolve1("first");
 
             // still not finished but the promise is fulfilled
-            Assert.Equal("first", engine.GetPromiseCompletionValue());
+            Assert.Equal("first", completion.UnwrapIfPromise());
 
             resolve2("second");
 
             // completion value hasn't changed
-            Assert.Equal("first", engine.GetPromiseCompletionValue());
+            Assert.Equal("first", completion.UnwrapIfPromise());
         }
 
         #endregion
@@ -145,17 +153,15 @@ namespace Jint.Tests.Runtime
         public void PromiseResolveViaResolver_ReturnsCorrectValue()
         {
             var engine = new Engine();
-            engine.Execute("new Promise((resolve, reject)=>{resolve(66);});");
-            Assert.Equal(66, engine.GetPromiseCompletionValue());
+            var res = engine.Evaluate("new Promise((resolve, reject)=>{resolve(66);});");
+            Assert.Equal(66, res);
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseResolveViaStatic_ReturnsCorrectValue()
         {
             var engine = new Engine();
-            engine.Execute("Promise.resolve(66);");
-
-            Assert.Equal(66, engine.GetPromiseCompletionValue());
+            Assert.Equal(66, engine.Evaluate("Promise.resolve(66);"));
         }
 
         #endregion
@@ -166,9 +172,11 @@ namespace Jint.Tests.Runtime
         public void PromiseRejectViaResolver_ThrowsPromiseRejectedException()
         {
             var engine = new Engine();
-            engine.Execute("new Promise((resolve, reject)=>{reject('Could not connect');});");
 
-            var ex = Assert.Throws<PromiseRejectedException>(() => { engine.GetPromiseCompletionValue(); });
+            var ex = Assert.Throws<PromiseRejectedException>(() =>
+            {
+                engine.Evaluate("new Promise((resolve, reject)=>{reject('Could not connect');});");
+            });
 
             Assert.Equal("Could not connect", ex.RejectedValue.AsString());
         }
@@ -177,9 +185,11 @@ namespace Jint.Tests.Runtime
         public void PromiseRejectViaStatic_ThrowsPromiseRejectedException()
         {
             var engine = new Engine();
-            engine.Execute("Promise.reject('Could not connect');");
 
-            var ex = Assert.Throws<PromiseRejectedException>(() => { engine.GetPromiseCompletionValue(); });
+            var ex = Assert.Throws<PromiseRejectedException>(() =>
+            {
+                engine.Evaluate("Promise.reject('Could not connect');");
+            });
 
             Assert.Equal("Could not connect", ex.RejectedValue.AsString());
         }
@@ -193,89 +203,88 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            engine.Execute(
+            var res = engine.Evaluate(
                 "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => 44).then(result => resolve(result)); });");
 
-            Assert.Equal(44, engine.GetPromiseCompletionValue());
+            Assert.Equal(44, res);
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseThen_ReturnsNewPromiseInstance()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "var promise1 = new Promise((resolve, reject) => { resolve(1); }); var promise2 = promise1.then();  promise1 === promise2");
 
-            Assert.Equal(false, engine.GetPromiseCompletionValue());
+            Assert.Equal(false, res);
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseThen_CalledCorrectlyOnResolve()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(result => resolve(result)); });");
 
-            Assert.Equal(66, engine.GetPromiseCompletionValue());
+            Assert.Equal(66, res);
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseResolveChainedWithHandler_ResolvedAsUndefined()
         {
             var engine = new Engine();
-            engine.Execute("Promise.resolve(33).then(() => {});");
 
-            Assert.Equal(JsValue.Undefined, engine.GetPromiseCompletionValue());
+            Assert.Equal(JsValue.Undefined, engine.Evaluate("Promise.resolve(33).then(() => {});"));
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseChainedThenWithUndefinedCallback_PassesThroughValueCorrectly()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then().then(result => resolve(result)); });");
 
-            Assert.Equal(66, engine.GetPromiseCompletionValue());
+            Assert.Equal(66, res);
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseChainedThenWithCallbackReturningUndefined_PassesThroughUndefinedCorrectly()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => {}).then(result => resolve(result)); });");
 
-            Assert.Equal(JsValue.Undefined, engine.GetPromiseCompletionValue());
+            Assert.Equal(JsValue.Undefined, res);
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseChainedThenThrowsError_ChainedCallsCatchWithThrownError()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => { throw 'Thrown Error'; }).catch(result => resolve(result)); });");
 
-            Assert.Equal("Thrown Error", engine.GetPromiseCompletionValue());
+            Assert.Equal("Thrown Error", res);
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseChainedThenReturnsResolvedPromise_ChainedCallsThenWithPromiseValue()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => Promise.resolve(55)).then(result => resolve(result)); });");
 
-            Assert.Equal(55, engine.GetPromiseCompletionValue());
+            Assert.Equal(55, res);
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseChainedThenReturnsRejectedPromise_ChainedCallsCatchWithPromiseValue()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => Promise.reject('Error Message')).catch(result => resolve(result)); });");
 
-            Assert.Equal("Error Message", engine.GetPromiseCompletionValue());
+            Assert.Equal("Error Message", res);
         }
 
         #endregion
@@ -286,49 +295,47 @@ namespace Jint.Tests.Runtime
         public void PromiseCatch_CalledCorrectlyOnReject()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).catch(result => resolve(result)); });");
 
-            Assert.Equal("Could not connect", engine.GetPromiseCompletionValue());
+            Assert.Equal("Could not connect", res);
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseThenWithCatch_CalledCorrectlyOnReject()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).then(undefined, result => resolve(result)); });");
 
-            Assert.Equal("Could not connect", engine.GetPromiseCompletionValue());
+            Assert.Equal("Could not connect", res);
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseChainedWithHandler_ResolvedAsUndefined()
         {
             var engine = new Engine();
-            engine.Execute("Promise.reject('error').catch(() => {});");
-
-            Assert.Equal(JsValue.Undefined, engine.GetPromiseCompletionValue());
+            Assert.Equal(JsValue.Undefined, engine.Evaluate("Promise.reject('error').catch(() => {});"));
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseChainedCatchThen_ThenCallWithUndefined()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).catch(ex => {}).then(result => resolve(result)); });");
 
-            Assert.Equal(JsValue.Undefined, engine.GetPromiseCompletionValue());
+            Assert.Equal(JsValue.Undefined, res);
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseChainedCatchWithUndefinedHandler_CatchChainedCorrectly()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).catch().catch(result => resolve(result)); });");
 
-            Assert.Equal("Could not connect", engine.GetPromiseCompletionValue());
+            Assert.Equal("Could not connect", res);
         }
 
         #endregion
@@ -339,57 +346,52 @@ namespace Jint.Tests.Runtime
         public void PromiseChainedFinally_HandlerCalled()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).finally(() => resolve(16)); });");
 
-            Assert.Equal(16, engine.GetPromiseCompletionValue());
+            Assert.Equal(16, res);
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseFinally_ReturnsNewPromiseInstance()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "var promise1 = new Promise((resolve, reject) => { resolve(1); }); var promise2 = promise1.finally();  promise1 === promise2");
 
-            Assert.Equal(false, engine.GetPromiseCompletionValue());
+            Assert.Equal(false, res);
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseFinally_ResolvesWithCorrectValue()
         {
             var engine = new Engine();
-            engine.Execute("Promise.resolve(2).finally(() => {})");
-
-            Assert.Equal(2, engine.GetPromiseCompletionValue());
+            Assert.Equal(2, engine.Evaluate("Promise.resolve(2).finally(() => {})"));
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseFinallyWithNoCallback_ResolvesWithCorrectValue()
         {
             var engine = new Engine();
-            engine.Execute("Promise.resolve(2).finally()");
-
-            Assert.Equal(2, engine.GetPromiseCompletionValue());
+            Assert.Equal(2, engine.Evaluate("Promise.resolve(2).finally()"));
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseFinallyChained_ResolvesWithCorrectValue()
         {
             var engine = new Engine();
-            engine.Execute("Promise.resolve(2).finally(() => 6).finally(() => 9);");
 
-            Assert.Equal(2, engine.GetPromiseCompletionValue());
+            Assert.Equal(2, engine.Evaluate("Promise.resolve(2).finally(() => 6).finally(() => 9);"));
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseFinallyWhichThrows_ResolvesWithError()
         {
             var engine = new Engine();
-            engine.Execute(
+            var res = engine.Evaluate(
                 "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(5)}).finally(() => {throw 'Could not connect';}).catch(result => resolve(result)); });");
 
-            Assert.Equal("Could not connect", engine.GetPromiseCompletionValue());
+            Assert.Equal("Could not connect", res);
         }
 
         #endregion
@@ -400,8 +402,7 @@ namespace Jint.Tests.Runtime
         public void PromiseAll_BadIterable_Rejects()
         {
             var engine = new Engine();
-            engine.Execute("Promise.all();");
-            Assert.Throws<PromiseRejectedException>(() => { engine.GetPromiseCompletionValue(); });
+            Assert.Throws<PromiseRejectedException>(() => { engine.Evaluate("Promise.all();"); });
         }
 
 
@@ -409,27 +410,27 @@ namespace Jint.Tests.Runtime
         public void PromiseAll_ArgsAreNotPromises_ResolvesCorrectly()
         {
             var engine = new Engine();
-            engine.Execute("Promise.all([1,2,3]);");
 
-            Assert.Equal(new object[] {1d, 2d, 3d}, engine.GetPromiseCompletionValue().ToObject());
+            Assert.Equal(new object[] {1d, 2d, 3d}, engine.Evaluate("Promise.all([1,2,3]);").ToObject());
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseAll_MixturePromisesNoPromises_ResolvesCorrectly()
         {
             var engine = new Engine();
-            engine.Execute("Promise.all([1,Promise.resolve(2),3]);");
-
-            Assert.Equal(new object[] {1d, 2d, 3d}, engine.GetPromiseCompletionValue().ToObject());
+            Assert.Equal(new object[] {1d, 2d, 3d},
+                engine.Evaluate("Promise.all([1,Promise.resolve(2),3]);").ToObject());
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseAll_MixturePromisesNoPromisesOneRejects_ResolvesCorrectly()
         {
             var engine = new Engine();
-            engine.Execute("Promise.all([1,Promise.resolve(2),3, Promise.reject('Cannot connect')]);");
 
-            Assert.Throws<PromiseRejectedException>(() => { engine.GetPromiseCompletionValue(); });
+            Assert.Throws<PromiseRejectedException>(() =>
+            {
+                engine.Evaluate("Promise.all([1,Promise.resolve(2),3, Promise.reject('Cannot connect')]);");
+            });
         }
 
         #endregion
@@ -440,64 +441,61 @@ namespace Jint.Tests.Runtime
         public void PromiseRace_NoArgs_Rejects()
         {
             var engine = new Engine();
-            engine.Execute("Promise.race();");
 
-            Assert.Throws<PromiseRejectedException>(() => { engine.GetPromiseCompletionValue(); });
+            Assert.Throws<PromiseRejectedException>(() => { engine.Evaluate("Promise.race();"); });
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseRace_InvalidIterator_Rejects()
         {
             var engine = new Engine();
-            engine.Execute("Promise.race({});");
 
-            Assert.Throws<PromiseRejectedException>(() => { engine.GetPromiseCompletionValue(); });
+            Assert.Throws<PromiseRejectedException>(() => { engine.Evaluate("Promise.race({});"); });
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseRaceNoPromises_ResolvesCorrectly()
         {
             var engine = new Engine();
-            engine.Execute("Promise.race([12,2,3]);");
 
-            Assert.Equal(12d, engine.GetPromiseCompletionValue().ToObject());
+            Assert.Equal(12d, engine.Evaluate("Promise.race([12,2,3]);").ToObject());
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly()
         {
             var engine = new Engine();
-            engine.Execute("Promise.race([12,Promise.resolve(2),3]);");
 
-            Assert.Equal(12d, engine.GetPromiseCompletionValue().ToObject());
+            Assert.Equal(12d, engine.Evaluate("Promise.race([12,Promise.resolve(2),3]);").ToObject());
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly2()
         {
             var engine = new Engine();
-            engine.Execute("Promise.race([Promise.resolve(2),6,3]);");
 
-            Assert.Equal(2d, engine.GetPromiseCompletionValue().ToObject());
+            Assert.Equal(2d, engine.Evaluate("Promise.race([Promise.resolve(2),6,3]);").ToObject());
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly3()
         {
             var engine = new Engine();
-            engine.Execute("Promise.race([new Promise((resolve,reject)=>{}),Promise.resolve(55),3]);");
+            var res = engine.Evaluate("Promise.race([new Promise((resolve,reject)=>{}),Promise.resolve(55),3]);");
 
-            Assert.Equal(55d, engine.GetPromiseCompletionValue().ToObject());
+            Assert.Equal(55d, res.ToObject());
         }
 
         [Fact(Timeout = 5000)]
         public void PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly4()
         {
             var engine = new Engine();
-            engine.Execute(
-                "Promise.race([new Promise((resolve,reject)=>{}),Promise.reject('Could not connect'),3]);");
 
-            Assert.Throws<PromiseRejectedException>(() => { engine.GetPromiseCompletionValue(); });
+            Assert.Throws<PromiseRejectedException>(() =>
+            {
+                engine.Evaluate(
+                    "Promise.race([new Promise((resolve,reject)=>{}),Promise.reject('Could not connect'),3]);");
+            });
         }
 
         #endregion

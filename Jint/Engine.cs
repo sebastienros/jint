@@ -469,28 +469,6 @@ namespace Jint
             return _completionValue;
         }
 
-        /// <summary>
-        /// Gets the last evaluated statement completion value, if it is a Promise unwraps it
-        /// </summary>
-        public JsValue GetPromiseCompletionValue()
-        {
-            var completion = GetCompletionValue();
-
-            if (completion is PromiseInstance promise)
-            {
-                return promise.State switch
-                {
-                    PromiseState.Pending => ExceptionHelper.ThrowInvalidOperationException<JsValue>(
-                        "GetCompletionValue called before Promise was resolved, make sure to use ExecuteWithEventLoop"),
-                    PromiseState.Fulfilled => promise.Value,
-                    PromiseState.Rejected => ExceptionHelper.ThrowPromiseRejectedException<JsValue>(promise.Value),
-                    _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JsValue>()
-                };
-            }
-
-            return completion;
-        }
-
         internal void RunBeforeExecuteStatementChecks(Statement statement)
         {
             // Avoid allocating the enumerator because we run this loop very often.
