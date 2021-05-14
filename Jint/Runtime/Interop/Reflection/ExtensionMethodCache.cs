@@ -43,7 +43,7 @@ namespace Jint.Runtime.Interop.Reflection
 
         public bool HasMethods => _allExtensionMethods.Count > 0;
 
-        private MethodInfo BindMethodGenericParameters(Type objectType, MethodInfo method)
+        private MethodInfo BindMethodGenericParameters(MethodInfo method)
         {
             if (method.IsGenericMethodDefinition && method.ContainsGenericParameters)
             {
@@ -87,7 +87,7 @@ namespace Jint.Runtime.Interop.Reflection
                 }
             }
 
-            methods = results.Select(method => BindMethodGenericParameters(objectType, method)).ToArray();
+            methods = results.Select(BindMethodGenericParameters).ToArray();
 
             // racy, we don't care, worst case we'll catch up later
             Interlocked.CompareExchange(ref _extensionMethods, new Dictionary<Type, MethodInfo[]>(methodLookup)
