@@ -7,14 +7,6 @@ using Xunit;
 
 namespace Jint.Tests.Runtime.ExtensionMethods
 {
-    public static class TestExtensionMethods
-    {
-        public static double TestExtension<T>(this IEnumerable<T> source) where T : IEquatable<Int32>
-        {
-            return 5;
-        }
-    }
-
     public class ExtensionMethodsTest
     {
         [Fact]
@@ -125,7 +117,7 @@ namespace Jint.Tests.Runtime.ExtensionMethods
         {
             return new Engine(opts =>
             {
-                opts.AddExtensionMethods(typeof(Enumerable), typeof(TestExtensionMethods));
+                opts.AddExtensionMethods(typeof(Enumerable));
             });
         }
 
@@ -164,22 +156,6 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             // The method ambiguity resolver is not so smart to choose the Select method with the correct number of parameters
             // Thus, the following script will not work as expected.
             // stringList.Select((x, i) => x + i).ToArray().join()
-        }
-
-        [Fact]
-        public void ExtensionMethodWithGenericTypeConstraintShouldNotBeCalled()
-        {
-            var engine = GetLinqEngine();
-            var stringList = new List<string>() { "working", "linq" };
-            var intList = new List<int>() { 1, 2 };
-            engine.SetValue("intList", intList);
-            engine.SetValue("stringList", stringList);
-
-
-            var intRes = engine.Execute("intList.TestExtension()").GetCompletionValue().AsNumber();
-            Assert.Equal(5, intRes);
-
-            Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Execute("stringList.TestExtension()"));
         }
     }
 }

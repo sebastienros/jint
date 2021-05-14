@@ -48,26 +48,16 @@ namespace Jint.Runtime.Interop.Reflection
             if (method.IsGenericMethodDefinition && method.ContainsGenericParameters)
             {
                 var methodGenerics = method.GetGenericArguments();
-                var objectGenerics = objectType.IsGenericType ? objectType.GetGenericArguments() : new Type[0];
                 var parameterList = Enumerable.Repeat(typeof(object), methodGenerics.Length).ToArray();
 
-                if (parameterList.Length > 0 && objectGenerics.Length > 0)
+                try
                 {
-                    // Not a definitive solution but a workaround for Linq
-                    // Works because most of Linq methods take the List item type as first parameter
-                    parameterList[0] = objectGenerics[0];
+                    return method.MakeGenericMethod(parameterList);
                 }
-
-                if (methodGenerics.Select((x, i) => x.GetGenericParameterConstraints().All(y => y.IsAssignableFrom(parameterList[i]))).All(x => x))
+                catch
                 {
-                    try
-                    {
-                        return method.MakeGenericMethod(parameterList);
-                    }
-                    catch
-                    {
-                        // If it does not work, let it be. We don't need to do anything
-                    }
+                    // Generic parameter constraints failed probably.
+                    // If it does not work, let it be. We don't need to do anything.
                 }
             }
             return method;
