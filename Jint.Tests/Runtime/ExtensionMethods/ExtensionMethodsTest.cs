@@ -1,5 +1,8 @@
 ﻿using Jint.Native;
 using Jint.Tests.Runtime.Domain;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace Jint.Tests.Runtime.ExtensionMethods
@@ -108,6 +111,51 @@ namespace Jint.Tests.Runtime.ExtensionMethods
 
             var propertyValue = engine.Execute("person.bogus").GetCompletionValue();
             Assert.Equal(JsValue.Undefined, propertyValue);
+        }
+
+        private Engine GetLinqEngine()
+        {
+            return new Engine(opts =>
+            {
+                opts.AddExtensionMethods(typeof(Enumerable));
+            });
+        }
+
+        [Fact]
+        public void LinqExtensionMethodWithoutGenericParameter()
+        {
+            var engine = GetLinqEngine();
+            var intList = new List<int>() { 0, 1, 2, 3 };
+
+            engine.SetValue("intList", intList);
+            var intSumRes = engine.Execute("intList.Sum()").GetCompletionValue().AsNumber();
+            Assert.Equal(6, intSumRes);
+        }
+
+        [Fact]
+        public void LinqExtensionMethodWithSingleGenericParameter()
+        {
+            var engine = GetLinqEngine();
+            var stringList = new List<string>() { "working", "linq" };
+            engine.SetValue("stringList", stringList);
+
+            var stringSumRes = engine.Execute("stringList.Sum(x => x.length)").GetCompletionValue().AsNumber();
+            Assert.Equal(11, stringSumRes);
+        }
+
+        [Fact]
+        public void LinqExtensionMethodWithMultipleGenericParameters()
+        {
+            var engine = GetLinqEngine();
+            var stringList = new List<string>() { "working", "linq" };
+            engine.SetValue("stringList", stringList);
+
+            var stringRes = engine.Execute("stringList.Select((x) => x + 'a').ToArray().join()").GetCompletionValue().AsString();
+            Assert.Equal("workinga,linqa", stringRes);
+
+            // The method ambiguity resolver is not so smart to choose the Select method with the correct number of parameters
+            // Thus, the following script will not work as expected.
+            // stringList.Select((x, i) => x + i).ToArray().join()
         }
     }
 }
