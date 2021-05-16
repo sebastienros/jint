@@ -161,11 +161,6 @@ namespace Jint.Runtime.Environments
 
         public override JsValue WithBaseObject() => Undefined;
 
-        public sealed override JsValue ImplicitThisValue()
-        {
-            return Undefined;
-        }
-
         /// <inheritdoc />
         internal sealed override string[] GetAllBindingNames()
         {

@@ -284,11 +284,6 @@ namespace Jint.Runtime.Environments
             _varNames.Add(name);
         }
 
-        public override JsValue ImplicitThisValue()
-        {
-            return Undefined;
-        }
-
         internal override string[] GetAllBindingNames()
         {
             // JT: Rather than introduce a new method for the debugger, I'm reusing this one,

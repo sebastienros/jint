@@ -57,7 +57,7 @@ namespace Jint.Repl
                 Console.ForegroundColor = defaultColor;
                 Console.Write("jint> ");
                 var input = Console.ReadLine();
-                if (input == "exit")
+                if (input is "exit" or ".exit")
                 {
                     return;
                 }
@@ -65,10 +65,14 @@ namespace Jint.Repl
                 try
                 {
                     var result = engine.GetValue(engine.Execute(input, parserOptions).GetCompletionValue());
-                    if (result.Type != Types.None && result.Type != Types.Null && result.Type != Types.Undefined)
+                    if (!result.IsNull() && !result.IsUndefined())
                     {
                         var str = TypeConverter.ToString(engine.Json.Stringify(engine.Json, Arguments.From(result, Undefined.Instance, "  ")));
-                        Console.WriteLine("=> {0}", str);
+                        Console.WriteLine(str);
+                    }
+                    else
+                    {
+                        Console.WriteLine(result);
                     }
                 }
                 catch (JavaScriptException je)

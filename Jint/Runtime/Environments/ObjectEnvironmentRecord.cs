@@ -166,16 +166,6 @@ namespace Jint.Runtime.Environments
 
         public override JsValue WithBaseObject() => _withEnvironment ? _bindingObject : Undefined;
 
-        
-        public override JsValue ImplicitThisValue()
-        {
-            if (_provideThis)
-            {
-                return _bindingObject;
-            }
-
-            return Undefined;
-        }
 
         internal override string[] GetAllBindingNames()
         {
