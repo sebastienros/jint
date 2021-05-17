@@ -621,7 +621,7 @@ namespace Jint.Native.Json
                     index: token.Range[0],
                     position: new Position(token.LineNumber ?? _lineNumber, token.Range[0] - _lineStart + 1));
             var exception = new ParserException("Line " + lineNumber  + ": " + msg, error);
-            
+
             throw exception;
         }
 
@@ -711,7 +711,7 @@ namespace Jint.Native.Json
                 }
 
                 var name = Lex().Value.ToString();
-                if (PropertyNameContainsInvalidChar0To31(name))
+                if (PropertyNameContainsInvalidCharacters(name))
                 {
                     ExceptionHelper.ThrowSyntaxError(_engine, $"Invalid character in property name '{name}'");
                 }
@@ -732,14 +732,12 @@ namespace Jint.Native.Json
             return obj;
         }
 
-        private static bool PropertyNameContainsInvalidChar0To31(string s)
+        private static bool PropertyNameContainsInvalidCharacters(string propertyName)
         {
-            const int max = 31;
-
-            for (var i = 0; i < s.Length; i++)
+            const char max = (char) 31;
+            foreach (var c in propertyName)
             {
-                var val = (int)s[i];
-                if (val <= max)
+                if (c != '\t' && c <= max)
                     return true;
             }
             return false;
