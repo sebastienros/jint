@@ -93,7 +93,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// https://tc39.es/ecma262/#sec-getsuperconstructor
         /// </summary>
-        private ObjectInstance GetSuperConstructor(FunctionEnvironmentRecord thisEnvironment)
+        private static ObjectInstance GetSuperConstructor(FunctionEnvironmentRecord thisEnvironment)
         {
             var envRec = thisEnvironment;
             var activeFunction = envRec._functionObject;
@@ -101,70 +101,119 @@ namespace Jint.Runtime.Interpreter.Expressions
             return superConstructor;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-function-calls
+        /// </summary>
         private object Call()
         {
-            var callee = _calleeExpression.Evaluate();
-            var expression = (CallExpression) _expression;
+            var reference = _calleeExpression.Evaluate();
 
-            // todo: implement as in http://www.ecma-international.org/ecma-262/5.1/#sec-11.2.4
-
-            var arguments = ArgumentListEvaluation();
-
-            var func = _engine.GetValue(callee, false);
-            var r = callee as Reference;
-
-            if (func._type == InternalTypes.Undefined)
+            if (ReferenceEquals(reference, Undefined.Instance))
             {
-                ExceptionHelper.ThrowTypeError(_engine, r == null ? "" : $"Object has no method '{r.GetReferencedName()}'");
+                return Undefined.Instance;
             }
+            
+            var func = _engine.GetValue(reference, false);
 
-            if (!func.IsObject())
+            if (reference is Reference referenceRecord 
+                && !referenceRecord.IsPropertyReference()
+                && referenceRecord.GetReferencedName() == CommonProperties.Eval
+                && func is EvalFunctionInstance eval)
             {
-                if (!_engine._referenceResolver.TryGetCallable(_engine, callee, out func))
+                var argList = ArgumentListEvaluation();
+                if (argList.Length == 0)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine,
-                        r == null ? "" : $"Property '{r.GetReferencedName()}' of object is not a function");
+                    return Undefined.Instance;
                 }
+
+                var evalArg = argList[0];
+                var strictCaller = StrictModeScope.IsStrictModeCode;
+                // TODO Let evalRealm be the current Realm Record.
+                var evalRealm = (object) null;
+                var direct = !((CallExpression) _expression).Optional;
+                var value = eval.PerformEval(evalArg, evalRealm, strictCaller, direct);
+                _engine._referencePool.Return(referenceRecord);
+                return value;
             }
 
-            if (!(func is ICallable callable))
-            {
-                var message = $"{r?.GetReferencedName() ?? ""} is not a function";
-                return ExceptionHelper.ThrowTypeError<object>(_engine, message);
-            }
+            var thisCall = (CallExpression) _expression;
+            var tailCall = IsInTailPosition(thisCall);
+            return EvaluateCall(func, reference, thisCall.Arguments, tailCall);
+        }
 
-            var thisObject = Undefined.Instance;
-            if (r != null)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-evaluatecall
+        /// </summary>
+        private object EvaluateCall(JsValue func, object reference, in NodeList<Expression> arguments, bool tailPosition)
+        {
+            JsValue thisValue;
+            var referenceRecord = reference as Reference;
+            if (referenceRecord is not null)
             {
-                var baseValue = r.GetBase();
-                if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0)
+                if (referenceRecord.IsPropertyReference())
                 {
-                    thisObject = r.GetThisValue();
+                    thisValue = referenceRecord.GetThisValue();
                 }
                 else
                 {
-                    var env = (EnvironmentRecord) baseValue;
-                    thisObject = env.ImplicitThisValue();
-                }
-
-                // is it a direct call to eval ? http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.1.1
-                if (r.GetReferencedName() == CommonProperties.Eval && callable is EvalFunctionInstance instance)
-                {
-                    var value = instance.PerformEval(arguments, true);
-                    _engine._referencePool.Return(r);
-                    return value;
+                    var baseValue = referenceRecord.GetBase();
+                    
+                    // deviation from the spec to support null-propagation helper
+                    if (baseValue.IsNullOrUndefined() 
+                        && _engine._referenceResolver.TryUnresolvableReference(_engine, referenceRecord, out var value))
+                    {
+                        return value;
+                    }
+                    
+                    var refEnv = (EnvironmentRecord) baseValue;
+                    thisValue = refEnv.WithBaseObject();
                 }
             }
-
-            var result = _engine.Call(callable, thisObject, arguments, _calleeExpression);
-
-            if (!_cached && arguments.Length > 0)
+            else
             {
-                _engine._jsValueArrayPool.ReturnArray(arguments);
+                thisValue = Undefined.Instance;
+            }
+            
+            var argList = ArgumentListEvaluation();
+
+            if (!func.IsObject() && !_engine._referenceResolver.TryGetCallable(_engine, reference, out func))
+            {
+                var message = referenceRecord == null 
+                    ? reference + " is not a function" 
+                    : $"Property '{referenceRecord.GetReferencedName()}' of object is not a function";
+                ExceptionHelper.ThrowTypeError(_engine, message);
             }
 
-            _engine._referencePool.Return(r);
+            if (func is not ICallable callable)
+            {
+                var message = $"{referenceRecord?.GetReferencedName() ?? reference} is not a function";
+                return ExceptionHelper.ThrowTypeError<object>(_engine, message);
+            }
+
+            if (tailPosition)
+            {
+                // TODO tail call
+                // PrepareForTailCall();
+            }
+
+            var result = _engine.Call(callable, thisValue, argList, _calleeExpression);
+
+            if (!_cached && argList.Length > 0)
+            {
+                _engine._jsValueArrayPool.ReturnArray(argList);
+            }
+
+            _engine._referencePool.Return(referenceRecord);
             return result;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-isintailposition
+        /// </summary>
+        private static bool IsInTailPosition(CallExpression call)
+        {
+            // TODO tail calls
+            return false;
         }
 
         private JsValue[] ArgumentListEvaluation()

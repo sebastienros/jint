@@ -21,17 +21,18 @@ namespace Jint.Native.Function
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return PerformEval(arguments, false);
+            var callerRealm = (object) null;
+            return PerformEval(arguments.At(0), callerRealm, StrictModeScope.IsStrictModeCode, false);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-performeval
         /// </summary>
-        public JsValue PerformEval(JsValue[] arguments, bool direct)
+        public JsValue PerformEval(JsValue x, object callerRealm, bool strictCaller, bool direct)
         {
-            if (!(arguments.At(0) is JsString x))
+            if (!x.IsString())
             {
-                return arguments.At(0);
+                return x;
             }
 
             var inFunction = false;
@@ -58,7 +59,7 @@ namespace Jint.Native.Function
             Script script;
             try
             {
-                script = parser.ParseScript(StrictModeScope.IsStrictModeCode);
+                script = parser.ParseScript(strictCaller);
             }
             catch (ParserException e)
             {

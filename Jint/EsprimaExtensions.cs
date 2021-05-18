@@ -66,6 +66,19 @@ namespace Jint
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool IsOptional<T>(this T node) where T : Expression
+        {
+            switch (node)
+            {
+                case MemberExpression { Optional: true }:
+                case CallExpression { Optional: true }:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string LiteralKeyToString(Literal literal)
         {
             // prevent conversion to scientific notation

@@ -49,13 +49,6 @@ namespace Jint.Runtime.Environments
         public override bool HasSuperBinding() => 
             _thisBindingStatus != ThisBindingStatus.Lexical && !_functionObject._homeObject.IsUndefined();
 
-        public override JsValue WithBaseObject()
-        {
-            return _thisBindingStatus == ThisBindingStatus.Uninitialized
-                ? ExceptionHelper.ThrowReferenceError<JsValue>(_engine)
-                : _thisValue;
-        }
-
         public JsValue BindThisValue(JsValue value)
         {
             if (_thisBindingStatus == ThisBindingStatus.Initialized)

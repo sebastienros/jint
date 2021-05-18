@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using System.Threading.Tasks;
 using Jint.Native.Array;
 using Jint.Native.Date;
 using Jint.Native.Iterator;

@@ -1,7 +1,4 @@
-﻿using System;
-using System.Dynamic;
-using System.Linq;
-using Newtonsoft.Json;
+﻿using System.Linq;
 
 namespace Jint.Tests.Runtime.ExtensionMethods
 {

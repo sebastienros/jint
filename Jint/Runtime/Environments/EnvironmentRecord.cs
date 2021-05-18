@@ -81,12 +81,6 @@ namespace Jint.Runtime.Environments
         public abstract JsValue WithBaseObject();
 
         /// <summary>
-        /// Returns the value to use as the <c>this</c> value on calls to function objects that are obtained as binding values from this environment record.
-        /// </summary>
-        /// <returns>The value to use as <c>this</c>.</returns>
-        public abstract JsValue ImplicitThisValue();
-
-        /// <summary>
         /// Returns an array of all the defined binding names
         /// </summary>
         /// <returns>The array of all defined bindings</returns>
