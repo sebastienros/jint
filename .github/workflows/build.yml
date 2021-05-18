@@ -2,16 +2,16 @@ name: Build
 
 on:
   push:
-    branches: [ master, rel/3.0-beta, dev ]
+    branches: [ main, release/2.x ]
     paths-ignore:
     - 'doc/**'
-    - 'readme.md'
+    - '*.md'
 
   pull_request:
-    branches: [ master, rel/3.0-beta, dev ]
+    branches: [ main, release/2.x ]
     paths-ignore:
     - 'doc/**'
-    - 'readme.md'
+    - '*.md'
 
 jobs:
 
