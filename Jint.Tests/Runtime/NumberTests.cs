@@ -27,7 +27,7 @@ namespace Jint.Tests.Runtime
         [InlineData(100, "3.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e+0")]
         public void ToExponential(int fractionDigits, string result)
         {
-            var value = _engine.Execute($"(3).toExponential({fractionDigits}).toString()").GetCompletionValue().AsString();
+            var value = _engine.Evaluate($"(3).toExponential({fractionDigits}).toString()").AsString();
             Assert.Equal(result, value);
         }
 
@@ -37,14 +37,14 @@ namespace Jint.Tests.Runtime
         [InlineData(99, "3.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")]
         public void ToFixed(int fractionDigits, string result)
         {
-            var value = _engine.Execute($"(3).toFixed({fractionDigits}).toString()").GetCompletionValue().AsString();
+            var value = _engine.Evaluate($"(3).toFixed({fractionDigits}).toString()").AsString();
             Assert.Equal(result, value);
         }
 
         [Fact]
         public void ToFixedWith100FractionDigitsThrows()
         {
-            var ex = Assert.Throws<JavaScriptException>(() => _engine.Execute($"(3).toFixed(100)"));
+            var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate($"(3).toFixed(100)"));
             Assert.Equal("100 fraction digits is not supported due to .NET format specifier limitation", ex.Message);
         }
 
@@ -54,7 +54,7 @@ namespace Jint.Tests.Runtime
         [InlineData(100, "3.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")]
         public void ToPrecision(int fractionDigits, string result)
         {
-            var value = _engine.Execute($"(3).toPrecision({fractionDigits}).toString()").GetCompletionValue().AsString();
+            var value = _engine.Evaluate($"(3).toPrecision({fractionDigits}).toString()").AsString();
             Assert.Equal(result, value);
         }
     }

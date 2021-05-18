@@ -25,7 +25,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ArrayPrototypeToStringWithArray()
         {
-            var result = _engine.Execute("Array.prototype.toString.call([1,2,3]);").GetCompletionValue().AsString();
+            var result = _engine.Evaluate("Array.prototype.toString.call([1,2,3]);").AsString();
 
             Assert.Equal("1,2,3", result);
         }
@@ -33,7 +33,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ArrayPrototypeToStringWithNumber()
         {
-            var result = _engine.Execute("Array.prototype.toString.call(1);").GetCompletionValue().AsString();
+            var result = _engine.Evaluate("Array.prototype.toString.call(1);").AsString();
 
             Assert.Equal("[object Number]", result);
         }
@@ -41,7 +41,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ArrayPrototypeToStringWithObject()
         {
-            var result = _engine.Execute("Array.prototype.toString.call({});").GetCompletionValue().AsString();
+            var result = _engine.Evaluate("Array.prototype.toString.call({});").AsString();
 
             Assert.Equal("[object Object]", result);
         }
@@ -49,7 +49,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void EmptyStringKey()
         {
-            var result = _engine.Execute("var x=[];x[\"\"]=8;x[\"\"];").GetCompletionValue().AsNumber();
+            var result = _engine.Evaluate("var x=[];x[\"\"]=8;x[\"\"];").AsNumber();
 
             Assert.Equal(8, result);
         }
@@ -126,8 +126,8 @@ namespace Jint.Tests.Runtime
                 }";
 
             _engine.Execute(script);
-            _engine.Execute("const a = new MyArr(1,2);");
-            Assert.True(_engine.Execute("a instanceof MyArr").GetCompletionValue().AsBoolean());
+            _engine.Evaluate("const a = new MyArr(1,2);");
+            Assert.True(_engine.Evaluate("a instanceof MyArr").AsBoolean());
         }
     }
 }

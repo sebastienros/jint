@@ -350,16 +350,20 @@ namespace Jint
             CallStack.Clear();
         }
 
-        public Engine Execute(string source)
-        {
-            return Execute(source, DefaultParserOptions);
-        }
+        public JsValue Evaluate(string source) 
+            => Execute(source, DefaultParserOptions)._completionValue;
 
-        public Engine Execute(string source, ParserOptions parserOptions)
-        {
-            var parser = new JavaScriptParser(source, parserOptions);
-            return Execute(parser.ParseScript());
-        }
+        public JsValue Evaluate(string source, ParserOptions parserOptions)
+            => Execute(source, parserOptions)._completionValue;
+
+        public JsValue Evaluate(Script script)
+            => Execute(script)._completionValue;
+
+        public Engine Execute(string source) 
+            => Execute(source, DefaultParserOptions);
+
+        public Engine Execute(string source, ParserOptions parserOptions) 
+            => Execute(new JavaScriptParser(source, parserOptions).ParseScript());
 
         public Engine Execute(Script script)
         {
@@ -464,6 +468,7 @@ namespace Jint
         /// <summary>
         /// Gets the last evaluated statement completion value
         /// </summary>
+        [Obsolete("Prefer calling Evaluate which returns last completion value. Execute is for initialization and Evaluate returns final result.")]
         public JsValue GetCompletionValue()
         {
             return _completionValue;

@@ -9,7 +9,7 @@ namespace Jint.Tests.Runtime
         {
              var engine = new Engine();
              const string script = @"JSON.parse(""{\""abc\\tdef\"": \""42\""}"");";
-             var obj = engine.Execute(script).GetCompletionValue().AsObject();
+             var obj = engine.Evaluate(script).AsObject();
              Assert.True(obj.HasOwnProperty("abc\tdef"));
         }
     }

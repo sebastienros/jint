@@ -90,7 +90,7 @@ https://channel9.msdn.com/Shows/Code-Conversations/Sebastien-Ros-on-jint-a-Javas
 
 ## Examples
 
-This example defines a new value named `log` pointing to `Console.WriteLine`, then executes 
+This example defines a new value named `log` pointing to `Console.WriteLine`, then runs
 a script calling `log('Hello World!')`. 
 
 ```c#
@@ -106,12 +106,11 @@ engine.Execute(@"
 ");
 ```
 
-Here, the variable `x` is set to `3` and `x * x` is executed in JavaScript. The result is returned to .NET directly, in this case as a `double` value `9`. 
+Here, the variable `x` is set to `3` and `x * x` is evaluated in JavaScript. The result is returned to .NET directly, in this case as a `double` value `9`. 
 ```c#
 var square = new Engine()
     .SetValue("x", 3) // define a new variable
-    .Execute("x * x") // execute a statement
-    .GetCompletionValue() // get the latest statement completion value
+    .Evaluate("x * x") // evaluate a statement
     .ToObject(); // converts the value to .NET
 ```
 
@@ -248,7 +247,7 @@ You can also write a custom constraint by implementing the `IConstraint` interfa
 ```c#
 public interface IConstraint
 {
-    /// Called before a script is executed and useful when you us an engine object for multiple executions.
+    /// Called before a script is run and useful when you us an engine object for multiple executions.
     void Reset();
 
     // Called before each statement to check if your requirements are met.
