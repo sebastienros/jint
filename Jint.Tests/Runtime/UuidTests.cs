@@ -22,7 +22,7 @@ namespace Jint.Tests.Runtime
 
         private object RunTest(string source)
         {
-            return _engine.Execute(source).GetCompletionValue().ToObject();
+            return _engine.Evaluate(source).ToObject();
         }
 
         [Fact]

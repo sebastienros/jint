@@ -102,7 +102,7 @@ namespace Jint.Tests.Runtime
         public void ShouldInterpretLiterals(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).GetCompletionValue().ToObject();
+            var result = engine.Evaluate(source).ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -112,8 +112,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
             var result = engine
-                .Execute("var foo = 'bar'; foo;")
-                .GetCompletionValue()
+                .Evaluate("var foo = 'bar'; foo;")
                 .ToObject();
 
             Assert.Equal("bar", result);
@@ -133,7 +132,7 @@ namespace Jint.Tests.Runtime
         public void ShouldInterpretBinaryExpression(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).GetCompletionValue().ToObject();
+            var result = engine.Evaluate(source).ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -144,7 +143,7 @@ namespace Jint.Tests.Runtime
         public void ShouldInterpretUnaryExpression(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).GetCompletionValue().ToObject();
+            var result = engine.Evaluate(source).ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -718,7 +717,7 @@ namespace Jint.Tests.Runtime
         public void OperatorsPrecedence(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).GetCompletionValue().ToObject();
+            var result = engine.Evaluate(source).ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -744,7 +743,7 @@ namespace Jint.Tests.Runtime
         public void ShouldEvaluateParseInt(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).GetCompletionValue().ToObject();
+            var result = engine.Evaluate(source).ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -752,14 +751,14 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldNotExecuteDebuggerStatement()
         {
-            new Engine().Execute("debugger");
+            new Engine().Evaluate("debugger");
         }
 
         [Fact]
         public void ShouldThrowStatementCountOverflow()
         {
             Assert.Throws<StatementsCountOverflowException>(
-                () => new Engine(cfg => cfg.MaxStatements(100)).Execute("while(true);")
+                () => new Engine(cfg => cfg.MaxStatements(100)).Evaluate("while(true);")
             );
         }
 
@@ -767,7 +766,7 @@ namespace Jint.Tests.Runtime
         public void ShouldThrowMemoryLimitExceeded()
         {
             Assert.Throws<MemoryLimitExceededException>(
-                () => new Engine(cfg => cfg.LimitMemory(2048)).Execute("a=[]; while(true){ a.push(0); }")
+                () => new Engine(cfg => cfg.LimitMemory(2048)).Evaluate("a=[]; while(true){ a.push(0); }")
             );
         }
 
@@ -775,7 +774,7 @@ namespace Jint.Tests.Runtime
         public void ShouldThrowTimeout()
         {
             Assert.Throws<TimeoutException>(
-                () => new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0, 0, 0, 0, 500))).Execute("while(true);")
+                () => new Engine(cfg => cfg.TimeoutInterval(new TimeSpan(0, 0, 0, 0, 500))).Evaluate("while(true);")
             );
         }
 
@@ -797,7 +796,7 @@ namespace Jint.Tests.Runtime
                         });
 
                         engine.SetValue("waitHandle", waitHandle);
-                        engine.Execute(@"
+                        engine.Evaluate(@"
                             function sleep(millisecondsTimeout) {
                                 var totalMilliseconds = new Date().getTime() + millisecondsTimeout;
 
@@ -987,7 +986,7 @@ namespace Jint.Tests.Runtime
                 cfg.Strict();
             });
 
-            var ex = Assert.Throws<RecursionDepthOverflowException>(() => engine.Execute(@"
+            var ex = Assert.Throws<RecursionDepthOverflowException>(() => engine.Evaluate(@"
 var myarr = new Array(5000);
 for (var i = 0; i < myarr.length; i++) {
     myarr[i] = function(i) {
@@ -1005,7 +1004,7 @@ myarr[0](0);
             const string code = @"var obj = { get test() { return this.test + '2';  } }; obj.test;";
             var engine = new Engine(cfg => cfg.LimitRecursion(10));
             
-            Assert.Throws<RecursionDepthOverflowException>(() => engine.Execute(code).GetCompletionValue());
+            Assert.Throws<RecursionDepthOverflowException>(() => engine.Evaluate(code));
         }
 
         [Fact]
@@ -1129,7 +1128,7 @@ myarr[0](0);
         public void ShouldNotAllowModifyingSharedUndefinedDescriptor()
         {
             var e = new Engine();
-            e.Execute("var x = { literal: true };");
+            e.Evaluate("var x = { literal: true };");
 
             var pd = e.GetValue("x").AsObject().GetProperty("doesNotExist");
             Assert.Throws<InvalidOperationException>(() => pd.Value = "oh no, assigning this breaks things");
@@ -1259,7 +1258,7 @@ myarr[0](0);
         [Fact]
         public void JsonParserShouldHandleEmptyString()
         {
-            var ex = Assert.Throws<ParserException>(() => _engine.Execute("JSON.parse('');"));
+            var ex = Assert.Throws<ParserException>(() => _engine.Evaluate("JSON.parse('');"));
             Assert.Equal("Line 1: Unexpected end of input", ex.Message);
        }
 
@@ -1270,10 +1269,10 @@ myarr[0](0);
             // decimals in french are separated by commas
             var engine = new Engine();
 
-            var result = engine.Execute("1.2 + 2.1").GetCompletionValue().AsNumber();
+            var result = engine.Evaluate("1.2 + 2.1").AsNumber();
             Assert.Equal(3.3d, result);
 
-            result = engine.Execute("JSON.parse('{\"x\" : 3.3}').x").GetCompletionValue().AsNumber();
+            result = engine.Evaluate("JSON.parse('{\"x\" : 3.3}').x").AsNumber();
             Assert.Equal(3.3d, result);
         }
 
@@ -1281,7 +1280,7 @@ myarr[0](0);
         public void ShouldGetTheLastSyntaxNode()
         {
             var engine = new Engine();
-            engine.Execute("1.2");
+            engine.Evaluate("1.2");
 
             var result = engine.GetLastSyntaxNode();
             Assert.Equal(Nodes.Literal, result.Type);
@@ -1293,7 +1292,7 @@ myarr[0](0);
             var engine = new Engine();
             try
             {
-                engine.Execute("1.2+ new", new ParserOptions(source: "jQuery.js"));
+                engine.Evaluate("1.2+ new", new ParserOptions(source: "jQuery.js"));
             }
             catch (ParserException e)
             {
@@ -1308,7 +1307,7 @@ myarr[0](0);
         {
             var engine = new Engine();
 
-            var result = engine.Execute("Date.parse('1970-01-01');").GetCompletionValue().AsNumber();
+            var result = engine.Evaluate("Date.parse('1970-01-01');").AsNumber();
             Assert.Equal(0, result);
         }
 
@@ -1328,8 +1327,7 @@ myarr[0](0);
         {
             var date = new DateTime(2016, 1, 1, 13, 0, 0, DateTimeKind.Local);
             var engine = new Engine().SetValue("localDate", date);
-            engine.Execute(@"localDate");
-            var actual = engine.GetCompletionValue().AsDate().ToDateTime();
+            var actual = engine.Evaluate(@"localDate").AsDate().ToDateTime();
             Assert.Equal(date.ToUniversalTime(), actual.ToUniversalTime());
             Assert.Equal(date.ToLocalTime(), actual.ToLocalTime());
         }
@@ -1341,7 +1339,7 @@ myarr[0](0);
 
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
-            var result = engine.Execute("Date.UTC(1970,0,1)").GetCompletionValue().AsNumber();
+            var result = engine.Evaluate("Date.UTC(1970,0,1)").AsNumber();
             Assert.Equal(0, result);
         }
 
@@ -1353,19 +1351,19 @@ myarr[0](0);
 
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
-            var epochGetLocalMinutes = engine.Execute("var d = new Date(0); d.getMinutes();").GetCompletionValue().AsNumber();
+            var epochGetLocalMinutes = engine.Evaluate("var d = new Date(0); d.getMinutes();").AsNumber();
             Assert.Equal(11, epochGetLocalMinutes);
 
-            var localEpochGetUtcMinutes = engine.Execute("var d = new Date(1970,0,1); d.getUTCMinutes();").GetCompletionValue().AsNumber();
+            var localEpochGetUtcMinutes = engine.Evaluate("var d = new Date(1970,0,1); d.getUTCMinutes();").AsNumber();
             Assert.Equal(49, localEpochGetUtcMinutes);
 
-            var parseLocalEpoch = engine.Execute("Date.parse('January 1, 1970');").GetCompletionValue().AsNumber();
+            var parseLocalEpoch = engine.Evaluate("Date.parse('January 1, 1970');").AsNumber();
             Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
 
-            var epochToLocalString = engine.Execute("var d = new Date(0); d.toString();").GetCompletionValue().AsString();
+            var epochToLocalString = engine.Evaluate("var d = new Date(0); d.toString();").AsString();
             Assert.Equal("Thu Jan 01 1970 00:11:00 GMT+0011", epochToLocalString);
 
-            var epochToUTCString = engine.Execute("var d = new Date(0); d.toUTCString();").GetCompletionValue().AsString();
+            var epochToUTCString = engine.Evaluate("var d = new Date(0); d.toUTCString();").AsString();
             Assert.Equal("Thu, 01 Jan 1970 00:00:00 GMT", epochToUTCString);
         }
 
@@ -1395,7 +1393,7 @@ myarr[0](0);
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone));
 
             engine.SetValue("d", date);
-            var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsNumber();
+            var result = engine.Evaluate("Date.parse(d);").AsNumber();
 
             Assert.Equal(0, result);
         }
@@ -1425,7 +1423,7 @@ myarr[0](0);
             var customTimeZone = TimeZoneInfo.CreateCustomTimeZone(customName, new TimeSpan(0, timespanMinutes, 0), customName, customName, customName, null, false);
             var engine = new Engine(cfg => cfg.LocalTimeZone(customTimeZone)).SetValue("d", date);
 
-            var result = engine.Execute("Date.parse(d);").GetCompletionValue().AsNumber();
+            var result = engine.Evaluate("Date.parse(d);").AsNumber();
 
             Assert.Equal(msPriorMidnight, result);
         }
@@ -1452,7 +1450,7 @@ myarr[0](0);
             var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
             engine.Execute(
                 string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
-            Assert.Equal(testDateTimeOffset.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture), engine.Execute("d.toISOString();").GetCompletionValue().ToString());
+            Assert.Equal(testDateTimeOffset.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture), engine.Evaluate("d.toISOString();").ToString());
         }
 
         [Theory, MemberData("TestDates")]
@@ -1467,7 +1465,7 @@ myarr[0](0);
 
             var expected = testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss", CultureInfo.InvariantCulture);
             expected += testDateTimeOffset.ToString(" 'GMT'zzz", CultureInfo.InvariantCulture).Replace(":", "");
-            var actual = engine.Execute("d.toString();").GetCompletionValue().ToString();
+            var actual = engine.Evaluate("d.toString();").ToString();
 
             Assert.Equal(expected, actual);
         }
@@ -1562,10 +1560,10 @@ var prep = function (fn) { fn(); };
         {
             var engine = new Engine();
 
-            var minValue = engine.Execute("new Date('0001-01-01T00:00:00.000')").GetCompletionValue().ToObject();
+            var minValue = engine.Evaluate("new Date('0001-01-01T00:00:00.000')").ToObject();
             Assert.Equal(new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc), minValue);
 
-            var maxValue = engine.Execute("new Date('9999-12-31T23:59:59.999')").GetCompletionValue().ToObject();
+            var maxValue = engine.Evaluate("new Date('9999-12-31T23:59:59.999')").ToObject();
 
 #if NETCOREAPP
             Assert.Equal(new DateTime(9999, 12, 31, 23, 59, 59, 998, DateTimeKind.Utc), maxValue);
@@ -1663,11 +1661,11 @@ var prep = function (fn) { fn(); };
         public void ShouldRoundToFixedDecimal(double number, int fractionDigits, string result)
         {
             var engine = new Engine();
-            var value = engine.Execute(
+            var value = engine.Evaluate(
                 String.Format("new Number({0}).toFixed({1})",
                     number.ToString(CultureInfo.InvariantCulture),
                     fractionDigits.ToString(CultureInfo.InvariantCulture)))
-                .GetCompletionValue().ToObject();
+                .ToObject();
 
             Assert.Equal(value, result);
         }
@@ -1702,7 +1700,7 @@ var prep = function (fn) { fn(); };
 
             engine.DebugHandler.BreakPoints.Add(new BreakPoint(1, 1));
 
-            engine.Execute(@"var local = true;
+            engine.Evaluate(@"var local = true;
                 if (local === true)
                 {}");
 
@@ -1721,7 +1719,7 @@ var prep = function (fn) { fn(); };
 
             engine.DebugHandler.Step += EngineStep;
 
-            engine.Execute(@"var local = true;
+            engine.Evaluate(@"var local = true;
                 var creatingSomeOtherLine = 0;
                 var lastOneIPromise = true");
 
@@ -1741,7 +1739,7 @@ var prep = function (fn) { fn(); };
             engine.DebugHandler.Step += EngineStep;
             engine.DebugHandler.Break += EngineStep;
 
-            engine.Execute(@"var local = true;");
+            engine.Evaluate(@"var local = true;");
 
             engine.DebugHandler.Step -= EngineStep;
             engine.DebugHandler.Break -= EngineStep;
@@ -1769,7 +1767,7 @@ var prep = function (fn) { fn(); };
             engine.DebugHandler.BreakPoints.Add(new BreakPoint(5, 0));
             engine.DebugHandler.Break += EngineStepVerifyDebugInfo;
 
-            engine.Execute(@"var global = true;
+            engine.Evaluate(@"var global = true;
                             function func1()
                             {
                                 var local = false;
@@ -1820,7 +1818,7 @@ var prep = function (fn) { fn(); };
             engine.DebugHandler.BreakPoints.Add(new BreakPoint(5, 16, "condition === true"));
             engine.DebugHandler.BreakPoints.Add(new BreakPoint(6, 16, "condition === false"));
 
-            engine.Execute(@"var local = true;
+            engine.Evaluate(@"var local = true;
                 var condition = true;
                 if (local === true)
                 {
@@ -1843,7 +1841,7 @@ var prep = function (fn) { fn(); };
 
             engine.DebugHandler.Step += EngineStep;
 
-            engine.Execute(@"function func() // first step - then stepping out
+            engine.Evaluate(@"function func() // first step - then stepping out
                 {
                     ; // shall not step
                     ; // not even here
@@ -1865,7 +1863,7 @@ var prep = function (fn) { fn(); };
 
             engine.DebugHandler.Step += EngineStepOutWhenInsideFunction;
 
-            engine.Execute(@"function func() // first step
+            engine.Evaluate(@"function func() // first step
                 {
                     ; // third step - now stepping out
                     ; // it should not step here
@@ -1901,7 +1899,7 @@ var prep = function (fn) { fn(); };
             engine.DebugHandler.BreakPoints.Add(new BreakPoint(4, 33));
             engine.DebugHandler.Break += EngineStep;
 
-            engine.Execute(@"var global = true;
+            engine.Evaluate(@"var global = true;
                             function func1()
                             {
                                 var local =
@@ -1924,7 +1922,7 @@ var prep = function (fn) { fn(); };
             stepMode = StepMode.Over;
             engine.DebugHandler.Step += EngineStep;
 
-            engine.Execute(@"function func() // first step
+            engine.Evaluate(@"function func() // first step
                 {
                     ; // third step - it shall not step here
                     ; // it shall not step here
@@ -1947,7 +1945,7 @@ var prep = function (fn) { fn(); };
             stepMode = StepMode.Over;
             engine.DebugHandler.Step += EngineStep;
 
-            engine.Execute(@"var step1 = 1; // first step
+            engine.Evaluate(@"var step1 = 1; // first step
                 var step2 = 2; // second step
                 if (step1 !== step2) // third step
                 { // fourth step
@@ -2006,7 +2004,7 @@ var prep = function (fn) { fn(); };
         public void HexZeroAsArrayIndexShouldWork()
         {
             var engine = new Engine();
-            engine.Execute("var t = '1234'; var value = null;");
+            engine.Evaluate("var t = '1234'; var value = null;");
             Assert.Equal("1", engine.Execute("value = t[0x0];").GetValue("value").AsString());
             Assert.Equal("1", engine.Execute("value = t[0];").GetValue("value").AsString());
             Assert.Equal("1", engine.Execute("value = t['0'];").GetValue("value").AsString());
@@ -2039,7 +2037,7 @@ var prep = function (fn) { fn(); };
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
                 ;
 
-            engine.Execute(@"
+            engine.Evaluate(@"
                     var d = new Date(1433160000000);
 
                     equal('Mon Jun 01 2015 05:00:00 GMT-0700', d.toString());
@@ -2061,7 +2059,7 @@ var prep = function (fn) { fn(); };
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
                 ;
 
-            engine.Execute(@"
+            engine.Evaluate(@"
                     var d = new Date(2016, 8, 1);
 
                     equal('Thu Sep 01 2016 00:00:00 GMT-0400', d.toString());
@@ -2081,7 +2079,7 @@ var prep = function (fn) { fn(); };
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
-                .Execute(@"
+                .Evaluate(@"
                     var d = new Date(1433160000000);
                     equal(Date.parse(d.toString()), d.valueOf());
                     equal(Date.parse(d.toLocaleString()), d.valueOf());
@@ -2101,12 +2099,12 @@ var prep = function (fn) { fn(); };
                 .SetValue("assert", new Action<bool>(Assert.True))
                 .SetValue("equal", new Action<object, object>(Assert.Equal));
 
-            engine.Execute("var d = new Number(-1.23);");
-            engine.Execute("equal('-1.23', d.toString());");
+            engine.Evaluate("var d = new Number(-1.23);");
+            engine.Evaluate("equal('-1.23', d.toString());");
             
             // NET 5 globalization APIs use ICU libraries on newer Windows 10 giving different result
             // build server is older Windows...
-            engine.Execute("assert('-1,230' === d.toLocaleString() || '-1,23' === d.toLocaleString());");
+            engine.Evaluate("assert('-1,230' === d.toLocaleString() || '-1,23' === d.toLocaleString());");
         }
 
         [Fact]
@@ -2191,7 +2189,7 @@ var prep = function (fn) { fn(); };
             try
             {
                 new Engine()
-                    .Execute(@"
+                    .Evaluate(@"
                     function test(s) {
                         o.boom();
                     }
@@ -2232,7 +2230,7 @@ var prep = function (fn) { fn(); };
             engine.SetValue("guid1", guid1);
             engine.SetValue("guid2", guid2);
 
-            var result = engine.Execute("guid1 == guid2").GetCompletionValue().AsBoolean();
+            var result = engine.Evaluate("guid1 == guid2").AsBoolean();
 
             Assert.True(result);
         }
@@ -2241,7 +2239,7 @@ var prep = function (fn) { fn(); };
         public void CanStringifyToConsole()
         {
             var engine = new Engine(options => options.AllowClr(typeof(Console).Assembly));
-            engine.Execute("System.Console.WriteLine(JSON.stringify({x:12, y:14}));");
+            engine.Evaluate("System.Console.WriteLine(JSON.stringify({x:12, y:14}));");
         }
 
         [Fact]
@@ -2253,7 +2251,7 @@ var prep = function (fn) { fn(); };
 
             engine.SetValue("guid1", guid1);
 
-            var result = engine.Execute("guid1 == {}").GetCompletionValue().AsBoolean();
+            var result = engine.Evaluate("guid1 == {}").AsBoolean();
 
             Assert.False(result);
         }
@@ -2263,7 +2261,7 @@ var prep = function (fn) { fn(); };
         {
             // 53.6841659 cannot be converted by V8's DToA => "old" DToA code will be used.
             var engine = new Engine();
-            var val = engine.Execute("JSON.stringify(53.6841659)").GetCompletionValue();
+            var val = engine.Evaluate("JSON.stringify(53.6841659)");
 
             Assert.Equal("53.6841659", val.AsString());
         }
@@ -2272,7 +2270,7 @@ var prep = function (fn) { fn(); };
         public void ShouldStringifyObjectWithPropertiesToSameRef()
         {
             var engine = new Engine();
-            var res = engine.Execute(@"
+            var res = engine.Evaluate(@"
                 var obj = {
                     a : [],
                     a1 : ['str'],
@@ -2282,7 +2280,7 @@ var prep = function (fn) { fn(); };
                 obj.b = obj.a;
                 obj.b1 = obj.a1;
                 JSON.stringify(obj);
-            ").GetCompletionValue();
+            ");
 
             Assert.True(res == "{\"a\":[],\"a1\":[\"str\"],\"a2\":{},\"a3\":{\"prop\":\"val\"},\"b\":[],\"b1\":[\"str\"]}");
         }
@@ -2291,7 +2289,7 @@ var prep = function (fn) { fn(); };
         public void ShouldThrowOnSerializingCyclicRefObject()
         {
             var engine = new Engine();
-            var res = engine.Execute(@"
+            var res = engine.Evaluate(@"
                 (function(){
                     try{
                         a = [];
@@ -2302,7 +2300,7 @@ var prep = function (fn) { fn(); };
                         return ex.message;
                     }
                 })();
-            ").GetCompletionValue();
+            ");
 
             Assert.True(res == "Cyclic reference detected.");
         }
@@ -2322,7 +2320,7 @@ var prep = function (fn) { fn(); };
         public void ShouldEvaluateEscape(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).GetCompletionValue().ToObject();
+            var result = engine.Evaluate(source).ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -2533,7 +2531,7 @@ var prep = function (fn) { fn(); };
         public void ShouldEvaluateUnescape(object expected, string source)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).GetCompletionValue().ToObject();
+            var result = engine.Evaluate(source).ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -2554,7 +2552,7 @@ var prep = function (fn) { fn(); };
         public void ShouldExtractDateParts(string source, double expected)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).GetCompletionValue().ToObject();
+            var result = engine.Evaluate(source).ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -2568,7 +2566,7 @@ var prep = function (fn) { fn(); };
         public void ShouldPadStart(string source, object expected)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).GetCompletionValue().ToObject();
+            var result = engine.Evaluate(source).ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -2581,8 +2579,7 @@ var prep = function (fn) { fn(); };
         public void ShouldPadEnd(string source, object expected)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).GetCompletionValue().ToObject();
-
+            var result = engine.Evaluate(source).ToObject();
             Assert.Equal(expected, result);
         }
 
@@ -2624,7 +2621,7 @@ var prep = function (fn) { fn(); };
         public void ShouldStartWith(string source, object expected)
         {
             var engine = new Engine();
-            var result = engine.Execute(source).GetCompletionValue().ToObject();
+            var result = engine.Evaluate(source).ToObject();
 
             Assert.Equal(expected, result);
         }
@@ -2734,8 +2731,8 @@ var prep = function (fn) { fn(); };
         public void ShouldSupportDateConsturctorWithArgumentOutOfRange(string expected, string actual)
         {
             var engine = new Engine(o => o.LocalTimeZone(TimeZoneInfo.Utc));
-            var expectedValue = engine.Execute(expected).GetCompletionValue().ToObject();
-            var actualValue = engine.Execute(actual).GetCompletionValue().ToObject();
+            var expectedValue = engine.Evaluate(expected).ToObject();
+            var actualValue = engine.Evaluate(actual).ToObject();
             Assert.Equal(expectedValue, actualValue);
         }
 
@@ -2807,8 +2804,8 @@ function output(x) {
 };
 ";
             _engine.Execute(program);
-            var result1 = (ObjectInstance)_engine.Execute("output(x1)").GetCompletionValue();
-            var result2 = (ObjectInstance)_engine.Execute("output(x2)").GetCompletionValue();
+            var result1 = (ObjectInstance)_engine.Evaluate("output(x1)");
+            var result2 = (ObjectInstance)_engine.Evaluate("output(x2)");
 
             Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum1")));
             Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum2")));
@@ -2895,10 +2892,10 @@ function output(x) {
         public void ShouldReportErrorForInvalidJson()
         {
             var engine = new Engine();
-            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("JSON.parse('[01]')"));
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("JSON.parse('[01]')"));
             Assert.Equal("Unexpected token '1'", ex.Message);
 
-            var voidCompletion = engine.Execute("try { JSON.parse('01') } catch (e) {}").GetCompletionValue();
+            var voidCompletion = engine.Evaluate("try { JSON.parse('01') } catch (e) {}");
             Assert.Equal(JsValue.Undefined, voidCompletion);
         }
 
@@ -2929,22 +2926,22 @@ x.test = {
             );
             Assert.IsType<TestTypeConverter>(engine.ClrTypeConverter);
             engine.SetValue("x", new Testificate());
-            Assert.Throws<JavaScriptException>(() => engine.Execute("c.Name"));
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate("c.Name"));
         }
 
         [Fact]
         public void ShouldAllowDollarPrefixForProperties()
         {
             _engine.SetValue("str", "Hello");
-            _engine.Execute("equal(undefined, str.$ref);");
-            _engine.Execute("equal(undefined, str.ref);");
-            _engine.Execute("equal(undefined, str.$foo);");
-            _engine.Execute("equal(undefined, str.foo);");
-            _engine.Execute("equal(undefined, str['$foo']);");
-            _engine.Execute("equal(undefined, str['foo']);");
+            _engine.Evaluate("equal(undefined, str.$ref);");
+            _engine.Evaluate("equal(undefined, str.ref);");
+            _engine.Evaluate("equal(undefined, str.$foo);");
+            _engine.Evaluate("equal(undefined, str.foo);");
+            _engine.Evaluate("equal(undefined, str['$foo']);");
+            _engine.Evaluate("equal(undefined, str['foo']);");
 
-            _engine.Execute("equal(false, str.hasOwnProperty('$foo'));");
-            _engine.Execute("equal(false, str.hasOwnProperty('foo'));");
+            _engine.Evaluate("equal(false, str.hasOwnProperty('$foo'));");
+            _engine.Evaluate("equal(false, str.hasOwnProperty('foo'));");
         }
 
         [Fact]
@@ -2976,11 +2973,11 @@ x.test = {
         public void RecursiveCallStack()
         {
             var engine = new Engine();
-            Func<string, object> evaluateCode = code => engine.Execute(code).GetCompletionValue();
+            Func<string, object> evaluateCode = code => engine.Evaluate(code);
             var evaluateCodeValue = JsValue.FromObject(engine, evaluateCode);
 
             engine.SetValue("evaluateCode", evaluateCodeValue);
-            var result = (int) engine.Execute(@"evaluateCode('678 + 711')").GetCompletionValue().AsNumber();
+            var result = (int) engine.Evaluate(@"evaluateCode('678 + 711')").AsNumber();
 
             Assert.Equal(1389, result);
         }

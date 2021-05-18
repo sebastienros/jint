@@ -19,7 +19,7 @@ namespace Jint.Benchmark
         public double BuildEngine()
         {
             var engine = new Engine();
-            return engine.Execute(_program).GetCompletionValue().AsNumber();
+            return engine.Evaluate(_program).AsNumber();
         }
     }
 }

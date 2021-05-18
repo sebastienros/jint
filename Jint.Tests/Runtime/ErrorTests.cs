@@ -203,8 +203,8 @@ var x = b(7);";
         {
             var engine = new Engine();
             engine.Execute($"const o = new {type}();");
-            Assert.True(engine.Execute($"o.constructor === {type}").GetCompletionValue().AsBoolean());
-            Assert.Equal(type, engine.Execute("o.constructor.name").GetCompletionValue().AsString());
+            Assert.True(engine.Evaluate($"o.constructor === {type}").AsBoolean());
+            Assert.Equal(type, engine.Evaluate("o.constructor.name").AsString());
         }
 
         private static void EqualIgnoringNewLineDifferences(string expected, string actual)

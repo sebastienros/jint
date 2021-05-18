@@ -39,7 +39,7 @@ namespace Jint.Tests.Runtime
                 o.constructor === My{baseType}";
 
             var engine = new Engine();
-            Assert.True(engine.Execute(code).GetCompletionValue().AsBoolean());
+            Assert.True(engine.Evaluate(code).AsBoolean());
         }
     }
 }

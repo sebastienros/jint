@@ -18,49 +18,49 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void NaNToString()
         {
-            var value = _engine.Execute("new Date(NaN).toString();").GetCompletionValue().AsString();
+            var value = _engine.Evaluate("new Date(NaN).toString();").AsString();
             Assert.Equal("Invalid Date", value);
         }
 
         [Fact]
         public void NaNToDateString()
         {
-            var value = _engine.Execute("new Date(NaN).toDateString();").GetCompletionValue().AsString();
+            var value = _engine.Evaluate("new Date(NaN).toDateString();").AsString();
             Assert.Equal("Invalid Date", value);
         }
 
         [Fact]
         public void NaNToTimeString()
         {
-            var value = _engine.Execute("new Date(NaN).toTimeString();").GetCompletionValue().AsString();
+            var value = _engine.Evaluate("new Date(NaN).toTimeString();").AsString();
             Assert.Equal("Invalid Date", value);
         }
 
         [Fact]
         public void NaNToLocaleString()
         {
-            var value = _engine.Execute("new Date(NaN).toLocaleString();").GetCompletionValue().AsString();
+            var value = _engine.Evaluate("new Date(NaN).toLocaleString();").AsString();
             Assert.Equal("Invalid Date", value);
         }
 
         [Fact]
         public void NaNToLocaleDateString()
         {
-            var value = _engine.Execute("new Date(NaN).toLocaleDateString();").GetCompletionValue().AsString();
+            var value = _engine.Evaluate("new Date(NaN).toLocaleDateString();").AsString();
             Assert.Equal("Invalid Date", value);
         }
 
         [Fact]
         public void NaNToLocaleTimeString()
         {
-            var value = _engine.Execute("new Date(NaN).toLocaleTimeString();").GetCompletionValue().AsString();
+            var value = _engine.Evaluate("new Date(NaN).toLocaleTimeString();").AsString();
             Assert.Equal("Invalid Date", value);
         }
 
         [Fact]
         public void ToJsonFromNaNObject()
         {
-            var result = _engine.Execute("JSON.stringify({ date: new Date(NaN) });").GetCompletionValue();
+            var result = _engine.Evaluate("JSON.stringify({ date: new Date(NaN) });");
             Assert.Equal("{\"date\":null}", result.ToString());
         }
     }

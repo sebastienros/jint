@@ -20,7 +20,7 @@ namespace Jint.Tests.Runtime.ExtensionMethods
 
             var engine = new Engine(options);
             engine.SetValue("person", person);
-            var age = engine.Execute("person.MultiplyAge(2)").GetCompletionValue().AsInteger();
+            var age = engine.Evaluate("person.MultiplyAge(2)").AsInteger();
 
             Assert.Equal(70, age);
         }
@@ -32,7 +32,7 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             options.AddExtensionMethods(typeof(CustomStringExtensions));
 
             var engine = new Engine(options);
-            var result = engine.Execute("\"Hello World!\".Backwards()").GetCompletionValue().AsString();
+            var result = engine.Evaluate("\"Hello World!\".Backwards()").AsString();
 
             Assert.Equal("!dlroW olleH", result);
         }
@@ -44,7 +44,7 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             options.AddExtensionMethods(typeof(DoubleExtensions));
 
             var engine = new Engine(options);
-            var result = engine.Execute("let numb = 27; numb.Add(13)").GetCompletionValue().AsInteger();
+            var result = engine.Evaluate("let numb = 27; numb.Add(13)").AsInteger();
 
             Assert.Equal(40, result);
         }
@@ -56,7 +56,7 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             options.AddExtensionMethods(typeof(CustomStringExtensions));
 
             var engine = new Engine(options);
-            var result = engine.Execute("\"{'name':'Mickey'}\".DeserializeObject()").GetCompletionValue().ToObject() as dynamic;
+            var result = engine.Evaluate("\"{'name':'Mickey'}\".DeserializeObject()").ToObject() as dynamic;
 
             Assert.Equal("Mickey", result.name);
         }
@@ -70,12 +70,12 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             });
 
             //uses split function from StringPrototype
-            var arr = engine.Execute("'yes,no'.split(',')").GetCompletionValue().AsArray();
+            var arr = engine.Evaluate("'yes,no'.split(',')").AsArray();
             Assert.Equal("yes", arr[0]);
             Assert.Equal("no", arr[1]);
 
             //uses split function from CustomStringExtensions
-            var arr2 = engine.Execute("'yes,no'.split(2)").GetCompletionValue().AsArray();
+            var arr2 = engine.Evaluate("'yes,no'.split(2)").AsArray();
             Assert.Equal("ye", arr2[0]);
             Assert.Equal("s,no", arr2[1]);
         }
@@ -89,7 +89,7 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             });
 
             //uses the overridden split function from OverrideStringPrototypeExtensions
-            var arr = engine.Execute("'yes,no'.split(',')").GetCompletionValue().AsArray();
+            var arr = engine.Evaluate("'yes,no'.split(',')").AsArray();
             Assert.Equal("YES", arr[0]);
             Assert.Equal("NO", arr[1]);
         }
@@ -105,10 +105,10 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             var engine = new Engine(options);
             engine.SetValue("person", person);
 
-            var isBogusInPerson = engine.Execute("'bogus' in person").GetCompletionValue().AsBoolean();
+            var isBogusInPerson = engine.Evaluate("'bogus' in person").AsBoolean();
             Assert.False(isBogusInPerson);
 
-            var propertyValue = engine.Execute("person.bogus").GetCompletionValue();
+            var propertyValue = engine.Evaluate("person.bogus");
             Assert.Equal(JsValue.Undefined, propertyValue);
         }
 
@@ -127,7 +127,7 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             var intList = new List<int>() { 0, 1, 2, 3 };
 
             engine.SetValue("intList", intList);
-            var intSumRes = engine.Execute("intList.Sum()").GetCompletionValue().AsNumber();
+            var intSumRes = engine.Evaluate("intList.Sum()").AsNumber();
             Assert.Equal(6, intSumRes);
         }
 
@@ -138,7 +138,7 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             var stringList = new List<string>() { "working", "linq" };
             engine.SetValue("stringList", stringList);
 
-            var stringSumRes = engine.Execute("stringList.Sum(x => x.length)").GetCompletionValue().AsNumber();
+            var stringSumRes = engine.Evaluate("stringList.Sum(x => x.length)").AsNumber();
             Assert.Equal(11, stringSumRes);
         }
 
@@ -149,7 +149,7 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             var stringList = new List<string>() { "working", "linq" };
             engine.SetValue("stringList", stringList);
 
-            var stringRes = engine.Execute("stringList.Select((x) => x + 'a').ToArray().join()").GetCompletionValue().AsString();
+            var stringRes = engine.Evaluate("stringList.Select((x) => x + 'a').ToArray().join()").AsString();
             Assert.Equal("workinga,linqa", stringRes);
 
             // The method ambiguity resolver is not so smart to choose the Select method with the correct number of parameters

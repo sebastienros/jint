@@ -29,8 +29,7 @@ namespace Jint.Tests.Runtime
         {
             var square = new Engine()
                 .SetValue("x", 3)
-                .Execute("x * x")
-                .GetCompletionValue()
+                .Evaluate("x * x")
                 .ToObject();
 
             Assert.Equal(9d, square);

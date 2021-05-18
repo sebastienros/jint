@@ -82,8 +82,7 @@ namespace Jint.Runtime.Debugger
 
                 if (!string.IsNullOrEmpty(breakPoint.Condition))
                 {
-                    var completionValue = engine.Execute(breakPoint.Condition).GetCompletionValue();
-
+                    var completionValue = engine.Evaluate(breakPoint.Condition);
                     if (!completionValue.AsBoolean())
                     {
                         continue;

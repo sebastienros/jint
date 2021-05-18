@@ -58,7 +58,7 @@ namespace Jint.Tests.Runtime
         public void ShouldStringifyNetObjects()
         {
             _engine.SetValue("foo", new Foo());
-            var json = _engine.Execute("JSON.stringify(foo.GetBar())").GetCompletionValue().AsString();
+            var json = _engine.Evaluate("JSON.stringify(foo.GetBar())").AsString();
             Assert.Equal("{\"Test\":\"123\"}", json);
         }
 
@@ -72,7 +72,7 @@ namespace Jint.Tests.Runtime
             expando.bar = "A string";
             engine.SetValue(nameof(expando), expando);
 
-            var result = engine.Execute($"JSON.stringify({nameof(expando)})").GetCompletionValue().AsString();
+            var result = engine.Evaluate($"JSON.stringify({nameof(expando)})").AsString();
             Assert.Equal("{\"foo\":5,\"bar\":\"A string\"}", result);
         }
 
@@ -87,7 +87,7 @@ namespace Jint.Tests.Runtime
             };
             engine.SetValue(nameof(dictionary), dictionary);
 
-            var result = engine.Execute($"JSON.stringify({nameof(dictionary)})").GetCompletionValue().AsString();
+            var result = engine.Evaluate($"JSON.stringify({nameof(dictionary)})").AsString();
             Assert.Equal("{\"foo\":5,\"bar\":\"A string\"}", result);
         }
 
@@ -97,10 +97,10 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
 
             const string json = "{\"foo\":5,\"bar\":\"A string\"}";
-            var parsed = engine.Execute($"JSON.parse('{json}')").GetCompletionValue().ToObject();
+            var parsed = engine.Evaluate($"JSON.parse('{json}')").ToObject();
             engine.SetValue(nameof(parsed), parsed);
 
-            var result = engine.Execute($"JSON.stringify({nameof(parsed)})").GetCompletionValue().AsString();
+            var result = engine.Evaluate($"JSON.stringify({nameof(parsed)})").AsString();
             Assert.Equal(json, result);
         }
 
@@ -125,8 +125,7 @@ namespace Jint.Tests.Runtime
 
             var result = new Engine()
                 .SetValue("userclass", userClass)
-                .Execute("userclass.TypeProperty.Name;")
-                .GetCompletionValue()
+                .Evaluate("userclass.TypeProperty.Name;")
                 .AsString();
 
             Assert.Equal("Person", result);
@@ -160,9 +159,9 @@ namespace Jint.Tests.Runtime
 
             var company = new Company("Acme Ltd");
             _engine.SetValue("c", company);
-            Assert.Equal("item thingie", _engine.Execute("c.Item").GetCompletionValue());
-            Assert.Equal("item thingie", _engine.Execute("c.item").GetCompletionValue());
-            Assert.Equal("value", _engine.Execute("c['key']").GetCompletionValue());
+            Assert.Equal("item thingie", _engine.Evaluate("c.Item"));
+            Assert.Equal("item thingie", _engine.Evaluate("c.item"));
+            Assert.Equal("value", _engine.Evaluate("c['key']"));
         }
 
         [Fact]
@@ -837,7 +836,7 @@ namespace Jint.Tests.Runtime
 
             e.SetValue("o", obj);
 
-            var name = e.Execute("o.values.filter(x => x.age == 12)[0].name").GetCompletionValue().ToString();
+            var name = e.Evaluate("o.values.filter(x => x.age == 12)[0].name").ToString();
             Assert.Equal("John", name);
         }
 
@@ -848,7 +847,7 @@ namespace Jint.Tests.Runtime
             dynamic expando = new ExpandoObject();
             expando.Name = "test";
             engine.SetValue("expando", expando);
-            Assert.Equal("test", engine.Execute("expando.Name").GetCompletionValue().ToString());
+            Assert.Equal("test", engine.Evaluate("expando.Name").ToString());
         }
 
         [Fact]
@@ -856,9 +855,9 @@ namespace Jint.Tests.Runtime
         {
             var result = _engine
                 .SetValue("values", new[] { 1, 2, 3, 4, 5, 6 })
-                .Execute("values.filter(function(x){ return x % 2 == 0; })");
+                .Evaluate("values.filter(function(x){ return x % 2 == 0; })");
 
-            var parts = result.GetCompletionValue().ToObject();
+            var parts = result.ToObject();
 
             Assert.True(parts.GetType().IsArray);
             Assert.Equal(3, ((object[])parts).Length);
@@ -872,9 +871,9 @@ namespace Jint.Tests.Runtime
         {
             var result = _engine
                 .SetValue("values", new List<object> { 1, 2, 3, 4, 5, 6 })
-                .Execute("new Array(values).filter(function(x){ return x % 2 == 0; })");
+                .Evaluate("new Array(values).filter(function(x){ return x % 2 == 0; })");
 
-            var parts = result.GetCompletionValue().ToObject();
+            var parts = result.ToObject();
 
             Assert.True(parts.GetType().IsArray);
             Assert.Equal(3, ((object[])parts).Length);
@@ -886,8 +885,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldConvertArrayInstanceToArray()
         {
-            var result = _engine.Execute("'foo@bar.com'.split('@');");
-            var parts = result.GetCompletionValue().ToObject();
+            var parts = _engine.Evaluate("'foo@bar.com'.split('@');").ToObject();
 
             Assert.True(parts.GetType().IsArray);
             Assert.Equal(2, ((object[])parts).Length);
@@ -912,16 +910,15 @@ namespace Jint.Tests.Runtime
                 return sum;
             }
             var result = _engine.SetValue("getSum", new Func<JsValue, JsValue>(adder))
-                .Execute("getSum([1,2,3]);");
+                .Evaluate("getSum([1,2,3]);");
 
-            Assert.True(result.GetCompletionValue() == 6);
+            Assert.True(result == 6);
         }
 
         [Fact]
         public void ShouldConvertBooleanInstanceToBool()
         {
-            var result = _engine.Execute("new Boolean(true)");
-            var value = result.GetCompletionValue().ToObject();
+            var value = _engine.Evaluate("new Boolean(true)").ToObject();
 
             Assert.Equal(typeof(bool), value.GetType());
             Assert.Equal(true, value);
@@ -930,8 +927,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldConvertDateInstanceToDateTime()
         {
-            var result = _engine.Execute("new Date(0)");
-            var value = result.GetCompletionValue().ToObject();
+            var result = _engine.Evaluate("new Date(0)");
+            var value = result.ToObject();
 
             Assert.Equal(typeof(DateTime), value.GetType());
             Assert.Equal(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc), value);
@@ -940,8 +937,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldConvertNumberInstanceToDouble()
         {
-            var result = _engine.Execute("new Number(10)");
-            var value = result.GetCompletionValue().ToObject();
+            var result = _engine.Evaluate("new Number(10)");
+            var value = result.ToObject();
 
             Assert.Equal(typeof(double), value.GetType());
             Assert.Equal(10d, value);
@@ -950,8 +947,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldConvertStringInstanceToString()
         {
-            var result = _engine.Execute("new String('foo')");
-            var value = result.GetCompletionValue().ToObject();
+            var value = _engine.Evaluate("new String('foo')").ToObject();
 
             Assert.Equal(typeof(string), value.GetType());
             Assert.Equal("foo", value);
@@ -960,7 +956,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldConvertObjectInstanceToExpando()
         {
-            _engine.Execute("var o = {a: 1, b: 'foo'}");
+            _engine.Evaluate("var o = {a: 1, b: 'foo'}");
             var result = _engine.GetValue("o");
 
             dynamic value = result.ToObject();
@@ -2136,8 +2132,8 @@ namespace Jint.Tests.Runtime
             var p = new Person();
             var engine = new Engine();
             engine.SetValue("P", p);
-            engine.Execute("P.Name = 'b';");
-            engine.Execute("P.Name += 'c';");
+            engine.Evaluate("P.Name = 'b';");
+            engine.Evaluate("P.Name += 'c';");
             Assert.Equal("bc", p.Name);
         }
 
@@ -2146,10 +2142,10 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine(options =>
                 options.AllowClr(typeof(FloatIndexer).GetTypeInfo().Assembly));
-            var c = engine.Execute(@"
+            var c = engine.Evaluate(@"
                 var domain = importNamespace('Jint.Tests.Runtime.Domain');
                 return new domain.FloatIndexer();
-            ").GetCompletionValue();
+            ");
 
             Assert.NotNull(c.ToString());
             Assert.Equal((uint)0, c.As<ObjectInstance>().Length);
@@ -2178,7 +2174,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
             engine.SetValue("dictionaryTest", new DictionaryTest());
-            engine.Execute("dictionaryTest.test1({ a: 1 });");
+            engine.Evaluate("dictionaryTest.test1({ a: 1 });");
         }
 
         [Fact]
@@ -2186,7 +2182,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
             engine.SetValue("dictionaryTest", new DictionaryTest());
-            engine.Execute("dictionaryTest.test2({ values: { a: 1 } });");
+            engine.Evaluate("dictionaryTest.test2({ values: { a: 1 } });");
         }
 
         [Fact]
@@ -2200,8 +2196,7 @@ namespace Jint.Tests.Runtime
             engine.SetValue("state", state);
 
             var result = (IDictionary<string, object>) engine
-                .Execute("({ supplier: 'S1', ...state.invoice })")
-                .GetCompletionValue()
+                .Evaluate("({ supplier: 'S1', ...state.invoice })")
                 .ToObject();
 
             Assert.Equal("S1", result["supplier"]);
@@ -2239,8 +2234,7 @@ namespace Jint.Tests.Runtime
             engine.SetValue("p", person);
 
             var result = (IDictionary<string, object>) engine
-                .Execute("({ supplier: 'S1', ...p })")
-                .GetCompletionValue()
+                .Evaluate("({ supplier: 'S1', ...p })")
                 .ToObject();
 
             Assert.Equal("S1", result["supplier"]);
@@ -2253,7 +2247,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            engine.Execute("var jsObj = { 'key1' :'value1', 'key2' : 'value2' }");
+            engine.Evaluate("var jsObj = { 'key1' :'value1', 'key2' : 'value2' }");
 
             engine.SetValue("netObj", new Dictionary<string, object>
             {
@@ -2261,12 +2255,12 @@ namespace Jint.Tests.Runtime
                 {"key2", "value2"},
             });
 
-            var jsValue = engine.Execute("jsObj['key1']").GetCompletionValue().AsString();
-            var clrValue = engine.Execute("netObj['key1']").GetCompletionValue().AsString();
+            var jsValue = engine.Evaluate("jsObj['key1']").AsString();
+            var clrValue = engine.Evaluate("netObj['key1']").AsString();
             Assert.Equal(jsValue, clrValue);
 
-            jsValue = engine.Execute("JSON.stringify(jsObj)").GetCompletionValue().AsString();
-            clrValue = engine.Execute("JSON.stringify(netObj)").GetCompletionValue().AsString();
+            jsValue = engine.Evaluate("JSON.stringify(jsObj)").AsString();
+            clrValue = engine.Evaluate("JSON.stringify(netObj)").AsString();
             Assert.Equal(jsValue, clrValue);
 
             // Write properties on screen using showProps function defined on https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Working_with_Objects
@@ -2279,8 +2273,8 @@ namespace Jint.Tests.Runtime
     }
   return result;
 }");
-            jsValue = engine.Execute("showProps(jsObj, 'theObject')").GetCompletionValue().AsString();
-            clrValue = engine.Execute("showProps(jsObj, 'theObject')").GetCompletionValue().AsString();
+            jsValue = engine.Evaluate("showProps(jsObj, 'theObject')").AsString();
+            clrValue = engine.Evaluate("showProps(jsObj, 'theObject')").AsString();
             Assert.Equal(jsValue, clrValue);
         }
 
@@ -2302,11 +2296,11 @@ namespace Jint.Tests.Runtime
 
             engine.SetValue("m", new HiddenMembers());
 
-            Assert.Equal("Member1", engine.Execute("m.Member1").GetCompletionValue().ToString());
-            Assert.Equal("undefined", engine.Execute("m.Member2").GetCompletionValue().ToString());
-            Assert.Equal("Method1", engine.Execute("m.Method1()").GetCompletionValue().ToString());
+            Assert.Equal("Member1", engine.Evaluate("m.Member1").ToString());
+            Assert.Equal("undefined", engine.Evaluate("m.Member2").ToString());
+            Assert.Equal("Method1", engine.Evaluate("m.Method1()").ToString());
             // check the method itself, not its invokation as it would mean invoking "undefined"
-            Assert.Equal("undefined", engine.Execute("m.Method2").GetCompletionValue().ToString());
+            Assert.Equal("undefined", engine.Evaluate("m.Method2").ToString());
         }
 
         [Fact]
@@ -2324,7 +2318,7 @@ namespace Jint.Tests.Runtime
 
             engine.SetValue("m", new HiddenMembers());
 
-            Assert.Equal("Orange", engine.Execute("m.Member1").GetCompletionValue().ToString());
+            Assert.Equal("Orange", engine.Evaluate("m.Member1").ToString());
         }
 
         [Fact]
@@ -2338,9 +2332,9 @@ namespace Jint.Tests.Runtime
                 log(fia[0]);
             ");
 
-            Assert.Equal(123, engine.Execute("fia[0]").GetCompletionValue().AsNumber());
-            engine.Execute("fia[0] = 678;");
-            Assert.Equal(678, engine.Execute("fia[0]").GetCompletionValue().AsNumber());
+            Assert.Equal(123, engine.Evaluate("fia[0]").AsNumber());
+            engine.Evaluate("fia[0] = 678;");
+            Assert.Equal(678, engine.Evaluate("fia[0]").AsNumber());
         }
 
         [Fact]
@@ -2351,7 +2345,7 @@ namespace Jint.Tests.Runtime
                 new JProperty("name", "test-name")
             };
             _engine.SetValue("o", o);
-            Assert.True(_engine.Execute("return o.name == 'test-name'").GetCompletionValue().AsBoolean());
+            Assert.True(_engine.Evaluate("return o.name == 'test-name'").AsBoolean());
         }
 
         [Fact]
@@ -2359,8 +2353,8 @@ namespace Jint.Tests.Runtime
         {
             var o = new JArray("item1", "item2");
             _engine.SetValue("o", o);
-            Assert.True(_engine.Execute("return o[0] == 'item1'").GetCompletionValue().AsBoolean());
-            Assert.True(_engine.Execute("return o[1] == 'item2'").GetCompletionValue().AsBoolean());
+            Assert.True(_engine.Evaluate("return o[0] == 'item1'").AsBoolean());
+            Assert.True(_engine.Evaluate("return o[1] == 'item2'").AsBoolean());
         }
 
         [Fact]
@@ -2371,13 +2365,13 @@ namespace Jint.Tests.Runtime
 
             _engine.SetValue("o", jObjectWithTypeProperty);
 
-            var typeResult = _engine.Execute("o.Type").GetCompletionValue();
+            var typeResult = _engine.Evaluate("o.Type");
 
             // JToken requires conversion
             Assert.Equal("Cat", TypeConverter.ToString(typeResult));
 
             // weak equality does conversions from native types
-            Assert.True(_engine.Execute("o.Type == 'Cat'").GetCompletionValue().AsBoolean());
+            Assert.True(_engine.Evaluate("o.Type == 'Cat'").AsBoolean());
         }
 
         [Fact]
@@ -2389,8 +2383,8 @@ namespace Jint.Tests.Runtime
             _engine.SetValue("animals", bsonAnimals["Animals"]);
 
             // weak equality does conversions from native types
-            Assert.True(_engine.Execute("animals[0].Type == 'Cat'").GetCompletionValue().AsBoolean());
-            Assert.True(_engine.Execute("animals[0].Id == 1").GetCompletionValue().AsBoolean());
+            Assert.True(_engine.Evaluate("animals[0].Type == 'Cat'").AsBoolean());
+            Assert.True(_engine.Evaluate("animals[0].Id == 1").AsBoolean());
         }
 
         [Fact]
@@ -2401,18 +2395,18 @@ namespace Jint.Tests.Runtime
 
             engine.SetValue("test", test);
 
-            Assert.Equal("a", engine.Execute("test.a").GetCompletionValue().AsString());
-            Assert.Equal("b", engine.Execute("test.b").GetCompletionValue().AsString());
+            Assert.Equal("a", engine.Evaluate("test.a").AsString());
+            Assert.Equal("b", engine.Evaluate("test.b").AsString());
 
-            engine.Execute("test.a = 5; test.b = 10; test.Name = 'Jint'");
+            engine.Evaluate("test.a = 5; test.b = 10; test.Name = 'Jint'");
 
-            Assert.Equal(5, engine.Execute("test.a").GetCompletionValue().AsNumber());
-            Assert.Equal(10, engine.Execute("test.b").GetCompletionValue().AsNumber());
+            Assert.Equal(5, engine.Evaluate("test.a").AsNumber());
+            Assert.Equal(10, engine.Evaluate("test.b").AsNumber());
 
-            Assert.Equal("Jint", engine.Execute("test.Name").GetCompletionValue().AsString());
-            Assert.True(engine.Execute("test.ContainsKey('a')").GetCompletionValue().AsBoolean());
-            Assert.True(engine.Execute("test.ContainsKey('b')").GetCompletionValue().AsBoolean());
-            Assert.False(engine.Execute("test.ContainsKey('c')").GetCompletionValue().AsBoolean());
+            Assert.Equal("Jint", engine.Evaluate("test.Name").AsString());
+            Assert.True(engine.Evaluate("test.ContainsKey('a')").AsBoolean());
+            Assert.True(engine.Evaluate("test.ContainsKey('b')").AsBoolean());
+            Assert.False(engine.Evaluate("test.ContainsKey('c')").AsBoolean());
         }
 
         [Fact]
@@ -2427,7 +2421,7 @@ namespace Jint.Tests.Runtime
             values["title"] = "abc";
 
             _engine.SetValue("parent", parent);
-            Assert.Equal("abc", _engine.Execute("parent.child.item.title").GetCompletionValue());
+            Assert.Equal("abc", _engine.Evaluate("parent.child.item.title"));
         }
 
         private class DynamicClass : DynamicObject
@@ -2463,7 +2457,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine(options => options.AllowClr(GetType().Assembly));
             engine.SetValue("a", new OverLoading());
             engine.SetValue("E", TypeReference.CreateTypeReference(engine, typeof(IntegerEnum)));
-            Assert.Equal("integer-enum", engine.Execute("a.testFunc(E.a);").GetCompletionValue().AsString());
+            Assert.Equal("integer-enum", engine.Evaluate("a.testFunc(E.a);").AsString());
         }
 
         [Fact]
@@ -2471,7 +2465,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine(options => options.AllowClr(GetType().Assembly));
             engine.SetValue("E", TypeReference.CreateTypeReference(engine, typeof(UintEnum)));
-            Assert.Equal(1, engine.Execute("E.b;").GetCompletionValue().AsNumber());
+            Assert.Equal(1, engine.Evaluate("E.b;").AsNumber());
         }
 
         public class TestItem
@@ -2528,17 +2522,17 @@ namespace Jint.Tests.Runtime
 
             engine.SetValue("lst", lst);
 
-            Assert.Equal(5, engine.Execute("lst.Sum(x => x.Cost);").GetCompletionValue().AsNumber());
-            Assert.Equal(50, engine.Execute("lst.Sum(x => x.Age);").GetCompletionValue().AsNumber());
-            Assert.Equal(3, engine.Execute("lst.Where(x => x.Name == 'b').Count;").GetCompletionValue().AsNumber());
-            Assert.Equal(30, engine.Execute("lst.Where(x => x.Name == 'b').Sum(x => x.Age);").GetCompletionValue().AsNumber());
+            Assert.Equal(5, engine.Evaluate("lst.Sum(x => x.Cost);").AsNumber());
+            Assert.Equal(50, engine.Evaluate("lst.Sum(x => x.Age);").AsNumber());
+            Assert.Equal(3, engine.Evaluate("lst.Where(x => x.Name == 'b').Count;").AsNumber());
+            Assert.Equal(30, engine.Evaluate("lst.Where(x => x.Name == 'b').Sum(x => x.Age);").AsNumber());
         }
 
         [Fact]
         public void ExceptionFromConstructorShouldPropagate()
         {
             _engine.SetValue("Class", TypeReference.CreateTypeReference(_engine, typeof(MemberExceptionTest)));
-            var ex = Assert.Throws<InvalidOperationException>(() => _engine.Execute("new Class(true);"));
+            var ex = Assert.Throws<InvalidOperationException>(() => _engine.Evaluate("new Class(true);"));
             Assert.Equal("thrown as requested", ex.Message);
         }
 
@@ -2548,19 +2542,19 @@ namespace Jint.Tests.Runtime
             // equality same via name
             _engine.SetValue("a", new Person { Name = "Name" });
             _engine.SetValue("b", new Person { Name = "Name" });
-            _engine.Execute("const arr = [ null, a, undefined ];");
+            _engine.Evaluate("const arr = [ null, a, undefined ];");
 
-            Assert.Equal(1, _engine.Execute("arr.filter(x => x == b).length").GetCompletionValue().AsNumber());
-            Assert.Equal(1, _engine.Execute("arr.filter(x => x === b).length").GetCompletionValue().AsNumber());
+            Assert.Equal(1, _engine.Evaluate("arr.filter(x => x == b).length").AsNumber());
+            Assert.Equal(1, _engine.Evaluate("arr.filter(x => x === b).length").AsNumber());
 
-            Assert.True(_engine.Execute("arr.find(x => x == b) === a").GetCompletionValue().AsBoolean());
-            Assert.True(_engine.Execute("arr.find(x => x === b) == a").GetCompletionValue().AsBoolean());
+            Assert.True(_engine.Evaluate("arr.find(x => x == b) === a").AsBoolean());
+            Assert.True(_engine.Evaluate("arr.find(x => x === b) == a").AsBoolean());
 
-            Assert.Equal(1, _engine.Execute("arr.findIndex(x => x == b)").GetCompletionValue().AsNumber());
-            Assert.Equal(1, _engine.Execute("arr.findIndex(x => x === b)").GetCompletionValue().AsNumber());
+            Assert.Equal(1, _engine.Evaluate("arr.findIndex(x => x == b)").AsNumber());
+            Assert.Equal(1, _engine.Evaluate("arr.findIndex(x => x === b)").AsNumber());
 
-            Assert.Equal(1, _engine.Execute("arr.indexOf(b)").GetCompletionValue().AsNumber());
-            Assert.True(_engine.Execute("arr.includes(b)").GetCompletionValue().AsBoolean());
+            Assert.Equal(1, _engine.Evaluate("arr.indexOf(b)").AsNumber());
+            Assert.True(_engine.Evaluate("arr.includes(b)").AsBoolean());
         }
     }
 }
