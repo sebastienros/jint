@@ -8,6 +8,7 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 
@@ -171,6 +172,27 @@ namespace Jint
                     continue;
                 }
                 break;
+            }
+        }
+
+        internal static void BindingInitialization(
+            this Expression? expression, 
+            Engine engine,
+            JsValue value,
+            LexicalEnvironment env)
+        {
+            if (expression is Identifier identifier)
+            {
+                var catchEnvRecord = (DeclarativeEnvironmentRecord) env._record;
+                catchEnvRecord.CreateMutableBindingAndInitialize(identifier.Name, canBeDeleted: false, value);
+            }
+            else if (expression is BindingPattern bindingPattern)
+            {
+                BindingPatternAssignmentExpression.ProcessPatterns(
+                    engine,
+                    bindingPattern,
+                    value,
+                    env);
             }
         }
 

@@ -72,7 +72,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             var obj = TypeConverter.ToObject(engine, argument);
             ArrayOperations arrayOperations = null;
             IIterator iterator = null;
-            if (obj.IsArrayLike)
+
+            // optimize for array unless someone has touched the iterator
+            if (obj.IsArrayLike && obj.HasOriginalIterator)
             {
                 arrayOperations = ArrayOperations.For(obj);
             }

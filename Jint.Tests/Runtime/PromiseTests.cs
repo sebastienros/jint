@@ -4,6 +4,9 @@ using Jint.Native.Promise;
 using Jint.Runtime;
 using Xunit;
 
+// obsolete GetCompletionValue
+#pragma warning disable 618
+
 namespace Jint.Tests.Runtime
 {
     public class PromiseTests

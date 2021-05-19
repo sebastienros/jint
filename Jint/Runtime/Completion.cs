@@ -42,5 +42,18 @@ namespace Jint.Runtime
         {
             return Type != CompletionType.Normal;
         }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-updateempty
+        /// </summary>
+        internal Completion UpdateEmpty(JsValue value)
+        {
+            if (Value is not null)
+            {
+                return this;
+            }
+
+            return new Completion(Type, value, Identifier, Location);
+        }
     }
 }
