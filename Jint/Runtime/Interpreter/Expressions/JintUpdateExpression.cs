@@ -94,7 +94,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             var strict = StrictModeScope.IsStrictModeCode;
             var name = _leftIdentifier._expressionName;
             var env = _engine.ExecutionContext.LexicalEnvironment;
-            if (LexicalEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+            if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                _engine,
                 env,
                 name,
                 strict,

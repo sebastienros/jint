@@ -182,7 +182,7 @@ namespace Jint.Runtime.Environments
             foreach (var property in objectPattern.Properties)
             {
                 var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                var paramVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+                var paramVarEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
                 _engine.EnterExecutionContext(paramVarEnv, paramVarEnv);
 
                 try
@@ -327,7 +327,7 @@ namespace Jint.Runtime.Environments
                 var jintExpression = JintExpression.Build(_engine, expression);
 
                 var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                var paramVarEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+                var paramVarEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
 
                 _engine.EnterExecutionContext(paramVarEnv, paramVarEnv);
                 try

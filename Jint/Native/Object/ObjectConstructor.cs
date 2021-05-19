@@ -242,7 +242,7 @@ namespace Jint.Native.Object
             {
                 var desc = o.GetOwnProperty(key);
                 var descriptor = PropertyDescriptor.FromPropertyDescriptor(Engine, desc);
-                if (descriptor != Undefined)
+                if (!ReferenceEquals(descriptor, Undefined))
                 {
                     descriptors.CreateDataProperty(key, descriptor);
                 }

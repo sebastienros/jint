@@ -1,24 +1,26 @@
-﻿namespace Jint.Runtime.Environments
+﻿#nullable enable
+
+namespace Jint.Runtime.Environments
 {
     public readonly struct ExecutionContext
     {
-        public ExecutionContext(
-            LexicalEnvironment lexicalEnvironment,
-            LexicalEnvironment variableEnvironment)
+        internal ExecutionContext(
+            EnvironmentRecord lexicalEnvironment,
+            EnvironmentRecord variableEnvironment)
         {
             LexicalEnvironment = lexicalEnvironment;
             VariableEnvironment = variableEnvironment;
         }
 
-        public readonly LexicalEnvironment LexicalEnvironment;
-        public readonly LexicalEnvironment VariableEnvironment;
+        public readonly EnvironmentRecord LexicalEnvironment;
+        public readonly EnvironmentRecord VariableEnvironment;
 
-        public ExecutionContext UpdateLexicalEnvironment(LexicalEnvironment lexicalEnvironment)
+        public ExecutionContext UpdateLexicalEnvironment(EnvironmentRecord lexicalEnvironment)
         {
             return new ExecutionContext(lexicalEnvironment, VariableEnvironment);
         }
 
-        public ExecutionContext UpdateVariableEnvironment(LexicalEnvironment variableEnvironment)
+        public ExecutionContext UpdateVariableEnvironment(EnvironmentRecord variableEnvironment)
         {
             return new ExecutionContext(LexicalEnvironment, variableEnvironment);
         }
@@ -33,18 +35,17 @@
             var lex = LexicalEnvironment;
             while (true)
             {
-                var envRec = lex._record;
-                var exists = envRec.HasThisBinding();
-                if (exists)
+                if (lex != null)
                 {
-                    return envRec;
-                }
+                    if (lex.HasThisBinding())
+                    {
+                        return lex;
+                        
+                    }
 
-                var outer = lex._outer;
-                lex = outer;
+                    lex = lex._outerEnv;
+                }
             }
         }
-
-
     }
 }

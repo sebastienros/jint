@@ -179,11 +179,11 @@ namespace Jint
             this Expression? expression, 
             Engine engine,
             JsValue value,
-            LexicalEnvironment env)
+            EnvironmentRecord env)
         {
             if (expression is Identifier identifier)
             {
-                var catchEnvRecord = (DeclarativeEnvironmentRecord) env._record;
+                var catchEnvRecord = (DeclarativeEnvironmentRecord) env;
                 catchEnvRecord.CreateMutableBindingAndInitialize(identifier.Name, canBeDeleted: false, value);
             }
             else if (expression is BindingPattern bindingPattern)

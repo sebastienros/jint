@@ -53,14 +53,14 @@ namespace Jint.Runtime.Interpreter.Statements
 
                     var thrownValue = b.Value;
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                    var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv, catchEnvironment: true);
+                    var catchEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv, catchEnvironment: true);
 
                     var boundNames = new List<string>();
                     _statement.Handler.Param.GetBoundNames(boundNames);
 
                     foreach (var argName in boundNames)
                     {
-                        catchEnv._record.CreateMutableBinding(argName, false);
+                        catchEnv.CreateMutableBinding(argName, false);
                     }
 
                     _engine.UpdateLexicalEnvironment(catchEnv);

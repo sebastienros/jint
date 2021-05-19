@@ -880,7 +880,7 @@ namespace Jint.Native.Array
                         ? sourceDense[i]
                         : source.GetProperty(i);
 
-                    dense[targetStartIndex + j] = sourcePropertyDescriptor?._value != null
+                    dense[targetStartIndex + j] = sourcePropertyDescriptor?._value is not null
                         ? new PropertyDescriptor(sourcePropertyDescriptor._value, PropertyFlag.ConfigurableEnumerableWritable)
                         : null;
                 }

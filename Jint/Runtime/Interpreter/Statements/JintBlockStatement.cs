@@ -23,18 +23,18 @@ namespace Jint.Runtime.Interpreter.Statements
         // http://www.ecma-international.org/ecma-262/6.0/#sec-blockdeclarationinstantiation
         protected override Completion ExecuteInternal()
         {
-            LexicalEnvironment oldEnv = null;
+            EnvironmentRecord oldEnv = null;
             if (_lexicalDeclarations != null)
             {
                 oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                var blockEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
+                var blockEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
                 JintStatementList.BlockDeclarationInstantiation(blockEnv, _lexicalDeclarations);
                 _engine.UpdateLexicalEnvironment(blockEnv);
             }
 
             var blockValue = _statementList.Execute();
 
-            if (oldEnv != null)
+            if (oldEnv is not null)
             {
                 _engine.UpdateLexicalEnvironment(oldEnv);
             }

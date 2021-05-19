@@ -23,7 +23,7 @@ namespace Jint.Runtime.Interpreter.Statements
             var jsValue = _object.GetValue();
             var obj = TypeConverter.ToObject(_engine, jsValue);
             var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-            var newEnv = LexicalEnvironment.NewObjectEnvironment(_engine, obj, oldEnv, provideThis: true, withEnvironment: true);
+            var newEnv = JintEnvironment.NewObjectEnvironment(_engine, obj, oldEnv, provideThis: true, withEnvironment: true);
             _engine.UpdateLexicalEnvironment(newEnv);
 
             Completion c;

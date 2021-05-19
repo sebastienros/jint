@@ -48,16 +48,16 @@ namespace Jint.Native.Function
         /// </summary>
         public ScriptFunctionInstance BuildConstructor(
             Engine engine,
-            LexicalEnvironment env)
+            EnvironmentRecord env)
         {
             // A class definition is always strict mode code.
             using var _ = (new StrictModeScope(true, true));
             
-            var classScope = LexicalEnvironment.NewDeclarativeEnvironment(engine, env);
+            var classScope = JintEnvironment.NewDeclarativeEnvironment(engine, env);
 
             if (_className is not null)
             {
-                classScope._record.CreateImmutableBinding(_className, true);
+                classScope.CreateImmutableBinding(_className, true);
             }
 
             ObjectInstance? protoParent = null;
@@ -158,7 +158,7 @@ namespace Jint.Native.Function
 
             if (_className is not null)
             {
-                classScope._record.InitializeBinding(_className, F);
+                classScope.InitializeBinding(_className, F);
             }
 
             return F;

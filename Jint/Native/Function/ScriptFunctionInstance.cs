@@ -19,7 +19,7 @@ namespace Jint.Native.Function
         public ScriptFunctionInstance(
             Engine engine,
             IFunction functionDeclaration,
-            LexicalEnvironment scope,
+            EnvironmentRecord scope,
             bool strict,
             ObjectInstance proto = null)
             : this(engine, new JintFunctionDefinition(engine, functionDeclaration), scope, strict ? FunctionThisMode.Strict : FunctionThisMode.Global, proto)
@@ -29,7 +29,7 @@ namespace Jint.Native.Function
         internal ScriptFunctionInstance(
             Engine engine,
             JintFunctionDefinition function,
-            LexicalEnvironment scope,
+            EnvironmentRecord scope,
             FunctionThisMode thisMode,
             ObjectInstance proto = null)
             : base(engine, function, scope, thisMode)
@@ -122,7 +122,7 @@ namespace Jint.Native.Function
                 OrdinaryCallBindThis(calleeContext, thisArgument);
             }
 
-            var constructorEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment._record;
+            var constructorEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment;
             
             var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
             using (new StrictModeScope(strict, force: true))

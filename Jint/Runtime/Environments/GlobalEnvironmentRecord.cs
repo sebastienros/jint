@@ -68,7 +68,7 @@ namespace Jint.Runtime.Environments
             value = default;
 
             var parent = _global._prototype;
-            if (parent != null)
+            if (parent is not null)
             {
                 property = parent.GetOwnProperty(name.StringValue);
             }

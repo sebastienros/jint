@@ -112,10 +112,10 @@ namespace Jint.Runtime.Interpreter
         /// https://tc39.es/ecma262/#sec-blockdeclarationinstantiation
         /// </summary>
         internal static void BlockDeclarationInstantiation(
-            LexicalEnvironment env,
+            EnvironmentRecord env,
             List<Declaration> declarations)
         {
-            var envRec = env._record;
+            var envRec = env;
             var boundNames = new List<string>();
             for (var i = 0; i < declarations.Count; i++)
             {

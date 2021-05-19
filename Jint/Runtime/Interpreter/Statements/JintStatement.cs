@@ -93,7 +93,7 @@ namespace Jint.Runtime.Interpreter.Statements
             if (statement is ReturnStatement rs && rs.Argument is Literal l)
             {
                 var jsValue = JintLiteralExpression.ConvertToJsValue(l);
-                if (jsValue != null)
+                if (jsValue is not null)
                 {
                     return new Completion(CompletionType.Return, jsValue, null, rs.Location);
                 }

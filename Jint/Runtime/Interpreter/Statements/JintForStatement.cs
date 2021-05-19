@@ -63,13 +63,13 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
-            LexicalEnvironment oldEnv = null;
-            LexicalEnvironment loopEnv = null;
+            EnvironmentRecord oldEnv = null;
+            EnvironmentRecord loopEnv = null;
             if (_boundNames != null)
             {
                 oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                loopEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                var loopEnvRec = loopEnv._record;
+                loopEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+                var loopEnvRec = loopEnv;
                 var kind = _initStatement._statement.Kind;
                 for (var i = 0; i < _boundNames.Count; i++)
                 {
@@ -102,7 +102,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
             finally
             {
-                if (oldEnv != null)
+                if (oldEnv is not null)
                 {
                     _engine.UpdateLexicalEnvironment(oldEnv);
                 }
@@ -167,10 +167,10 @@ namespace Jint.Runtime.Interpreter.Statements
             }
             
             var lastIterationEnv = _engine.ExecutionContext.LexicalEnvironment;
-            var lastIterationEnvRec = lastIterationEnv._record;
-            var outer = lastIterationEnv._outer;
-            var thisIterationEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, outer);
-            var thisIterationEnvRec = (DeclarativeEnvironmentRecord) thisIterationEnv._record;
+            var lastIterationEnvRec = lastIterationEnv;
+            var outer = lastIterationEnv._outerEnv;
+            var thisIterationEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, outer);
+            var thisIterationEnvRec = (DeclarativeEnvironmentRecord) thisIterationEnv;
             
             for (var j = 0; j < _boundNames.Count; j++)
             {

@@ -9,7 +9,7 @@ namespace Jint.Runtime.Debugger
         private readonly HashSet<string> _foundBindings = new HashSet<string>();
         private readonly List<DebugScope> _scopes = new List<DebugScope>();
 
-        internal DebugScopes(LexicalEnvironment environment)
+        internal DebugScopes(EnvironmentRecord environment)
         {
             Populate(environment);
         }
@@ -28,12 +28,12 @@ namespace Jint.Runtime.Debugger
         public DebugScope this[int index] => _scopes[index];
         public int Count => _scopes.Count;
 
-        private void Populate(LexicalEnvironment environment)
+        private void Populate(EnvironmentRecord environment)
         {
             bool inLocalScope = true;
             while (environment != null)
             {
-                EnvironmentRecord record = environment._record;
+                EnvironmentRecord record = environment;
                 switch (record)
                 {
                     case GlobalEnvironmentRecord:
@@ -55,13 +55,13 @@ namespace Jint.Runtime.Debugger
                         }
                         else
                         {
-                            bool isTopLevel = environment._outer?._record is FunctionEnvironmentRecord;
+                            bool isTopLevel = environment._outerEnv is FunctionEnvironmentRecord;
                             AddScope(DebugScopeType.Block, record, isTopLevel);
                         }
                         break;
                 }
 
-                environment = environment._outer;
+                environment = environment._outerEnv;
             }
         }
 

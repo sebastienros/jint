@@ -16,7 +16,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            var funcEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
+            var funcEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
 
             var functionThisMode = _function.Strict || _engine._isStrict
                 ? FunctionThisMode.Strict 
@@ -32,8 +32,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (_function.Name != null)
             {
-                var envRec = (DeclarativeEnvironmentRecord) funcEnv._record;
-                envRec.CreateMutableBindingAndInitialize(_function.Name, canBeDeleted: false, closure);
+                funcEnv.CreateMutableBindingAndInitialize(_function.Name, canBeDeleted: false, closure);
             }
 
             return closure;

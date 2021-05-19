@@ -46,11 +46,11 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 var clause = _jintSwitchBlock[i];
 
-                LexicalEnvironment oldEnv = null;
+                EnvironmentRecord oldEnv = null;
                 if (clause.LexicalDeclarations != null)
                 {
                     oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                    var blockEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+                    var blockEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
                     JintStatementList.BlockDeclarationInstantiation(blockEnv, clause.LexicalDeclarations);
                     _engine.UpdateLexicalEnvironment(blockEnv);
                 }
@@ -72,7 +72,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 {
                     var r = clause.Consequent.Execute();
 
-                    if (oldEnv != null)
+                    if (oldEnv is not null)
                     {
                         _engine.UpdateLexicalEnvironment(oldEnv);
                     }
@@ -90,18 +90,18 @@ namespace Jint.Runtime.Interpreter.Statements
             // do we need to execute the default case ?
             if (hit == false && defaultCase != null)
             {
-                LexicalEnvironment oldEnv = null;
+                EnvironmentRecord oldEnv = null;
                 if (defaultCase.LexicalDeclarations != null)
                 {
                     oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                    var blockEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
+                    var blockEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
                     JintStatementList.BlockDeclarationInstantiation(blockEnv, defaultCase.LexicalDeclarations);
                     _engine.UpdateLexicalEnvironment(blockEnv);
                 }
 
                 var r = defaultCase.Consequent.Execute();
 
-                if (oldEnv != null)
+                if (oldEnv is not null)
                 {
                     _engine.UpdateLexicalEnvironment(oldEnv);
                 }

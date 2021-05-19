@@ -1,4 +1,6 @@
-﻿using Jint.Native;
+﻿#nullable enable
+
+using Jint.Native;
 
 namespace Jint.Runtime.Environments
 {
@@ -8,7 +10,8 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public abstract class EnvironmentRecord : JsValue
     {
-        protected readonly Engine _engine;
+        protected internal readonly Engine _engine;
+        protected internal EnvironmentRecord? _outerEnv;
 
         protected EnvironmentRecord(Engine engine) : base(InternalTypes.ObjectEnvironmentRecord)
         {
@@ -98,7 +101,7 @@ namespace Jint.Runtime.Environments
 
         public abstract JsValue GetThisBinding();
 
-        public JsValue NewTarget { get; protected set; }
+        public JsValue? NewTarget { get; protected set; }
 
         /// <summary>
         /// Helper to cache JsString/Key when environments use different lookups.
