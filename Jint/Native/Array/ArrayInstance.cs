@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -58,6 +59,9 @@ namespace Jint.Native.Array
         }
 
         public override bool IsArrayLike => true;
+
+        internal override bool HasOriginalIterator
+            => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _engine.Array.PrototypeObject._originalIteratorFunction);
 
         public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {

@@ -1093,6 +1093,9 @@ namespace Jint.Native.Object
                                            && lengthValue.IsNumber()
                                            && ((JsNumber) lengthValue)._value >= 0;
 
+        // safe default
+        internal virtual bool HasOriginalIterator => false;
+
         internal override bool IsIntegerIndexedArray => false;
 
         public virtual uint Length => (uint) TypeConverter.ToLength(Get(CommonProperties.Length));

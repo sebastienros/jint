@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Statements
@@ -9,19 +11,12 @@ namespace Jint.Runtime.Interpreter.Statements
     internal sealed class JintTryStatement : JintStatement<TryStatement>
     {
         private readonly JintStatement _block;
-        private readonly JintStatement _catch;
-        private readonly Key _catchParamName;
+        private JintStatement _catch;
         private readonly JintStatement _finalizer;
 
         public JintTryStatement(Engine engine, TryStatement statement) : base(engine, statement)
         {
             _block = Build(engine, statement.Block);
-            if (_statement.Handler != null)
-            {
-                _catch = Build(engine, _statement.Handler.Body);
-                _catchParamName = ((Identifier) _statement.Handler.Param).Name;
-            }
-
             if (statement.Finalizer != null)
             {
                 _finalizer = Build(engine, _statement.Finalizer);
@@ -35,8 +30,14 @@ namespace Jint.Runtime.Interpreter.Statements
             var b = _block.Execute();
             if (b.Type == CompletionType.Throw)
             {
+                // initialize lazily
+                if (_statement.Handler is not null && _catch is null)
+                {
+                    _catch = Build(_engine, _statement.Handler.Body);
+                }
+
                 // execute catch
-                if (_catch != null)
+                if (_statement.Handler is not null)
                 {
                     // Quick-patch for call stack not being unwinded when an exception is caught.
                     // Ideally, this should instead be solved by always popping the stack when returning
@@ -47,14 +48,28 @@ namespace Jint.Runtime.Interpreter.Statements
                     {
                         _engine.CallStack.Pop();
                     }
-                    var c = b.Value;
+
+                    // https://tc39.es/ecma262/#sec-runtime-semantics-catchclauseevaluation
+
+                    var thrownValue = b.Value;
                     var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var catchEnv = LexicalEnvironment.NewDeclarativeEnvironment(_engine, oldEnv, catchEnvironment: true);
-                    var catchEnvRecord = (DeclarativeEnvironmentRecord) catchEnv._record;
-                    catchEnvRecord.CreateMutableBindingAndInitialize(_catchParamName, canBeDeleted: false, c);
+
+                    var boundNames = new List<string>();
+                    _statement.Handler.Param.GetBoundNames(boundNames);
+
+                    foreach (var argName in boundNames)
+                    {
+                        catchEnv._record.CreateMutableBinding(argName, false);
+                    }
 
                     _engine.UpdateLexicalEnvironment(catchEnv);
+
+                    var catchParam = _statement.Handler?.Param;
+                    catchParam.BindingInitialization(_engine, thrownValue, catchEnv);
+
                     b = _catch.Execute();
+
                     _engine.UpdateLexicalEnvironment(oldEnv);
                 }
             }
@@ -67,10 +82,10 @@ namespace Jint.Runtime.Interpreter.Statements
                     return b;
                 }
 
-                return f;
+                return f.UpdateEmpty(Undefined.Instance);
             }
 
-            return b;
+            return b.UpdateEmpty(Undefined.Instance);
         }
     }
 }
