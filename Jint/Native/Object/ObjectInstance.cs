@@ -1093,8 +1093,8 @@ namespace Jint.Native.Object
                                            && lengthValue.IsNumber()
                                            && ((JsNumber) lengthValue)._value >= 0;
 
-        internal virtual bool HasOriginalIterator
-            => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _engine.Array.PrototypeObject._originalIteratorFunction);
+        // safe default
+        internal virtual bool HasOriginalIterator => false;
 
         internal override bool IsIntegerIndexedArray => false;
 
