@@ -16,7 +16,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override void Initialize()
         {
-            _statementList = new JintStatementList(_engine, _statement, _statement.Body);
+            _statementList = new JintStatementList(_engine, _statement);
             _lexicalDeclarations = HoistingScope.GetLexicalDeclarations(_statement);
         }
 

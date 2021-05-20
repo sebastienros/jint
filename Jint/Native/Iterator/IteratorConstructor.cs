@@ -26,15 +26,14 @@ namespace Jint.Native.Iterator
         public static IteratorConstructor CreateIteratorConstructor(Engine engine)
         {
             var obj = new IteratorConstructor(engine);
-            obj.ArrayIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "Array Iterator", obj);
-            obj.GenericIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, null, obj);
-            obj.MapIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "Map Iterator", obj);
-            obj.RegExpStringIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "RegExp String Iterator", obj);
-            obj.SetIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "Set Iterator", obj);
-            obj.StringIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "String Iterator", obj);
+            obj.ArrayIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "Array Iterator");
+            obj.GenericIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, null);
+            obj.MapIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "Map Iterator");
+            obj.RegExpStringIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "RegExp String Iterator");
+            obj.SetIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "Set Iterator");
+            obj.StringIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "String Iterator");
             return obj;
         }
-
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {

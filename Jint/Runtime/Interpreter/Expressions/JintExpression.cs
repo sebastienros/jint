@@ -124,6 +124,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 Nodes.ChainExpression => ((ChainExpression) expression).Expression.Type == Nodes.CallExpression
                     ? new JintCallExpression(engine, (CallExpression) ((ChainExpression) expression).Expression)
                     : new JintMemberExpression(engine, (MemberExpression) ((ChainExpression) expression).Expression),
+                Nodes.YieldExpression => new JintYieldExpression(engine, (YieldExpression) expression),
                 _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>(nameof(expression), $"unsupported expression type '{expression.Type}'")
             };
         }

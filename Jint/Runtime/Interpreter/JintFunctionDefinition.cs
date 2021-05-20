@@ -57,8 +57,7 @@ namespace Jint.Runtime.Interpreter
                 return new Completion(CompletionType.Return, jsValue, null, Function.Body.Location);
             }
 
-            var blockStatement = (BlockStatement) Function.Body;
-            _bodyStatementList ??= new JintStatementList(_engine, blockStatement, blockStatement.Body);
+            _bodyStatementList ??= new JintStatementList(_engine, Function);
             return _bodyStatementList.Execute();
         }
 

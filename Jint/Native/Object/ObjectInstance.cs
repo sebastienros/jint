@@ -320,8 +320,7 @@ namespace Jint.Native.Object
                 : desc._value;
 
             // IsDataDescriptor inlined
-            if ((desc._flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0
-                || !ReferenceEquals(value, null))
+            if ((desc._flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0 || value is not null)
             {
                 return value ?? Undefined;
             }
@@ -1286,6 +1285,20 @@ namespace Jint.Native.Object
         internal ObjectInstance AssertThisIsObjectInstance(JsValue value, string methodName)
         {
             return value as ObjectInstance ?? ThrowIncompatibleReceiver<ObjectInstance>(value, methodName);
+        }
+
+        internal static ObjectInstance CreateIterResultObject(Engine engine, JsValue value, bool done)
+        {
+            var obj = new ObjectInstance(engine)
+            {
+                _prototype = engine.Object.PrototypeObject,
+                _properties = new PropertyDictionary(2, false)
+                {
+                    { KnownKeys.Value, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable) },
+                    { KnownKeys.Done, new PropertyDescriptor(done, PropertyFlag.ConfigurableEnumerableWritable) }
+                }
+            };
+            return obj;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]

@@ -2,6 +2,7 @@
 
 using System.Runtime.CompilerServices;
 using Jint.Collections;
+using Jint.Native.Generator;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime
@@ -27,6 +28,14 @@ namespace Jint.Runtime
             var array = _stack._array;
             var size = _stack._size;
             array[size - 1] = array[size - 1].UpdateVariableEnvironment(newEnv);
+        }
+
+        public ref readonly ExecutionContext ReplaceTopGenerator(Generator newEnv)
+        {
+            var array = _stack._array;
+            var size = _stack._size;
+            array[size - 1] = array[size - 1].UpdateGenerator(newEnv);
+            return ref array[size - 1];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

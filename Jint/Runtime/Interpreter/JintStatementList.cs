@@ -8,6 +8,8 @@ namespace Jint.Runtime.Interpreter
 {
     internal class JintStatementList
     {
+        private readonly bool _generator;
+
         private class Pair
         {
             internal JintStatement Statement;
@@ -20,8 +22,25 @@ namespace Jint.Runtime.Interpreter
 
         private Pair[] _jintStatements;
         private bool _initialized;
+        private int _index;
 
-        public JintStatementList(Engine engine, Statement statement, NodeList<Statement> statements)
+        public JintStatementList(Engine engine, IFunction function)
+            : this(engine, (BlockStatement) function.Body)
+        {
+            _generator = function.Generator;
+        }
+
+        public JintStatementList(Engine engine, BlockStatement blockStatement)
+            : this(engine, blockStatement, blockStatement.Body)
+        {
+        }
+
+        public JintStatementList(Engine engine, Program program)
+            : this(engine, null, program.Body)
+        {
+        }
+
+        public JintStatementList(Engine engine, Statement statement, in NodeList<Statement> statements)
         {
             _engine = engine;
             _statement = statement;
@@ -66,19 +85,25 @@ namespace Jint.Runtime.Interpreter
             JsValue lastValue = null;
             try
             {
-                foreach (var pair in _jintStatements)
+                var temp = _jintStatements;
+                // if we run as generator, keep track of what's the last processed statement 
+                var i = _generator ? _index : 0;
+                for (; (uint) i < temp.Length;  i++)
                 {
+                    var pair = temp[ i];
                     s = pair.Statement;
                     c = pair.Value ?? s.Execute();
 
                     if (c.Type != CompletionType.Normal)
                     {
+                        _index = i + 1;
                         return new Completion(
                             c.Type,
                             c.Value ?? sl.Value,
                             c.Identifier,
                             c.Location);
                     }
+
                     sl = c;
                     lastValue = c.Value ?? lastValue;
                 }
@@ -105,6 +130,8 @@ namespace Jint.Runtime.Interpreter
                 });
                 c = new Completion(CompletionType.Throw, error, null, s.Location);
             }
+
+            _index = 0;
             return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Identifier, c.Location);
         }
 

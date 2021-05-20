@@ -54,7 +54,7 @@ namespace Jint.Native.Function
             : this(engine, name, FunctionThisMode.Global, ObjectClass.Function)
         {
         }
-
+        
         // for example RavenDB wants to inspect this
         public IFunction FunctionDeclaration => _functionDefinition.Function;
 
@@ -69,6 +69,35 @@ namespace Jint.Native.Function
         public bool Strict => _thisMode == FunctionThisMode.Strict;
 
         internal override bool IsConstructor => this is IConstructor;
+
+        public virtual bool HasInstance(JsValue v)
+        {
+            if (!(v is ObjectInstance o))
+            {
+                return false;
+            }
+
+            var p = Get(CommonProperties.Prototype);
+            if (!(p is ObjectInstance prototype))
+            {
+                ExceptionHelper.ThrowTypeError(_engine, $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");
+            }
+
+            while (true)
+            {
+                o = o.Prototype;
+
+                if (o is null)
+                {
+                    return false;
+                }
+
+                if (SameValue(p, o))
+                {
+                    return true;
+                }
+            }
+        }
 
         public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
         {
@@ -236,12 +265,12 @@ namespace Jint.Native.Function
             //    Set proto to realm's intrinsic object named intrinsicDefaultProto.
             return proto ?? intrinsicDefaultProto;
         }
-
+        
         internal void MakeMethod(ObjectInstance homeObject)
         {
             _homeObject = homeObject;
         }
-
+        
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ordinarycallbindthis
         /// </summary>
@@ -256,7 +285,6 @@ namespace Jint.Native.Function
             // Let calleeRealm be F.[[Realm]].
 
             var localEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment;
-
             JsValue thisValue;
             if (_thisMode == FunctionThisMode.Strict)
             {
@@ -279,14 +307,9 @@ namespace Jint.Native.Function
             localEnv.BindThisValue(thisValue);
         }
 
-        protected Completion OrdinaryCallEvaluateBody(
-            JsValue[] arguments,
-            ExecutionContext calleeContext)
+        protected internal Completion OrdinaryCallEvaluateBody(JsValue[] arguments)
         {
-            var argumentsInstance = _engine.FunctionDeclarationInstantiation(
-                functionInstance: this,
-                arguments,
-                calleeContext.LexicalEnvironment);
+            var argumentsInstance = _engine.FunctionDeclarationInstantiation(functionInstance: this, arguments);
 
             var result = _functionDefinition.Execute();
             var value = result.GetValueOrDefault().Clone();
@@ -315,6 +338,20 @@ namespace Jint.Native.Function
             return _engine.EnterExecutionContext(calleeContext, calleeContext);
         }
 
+        internal void MakeConstructor(bool writableProperty = true, ObjectInstance prototype = null)
+        {
+            _constructorKind = ConstructorKind.Base;
+            if (prototype is null)
+            {
+                prototype = new ObjectInstanceWithConstructor(_engine, this)
+                {
+                    _prototype = _engine.Object.PrototypeObject
+                };
+            }
+
+            _prototypeDescriptor = new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false);
+        }
+
         public override string ToString()
         {
             // TODO no way to extract SourceText from Esprima at the moment, just returning native code
@@ -325,6 +362,73 @@ namespace Jint.Native.Function
                 name = TypeConverter.ToString(nameValue);
             }
             return "function " + name + "() { [native code] }";
+        }
+
+                private class ObjectInstanceWithConstructor : ObjectInstance
+        {
+            private PropertyDescriptor _constructor;
+
+            public ObjectInstanceWithConstructor(Engine engine, ObjectInstance thisObj) : base(engine)
+            {
+                _constructor = new PropertyDescriptor(thisObj, PropertyFlag.NonEnumerable);
+            }
+
+            public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
+            {
+                if (_constructor != null)
+                {
+                    yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Constructor, _constructor);
+                }
+
+                foreach (var entry in base.GetOwnProperties())
+                {
+                    yield return entry;
+                }
+            }
+
+            public override PropertyDescriptor GetOwnProperty(JsValue property)
+            {
+                if (property == CommonProperties.Constructor)
+                {
+                    return _constructor ?? PropertyDescriptor.Undefined;
+                }
+
+                return base.GetOwnProperty(property);
+            }
+
+            protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
+            {
+                if (property == CommonProperties.Constructor)
+                {
+                    _constructor = desc;
+                }
+                else
+                {
+                    base.SetOwnProperty(property, desc);
+                }
+            }
+
+            public override bool HasOwnProperty(JsValue property)
+            {
+                if (property == CommonProperties.Constructor)
+                {
+                    return _constructor != null;
+                }
+
+                return base.HasOwnProperty(property);
+            }
+
+            public override void RemoveOwnProperty(JsValue property)
+            {
+                if (property == CommonProperties.Constructor)
+                {
+                    _constructor = null;
+                }
+                else
+                {
+                    base.RemoveOwnProperty(property);
+                }
+            }
         }
     }
 }

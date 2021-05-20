@@ -8,7 +8,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         public JintScript(Engine engine, Script script) : base(engine, script)
         {
-            _list = new JintStatementList(_engine, null, _statement.Body);
+            _list = new JintStatementList(_engine, script);
         }
 
         protected override Completion ExecuteInternal()

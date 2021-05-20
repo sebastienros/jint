@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native.Function;
+using Jint.Native.Generator;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -17,24 +18,37 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected override object EvaluateInternal()
         {
             var funcEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
-
-            var functionThisMode = _function.Strict || _engine._isStrict
-                ? FunctionThisMode.Strict 
+            var strict = _function.Strict || _engine._isStrict;
+            var functionThisMode = strict
+                ? FunctionThisMode.Strict
                 : FunctionThisMode.Global;
 
-            var closure = new ScriptFunctionInstance(
+            var name = _function.Name ?? "";
+            FunctionInstance closure = new ScriptFunctionInstance(
                 _engine,
                 _function,
                 funcEnv,
                 functionThisMode);
 
-            closure.MakeConstructor();
-
-            if (_function.Name != null)
+            if (_function.Function.Generator)
             {
-                funcEnv.CreateMutableBindingAndInitialize(_function.Name, canBeDeleted: false, closure);
+                // https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation
+                closure = new GeneratorFunctionInstance(_engine, closure);
+            }
+            else
+            {
+                funcEnv.CreateMutableBindingAndInitialize(name, canBeDeleted: false, closure);
+                // https://tc39.es/ecma262/#sec-function-definitions-runtime-semantics-evaluation
+                closure = new ScriptFunctionInstance(
+                    _engine,
+                    _function,
+                    funcEnv,
+                    functionThisMode);
+
+                closure.MakeConstructor();
             }
 
+            funcEnv.CreateImmutableBindingAndInitialize(name, strict: false, closure);
             return closure;
         }
     }

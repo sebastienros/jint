@@ -38,7 +38,7 @@ namespace Jint.Native.Map
                 ["constructor"] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
                 ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), propertyFlags),
                 ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), propertyFlags),
-                ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), propertyFlags),
+                ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), propertyFlags),
                 ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), propertyFlags),
                 ["get"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "get", Get, 1, PropertyFlag.Configurable), propertyFlags),
                 ["has"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), propertyFlags),
@@ -51,7 +51,7 @@ namespace Jint.Native.Map
 
             var symbols = new SymbolDictionary(2)
             {
-                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Iterator, 1, PropertyFlag.Configurable), propertyFlags),
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Entries, 1, PropertyFlag.Configurable), propertyFlags),
                 [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Map", false, false, true),
             };
             SetSymbols(symbols);
@@ -112,7 +112,7 @@ namespace Jint.Native.Map
             return Undefined;
         }
 
-        private ObjectInstance Iterator(JsValue thisObj, JsValue[] arguments)
+        private ObjectInstance Entries(JsValue thisObj, JsValue[] arguments)
         {
             var map = AssertMapInstance(thisObj);
             return map.Iterator();

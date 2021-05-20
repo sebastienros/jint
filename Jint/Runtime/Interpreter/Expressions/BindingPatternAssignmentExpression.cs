@@ -63,7 +63,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return false;
             }
 
-            d.TryGetValue(CommonProperties.Value, out value);
+            value = d.Get(CommonProperties.Value);
             return true;
         }
         

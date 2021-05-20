@@ -14,7 +14,7 @@ namespace Jint.Native.Iterator
         {
         }
 
-        public static IteratorPrototype CreatePrototypeObject(Engine engine, string name, IteratorConstructor iteratorConstructor)
+        public static IteratorPrototype CreatePrototypeObject(Engine engine, string name)
         {
             var obj = new IteratorPrototype(engine)
             {
@@ -29,8 +29,8 @@ namespace Jint.Native.Iterator
         {
             var properties = new PropertyDictionary(2, checkExistingKeys: false)
             {
-                ["name"] = new PropertyDescriptor("Map", PropertyFlag.Configurable),
-                ["next"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "next", Next, 0, PropertyFlag.Configurable), true, false, true)
+                ["name"] = new PropertyDescriptor(CommonProperties.Name, PropertyFlag.Configurable),
+                ["next"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "next", Next, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)
             };
             SetProperties(properties);
 

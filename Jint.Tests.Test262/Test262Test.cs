@@ -226,10 +226,6 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "BigInt not implemented";
                                 break;
-                            case "generators":
-                                skip = true;
-                                reason = "generators not implemented";
-                                break;
                             case "async-functions":
                                 skip = true;
                                 reason = "async-functions not implemented";
@@ -242,10 +238,6 @@ namespace Jint.Tests.Test262
                             case "class-fields-public":
                                 skip = true;
                                 reason = "private/public class fields not implemented in esprima";
-                                break;
-                            case "super":
-                                skip = true;
-                                reason = "super not implemented";
                                 break;
                             case "String.prototype.replaceAll":
                                 skip = true;

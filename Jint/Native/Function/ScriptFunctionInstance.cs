@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Esprima.Ast;
+﻿using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -65,7 +64,7 @@ namespace Jint.Native.Function
             {
                 try
                 {
-                    var result = OrdinaryCallEvaluateBody(arguments, calleeContext);
+                    var result = OrdinaryCallEvaluateBody(arguments);
 
                     if (result.Type == CompletionType.Throw)
                     {
@@ -129,7 +128,7 @@ namespace Jint.Native.Function
             {
                 try
                 {
-                    var result = OrdinaryCallEvaluateBody(arguments, calleeContext);
+                    var result = OrdinaryCallEvaluateBody(arguments);
 
                     // The DebugHandler needs the current execution context before the return for stepping through the return point
                     if (_engine._isDebugMode && result.Type != CompletionType.Throw)
@@ -172,91 +171,10 @@ namespace Jint.Native.Function
 
             return (ObjectInstance) constructorEnv.GetThisBinding();
         }
-        
-        internal void MakeConstructor(bool writableProperty = true, ObjectInstance prototype = null)
-        {
-            _constructorKind = ConstructorKind.Base;
-            if (prototype is null)
-            {
-                prototype = new ObjectInstanceWithConstructor(_engine, this)
-                {
-                    _prototype = _engine.Object.PrototypeObject
-                };
-            }
-
-            _prototypeDescriptor = new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false);
-        }        
 
         internal void MakeClassConstructor()
         {
             _isClassConstructor = true;
-        }
-        
-        private class ObjectInstanceWithConstructor : ObjectInstance
-        {
-            private PropertyDescriptor _constructor;
-
-            public ObjectInstanceWithConstructor(Engine engine, ObjectInstance thisObj) : base(engine)
-            {
-                _constructor = new PropertyDescriptor(thisObj, PropertyFlag.NonEnumerable);
-            }
-
-            public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-            {
-                if (_constructor != null)
-                {
-                    yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Constructor, _constructor);
-                }
-
-                foreach (var entry in base.GetOwnProperties())
-                {
-                    yield return entry;
-                }
-            }
-
-            public override PropertyDescriptor GetOwnProperty(JsValue property)
-            {
-                if (property == CommonProperties.Constructor)
-                {
-                    return _constructor ?? PropertyDescriptor.Undefined;
-                }
-
-                return base.GetOwnProperty(property);
-            }
-
-            protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
-            {
-                if (property == CommonProperties.Constructor)
-                {
-                    _constructor = desc;
-                }
-                else
-                {
-                    base.SetOwnProperty(property, desc);
-                }
-            }
-
-            public override bool HasOwnProperty(JsValue property)
-            {
-                if (property == CommonProperties.Constructor)
-                {
-                    return _constructor != null;
-                }
-
-                return base.HasOwnProperty(property);
-            }
-
-            public override void RemoveOwnProperty(JsValue property)
-            {
-                if (property == CommonProperties.Constructor)
-                {
-                    _constructor = null;
-                }
-                else
-                {
-                    base.RemoveOwnProperty(property);
-                }
-            }
         }
     }
 }

@@ -12,11 +12,11 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Iterator
 {
-    internal class IteratorInstance : ObjectInstance, IIterator
+    public class IteratorInstance : ObjectInstance, IIterator
     {
         private readonly IEnumerator<JsValue> _enumerable;
 
-        public IteratorInstance(Engine engine)
+        protected IteratorInstance(Engine engine)
             : this(engine, Enumerable.Empty<JsValue>())
         {
         }
@@ -52,14 +52,6 @@ namespace Jint.Native.Iterator
 
         public void Close(CompletionType completion)
         {
-        }
-
-        private ObjectInstance CreateIterResultObject(JsValue value, bool done)
-        {
-            var obj = _engine.Object.Construct(2);
-            obj.SetDataProperty("value", value);
-            obj.SetDataProperty("done", done);
-            return obj;
         }
 
         private class KeyValueIteratorPosition : ObjectInstance
@@ -405,7 +397,7 @@ namespace Jint.Native.Iterator
             {
                 if (_done)
                 {
-                    nextItem = CreateIterResultObject(Undefined, true);
+                    nextItem = new IteratorResult(_engine, Undefined, JsBoolean.True);
                     return false;
                 }
                 
@@ -413,7 +405,7 @@ namespace Jint.Native.Iterator
                 if (match.IsNull())
                 {
                     _done = true;
-                    nextItem = CreateIterResultObject(Undefined, true);
+                    nextItem = new IteratorResult(_engine, Undefined, JsBoolean.True);
                     return false;
                 }
 
@@ -432,7 +424,7 @@ namespace Jint.Native.Iterator
                     _done = true;
                 }
 
-                nextItem = CreateIterResultObject(match, false);
+                nextItem = new IteratorResult(_engine, match, JsBoolean.False);
                 return false;
             }
         }

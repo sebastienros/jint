@@ -10,6 +10,7 @@ using Jint.Native.Boolean;
 using Jint.Native.Date;
 using Jint.Native.Error;
 using Jint.Native.Function;
+using Jint.Native.Generator;
 using Jint.Native.Global;
 using Jint.Native.Iterator;
 using Jint.Native.Json;
@@ -150,6 +151,8 @@ namespace Jint
 
             Object = ObjectConstructor.CreateObjectConstructor(this);
             Function = FunctionConstructor.CreateFunctionConstructor(this);
+
+            GeneratorFunction = GeneratorFunctionConstructor.CreateGeneratorConstructor(this);
             _callerCalleeArgumentsThrowerConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this,
                 PropertyFlag.Configurable | PropertyFlag.CustomJsValue,
                 "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
@@ -157,12 +160,19 @@ namespace Jint
                 PropertyFlag.CustomJsValue,
                 "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
 
+            _callerCalleeArgumentsThrowerConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this,  PropertyFlag.Configurable | PropertyFlag.CustomJsValue, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
+            _callerCalleeArgumentsThrowerNonConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this, PropertyFlag.CustomJsValue, "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
+
             Symbol = SymbolConstructor.CreateSymbolConstructor(this);
             Array = ArrayConstructor.CreateArrayConstructor(this);
             Map = MapConstructor.CreateMapConstructor(this);
             Set = SetConstructor.CreateSetConstructor(this);
+
             Promise = PromiseConstructor.CreatePromiseConstructor(this);
             Iterator = IteratorConstructor.CreateIteratorConstructor(this);
+            GeneratorPrototype = GeneratorPrototype.CreatePrototypeObject(this);
+            GeneratorFunction = GeneratorFunctionConstructor.CreateGeneratorConstructor(this);
+
             String = StringConstructor.CreateStringConstructor(this);
             RegExp = RegExpConstructor.CreateRegExpConstructor(this);
             Number = NumberConstructor.CreateNumberConstructor(this);
@@ -217,6 +227,8 @@ namespace Jint
         public GlobalObject Global { get; }
         public ObjectConstructor Object { get; }
         public FunctionConstructor Function { get; }
+        internal GeneratorFunctionConstructor GeneratorFunction { get; }
+        internal GeneratorPrototype GeneratorPrototype { get; }
         public ArrayConstructor Array { get; }
         public MapConstructor Map { get; }
         public SetConstructor Set { get; }
@@ -279,7 +291,8 @@ namespace Jint
         {
             var context = new ExecutionContext(
                 lexicalEnvironment,
-                variableEnvironment);
+                variableEnvironment,
+                null);
 
             _executionContexts.Push(context);
             return context;
@@ -382,7 +395,7 @@ namespace Jint
                     script,
                     GlobalEnvironment);
 
-                var list = new JintStatementList(this, null, script.Body);
+                var list = new JintStatementList(this, script);
 
                 Completion result;
                 try
@@ -828,6 +841,28 @@ namespace Jint
             thisEnvironment ??= ExecutionContext.GetThisEnvironment();
             return thisEnvironment.NewTarget;
         }
+        
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getthisenvironment
+        /// </summary>
+        internal EnvironmentRecord GetThisEnvironment()
+        {
+            // The loop will always terminate because the list of environments always
+            // ends with the global environment which has a this binding.
+            var lex = ExecutionContext.LexicalEnvironment;
+            while (true)
+            {
+                var envRec = lex;
+                var exists = envRec.HasThisBinding();
+                if (exists)
+                {
+                    return envRec;
+                }
+
+                var outer = lex._outerEnv;
+                lex = outer;
+            }
+        }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-resolvethisbinding
@@ -959,12 +994,11 @@ namespace Jint
         /// </summary>
         internal ArgumentsInstance FunctionDeclarationInstantiation(
             FunctionInstance functionInstance,
-            JsValue[] argumentsList,
-            EnvironmentRecord env)
+            JsValue[] argumentsList)
         {
+            var env = (FunctionEnvironmentRecord) ExecutionContext.LexicalEnvironment;
             var func = functionInstance._functionDefinition;
 
-            var envRec = (FunctionEnvironmentRecord) env;
             var strict = StrictModeScope.IsStrictModeCode;
 
             var configuration = func.Initialize(this, functionInstance);
@@ -974,8 +1008,7 @@ namespace Jint
             var hasParameterExpressions = configuration.HasParameterExpressions;
 
             var canInitializeParametersOnDeclaration = simpleParameterList && !configuration.HasDuplicates;
-            envRec.InitializeParameters(parameterNames, hasDuplicates,
-                canInitializeParametersOnDeclaration ? argumentsList : null);
+            env.InitializeParameters(parameterNames, hasDuplicates, canInitializeParametersOnDeclaration ? argumentsList : null);
 
             ArgumentsInstance ao = null;
             if (configuration.ArgumentsObjectNeeded)
@@ -988,24 +1021,23 @@ namespace Jint
                 {
                     // NOTE: mapped argument object is only provided for non-strict functions that don't have a rest parameter,
                     // any parameter default value initializers, or any destructured parameters.
-                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, envRec,
-                        configuration.HasRestParameter);
+                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, env, configuration.HasRestParameter);
                 }
 
                 if (strict)
                 {
-                    envRec.CreateImmutableBindingAndInitialize(KnownKeys.Arguments, strict: false, ao);
+                    env.CreateImmutableBindingAndInitialize(KnownKeys.Arguments, strict: false, ao);
                 }
                 else
                 {
-                    envRec.CreateMutableBindingAndInitialize(KnownKeys.Arguments, canBeDeleted: false, ao);
+                    env.CreateMutableBindingAndInitialize(KnownKeys.Arguments, canBeDeleted: false, ao);
                 }
             }
 
             if (!canInitializeParametersOnDeclaration)
             {
                 // slower set
-                envRec.AddFunctionParameters(func.Function, argumentsList);
+                env.AddFunctionParameters(func.Function, argumentsList);
             }
 
             // Let iteratorRecord be CreateListIteratorRecord(argumentsList).
@@ -1014,34 +1046,31 @@ namespace Jint
             // Else,
             //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
 
-            EnvironmentRecord varEnv;
-            DeclarativeEnvironmentRecord varEnvRec;
+            DeclarativeEnvironmentRecord varEnv;
             if (!hasParameterExpressions)
             {
                 // NOTE: Only a single lexical environment is needed for the parameters and top-level vars.
                 for (var i = 0; i < configuration.VarsToInitialize.Count; i++)
                 {
                     var pair = configuration.VarsToInitialize[i];
-                    envRec.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined);
+                    env.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined);
                 }
 
                 varEnv = env;
-                varEnvRec = envRec;
             }
             else
             {
                 // NOTE: A separate Environment Record is needed to ensure that closures created by expressions
                 // in the formal parameter list do not have visibility of declarations in the function body.
                 varEnv = JintEnvironment.NewDeclarativeEnvironment(this, env);
-                varEnvRec = (DeclarativeEnvironmentRecord) varEnv;
 
                 UpdateVariableEnvironment(varEnv);
 
                 for (var i = 0; i < configuration.VarsToInitialize.Count; i++)
                 {
                     var pair = configuration.VarsToInitialize[i];
-                    var initialValue = pair.InitialValue ?? envRec.GetBindingValue(pair.Name, strict: false);
-                    varEnvRec.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, initialValue);
+                    var initialValue = pair.InitialValue ?? env.GetBindingValue(pair.Name, strict: false);
+                    varEnv.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, initialValue);
                 }
             }
 
@@ -1073,7 +1102,7 @@ namespace Jint
 
             if (configuration.FunctionsToInitialize != null)
             {
-                InitializeFunctions(configuration.FunctionsToInitialize, lexEnv, varEnvRec);
+                InitializeFunctions(configuration.FunctionsToInitialize, lexEnv, varEnv);
             }
 
             return ao;
@@ -1308,6 +1337,12 @@ namespace Jint
         internal void UpdateVariableEnvironment(EnvironmentRecord newEnv)
         {
             _executionContexts.ReplaceTopVariableEnvironment(newEnv);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal ref readonly ExecutionContext UpdateGenerator(Generator generator)
+        {
+            return ref _executionContexts.ReplaceTopGenerator(generator);
         }
 
         internal JsValue Call(ICallable callable, JsValue thisObject, JsValue[] arguments, JintExpression expression)

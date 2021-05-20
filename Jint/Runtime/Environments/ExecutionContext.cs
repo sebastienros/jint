@@ -1,28 +1,33 @@
 ﻿#nullable enable
 
+using Jint.Native.Generator;
+
 namespace Jint.Runtime.Environments
 {
     public readonly struct ExecutionContext
     {
         internal ExecutionContext(
             EnvironmentRecord lexicalEnvironment,
-            EnvironmentRecord variableEnvironment)
+            EnvironmentRecord variableEnvironment,
+            Generator? generator = null)
         {
             LexicalEnvironment = lexicalEnvironment;
             VariableEnvironment = variableEnvironment;
+            Generator = generator;
         }
 
         public readonly EnvironmentRecord LexicalEnvironment;
         public readonly EnvironmentRecord VariableEnvironment;
+        internal readonly Generator? Generator;
 
         public ExecutionContext UpdateLexicalEnvironment(EnvironmentRecord lexicalEnvironment)
         {
-            return new ExecutionContext(lexicalEnvironment, VariableEnvironment);
+            return new ExecutionContext(lexicalEnvironment, VariableEnvironment, Generator);
         }
 
         public ExecutionContext UpdateVariableEnvironment(EnvironmentRecord variableEnvironment)
         {
-            return new ExecutionContext(LexicalEnvironment, variableEnvironment);
+            return new ExecutionContext(LexicalEnvironment, variableEnvironment, Generator);
         }
 
         /// <summary>
@@ -46,6 +51,23 @@ namespace Jint.Runtime.Environments
                     lex = lex._outerEnv;
                 }
             }
+        }
+
+        internal ExecutionContext UpdateGenerator(Generator generator)
+        {
+            return new ExecutionContext(LexicalEnvironment, VariableEnvironment, generator);
+        }
+
+        internal GeneratorKind GetGeneratorKind()
+        {
+            if (Generator is null)
+            {
+                return GeneratorKind.NonGenerator;
+            }
+
+            // TODO If generator has an [[AsyncGeneratorState]] internal slot, return async.
+
+            return GeneratorKind.Sync;
         }
     }
 }
