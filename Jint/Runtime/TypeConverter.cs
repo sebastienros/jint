@@ -375,6 +375,28 @@ namespace Jint.Runtime
             return (long) number;
         }
 
+        internal static int ToInt32(double o)
+        {
+            // Computes the integral value of the number mod 2^32.
+
+            long doubleBits = BitConverter.DoubleToInt64Bits(o);
+            int sign = (int)(doubleBits >> 63);   // 0 if positive, -1 if negative
+            int exponent = (int)((doubleBits >> 52) & 0x7FF) - 1023;
+
+            if ((uint)exponent >= 84)
+            {
+                // Anything with an exponent that is negative or >= 84 will convert to zero.
+                // This includes infinities and NaNs, which have exponent = 1024
+                // The 84 comes from 52 (bits in double mantissa) + 32 (bits in integer)
+                return 0;
+            }
+
+            long mantissa = (doubleBits & 0xFFFFFFFFFFFFFL) | 0x10000000000000L;
+            int int32Value = (exponent >= 52) ? (int)(mantissa << (exponent - 52)) : (int)(mantissa >> (52 - exponent));
+
+            return (int32Value + sign) ^ sign;
+        }
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.5
         /// </summary>
@@ -382,7 +404,7 @@ namespace Jint.Runtime
         {
             return o._type == InternalTypes.Integer
                 ? o.AsInteger()
-                : (int) (uint) ToNumber(o);
+                : ToInt32(ToNumber(o));
         }
 
         /// <summary>
@@ -392,7 +414,7 @@ namespace Jint.Runtime
         {
             return o._type == InternalTypes.Integer
                 ? (uint) o.AsInteger()
-                : (uint) ToNumber(o);
+                : (uint) ToInt32(ToNumber(o));
         }
 
         /// <summary>
