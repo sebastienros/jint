@@ -116,6 +116,12 @@ namespace Jint.Tests.Test262
                     var script = parser.ParseScript(strict);
 
                     return engine.Evaluate(script);
+                }), true, true, true));   
+            o.FastSetProperty("createRealm", new PropertyDescriptor(new ClrFunctionInstance(engine, "createRealm",
+                (thisObj, args) =>
+                {
+                    var realm = engine.CreateRealm();
+                    return realm;
                 }), true, true, true));
             engine.SetValue("$262", o);
 
@@ -216,10 +222,6 @@ namespace Jint.Tests.Test262
                         switch (item)
                         {
                             // TODO implement
-                            case "cross-realm":
-                                skip = true;
-                                reason = "realms not implemented";
-                                break;
                             case "tail-call-optimization":
                                 skip = true;
                                 reason = "tail-calls not implemented";

@@ -1382,5 +1382,38 @@ namespace Jint
 
             return result;
         }
+
+        internal JsValue CreateRealm()
+        {
+            var realmRec = new RealmRecord();
+            CreateIntrinsics(realmRec);
+            return realmRec ;
+        }
+
+        private void CreateIntrinsics(RealmRecord realmRec)
+        {
+            
+        }
+
+        private class RealmRecord : JsValue
+        {
+            private JsValue _globalObject = null;
+            private JsValue _globalEnv = null;
+            private List<string> _templateMap = new List<string>();
+
+            public RealmRecord() : base(InternalTypes.Realm)
+            {
+            }
+
+            public override object ToObject()
+            {
+                throw new NotImplementedException();
+            }
+
+            public override bool Equals(JsValue other)
+            {
+                throw new NotImplementedException();
+            }
+        }
     }
 }

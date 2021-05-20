@@ -171,10 +171,6 @@
     "reason": "WeakMap not implemented"
   },
   {
-    "source": "built-ins/Set/proto-from-ctor-realm.js",
-    "reason": "realms not implemented"
-  },
-  {
     "source": "built-ins/Set/prototype/add/does-not-have-setdata-internal-slot-weakset.js",
     "reason": "WeakSet not implemented"
   },
