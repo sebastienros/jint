@@ -375,7 +375,7 @@ namespace Jint.Runtime
             return (long) number;
         }
 
-        internal static int ToInt32(double o)
+        internal static int DoubleToInt32Slow(double o)
         {
             // Computes the integral value of the number mod 2^32.
 
@@ -402,9 +402,19 @@ namespace Jint.Runtime
         /// </summary>
         public static int ToInt32(JsValue o)
         {
-            return o._type == InternalTypes.Integer
-                ? o.AsInteger()
-                : ToInt32(ToNumber(o));
+            if (o._type == InternalTypes.Integer)
+            {
+                return o.AsInteger();
+            }
+
+            double doubleVal = ToNumber(o);
+            if (doubleVal >= -(double)int.MinValue && doubleVal <= (double)int.MaxValue)
+            {
+                // Double-to-int cast is correct in this range
+                return (int)doubleVal;
+            }
+
+            return DoubleToInt32Slow(doubleVal);
         }
 
         /// <summary>
@@ -412,9 +422,19 @@ namespace Jint.Runtime
         /// </summary>
         public static uint ToUint32(JsValue o)
         {
-            return o._type == InternalTypes.Integer
-                ? (uint) o.AsInteger()
-                : (uint) ToInt32(ToNumber(o));
+            if (o._type == InternalTypes.Integer)
+            {
+                return (uint)o.AsInteger();
+            }
+
+            double doubleVal = ToNumber(o);
+            if (doubleVal >= 0.0 && doubleVal <= (double)uint.MaxValue)
+            {
+                // Double-to-uint cast is correct in this range
+                return (uint)doubleVal;
+            }
+
+            return (uint)DoubleToInt32Slow(doubleVal);
         }
 
         /// <summary>
