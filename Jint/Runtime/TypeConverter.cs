@@ -375,14 +375,46 @@ namespace Jint.Runtime
             return (long) number;
         }
 
+        internal static int DoubleToInt32Slow(double o)
+        {
+            // Computes the integral value of the number mod 2^32.
+
+            long doubleBits = BitConverter.DoubleToInt64Bits(o);
+            int sign = (int)(doubleBits >> 63);   // 0 if positive, -1 if negative
+            int exponent = (int)((doubleBits >> 52) & 0x7FF) - 1023;
+
+            if ((uint)exponent >= 84)
+            {
+                // Anything with an exponent that is negative or >= 84 will convert to zero.
+                // This includes infinities and NaNs, which have exponent = 1024
+                // The 84 comes from 52 (bits in double mantissa) + 32 (bits in integer)
+                return 0;
+            }
+
+            long mantissa = (doubleBits & 0xFFFFFFFFFFFFFL) | 0x10000000000000L;
+            int int32Value = (exponent >= 52) ? (int)(mantissa << (exponent - 52)) : (int)(mantissa >> (52 - exponent));
+
+            return (int32Value + sign) ^ sign;
+        }
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.5
         /// </summary>
         public static int ToInt32(JsValue o)
         {
-            return o._type == InternalTypes.Integer
-                ? o.AsInteger()
-                : (int) (uint) ToNumber(o);
+            if (o._type == InternalTypes.Integer)
+            {
+                return o.AsInteger();
+            }
+
+            double doubleVal = ToNumber(o);
+            if (doubleVal >= -(double)int.MinValue && doubleVal <= (double)int.MaxValue)
+            {
+                // Double-to-int cast is correct in this range
+                return (int)doubleVal;
+            }
+
+            return DoubleToInt32Slow(doubleVal);
         }
 
         /// <summary>
@@ -390,9 +422,19 @@ namespace Jint.Runtime
         /// </summary>
         public static uint ToUint32(JsValue o)
         {
-            return o._type == InternalTypes.Integer
-                ? (uint) o.AsInteger()
-                : (uint) ToNumber(o);
+            if (o._type == InternalTypes.Integer)
+            {
+                return (uint)o.AsInteger();
+            }
+
+            double doubleVal = ToNumber(o);
+            if (doubleVal >= 0.0 && doubleVal <= (double)uint.MaxValue)
+            {
+                // Double-to-uint cast is correct in this range
+                return (uint)doubleVal;
+            }
+
+            return (uint)DoubleToInt32Slow(doubleVal);
         }
 
         /// <summary>
