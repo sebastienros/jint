@@ -59,6 +59,11 @@ namespace Jint.Native.Error
                 o.DefinePropertyOrThrow("message", msgDesc);
             }
 
+            var lastSyntaxNode = _engine.GetLastSyntaxNode();
+            var stackString = lastSyntaxNode == null ? Undefined : _engine.CallStack.BuildCallStackString(lastSyntaxNode.Location);
+            var stackDesc = new PropertyDescriptor(stackString, true, false, true);
+            o.DefinePropertyOrThrow(CommonProperties.Stack, stackDesc);
+
             return o;
         }
 

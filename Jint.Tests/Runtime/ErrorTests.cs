@@ -58,24 +58,113 @@ var c = a(b().Length);
         {
             var engine = new Engine();
 
-            engine.Execute(@"var a = function(v) {
-    return v.xxx.yyy;
+            engine.Execute(@"
+var a = function(v) {
+  return v.xxx.yyy;
 }
 
 var b = function(v) {
-	return a(v);
-}", new ParserOptions("custom.js"));
+  return a(v);
+}
+            ", new ParserOptions("custom.js"));
 
             var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", new ParserOptions("main.js")));
             Assert.Equal("Cannot read property 'yyy' of undefined", e.Message);
-            Assert.Equal(2, e.Location.Start.Line);
-            Assert.Equal(17, e.Location.Start.Column);
+            Assert.Equal(3, e.Location.Start.Line);
+            Assert.Equal(15, e.Location.Start.Column);
             Assert.Equal("custom.js", e.Location.Source);
 
             var stack = e.StackTrace;
-            EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:2:18
-   at b (v) custom.js:6:9
+            EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:3:16
+   at b (v) custom.js:7:10
    at main.js:1:9", stack);
+        }
+
+        [Fact]
+        public void ErrorObjectHasTheStackTraceImmediately()
+        {
+            var engine = new Engine();
+
+            engine.Execute(@"
+var a = function(v) {
+  return Error().stack;
+}
+
+var b = function(v) {
+  return a(v);
+}
+            ", new ParserOptions("custom.js"));
+
+            var e = engine.Evaluate(@"b(7)", new ParserOptions("main.js")).AsString();
+
+            var stack = e;
+            EqualIgnoringNewLineDifferences(@"   at Error custom.js:3:10
+   at a (v) custom.js:3:10
+   at b (v) custom.js:7:10
+   at main.js:1:1", stack);
+        }
+
+        [Fact]
+        public void ThrownErrorObjectHasStackTraceInCatch()
+        {
+            var engine = new Engine();
+
+            engine.Execute(@"
+var a = function(v) {
+  try {
+    throw Error();
+  } catch(err) {
+    return err.stack;
+  }
+}
+
+var b = function(v) {
+  return a(v);
+}
+            ", new ParserOptions("custom.js"));
+
+            var e = engine.Evaluate(@"b(7)", new ParserOptions("main.js")).AsString();
+
+            var stack = e;
+            EqualIgnoringNewLineDifferences(@"   at Error custom.js:4:11
+   at a (v) custom.js:4:11
+   at b (v) custom.js:11:10
+   at main.js:1:1", stack);
+        }
+
+
+        [Fact]
+        public void GeneratedErrorHasStackTraceInCatch()
+        {
+            var engine = new Engine();
+
+            engine.Execute(@"
+var a = function(v) {
+  try {
+    var a = ''.xyz();
+  } catch(err) {
+    return err.stack;
+  }
+}
+
+var b = function(v) {
+  return a(v);
+}
+            ", new ParserOptions("custom.js"));
+
+            var e = engine.Evaluate(@"b(7)", new ParserOptions("main.js")).AsString();
+
+            var stack = e;
+            EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:4:13
+   at b (v) custom.js:11:10
+   at main.js:1:1", stack);
+        }
+
+        [Fact]
+        public void ErrorObjectHasOwnPropertyStack()
+        {
+            var res = new Engine().Evaluate(@"Error().hasOwnProperty('stack')").AsBoolean();
+            Assert.True(res);
         }
 
         private class Folder
@@ -99,15 +188,16 @@ var b = function(v) {
                     Name = "SubFolder1",
                     Parent = new Folder
                     {
-                        Name = "Root", Parent = null,
+                        Name = "Root",
+                        Parent = null,
                     }
                 }
             };
 
             engine.SetValue("folder", folder);
 
-            var javaScriptException =  Assert.Throws<JavaScriptException>(() =>
-            engine.Execute(@"
+            var javaScriptException = Assert.Throws<JavaScriptException>(() =>
+           engine.Execute(@"
                 var Test = {
                     recursive: function(folderInstance) {
                         // Enabling the guard here corrects the problem, but hides the hard fault
@@ -119,7 +209,7 @@ var b = function(v) {
                 }
 
                 Test.recursive(folder);"
-            ));
+           ));
 
             Assert.Equal("Cannot read property 'Name' of null", javaScriptException.Message);
             EqualIgnoringNewLineDifferences(@"   at recursive (folderInstance) <anonymous>:6:44
