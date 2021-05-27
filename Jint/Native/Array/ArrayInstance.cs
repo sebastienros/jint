@@ -245,7 +245,7 @@ namespace Jint.Native.Array
             base.AddProperty(property, descriptor);
         }
 
-        protected override bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
+        protected internal override bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
         {
             if (property == CommonProperties.Length)
             {

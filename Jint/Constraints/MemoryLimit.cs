@@ -21,28 +21,31 @@ namespace Jint.Constraints
 
         public MemoryLimit(long memoryLimit)
         {
+            if (GetAllocatedBytesForCurrentThread is null)
+            {
+                ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
+            }
+            if (memoryLimit <= 0)
+            {
+                ExceptionHelper.ThrowArgumentException("Memory limit must be positive, non-zero value");
+            }
             _memoryLimit = memoryLimit;
         }
 
         public void Check()
         {
-            if (_memoryLimit > 0)
+            var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
+            if (memoryUsage > _memoryLimit)
             {
-                if (GetAllocatedBytesForCurrentThread != null)
-                {
-                    var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
-                    if (memoryUsage > _memoryLimit)
-                    {
-                        ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {_memoryLimit}");
-                    }
-                }
-                else
-                {
-                    ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
-                }
+                ThrowMemoryLimitExceededException(memoryUsage);
             }
         }
 
+        private void ThrowMemoryLimitExceededException(long memoryUsage)
+        {
+            throw new MemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {_memoryLimit}");
+        }
+        
         public void Reset()
         {
             if (GetAllocatedBytesForCurrentThread != null)

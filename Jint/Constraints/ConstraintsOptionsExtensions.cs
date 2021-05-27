@@ -21,7 +21,7 @@ namespace Jint
         {
             options.WithoutConstraint(x => x is MemoryLimit);
 
-            if (memoryLimit > 0 && memoryLimit < int.MaxValue)
+            if (memoryLimit > 0 && memoryLimit < long.MaxValue)
             {
                 options.Constraint(new MemoryLimit(memoryLimit));
             }

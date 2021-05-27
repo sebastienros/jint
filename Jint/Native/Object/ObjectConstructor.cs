@@ -29,7 +29,7 @@ namespace Jint.Native.Object
             return obj;
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
             _prototype = Engine.Function.PrototypeObject;
 

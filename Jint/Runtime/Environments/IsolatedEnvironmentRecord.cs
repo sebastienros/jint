@@ -1,4 +1,3 @@
-﻿using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Jint.Native;
@@ -8,28 +7,23 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Environments
 {
-    /// <summary>
-    ///     http://www.ecma-international.org/ecma-262/6.0/#sec-global-environment-records
-    /// </summary>
-    internal class GlobalEnvironmentRecord : EnvironmentRecord
+    internal sealed class IsolatedEnvironmentRecord : GlobalEnvironmentRecord
     {
-        protected internal readonly GlobalObject _global;
-        protected internal readonly DeclarativeEnvironmentRecord _declarativeRecord;
-        protected internal readonly ObjectEnvironmentRecord _objectRecord;
-        protected readonly HashSet<string> _varNames = new HashSet<string>();
+        // the actual original engine global
+        private readonly GlobalEnvironmentRecord _outer;
 
-        public GlobalEnvironmentRecord(Engine engine, GlobalObject global) : base(engine)
+        public IsolatedEnvironmentRecord(Engine engine, GlobalObject isolatedGlobal, GlobalEnvironmentRecord outer) : base(engine, isolatedGlobal)
         {
-            _global = global;
-            _objectRecord = new ObjectEnvironmentRecord(engine, global, provideThis: false, withEnvironment: false);
-            _declarativeRecord = new DeclarativeEnvironmentRecord(engine);
+            _outer = outer;
         }
 
-        public virtual ObjectInstance GlobalThisValue => _global;
+        public override ObjectInstance GlobalThisValue => _global;
 
         public override bool HasBinding(string name)
         {
-            return (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name)) || _objectRecord.HasBinding(name);
+            return _outer.HasBinding(name) 
+                   || _declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name) 
+                   || _objectRecord.HasBinding(name);
         }
 
         internal override bool TryGetBinding(
@@ -38,27 +32,33 @@ namespace Jint.Runtime.Environments
             out Binding binding,
             out JsValue value)
         {
+            // we unwrap by name
+            binding = default;
+            value = default;
+
+            // we shadow outer context
+            if (_global._properties.TryGetValue(name.Key, out var property)
+                && property != PropertyDescriptor.Undefined)
+            {
+                value = ObjectInstance.UnwrapJsValue(property, _global);
+                return true;
+            }
+            
+            if (_outer.TryGetBinding(name, strict, out binding, out value))
+            {
+                value = ReadOnlyJsValue.Create(value);
+                return true;
+            }
+            
             if (_declarativeRecord._hasBindings &&
                 _declarativeRecord.TryGetBinding(name, strict, out binding, out value))
             {
                 return true;
             }
 
-            // we unwrap by name
-            binding = default;
-            value = default;
-
-            // normal case is to find
-            if (_global._properties._dictionary.TryGetValue(name.Key, out var property)
-                && property != PropertyDescriptor.Undefined)
-            {
-                value = ObjectInstance.UnwrapJsValue(property, _global);
-                return true;
-            }
-
             return TryGetBindingForGlobalParent(name, out value, property);
         }
-        
+
         [MethodImpl(MethodImplOptions.NoInlining)]
         private bool TryGetBindingForGlobalParent(
             in BindingName name,
@@ -68,17 +68,17 @@ namespace Jint.Runtime.Environments
             value = default;
 
             var parent = _global._prototype;
-            if (parent is not null)
+            if (parent != null)
             {
                 property = parent.GetOwnProperty(name.StringValue);
             }
 
-            if (property is null || property == PropertyDescriptor.Undefined)
+            if (property == PropertyDescriptor.Undefined)
             {
                 return false;
             }
 
-            value = ObjectInstance.UnwrapJsValue(property, _global);
+            value = ReadOnlyJsValue.Create(ObjectInstance.UnwrapJsValue(property, _global));
             return true;
         }
 
@@ -87,21 +87,13 @@ namespace Jint.Runtime.Environments
         /// </summary>
         public override void CreateMutableBinding(string name, bool canBeDeleted = false)
         {
-            if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
-            {
-                ExceptionHelper.ThrowTypeError(_engine, name + " has already been declared");
-            }
-
+            AssertNoExistingBinding(name);
             _declarativeRecord.CreateMutableBinding(name, canBeDeleted);
         }
 
         public override void CreateImmutableBinding(string name, bool strict = true)
         {
-            if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
-            {
-                ExceptionHelper.ThrowTypeError(_engine, name + " has already been declared");
-            }
-
+            AssertNoExistingBinding(name);
             _declarativeRecord.CreateImmutableBinding(name, strict);
         }
 
@@ -117,6 +109,15 @@ namespace Jint.Runtime.Environments
                 {
                     ExceptionHelper.ThrowTypeError(_engine);
                 }
+            }
+        }
+
+        private void AssertNoExistingBinding(string name)
+        {
+            if (_outer._declarativeRecord._hasBindings && _outer._declarativeRecord.HasBinding(name)
+                || _declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
+            {
+                ExceptionHelper.ThrowTypeError(_engine, name + " has already been declared");
             }
         }
 
@@ -156,9 +157,20 @@ namespace Jint.Runtime.Environments
 
         public override JsValue GetBindingValue(string name, bool strict)
         {
-            return _declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name)
-                ? _declarativeRecord.GetBindingValue(name, strict)
-                : _objectRecord.GetBindingValue(name, strict);
+            if (_outer._declarativeRecord._hasBindings && _outer._declarativeRecord.HasBinding(name))
+            {
+                return ReadOnlyJsValue.Create(_outer._declarativeRecord.GetBindingValue(name, strict));
+            }
+            if (_outer._objectRecord._bindingObject.GetProperty(name) != PropertyDescriptor.Undefined)
+            {
+                return ReadOnlyJsValue.Create(_outer._objectRecord.GetBindingValue(name, strict));
+            }
+            if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
+            {
+                return _declarativeRecord.GetBindingValue(name, strict);
+            }
+
+            return _objectRecord.GetBindingValue(name, strict);
         }
 
         public override bool DeleteBinding(string name)
@@ -202,18 +214,23 @@ namespace Jint.Runtime.Environments
             return _global;
         }
 
-        public  virtual bool HasVarDeclaration(string name)
+        public override bool HasVarDeclaration(string name)
         {
-            return _varNames.Contains(name);
+            return _outer.HasVarDeclaration(name) || _varNames.Contains(name);
         }
 
-        public virtual  bool HasLexicalDeclaration(string name)
+        public override bool HasLexicalDeclaration(string name)
         {
-            return _declarativeRecord.HasBinding(name);
+            return _outer.HasLexicalDeclaration(name) || _declarativeRecord.HasBinding(name);
         }
 
-        public virtual bool HasRestrictedGlobalProperty(string name)
+        public override bool HasRestrictedGlobalProperty(string name)
         {
+            if (_outer.HasRestrictedGlobalProperty(name))
+            {
+                return true;
+            }            
+
             var existingProp = _global.GetOwnProperty(name);
             if (existingProp == PropertyDescriptor.Undefined)
             {
@@ -223,8 +240,9 @@ namespace Jint.Runtime.Environments
             return !existingProp.Configurable;
         }
 
-        public virtual bool CanDeclareGlobalVar(string name)
+        public override bool CanDeclareGlobalVar(string name)
         {
+            // we allow new globals in our context
             if (_global._properties.ContainsKey(name))
             {
                 return true;
@@ -233,9 +251,14 @@ namespace Jint.Runtime.Environments
             return _global.Extensible;
         }
 
-        public virtual bool CanDeclareGlobalFunction(string name)
+        public override bool CanDeclareGlobalFunction(string name)
         {
-            if (!_global._properties.TryGetValue(name, out var existingProp) 
+            if (_outer._global._properties.ContainsKey(name))
+            {
+                return false;
+            }
+            
+            if (!_global._properties.TryGetValue(name, out var existingProp)
                 || existingProp == PropertyDescriptor.Undefined)
             {
                 return _global.Extensible;
@@ -254,7 +277,7 @@ namespace Jint.Runtime.Environments
             return false;
         }
 
-        public virtual void CreateGlobalVarBinding(string name, bool canBeDeleted)
+        public override void CreateGlobalVarBinding(string name, bool canBeDeleted)
         {
             var hasProperty = _global.HasOwnProperty(name);
             if (!hasProperty && _global.Extensible)
@@ -265,7 +288,7 @@ namespace Jint.Runtime.Environments
             _varNames.Add(name);
         }
 
-        public virtual void CreateGlobalFunctionBinding(string name, JsValue value, bool canBeDeleted)
+        public override void CreateGlobalFunctionBinding(string name, JsValue value, bool canBeDeleted)
         {
             var existingProp = _global.GetOwnProperty(name);
 
@@ -286,11 +309,9 @@ namespace Jint.Runtime.Environments
 
         internal override string[] GetAllBindingNames()
         {
-            // JT: Rather than introduce a new method for the debugger, I'm reusing this one,
-            // which - in spite of the very general name - is actually only used by the debugger
-            // at this point.
-            return _global.GetOwnProperties().Select(x => x.Key.ToString())
-                .Concat(_declarativeRecord.GetAllBindingNames()).ToArray();
+            return _outer.GetAllBindingNames()
+                .Concat(_global.GetOwnProperties().Select(x => x.Key.ToString()))
+                .ToArray();
         }
 
         public override bool Equals(JsValue other)

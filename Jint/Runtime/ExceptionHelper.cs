@@ -125,9 +125,9 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowStatementsCountOverflowException()
+        public static void ThrowStatementsCountOverflowException(int executed, int allowed)
         {
-            throw new StatementsCountOverflowException();
+            throw new StatementsCountOverflowException(allowed);
         }
 
         [DoesNotReturn]
@@ -220,6 +220,12 @@ namespace Jint.Runtime
         public static void ThrowExecutionCanceledException()
         {
             throw new ExecutionCanceledException();
+        }
+
+        [DoesNotReturn]
+        public static void ThrowObjectDisposedException(string message)
+        {
+            throw new ObjectDisposedException(message);
         }
     }
 }

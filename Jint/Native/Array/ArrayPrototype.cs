@@ -38,7 +38,7 @@ namespace Jint.Native.Array
             return obj;
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
             var unscopables = new ObjectInstance(_engine)
             {

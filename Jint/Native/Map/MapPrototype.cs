@@ -29,7 +29,7 @@ namespace Jint.Native.Map
             return obj;
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             var properties = new PropertyDictionary(12, checkExistingKeys: false)

@@ -38,9 +38,9 @@ using Jint.Runtime.References;
 
 namespace Jint
 {
-    public class Engine
+    public partial class Engine
     {
-        private static readonly ParserOptions DefaultParserOptions = new("<anonymous>")
+        internal static readonly ParserOptions DefaultParserOptions = new("<anonymous>")
         {
             AdaptRegexp = true,
             Tolerant = true
@@ -71,7 +71,7 @@ namespace Jint
         private DebugHandler _debugHandler;
 
         // cached access
-        private readonly List<IConstraint> _constraints;
+        private IConstraint[] _constraints;
         internal readonly bool _isDebugMode;
         internal readonly bool _isStrict;
         internal readonly IReferenceResolver _referenceResolver;
@@ -202,7 +202,7 @@ namespace Jint
             // gather some options as fields for faster checks
             _isDebugMode = Options.IsDebugMode;
             _isStrict = Options.IsStrict;
-            _constraints = Options._Constraints;
+            _constraints = Options.BuildConstraints();;
             _referenceResolver = Options.ReferenceResolver;
             CallStack = new JintCallStack(Options.MaxRecursionDepth >= 0);
 
@@ -213,8 +213,8 @@ namespace Jint
             Options.Apply(this);
         }
 
-        internal GlobalEnvironmentRecord GlobalEnvironment { get; }
-        public GlobalObject Global { get; }
+        internal GlobalEnvironmentRecord GlobalEnvironment { get; set; }
+        public GlobalObject Global { get; internal set; }
         public ObjectConstructor Object { get; }
         public FunctionConstructor Function { get; }
         public ArrayConstructor Array { get; }
@@ -291,6 +291,7 @@ namespace Jint
             return context;
         }
 
+
         public Engine SetValue(JsValue name, Delegate value)
         {
             Global.FastAddProperty(name, new DelegateWrapper(this, value), true, false, true);
@@ -342,9 +343,9 @@ namespace Jint
         /// </summary>
         public void ResetConstraints()
         {
-            for (var i = 0; i < _constraints.Count; i++)
+            foreach (var constraint in _constraints)
             {
-                _constraints[i].Reset();
+                constraint.Reset();
             }
         }
 
@@ -360,7 +361,7 @@ namespace Jint
             => Execute(source, DefaultParserOptions)._completionValue;
 
         public JsValue Evaluate(string source, ParserOptions parserOptions)
-            => Execute(source, parserOptions)._completionValue;
+            => Execute(source, parserOptions ?? DefaultParserOptions)._completionValue;
 
         public JsValue Evaluate(Script script)
             => Execute(script)._completionValue;
@@ -447,7 +448,6 @@ namespace Jint
             _eventLoop.Events.Enqueue(continuation);
         }
 
-
         private static void RunAvailableContinuations(EventLoop loop)
         {
             var queue = loop.Events;
@@ -482,10 +482,9 @@ namespace Jint
 
         internal void RunBeforeExecuteStatementChecks(Statement statement)
         {
-            // Avoid allocating the enumerator because we run this loop very often.
-            for (var i = 0; i < _constraints.Count; i++)
+            foreach (var constraint in _constraints)
             {
-                _constraints[i].Check();
+                constraint.Check();
             }
 
             if (_isDebugMode)

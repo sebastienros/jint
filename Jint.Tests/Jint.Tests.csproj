@@ -5,6 +5,7 @@
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
     <IsPackable>false</IsPackable>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Runtime\Scripts\*.*;Parser\Scripts\*.*" />
@@ -16,6 +17,7 @@
     <Reference Include="Microsoft.CSharp" Condition=" '$(TargetFramework)' == 'net461' " />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="FluentAssertions" Version="5.10.3" />
     <PackageReference Include="Flurl.Http.Signed" Version="3.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.4" />
     <PackageReference Include="MongoDB.Bson.signed" Version="2.11.2" />

@@ -37,5 +37,7 @@ namespace Jint.Runtime
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref readonly ExecutionContext Pop() => ref _stack.Pop();
+        
+        public int Count => _stack._size;
     }
 }

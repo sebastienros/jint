@@ -44,7 +44,7 @@ namespace Jint.Native.RegExp
             return obj;
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
 

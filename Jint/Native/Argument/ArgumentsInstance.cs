@@ -48,7 +48,7 @@ namespace Jint.Native.Argument
             ClearProperties();
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
             _canReturnToPool = false;
             var args = _args;

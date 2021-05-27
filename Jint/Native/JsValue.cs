@@ -293,16 +293,16 @@ namespace Jint.Native
         /// </summary>
         public static JsValue FromObject(Engine engine, object value)
         {
-            if (value == null)
+            return value switch
             {
-                return Null;
-            }
+                null => Null,
+                JsValue jsValue => jsValue,
+                _ => ConvertToJsValue(engine, value)
+            };
+        }
 
-            if (value is JsValue jsValue)
-            {
-                return jsValue;
-            }
-
+        private static JsValue ConvertToJsValue(Engine engine, object value)
+        {
             var converters = engine.Options._ObjectConverters;
             var convertersCount = converters.Count;
             for (var i = 0; i < convertersCount; i++)

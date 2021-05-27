@@ -26,7 +26,7 @@ namespace Jint.Native.Promise
             return obj;
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;

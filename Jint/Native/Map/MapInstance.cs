@@ -25,7 +25,7 @@ namespace Jint.Native.Map
             return base.GetOwnProperty(property);
         }
 
-        protected override bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
+        protected internal override bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
         {
             if (property == CommonProperties.Size)
             {

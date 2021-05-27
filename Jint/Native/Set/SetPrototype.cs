@@ -29,7 +29,7 @@ namespace Jint.Native.Set
             return obj;
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
             var properties = new PropertyDictionary(12, checkExistingKeys: false)
             {

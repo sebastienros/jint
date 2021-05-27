@@ -38,7 +38,7 @@ namespace Jint.Native.RegExp
             return obj;
         }
 
-        protected override void Initialize()
+        protected internal override void Initialize()
         {
             var symbols = new SymbolDictionary(1)
             {
