@@ -12,23 +12,23 @@ namespace Jint.Native.Function
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
         private static readonly JsString _functionName = new JsString("eval");
 
-        public EvalFunctionInstance(Engine engine) 
+        public EvalFunctionInstance(Engine engine, FunctionPrototype functionPrototype) 
             : base(engine, _functionName, StrictModeScope.IsStrictModeCode ? FunctionThisMode.Strict : FunctionThisMode.Global)
         {
-            _prototype = Engine.Function.PrototypeObject;
+            _prototype = functionPrototype;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            var callerRealm = (object) null;
+            var callerRealm = _engine.ExecutionContext.Realm;
             return PerformEval(arguments.At(0), callerRealm, StrictModeScope.IsStrictModeCode, false);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-performeval
         /// </summary>
-        public JsValue PerformEval(JsValue x, object callerRealm, bool strictCaller, bool direct)
+        public JsValue PerformEval(JsValue x, Realm callerRealm, bool strictCaller, bool direct)
         {
             if (!x.IsString())
             {
@@ -101,8 +101,8 @@ namespace Jint.Native.Function
                 }
                 else
                 {
-                    lexEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, Engine.GlobalEnvironment);
-                    varEnv = Engine.GlobalEnvironment;
+                    lexEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, ctx.Realm.GlobalEnv);
+                    varEnv = ctx.Realm.GlobalEnv;
                 }
 
                 if (strictEval)

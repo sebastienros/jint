@@ -16,30 +16,16 @@ namespace Jint.Native.String
     {
         private static readonly JsString _functionName = new JsString("String");
 
-        public StringConstructor(Engine engine)
+        public StringConstructor(Engine engine, FunctionPrototype functionPrototype, ObjectPrototype objectPrototype)
             : base(engine, _functionName, FunctionThisMode.Global)
         {
+            _prototype = functionPrototype;
+            PrototypeObject = new StringPrototype(engine, this, objectPrototype);
+            _length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         public StringPrototype PrototypeObject { get; private set; }
-
-        public static StringConstructor CreateStringConstructor(Engine engine)
-        {
-            var obj = new StringConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the String constructor is the Function prototype object
-            obj.PrototypeObject = StringPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
-
-            // The initial value of String.prototype is the String prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
-        }
 
         protected override void Initialize()
         {

@@ -16,29 +16,18 @@ namespace Jint.Native.Array
     {
         private static readonly JsString _functionName = new JsString("Array");
 
-        private ArrayConstructor(Engine engine) :  base(engine, _functionName)
+        internal ArrayConstructor(
+            Engine engine,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype) : base(engine, _functionName)
         {
+            _prototype = functionPrototype;
+            PrototypeObject = new ArrayPrototype(engine, this, objectPrototype);
+            _length = new PropertyDescriptor(1, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public ArrayPrototype PrototypeObject { get; private set; }
-
-        public static ArrayConstructor CreateArrayConstructor(Engine engine)
-        {
-            var obj = new ArrayConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the Array constructor is the Function prototype object
-            obj.PrototypeObject = ArrayPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(1, PropertyFlag.Configurable);
-
-            // The initial value of Array.prototype is the Array prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
-        }
+        public ArrayPrototype PrototypeObject { get; }
 
         protected override void Initialize()
         {
@@ -71,7 +60,7 @@ namespace Jint.Native.Array
 
             if (source is JsString jsString)
             {
-                var a = _engine.Array.ConstructFast((uint) jsString.Length);
+                var a = _engine.Realm.Intrinsics.Array.ConstructFast((uint) jsString.Length);
                 for (int i = 0; i < jsString._value.Length; i++)
                 {
                     a.SetIndexValue((uint) i, JsString.Create(jsString._value[i]), updateLength: false);
@@ -81,7 +70,7 @@ namespace Jint.Native.Array
 
             if (thisObj.IsNull() || !(source is ObjectInstance objectInstance))
             {
-                return _engine.Array.ConstructFast(0);
+                return _engine.Realm.Intrinsics.Array.ConstructFast(0);
             }
 
             if (objectInstance is IObjectWrapper wrapper && wrapper.Target is IEnumerable enumerable)
@@ -101,7 +90,7 @@ namespace Jint.Native.Array
             }
             else
             {
-                instance = _engine.Array.ConstructFast(0);
+                instance = _engine.Realm.Intrinsics.Array.ConstructFast(0);
             }
 
             if (objectInstance.TryGetIterator(_engine, out var iterator))
@@ -133,7 +122,7 @@ namespace Jint.Native.Array
             }
             else
             {
-                a = _engine.Array.ConstructFast(length);
+                a = _engine.Realm.Intrinsics.Array.ConstructFast(length);
             }
 
             var args = !ReferenceEquals(callable, null)
@@ -238,7 +227,7 @@ namespace Jint.Native.Array
             {
                 // faster for real arrays
                 ArrayInstance ai;
-                a = ai = _engine.Array.Construct(len);
+                a = ai = _engine.Realm.Intrinsics.Array.Construct(len);
 
                 for (uint k = 0; k < arguments.Length; k++)
                 {
@@ -374,7 +363,7 @@ namespace Jint.Native.Array
             {
                 var jsItem = FromObject(Engine, item);
                 tempArray[0] = jsItem;
-                Engine.Array.PrototypeObject.Push(jsArray, tempArray);
+                Engine.Realm.Intrinsics.Array.PrototypeObject.Push(jsArray, tempArray);
             }
 
             _engine._jsValueArrayPool.ReturnArray(tempArray);

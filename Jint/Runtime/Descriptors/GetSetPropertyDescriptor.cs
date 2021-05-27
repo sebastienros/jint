@@ -54,8 +54,8 @@ namespace Jint.Runtime.Descriptors
                 _message = message;
             }
 
-            public override JsValue Get => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
-            public override JsValue Set => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
+            public override JsValue Get => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject};
+            public override JsValue Set => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject};
 
             protected internal override JsValue CustomValue
             {

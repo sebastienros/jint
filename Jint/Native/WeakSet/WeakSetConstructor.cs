@@ -9,30 +9,16 @@ namespace Jint.Native.WeakSet
     {
         private static readonly JsString _functionName = new JsString("WeakSet");
 
-        private WeakSetConstructor(Engine engine)
+        internal WeakSetConstructor(Engine engine, FunctionPrototype functionPrototype, ObjectPrototype objectPrototype)
             : base(engine, _functionName)
         {
+            _prototype = functionPrototype;
+            PrototypeObject = new WeakSetPrototype(engine, this, objectPrototype);
+            _length = new PropertyDescriptor(0, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public WeakSetPrototype PrototypeObject { get; private set; }
-
-        public static WeakSetConstructor CreateWeakSetConstructor(Engine engine)
-        {
-            var obj = new WeakSetConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the WeakSet constructor is the Function prototype object
-            obj.PrototypeObject = WeakSetPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
-
-            // The initial value of WeakSet.prototype is the WeakSet prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
-        }
+        public WeakSetPrototype PrototypeObject { get; }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {

@@ -1,0 +1,122 @@
+using Jint.Native;
+using Jint.Native.Array;
+using Jint.Native.Boolean;
+using Jint.Native.Date;
+using Jint.Native.Error;
+using Jint.Native.Function;
+using Jint.Native.Iterator;
+using Jint.Native.Json;
+using Jint.Native.Map;
+using Jint.Native.Math;
+using Jint.Native.Number;
+using Jint.Native.Object;
+using Jint.Native.Promise;
+using Jint.Native.Proxy;
+using Jint.Native.Reflect;
+using Jint.Native.RegExp;
+using Jint.Native.Set;
+using Jint.Native.String;
+using Jint.Native.Symbol;
+using Jint.Native.WeakMap;
+using Jint.Native.WeakSet;
+
+namespace Jint
+{
+    public class Intrinsics
+    {
+        private static readonly JsString _errorFunctionName = new("Error");
+        private static readonly JsString _evalErrorFunctionName = new("EvalError");
+        private static readonly JsString _rangeErrorFunctionName = new("RangeError");
+        private static readonly JsString _referenceErrorFunctionName = new("ReferenceError");
+        private static readonly JsString _syntaxErrorFunctionName = new("SyntaxError");
+        private static readonly JsString _typeErrorFunctionName = new("TypeError");
+        private static readonly JsString _uriErrorFunctionName = new("URIError");
+
+        private readonly Engine _engine;
+
+        // lazy properties
+        private ErrorConstructor _error;
+        private ErrorConstructor _evalError;
+        private ErrorConstructor _rangeError;
+        private ErrorConstructor _referenceError;
+        private ErrorConstructor _syntaxError;
+        private ErrorConstructor _typeError;
+        private ErrorConstructor _uriError;
+
+        public Intrinsics(Engine engine)
+        {
+            _engine = engine;
+
+            // we need to transfer state currently to some initialization, would otherwise require quite the
+            // ClrFunctionInstance constructor refactoring
+            _engine._originalIntrinsics = this;
+
+            Object = new ObjectConstructor(engine);
+            Function = new FunctionConstructor(engine, Object.PrototypeObject);
+
+            // this is implementation dependent, and only to pass some unit tests
+            Object._prototype = Function.PrototypeObject;
+
+            Symbol = new SymbolConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
+            Array = new ArrayConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
+            Map = new MapConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
+            Set = new SetConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
+            WeakMap = new WeakMapConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
+            WeakSet = new WeakSetConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
+            Promise = new PromiseConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
+            Iterator = new IteratorConstructor(engine, Object.PrototypeObject);
+            String = new StringConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
+            RegExp = new RegExpConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
+            Number = new NumberConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
+            Boolean = new BooleanConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
+            Date = new DateConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
+            Math = new MathInstance(engine, Object.PrototypeObject);
+            Json = new JsonInstance(engine, Object.PrototypeObject);
+            Proxy = new ProxyConstructor(engine);
+            Reflect = new ReflectInstance(engine, Object.PrototypeObject);
+            Eval = new EvalFunctionInstance(engine, Function.PrototypeObject);
+        }
+
+        public ObjectConstructor Object { get; }
+        public FunctionConstructor Function { get; }
+        public ArrayConstructor Array { get; }
+        public MapConstructor Map { get; }
+        public SetConstructor Set { get; }
+        public WeakMapConstructor WeakMap { get; }
+        public WeakSetConstructor WeakSet { get; }
+        public PromiseConstructor Promise { get; }
+        public IteratorConstructor Iterator { get; }
+        public StringConstructor String { get; }
+        public RegExpConstructor RegExp { get; }
+        public BooleanConstructor Boolean { get; }
+        public NumberConstructor Number { get; }
+        public DateConstructor Date { get; }
+        public MathInstance Math { get; }
+        public JsonInstance Json { get; }
+        public ProxyConstructor Proxy { get; }
+        public ReflectInstance Reflect { get; }
+        public SymbolConstructor Symbol { get; }
+        public EvalFunctionInstance Eval { get; }
+
+        public ErrorConstructor Error =>
+            _error ??= new ErrorConstructor(_engine, Function.PrototypeObject, Object.PrototypeObject, _errorFunctionName);
+
+        public ErrorConstructor EvalError =>
+            _evalError ??= new ErrorConstructor(_engine, Function.PrototypeObject, Error.PrototypeObject, _evalErrorFunctionName);
+
+        public ErrorConstructor SyntaxError =>
+            _syntaxError ??= new ErrorConstructor(_engine, Function.PrototypeObject, Error.PrototypeObject, _syntaxErrorFunctionName);
+
+        public ErrorConstructor TypeError =>
+            _typeError ??= new ErrorConstructor(_engine, Function.PrototypeObject, Error.PrototypeObject, _typeErrorFunctionName);
+
+        public ErrorConstructor RangeError =>
+            _rangeError ??= new ErrorConstructor(_engine, Function.PrototypeObject, Error.PrototypeObject, _rangeErrorFunctionName);
+
+        public ErrorConstructor ReferenceError
+            => _referenceError ??= new ErrorConstructor(_engine, Function.PrototypeObject, Error.PrototypeObject, _referenceErrorFunctionName);
+
+        public ErrorConstructor UriError =>
+            _uriError ??= new ErrorConstructor(_engine, Function.PrototypeObject, Error.PrototypeObject, _uriErrorFunctionName);
+    }
+}

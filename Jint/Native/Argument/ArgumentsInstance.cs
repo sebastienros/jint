@@ -76,7 +76,7 @@ namespace Jint.Native.Argument
                     var mappedNamed = _mappedNamed.Value;
                     mappedNamed.Clear();
 
-                    map = Engine.Object.Construct(Arguments.Empty);
+                    map = Engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
 
                     for (uint i = 0; i < (uint) args.Length; i++)
                     {
@@ -98,7 +98,7 @@ namespace Jint.Native.Argument
                 DefinePropertyOrThrow(CommonProperties.Callee, new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
             }
 
-            var iteratorFunction = new ClrFunctionInstance(Engine, "iterator", _engine.Array.PrototypeObject.Values, 0, PropertyFlag.Configurable);
+            var iteratorFunction = new ClrFunctionInstance(Engine, "iterator", _engine.Realm.Intrinsics.Array.PrototypeObject.Values, 0, PropertyFlag.Configurable);
             DefinePropertyOrThrow(GlobalSymbolRegistry.Iterator, new PropertyDescriptor(iteratorFunction, PropertyFlag.Writable | PropertyFlag.Configurable));
         }
 

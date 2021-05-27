@@ -18,7 +18,7 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowSyntaxError(Engine engine, string message = null)
         {
-            throw new JavaScriptException(engine.SyntaxError, message);
+            throw new JavaScriptException(engine.Realm.Intrinsics.SyntaxError, message);
         }
 
         public static T ThrowArgumentException<T>(string message = null)
@@ -49,7 +49,7 @@ namespace Jint.Runtime
         public static void ThrowReferenceError(Engine engine, string name)
         {
             var message = name != null ? name + " is not defined" : null;
-            throw new JavaScriptException(engine.ReferenceError, message);
+            throw new JavaScriptException(engine.Realm.Intrinsics.ReferenceError, message);
         }
 
         public static T ThrowTypeErrorNoEngine<T>(string message = null, Exception exception = null)
@@ -59,7 +59,7 @@ namespace Jint.Runtime
 
         public static T ThrowReferenceError<T>(Engine engine, string message = null)
         {
-            throw new JavaScriptException(engine.ReferenceError, message);
+            throw new JavaScriptException(engine.Realm.Intrinsics.ReferenceError, message);
         }
 
         public static T ThrowTypeError<T>(Engine engine, string message = null, Exception exception = null)
@@ -71,24 +71,24 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowTypeError(Engine engine, string message = null, Exception exception = null)
         {
-            throw new JavaScriptException(engine.TypeError, message, exception);
+            throw new JavaScriptException(engine.Realm.Intrinsics.TypeError, message, exception);
         }
 
         public static T ThrowRangeError<T>(Engine engine, string message = null)
         {
-            throw new JavaScriptException(engine.RangeError, message);
+            throw new JavaScriptException(engine.Realm.Intrinsics.RangeError, message);
         }
 
         [DoesNotReturn]
         public static void ThrowRangeError(Engine engine, string message = null)
         {
-            throw new JavaScriptException(engine.RangeError, message);
+            throw new JavaScriptException(engine.Realm.Intrinsics.RangeError, message);
         }
 
         [DoesNotReturn]
         public static void ThrowUriError(Engine engine)
         {
-            throw new JavaScriptException(engine.UriError);
+            throw new JavaScriptException(engine.Realm.Intrinsics.UriError);
         }
 
         [DoesNotReturn]
@@ -201,7 +201,7 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowError(Engine engine, string message)
         {
-            throw new JavaScriptException(engine.Error, message);
+            throw new JavaScriptException(engine.Realm.Intrinsics.Error, message);
         }
 
         [DoesNotReturn]

@@ -26,22 +26,14 @@ namespace Jint.Native.RegExp
         private static readonly JsValue DefaultSource = new JsString("(?:)");
         internal static readonly JsString PropertyFlags = new JsString("flags");
 
-        private RegExpConstructor _regExpConstructor;
+        private readonly RegExpConstructor _constructor;
         private readonly Func<JsValue, JsValue[], JsValue> _defaultExec;
 
-        private RegExpPrototype(Engine engine) : base(engine)
+        internal RegExpPrototype(Engine engine, RegExpConstructor constructor, ObjectPrototype objectPrototype) : base(engine)
         {
             _defaultExec = Exec;
-        }
-
-        public static RegExpPrototype CreatePrototypeObject(Engine engine, RegExpConstructor regExpConstructor)
-        {
-            var obj = new RegExpPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject, _regExpConstructor = regExpConstructor
-            };
-
-            return obj;
+            _constructor = constructor;
+            _prototype = objectPrototype;
         }
 
         protected override void Initialize()
@@ -72,7 +64,7 @@ namespace Jint.Native.RegExp
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             var properties = new PropertyDictionary(12, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(_regExpConstructor, propertyFlags),
+                ["constructor"] = new PropertyDescriptor(_constructor, propertyFlags),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToRegExpString, 0, lengthFlags), propertyFlags),
                 ["exec"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "exec", _defaultExec, 1, lengthFlags), propertyFlags),
                 ["test"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "test", Test, 1, lengthFlags), propertyFlags),
@@ -386,7 +378,7 @@ namespace Jint.Native.RegExp
             var rx = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.split");
             var s = TypeConverter.ToString(arguments.At(0));
             var limit = arguments.At(1);
-            var c = SpeciesConstructor(rx, _engine.RegExp);
+            var c = SpeciesConstructor(rx, _engine.Realm.Intrinsics.RegExp);
             var flags = TypeConverter.ToJsString(rx.Get(PropertyFlags));
             var unicodeMatching = flags.IndexOf('u') > -1;
             var newFlags = flags.IndexOf('y') > -1 ? flags : new JsString(flags.ToString() + 'y');
@@ -400,12 +392,12 @@ namespace Jint.Native.RegExp
 
             if (lim == 0)
             {
-                return _engine.Array.ConstructFast(0);
+                return _engine.Realm.Intrinsics.Array.ConstructFast(0);
             }
 
             if (s.Length == 0)
             {
-                var a = _engine.Array.ConstructFast(0);
+                var a = _engine.Realm.Intrinsics.Array.ConstructFast(0);
                 var z = RegExpExec(splitter, s);
                 if (!z.IsNull())
                 {
@@ -426,7 +418,7 @@ namespace Jint.Native.RegExp
                     return StringPrototype.SplitWithStringSeparator(_engine, "", s, (uint) s.Length);                    
                 }
                 
-                var a = (ArrayInstance) Engine.Array.Construct(Arguments.Empty);
+                var a = (ArrayInstance) Engine.Realm.Intrinsics.Array.Construct(Arguments.Empty);
                 var match = R.Value.Match(s, 0);
 
                 if (!match.Success) // No match at all return the string in an array
@@ -486,7 +478,7 @@ namespace Jint.Native.RegExp
 
         private JsValue SplitSlow(string s, ObjectInstance splitter, bool unicodeMatching, uint lengthA, long lim)
         {
-            var a = _engine.Array.ConstructFast(0);
+            var a = _engine.Realm.Intrinsics.Array.ConstructFast(0);
             var previousStringIndex = 0;
             var currentIndex = 0;
             while (currentIndex < s.Length)
@@ -646,7 +638,7 @@ namespace Jint.Native.RegExp
                 && rei.TryGetDefaultRegExpExec(out _))
             {
                 // fast path
-                var a = Engine.Array.ConstructFast(0);
+                var a = Engine.Realm.Intrinsics.Array.ConstructFast(0);
 
                 if (rei.Sticky)
                 {
@@ -691,7 +683,7 @@ namespace Jint.Native.RegExp
 
         private JsValue MatchSlow(ObjectInstance rx, string s, bool fullUnicode)
         {
-            var a = Engine.Array.ConstructFast(0);
+            var a = Engine.Realm.Intrinsics.Array.ConstructFast(0);
             uint n = 0;
             while (true)
             {
@@ -723,7 +715,7 @@ namespace Jint.Native.RegExp
             var r = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.matchAll");
 
             var s = TypeConverter.ToString(arguments.At(0));
-            var c = SpeciesConstructor(r, _engine.RegExp);
+            var c = SpeciesConstructor(r, _engine.Realm.Intrinsics.RegExp);
 
             var flags = TypeConverter.ToJsString(r.Get(PropertyFlags));
             var matcher = Construct(c, new JsValue[]
@@ -738,7 +730,7 @@ namespace Jint.Native.RegExp
             var global = flags.IndexOf('g') != -1;
             var fullUnicode = flags.IndexOf('u') != -1;
 
-            return _engine.Iterator.CreateRegExpStringIterator(matcher, s, global, fullUnicode);
+            return _engine.Realm.Intrinsics.Iterator.CreateRegExpStringIterator(matcher, s, global, fullUnicode);
         }
 
         private static int AdvanceStringIndex(string s, int index, bool unicode)
@@ -817,7 +809,7 @@ namespace Jint.Native.RegExp
                 }
 
                 // "aaa".match() => [ '', index: 0, input: 'aaa' ]
-                var array = R.Engine.Array.ConstructFast(1);
+                var array = R.Engine.Realm.Intrinsics.Array.ConstructFast(1);
                 array.FastAddProperty(PropertyIndex, lastIndex, true, true, true);
                 array.FastAddProperty(PropertyInput, s, true, true, true);
                 array.SetIndexValue(0, JsString.Empty, updateLength: false);
@@ -889,7 +881,7 @@ namespace Jint.Native.RegExp
 
         private static ArrayInstance CreateReturnValueArray(Engine engine, Match match, string inputValue, bool fullUnicode)
         {
-            var array = engine.Array.ConstructFast((ulong) match.Groups.Count);
+            var array = engine.Realm.Intrinsics.Array.ConstructFast((ulong) match.Groups.Count);
             array.CreateDataProperty(PropertyIndex, match.Index);
             array.CreateDataProperty(PropertyInput, inputValue);
 

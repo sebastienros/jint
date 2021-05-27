@@ -23,22 +23,13 @@ namespace Jint.Native.Promise
 
         internal PromisePrototype PrototypeObject { get; private set; }
 
-        private PromiseConstructor(Engine engine)
+        internal PromiseConstructor(Engine engine, FunctionPrototype functionPrototype, ObjectPrototype objectPrototype)
             : base(engine, _functionName)
         {
-        }
-
-        internal static PromiseConstructor CreatePromiseConstructor(Engine engine)
-        {
-            var obj = new PromiseConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            obj.PrototypeObject = PromisePrototype.CreatePrototypeObject(engine, obj);
-            obj._length = new PropertyDescriptor(1, PropertyFlag.Configurable);
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-            return obj;
+            _prototype = functionPrototype;
+            PrototypeObject = new PromisePrototype(engine, this, objectPrototype);
+            _length = new PropertyDescriptor(1, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         protected override void Initialize()
@@ -71,7 +62,7 @@ namespace Jint.Native.Promise
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
-        { 
+        {
             return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Constructor Promise requires 'new'");
         }
 
@@ -81,7 +72,7 @@ namespace Jint.Native.Promise
             {
                 ExceptionHelper.ThrowTypeError(_engine, "Constructor Promise requires 'new'");
             }
-            
+
             if (arguments.At(0) is not ICallable promiseExecutor)
             {
                 return ExceptionHelper.ThrowTypeError<ObjectInstance>(
@@ -229,7 +220,7 @@ namespace Jint.Native.Promise
                 // if "then" method is sync then it will be resolved BEFORE the next iteration cycle
                 if (results.TrueForAll(static x => x != null) && doneIterating)
                 {
-                    var array = _engine.Array.ConstructFast(results);
+                    var array = _engine.Realm.Intrinsics.Array.ConstructFast(results);
                     resolve.Call(Undefined, new JsValue[] { array });
                 }
             }
@@ -308,7 +299,7 @@ namespace Jint.Native.Promise
             // resolve the promise sync
             if (results.Count == 0)
             {
-                resolve.Call(Undefined, new JsValue[] {Engine.Array.ConstructFast(0)});
+                resolve.Call(Undefined, new JsValue[] {Engine.Realm.Intrinsics.Array.ConstructFast(0)});
             }
 
             return resultingPromise;

@@ -217,7 +217,7 @@ namespace Jint.Runtime.Environments
                     {
                         if (((RestElement) property).Argument is Identifier restIdentifier)
                         {
-                            var rest = _engine.Object.Construct(argumentObject.Properties.Count - processedProperties.Count);
+                            var rest = _engine.Realm.Intrinsics.Object.Construct(argumentObject.Properties.Count - processedProperties.Count);
                             argumentObject.CopyDataProperties(rest, processedProperties);
                             SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
                         }
@@ -251,7 +251,7 @@ namespace Jint.Runtime.Environments
             }
             else if (argument.IsObject() && argument.TryGetIterator(_engine, out var iterator))
             {
-                array = _engine.Array.ConstructFast(0);
+                array = _engine.Realm.Intrinsics.Array.ConstructFast(0);
                 var protocol = new ArrayPatternProtocol(_engine, array, iterator, arrayPattern.Elements.Count);
                 protocol.Execute();
             }
@@ -282,7 +282,7 @@ namespace Jint.Runtime.Environments
             int restCount = arguments.Length - (index + 1) + 1;
             uint count = restCount > 0 ? (uint) restCount : 0;
 
-            var rest = _engine.Array.ConstructFast(count);
+            var rest = _engine.Realm.Intrinsics.Array.ConstructFast(count);
 
             uint targetIndex = 0;
             for (var argIndex = index; argIndex < arguments.Length; ++argIndex)
@@ -329,7 +329,7 @@ namespace Jint.Runtime.Environments
                 var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                 var paramVarEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
 
-                _engine.EnterExecutionContext(paramVarEnv, paramVarEnv);
+                _engine.EnterExecutionContext(new ExecutionContext(paramVarEnv, paramVarEnv, null, _engine.Realm, null));
                 try
                 {
                     argument = jintExpression.GetValue();

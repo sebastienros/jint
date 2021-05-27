@@ -193,7 +193,7 @@ namespace Jint.Native
 
         public ArrayInstance ToArray(Engine engine)
         {
-            var array = engine.Array.ConstructFast((uint) _value.Length);
+            var array = engine.Realm.Intrinsics.Array.ConstructFast((uint) _value.Length);
             for (int i = 0; i < _value.Length; ++i)
             {
                 array.SetIndexValue((uint) i, _value[i], updateLength: false);

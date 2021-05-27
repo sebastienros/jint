@@ -174,7 +174,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         if (arrayOperations != null)
                         {
                             var length = arrayOperations.GetLength();
-                            array = engine.Array.ConstructFast(length - i);
+                            array = engine.Realm.Intrinsics.Array.ConstructFast(length - i);
                             for (uint j = i; j < length; ++j)
                             {
                                 arrayOperations.TryGetValue(j, out var indexValue);
@@ -183,7 +183,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            array = engine.Array.ConstructFast(0);
+                            array = engine.Realm.Intrinsics.Array.ConstructFast(0);
                             uint index = 0;
                             done = true;
                             do
@@ -343,7 +343,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (restElement.Argument is Identifier leftIdentifier)
                     {
                         var count = Math.Max(0, source.Properties?.Count ?? 0) - processedProperties.Count;
-                        var rest = engine.Object.Construct(count);
+                        var rest = engine.Realm.Intrinsics.Object.Construct(count);
                         source.CopyDataProperties(rest, processedProperties);
                         AssignToIdentifier(engine, leftIdentifier.Name, rest, environment);
                     }
@@ -354,7 +354,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     else if (restElement.Argument is MemberExpression memberExpression)
                     {
                         var left = GetReferenceFromMember(engine, memberExpression);
-                        var rest = engine.Object.Construct(0);
+                        var rest = engine.Realm.Intrinsics.Object.Construct(0);
                         source.CopyDataProperties(rest, processedProperties);
                         AssignToReference(engine, left, rest, environment);
                     }

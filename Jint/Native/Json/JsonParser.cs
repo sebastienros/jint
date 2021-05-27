@@ -599,8 +599,6 @@ namespace Jint.Native.Json
             return node;
         }
 
-        // Throw an exception
-
         private void ThrowError(Token token, string messageFormat, params object[] arguments)
         {
             string msg = System.String.Format(messageFormat, arguments);
@@ -684,14 +682,14 @@ namespace Jint.Native.Json
 
             Expect("]");
 
-            return _engine.Array.ConstructFast(elements);
+            return _engine.Realm.Intrinsics.Array.ConstructFast(elements);
         }
 
         public ObjectInstance ParseJsonObject()
         {
             Expect("{");
 
-            var obj = _engine.Object.Construct(Arguments.Empty);
+            var obj = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
 
             while (!Match("}"))
             {

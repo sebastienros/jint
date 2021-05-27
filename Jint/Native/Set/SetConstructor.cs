@@ -12,30 +12,16 @@ namespace Jint.Native.Set
     {
         private static readonly JsString _functionName = new JsString("Set");
 
-        private SetConstructor(Engine engine)
+        internal SetConstructor(Engine engine, FunctionPrototype functionPrototype, ObjectPrototype objectPrototype)
             : base(engine, _functionName, FunctionThisMode.Global)
         {
+            _prototype = functionPrototype;
+            PrototypeObject = new SetPrototype(engine, this, objectPrototype);
+            _length = new PropertyDescriptor(0, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         public SetPrototype PrototypeObject { get; private set; }
-
-        public static SetConstructor CreateSetConstructor(Engine engine)
-        {
-            var obj = new SetConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the Set constructor is the Function prototype object
-            obj.PrototypeObject = SetPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
-
-            // The initial value of Set.prototype is the Set prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
-        }
 
         protected override void Initialize()
         {

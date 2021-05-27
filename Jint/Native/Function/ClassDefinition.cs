@@ -64,8 +64,8 @@ namespace Jint.Native.Function
             ObjectInstance? constructorParent = null;
             if (_superClass is null)
             {
-                protoParent = engine.Object.PrototypeObject;
-                constructorParent = engine.Function.PrototypeObject;
+                protoParent = engine.Realm.Intrinsics.Object.PrototypeObject;
+                constructorParent = engine.Realm.Intrinsics.Function.PrototypeObject;
             }
             else
             {
@@ -76,7 +76,7 @@ namespace Jint.Native.Function
                 if (superclass.IsNull())
                 {
                     protoParent = null;
-                    constructorParent = engine.Function.PrototypeObject;
+                    constructorParent = engine.Realm.Intrinsics.Function.PrototypeObject;
                 }
                 else if (!superclass.IsConstructor)
                 {

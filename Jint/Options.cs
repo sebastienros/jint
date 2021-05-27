@@ -97,13 +97,13 @@ namespace Jint
 
         private void AttachExtensionMethodsToPrototypes(Engine engine)
         {
-            AttachExtensionMethodsToPrototype(engine, engine.Array.PrototypeObject, typeof(Array));
-            AttachExtensionMethodsToPrototype(engine, engine.Boolean.PrototypeObject, typeof(bool));
-            AttachExtensionMethodsToPrototype(engine, engine.Date.PrototypeObject, typeof(DateTime));
-            AttachExtensionMethodsToPrototype(engine, engine.Number.PrototypeObject, typeof(double));
-            AttachExtensionMethodsToPrototype(engine, engine.Object.PrototypeObject, typeof(ExpandoObject));
-            AttachExtensionMethodsToPrototype(engine, engine.RegExp.PrototypeObject, typeof(System.Text.RegularExpressions.Regex));
-            AttachExtensionMethodsToPrototype(engine, engine.String.PrototypeObject, typeof(string));
+            AttachExtensionMethodsToPrototype(engine, engine.Realm.Intrinsics.Array.PrototypeObject, typeof(Array));
+            AttachExtensionMethodsToPrototype(engine, engine.Realm.Intrinsics.Boolean.PrototypeObject, typeof(bool));
+            AttachExtensionMethodsToPrototype(engine, engine.Realm.Intrinsics.Date.PrototypeObject, typeof(DateTime));
+            AttachExtensionMethodsToPrototype(engine, engine.Realm.Intrinsics.Number.PrototypeObject, typeof(double));
+            AttachExtensionMethodsToPrototype(engine, engine.Realm.Intrinsics.Object.PrototypeObject, typeof(ExpandoObject));
+            AttachExtensionMethodsToPrototype(engine, engine.Realm.Intrinsics.RegExp.PrototypeObject, typeof(System.Text.RegularExpressions.Regex));
+            AttachExtensionMethodsToPrototype(engine, engine.Realm.Intrinsics.String.PrototypeObject, typeof(string));
         }
 
         private void AttachExtensionMethodsToPrototype(Engine engine, ObjectInstance prototype, Type objectType)
@@ -318,8 +318,8 @@ namespace Jint
             // add missing bits if needed
             if (_allowClr)
             {
-                engine.Global.SetProperty("System", new PropertyDescriptor(new NamespaceReference(engine, "System"), PropertyFlag.AllForbidden));
-                engine.Global.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunctionInstance(
+                engine.Realm.GlobalObject.SetProperty("System", new PropertyDescriptor(new NamespaceReference(engine, "System"), PropertyFlag.AllForbidden));
+                engine.Realm.GlobalObject.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunctionInstance(
                     engine,
                     "importNamespace",
                     func: (thisObj, arguments) => new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))), PropertyFlag.AllForbidden));

@@ -41,7 +41,7 @@ namespace Jint.Tests.Runtime.Domain
             var obj = new UuidConstructor(engine)
             {
                 // The value of the [[Prototype]] internal property of the Uuid constructor is the Function prototype object
-                _prototype = engine.Function.PrototypeObject
+                _prototype = engine.Realm.Intrinsics.Function.PrototypeObject
             };
             obj.PrototypeObject = UuidPrototype.CreatePrototypeObject(engine, obj);
 

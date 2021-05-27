@@ -110,7 +110,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// </summary>
         private object BuildObjectFast()
         {
-            var obj = _engine.Object.Construct(0);
+            var obj = _engine.Realm.Intrinsics.Object.Construct(0);
             if (_properties.Length == 0)
             {
                 return obj;
@@ -133,7 +133,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// </summary>
         private object BuildObjectNormal()
         {
-            var obj = _engine.Object.Construct(_properties.Length);
+            var obj = _engine.Realm.Intrinsics.Object.Construct(_properties.Length);
             bool isStrictModeCode = _engine._isStrict || StrictModeScope.IsStrictModeCode;
 
             for (var i = 0; i < _properties.Length; i++)

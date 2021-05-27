@@ -23,6 +23,9 @@ namespace Jint.Native.Function
         internal JsValue _homeObject = Undefined;
         internal ConstructorKind _constructorKind = ConstructorKind.Base;
 
+        private readonly Realm _realm;
+        private PrivateEnvironmentRecord  _privateEnvironment;
+
         internal FunctionInstance(
             Engine engine,
             JintFunctionDefinition function,
@@ -32,6 +35,7 @@ namespace Jint.Native.Function
         {
             _functionDefinition = function;
             _environment = scope;
+            _realm = engine.ExecutionContext.Realm;
         }
 
         internal FunctionInstance(
@@ -245,7 +249,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ordinarycallbindthis
         /// </summary>
-        protected void OrdinaryCallBindThis(ExecutionContext calleeContext, JsValue thisArgument)
+        internal void OrdinaryCallBindThis(ExecutionContext calleeContext, JsValue thisArgument)
         {
             var thisMode = _thisMode;
             if (thisMode == FunctionThisMode.Lexical)
@@ -253,7 +257,7 @@ namespace Jint.Native.Function
                 return;
             }
 
-            // Let calleeRealm be F.[[Realm]].
+            var calleeRealm = _realm;
 
             var localEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment;
 
@@ -266,8 +270,7 @@ namespace Jint.Native.Function
             {
                 if (thisArgument.IsNullOrUndefined())
                 {
-                    // Let globalEnv be calleeRealm.[[GlobalEnv]].
-                    var globalEnv = _engine.GlobalEnvironment;
+                    var globalEnv = calleeRealm.GlobalEnv;
                     thisValue = globalEnv.GlobalThisValue;
                 }
                 else
@@ -279,7 +282,7 @@ namespace Jint.Native.Function
             localEnv.BindThisValue(thisValue);
         }
 
-        protected Completion OrdinaryCallEvaluateBody(
+        internal Completion OrdinaryCallEvaluateBody(
             JsValue[] arguments,
             ExecutionContext calleeContext)
         {
@@ -299,20 +302,25 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-prepareforordinarycall
         /// </summary>
-        protected ExecutionContext PrepareForOrdinaryCall(JsValue newTarget)
+        internal ExecutionContext PrepareForOrdinaryCall(JsValue newTarget)
         {
-            // ** PrepareForOrdinaryCall **
-            // var callerContext = _engine.ExecutionContext;
-            // Let calleeRealm be F.[[Realm]].
-            // Set the Realm of calleeContext to calleeRealm.
-            // Set the ScriptOrModule of calleeContext to F.[[ScriptOrModule]].
-            var calleeContext = JintEnvironment.NewFunctionEnvironment(_engine, this, newTarget);
+            var callerContext = _engine.ExecutionContext;
+
+            var localEnv = JintEnvironment.NewFunctionEnvironment(_engine, this, newTarget);
+            
+            var calleeContext = new ExecutionContext(
+                localEnv,
+                localEnv,
+                _privateEnvironment,
+                _realm,
+                this);
+
             // If callerContext is not already suspended, suspend callerContext.
             // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.
             // NOTE: Any exception objects produced after this point are associated with calleeRealm.
             // Return calleeContext.
 
-            return _engine.EnterExecutionContext(calleeContext, calleeContext);
+            return _engine.EnterExecutionContext(calleeContext);
         }
 
         public override string ToString()

@@ -308,7 +308,7 @@ namespace Jint.Runtime.Descriptors
                 return Native.Undefined.Instance;
             }
 
-            var obj = engine.Object.Construct(Arguments.Empty);
+            var obj = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
             var properties = new PropertyDictionary(4, checkExistingKeys: false);
 
             if (desc.IsDataDescriptor())

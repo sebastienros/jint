@@ -14,7 +14,7 @@ namespace Jint.Tests.Runtime.Domain
         {
             return thisObj.TryCast<UuidInstance>(value =>
             {
-                throw new JavaScriptException(Engine.TypeError, "Invalid Uuid");
+                throw new JavaScriptException(Engine.Realm.Intrinsics.TypeError, "Invalid Uuid");
             });
         }
 
@@ -27,7 +27,7 @@ namespace Jint.Tests.Runtime.Domain
             var obj = new UuidPrototype(engine)
             {
                 PrimitiveValue = JsUuid.Empty,
-                _prototype = engine.Object.PrototypeObject,
+                _prototype = engine.Realm.Intrinsics.Object.PrototypeObject,
             };
 
             obj.FastAddProperty("constructor", ctor, false, false, true);

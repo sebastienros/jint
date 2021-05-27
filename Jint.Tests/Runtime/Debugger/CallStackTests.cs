@@ -155,8 +155,8 @@ car.test();
             TestHelpers.TestAtBreak(script, (engine, info) =>
             {
                 Assert.Collection(info.CallStack,
-                    frame => Assert.Equal(engine.Global.Get("car"), frame.This),
-                    frame => Assert.Equal(engine.Global, frame.This)
+                    frame => Assert.Equal(engine.Realm.GlobalObject.Get("car"), frame.This),
+                    frame => Assert.Equal(engine.Realm.GlobalObject, frame.This)
                 );
             });
         }

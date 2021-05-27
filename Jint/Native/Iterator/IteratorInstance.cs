@@ -56,7 +56,7 @@ namespace Jint.Native.Iterator
 
         private ObjectInstance CreateIterResultObject(JsValue value, bool done)
         {
-            var obj = _engine.Object.Construct(2);
+            var obj = _engine.Realm.Intrinsics.Object.Construct(2);
             obj.SetDataProperty("value", value);
             obj.SetDataProperty("done", done);
             return obj;
@@ -71,7 +71,7 @@ namespace Jint.Native.Iterator
                 var done = ReferenceEquals(null, key) && ReferenceEquals(null, value);
                 if (!done)
                 {
-                    var arrayInstance = engine.Array.ConstructFast(2);
+                    var arrayInstance = engine.Realm.Intrinsics.Array.ConstructFast(2);
                     arrayInstance.SetIndexValue(0, key, false);
                     arrayInstance.SetIndexValue(1, value, false);
                     SetProperty("value", new PropertyDescriptor(arrayInstance, PropertyFlag.AllForbidden));

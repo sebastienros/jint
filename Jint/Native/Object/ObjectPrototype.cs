@@ -8,20 +8,11 @@ namespace Jint.Native.Object
 {
     public sealed class ObjectPrototype : ObjectInstance
     {
-        private ObjectConstructor _objectConstructor;
+        private readonly ObjectConstructor _constructor;
 
-        private ObjectPrototype(Engine engine) : base(engine)
+        internal ObjectPrototype(Engine engine, ObjectConstructor constructor) : base(engine)
         {
-        }
-
-        public static ObjectPrototype CreatePrototypeObject(Engine engine, ObjectConstructor objectConstructor)
-        {
-            var obj = new ObjectPrototype(engine)
-            {
-                _objectConstructor = objectConstructor
-            };
-
-            return obj;
+            _constructor = constructor;
         }
 
         protected override void Initialize()
@@ -30,7 +21,7 @@ namespace Jint.Native.Object
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             var properties = new PropertyDictionary(8, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(_objectConstructor, propertyFlags),
+                ["constructor"] = new PropertyDescriptor(_constructor, propertyFlags),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToObjectString, 0, lengthFlags), propertyFlags),
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, lengthFlags), propertyFlags),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), propertyFlags),

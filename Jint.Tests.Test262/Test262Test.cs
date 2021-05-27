@@ -102,7 +102,7 @@ namespace Jint.Tests.Test262
             engine.SetValue("print",
                 new ClrFunctionInstance(engine, "print", (thisObj, args) => TypeConverter.ToString(args.At(0))));
 
-            var o = engine.Object.Construct(Arguments.Empty);
+            var o = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
             o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunctionInstance(engine, "evalScript",
                 (thisObj, args) =>
                 {
@@ -120,10 +120,10 @@ namespace Jint.Tests.Test262
             o.FastSetProperty("createRealm", new PropertyDescriptor(new ClrFunctionInstance(engine, "createRealm",
                 (thisObj, args) =>
                 {
-                    var realm = engine.CreateRealm();
-                    return realm;
+                    var realm = new DefaultRealmFactory().CreateRealm(engine);
+                    realm.GlobalObject.Set("$262", o);
+                    return o;
                 }), true, true, true));
-            engine.SetValue("$262", o);
 
             var includes = Regex.Match(code, @"includes: \[(.+?)\]");
             if (includes.Success)

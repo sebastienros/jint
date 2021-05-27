@@ -134,7 +134,7 @@ namespace Jint.Runtime.Environments
 
         private void ThrowUninitializedBindingException()
         {
-            throw new JavaScriptException(_engine.ReferenceError, "Can't access an uninitialized immutable binding.");
+            throw new JavaScriptException(_engine.Realm.Intrinsics.ReferenceError, "Can't access an uninitialized immutable binding.");
         }
 
         public sealed override bool DeleteBinding(string name)

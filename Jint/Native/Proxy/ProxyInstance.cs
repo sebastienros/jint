@@ -40,7 +40,7 @@ namespace Jint.Native.Proxy
 
         public JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            var jsValues = new[] { _target, thisObject, _engine.Array.ConstructFast(arguments) };
+            var jsValues = new[] { _target, thisObject, _engine.Realm.Intrinsics.Array.ConstructFast(arguments) };
             if (TryCallHandler(TrapApply, jsValues, out var result))
             {
                 return result;
@@ -56,7 +56,7 @@ namespace Jint.Native.Proxy
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var argArray = _engine.Array.Construct(arguments, _engine.Array);
+            var argArray = _engine.Realm.Intrinsics.Array.Construct(arguments, _engine.Realm.Intrinsics.Array);
 
             if (!TryCallHandler(TrapConstruct, new[] { _target, argArray, newTarget }, out var result))
             {
@@ -71,7 +71,7 @@ namespace Jint.Native.Proxy
             {
                 return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine);
             }
-           
+
             return oi;
         }
 
@@ -81,9 +81,9 @@ namespace Jint.Native.Proxy
             return _target.IsArray();
         }
 
-        internal override bool IsConstructor => 
+        internal override bool IsConstructor =>
             _handler is not null
-            && _handler.TryGetValue(TrapConstruct, out var handlerFunction) 
+            && _handler.TryGetValue(TrapConstruct, out var handlerFunction)
             && handlerFunction is IConstructor;
 
         public override JsValue Get(JsValue property, JsValue receiver)
@@ -118,7 +118,7 @@ namespace Jint.Native.Proxy
                 return _target.GetOwnPropertyKeys(types);
             }
 
-            var trapResult = new List<JsValue>(_engine.Function.PrototypeObject.CreateListFromArrayLike(result, Types.String | Types.Symbol));
+            var trapResult = new List<JsValue>(_engine.Realm.Intrinsics.Function.PrototypeObject.CreateListFromArrayLike(result, Types.String | Types.Symbol));
 
             if (trapResult.Count != new HashSet<JsValue>(trapResult).Count)
             {
@@ -141,7 +141,7 @@ namespace Jint.Native.Proxy
                 {
                     targetConfigurableKeys.Add(property);
                 }
-                
+
             }
 
             var uncheckedResultKeys = new HashSet<JsValue>(trapResult);
@@ -254,7 +254,7 @@ namespace Jint.Native.Proxy
                     }
                 }
             }
-            
+
             return true;
         }
 
@@ -478,7 +478,7 @@ namespace Jint.Native.Proxy
                 ExceptionHelper.ThrowTypeError(_engine, $"Cannot perform '{key}' on a proxy that has been revoked");
             }
         }
-        
+
         public override string ToString() => "function () { [native code] }";
     }
 }

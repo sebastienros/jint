@@ -34,7 +34,7 @@ namespace Jint.Native.Function
             ObjectInstance proto = null)
             : base(engine, function, scope, thisMode)
         {
-            _prototype = proto ?? _engine.Function.PrototypeObject;
+            _prototype = proto ?? _engine.Realm.Intrinsics.Function.PrototypeObject;
             _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this).Length), PropertyFlag.Configurable);
 
             if (!function.Strict && !engine._isStrict && function.Function is not ArrowFunctionExpression)
@@ -112,7 +112,7 @@ namespace Jint.Native.Function
             
             if (kind == ConstructorKind.Base)
             {
-                thisArgument = OrdinaryCreateFromConstructor(newTarget, _engine.Object.PrototypeObject, static (engine, _) => new ObjectInstance(engine));
+                thisArgument = OrdinaryCreateFromConstructor(newTarget, _engine.Realm.Intrinsics.Object.PrototypeObject, static (engine, _) => new ObjectInstance(engine));
             }
 
             var calleeContext = PrepareForOrdinaryCall(newTarget);
@@ -180,7 +180,7 @@ namespace Jint.Native.Function
             {
                 prototype = new ObjectInstanceWithConstructor(_engine, this)
                 {
-                    _prototype = _engine.Object.PrototypeObject
+                    _prototype = _engine.Realm.Intrinsics.Object.PrototypeObject
                 };
             }
 

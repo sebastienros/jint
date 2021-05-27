@@ -11,39 +11,26 @@ namespace Jint.Native.Error
     /// </summary>
     public sealed class ErrorPrototype : ErrorInstance
     {
-        private ErrorConstructor _errorConstructor;
+        private readonly ErrorConstructor _constructor;
 
-        private ErrorPrototype(Engine engine, JsString name)
+        internal ErrorPrototype(
+            Engine engine,
+            ErrorConstructor constructor,
+            ObjectInstance objectPrototype,
+            JsString name)
             : base(engine, name)
         {
-        }
-
-        public static ErrorPrototype CreatePrototypeObject(Engine engine, ErrorConstructor errorConstructor, JsString name)
-        {
-            var obj = new ErrorPrototype(engine, name)
-            {
-                _errorConstructor = errorConstructor,
-            };
-
-            if (name._value != "Error")
-            {
-                obj._prototype = engine.Error.PrototypeObject;
-            }
-            else
-            {
-                obj._prototype = engine.Object.PrototypeObject;
-            }
-
-            return obj;
+            _constructor = constructor;
+            _prototype = objectPrototype;
         }
 
         protected override void Initialize()
         {
             var properties = new PropertyDictionary(3, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
                 ["message"] = new PropertyDescriptor("", PropertyFlag.Configurable | PropertyFlag.Writable),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), PropertyFlag.Configurable | PropertyFlag.Writable)
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), PropertyFlag.Configurable | PropertyFlag.Writable)
             };
             SetProperties(properties);
         }

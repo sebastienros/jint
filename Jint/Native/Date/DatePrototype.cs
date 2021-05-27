@@ -21,22 +21,13 @@ namespace Jint.Native.Date
         private const double MinMonth = -10000000.0;
         private const double MaxMonth = -MinMonth;
 
-        private DateConstructor _dateConstructor;
+        private readonly DateConstructor _constructor;
 
-        private DatePrototype(Engine engine)
+        internal DatePrototype(Engine engine, DateConstructor constructor, ObjectPrototype objectPrototype)
             : base(engine)
         {
-        }
-
-        public static DatePrototype CreatePrototypeObject(Engine engine, DateConstructor dateConstructor)
-        {
-            var obj = new DatePrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _dateConstructor = dateConstructor
-            };
-
-            return obj;
+            _prototype = objectPrototype;
+            _constructor = constructor;
         }
 
         protected override  void Initialize()
@@ -46,7 +37,7 @@ namespace Jint.Native.Date
 
             var properties = new PropertyDictionary(50, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(_dateConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
                 ["toDateString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toDateString", ToDateString, 0, lengthFlags), propertyFlags),
                 ["toTimeString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toTimeString", ToTimeString, 0, lengthFlags), propertyFlags),

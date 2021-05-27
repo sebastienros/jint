@@ -9,18 +9,10 @@ namespace Jint.Native.Json
 {
     public sealed class JsonInstance : ObjectInstance
     {
-        private JsonInstance(Engine engine)
+        internal JsonInstance(Engine engine, ObjectPrototype objectPrototype)
             : base(engine, objectClass: ObjectClass.JSON)
         {
-        }
-
-        public static JsonInstance CreateJsonObject(Engine engine)
-        {
-            var json = new JsonInstance(engine)
-            {
-                _prototype = engine.Object.PrototypeObject
-            };
-            return json;
+            _prototype = objectPrototype;
         }
 
         protected override void Initialize()
@@ -97,7 +89,7 @@ namespace Jint.Native.Json
 
             if (reviver.IsCallable)
             {
-                var root = _engine.Object.Construct(Arguments.Empty);
+                var root = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
                 var rootName = JsString.Empty;
                 root.CreateDataPropertyOrThrow(rootName, unfiltered);
                 return InternalizeJSONProperty(root, rootName, (ICallable) reviver);

@@ -14,7 +14,7 @@ namespace Jint.Native.Function
         {
             _message = message;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
-            _environment = engine.GlobalEnvironment;
+            _environment = engine.Realm.GlobalEnv;
             PreventExtensions();
         }
 

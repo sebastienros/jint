@@ -12,21 +12,12 @@ namespace Jint.Native.Set
     /// </summary>
     public sealed class SetPrototype : ObjectInstance
     {
-        private SetConstructor _mapConstructor;
+        private readonly SetConstructor _setConstructor;
 
-        private SetPrototype(Engine engine) : base(engine)
+        internal SetPrototype(Engine engine, SetConstructor setConstructor, ObjectPrototype objectPrototype) : base(engine)
         {
-        }
-
-        public static SetPrototype CreatePrototypeObject(Engine engine, SetConstructor mapConstructor)
-        {
-            var obj = new SetPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _mapConstructor = mapConstructor
-            };
-
-            return obj;
+            _prototype = objectPrototype;
+            _setConstructor = setConstructor;
         }
 
         protected override void Initialize()
@@ -34,7 +25,7 @@ namespace Jint.Native.Set
             var properties = new PropertyDictionary(12, checkExistingKeys: false)
             {
                 ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
-                ["constructor"] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_setConstructor, PropertyFlag.NonEnumerable),
                 ["add"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "add", Add, 1, PropertyFlag.Configurable), true, false, true),
                 ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), true, false, true),
                 ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), true, false, true),

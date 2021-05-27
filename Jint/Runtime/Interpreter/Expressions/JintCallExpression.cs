@@ -128,8 +128,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 var evalArg = argList[0];
                 var strictCaller = StrictModeScope.IsStrictModeCode;
-                // TODO Let evalRealm be the current Realm Record.
-                var evalRealm = (object) null;
+                var evalRealm = _engine.ExecutionContext.Realm;
                 var direct = !((CallExpression) _expression).Optional;
                 var value = eval.PerformEval(evalArg, evalRealm, strictCaller, direct);
                 _engine._referencePool.Return(referenceRecord);

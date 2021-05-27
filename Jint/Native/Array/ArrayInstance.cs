@@ -61,7 +61,7 @@ namespace Jint.Native.Array
         public override bool IsArrayLike => true;
 
         internal override bool HasOriginalIterator
-            => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _engine.Array.PrototypeObject._originalIteratorFunction);
+            => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _engine.Realm.Intrinsics.Array.PrototypeObject._originalIteratorFunction);
 
         public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
@@ -759,7 +759,7 @@ namespace Jint.Native.Array
             var len = GetLength();
 
             var callable = GetCallable(callbackfn);
-            var a = Engine.Array.ConstructFast(len);
+            var a = Engine.Realm.Intrinsics.Array.ConstructFast(len);
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
             for (uint k = 0; k < len; k++)
@@ -845,7 +845,7 @@ namespace Jint.Native.Array
         internal ArrayInstance ToArray(Engine engine)
         {
             var length = GetLength();
-            var array = _engine.Array.ConstructFast(length);
+            var array = _engine.Realm.Intrinsics.Array.ConstructFast(length);
             for (uint i = 0; i < length; i++)
             {
                 if (TryGetValue(i, out var kValue))

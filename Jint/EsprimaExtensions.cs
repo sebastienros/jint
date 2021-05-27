@@ -203,7 +203,7 @@ namespace Jint
         {
             var engine = obj.Engine;
             var property = TypeConverter.ToPropertyKey(m.GetKey(engine));
-            var prototype = functionPrototype ?? engine.Function.PrototypeObject;
+            var prototype = functionPrototype ?? engine.Realm.Intrinsics.Function.PrototypeObject;
             var function = m.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(engine);
             var functionDefinition = new JintFunctionDefinition(engine, function);
             var functionThisMode = functionDefinition.Strict || engine._isStrict

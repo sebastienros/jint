@@ -5,27 +5,11 @@ using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Argument;
-using Jint.Native.Array;
-using Jint.Native.Boolean;
-using Jint.Native.Date;
-using Jint.Native.Error;
 using Jint.Native.Function;
 using Jint.Native.Global;
-using Jint.Native.Iterator;
-using Jint.Native.Json;
-using Jint.Native.Map;
-using Jint.Native.Math;
-using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Promise;
-using Jint.Native.Proxy;
-using Jint.Native.Reflect;
-using Jint.Native.RegExp;
-using Jint.Native.Set;
-using Jint.Native.String;
 using Jint.Native.Symbol;
-using Jint.Native.WeakMap;
-using Jint.Native.WeakSet;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.CallStack;
@@ -48,14 +32,6 @@ namespace Jint
             Tolerant = true
         };
 
-        private static readonly JsString _errorFunctionName = new JsString("Error");
-        private static readonly JsString _evalErrorFunctionName = new JsString("EvalError");
-        private static readonly JsString _rangeErrorFunctionName = new JsString("RangeError");
-        private static readonly JsString _referenceErrorFunctionName = new JsString("ReferenceError");
-        private static readonly JsString _syntaxErrorFunctionName = new JsString("SyntaxError");
-        private static readonly JsString _typeErrorFunctionName = new JsString("TypeError");
-        private static readonly JsString _uriErrorFunctionName = new JsString("URIError");
-
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         internal Node _lastSyntaxNode;
@@ -63,13 +39,6 @@ namespace Jint
         private readonly EventLoop _eventLoop = new();
 
         // lazy properties
-        private ErrorConstructor _error;
-        private ErrorConstructor _evalError;
-        private ErrorConstructor _rangeError;
-        private ErrorConstructor _referenceError;
-        private ErrorConstructor _syntaxError;
-        private ErrorConstructor _typeError;
-        private ErrorConstructor _uriError;
         private DebugHandler _debugHandler;
 
         // cached access
@@ -91,8 +60,8 @@ namespace Jint
             {typeof(bool), (engine, v) => (bool) v ? JsBoolean.True : JsBoolean.False},
             {typeof(byte), (engine, v) => JsNumber.Create((byte) v)},
             {typeof(char), (engine, v) => JsString.Create((char) v)},
-            {typeof(DateTime), (engine, v) => engine.Date.Construct((DateTime) v)},
-            {typeof(DateTimeOffset), (engine, v) => engine.Date.Construct((DateTimeOffset) v)},
+            {typeof(DateTime), (engine, v) => engine.Realm.Intrinsics.Date.Construct((DateTime) v)},
+            {typeof(DateTimeOffset), (engine, v) => engine.Realm.Intrinsics.Date.Construct((DateTimeOffset) v)},
             {typeof(decimal), (engine, v) => (JsValue) (double) (decimal) v},
             {typeof(double), (engine, v) => (JsValue) (double) v},
             {typeof(Int16), (engine, v) => JsNumber.Create((Int16) v)},
@@ -106,7 +75,7 @@ namespace Jint
             {typeof(UInt64), (engine, v) => JsNumber.Create((UInt64) v)},
             {
                 typeof(System.Text.RegularExpressions.Regex),
-                (engine, v) => engine.RegExp.Construct((System.Text.RegularExpressions.Regex) v, "")
+                (engine, v) => engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex) v, "")
             }
         };
 
@@ -117,6 +86,9 @@ namespace Jint
         internal static Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> ReflectionAccessors = new();
 
         internal readonly JintCallStack CallStack;
+
+        // needed in initial engine setup, for example CLR function construction
+        internal Intrinsics _originalIntrinsics;
 
         /// <summary>
         /// Constructs a new engine instance.
@@ -148,10 +120,6 @@ namespace Jint
         {
             _executionContexts = new ExecutionContextStack(2);
 
-            Global = GlobalObject.CreateGlobalObject(this);
-
-            Object = ObjectConstructor.CreateObjectConstructor(this);
-            Function = FunctionConstructor.CreateFunctionConstructor(this);
             _callerCalleeArgumentsThrowerConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this,
                 PropertyFlag.Configurable | PropertyFlag.CustomJsValue,
                 "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
@@ -159,48 +127,32 @@ namespace Jint
                 PropertyFlag.CustomJsValue,
                 "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
 
-            Symbol = SymbolConstructor.CreateSymbolConstructor(this);
-            Array = ArrayConstructor.CreateArrayConstructor(this);
-            Map = MapConstructor.CreateMapConstructor(this);
-            Set = SetConstructor.CreateSetConstructor(this);
-            WeakMap = WeakMapConstructor.CreateWeakMapConstructor(this);
-            WeakSet = WeakSetConstructor.CreateWeakSetConstructor(this);
-            Promise = PromiseConstructor.CreatePromiseConstructor(this);
-            Iterator = IteratorConstructor.CreateIteratorConstructor(this);
-            String = StringConstructor.CreateStringConstructor(this);
-            RegExp = RegExpConstructor.CreateRegExpConstructor(this);
-            Number = NumberConstructor.CreateNumberConstructor(this);
-            Boolean = BooleanConstructor.CreateBooleanConstructor(this);
-            Date = DateConstructor.CreateDateConstructor(this);
-            Math = MathInstance.CreateMathObject(this);
-            Json = JsonInstance.CreateJsonObject(this);
-            Proxy = ProxyConstructor.CreateProxyConstructor(this);
-            Reflect = ReflectInstance.CreateReflectObject(this);
-
             GlobalSymbolRegistry = new GlobalSymbolRegistry();
 
+            var factory = new DefaultRealmFactory();
+            var realm = factory.CreateRealm(this);
+
+            var globalObject = new GlobalObject(this, realm.Intrinsics);
             // Because the properties might need some of the built-in object
             // their configuration is delayed to a later step
-
             // trigger initialization
-            Global.EnsureInitialized();
-
-            // this is implementation dependent, and only to pass some unit tests
-            Global._prototype = Object.PrototypeObject;
-            Object._prototype = Function.PrototypeObject;
+            globalObject.EnsureInitialized();
 
             // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
-            GlobalEnvironment = JintEnvironment.NewGlobalEnvironment(this, Global, Global);
+            var globalEnv = JintEnvironment.NewGlobalEnvironment(this, globalObject, globalObject);
+            realm.GlobalEnv = globalEnv;
+            realm.GlobalObject = globalObject;
 
             // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
-            EnterExecutionContext(GlobalEnvironment, GlobalEnvironment);
-
-            Eval = new EvalFunctionInstance(this);
-            Global.SetProperty(CommonProperties.Eval,
-                new PropertyDescriptor(Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
+            var context = new ExecutionContext(
+                lexicalEnvironment: globalEnv,
+                variableEnvironment: globalEnv,
+                privateEnvironment: null,
+                realm: realm,
+                function: null);
+            EnterExecutionContext(context);
 
             Options = new Options();
-
             options?.Invoke(this, Options);
 
             // gather some options as fields for faster checks
@@ -217,54 +169,13 @@ namespace Jint
             Options.Apply(this);
         }
 
-        internal GlobalEnvironmentRecord GlobalEnvironment { get; }
-        public GlobalObject Global { get; }
-        public ObjectConstructor Object { get; }
-        public FunctionConstructor Function { get; }
-        public ArrayConstructor Array { get; }
-        public MapConstructor Map { get; }
-        public SetConstructor Set { get; }
-        public WeakMapConstructor WeakMap { get; }
-        public WeakSetConstructor WeakSet { get; }
-        public PromiseConstructor Promise { get; }
-        public IteratorConstructor Iterator { get; }
-        public StringConstructor String { get; }
-        public RegExpConstructor RegExp { get; }
-        public BooleanConstructor Boolean { get; }
-        public NumberConstructor Number { get; }
-        public DateConstructor Date { get; }
-        public MathInstance Math { get; }
-        public JsonInstance Json { get; }
-        public ProxyConstructor Proxy { get; }
-        public ReflectInstance Reflect { get; }
-        public SymbolConstructor Symbol { get; }
-        public EvalFunctionInstance Eval { get; }
-
-        public ErrorConstructor Error => _error ??= ErrorConstructor.CreateErrorConstructor(this, _errorFunctionName);
-
-        public ErrorConstructor EvalError =>
-            _evalError ??= ErrorConstructor.CreateErrorConstructor(this, _evalErrorFunctionName);
-
-        public ErrorConstructor SyntaxError =>
-            _syntaxError ??= ErrorConstructor.CreateErrorConstructor(this, _syntaxErrorFunctionName);
-
-        public ErrorConstructor TypeError =>
-            _typeError ??= ErrorConstructor.CreateErrorConstructor(this, _typeErrorFunctionName);
-
-        public ErrorConstructor RangeError =>
-            _rangeError ??= ErrorConstructor.CreateErrorConstructor(this, _rangeErrorFunctionName);
-
-        public ErrorConstructor ReferenceError => _referenceError ??=
-            ErrorConstructor.CreateErrorConstructor(this, _referenceErrorFunctionName);
-
-        public ErrorConstructor UriError =>
-            _uriError ??= ErrorConstructor.CreateErrorConstructor(this, _uriErrorFunctionName);
-
-        public ref readonly ExecutionContext ExecutionContext
+        internal ref readonly ExecutionContext ExecutionContext
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref _executionContexts.Peek();
         }
+
+        public Realm Realm => ExecutionContext.Realm;
 
         public GlobalSymbolRegistry GlobalSymbolRegistry { get; }
 
@@ -279,13 +190,17 @@ namespace Jint
 
         public DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this);
 
-        public ExecutionContext EnterExecutionContext(
+
+        internal ExecutionContext EnterExecutionContext(
             EnvironmentRecord lexicalEnvironment,
             EnvironmentRecord variableEnvironment)
         {
             var context = new ExecutionContext(
                 lexicalEnvironment,
-                variableEnvironment);
+                variableEnvironment,
+                null,
+                Realm,
+                null);
 
             _executionContexts.Push(context);
             return context;
@@ -299,7 +214,7 @@ namespace Jint
 
         public Engine SetValue(JsValue name, Delegate value)
         {
-            Global.FastAddProperty(name, new DelegateWrapper(this, value), true, false, true);
+            Realm.GlobalObject.FastAddProperty(name, new DelegateWrapper(this, value), true, false, true);
             return this;
         }
 
@@ -325,7 +240,7 @@ namespace Jint
 
         public Engine SetValue(JsValue name, JsValue value)
         {
-            Global.Set(name, value, Global);
+            Realm.GlobalObject.Set(name, value);
             return this;
         }
 
@@ -362,7 +277,7 @@ namespace Jint
             CallStack.Clear();
         }
 
-        public JsValue Evaluate(string source) 
+        public JsValue Evaluate(string source)
             => Execute(source, DefaultParserOptions)._completionValue;
 
         public JsValue Evaluate(string source, ParserOptions parserOptions)
@@ -371,10 +286,10 @@ namespace Jint
         public JsValue Evaluate(Script script)
             => Execute(script)._completionValue;
 
-        public Engine Execute(string source) 
+        public Engine Execute(string source)
             => Execute(source, DefaultParserOptions);
 
-        public Engine Execute(string source, ParserOptions parserOptions) 
+        public Engine Execute(string source, ParserOptions parserOptions)
             => Execute(new JavaScriptParser(source, parserOptions).ParseScript());
 
         public Engine Execute(Script script)
@@ -386,7 +301,7 @@ namespace Jint
             {
                 GlobalDeclarationInstantiation(
                     script,
-                    GlobalEnvironment);
+                    Realm.GlobalEnv);
 
                 var list = new JintStatementList(this, null, script.Body);
 
@@ -421,7 +336,7 @@ namespace Jint
 
         /// <summary>
         /// EXPERIMENTAL! Subject to change.
-        /// 
+        ///
         /// Registers a promise within the currently running EventLoop (has to be called within "ExecuteWithEventLoop" call).
         /// Note that ExecuteWithEventLoop will not trigger "onFinished" callback until ALL manual promises are settled.
         ///
@@ -433,9 +348,9 @@ namespace Jint
         {
             var promise = new PromiseInstance(this)
             {
-                _prototype = Promise.PrototypeObject 
+                _prototype = Realm.Intrinsics.Promise.PrototypeObject
             };
-            
+
             var (resolve, reject) = promise.CreateResolvingFunctions();
 
 
@@ -639,7 +554,7 @@ namespace Jint
                 && char.IsLower(propertyString._value[0]))
             {
                 // trying to find property that's always in prototype
-                o = String.PrototypeObject;
+                o = Realm.Intrinsics.String.PrototypeObject;
             }
 
             jsValue = JsValue.Undefined;
@@ -659,7 +574,7 @@ namespace Jint
                     ExceptionHelper.ThrowReferenceError(this, reference);
                 }
 
-                Global.Set(reference.GetReferencedName(), value, throwOnError: false);
+                Realm.GlobalObject.Set(reference.GetReferencedName(), value, throwOnError: false);
             }
             else if (reference.IsPropertyReference())
             {
@@ -776,7 +691,7 @@ namespace Jint
         /// <param name="propertyName">The name of the property to return.</param>
         public JsValue GetValue(string propertyName)
         {
-            return GetValue(Global, new JsString(propertyName));
+            return GetValue(Realm.GlobalObject, new JsString(propertyName));
         }
 
         /// <summary>
@@ -949,7 +864,7 @@ namespace Jint
                     ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{fn}' has already been declared");
                 }
 
-                var fo = Function.InstantiateFunctionObject(f, env);
+                var fo = Realm.Intrinsics.Function.InstantiateFunctionObject(f, env);
                 env.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: false);
             }
 
@@ -1051,7 +966,7 @@ namespace Jint
                 }
             }
 
-            // NOTE: Annex B.3.3.1 adds additional steps at this point. 
+            // NOTE: Annex B.3.3.1 adds additional steps at this point.
             // A https://tc39.es/ecma262/#sec-web-compat-functiondeclarationinstantiation
 
             EnvironmentRecord lexEnv;
@@ -1093,7 +1008,7 @@ namespace Jint
             foreach (var f in functionsToInitialize)
             {
                 var fn = f.Id.Name;
-                var fo = Function.InstantiateFunctionObject(f, lexEnv);
+                var fo = Realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv);
                 varEnvRec.SetMutableBinding(fn, fo, strict: false);
             }
         }
@@ -1266,7 +1181,7 @@ namespace Jint
             foreach (var f in functionsToInitialize)
             {
                 var fn = f.Id.Name;
-                var fo = Function.InstantiateFunctionObject(f, lexEnv);
+                var fo = Realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv);
                 if (varEnvRec is GlobalEnvironmentRecord ger)
                 {
                     ger.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: true);
@@ -1381,39 +1296,6 @@ namespace Jint
             CallStack.Pop();
 
             return result;
-        }
-
-        internal JsValue CreateRealm()
-        {
-            var realmRec = new RealmRecord();
-            CreateIntrinsics(realmRec);
-            return realmRec ;
-        }
-
-        private void CreateIntrinsics(RealmRecord realmRec)
-        {
-            
-        }
-
-        private class RealmRecord : JsValue
-        {
-            private JsValue _globalObject = null;
-            private JsValue _globalEnv = null;
-            private List<string> _templateMap = new List<string>();
-
-            public RealmRecord() : base(InternalTypes.Realm)
-            {
-            }
-
-            public override object ToObject()
-            {
-                throw new NotImplementedException();
-            }
-
-            public override bool Equals(JsValue other)
-            {
-                throw new NotImplementedException();
-            }
         }
     }
 }

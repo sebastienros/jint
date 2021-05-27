@@ -1,28 +1,40 @@
-﻿#nullable enable
+﻿using Jint.Native.Function;
+
+#nullable enable
 
 namespace Jint.Runtime.Environments
 {
-    public readonly struct ExecutionContext
+    internal readonly struct ExecutionContext
     {
         internal ExecutionContext(
             EnvironmentRecord lexicalEnvironment,
-            EnvironmentRecord variableEnvironment)
+            EnvironmentRecord variableEnvironment,
+            PrivateEnvironmentRecord? privateEnvironment,
+            Realm realm,
+            FunctionInstance? function = null)
         {
             LexicalEnvironment = lexicalEnvironment;
             VariableEnvironment = variableEnvironment;
+            PrivateEnvironment = privateEnvironment;
+            Realm = realm;
+            Function = function;
         }
 
         public readonly EnvironmentRecord LexicalEnvironment;
+
         public readonly EnvironmentRecord VariableEnvironment;
+        public readonly PrivateEnvironmentRecord? PrivateEnvironment;
+        public readonly Realm Realm;
+        public readonly FunctionInstance? Function;
 
         public ExecutionContext UpdateLexicalEnvironment(EnvironmentRecord lexicalEnvironment)
         {
-            return new ExecutionContext(lexicalEnvironment, VariableEnvironment);
+            return new ExecutionContext(lexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, Function);
         }
 
         public ExecutionContext UpdateVariableEnvironment(EnvironmentRecord variableEnvironment)
         {
-            return new ExecutionContext(LexicalEnvironment, variableEnvironment);
+            return new ExecutionContext(LexicalEnvironment, variableEnvironment, PrivateEnvironment, Realm, Function);
         }
 
         /// <summary>

@@ -15,28 +15,13 @@ namespace Jint.Native.Number
         private const long MinSafeInteger = -9007199254740991;
         internal const long MaxSafeInteger = 9007199254740991;
 
-        public NumberConstructor(Engine engine)
+        public NumberConstructor(Engine engine, FunctionPrototype functionPrototype, ObjectPrototype objectPrototype)
             : base(engine, _functionName)
         {
-
-        }
-
-        public static NumberConstructor CreateNumberConstructor(Engine engine)
-        {
-            var obj = new NumberConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the Number constructor is the Function prototype object
-            obj.PrototypeObject = NumberPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
-
-            // The initial value of Number.prototype is the Number prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
+            _prototype = functionPrototype;
+            PrototypeObject = new NumberPrototype(engine, this, objectPrototype);
+            _length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         protected override void Initialize()

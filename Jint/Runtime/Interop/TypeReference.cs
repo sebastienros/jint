@@ -31,11 +31,11 @@ namespace Jint.Runtime.Interop
             obj.ReferenceType = type;
 
             // The value of the [[Prototype]] internal property of the TypeReference constructor is the Function prototype object
-            obj._prototype = engine.Function.PrototypeObject;
+            obj._prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
             obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
 
             // The initial value of Boolean.prototype is the Boolean prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(engine.Object.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(engine.Realm.Intrinsics.Object.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }

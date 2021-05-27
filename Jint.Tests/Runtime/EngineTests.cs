@@ -1057,8 +1057,8 @@ myarr[0](0);
         [Fact]
         public void ShouldComputeFractionInBase()
         {
-            Assert.Equal("011", _engine.Number.PrototypeObject.ToFractionBase(0.375, 2));
-            Assert.Equal("14141414141414141414141414141414141414141414141414", _engine.Number.PrototypeObject.ToFractionBase(0.375, 5));
+            Assert.Equal("011", _engine.Realm.Intrinsics.Number.PrototypeObject.ToFractionBase(0.375, 2));
+            Assert.Equal("14141414141414141414141414141414141414141414141414", _engine.Realm.Intrinsics.Number.PrototypeObject.ToFractionBase(0.375, 5));
         }
 
         [Fact]
@@ -1143,7 +1143,7 @@ myarr[0](0);
         [InlineData("2qgpckvng1s", 10000000000000000L, 36)]
         public void ShouldConvertNumbersToDifferentBase(string expected, long number, int radix)
         {
-            var result = _engine.Number.PrototypeObject.ToBase(number, radix);
+            var result = _engine.Realm.Intrinsics.Number.PrototypeObject.ToBase(number, radix);
             Assert.Equal(expected, result);
         }
 

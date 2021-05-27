@@ -23,19 +23,11 @@ namespace Jint.Native.Array
         private ArrayConstructor _arrayConstructor;
         internal ClrFunctionInstance _originalIteratorFunction;
 
-        private ArrayPrototype(Engine engine) : base(engine)
+        internal ArrayPrototype(Engine engine, ArrayConstructor arrayConstructor, ObjectPrototype objectPrototype) : base(engine)
         {
-        }
-
-        public static ArrayPrototype CreatePrototypeObject(Engine engine, ArrayConstructor arrayConstructor)
-        {
-            var obj = new ArrayPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Writable),
-                _arrayConstructor = arrayConstructor,
-            };
-            return obj;
+            _prototype = objectPrototype;
+            _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Writable);
+            _arrayConstructor = arrayConstructor;
         }
 
         protected override void Initialize()
@@ -107,7 +99,7 @@ namespace Jint.Native.Array
         {
             if (thisObj is ObjectInstance oi && oi.IsArrayLike)
             {
-                return _engine.Iterator.ConstructArrayLikeKeyIterator(oi);
+                return _engine.Realm.Intrinsics.Iterator.ConstructArrayLikeKeyIterator(oi);
             }
 
             return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "cannot construct iterator");
@@ -117,7 +109,7 @@ namespace Jint.Native.Array
         {
             if (thisObj is ObjectInstance oi && oi.IsArrayLike)
             {
-                return _engine.Iterator.ConstructArrayLikeValueIterator(oi);
+                return _engine.Realm.Intrinsics.Iterator.ConstructArrayLikeValueIterator(oi);
             }
 
             return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "cannot construct iterator");
@@ -127,7 +119,7 @@ namespace Jint.Native.Array
         {
             if (thisObj is ObjectInstance oi)
             {
-                return _engine.Iterator.Construct(oi);
+                return _engine.Realm.Intrinsics.Iterator.Construct(oi);
             }
 
             return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "cannot construct iterator");
@@ -380,7 +372,7 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var a = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), 0);
+            var a = Engine.Realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), 0);
             var operations = ArrayOperations.For(a);
 
             uint to = 0;
@@ -426,7 +418,7 @@ namespace Jint.Native.Array
             var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
 
-            var a = ArrayOperations.For(Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), (uint) len));
+            var a = ArrayOperations.For(Engine.Realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), (uint) len));
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o.Target;
             for (uint k = 0; k < len; k++)
@@ -463,7 +455,7 @@ namespace Jint.Native.Array
                 depthNum = 0;
             }
 
-            var A = _engine.Array.ArraySpeciesCreate(O, 0);
+            var A = _engine.Realm.Intrinsics.Array.ArraySpeciesCreate(O, 0);
             FlattenIntoArray(A, O, sourceLen, 0, depthNum);
             return A;
         }
@@ -484,7 +476,7 @@ namespace Jint.Native.Array
                 ExceptionHelper.ThrowTypeError(_engine, "flatMap mapper function is not callable");
             }
             
-            var A = _engine.Array.ArraySpeciesCreate(O, 0);
+            var A = _engine.Realm.Intrinsics.Array.ArraySpeciesCreate(O, 0);
             FlattenIntoArray(A, O, sourceLen, 0, 1, (ICallable) mapperFunction, thisArg);
             return A;
         }
@@ -802,7 +794,7 @@ namespace Jint.Native.Array
                 return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid array length");
             }
 
-            var instance = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), actualDeleteCount);
+            var instance = Engine.Realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), actualDeleteCount);
             var a = ArrayOperations.For(instance);
             for (uint k = 0; k < actualDeleteCount; k++)
             {
@@ -998,7 +990,7 @@ namespace Jint.Native.Array
             }
 
             var length = (uint) System.Math.Max(0, (long) final - (long) k);
-            var a = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), length);
+            var a = Engine.Realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), length);
             if (thisObj is ArrayInstance ai && a is ArrayInstance a2)
             {
                 a2.CopyValues(ai, (uint) k, 0, length);
@@ -1215,7 +1207,7 @@ namespace Jint.Native.Array
             }
 
             uint n = 0;
-            var a = Engine.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), capacity);
+            var a = Engine.Realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), capacity);
             var aOperations = ArrayOperations.For(a);
             for (var i = 0; i < items.Count; i++)
             {
@@ -1261,11 +1253,11 @@ namespace Jint.Native.Array
             ICallable func;
             func = array.Get("join", array).TryCast<ICallable>(x =>
             {
-                func = Engine.Object.PrototypeObject.Get("toString", array).TryCast<ICallable>(y => ExceptionHelper.ThrowArgumentException());
+                func = Engine.Realm.Intrinsics.Object.PrototypeObject.Get("toString", array).TryCast<ICallable>(y => ExceptionHelper.ThrowArgumentException());
             });
 
             if (array.IsArrayLike == false || func == null)
-                return _engine.Object.PrototypeObject.ToObjectString(array, Arguments.Empty);
+                return _engine.Realm.Intrinsics.Object.PrototypeObject.ToObjectString(array, Arguments.Empty);
 
             return func.Call(array, Arguments.Empty);
         }

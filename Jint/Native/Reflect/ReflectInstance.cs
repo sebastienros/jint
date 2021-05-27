@@ -11,18 +11,9 @@ namespace Jint.Native.Reflect
     /// </summary>
     public sealed class ReflectInstance : ObjectInstance
     {
-        private ReflectInstance(Engine engine) : base(engine, ObjectClass.Reflect)
+        internal ReflectInstance(Engine engine, ObjectPrototype objectPrototype) : base(engine, ObjectClass.Reflect)
         {
-        }
-
-        public static ReflectInstance CreateReflectObject(Engine engine)
-        {
-            var math = new ReflectInstance(engine)
-            {
-                _prototype = engine.Object.PrototypeObject
-            };
-
-            return math;
+            _prototype = objectPrototype;
         }
 
         protected override void Initialize()
@@ -48,7 +39,7 @@ namespace Jint.Native.Reflect
 
         private JsValue Apply(JsValue thisObject, JsValue[] arguments)
         {
-            return _engine.Function.PrototypeObject.Apply(arguments.At(0), new[]
+            return _engine.Realm.Intrinsics.Function.PrototypeObject.Apply(arguments.At(0), new[]
             {
                 arguments.At(1),
                 arguments.At(2)
@@ -63,7 +54,7 @@ namespace Jint.Native.Reflect
             var newTargetArgument = arguments.At(2, arguments[0]);
             AssertConstructor(_engine, newTargetArgument);
 
-            var args = _engine.Function.PrototypeObject.CreateListFromArrayLike(arguments.At(1));
+            var args = _engine.Realm.Intrinsics.Function.PrototypeObject.CreateListFromArrayLike(arguments.At(1));
 
             return target.Construct(args, newTargetArgument);
         }
@@ -142,7 +133,7 @@ namespace Jint.Native.Reflect
             {
                 ExceptionHelper.ThrowTypeError(_engine, "Reflect.getOwnPropertyDescriptor called on non-object");
             }
-            return _engine.Object.GetOwnPropertyDescriptor(Undefined, arguments);
+            return _engine.Realm.Intrinsics.Object.GetOwnPropertyDescriptor(Undefined, arguments);
         }
 
         private JsValue OwnKeys(JsValue thisObject, JsValue[] arguments)
@@ -154,7 +145,7 @@ namespace Jint.Native.Reflect
             }
 
             var keys = o.GetOwnPropertyKeys();
-            return _engine.Array.CreateArrayFromList(keys);
+            return _engine.Realm.Intrinsics.Array.CreateArrayFromList(keys);
         }
 
         private JsValue IsExtensible(JsValue thisObject, JsValue[] arguments)
@@ -188,7 +179,7 @@ namespace Jint.Native.Reflect
                 return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Reflect.getPrototypeOf called on non-object");
             }
 
-            return _engine.Object.GetPrototypeOf(Undefined, arguments);
+            return _engine.Realm.Intrinsics.Object.GetPrototypeOf(Undefined, arguments);
         }
 
         private JsValue SetPrototypeOf(JsValue thisObject, JsValue[] arguments)

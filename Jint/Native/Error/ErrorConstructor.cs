@@ -7,30 +7,21 @@ namespace Jint.Native.Error
 {
     public sealed class ErrorConstructor : FunctionInstance, IConstructor
     {
-        private JsString _name;
+        private readonly JsString _name;
         private static readonly JsString _functionName = new JsString("Error");
 
-        public ErrorConstructor(Engine engine, JsString functionName) : base(engine, functionName)
+        internal ErrorConstructor(
+            Engine engine,
+            FunctionPrototype functionPrototype,
+            ObjectInstance objectPrototype,
+            JsString name) 
+            : base(engine, name)
         {
-        }
-
-        public static ErrorConstructor CreateErrorConstructor(Engine engine, JsString name)
-        {
-            var obj = new ErrorConstructor(engine, name)
-            {
-                _name = name,
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the Error constructor is the Function prototype object (15.11.3)
-            obj.PrototypeObject = ErrorPrototype.CreatePrototypeObject(engine, obj, name);
-
-            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
-
-            // The initial value of Error.prototype is the Error prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
+            _name = name;
+            _prototype = functionPrototype;
+            PrototypeObject = new ErrorPrototype(engine, this, objectPrototype, name);
+            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -71,7 +62,7 @@ namespace Jint.Native.Error
 
         protected internal override ObjectInstance GetPrototypeOf()
         {
-            return _name._value != "Error" ? _engine.Error : _prototype;
+            return _name._value != "Error" ? _engine.Realm.Intrinsics.Error : _prototype;
         }
     }
 }

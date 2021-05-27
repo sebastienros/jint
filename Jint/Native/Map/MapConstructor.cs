@@ -13,30 +13,16 @@ namespace Jint.Native.Map
     {
         private static readonly JsString _functionName = new JsString("Map");
 
-        private MapConstructor(Engine engine)
+        internal MapConstructor(Engine engine, FunctionPrototype functionPrototype, ObjectPrototype objectPrototype)
             : base(engine, _functionName)
         {
+            _prototype = functionPrototype;
+            PrototypeObject = new MapPrototype(engine, this, objectPrototype);
+            _length = new PropertyDescriptor(0, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         public MapPrototype PrototypeObject { get; private set; }
-
-        public static MapConstructor CreateMapConstructor(Engine engine)
-        {
-            var obj = new MapConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the Map constructor is the Function prototype object
-            obj.PrototypeObject = MapPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
-
-            // The initial value of Map.prototype is the Map prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
-        }
 
         protected override void Initialize()
         {

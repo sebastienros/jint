@@ -1,4 +1,5 @@
 ﻿using Jint.Collections;
+using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -8,21 +9,12 @@ namespace Jint.Native.Iterator
 {
     internal sealed class IteratorPrototype : IteratorInstance
     {
-        private string _name;
+        private readonly string _name;
 
-        private IteratorPrototype(Engine engine) : base(engine)
+        internal IteratorPrototype(Engine engine, string name, ObjectPrototype objectPrototype) : base(engine)
         {
-        }
-
-        public static IteratorPrototype CreatePrototypeObject(Engine engine, string name, IteratorConstructor iteratorConstructor)
-        {
-            var obj = new IteratorPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _name = name
-            };
-
-            return obj;
+            _prototype = objectPrototype;
+            _name = name;
         }
 
         protected override void Initialize()

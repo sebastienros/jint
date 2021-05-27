@@ -12,26 +12,17 @@ namespace Jint.Native.Object
     {
         private static readonly JsString _name = new JsString("delegate");
 
-        private ObjectConstructor(Engine engine)
+        internal ObjectConstructor(Engine engine)
             : base(engine, _name)
         {
-        }
-
-        public static ObjectConstructor CreateObjectConstructor(Engine engine)
-        {
-            var obj = new ObjectConstructor(engine);
-
-            obj.PrototypeObject = ObjectPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
+            PrototypeObject = new ObjectPrototype(engine, this);
+            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         protected override void Initialize()
         {
-            _prototype = Engine.Function.PrototypeObject;
+            _prototype = Engine.Realm.Intrinsics.Function.PrototypeObject;
 
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
@@ -105,7 +96,7 @@ namespace Jint.Native.Object
             var iterable = arguments.At(0);
             TypeConverter.CheckObjectCoercible(_engine, iterable);
 
-            var obj = _engine.Object.Construct(0);
+            var obj = _engine.Realm.Intrinsics.Object.Construct(0);
 
             var adder = CreateDataPropertyOnObject.Instance;
             var iterator = arguments.At(0).GetIterator(_engine);
@@ -155,9 +146,9 @@ namespace Jint.Native.Object
         {
             if (!ReferenceEquals(this, newTarget) && !newTarget.IsUndefined())
             {
-                return OrdinaryCreateFromConstructor(newTarget, _engine.Object.PrototypeObject, (engine, state) => new ObjectInstance(engine));
+                return OrdinaryCreateFromConstructor(newTarget, _engine.Realm.Intrinsics.Object.PrototypeObject, (engine, state) => new ObjectInstance(engine));
             }
-            
+
             if (arguments.Length > 0)
             {
                 var value = arguments[0];
@@ -173,9 +164,10 @@ namespace Jint.Native.Object
                 }
             }
 
+
             var obj = new ObjectInstance(_engine)
             {
-                _prototype = Engine.Object.PrototypeObject
+                _prototype = _engine.ExecutionContext.Realm.Intrinsics.Object.PrototypeObject
             };
 
             return obj;
@@ -185,7 +177,7 @@ namespace Jint.Native.Object
         {
             var obj = new ObjectInstance(_engine)
             {
-                _prototype = Engine.Object.PrototypeObject,
+                _prototype = Engine.Realm.Intrinsics.Object.PrototypeObject,
             };
 
             obj.SetProperties(propertyCount > 0  ? new PropertyDictionary(propertyCount, checkExistingKeys: true) : null);
@@ -237,7 +229,7 @@ namespace Jint.Native.Object
         {
             var o = TypeConverter.ToObject(_engine, arguments.At(0));
             var ownKeys = o.GetOwnPropertyKeys();
-            var descriptors = _engine.Object.Construct(0);
+            var descriptors = _engine.Realm.Intrinsics.Object.Construct(0);
             foreach (var key in ownKeys)
             {
                 var desc = o.GetOwnProperty(key);
@@ -254,14 +246,14 @@ namespace Jint.Native.Object
         {
             var o = TypeConverter.ToObject(_engine, arguments.At(0));
             var names = o.GetOwnPropertyKeys(Types.String);
-            return _engine.Array.ConstructFast(names);
+            return _engine.Realm.Intrinsics.Array.ConstructFast(names);
         }
 
         private JsValue GetOwnPropertySymbols(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_engine, arguments.At(0));
             var keys = o.GetOwnPropertyKeys(Types.Symbol);
-            return _engine.Array.ConstructFast(keys);
+            return _engine.Realm.Intrinsics.Array.ConstructFast(keys);
         }
 
         private JsValue Create(JsValue thisObject, JsValue[] arguments)
@@ -272,7 +264,7 @@ namespace Jint.Native.Object
                 ExceptionHelper.ThrowTypeError(_engine, "Object prototype may only be an Object or null: " + prototype);
             }
 
-            var obj = Engine.Object.Construct(Arguments.Empty);
+            var obj = Engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
             obj._prototype = prototype.IsNull() ? null : prototype.AsObject();
 
             var properties = arguments.At(1);

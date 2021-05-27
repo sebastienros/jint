@@ -217,7 +217,7 @@ namespace Jint.Runtime.Interop
 
             if (property.IsSymbol() && property == GlobalSymbolRegistry.Iterator)
             {
-                var iteratorFunction = new ClrFunctionInstance(Engine, "iterator", (thisObject, arguments) => _engine.Iterator.Construct(this), 1, PropertyFlag.Configurable);
+                var iteratorFunction = new ClrFunctionInstance(Engine, "iterator", (thisObject, arguments) => _engine.Realm.Intrinsics.Iterator.Construct(this), 1, PropertyFlag.Configurable);
                 var iteratorProperty = new PropertyDescriptor(iteratorFunction, PropertyFlag.Configurable | PropertyFlag.Writable);
                 SetProperty(GlobalSymbolRegistry.Iterator, iteratorProperty);
                 return iteratorProperty;

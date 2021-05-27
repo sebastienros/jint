@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using Jint.Collections;
 using Jint.Native.Number.Dtoa;
+using Jint.Native.Object;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -15,31 +16,21 @@ namespace Jint.Native.Number
     /// </summary>
     public sealed class NumberPrototype : NumberInstance
     {
-        private NumberConstructor _numberConstructor;
+        private readonly NumberConstructor _constructor;
 
-        private NumberPrototype(Engine engine)
+        internal NumberPrototype(Engine engine, NumberConstructor constructor, ObjectPrototype objectPrototype)
             : base(engine)
         {
-        }
-
-        public static NumberPrototype CreatePrototypeObject(Engine engine, NumberConstructor numberConstructor)
-        {
-            var obj = new NumberPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                NumberData = JsNumber.Create(0),
-                _numberConstructor = numberConstructor
-            };
-
-
-            return obj;
+            _prototype = objectPrototype;
+            NumberData = JsNumber.Create(0);
+            _constructor = constructor;
         }
 
         protected override void Initialize()
         {
             var properties = new PropertyDictionary(8, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(_numberConstructor, true, false, true),
+                ["constructor"] = new PropertyDescriptor(_constructor, true, false, true),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToNumberString, 1, PropertyFlag.Configurable), true, false, true),
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true),

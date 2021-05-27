@@ -13,21 +13,11 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class FunctionPrototype : FunctionInstance
     {
-        private FunctionPrototype(Engine engine)
+        internal FunctionPrototype(Engine engine, ObjectPrototype objectPrototype)
             : base(engine, JsString.Empty)
         {
-        }
-
-        public static FunctionPrototype CreatePrototypeObject(Engine engine)
-        {
-            var obj = new FunctionPrototype(engine)
-            {
-                // The value of the [[Prototype]] internal property of the Function prototype object is the standard built-in Object prototype object
-                _prototype = engine.Object.PrototypeObject,
-                _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero
-            };
-
-            return obj;
+            _prototype = objectPrototype;
+            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
         }
 
         protected override void Initialize()
@@ -36,7 +26,7 @@ namespace Jint.Native.Function
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             var properties = new PropertyDictionary(7, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(Engine.Realm.Intrinsics.Function, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
                 ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2, lengthFlags), propertyFlags),
                 ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1, lengthFlags), propertyFlags),

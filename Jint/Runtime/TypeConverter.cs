@@ -576,11 +576,11 @@ namespace Jint.Runtime
             var type = value._type & ~InternalTypes.InternalFlags;
             return type switch
             {
-                InternalTypes.Boolean => engine.Boolean.Construct((JsBoolean) value),
-                InternalTypes.Number => engine.Number.Construct((JsNumber) value),
-                InternalTypes.Integer => engine.Number.Construct((JsNumber) value),
-                InternalTypes.String => engine.String.Construct(value.ToString()),
-                InternalTypes.Symbol => engine.Symbol.Construct((JsSymbol) value),
+                InternalTypes.Boolean => engine.Realm.Intrinsics.Boolean.Construct((JsBoolean) value),
+                InternalTypes.Number => engine.Realm.Intrinsics.Number.Construct((JsNumber) value),
+                InternalTypes.Integer => engine.Realm.Intrinsics.Number.Construct((JsNumber) value),
+                InternalTypes.String => engine.Realm.Intrinsics.String.Construct(value.ToString()),
+                InternalTypes.Symbol => engine.Realm.Intrinsics.Symbol.Construct((JsSymbol) value),
                 InternalTypes.Null => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Cannot convert undefined or null to object"),
                 InternalTypes.Undefined => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Cannot convert undefined or null to object"),
                 _ => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Cannot convert given item to object")
@@ -609,7 +609,7 @@ namespace Jint.Runtime
         {
             referencedName ??= "unknown";
             var message = $"Cannot read property '{referencedName}' of {o}";
-            throw new JavaScriptException(engine.TypeError, message).SetCallstack(engine, sourceNode.Location);
+            throw new JavaScriptException(engine.Realm.Intrinsics.TypeError, message).SetCallstack(engine, sourceNode.Location);
         }
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)

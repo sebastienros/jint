@@ -65,7 +65,7 @@ namespace Jint.Native.Object
 
         internal PropertyDictionary Properties
         {
-            [DebuggerStepThrough]            
+            [DebuggerStepThrough]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _properties;
         }
@@ -116,7 +116,7 @@ namespace Jint.Native.Object
             {
                 return (IConstructor) s;
             }
-            
+
             return ExceptionHelper.ThrowTypeError<IConstructor>(o._engine);
         }
 
@@ -505,7 +505,7 @@ namespace Jint.Native.Object
 
             return true;
         }
-        
+
         /// <summary>
         /// Returns a Boolean value indicating whether a
         /// [[Put]] operation with PropertyName can be
@@ -680,7 +680,7 @@ namespace Jint.Native.Object
                             };
                         }
 
-                        propertyDescriptor._flags |= desc._flags & PropertyFlag.MutableBinding; 
+                        propertyDescriptor._flags |= desc._flags & PropertyFlag.MutableBinding;
                         o.SetOwnProperty(property, propertyDescriptor);
                     }
                     else
@@ -1017,7 +1017,7 @@ namespace Jint.Native.Object
                 }
 
                 return (long) System.Math.Max(
-                    0, 
+                    0,
                     System.Math.Min(len, ArrayOperations.MaxArrayLikeLength));
             }
 
@@ -1035,7 +1035,7 @@ namespace Jint.Native.Object
                 value = Undefined;
                 return false;
             }
-            
+
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
@@ -1169,7 +1169,7 @@ namespace Jint.Native.Object
             var newDesc = new PropertyDescriptor(v, PropertyFlag.NonEnumerable);
             return DefineOwnProperty(p, newDesc);
         }
-        
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-createdatapropertyorthrow
         /// </summary>
@@ -1232,7 +1232,7 @@ namespace Jint.Native.Object
         {
             var ownKeys = GetOwnPropertyKeys(Types.String);
 
-            var array = Engine.Array.ConstructFast((uint) ownKeys.Count);
+            var array = Engine.Realm.Intrinsics.Array.ConstructFast((uint) ownKeys.Count);
             uint index = 0;
 
             for (var i = 0; i < ownKeys.Count; i++)
@@ -1243,7 +1243,7 @@ namespace Jint.Native.Object
                 {
                     continue;
                 }
-                
+
                 var desc = GetOwnProperty(property);
                 if (desc != PropertyDescriptor.Undefined && desc.Enumerable)
                 {
@@ -1260,7 +1260,7 @@ namespace Jint.Native.Object
                         }
                         else
                         {
-                            var objectInstance = _engine.Array.ConstructFast(2);
+                            var objectInstance = _engine.Realm.Intrinsics.Array.ConstructFast(2);
                             objectInstance.SetIndexValue(0,  property, updateLength: false);
                             objectInstance.SetIndexValue(1, value, updateLength: false);
                             array.SetIndexValue(index, objectInstance, updateLength: false);

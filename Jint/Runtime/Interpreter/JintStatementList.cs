@@ -91,7 +91,7 @@ namespace Jint.Runtime.Interpreter
             }
             catch (TypeErrorException e)
             {
-                var error = _engine.TypeError.Construct(new JsValue[]
+                var error = _engine.Realm.Intrinsics.TypeError.Construct(new JsValue[]
                 {
                     e.Message
                 });
@@ -99,7 +99,7 @@ namespace Jint.Runtime.Interpreter
             }
             catch (RangeErrorException e)
             {
-                var error = _engine.RangeError.Construct(new JsValue[]
+                var error = _engine.Realm.Intrinsics.RangeError.Construct(new JsValue[]
                 {
                     e.Message
                 });
@@ -138,7 +138,7 @@ namespace Jint.Runtime.Interpreter
                 if (d is FunctionDeclaration functionDeclaration)
                 {
                     var fn = functionDeclaration.Id!.Name;
-                    var fo = env._engine.Function.InstantiateFunctionObject(functionDeclaration, env);
+                    var fo = env._engine.Realm.Intrinsics.Function.InstantiateFunctionObject(functionDeclaration, env);
                     envRec.InitializeBinding(fn, fo);
                 }
             }

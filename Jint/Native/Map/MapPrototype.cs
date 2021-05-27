@@ -12,21 +12,12 @@ namespace Jint.Native.Map
     /// </summary>
     public sealed class MapPrototype : ObjectInstance
     {
-        private MapConstructor _mapConstructor;
+        private readonly MapConstructor _mapConstructor;
 
-        private MapPrototype(Engine engine) : base(engine)
+        internal MapPrototype(Engine engine, MapConstructor mapConstructor, ObjectPrototype objectPrototype) : base(engine)
         {
-        }
-
-        public static MapPrototype CreatePrototypeObject(Engine engine, MapConstructor mapConstructor)
-        {
-            var obj = new MapPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _mapConstructor = mapConstructor
-            };
-
-            return obj;
+            _prototype = objectPrototype;
+            _mapConstructor = mapConstructor;
         }
 
         protected override void Initialize()

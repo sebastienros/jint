@@ -24,7 +24,7 @@ namespace Jint.Runtime.Interop
             _name = name;
             _func = func;
 
-            _prototype = engine.Function.PrototypeObject;
+            _prototype = engine._originalIntrinsics.Function.PrototypeObject;
 
             _length = lengthFlags == PropertyFlag.AllForbidden
                 ? PropertyDescriptor.AllForbiddenDescriptor.ForNumber(length)

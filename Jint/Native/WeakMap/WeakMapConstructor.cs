@@ -10,30 +10,16 @@ namespace Jint.Native.WeakMap
     {
         private static readonly JsString _functionName = new JsString("WeakMap");
 
-        private WeakMapConstructor(Engine engine)
+        internal WeakMapConstructor(Engine engine, FunctionPrototype prototype, ObjectPrototype objectPrototype)
             : base(engine, _functionName)
         {
+            _prototype = prototype;
+            PrototypeObject = new WeakMapPrototype(engine, this, objectPrototype);
+            _length = new PropertyDescriptor(0, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public WeakMapPrototype PrototypeObject { get; private set; }
-
-        public static WeakMapConstructor CreateWeakMapConstructor(Engine engine)
-        {
-            var obj = new WeakMapConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the WeakMap constructor is the WeakMap prototype object
-            obj.PrototypeObject = WeakMapPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
-
-            // The initial value of WeakMap.prototype is the WeakMap prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
-        }
+        public WeakMapPrototype PrototypeObject { get; }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {

@@ -13,16 +13,10 @@ namespace Jint.Native.Proxy
         private static readonly JsString PropertyProxy = new JsString("proxy");
         private static readonly JsString PropertyRevoke = new JsString("revoke");
 
-        private ProxyConstructor(Engine engine)
+        internal ProxyConstructor(Engine engine)
             : base(engine, _name)
         {
-        }
-
-        public static ProxyConstructor CreateProxyConstructor(Engine engine)
-        {
-            var obj = new ProxyConstructor(engine);
-            obj._length = new PropertyDescriptor(2, PropertyFlag.Configurable);
-            return obj;
+            _length = new PropertyDescriptor(2, PropertyFlag.Configurable);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -56,7 +50,7 @@ namespace Jint.Native.Proxy
 
         protected internal override ObjectInstance GetPrototypeOf()
         {
-            return _engine.Function.Prototype;
+            return _engine.Realm.Intrinsics.Function.Prototype;
         }
 
         public ProxyInstance Construct(ObjectInstance target, ObjectInstance handler)
@@ -85,7 +79,7 @@ namespace Jint.Native.Proxy
                 return Undefined;
             };
 
-            var result = _engine.Object.Construct(System.Array.Empty<JsValue>());
+            var result = _engine.Realm.Intrinsics.Object.Construct(System.Array.Empty<JsValue>());
             result.DefineOwnProperty(PropertyRevoke, new PropertyDescriptor(new ClrFunctionInstance(_engine, name: null, revoke, 0, PropertyFlag.Configurable), PropertyFlag.ConfigurableEnumerableWritable));
             result.DefineOwnProperty(PropertyProxy, new PropertyDescriptor(p, PropertyFlag.ConfigurableEnumerableWritable));
             return result;

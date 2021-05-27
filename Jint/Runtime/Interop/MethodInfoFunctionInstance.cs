@@ -17,7 +17,7 @@ namespace Jint.Runtime.Interop
             : base(engine, _name)
         {
             _methods = methods;
-            _prototype = engine.Function.PrototypeObject;
+            _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
         }
 
         public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods, ClrFunctionInstance fallbackClrFunctionInstance)
@@ -145,8 +145,8 @@ namespace Jint.Runtime.Interop
                 return jsArguments;
             }
 
-            var jsArray = Engine.Array.Construct(Arguments.Empty);
-            Engine.Array.PrototypeObject.Push(jsArray, argsToTransform);
+            var jsArray = Engine.Realm.Intrinsics.Array.Construct(Arguments.Empty);
+            Engine.Realm.Intrinsics.Array.PrototypeObject.Push(jsArray, argsToTransform);
 
             var newArgumentsCollection = new JsValue[nonParamsArgumentsCount + 1];
             for (var j = 0; j < nonParamsArgumentsCount; ++j)

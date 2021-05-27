@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interop
             : base(engine, _name, FunctionThisMode.Global)
         {
             _d = d;
-            _prototype = engine.Function.PrototypeObject;
+            _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
 
             var parameterInfos = _d.Method.GetParameters();
 

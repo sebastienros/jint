@@ -11,22 +11,13 @@ namespace Jint.Native.Symbol
     /// </summary>
     public sealed class SymbolPrototype : ObjectInstance
     {
-        private SymbolConstructor _symbolConstructor;
+        private readonly SymbolConstructor _symbolConstructor;
 
-        private SymbolPrototype(Engine engine)
+        internal SymbolPrototype(Engine engine, SymbolConstructor symbolConstructor, ObjectPrototype objectPrototype)
             : base(engine)
         {
-        }
-
-        public static SymbolPrototype CreatePrototypeObject(Engine engine, SymbolConstructor symbolConstructor)
-        {
-            var obj = new SymbolPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _symbolConstructor = symbolConstructor
-            };
-
-            return obj;
+            _prototype = objectPrototype;
+            _symbolConstructor = symbolConstructor;
         }
 
         protected override void Initialize()

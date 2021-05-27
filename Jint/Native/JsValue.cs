@@ -366,7 +366,7 @@ namespace Jint.Native
             var arrayLength = (uint) array.Length;
 
             var jsArray = new ArrayInstance(e, arrayLength);
-            jsArray._prototype = e.Array.PrototypeObject;
+            jsArray._prototype = e.Realm.Intrinsics.Array.PrototypeObject;
 
             for (uint i = 0; i < arrayLength; ++i)
             {

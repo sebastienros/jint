@@ -18,24 +18,15 @@ namespace Jint.Native.String
     /// </summary>
     public sealed class StringPrototype : StringInstance
     {
-        private StringConstructor _stringConstructor;
+        private readonly StringConstructor _constructor;
 
-        private StringPrototype(Engine engine)
+        internal StringPrototype(Engine engine, StringConstructor constructor, ObjectPrototype objectPrototype)
             : base(engine)
         {
-        }
-
-        public static StringPrototype CreatePrototypeObject(Engine engine, StringConstructor stringConstructor)
-        {
-            var obj = new StringPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                PrimitiveValue = JsString.Empty,
-                _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero,
-                _stringConstructor = stringConstructor,
-            };
-
-            return obj;
+            _prototype = objectPrototype;
+            PrimitiveValue = JsString.Empty;
+            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
+            _constructor = constructor;
         }
 
         protected override void Initialize()
@@ -44,7 +35,7 @@ namespace Jint.Native.String
             const PropertyFlag propertyFlags = lengthFlags | PropertyFlag.Writable;
             var properties = new PropertyDictionary(35, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(_stringConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToStringString, 0, lengthFlags), propertyFlags),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), propertyFlags),
                 ["charAt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "charAt", CharAt, 1, lengthFlags), propertyFlags),
@@ -90,7 +81,7 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(_engine, thisObj);
             var str = TypeConverter.ToString(thisObj);
-            return _engine.Iterator.Construct(str);
+            return _engine.Realm.Intrinsics.Iterator.Construct(str);
         }
 
         private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
@@ -337,7 +328,7 @@ namespace Jint.Native.String
 
             if (lim == 0)
             {
-                return Engine.Array.Construct(Arguments.Empty);
+                return Engine.Realm.Intrinsics.Array.Construct(Arguments.Empty);
             }
 
             if (separator.IsNull())
@@ -346,7 +337,7 @@ namespace Jint.Native.String
             }
             else if (separator.IsUndefined())
             {
-                var arrayInstance = Engine.Array.ConstructFast(1);
+                var arrayInstance = _engine.Realm.Intrinsics.Array.ConstructFast(1);
                 arrayInstance.SetIndexValue(0, s, updateLength: false);
                 return arrayInstance;
             }
@@ -387,7 +378,7 @@ namespace Jint.Native.String
             }
 
             var length = (uint) System.Math.Min(segments.Count, lim);
-            var a = engine.Array.ConstructFast(length);
+            var a = engine.Realm.Intrinsics.Array.ConstructFast(length);
             for (int i = 0; i < length; i++)
             {
                 a.SetIndexValue((uint) i, segments[i], updateLength: false);
@@ -452,7 +443,7 @@ namespace Jint.Native.String
                 }
             }
 
-            var rx = (RegExpInstance) Engine.RegExp.Construct(new[] {regex});
+            var rx = (RegExpInstance) Engine.Realm.Intrinsics.RegExp.Construct(new[] {regex});
             var s = TypeConverter.ToString(thisObj);
             return _engine.Invoke(rx, GlobalSymbolRegistry.Search, new JsValue[] { s });
         }
@@ -521,7 +512,7 @@ namespace Jint.Native.String
                 }
             }
 
-            var rx = (RegExpInstance) Engine.RegExp.Construct(new[] {regex});
+            var rx = (RegExpInstance) Engine.Realm.Intrinsics.RegExp.Construct(new[] {regex});
 
             var s = TypeConverter.ToString(thisObj);
             return _engine.Invoke(rx, GlobalSymbolRegistry.Match, new JsValue[] { s });
@@ -551,7 +542,7 @@ namespace Jint.Native.String
             }
 
             var s = TypeConverter.ToString(thisObj);
-            var rx = (RegExpInstance) Engine.RegExp.Construct(new[] { regex, "g" });
+            var rx = (RegExpInstance) Engine.Realm.Intrinsics.RegExp.Construct(new[] { regex, "g" });
 
             return _engine.Invoke(rx, GlobalSymbolRegistry.MatchAll, new JsValue[] { s });
         }

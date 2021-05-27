@@ -13,30 +13,16 @@ namespace Jint.Native.Function
         private static readonly JsString _functionName = new JsString("Function");
         private static readonly JsString _functionNameAnonymous = new JsString("anonymous");
 
-        private FunctionConstructor(Engine engine)
+        internal FunctionConstructor(Engine engine, ObjectPrototype objectPrototype)
             : base(engine, _functionName)
         {
+            PrototypeObject = new FunctionPrototype(engine, objectPrototype);
+            _prototype = PrototypeObject;
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
+            _length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
         }
 
-        public static FunctionConstructor CreateFunctionConstructor(Engine engine)
-        {
-            var obj = new FunctionConstructor(engine)
-            {
-                PrototypeObject = FunctionPrototype.CreatePrototypeObject(engine)
-            };
-
-            // The initial value of Function.prototype is the standard built-in Function prototype object
-
-            // The value of the [[Prototype]] internal property of the Function constructor is the standard built-in Function prototype object
-            obj._prototype = obj.PrototypeObject;
-
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-            obj._length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
-
-            return obj;
-        }
-
-        public FunctionPrototype PrototypeObject { get; private set; }
+        public FunctionPrototype PrototypeObject { get; }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
@@ -111,7 +97,7 @@ namespace Jint.Native.Function
             var functionObject = new ScriptFunctionInstance(
                 Engine,
                 function,
-                _engine.GlobalEnvironment,
+                _engine.Realm.GlobalEnv, 
                 function.Strict);
             
             functionObject.MakeConstructor();

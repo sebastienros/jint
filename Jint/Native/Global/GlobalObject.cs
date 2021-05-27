@@ -16,48 +16,49 @@ namespace Jint.Native.Global
 {
     public sealed class GlobalObject : ObjectInstance
     {
-        private readonly StringBuilder _stringBuilder = new StringBuilder();
+        private readonly Intrinsics _intrinsics;
+        private readonly StringBuilder _stringBuilder = new();
 
-        private GlobalObject(Engine engine) : base(engine)
+        internal GlobalObject(
+            Engine engine, Intrinsics intrinsics) : base(engine)
         {
-        }
-
-        public static GlobalObject CreateGlobalObject(Engine engine)
-        {
-            return new GlobalObject(engine);
+            _intrinsics = intrinsics;
+            // this is implementation dependent, and only to pass some unit tests
+            _prototype = _intrinsics.Object.PrototypeObject;
         }
 
         protected override void Initialize()
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            var properties = new PropertyDictionary(42, checkExistingKeys: false)
+
+            var properties = new PropertyDictionary(40, checkExistingKeys: false)
             {
-                ["Object"] = new PropertyDescriptor(Engine.Object, propertyFlags),
-                ["Function"] = new PropertyDescriptor(Engine.Function, propertyFlags),
-                ["Symbol"] = new PropertyDescriptor(Engine.Symbol, propertyFlags),
-                ["Array"] = new PropertyDescriptor(Engine.Array, propertyFlags),
-                ["Map"] = new PropertyDescriptor(Engine.Map, propertyFlags),
-                ["Set"] = new PropertyDescriptor(Engine.Set, propertyFlags),
-                ["WeakMap"] = new PropertyDescriptor(Engine.WeakMap, propertyFlags),
-                ["WeakSet"] = new PropertyDescriptor(Engine.WeakSet, propertyFlags),
-                ["Promise"] = new PropertyDescriptor(Engine.Promise, propertyFlags),
-                ["String"] = new PropertyDescriptor(Engine.String, propertyFlags),
-                ["RegExp"] = new PropertyDescriptor(Engine.RegExp, propertyFlags),
-                ["Number"] = new PropertyDescriptor(Engine.Number, propertyFlags),
-                ["Boolean"] = new PropertyDescriptor(Engine.Boolean, propertyFlags),
-                ["Date"] = new PropertyDescriptor(Engine.Date, propertyFlags),
-                ["Math"] = new PropertyDescriptor(Engine.Math, propertyFlags),
-                ["JSON"] = new PropertyDescriptor(Engine.Json, propertyFlags),
-                ["Error"] = new LazyPropertyDescriptor(() => Engine.Error, propertyFlags),
-                ["EvalError"] = new LazyPropertyDescriptor(() => Engine.EvalError, propertyFlags),
-                ["Proxy"] = new LazyPropertyDescriptor(() => Engine.Proxy, propertyFlags),
-                ["RangeError"] = new LazyPropertyDescriptor(() => Engine.RangeError, propertyFlags),
-                ["ReferenceError"] = new LazyPropertyDescriptor(() => Engine.ReferenceError, propertyFlags),
-                ["Reflect"] = new LazyPropertyDescriptor(() => Engine.Reflect, propertyFlags),
-                ["SyntaxError"] = new LazyPropertyDescriptor(() => Engine.SyntaxError, propertyFlags),
-                ["TypeError"] = new LazyPropertyDescriptor(() => Engine.TypeError, propertyFlags),
-                ["URIError"] = new LazyPropertyDescriptor(() => Engine.UriError, propertyFlags),
+                ["Object"] = new PropertyDescriptor(_intrinsics.Object, propertyFlags),
+                ["Function"] = new PropertyDescriptor(_intrinsics.Function, propertyFlags),
+                ["Symbol"] = new PropertyDescriptor(_intrinsics.Symbol, propertyFlags),
+                ["Array"] = new PropertyDescriptor(_intrinsics.Array, propertyFlags),
+                ["Map"] = new PropertyDescriptor(_intrinsics.Map, propertyFlags),
+                ["Set"] = new PropertyDescriptor(_intrinsics.Set, propertyFlags),
+                ["WeakMap"] = new PropertyDescriptor(_intrinsics.WeakMap, propertyFlags),
+                ["WeakSet"] = new PropertyDescriptor(_intrinsics.WeakSet, propertyFlags),
+                ["Promise"] = new PropertyDescriptor(_intrinsics.Promise, propertyFlags),
+                ["String"] = new PropertyDescriptor(_intrinsics.String, propertyFlags),
+                ["RegExp"] = new PropertyDescriptor(_intrinsics.RegExp, propertyFlags),
+                ["Number"] = new PropertyDescriptor(_intrinsics.Number, propertyFlags),
+                ["Boolean"] = new PropertyDescriptor(_intrinsics.Boolean, propertyFlags),
+                ["Date"] = new PropertyDescriptor(_intrinsics.Date, propertyFlags),
+                ["Math"] = new PropertyDescriptor(_intrinsics.Math, propertyFlags),
+                ["JSON"] = new PropertyDescriptor(_intrinsics.Json, propertyFlags),
+                ["Error"] = new LazyPropertyDescriptor(() => _intrinsics.Error, propertyFlags),
+                ["EvalError"] = new LazyPropertyDescriptor(() => _intrinsics.EvalError, propertyFlags),
+                ["Proxy"] = new LazyPropertyDescriptor(() => _intrinsics.Proxy, propertyFlags),
+                ["RangeError"] = new LazyPropertyDescriptor(() => _intrinsics.RangeError, propertyFlags),
+                ["ReferenceError"] = new LazyPropertyDescriptor(() => _intrinsics.ReferenceError, propertyFlags),
+                ["Reflect"] = new LazyPropertyDescriptor(() => _intrinsics.Reflect, propertyFlags),
+                ["SyntaxError"] = new LazyPropertyDescriptor(() => _intrinsics.SyntaxError, propertyFlags),
+                ["TypeError"] = new LazyPropertyDescriptor(() => _intrinsics.TypeError, propertyFlags),
+                ["URIError"] = new LazyPropertyDescriptor(() => _intrinsics.UriError, propertyFlags),
                 ["NaN"] = new PropertyDescriptor(double.NaN, PropertyFlag.None),
                 ["Infinity"] = new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.None),
                 ["undefined"] = new PropertyDescriptor(Undefined, PropertyFlag.None),
@@ -71,7 +72,8 @@ namespace Jint.Native.Global
                 ["encodeURIComponent"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1, lengthFlags), propertyFlags),
                 ["escape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "escape", Escape, 1, lengthFlags), propertyFlags),
                 ["unescape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unescape", Unescape, 1, lengthFlags), propertyFlags),
-                ["globalThis"] = new PropertyDescriptor(this, propertyFlags),
+                ["globalThis"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "", GlobalThis, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable),
+                ["eval"] = new PropertyDescriptor(_intrinsics.Eval, PropertyFlag.Configurable | PropertyFlag.Writable),
 
                 // toString is not mentioned or actually required in spec, but some tests rely on it
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToStringString, 1), propertyFlags)
@@ -80,9 +82,14 @@ namespace Jint.Native.Global
             SetProperties(properties);
         }
 
+        private JsValue GlobalThis(JsValue thisObj, JsValue[] arguments)
+        {
+            return _engine.Realm.GlobalEnv.GlobalThisValue;
+        }
+
         private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
         {
-            return _engine.Object.PrototypeObject.ToObjectString(thisObj, Arguments.Empty);
+            return _engine.Realm.Intrinsics.Object.PrototypeObject.ToObjectString(thisObj, Arguments.Empty);
         }
 
         /// <summary>
@@ -385,7 +392,7 @@ namespace Jint.Native.Global
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsValidHexaChar(char c) => Uri.IsHexDigit(c);
-        
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.3.2
         /// </summary>
@@ -707,7 +714,7 @@ namespace Jint.Native.Global
 
             return _stringBuilder.ToString();
         }
-        
+
         // optimized versions with string parameter and without virtual dispatch for global environment usage
 
         internal bool HasProperty(Key property)
@@ -734,7 +741,7 @@ namespace Jint.Native.Global
             {
                 return true;
             }
-            
+
             // check fast path
             if ((current._flags & PropertyFlag.MutableBinding) != 0)
             {
@@ -751,7 +758,7 @@ namespace Jint.Native.Global
             Properties.TryGetValue(property, out var descriptor);
             return descriptor ?? PropertyDescriptor.Undefined;
         }
-        
+
         internal bool Set(Key property, JsValue value)
         {
             // here we are called only from global environment record context
@@ -790,7 +797,7 @@ namespace Jint.Native.Global
 
             return true;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void SetOwnProperty(Key property, PropertyDescriptor desc)
         {

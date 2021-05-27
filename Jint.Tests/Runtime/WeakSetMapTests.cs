@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Object;
@@ -44,7 +43,7 @@ namespace Jint.Tests.Runtime
         [MemberData(nameof(PrimitiveKeys))]
         public void WeakSetAddShouldThrowForPrimitiveKey(JsValue key) {
             var weakSet = new WeakSetInstance(_engine);
-            
+
             var e = Assert.Throws<JavaScriptException>(() => weakSet.WeakSetAdd(key));
             Assert.StartsWith("WeakSet value must be an object, got ", e.Message);
 
@@ -55,7 +54,7 @@ namespace Jint.Tests.Runtime
         [MemberData(nameof(PrimitiveKeys))]
         public void WeakMapSetShouldThrowForPrimitiveKey(JsValue key) {
             var weakMap = new WeakMapInstance(_engine);
-            
+
             var e = Assert.Throws<JavaScriptException>(() => weakMap.WeakMapSet(key, new ObjectInstance(_engine)));
             Assert.StartsWith("WeakMap key must be an object, got ", e.Message);
 
