@@ -11,7 +11,7 @@ namespace Jint.Runtime.Environments
     /// <summary>
     /// https://tc39.es/ecma262/#sec-global-environment-records
     /// </summary>
-    internal sealed class GlobalEnvironmentRecord : EnvironmentRecord
+    public sealed class GlobalEnvironmentRecord : EnvironmentRecord
     {
         private readonly ObjectInstance _global;
         private readonly DeclarativeEnvironmentRecord _declarativeRecord;

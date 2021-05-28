@@ -24,11 +24,9 @@ namespace Jint.Tests.Test262
 
         private static readonly TimeZoneInfo _pacificTimeZone;
 
-        private static readonly Dictionary<string, string> _skipReasons =
-            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, string> _skipReasons = new(StringComparer.OrdinalIgnoreCase);
 
-        private static readonly HashSet<string> _strictSkips =
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> _strictSkips = new(StringComparer.OrdinalIgnoreCase);
 
         static Test262Test()
         {
@@ -120,10 +118,14 @@ namespace Jint.Tests.Test262
             o.FastSetProperty("createRealm", new PropertyDescriptor(new ClrFunctionInstance(engine, "createRealm",
                 (thisObj, args) =>
                 {
-                    var realm = new DefaultRealmFactory().CreateRealm(engine);
+                    var realm = engine._host.CreateRealm();
                     realm.GlobalObject.Set("$262", o);
-                    return o;
+                    realm.GlobalObject.Set("global", realm.GlobalObject);
+                    return realm.GlobalObject;
                 }), true, true, true));
+
+            engine.SetValue("$262", o);
+            engine.SetValue("global", engine.Realm.GlobalObject);
 
             var includes = Regex.Match(code, @"includes: \[(.+?)\]");
             if (includes.Success)

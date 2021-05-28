@@ -6,7 +6,6 @@ using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Argument;
 using Jint.Native.Function;
-using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Native.Symbol;
@@ -86,9 +85,10 @@ namespace Jint
         internal static Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> ReflectionAccessors = new();
 
         internal readonly JintCallStack CallStack;
-
+        
         // needed in initial engine setup, for example CLR function construction
         internal Intrinsics _originalIntrinsics;
+        internal Host _host;
 
         /// <summary>
         /// Constructs a new engine instance.
@@ -127,30 +127,7 @@ namespace Jint
                 PropertyFlag.CustomJsValue,
                 "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
 
-            GlobalSymbolRegistry = new GlobalSymbolRegistry();
-
-            var factory = new DefaultRealmFactory();
-            var realm = factory.CreateRealm(this);
-
-            var globalObject = new GlobalObject(this, realm.Intrinsics);
-            // Because the properties might need some of the built-in object
-            // their configuration is delayed to a later step
-            // trigger initialization
-            globalObject.EnsureInitialized();
-
-            // create the global environment http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.3
-            var globalEnv = JintEnvironment.NewGlobalEnvironment(this, globalObject, globalObject);
-            realm.GlobalEnv = globalEnv;
-            realm.GlobalObject = globalObject;
-
-            // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
-            var context = new ExecutionContext(
-                lexicalEnvironment: globalEnv,
-                variableEnvironment: globalEnv,
-                privateEnvironment: null,
-                realm: realm,
-                function: null);
-            EnterExecutionContext(context);
+            Reset();
 
             Options = new Options();
             options?.Invoke(this, Options);
@@ -169,6 +146,12 @@ namespace Jint
             Options.Apply(this);
         }
 
+        private void Reset()
+        {
+            _host = new DefaultHost(this);
+            _host.Initialize();
+        }
+
         internal ref readonly ExecutionContext ExecutionContext
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -177,7 +160,7 @@ namespace Jint
 
         public Realm Realm => ExecutionContext.Realm;
 
-        public GlobalSymbolRegistry GlobalSymbolRegistry { get; }
+        internal GlobalSymbolRegistry GlobalSymbolRegistry { get; } = new();
 
         internal long CurrentMemoryUsage { get; private set; }
 
@@ -277,7 +260,7 @@ namespace Jint
             CallStack.Clear();
         }
 
-        public JsValue Evaluate(string source)
+        public JsValue Evaluate(string source) 
             => Execute(source, DefaultParserOptions)._completionValue;
 
         public JsValue Evaluate(string source, ParserOptions parserOptions)
@@ -286,10 +269,10 @@ namespace Jint
         public JsValue Evaluate(Script script)
             => Execute(script)._completionValue;
 
-        public Engine Execute(string source)
+        public Engine Execute(string source) 
             => Execute(source, DefaultParserOptions);
 
-        public Engine Execute(string source, ParserOptions parserOptions)
+        public Engine Execute(string source, ParserOptions parserOptions) 
             => Execute(new JavaScriptParser(source, parserOptions).ParseScript());
 
         public Engine Execute(Script script)
@@ -336,7 +319,7 @@ namespace Jint
 
         /// <summary>
         /// EXPERIMENTAL! Subject to change.
-        ///
+        /// 
         /// Registers a promise within the currently running EventLoop (has to be called within "ExecuteWithEventLoop" call).
         /// Note that ExecuteWithEventLoop will not trigger "onFinished" callback until ALL manual promises are settled.
         ///
@@ -348,9 +331,9 @@ namespace Jint
         {
             var promise = new PromiseInstance(this)
             {
-                _prototype = Realm.Intrinsics.Promise.PrototypeObject
+                _prototype = Realm.Intrinsics.Promise.PrototypeObject 
             };
-
+            
             var (resolve, reject) = promise.CreateResolvingFunctions();
 
 
@@ -966,7 +949,7 @@ namespace Jint
                 }
             }
 
-            // NOTE: Annex B.3.3.1 adds additional steps at this point.
+            // NOTE: Annex B.3.3.1 adds additional steps at this point. 
             // A https://tc39.es/ecma262/#sec-web-compat-functiondeclarationinstantiation
 
             EnvironmentRecord lexEnv;
