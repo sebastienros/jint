@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Esprima;
+using Esprima.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -17,7 +18,7 @@ namespace Jint.Tests.Test262
 {
     public abstract class Test262Test
     {
-        private static readonly Dictionary<string, string> Sources;
+        private static readonly Dictionary<string, Script> Sources;
 
         private static readonly string BasePath;
 
@@ -69,10 +70,11 @@ namespace Jint.Tests.Test262
                 "fnGlobalObject.js"
             };
 
-            Sources = new Dictionary<string, string>(files.Length);
+            Sources = new Dictionary<string, Script>(files.Length);
             for (var i = 0; i < files.Length; i++)
             {
-                Sources[files[i]] = File.ReadAllText(Path.Combine(BasePath, "harness", files[i]));
+                var source = File.ReadAllText(Path.Combine(BasePath, "harness", files[i]));
+                Sources[files[i]] = new JavaScriptParser(source, new ParserOptions(files[i])).ParseScript();
             }
 
             var content = File.ReadAllText(Path.Combine(BasePath, "test/skipped.json"));
@@ -88,15 +90,15 @@ namespace Jint.Tests.Test262
             }
         }
 
-        protected void RunTestCode(string code, bool strict)
+        protected void RunTestCode(string fileName, string code, bool strict)
         {
             var engine = new Engine(cfg => cfg
                 .LocalTimeZone(_pacificTimeZone)
                 .Strict(strict)
             );
 
-            engine.Execute(Sources["sta.js"], CreateParserOptions("sta.js"));
-            engine.Execute(Sources["assert.js"], CreateParserOptions("assert.js"));
+            engine.Execute(Sources["sta.js"]);
+            engine.Execute(Sources["assert.js"]);
             engine.SetValue("print",
                 new ClrFunctionInstance(engine, "print", (thisObj, args) => TypeConverter.ToString(args.At(0))));
 
@@ -123,13 +125,13 @@ namespace Jint.Tests.Test262
                 var files = includes.Groups[1].Captures[0].Value.Split(',');
                 foreach (var file in files)
                 {
-                    engine.Execute(Sources[file.Trim()], CreateParserOptions(file.Trim()));
+                    engine.Execute(Sources[file.Trim()]);
                 }
             }
 
             if (code.IndexOf("propertyHelper.js", StringComparison.OrdinalIgnoreCase) != -1)
             {
-                engine.Execute(Sources["propertyHelper.js"], CreateParserOptions("propertyHelper.js"));
+                engine.Execute(Sources["propertyHelper.js"]);
             }
 
             string lastError = null;
@@ -137,7 +139,7 @@ namespace Jint.Tests.Test262
             bool negative = code.IndexOf("negative:", StringComparison.Ordinal) > -1;
             try
             {
-                engine.Execute(code);
+                engine.Execute(new JavaScriptParser(code, new ParserOptions(fileName)).ParseScript());
             }
             catch (JavaScriptException j)
             {
@@ -163,13 +165,13 @@ namespace Jint.Tests.Test262
 
             if (sourceFile.Code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0)
             {
-                RunTestCode(sourceFile.Code, strict: false);
+                RunTestCode(sourceFile.Source, sourceFile.Code, strict: false);
             }
 
             if (!_strictSkips.Contains(sourceFile.Source)
                 && sourceFile.Code.IndexOf("noStrict", StringComparison.Ordinal) < 0)
             {
-                RunTestCode(sourceFile.Code, strict: true);
+                RunTestCode(sourceFile.Source, sourceFile.Code, strict: true);
             }
         }
 

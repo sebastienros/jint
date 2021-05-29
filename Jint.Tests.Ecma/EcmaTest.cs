@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using Esprima;
+using Esprima.Ast;
 using Jint.Runtime;
 using Newtonsoft.Json.Linq;
 using Xunit;
@@ -153,7 +155,7 @@ namespace Jint.Tests.Ecma
     public abstract class EcmaTest
     {
         private static string _lastError;
-        private static string staSource;
+        private static Script staSource;
         private static readonly string BasePath;
         private static readonly List<SourceFile> _sourceFiles = new List<SourceFile>(10_000);
         private static readonly TimeZoneInfo _pacificTimeZone;
@@ -216,7 +218,8 @@ namespace Jint.Tests.Ecma
             if (staSource == null)
             {
                 var driverFilename = Path.Combine(BasePath, "TestCases/sta.js");
-                staSource = File.ReadAllText(driverFilename);
+                var source = File.ReadAllText(driverFilename);
+                staSource = new JavaScriptParser(source, new ParserOptions("sta.js")).ParseScript();
             }
 
             engine.Execute(staSource);
