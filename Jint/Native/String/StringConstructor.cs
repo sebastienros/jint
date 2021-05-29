@@ -162,7 +162,7 @@ namespace Jint.Native.String
                 return StringCreate(s, PrototypeObject);
             }
 
-            return StringCreate(s, GetPrototypeFromConstructor(newTarget, PrototypeObject));
+            return StringCreate(s, GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.String.PrototypeObject));
         }
 
         public StringInstance Construct(string value)

@@ -112,7 +112,10 @@ namespace Jint.Native.Function
             
             if (kind == ConstructorKind.Base)
             {
-                thisArgument = OrdinaryCreateFromConstructor(newTarget, _engine.Realm.Intrinsics.Object.PrototypeObject, static (engine, _) => new ObjectInstance(engine));
+                thisArgument = OrdinaryCreateFromConstructor(
+                    newTarget,
+                    static intrinsics => intrinsics.Object.PrototypeObject, 
+                    static (engine, _) => new ObjectInstance(engine));
             }
 
             var calleeContext = PrepareForOrdinaryCall(newTarget);

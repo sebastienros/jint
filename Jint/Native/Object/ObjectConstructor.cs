@@ -146,7 +146,10 @@ namespace Jint.Native.Object
         {
             if (!ReferenceEquals(this, newTarget) && !newTarget.IsUndefined())
             {
-                return OrdinaryCreateFromConstructor(newTarget, _engine.Realm.Intrinsics.Object.PrototypeObject, (engine, state) => new ObjectInstance(engine));
+                return OrdinaryCreateFromConstructor(
+                    newTarget,
+                    static intrinsics => intrinsics.Object.PrototypeObject,
+                    (engine, state) => new ObjectInstance(engine));
             }
 
             if (arguments.Length > 0)

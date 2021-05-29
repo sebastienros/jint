@@ -179,7 +179,10 @@ namespace Jint.Native.Date
                 dv = TimeClip(PrototypeObject.Utc(finalDate));
             }
 
-            var o = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, _) => new DateInstance(engine));
+            var o = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Date.PrototypeObject,
+                static (engine, _) => new DateInstance(engine));
             o.PrimitiveValue = dv;
             return o;
         }

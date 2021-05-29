@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native.Object;
+using Jint.Native.Proxy;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -216,11 +217,12 @@ namespace Jint.Native.Function
         /// </summary>
         /// <remarks>
         /// Uses separate builder to get correct type with state support to prevent allocations.
+        /// In spec intrinsicDefaultProto is string pointing to intrinsic, but we do a selector.
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal T OrdinaryCreateFromConstructor<T>(
             JsValue constructor,
-            ObjectInstance intrinsicDefaultProto,
+            Func<Intrinsics, ObjectInstance> intrinsicDefaultProto,
             Func<Engine, JsValue, T> objectCreator,
             JsValue state = null) where T : ObjectInstance
         {
@@ -231,14 +233,47 @@ namespace Jint.Native.Function
             return obj;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getprototypefromconstructor
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static ObjectInstance GetPrototypeFromConstructor(JsValue constructor, ObjectInstance intrinsicDefaultProto)
+        internal ObjectInstance GetPrototypeFromConstructor(JsValue constructor, Func<Intrinsics, ObjectInstance> intrinsicDefaultProto)
         {
             var proto = constructor.Get(CommonProperties.Prototype, constructor) as ObjectInstance;
-            // If Type(proto) is not Object, then
-            //    Let realm be ? GetFunctionRealm(constructor).
-            //    Set proto to realm's intrinsic object named intrinsicDefaultProto.
-            return proto ?? intrinsicDefaultProto;
+            if (proto is null)
+            {
+                var realm = GetFunctionRealm(constructor);
+                proto = intrinsicDefaultProto(realm.Intrinsics);
+            }
+            return proto;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getfunctionrealm
+        /// </summary>
+        internal Realm GetFunctionRealm(JsValue obj)
+        {
+            if (obj is FunctionInstance functionInstance && functionInstance._realm is not null)
+            {
+                return functionInstance._realm;
+            }
+
+            if (obj is BindFunctionInstance bindFunctionInstance)
+            {
+                return GetFunctionRealm(bindFunctionInstance.TargetFunction);
+            }
+
+            if (obj is ProxyInstance proxyInstance)
+            {
+                if (proxyInstance._handler is null)
+                {
+                    ExceptionHelper.ThrowTypeErrorNoEngine<object>();
+                }
+
+                return GetFunctionRealm(proxyInstance._target);
+            }
+
+            return _engine.ExecutionContext.Realm;
         }
 
         internal void MakeMethod(ObjectInstance homeObject)

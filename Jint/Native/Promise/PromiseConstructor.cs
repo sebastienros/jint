@@ -80,7 +80,9 @@ namespace Jint.Native.Promise
                     $"Promise executor {(arguments.At(0))} is not a function");
             }
 
-            var instance = OrdinaryCreateFromConstructor(newTarget, PrototypeObject,
+            var instance = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Promise.PrototypeObject,
                 static(engine, _) => new PromiseInstance(engine));
 
             var (resolve, reject) = instance.CreateResolvingFunctions();

@@ -54,7 +54,10 @@ namespace Jint.Native.Map
                 ExceptionHelper.ThrowTypeError(_engine);
             }
 
-            var map = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, _) => new MapInstance(engine));
+            var map = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Map.PrototypeObject, 
+                static (engine, _) => new MapInstance(engine));
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adder = map.Get("set");

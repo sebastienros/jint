@@ -119,13 +119,11 @@ namespace Jint.Tests.Test262
                 (thisObj, args) =>
                 {
                     var realm = engine._host.CreateRealm();
-                    realm.GlobalObject.Set("$262", o);
                     realm.GlobalObject.Set("global", realm.GlobalObject);
                     return realm.GlobalObject;
                 }), true, true, true));
 
             engine.SetValue("$262", o);
-            engine.SetValue("global", engine.Realm.GlobalObject);
 
             var includes = Regex.Match(code, @"includes: \[(.+?)\]");
             if (includes.Success)

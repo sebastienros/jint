@@ -280,7 +280,9 @@ namespace Jint.Native.Array
                 newTarget = this;
             }
 
-            var proto = GetPrototypeFromConstructor(newTarget, PrototypeObject);
+            var proto = GetPrototypeFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Array.PrototypeObject);
 
             // check if we can figure out good size
             var capacity = arguments.Length > 0 ? (uint) arguments.Length : 0;
@@ -412,11 +414,18 @@ namespace Jint.Native.Array
 
             var c = originalArray.Get(CommonProperties.Constructor);
 
-            // If IsConstructor(C) is true, then
-            // Let thisRealm be the current Realm Record.
-            // Let realmC be ? GetFunctionRealm(C).
-            // If thisRealm and realmC are not the same Realm Record, then
-            // If SameValue(C, realmC.[[Intrinsics]].[[%Array%]]) is true, set C to undefined.
+            if (c.IsConstructor)
+            {
+                var thisRealm = _engine.ExecutionContext.Realm;
+                var realmC = GetFunctionRealm(c);
+                if (!ReferenceEquals(thisRealm, realmC))
+                {
+                    if (ReferenceEquals(c, realmC.Intrinsics.Array))
+                    {
+                        c = Undefined;
+                    }
+                }
+            }
 
             if (c is ObjectInstance oi)
             {

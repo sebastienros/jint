@@ -125,7 +125,10 @@ namespace Jint.Native.RegExp
 
         private RegExpInstance RegExpAlloc(JsValue newTarget)
         {
-            var r = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static(engine, value) => new RegExpInstance(engine));
+            var r = OrdinaryCreateFromConstructor(
+                newTarget, 
+                static intrinsics => intrinsics.RegExp.PrototypeObject, 
+                static(engine, _) => new RegExpInstance(engine));
             return r;
         }
 

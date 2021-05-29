@@ -54,7 +54,10 @@ namespace Jint.Native.Set
                 ExceptionHelper.ThrowTypeError(_engine);
             }
 
-            var set = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, _) => new SetInstance(engine));
+            var set = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Set.PrototypeObject,
+                static (engine, _) => new SetInstance(engine));
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adderValue = set.Get("add");

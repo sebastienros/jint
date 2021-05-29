@@ -44,7 +44,10 @@ namespace Jint.Native.Boolean
                 return Construct(b);
             }
 
-            var o = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, state) => new BooleanInstance(engine, (JsBoolean) state), b);
+            var o = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Boolean.PrototypeObject, 
+                static (engine, state) => new BooleanInstance(engine, (JsBoolean) state), b);
             return o;
         }
 

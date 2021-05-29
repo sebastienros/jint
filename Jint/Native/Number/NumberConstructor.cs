@@ -129,7 +129,10 @@ namespace Jint.Native.Number
                 return Construct(value);
             }
 
-            var o = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, state) => new NumberInstance(engine, (JsNumber) state), value);
+            var o = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Number.PrototypeObject,
+                static (engine, state) => new NumberInstance(engine, (JsNumber) state), value);
             return o;
         }
 
