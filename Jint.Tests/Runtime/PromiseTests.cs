@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime;
@@ -493,6 +494,30 @@ namespace Jint.Tests.Runtime
                 engine.Evaluate(
                     "Promise.race([new Promise((resolve,reject)=>{}),Promise.reject('Could not connect'),3]);").UnwrapIfPromise();
             });
+        }
+
+        #endregion
+
+        #region Regression
+
+        [Fact(Timeout = 5000)]
+        public void PromiseRegression_SingleElementArrayWithClrDictionaryInPromiseAll()
+        {
+            var engine = new Engine();
+            var dictionary = new Dictionary<string, object>() { { "Value 1", 1 }, { "Value 2", "a string" } };
+            engine.SetValue("clrDictionary", dictionary);
+
+            var resultAsObject = engine
+                .Evaluate(@"
+const promiseArray = [clrDictionary];
+return Promise.all(promiseArray);") // Returning and array through Promise.any()
+                .UnwrapIfPromise()
+                .ToObject();
+
+            var result = (object[]) resultAsObject;
+
+            Assert.Single(result);
+            Assert.IsType<Dictionary<string, object>>(result[0]);
         }
 
         #endregion
