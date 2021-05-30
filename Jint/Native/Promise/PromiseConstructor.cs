@@ -17,7 +17,6 @@ namespace Jint.Native.Promise
         JsValue RejectObj
     );
 
-
     public sealed class PromiseConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new JsString("Promise");
@@ -230,8 +229,8 @@ namespace Jint.Native.Promise
                 // if "then" method is sync then it will be resolved BEFORE the next iteration cycle
                 if (results.TrueForAll(static x => x != null) && doneIterating)
                 {
-                    resolve.Call(Undefined,
-                        new JsValue[] {Engine.Array.Construct(results.ToArray())});
+                    var array = _engine.Array.ConstructFast(results);
+                    resolve.Call(Undefined, new JsValue[] { array });
                 }
             }
 
