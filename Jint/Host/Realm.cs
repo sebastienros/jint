@@ -5,6 +5,15 @@ namespace Jint
 {
     public class Realm
     {
+        private static int globalId = 1;
+
+        public Realm()
+        {
+            Id = globalId++;
+        }
+
+        public int Id;
+
         /// <summary>
         /// The intrinsic values used by code associated with this realm.
         /// </summary>

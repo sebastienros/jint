@@ -86,6 +86,11 @@ namespace Jint.Native.String
 
         private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
         {
+            if (thisObj.IsString())
+            {
+                return thisObj;
+            }
+            
             var s = TypeConverter.ToObject(Engine, thisObj) as StringInstance;
             if (ReferenceEquals(s, null))
             {

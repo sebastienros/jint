@@ -97,8 +97,11 @@ namespace Jint.Native.Function
             var functionObject = new ScriptFunctionInstance(
                 Engine,
                 function,
-                _engine.Realm.GlobalEnv, 
-                function.Strict);
+                _realm.GlobalEnv, 
+                function.Strict)
+            {
+                _realm = _realm
+            };
             
             functionObject.MakeConstructor();
 

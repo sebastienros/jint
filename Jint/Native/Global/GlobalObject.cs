@@ -72,7 +72,7 @@ namespace Jint.Native.Global
                 ["encodeURIComponent"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "encodeURIComponent", EncodeUriComponent, 1, lengthFlags), propertyFlags),
                 ["escape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "escape", Escape, 1, lengthFlags), propertyFlags),
                 ["unescape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unescape", Unescape, 1, lengthFlags), propertyFlags),
-                ["globalThis"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "", GlobalThis, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable),
+                ["globalThis"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "", GlobalThis, 0, lengthFlags), set: null, propertyFlags),
                 ["eval"] = new PropertyDescriptor(_intrinsics.Eval, PropertyFlag.Configurable | PropertyFlag.Writable),
 
                 // toString is not mentioned or actually required in spec, but some tests rely on it

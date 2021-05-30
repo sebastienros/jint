@@ -158,7 +158,11 @@ namespace Jint
             get => ref _executionContexts.Peek();
         }
 
-        public Realm Realm => ExecutionContext.Realm;
+        // temporary state for realm so that we can easily pass it to functions while still not
+        // having a proper execution context established
+        internal Realm _realmInConstruction;
+        
+        public Realm Realm => _realmInConstruction ?? ExecutionContext.Realm;
 
         internal GlobalSymbolRegistry GlobalSymbolRegistry { get; } = new();
 

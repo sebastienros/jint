@@ -24,7 +24,7 @@ namespace Jint.Native.Function
         internal JsValue _homeObject = Undefined;
         internal ConstructorKind _constructorKind = ConstructorKind.Base;
 
-        private readonly Realm _realm;
+        internal Realm _realm;
         private PrivateEnvironmentRecord  _privateEnvironment;
 
         internal FunctionInstance(
@@ -36,7 +36,6 @@ namespace Jint.Native.Function
         {
             _functionDefinition = function;
             _environment = scope;
-            _realm = engine.ExecutionContext.Realm;
         }
 
         internal FunctionInstance(
@@ -50,6 +49,7 @@ namespace Jint.Native.Function
             {
                 _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
             }
+            _realm = engine.Realm;
             _thisMode = thisMode;
         }
 

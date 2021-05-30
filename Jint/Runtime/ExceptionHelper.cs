@@ -9,16 +9,16 @@ namespace Jint.Runtime
 {
     internal static class ExceptionHelper
     {
-        public static T ThrowSyntaxError<T>(Engine engine, string message = null)
+        public static T ThrowSyntaxError<T>(Realm realm, string message = null)
         {
-            ThrowSyntaxError(engine, message);
+            ThrowSyntaxError(realm, message);
             return default;
         }
 
         [DoesNotReturn]
-        public static void ThrowSyntaxError(Engine engine, string message = null)
+        public static void ThrowSyntaxError(Realm realm, string message = null)
         {
-            throw new JavaScriptException(engine.Realm.Intrinsics.SyntaxError, message);
+            throw new JavaScriptException(realm.Intrinsics.SyntaxError, message);
         }
 
         public static T ThrowArgumentException<T>(string message = null)
@@ -40,16 +40,16 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowReferenceError(Engine engine, Reference reference)
+        public static void ThrowReferenceError(Realm realm, Reference reference)
         {
-            ThrowReferenceError(engine, reference?.GetReferencedName()?.ToString());
+            ThrowReferenceError(realm, reference?.GetReferencedName()?.ToString());
         }
 
         [DoesNotReturn]
-        public static void ThrowReferenceError(Engine engine, string name)
+        public static void ThrowReferenceError(Realm realm, string name)
         {
             var message = name != null ? name + " is not defined" : null;
-            throw new JavaScriptException(engine.Realm.Intrinsics.ReferenceError, message);
+            throw new JavaScriptException(realm.Intrinsics.ReferenceError, message);
         }
 
         public static T ThrowTypeErrorNoEngine<T>(string message = null, Exception exception = null)
@@ -57,38 +57,38 @@ namespace Jint.Runtime
             throw new TypeErrorException(message);
         }
 
-        public static T ThrowReferenceError<T>(Engine engine, string message = null)
+        public static T ThrowReferenceError<T>(Realm realm, string message = null)
         {
-            throw new JavaScriptException(engine.Realm.Intrinsics.ReferenceError, message);
+            throw new JavaScriptException(realm.Intrinsics.ReferenceError, message);
         }
 
-        public static T ThrowTypeError<T>(Engine engine, string message = null, Exception exception = null)
+        public static T ThrowTypeError<T>(Realm realm, string message = null, Exception exception = null)
         {
-            ThrowTypeError(engine, message, exception);
+            ThrowTypeError(realm, message, exception);
             return default;
         }
 
         [DoesNotReturn]
-        public static void ThrowTypeError(Engine engine, string message = null, Exception exception = null)
+        public static void ThrowTypeError(Realm realm, string message = null, Exception exception = null)
         {
-            throw new JavaScriptException(engine.Realm.Intrinsics.TypeError, message, exception);
+            throw new JavaScriptException(realm.Intrinsics.TypeError, message, exception);
         }
 
-        public static T ThrowRangeError<T>(Engine engine, string message = null)
+        public static T ThrowRangeError<T>(Realm realm, string message = null)
         {
-            throw new JavaScriptException(engine.Realm.Intrinsics.RangeError, message);
-        }
-
-        [DoesNotReturn]
-        public static void ThrowRangeError(Engine engine, string message = null)
-        {
-            throw new JavaScriptException(engine.Realm.Intrinsics.RangeError, message);
+            throw new JavaScriptException(realm.Intrinsics.RangeError, message);
         }
 
         [DoesNotReturn]
-        public static void ThrowUriError(Engine engine)
+        public static void ThrowRangeError(Realm realm, string message = null)
         {
-            throw new JavaScriptException(engine.Realm.Intrinsics.UriError);
+            throw new JavaScriptException(realm.Intrinsics.RangeError, message);
+        }
+
+        [DoesNotReturn]
+        public static void ThrowUriError(Realm realm)
+        {
+            throw new JavaScriptException(realm.Intrinsics.UriError);
         }
 
         [DoesNotReturn]

@@ -49,6 +49,8 @@ namespace Jint
         public Realm CreateRealm()
         {
             var realmRec = new Realm();
+            Engine._realmInConstruction = realmRec;
+
             CreateIntrinsics(realmRec);
             
             var globalObject = CreateGlobalObject(realmRec);
@@ -57,6 +59,8 @@ namespace Jint
             realmRec.GlobalEnv = globalEnv;
             realmRec.GlobalObject = globalObject;
             
+            Engine._realmInConstruction = null;
+
             return realmRec;
         }
 
