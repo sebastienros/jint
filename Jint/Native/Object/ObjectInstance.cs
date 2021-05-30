@@ -1260,11 +1260,10 @@ namespace Jint.Native.Object
                         }
                         else
                         {
-                            array.SetIndexValue(index, _engine.Array.Construct(new[]
-                            {
-                                property,
-                                value
-                            }), updateLength: false);
+                            var objectInstance = _engine.Array.ConstructFast(2);
+                            objectInstance.SetIndexValue(0,  property, updateLength: false);
+                            objectInstance.SetIndexValue(1, value, updateLength: false);
+                            array.SetIndexValue(index, objectInstance, updateLength: false);
                         }
                     }
 

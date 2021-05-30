@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native.Object;
@@ -600,14 +599,6 @@ namespace Jint.Native.Json
             return node;
         }
 
-        public ObjectInstance CreateArrayInstance(IEnumerable<JsValue> values)
-        {
-            var jsValues = values.ToArray();
-            var jsArray = _engine.Array.Construct(jsValues.Length);
-            _engine.Array.PrototypeObject.Push(jsArray, jsValues);
-            return jsArray;
-        }
-
         // Throw an exception
 
         private void ThrowError(Token token, string messageFormat, params object[] arguments)
@@ -693,7 +684,7 @@ namespace Jint.Native.Json
 
             Expect("]");
 
-            return CreateArrayInstance(elements);
+            return _engine.Array.ConstructFast(elements);
         }
 
         public ObjectInstance ParseJsonObject()

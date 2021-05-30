@@ -3,7 +3,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Collections;
-using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.Symbol;
@@ -335,7 +334,6 @@ namespace Jint.Native.String
 
             // Coerce into a number, true will become 1
             var lim = limit.IsUndefined() ? uint.MaxValue : TypeConverter.ToUint32(limit);
-            var len = s.Length;
 
             if (lim == 0)
             {
@@ -348,10 +346,8 @@ namespace Jint.Native.String
             }
             else if (separator.IsUndefined())
             {
-                var jsValues = _engine._jsValueArrayPool.RentArray(1);
-                jsValues[0] = s;
-                var arrayInstance = (ArrayInstance)Engine.Array.Construct(jsValues);
-                _engine._jsValueArrayPool.ReturnArray(jsValues);
+                var arrayInstance = Engine.Array.ConstructFast(1);
+                arrayInstance.SetIndexValue(0, s, updateLength: false);
                 return arrayInstance;
             }
             else

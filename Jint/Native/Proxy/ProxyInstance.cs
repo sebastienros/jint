@@ -40,7 +40,7 @@ namespace Jint.Native.Proxy
 
         public JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            var jsValues = new[] { _target, thisObject, _engine.Array.Construct(arguments) };
+            var jsValues = new[] { _target, thisObject, _engine.Array.ConstructFast(arguments) };
             if (TryCallHandler(TrapApply, jsValues, out var result))
             {
                 return result;

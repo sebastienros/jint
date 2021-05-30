@@ -381,6 +381,16 @@ namespace Jint.Native.Array
             return jsArray;
         }
 
+        public ArrayInstance ConstructFast(JsValue[] contents)
+        {
+            var instance = ConstructFast((ulong) contents.Length);
+            for (var i = 0; i < contents.Length; i++)
+            {
+                instance.SetIndexValue((uint) i, contents[i], updateLength: false);
+            }
+            return instance;
+        }
+
         internal ArrayInstance ConstructFast(List<JsValue> contents)
         {
             var instance = ConstructFast((ulong) contents.Count);
