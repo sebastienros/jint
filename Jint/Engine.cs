@@ -24,6 +24,8 @@ using Jint.Native.RegExp;
 using Jint.Native.Set;
 using Jint.Native.String;
 using Jint.Native.Symbol;
+using Jint.Native.WeakMap;
+using Jint.Native.WeakSet;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.CallStack;
@@ -161,6 +163,8 @@ namespace Jint
             Array = ArrayConstructor.CreateArrayConstructor(this);
             Map = MapConstructor.CreateMapConstructor(this);
             Set = SetConstructor.CreateSetConstructor(this);
+            WeakMap = WeakMapConstructor.CreateWeakMapConstructor(this);
+            WeakSet = WeakSetConstructor.CreateWeakSetConstructor(this);
             Promise = PromiseConstructor.CreatePromiseConstructor(this);
             Iterator = IteratorConstructor.CreateIteratorConstructor(this);
             String = StringConstructor.CreateStringConstructor(this);
@@ -220,6 +224,8 @@ namespace Jint
         public ArrayConstructor Array { get; }
         public MapConstructor Map { get; }
         public SetConstructor Set { get; }
+        public WeakMapConstructor WeakMap { get; }
+        public WeakSetConstructor WeakSet { get; }
         public PromiseConstructor Promise { get; }
         public IteratorConstructor Iterator { get; }
         public StringConstructor String { get; }
