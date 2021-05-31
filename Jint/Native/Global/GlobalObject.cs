@@ -31,7 +31,7 @@ namespace Jint.Native.Global
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            var properties = new PropertyDictionary(40, checkExistingKeys: false)
+            var properties = new PropertyDictionary(42, checkExistingKeys: false)
             {
                 ["Object"] = new PropertyDescriptor(Engine.Object, propertyFlags),
                 ["Function"] = new PropertyDescriptor(Engine.Function, propertyFlags),
@@ -39,6 +39,8 @@ namespace Jint.Native.Global
                 ["Array"] = new PropertyDescriptor(Engine.Array, propertyFlags),
                 ["Map"] = new PropertyDescriptor(Engine.Map, propertyFlags),
                 ["Set"] = new PropertyDescriptor(Engine.Set, propertyFlags),
+                ["WeakMap"] = new PropertyDescriptor(Engine.WeakMap, propertyFlags),
+                ["WeakSet"] = new PropertyDescriptor(Engine.WeakSet, propertyFlags),
                 ["Promise"] = new PropertyDescriptor(Engine.Promise, propertyFlags),
                 ["String"] = new PropertyDescriptor(Engine.String, propertyFlags),
                 ["RegExp"] = new PropertyDescriptor(Engine.RegExp, propertyFlags),
