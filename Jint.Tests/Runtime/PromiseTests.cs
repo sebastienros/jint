@@ -504,7 +504,11 @@ namespace Jint.Tests.Runtime
         public void PromiseRegression_SingleElementArrayWithClrDictionaryInPromiseAll()
         {
             var engine = new Engine();
-            var dictionary = new Dictionary<string, object>() { { "Value 1", 1 }, { "Value 2", "a string" } };
+            var dictionary = new Dictionary<string, object>
+            {
+                { "Value 1", 1 },
+                { "Value 2", "a string" }
+            };
             engine.SetValue("clrDictionary", dictionary);
 
             var resultAsObject = engine
