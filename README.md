@@ -39,7 +39,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ❌ Generators
 - ❌ Unicode
 - ❌ Modules and module loaders
-- ❌ Weakmap and Weakset
+- ✔ Weakmap and Weakset
 - ✔ Promises (Experimental, API is unstable)
 - ❌ Tail calls
 

@@ -29,7 +29,7 @@ namespace Jint.Native.WeakMap
 
             obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
 
-            // The initial value of Map.prototype is the Map prototype object
+            // The initial value of WeakMap.prototype is the WeakMap prototype object
             obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;

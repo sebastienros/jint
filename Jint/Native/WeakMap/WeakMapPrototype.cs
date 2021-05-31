@@ -1,5 +1,6 @@
 ﻿using Jint.Collections;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -7,7 +8,7 @@ using Jint.Runtime.Interop;
 namespace Jint.Native.WeakMap
 {
     /// <summary>
-    /// https://262.ecma-international.org/11.0/#sec-weakmap-objects
+    /// https://tc39.es/ecma262/#sec-weakmap-objects
     /// </summary>
     public sealed class WeakMapPrototype : ObjectInstance
     {
@@ -41,6 +42,12 @@ namespace Jint.Native.WeakMap
                 ["set"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "set", Set, 2, PropertyFlag.Configurable), propertyFlags),
             };
             SetProperties(properties);
+
+            var symbols = new SymbolDictionary(1)
+            {
+                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("WeakMap", false, false, true)
+            };
+            SetSymbols(symbols);
         }
 
         private JsValue Get(JsValue thisObj, JsValue[] arguments)

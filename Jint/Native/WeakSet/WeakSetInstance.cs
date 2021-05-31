@@ -2,7 +2,6 @@
 
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.WeakSet
 {
@@ -15,16 +14,6 @@ namespace Jint.Native.WeakSet
         public WeakSetInstance(Engine engine) : base(engine)
         {
             _table = new ConditionalWeakTable<JsValue, object>();
-        }
-
-        public override PropertyDescriptor GetOwnProperty(JsValue property)
-        {
-            return base.GetOwnProperty(property);
-        }
-
-        protected override bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
-        {
-            return base.TryGetProperty(property, out descriptor);
         }
 
         internal bool WeakSetHas(JsValue value)
@@ -40,7 +29,9 @@ namespace Jint.Native.WeakSet
         internal void WeakSetAdd(JsValue value)
         {
             if (value.IsPrimitive())
+            {
                 ExceptionHelper.ThrowTypeError(_engine, "WeakSet value must be an object, got " + value.ToString());
+            }
 
 #if NETSTANDARD2_1
             _table.AddOrUpdate(value, _tableValue);

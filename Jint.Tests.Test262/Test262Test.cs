@@ -314,19 +314,7 @@ namespace Jint.Tests.Test262
                     skip = true;
                     reason = "TypedArray not implemented";
                 }
-
-                if (name.StartsWith("language/statements/class/subclass/builtin-objects/WeakMap"))
-                {
-                    skip = true;
-                    reason = "WeakMap not implemented";
-                }
-
-                if (name.StartsWith("language/statements/class/subclass/builtin-objects/WeakSet"))
-                {
-                    skip = true;
-                    reason = "WeakSet not implemented";
-                }
-
+                
                 if (name.StartsWith("language/statements/class/subclass/builtin-objects/ArrayBuffer/"))
                 {
                     skip = true;

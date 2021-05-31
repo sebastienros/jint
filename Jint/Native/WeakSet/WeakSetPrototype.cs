@@ -1,5 +1,6 @@
 ﻿using Jint.Collections;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -7,7 +8,7 @@ using Jint.Runtime.Interop;
 namespace Jint.Native.WeakSet
 {
     /// <summary>
-    /// https://262.ecma-international.org/11.0/#sec-weakset-objects
+    /// https://tc39.es/ecma262/#sec-weakset-objects
     /// </summary>
     public sealed class WeakSetPrototype : ObjectInstance
     {
@@ -40,6 +41,12 @@ namespace Jint.Native.WeakSet
                 ["has"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), propertyFlags),
             };
             SetProperties(properties);
+
+            var symbols = new SymbolDictionary(1)
+            {
+                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("WeakSet", false, false, true)
+            };
+            SetSymbols(symbols);
         }
 
         private JsValue Add(JsValue thisObj, JsValue[] arguments)
