@@ -52,7 +52,7 @@ namespace Jint.Native.Function
                 body = TypeConverter.ToString(arguments[argCount-1]);
             }
 
-            IFunction function;
+            IFunction function = null;
             try
             {
                 string functionExpression;
@@ -91,18 +91,18 @@ namespace Jint.Native.Function
             }
             catch (ParserException)
             {
-                return ExceptionHelper.ThrowSyntaxError<ObjectInstance>(_engine);
+                ExceptionHelper.ThrowSyntaxError(_realm);
             }
 
             var functionObject = new ScriptFunctionInstance(
                 Engine,
                 function,
-                _realm.GlobalEnv, 
+                _realm.GlobalEnv,
                 function.Strict)
             {
                 _realm = _realm
             };
-            
+
             functionObject.MakeConstructor();
 
             // the function is not actually a named function
@@ -119,9 +119,9 @@ namespace Jint.Native.Function
             var functionObject = new ScriptFunctionInstance(
                 Engine,
                 functionDeclaration,
-                env, 
+                env,
                 functionDeclaration.Strict || _engine._isStrict);
-            
+
             functionObject.MakeConstructor();
 
             return functionObject;

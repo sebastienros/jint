@@ -8,7 +8,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class JintTaggedTemplateExpression : JintExpression
     {
         internal static  readonly JsString PropertyRaw = new JsString("raw");
-        
+
         private readonly TaggedTemplateExpression _taggedTemplateExpression;
         private JintExpression _tagIdentifier;
         private JintTemplateLiteralExpression _quasi;
@@ -28,12 +28,15 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            var tagger = _engine.GetValue(_tagIdentifier.GetValue()) as ICallable
-                         ?? ExceptionHelper.ThrowTypeError<ICallable>(_engine, "Argument must be callable");
+            var tagger = _engine.GetValue(_tagIdentifier.GetValue()) as ICallable;
+            if (tagger is null)
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Argument must be callable");
+            }
 
             var expressions = _quasi._expressions;
 
-            var args = _engine._jsValueArrayPool.RentArray((expressions.Length + 1));
+            var args = _engine._jsValueArrayPool.RentArray(expressions.Length + 1);
 
             var template = GetTemplateObject();
             args[0] = template;

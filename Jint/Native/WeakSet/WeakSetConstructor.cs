@@ -22,7 +22,7 @@ namespace Jint.Native.WeakSet
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            ExceptionHelper.ThrowTypeError(_engine, "Constructor WeakSet requires 'new'");
+            ExceptionHelper.ThrowTypeError(_realm, "Constructor WeakSet requires 'new'");
             return null;
         }
 
@@ -30,16 +30,19 @@ namespace Jint.Native.WeakSet
         {
             if (newTarget.IsUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var set = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, _) => new WeakSetInstance(engine));
+            var set = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.WeakSet.PrototypeObject,
+                static (engine, _) => new WeakSetInstance(engine));
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
-                var adderValue = set.Get("add");
-                if (!(adderValue is ICallable adder))
+                var adder = set.Get("add") as ICallable;
+                if (adder is null)
                 {
-                    return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "add must be callable");
+                    ExceptionHelper.ThrowTypeError(_realm, "add must be callable");
                 }
 
                 var iterable = arguments.At(0).GetIterator(_engine);

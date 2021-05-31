@@ -36,7 +36,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (instance is null || !instance.TryGetIterator(_engine, out iterator))
             {
                 iterator = null;
-                ExceptionHelper.ThrowTypeError(_engine, _argumentName + " is not iterable");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, _argumentName + " is not iterable");
             }
         }
     }

@@ -438,7 +438,7 @@ namespace Jint.Native.Global
                 {
                     if (c >= 0xDC00 && c <= 0xDBFF)
                     {
-                        ExceptionHelper.ThrowUriError(_engine);
+                        ExceptionHelper.ThrowUriError(_engine.Realm);
                     }
 
                     int v;
@@ -451,13 +451,13 @@ namespace Jint.Native.Global
                         k++;
                         if (k == strLen)
                         {
-                            ExceptionHelper.ThrowUriError(_engine);
+                            ExceptionHelper.ThrowUriError(_engine.Realm);
                         }
 
                         var kChar = (int)uriString[k];
                         if (kChar < 0xDC00 || kChar > 0xDFFF)
                         {
-                            ExceptionHelper.ThrowUriError(_engine);
+                            ExceptionHelper.ThrowUriError(_engine.Realm);
                         }
 
                         v = (c - 0xD800) * 0x400 + (kChar - 0xDC00) + 0x10000;
@@ -491,7 +491,7 @@ namespace Jint.Native.Global
                     }
                     else if (v <= 0xDFFF)
                     {
-                        ExceptionHelper.ThrowUriError(_engine);
+                        ExceptionHelper.ThrowUriError(_engine.Realm);
                     }
                     else if (v <= 0xFFFF)
                     {
@@ -561,12 +561,12 @@ namespace Jint.Native.Global
                     var start = k;
                     if (k + 2 >= strLen)
                     {
-                        ExceptionHelper.ThrowUriError(_engine);
+                        ExceptionHelper.ThrowUriError(_engine.Realm);
                     }
 
                     if (!IsValidHexaChar(uriString[k + 1]) || !IsValidHexaChar(uriString[k + 2]))
                     {
-                        ExceptionHelper.ThrowUriError(_engine);
+                        ExceptionHelper.ThrowUriError(_engine.Realm);
                     }
 
                     var B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
@@ -591,7 +591,7 @@ namespace Jint.Native.Global
 
                         if (n == 1 || n > 4)
                         {
-                            ExceptionHelper.ThrowUriError(_engine);
+                            ExceptionHelper.ThrowUriError(_engine.Realm);
                         }
 
                         octets = octets.Length == n
@@ -602,7 +602,7 @@ namespace Jint.Native.Global
 
                         if (k + (3 * (n - 1)) >= strLen)
                         {
-                            ExceptionHelper.ThrowUriError(_engine);
+                            ExceptionHelper.ThrowUriError(_engine.Realm);
                         }
 
                         for (var j = 1; j < n; j++)
@@ -610,12 +610,12 @@ namespace Jint.Native.Global
                             k++;
                             if (uriString[k] != '%')
                             {
-                                ExceptionHelper.ThrowUriError(_engine);
+                                ExceptionHelper.ThrowUriError(_engine.Realm);
                             }
 
                             if (!IsValidHexaChar(uriString[k + 1]) || !IsValidHexaChar(uriString[k + 2]))
                             {
-                                ExceptionHelper.ThrowUriError(_engine);
+                                ExceptionHelper.ThrowUriError(_engine.Realm);
                             }
 
                             B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
@@ -623,7 +623,7 @@ namespace Jint.Native.Global
                             // B & 11000000 != 10000000
                             if ((B & 0xC0) != 0x80)
                             {
-                                ExceptionHelper.ThrowUriError(_engine);
+                                ExceptionHelper.ThrowUriError(_engine.Realm);
                             }
 
                             k += 2;
@@ -728,7 +728,7 @@ namespace Jint.Native.Global
         {
             if (!DefineOwnProperty(property, desc))
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             return true;

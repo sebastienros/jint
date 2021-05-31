@@ -90,7 +90,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected internal static JintExpression Build(Engine engine, Expression expression)
         {
-            return expression.Type switch
+            var result = expression.Type switch
             {
                 Nodes.AssignmentExpression => JintAssignmentExpression.Build(engine, (AssignmentExpression) expression),
                 Nodes.ArrayExpression => new JintArrayExpression(engine, (ArrayExpression) expression),
@@ -106,7 +106,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     BinaryOperator.LogicalAnd => new JintLogicalAndExpression(engine, (BinaryExpression) expression),
                     BinaryOperator.LogicalOr => new JintLogicalOrExpression(engine, (BinaryExpression) expression),
                     BinaryOperator.NullishCoalescing => new NullishCoalescingExpression(engine, (BinaryExpression) expression),
-                    _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>()
+                    _ => null
                 },
                 Nodes.MemberExpression => new JintMemberExpression(engine, (MemberExpression) expression),
                 Nodes.NewExpression => new JintNewExpression(engine, (NewExpression) expression),
@@ -124,8 +124,15 @@ namespace Jint.Runtime.Interpreter.Expressions
                 Nodes.ChainExpression => ((ChainExpression) expression).Expression.Type == Nodes.CallExpression
                     ? new JintCallExpression(engine, (CallExpression) ((ChainExpression) expression).Expression)
                     : new JintMemberExpression(engine, (MemberExpression) ((ChainExpression) expression).Expression),
-                _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JintExpression>(nameof(expression), $"unsupported expression type '{expression.Type}'")
+                _ =>  null
             };
+
+            if (result is null)
+            {
+                ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(expression), $"unsupported expression type '{expression.Type}'");
+            }
+
+            return result;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

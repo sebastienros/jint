@@ -85,7 +85,7 @@ namespace Jint
         internal static Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> ReflectionAccessors = new();
 
         internal readonly JintCallStack CallStack;
-        
+
         // needed in initial engine setup, for example CLR function construction
         internal Intrinsics _originalIntrinsics;
         internal Host _host;
@@ -161,7 +161,7 @@ namespace Jint
         // temporary state for realm so that we can easily pass it to functions while still not
         // having a proper execution context established
         internal Realm _realmInConstruction;
-        
+
         public Realm Realm => _realmInConstruction ?? ExecutionContext.Realm;
 
         internal GlobalSymbolRegistry GlobalSymbolRegistry { get; } = new();
@@ -264,7 +264,7 @@ namespace Jint
             CallStack.Clear();
         }
 
-        public JsValue Evaluate(string source) 
+        public JsValue Evaluate(string source)
             => Execute(source, DefaultParserOptions)._completionValue;
 
         public JsValue Evaluate(string source, ParserOptions parserOptions)
@@ -273,10 +273,10 @@ namespace Jint
         public JsValue Evaluate(Script script)
             => Execute(script)._completionValue;
 
-        public Engine Execute(string source) 
+        public Engine Execute(string source)
             => Execute(source, DefaultParserOptions);
 
-        public Engine Execute(string source, ParserOptions parserOptions) 
+        public Engine Execute(string source, ParserOptions parserOptions)
             => Execute(new JavaScriptParser(source, parserOptions).ParseScript());
 
         public Engine Execute(Script script)
@@ -323,7 +323,7 @@ namespace Jint
 
         /// <summary>
         /// EXPERIMENTAL! Subject to change.
-        /// 
+        ///
         /// Registers a promise within the currently running EventLoop (has to be called within "ExecuteWithEventLoop" call).
         /// Note that ExecuteWithEventLoop will not trigger "onFinished" callback until ALL manual promises are settled.
         ///
@@ -335,9 +335,9 @@ namespace Jint
         {
             var promise = new PromiseInstance(this)
             {
-                _prototype = Realm.Intrinsics.Promise.PrototypeObject 
+                _prototype = Realm.Intrinsics.Promise.PrototypeObject
             };
-            
+
             var (resolve, reject) = promise.CreateResolvingFunctions();
 
 
@@ -436,7 +436,7 @@ namespace Jint
                     return val;
                 }
 
-                ExceptionHelper.ThrowReferenceError(this, reference);
+                ExceptionHelper.ThrowReferenceError(Realm, reference);
             }
 
             if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0
@@ -498,13 +498,13 @@ namespace Jint
                 }
             }
 
-            if (baseValue is not EnvironmentRecord record)
+            var record = baseValue as EnvironmentRecord;
+            if (record is null)
             {
-                return ExceptionHelper.ThrowArgumentException<JsValue>();
+                ExceptionHelper.ThrowArgumentException();
             }
 
-            var bindingValue =
-                record.GetBindingValue(reference.GetReferencedName().ToString(), reference.IsStrictReference());
+            var bindingValue = record.GetBindingValue(reference.GetReferencedName().ToString(), reference.IsStrictReference());
 
             if (returnReferenceToPool)
             {
@@ -558,7 +558,7 @@ namespace Jint
             {
                 if (reference.IsStrictReference())
                 {
-                    ExceptionHelper.ThrowReferenceError(this, reference);
+                    ExceptionHelper.ThrowReferenceError(Realm, reference);
                 }
 
                 Realm.GlobalObject.Set(reference.GetReferencedName(), value, throwOnError: false);
@@ -573,7 +573,7 @@ namespace Jint
                 var succeeded = baseValue.Set(reference.GetReferencedName(), value, reference.GetThisValue());
                 if (!succeeded && reference.IsStrictReference())
                 {
-                    ExceptionHelper.ThrowTypeError(this);
+                    ExceptionHelper.ThrowTypeError(Realm);
                 }
             }
             else
@@ -637,8 +637,11 @@ namespace Jint
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(JsValue value, object thisObj, object[] arguments)
         {
-            var callable = value as ICallable ??
-                           ExceptionHelper.ThrowTypeError<ICallable>(this, "Can only invoke functions");
+            var callable = value as ICallable;
+            if (callable is null)
+            {
+                ExceptionHelper.ThrowTypeError(Realm, "Can only invoke functions");
+            }
 
             var items = _jsValueArrayPool.RentArray(arguments.Length);
             for (int i = 0; i < arguments.Length; ++i)
@@ -658,8 +661,11 @@ namespace Jint
         internal JsValue Invoke(JsValue v, JsValue p, JsValue[] arguments)
         {
             var func = GetV(v, p);
-            var callable = func as ICallable ??
-                           ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
+            var callable = func as ICallable;
+            if (callable is null)
+            {
+                ExceptionHelper.ThrowTypeErrorNoEngine("Can only invoke functions");
+            }
             return callable.Call(v, arguments);
         }
 
@@ -762,6 +768,8 @@ namespace Jint
             var declaredFunctionNames = new HashSet<string>();
             var declaredVarNames = new List<string>();
 
+            var realm = Realm;
+
             if (functionDeclarations != null)
             {
                 for (var i = functionDeclarations.Count - 1; i >= 0; i--)
@@ -773,7 +781,7 @@ namespace Jint
                         var fnDefinable = env.CanDeclareGlobalFunction(fn);
                         if (!fnDefinable)
                         {
-                            ExceptionHelper.ThrowTypeError(this);
+                            ExceptionHelper.ThrowTypeError(realm);
                         }
 
                         declaredFunctionNames.Add(fn);
@@ -796,7 +804,7 @@ namespace Jint
 
                         if (env.HasLexicalDeclaration(vn))
                         {
-                            ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{vn}' has already been declared");
+                            ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{vn}' has already been declared");
                         }
 
                         if (!declaredFunctionNames.Contains(vn))
@@ -804,7 +812,7 @@ namespace Jint
                             var vnDefinable = env.CanDeclareGlobalVar(vn);
                             if (!vnDefinable)
                             {
-                                ExceptionHelper.ThrowTypeError(this);
+                                ExceptionHelper.ThrowTypeError(realm);
                             }
 
                             declaredVarNames.Add(vn);
@@ -827,7 +835,7 @@ namespace Jint
                             || env.HasLexicalDeclaration(dn)
                             || env.HasRestrictedGlobalProperty(dn))
                         {
-                            ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{dn}' has already been declared");
+                            ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{dn}' has already been declared");
                         }
 
                         if (d.Kind == VariableDeclarationKind.Const)
@@ -848,7 +856,7 @@ namespace Jint
 
                 if (env.HasLexicalDeclaration(fn))
                 {
-                    ExceptionHelper.ThrowSyntaxError(this, $"Identifier '{fn}' has already been declared");
+                    ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{fn}' has already been declared");
                 }
 
                 var fo = Realm.Intrinsics.Function.InstantiateFunctionObject(f, env);
@@ -953,7 +961,7 @@ namespace Jint
                 }
             }
 
-            // NOTE: Annex B.3.3.1 adds additional steps at this point. 
+            // NOTE: Annex B.3.3.1 adds additional steps at this point.
             // A https://tc39.es/ecma262/#sec-web-compat-functiondeclarationinstantiation
 
             EnvironmentRecord lexEnv;
@@ -1050,6 +1058,8 @@ namespace Jint
             var lexEnvRec = (DeclarativeEnvironmentRecord) lexEnv;
             var varEnvRec = varEnv;
 
+            var realm = Realm;
+
             if (!strict && hoistingScope._variablesDeclarations != null)
             {
                 if (varEnvRec is GlobalEnvironmentRecord globalEnvironmentRecord)
@@ -1061,8 +1071,7 @@ namespace Jint
                         var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
                         if (globalEnvironmentRecord.HasLexicalDeclaration(identifier.Name))
                         {
-                            ExceptionHelper.ThrowSyntaxError(this,
-                                "Identifier '" + identifier.Name + "' has already been declared");
+                            ExceptionHelper.ThrowSyntaxError(realm, "Identifier '" + identifier.Name + "' has already been declared");
                         }
                     }
                 }
@@ -1080,7 +1089,7 @@ namespace Jint
                             var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
                             if (thisEnvRec.HasBinding(identifier.Name))
                             {
-                                ExceptionHelper.ThrowSyntaxError(this);
+                                ExceptionHelper.ThrowSyntaxError(realm);
                             }
                         }
                     }
@@ -1106,7 +1115,7 @@ namespace Jint
                             var fnDefinable = ger.CanDeclareGlobalFunction(fn);
                             if (!fnDefinable)
                             {
-                                ExceptionHelper.ThrowTypeError(this);
+                                ExceptionHelper.ThrowTypeError(realm);
                             }
                         }
 
@@ -1135,7 +1144,7 @@ namespace Jint
                             var vnDefinable = ger.CanDeclareGlobalFunction(vn);
                             if (!vnDefinable)
                             {
-                                ExceptionHelper.ThrowTypeError(this);
+                                ExceptionHelper.ThrowTypeError(realm);
                             }
                         }
 

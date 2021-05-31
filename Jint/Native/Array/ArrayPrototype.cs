@@ -47,7 +47,7 @@ namespace Jint.Native.Array
             unscopables.SetDataProperty("includes", JsBoolean.True);
             unscopables.SetDataProperty("keys", JsBoolean.True);
             unscopables.SetDataProperty("values", JsBoolean.True);
-            
+
             const PropertyFlag propertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
             var properties = new PropertyDictionary(32, checkExistingKeys: false)
             {
@@ -94,7 +94,7 @@ namespace Jint.Native.Array
             };
             SetSymbols(symbols);
         }
-        
+
         private ObjectInstance Keys(JsValue thisObj, JsValue[] arguments)
         {
             if (thisObj is ObjectInstance oi && oi.IsArrayLike)
@@ -102,7 +102,8 @@ namespace Jint.Native.Array
                 return _engine.Realm.Intrinsics.Iterator.ConstructArrayLikeKeyIterator(oi);
             }
 
-            return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "cannot construct iterator");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "cannot construct iterator");
+            return null;
         }
 
         internal ObjectInstance Values(JsValue thisObj, JsValue[] arguments)
@@ -112,7 +113,8 @@ namespace Jint.Native.Array
                 return _engine.Realm.Intrinsics.Iterator.ConstructArrayLikeValueIterator(oi);
             }
 
-            return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "cannot construct iterator");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "cannot construct iterator");
+            return null;
         }
 
         private ObjectInstance Iterator(JsValue thisObj, JsValue[] arguments)
@@ -122,14 +124,15 @@ namespace Jint.Native.Array
                 return _engine.Realm.Intrinsics.Iterator.Construct(oi);
             }
 
-            return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "cannot construct iterator");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "cannot construct iterator");
+            return null;
         }
 
         private JsValue Fill(JsValue thisObj, JsValue[] arguments)
         {
             if (thisObj.IsNullOrUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Cannot convert undefined or null to object");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Cannot convert undefined or null to object");
             }
 
             var operations = ArrayOperations.For(thisObj as ObjectInstance);
@@ -175,7 +178,7 @@ namespace Jint.Native.Array
             // Steps 1-2.
             if (thisObj.IsNullOrUndefined())
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "this is null or not defined");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "this is null or not defined");
             }
 
             JsValue target = arguments.At(0);
@@ -208,7 +211,7 @@ namespace Jint.Native.Array
 
             var direction = 1;
 
-            if (from < to && to < from + count) 
+            if (from < to && to < from + count)
             {
                 direction = -1;
                 from += (uint) count - 1;
@@ -261,8 +264,8 @@ namespace Jint.Native.Array
                 return -1;
             }
 
-            var n = arguments.Length > 1 
-                ? TypeConverter.ToInteger(arguments[1]) 
+            var n = arguments.Length > 1
+                ? TypeConverter.ToInteger(arguments[1])
                 : len - 1;
             double k;
             if (n >= 0)
@@ -315,7 +318,7 @@ namespace Jint.Native.Array
 
             if (len == 0 && arguments.Length < 2)
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             var k = 0;
@@ -339,7 +342,7 @@ namespace Jint.Native.Array
 
                 if (kPresent == false)
                 {
-                    ExceptionHelper.ThrowTypeError(Engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
             }
 
@@ -411,7 +414,7 @@ namespace Jint.Native.Array
 
             if (len > ArrayOperations.MaxArrayLength)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "Invalid array length");;
+                ExceptionHelper.ThrowRangeError(_engine.Realm, "Invalid array length");;
             }
 
             var callbackfn = arguments.At(0);
@@ -459,7 +462,7 @@ namespace Jint.Native.Array
             FlattenIntoArray(A, O, sourceLen, 0, depthNum);
             return A;
         }
-        
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.flatmap
         /// </summary>
@@ -468,14 +471,14 @@ namespace Jint.Native.Array
             var O = TypeConverter.ToObject(_engine, thisObj);
             var mapperFunction = arguments.At(0);
             var thisArg = arguments.At(1);
-            
+
             var sourceLen = O.Length;
 
             if (!mapperFunction.IsCallable)
             {
-                ExceptionHelper.ThrowTypeError(_engine, "flatMap mapper function is not callable");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "flatMap mapper function is not callable");
             }
-            
+
             var A = _engine.Realm.Intrinsics.Array.ArraySpeciesCreate(O, 0);
             FlattenIntoArray(A, O, sourceLen, 0, 1, (ICallable) mapperFunction, thisArg);
             return A;
@@ -488,8 +491,8 @@ namespace Jint.Native.Array
             ObjectInstance target,
             ObjectInstance source,
             uint sourceLen,
-            long start, 
-            double depth, 
+            long start,
+            double depth,
             ICallable mapperFunction = null,
             JsValue thisArg = null)
         {
@@ -537,7 +540,7 @@ namespace Jint.Native.Array
                     {
                         if (targetIndex >= NumberConstructor.MaxSafeInteger)
                         {
-                            ExceptionHelper.ThrowTypeError(_engine);
+                            ExceptionHelper.ThrowTypeError(_engine.Realm);
                         }
 
                         target.CreateDataPropertyOrThrow(targetIndex, element);
@@ -601,7 +604,7 @@ namespace Jint.Native.Array
                 : n;
 
             var k = (ulong) System.Math.Max(
-                n >= 0 
+                n >= 0
                     ? n
                     : len - System.Math.Abs(n), 0);
 
@@ -672,7 +675,7 @@ namespace Jint.Native.Array
             }
 
             var startIndex = arguments.Length > 1
-                ? TypeConverter.ToNumber(arguments[1]) 
+                ? TypeConverter.ToNumber(arguments[1])
                 : 0;
 
             if (startIndex > uint.MaxValue)
@@ -791,7 +794,7 @@ namespace Jint.Native.Array
 
             if (len + insertCount - actualDeleteCount > ArrayOperations.MaxArrayLikeLength)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid array length");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid array length");
             }
 
             var instance = Engine.Realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), actualDeleteCount);
@@ -867,7 +870,7 @@ namespace Jint.Native.Array
 
             if (len + argCount > ArrayOperations.MaxArrayLikeLength)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid array length");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid array length");
             }
 
             o.EnsureCapacity(len + argCount);
@@ -899,7 +902,7 @@ namespace Jint.Native.Array
         {
             if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Array.prorotype.sort can only be applied on objects");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Array.prorotype.sort can only be applied on objects");
             }
 
             var obj = ArrayOperations.For(thisObj.AsObject());
@@ -910,7 +913,7 @@ namespace Jint.Native.Array
             {
                 if (compareArg.IsNull() || !(compareArg is ICallable))
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, "The comparison function must be either a function or undefined");
+                    ExceptionHelper.ThrowTypeError(_engine.Realm, "The comparison function must be either a function or undefined");
                 }
 
                 compareFn = (ICallable) compareArg;
@@ -920,7 +923,7 @@ namespace Jint.Native.Array
             if (len <= 1)
             {
                 return obj.Target;
-            }            
+            }
 
             // don't eat inner exceptions
             try
@@ -986,7 +989,7 @@ namespace Jint.Native.Array
 
             if (k < final && final - k > ArrayOperations.MaxArrayLength)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "Invalid array length");;
+                ExceptionHelper.ThrowRangeError(_engine.Realm, "Invalid array length");;
             }
 
             var length = (uint) System.Math.Max(0, (long) final - (long) k);
@@ -1057,7 +1060,7 @@ namespace Jint.Native.Array
 
                 var upperExists = o.HasProperty(upper);
                 var upperValue = upperExists ? o.Get(upper) : null;
-                
+
                 if (lowerExists && upperExists)
                 {
                     o.Set(lower, upperValue, updateLength: true, throwOnError: true);
@@ -1144,7 +1147,11 @@ namespace Jint.Native.Array
             else
             {
                 var elementObj = TypeConverter.ToObject(Engine, firstElement);
-                var func = elementObj.Get("toLocaleString", elementObj) as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(_engine);
+                var func = elementObj.Get("toLocaleString", elementObj) as ICallable;
+                if (func is null)
+                {
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
+                }
 
                 r = func.Call(elementObj, Arguments.Empty);
             }
@@ -1159,7 +1166,11 @@ namespace Jint.Native.Array
                 else
                 {
                     var elementObj = TypeConverter.ToObject(Engine, nextElement);
-                    var func = elementObj.Get("toLocaleString", elementObj) as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(_engine);
+                    var func = elementObj.Get("toLocaleString", elementObj) as ICallable;
+                    if (func is null)
+                    {
+                        ExceptionHelper.ThrowTypeError(_engine.Realm);
+                    }
                     r = func.Call(elementObj, Arguments.Empty);
                 }
 
@@ -1203,7 +1214,7 @@ namespace Jint.Native.Array
 
             if (capacity > NumberConstructor.MaxSafeInteger)
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Invalid array length");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid array length");
             }
 
             uint n = 0;
@@ -1220,7 +1231,7 @@ namespace Jint.Native.Array
                     n += eArray.GetLength();
                 }
                 else if (hasObjectSpreadables
-                         && e is ObjectInstance oi 
+                         && e is ObjectInstance oi
                          && oi.IsConcatSpreadable)
                 {
                     var operations = ArrayOperations.For(oi);
@@ -1274,7 +1285,7 @@ namespace Jint.Native.Array
 
             if (len == 0 && arguments.Length < 2)
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             long k = (long) (len - 1);
@@ -1298,7 +1309,7 @@ namespace Jint.Native.Array
 
                 if (kPresent == false)
                 {
-                    ExceptionHelper.ThrowTypeError(Engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
             }
 
@@ -1330,7 +1341,7 @@ namespace Jint.Native.Array
 
             if (n + (ulong) arguments.Length > ArrayOperations.MaxArrayLikeLength)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid array length");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid array length");
             }
 
             // cast to double as we need to prevent an overflow
@@ -1396,7 +1407,7 @@ namespace Jint.Native.Array
                     {
                         return 0;
                     }
-                    
+
                     return 1;
                 }
                 else

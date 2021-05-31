@@ -45,7 +45,7 @@ namespace Jint.Native.Promise
     {
         internal PromiseState State { get; private set; }
 
-        // valid only in settled state (Fulfilled or Rejected) 
+        // valid only in settled state (Fulfilled or Rejected)
         internal JsValue Value { get; private set; }
 
         internal List<PromiseReaction> PromiseRejectReactions = new();
@@ -95,8 +95,7 @@ namespace Jint.Native.Promise
 
             if (result == this)
             {
-                ExceptionHelper.ThrowTypeError(_engine,
-                    "Cannot resolve Promise with itself");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Cannot resolve Promise with itself");
                 return Undefined;
             }
 

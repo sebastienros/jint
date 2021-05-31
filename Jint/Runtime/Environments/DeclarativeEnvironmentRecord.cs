@@ -53,7 +53,7 @@ namespace Jint.Runtime.Environments
             _hasBindings = true;
             _dictionary[name] = new Binding(null, canBeDeleted, mutable: true, strict: false);
         }
-        
+
         public sealed override void CreateImmutableBinding(string name, bool strict = true)
         {
             _hasBindings = true;
@@ -79,7 +79,7 @@ namespace Jint.Runtime.Environments
             {
                 if (strict)
                 {
-                    ExceptionHelper.ThrowReferenceError(_engine, key);
+                    ExceptionHelper.ThrowReferenceError(_engine.Realm, key);
                 }
                 CreateMutableBindingAndInitialize(key, canBeDeleted: true, value);
                 return;
@@ -93,9 +93,9 @@ namespace Jint.Runtime.Environments
             // Is it an uninitialized binding?
             if (!binding.IsInitialized())
             {
-                ExceptionHelper.ThrowReferenceError<object>(_engine, message: "Cannot access '" +  key + "' before initialization");
+                ExceptionHelper.ThrowReferenceError(_engine.Realm, "Cannot access '" +  key + "' before initialization");
             }
-            
+
             if (binding.Mutable)
             {
                 _hasBindings = true;
@@ -105,7 +105,7 @@ namespace Jint.Runtime.Environments
             {
                 if (strict)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, "Assignment to constant variable.");
+                    ExceptionHelper.ThrowTypeError(_engine.Realm, "Assignment to constant variable.");
                 }
             }
         }
@@ -154,7 +154,7 @@ namespace Jint.Runtime.Environments
 
             return true;
         }
-        
+
         public override bool HasThisBinding() => false;
 
         public override bool HasSuperBinding() => false;

@@ -267,7 +267,7 @@ namespace Jint.Native.Function
             {
                 if (proxyInstance._handler is null)
                 {
-                    ExceptionHelper.ThrowTypeErrorNoEngine<object>();
+                    ExceptionHelper.ThrowTypeErrorNoEngine();
                 }
 
                 return GetFunctionRealm(proxyInstance._target);
@@ -342,7 +342,7 @@ namespace Jint.Native.Function
             var callerContext = _engine.ExecutionContext;
 
             var localEnv = JintEnvironment.NewFunctionEnvironment(_engine, this, newTarget);
-            
+
             var calleeContext = new ExecutionContext(
                 localEnv,
                 localEnv,

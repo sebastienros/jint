@@ -107,7 +107,7 @@ namespace Jint.Runtime
 
                 if (str.IsObject())
                 {
-                    return ExceptionHelper.ThrowTypeError<JsValue>(oi.Engine, "Cannot convert object to primitive value");
+                    ExceptionHelper.ThrowTypeError(oi.Engine.Realm, "Cannot convert object to primitive value");
                 }
             }
 
@@ -134,7 +134,8 @@ namespace Jint.Runtime
             }
             else
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(input.Engine);
+                ExceptionHelper.ThrowTypeError(input.Engine.Realm);
+                return null;
             }
 
             if (input.Get(property1) is ICallable method1)
@@ -155,7 +156,8 @@ namespace Jint.Runtime
                 }
             }
 
-            return ExceptionHelper.ThrowTypeError<JsValue>(input.Engine);
+            ExceptionHelper.ThrowTypeError(input.Engine.Realm);
+            return null;
         }
 
         /// <summary>
@@ -197,18 +199,26 @@ namespace Jint.Runtime
         private static double ToNumberUnlikely(JsValue o)
         {
             var type = o._type & ~InternalTypes.InternalFlags;
-            return type switch
+
+            switch (type)
             {
-                InternalTypes.Undefined => double.NaN,
-                InternalTypes.Null => 0,
-                InternalTypes.Object when o is IPrimitiveInstance p => ToNumber(ToPrimitive(p.PrimitiveValue, Types.Number)),
-                InternalTypes.Boolean => (((JsBoolean) o)._value ? 1 : 0),
-                InternalTypes.String => ToNumber(o.ToString()),
-                InternalTypes.Symbol =>
-                // TODO proper TypeError would require Engine instance and a lot of API changes
-                ExceptionHelper.ThrowTypeErrorNoEngine<double>("Cannot convert a Symbol value to a number"),
-                _ => ToNumber(ToPrimitive(o, Types.Number))
-            };
+                case InternalTypes.Undefined:
+                    return double.NaN;
+                case InternalTypes.Null:
+                    return 0;
+                case InternalTypes.Object when o is IPrimitiveInstance p:
+                    return ToNumber(ToPrimitive(p.PrimitiveValue, Types.Number));
+                case InternalTypes.Boolean:
+                    return (((JsBoolean)o)._value ? 1 : 0);
+                case InternalTypes.String:
+                    return ToNumber(o.ToString());
+                case InternalTypes.Symbol:
+                    // TODO proper TypeError would require Engine instance and a lot of API changes
+                    ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a Symbol value to a number");
+                    return 0;
+                default:
+                    return ToNumber(ToPrimitive(o, Types.Number));
+            }
         }
 
         private static double ToNumber(string input)
@@ -546,18 +556,28 @@ namespace Jint.Runtime
         private static string ToStringNonString(JsValue o)
         {
             var type = o._type & ~InternalTypes.InternalFlags;
-            return type switch
+            switch (type)
             {
-                InternalTypes.Boolean => ((JsBoolean) o)._value ? "true" : "false",
-                InternalTypes.Integer => ToString((int) ((JsNumber) o)._value),
-                InternalTypes.Number => ToString(((JsNumber) o)._value),
-                InternalTypes.Symbol => ExceptionHelper.ThrowTypeErrorNoEngine<string>("Cannot convert a Symbol value to a string"),
-                InternalTypes.Undefined => Undefined.Text,
-                InternalTypes.Null => Null.Text,
-                InternalTypes.Object when o is IPrimitiveInstance p => ToString(ToPrimitive(p.PrimitiveValue, Types.String)),
-                InternalTypes.Object when o is IObjectWrapper p => p.Target?.ToString(),
-                _ => ToString(ToPrimitive(o, Types.String))
-            };
+                case InternalTypes.Boolean:
+                    return ((JsBoolean)o)._value ? "true" : "false";
+                case InternalTypes.Integer:
+                    return ToString((int)((JsNumber)o)._value);
+                case InternalTypes.Number:
+                    return ToString(((JsNumber)o)._value);
+                case InternalTypes.Symbol:
+                    ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a Symbol value to a string");
+                    return null;
+                case InternalTypes.Undefined:
+                    return Undefined.Text;
+                case InternalTypes.Null:
+                    return Null.Text;
+                case InternalTypes.Object when o is IPrimitiveInstance p:
+                    return ToString(ToPrimitive(p.PrimitiveValue, Types.String));
+                case InternalTypes.Object when o is IObjectWrapper p:
+                    return p.Target?.ToString();
+                default:
+                    return ToString(ToPrimitive(o, Types.String));
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -574,17 +594,25 @@ namespace Jint.Runtime
         private static ObjectInstance ToObjectNonObject(Engine engine, JsValue value)
         {
             var type = value._type & ~InternalTypes.InternalFlags;
-            return type switch
+            switch (type)
             {
-                InternalTypes.Boolean => engine.Realm.Intrinsics.Boolean.Construct((JsBoolean) value),
-                InternalTypes.Number => engine.Realm.Intrinsics.Number.Construct((JsNumber) value),
-                InternalTypes.Integer => engine.Realm.Intrinsics.Number.Construct((JsNumber) value),
-                InternalTypes.String => engine.Realm.Intrinsics.String.Construct(value.ToString()),
-                InternalTypes.Symbol => engine.Realm.Intrinsics.Symbol.Construct((JsSymbol) value),
-                InternalTypes.Null => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Cannot convert undefined or null to object"),
-                InternalTypes.Undefined => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Cannot convert undefined or null to object"),
-                _ => ExceptionHelper.ThrowTypeError<ObjectInstance>(engine, "Cannot convert given item to object")
-            };
+                case InternalTypes.Boolean:
+                    return engine.Realm.Intrinsics.Boolean.Construct((JsBoolean)value);
+                case InternalTypes.Number:
+                case InternalTypes.Integer:
+                    return engine.Realm.Intrinsics.Number.Construct((JsNumber)value);
+                case InternalTypes.String:
+                    return engine.Realm.Intrinsics.String.Construct(value.ToString());
+                case InternalTypes.Symbol:
+                    return engine.Realm.Intrinsics.Symbol.Construct((JsSymbol)value);
+                case InternalTypes.Null:
+                case InternalTypes.Undefined:
+                    ExceptionHelper.ThrowTypeError(engine.Realm, "Cannot convert undefined or null to object");
+                    return null;
+                default:
+                    ExceptionHelper.ThrowTypeError(engine.Realm, "Cannot convert given item to object");
+                    return null;
+            }
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -616,7 +644,7 @@ namespace Jint.Runtime
         {
             if (o._type < InternalTypes.Boolean)
             {
-                ExceptionHelper.ThrowTypeError(engine);
+                ExceptionHelper.ThrowTypeError(engine.Realm);
             }
         }
 

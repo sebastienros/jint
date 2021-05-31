@@ -95,15 +95,16 @@ namespace Jint.Native.Date
 
         private JsValue ToPrimitive(JsValue thisObject, JsValue[] arguments)
         {
-            if (!(thisObject is ObjectInstance oi))
+            var oi = thisObject as ObjectInstance;
+            if (oi is null)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             var hint = arguments.At(0);
             if (!hint.IsString())
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             var hintString = hint.ToString();
@@ -118,7 +119,7 @@ namespace Jint.Native.Date
             }
             else
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             return TypeConverter.OrdinaryToPrimitive(oi, tryFirst);
@@ -135,8 +136,13 @@ namespace Jint.Native.Date
         /// </summary>
         private DateInstance EnsureDateInstance(JsValue thisObj)
         {
-            return thisObj as DateInstance
-                   ?? ExceptionHelper.ThrowTypeError<DateInstance>(_engine, "this is not a Date object");
+            if (thisObj is DateInstance dateInstance)
+            {
+                return dateInstance;
+            }
+
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "this is not a Date object");
+            return null;
         }
 
         public JsValue ToString(JsValue thisObj, JsValue[] arg2)
@@ -652,7 +658,7 @@ namespace Jint.Native.Date
             var t = thisTime.PrimitiveValue;
             if (!IsFinite(t))
             {
-                ExceptionHelper.ThrowRangeError(_engine);
+                ExceptionHelper.ThrowRangeError(_engine.Realm);
             }
 
             if (thisTime.DateTimeRangeValid)
@@ -685,9 +691,10 @@ namespace Jint.Native.Date
             }
 
             var toIso = o.Get("toISOString", o);
-            if (!(toIso is ICallable callable))
+            var callable = toIso as ICallable;
+            if (callable is null)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             return callable.Call(o, Arguments.Empty);
@@ -797,7 +804,8 @@ namespace Jint.Native.Date
                 return 1;
             }
 
-            return ExceptionHelper.ThrowArgumentException<int>();
+            ExceptionHelper.ThrowArgumentException();
+            return 0;
         }
 
         /// <summary>

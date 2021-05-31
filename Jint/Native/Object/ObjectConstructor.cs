@@ -202,7 +202,7 @@ namespace Jint.Native.Object
             var prototype = arguments.At(1);
             if (!prototype.IsObject() && !prototype.IsNull())
             {
-                ExceptionHelper.ThrowTypeError(_engine, $"Object prototype may only be an Object or null: {prototype}");
+                ExceptionHelper.ThrowTypeError(_realm, $"Object prototype may only be an Object or null: {prototype}");
             }
 
             if (!(oArg is ObjectInstance o))
@@ -212,7 +212,7 @@ namespace Jint.Native.Object
 
             if (!o.SetPrototypeOf(prototype))
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
             return o;
         }
@@ -264,7 +264,7 @@ namespace Jint.Native.Object
             var prototype = arguments.At(0);
             if (!prototype.IsObject() && !prototype.IsNull())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Object prototype may only be an Object or null: " + prototype);
+                ExceptionHelper.ThrowTypeError(_realm, "Object prototype may only be an Object or null: " + prototype);
             }
 
             var obj = Engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
@@ -285,16 +285,17 @@ namespace Jint.Native.Object
 
         private JsValue DefineProperty(JsValue thisObject, JsValue[] arguments)
         {
-            if (!(arguments.At(0) is ObjectInstance o))
+            var o = arguments.At(0) as ObjectInstance;
+            if (o is null)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Object.defineProperty called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Object.defineProperty called on non-object");
             }
 
             var p = arguments.At(1);
             var name = TypeConverter.ToPropertyKey(p);
 
             var attributes = arguments.At(2);
-            var desc = PropertyDescriptor.ToPropertyDescriptor(Engine, attributes);
+            var desc = PropertyDescriptor.ToPropertyDescriptor(_engine.Realm, attributes);
             o.DefinePropertyOrThrow(name, desc);
 
             return arguments.At(0);
@@ -302,9 +303,10 @@ namespace Jint.Native.Object
 
         private JsValue DefineProperties(JsValue thisObject, JsValue[] arguments)
         {
-            if (!(arguments.At(0) is ObjectInstance o))
+            var o = arguments.At(0) as ObjectInstance;
+            if (o is null)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Object.defineProperty called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Object.defineProperty called on non-object");
             }
 
             var properties = arguments.At(1);
@@ -318,7 +320,7 @@ namespace Jint.Native.Object
                 }
 
                 var descObj = props.Get(p.Key, props);
-                var desc = PropertyDescriptor.ToPropertyDescriptor(Engine, descObj);
+                var desc = PropertyDescriptor.ToPropertyDescriptor(_engine.Realm, descObj);
                 descriptors.Add(new KeyValuePair<JsValue, PropertyDescriptor>(p.Key, desc));
             }
             foreach (var pair in descriptors)

@@ -40,7 +40,7 @@ namespace Jint.Native.Map
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            ExceptionHelper.ThrowTypeError(_engine, "Constructor Map requires 'new'");
+            ExceptionHelper.ThrowTypeError(_realm, "Constructor Map requires 'new'");
             return null;
         }
 
@@ -51,12 +51,12 @@ namespace Jint.Native.Map
         {
             if (newTarget.IsUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var map = OrdinaryCreateFromConstructor(
                 newTarget,
-                static intrinsics => intrinsics.Map.PrototypeObject, 
+                static intrinsics => intrinsics.Map.PrototypeObject,
                 static (engine, _) => new MapInstance(engine));
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {

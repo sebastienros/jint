@@ -62,7 +62,7 @@ namespace Jint.Native.String
                     || double.IsNaN(codePoint)
                     || TypeConverter.ToInt32(codePoint) != codePoint)
                 {
-                    return ExceptionHelper.ThrowRangeError<JsValue>(_engine, "Invalid code point " + codePoint);
+                    ExceptionHelper.ThrowRangeError(_engine.Realm, "Invalid code point " + codePoint);
                 }
 
                 var point = (uint) codePoint;

@@ -43,7 +43,8 @@ namespace Jint.Native.Boolean
                 return bi.PrimitiveValue;
             }
 
-            return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
+            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            return Undefined;
         }
 
         private JsValue ToBooleanString(JsValue thisObj, JsValue[] arguments)

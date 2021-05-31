@@ -40,7 +40,7 @@ namespace Jint.Native.Error
             var o = thisObject.TryCast<ObjectInstance>();
             if (ReferenceEquals(o, null))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             var name = TypeConverter.ToString(o.Get("name", this));

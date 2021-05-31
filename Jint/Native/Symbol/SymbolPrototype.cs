@@ -76,7 +76,8 @@ namespace Jint.Native.Symbol
                 return instance.SymbolData;
             }
 
-            return ExceptionHelper.ThrowTypeError<JsSymbol>(_engine);
+            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            return null;
         }
     }
 }

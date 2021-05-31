@@ -55,7 +55,7 @@ namespace Jint.Native.Array
 
             if (source.IsNullOrUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Cannot convert undefined or null to object");
+                ExceptionHelper.ThrowTypeError(_realm, "Cannot convert undefined or null to object");
             }
 
             if (source is JsString jsString)
@@ -443,7 +443,7 @@ namespace Jint.Native.Array
 
             if (!c.IsConstructor)
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             return ((IConstructor) c).Construct(new JsValue[] { JsNumber.Create(length) }, c);
@@ -467,7 +467,7 @@ namespace Jint.Native.Array
         {
             if (length < 0 || length > ArrayOperations.MaxArrayLength || ((long) length) != length)
             {
-                ExceptionHelper.ThrowRangeError<object>(_engine, "Invalid array length");
+                ExceptionHelper.ThrowRangeError(_realm, "Invalid array length");
             }
         }
     }

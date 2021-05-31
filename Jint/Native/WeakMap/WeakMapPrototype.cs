@@ -68,9 +68,10 @@ namespace Jint.Native.WeakMap
 
         private WeakMapInstance AssertWeakMapInstance(JsValue thisObj)
         {
-            if (!(thisObj is WeakMapInstance map))
+            var map = thisObj as WeakMapInstance;
+            if (map is null)
             {
-                return ExceptionHelper.ThrowTypeError<WeakMapInstance>(_engine, "object must be a WeakMap");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "object must be a WeakMap");
             }
 
             return map;

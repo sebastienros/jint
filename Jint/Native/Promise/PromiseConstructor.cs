@@ -63,21 +63,21 @@ namespace Jint.Native.Promise
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Constructor Promise requires 'new'");
+            ExceptionHelper.ThrowTypeError(_realm, "Constructor Promise requires 'new'");
+            return null;
         }
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Constructor Promise requires 'new'");
+                ExceptionHelper.ThrowTypeError(_realm, "Constructor Promise requires 'new'");
             }
 
-            if (arguments.At(0) is not ICallable promiseExecutor)
+            var promiseExecutor = arguments.At(0) as ICallable;
+            if (promiseExecutor is null)
             {
-                return ExceptionHelper.ThrowTypeError<ObjectInstance>(
-                    _engine,
-                    $"Promise executor {(arguments.At(0))} is not a function");
+                ExceptionHelper.ThrowTypeError(_realm, $"Promise executor {(arguments.At(0))} is not a function");
             }
 
             var instance = OrdinaryCreateFromConstructor(
@@ -105,12 +105,12 @@ namespace Jint.Native.Promise
         {
             if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "PromiseResolve called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "PromiseResolve called on non-object");
             }
 
             if (thisObj is not IConstructor)
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Promise.resolve invoked on a non-constructor value");
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.resolve invoked on a non-constructor value");
             }
 
             JsValue x = arguments.At(0);
@@ -134,12 +134,12 @@ namespace Jint.Native.Promise
         {
             if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Promise.reject called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.reject called on non-object");
             }
 
             if (thisObj is not IConstructor)
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Promise.reject invoked on a non-constructor value");
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.reject invoked on a non-constructor value");
             }
 
             var r = arguments.At(0);
@@ -170,7 +170,7 @@ namespace Jint.Native.Promise
         {
             if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Promise.all called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.all called on non-object");
             }
 
             //2. Let promiseCapability be ? NewPromiseCapability(C).
@@ -198,7 +198,7 @@ namespace Jint.Native.Promise
             {
                 if (arguments.Length == 0)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, "no arguments were passed to Promise.all");
+                    ExceptionHelper.ThrowTypeError(_realm, "no arguments were passed to Promise.all");
                 }
 
                 var iterable = arguments.At(0);
@@ -283,7 +283,7 @@ namespace Jint.Native.Promise
                     }
                     else
                     {
-                        ExceptionHelper.ThrowTypeError(_engine, "Passed non Promise-like value");
+                        ExceptionHelper.ThrowTypeError(_realm, "Passed non Promise-like value");
                     }
 
                     index += 1;
@@ -312,7 +312,7 @@ namespace Jint.Native.Promise
         {
             if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Promise.all called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.all called on non-object");
             }
 
             // 2. Let promiseCapability be ? NewPromiseCapability(C).
@@ -340,7 +340,7 @@ namespace Jint.Native.Promise
             {
                 if (arguments.Length == 0)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, "no arguments were passed to Promise.all");
+                    ExceptionHelper.ThrowTypeError(_realm, "no arguments were passed to Promise.all");
                 }
 
                 var iterable = arguments.At(0);
@@ -417,7 +417,7 @@ namespace Jint.Native.Promise
                 return resolve;
             }
 
-            ExceptionHelper.ThrowTypeError(_engine, "resolve is not a function");
+            ExceptionHelper.ThrowTypeError(_realm, "resolve is not a function");
             // Note: throws right before return
             return null;
         }
@@ -458,7 +458,7 @@ namespace Jint.Native.Promise
                 if (resolveArg != null && resolveArg != Undefined ||
                     rejectArg != null && rejectArg != Undefined)
                 {
-                    ExceptionHelper.ThrowTypeError(engine, "executor was already called with not undefined args");
+                    ExceptionHelper.ThrowTypeError(engine.Realm, "executor was already called with not undefined args");
                 }
 
                 resolveArg = arguments.At(0);
@@ -480,7 +480,7 @@ namespace Jint.Native.Promise
             }
             else
             {
-                ExceptionHelper.ThrowTypeError(engine, "resolve is not a function");
+                ExceptionHelper.ThrowTypeError(engine.Realm, "resolve is not a function");
             }
 
             if (rejectArg is ICallable rejFunc)
@@ -489,7 +489,7 @@ namespace Jint.Native.Promise
             }
             else
             {
-                ExceptionHelper.ThrowTypeError(engine, "reject is not a function");
+                ExceptionHelper.ThrowTypeError(engine.Realm, "reject is not a function");
             }
 
             return new PromiseCapability(instance, resolve, reject, rejectArg);

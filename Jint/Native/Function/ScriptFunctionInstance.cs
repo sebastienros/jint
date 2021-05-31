@@ -51,7 +51,7 @@ namespace Jint.Native.Function
         {
             if (_isClassConstructor)
             {
-                ExceptionHelper.ThrowTypeError(_engine, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
             }
 
             var calleeContext = PrepareForOrdinaryCall(Undefined);
@@ -159,7 +159,7 @@ namespace Jint.Native.Function
 
                         if (!result.Value.IsUndefined())
                         {
-                            ExceptionHelper.ThrowTypeError(_engine);
+                            ExceptionHelper.ThrowTypeError(_engine.Realm);
                         }
                     }
                     else if (result.Type == CompletionType.Throw)

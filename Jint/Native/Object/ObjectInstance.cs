@@ -101,9 +101,10 @@ namespace Jint.Native.Object
                 return defaultConstructor;
             }
 
-            if (!(c is ObjectInstance oi))
+            var oi = c as ObjectInstance;
+            if (oi is null)
             {
-                return ExceptionHelper.ThrowTypeError<IConstructor>(o._engine);
+                ExceptionHelper.ThrowTypeError(o._engine.Realm);
             }
 
             var s = oi.Get(GlobalSymbolRegistry.Species);
@@ -117,9 +118,9 @@ namespace Jint.Native.Object
                 return (IConstructor) s;
             }
 
-            return ExceptionHelper.ThrowTypeError<IConstructor>(o._engine);
+            ExceptionHelper.ThrowTypeError(o._engine.Realm);
+            return null;
         }
-
 
         internal void SetProperties(PropertyDictionary properties)
         {
@@ -435,7 +436,7 @@ namespace Jint.Native.Object
         {
             if (!Set(p, v, this) && throwOnError)
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             return true;
@@ -590,7 +591,7 @@ namespace Jint.Native.Object
         {
             if (!Delete(property))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
             return true;
         }
@@ -622,7 +623,7 @@ namespace Jint.Native.Object
         {
             if (!DefineOwnProperty(property, desc))
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Cannot redefine property: " + property);
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Cannot redefine property: " + property);
             }
 
             return true;
@@ -1073,7 +1074,8 @@ namespace Jint.Native.Object
                 return callable;
             }
 
-            return ExceptionHelper.ThrowTypeError<ICallable>(_engine, "Argument must be callable");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "Argument must be callable");
+            return null;
         }
 
         internal bool IsConcatSpreadable
@@ -1186,7 +1188,7 @@ namespace Jint.Native.Object
         {
             if (!CreateDataProperty(p, v))
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             return true;
@@ -1206,7 +1208,12 @@ namespace Jint.Native.Object
                 return null;
             }
 
-            return jsValue as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(engine, "Value returned for property '" + p + "' of object is not a function");
+            var callable = jsValue as ICallable;
+            if (callable is null)
+            {
+                ExceptionHelper.ThrowTypeError(engine.Realm, "Value returned for property '" + p + "' of object is not a function");
+            }
+            return callable;
         }
 
         internal void CopyDataProperties(
@@ -1284,13 +1291,18 @@ namespace Jint.Native.Object
 
         internal ObjectInstance AssertThisIsObjectInstance(JsValue value, string methodName)
         {
-            return value as ObjectInstance ?? ThrowIncompatibleReceiver<ObjectInstance>(value, methodName);
+            var instance = value as ObjectInstance;
+            if (instance is null)
+            {
+                ThrowIncompatibleReceiver(value, methodName);
+            }
+            return instance;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private T ThrowIncompatibleReceiver<T>(JsValue value, string methodName)
+        private void ThrowIncompatibleReceiver(JsValue value, string methodName)
         {
-            return ExceptionHelper.ThrowTypeError<T>(_engine, $"Method {methodName} called on incompatible receiver {value}");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, $"Method {methodName} called on incompatible receiver {value}");
         }
 
         public override bool Equals(JsValue obj)

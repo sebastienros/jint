@@ -294,7 +294,7 @@ namespace Jint.Native.Json
 
             if (_stack.Contains(value))
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Cyclic reference detected.");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Cyclic reference detected.");
             }
         }
 

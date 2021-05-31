@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal abstract class JintBinaryExpression : JintExpression
     {
 #if NETSTANDARD
-        private static readonly ConcurrentDictionary<(string OperatorName, System.Type Left, System.Type Right), MethodDescriptor> _knownOperators = 
+        private static readonly ConcurrentDictionary<(string OperatorName, System.Type Left, System.Type Right), MethodDescriptor> _knownOperators =
             new ConcurrentDictionary<(string OperatorName, System.Type Left, System.Type Right), MethodDescriptor>();
 #else
         private static readonly ConcurrentDictionary<string, MethodDescriptor> _knownOperators = new ConcurrentDictionary<string, MethodDescriptor>();
@@ -69,7 +69,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal static JintExpression Build(Engine engine, BinaryExpression expression)
         {
-            JintBinaryExpression result;
+            JintBinaryExpression result = null;
             switch (expression.Operator)
             {
                 case BinaryOperator.StrictlyEqual:
@@ -129,7 +129,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     result = new InBinaryExpression(engine, expression);
                     break;
                 default:
-                    result = ExceptionHelper.ThrowArgumentOutOfRangeException<JintBinaryExpression>(nameof(expression.Operator), "cannot handle operator");
+                    ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(expression.Operator), "cannot handle operator");
                     break;
             }
 
@@ -500,9 +500,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
-                if (!(right is ObjectInstance oi))
+                var oi = right as ObjectInstance;
+                if (oi is null)
                 {
-                    return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "in can only be used with an object");
+                    ExceptionHelper.ThrowTypeError(_engine.Realm, "in can only be used with an object");
                 }
 
                 return oi.HasProperty(left) ? JsBoolean.True : JsBoolean.False;
@@ -616,8 +617,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                         case BinaryOperator.UnsignedRightShift:
                             return JsNumber.Create((uint) leftValue >> (int) ((uint) rightValue & 0x1F));
                         default:
-                            return ExceptionHelper.ThrowArgumentOutOfRangeException<object>(nameof(_operator),
-                                "unknown shift operator");
+                            ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(_operator), "unknown shift operator");
+                            return null;
                     }
 
                 }
@@ -652,8 +653,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return JsNumber.Create((uint) TypeConverter.ToInt32(left) >>
                                                (int) (TypeConverter.ToUint32(right) & 0x1F));
                     default:
-                        return ExceptionHelper.ThrowArgumentOutOfRangeException<object>(nameof(_operator),
-                            "unknown shift operator");
+                        ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(_operator), "unknown shift operator");
+                        return null;
                 }
             }
         }

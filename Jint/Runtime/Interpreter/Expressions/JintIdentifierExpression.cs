@@ -44,15 +44,23 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var strict = StrictModeScope.IsStrictModeCode;
             var env = _engine.ExecutionContext.LexicalEnvironment;
-            return JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+            if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 _engine,
                 env,
                 _expressionName,
                 strict,
                 out _,
-                out var value)
-                ? value ?? ExceptionHelper.ThrowReferenceError<JsValue>(_engine, _expressionName.Key.Name + " has not been initialized")
-                : _engine.GetValue(_engine._referencePool.Rent(JsValue.Undefined, _expressionName.StringValue, strict, thisValue: null), true);
+                out var value))
+            {
+                if (value is null)
+                {
+                    ExceptionHelper.ThrowReferenceError(_engine.Realm, _expressionName.Key.Name + " has not been initialized");
+                }
+                return value;
+            }
+
+            var reference = _engine._referencePool.Rent(JsValue.Undefined, _expressionName.StringValue, strict, thisValue: null);
+            return _engine.GetValue(reference, true);
         }
     }
 }

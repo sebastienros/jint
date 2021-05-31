@@ -45,7 +45,7 @@ namespace Jint.Native.Number
         {
             if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             var m = TypeConverter.ToNumber(thisObject);
@@ -90,7 +90,8 @@ namespace Jint.Native.Number
                 return thisObj;
             }
 
-            return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
+            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            return null;
         }
 
         private const double Ten21 = 1e21;
@@ -100,13 +101,13 @@ namespace Jint.Native.Number
             var f = (int) TypeConverter.ToInteger(arguments.At(0, 0));
             if (f < 0 || f > 100)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 100");
+                ExceptionHelper.ThrowRangeError(_engine.Realm, "fractionDigits argument must be between 0 and 100");
             }
 
             // limitation with .NET, max is 99
             if (f == 100)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "100 fraction digits is not supported due to .NET format specifier limitation");
+                ExceptionHelper.ThrowRangeError(_engine.Realm, "100 fraction digits is not supported due to .NET format specifier limitation");
             }
 
             var x = TypeConverter.ToNumber(thisObj);
@@ -137,7 +138,7 @@ namespace Jint.Native.Number
         {
             if (!thisObj.IsNumber() && ReferenceEquals(thisObj.TryCast<NumberInstance>(), null))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             var x = TypeConverter.ToNumber(thisObj);
@@ -161,7 +162,7 @@ namespace Jint.Native.Number
 
             if (f < 0 || f > 100)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 100");
+                ExceptionHelper.ThrowRangeError(_engine.Realm, "fractionDigits argument must be between 0 and 100");
             }
 
             if (arguments.At(0).IsUndefined())
@@ -214,7 +215,7 @@ namespace Jint.Native.Number
         {
             if (!thisObj.IsNumber() && ReferenceEquals(thisObj.TryCast<NumberInstance>(), null))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             var x = TypeConverter.ToNumber(thisObj);
@@ -239,7 +240,7 @@ namespace Jint.Native.Number
 
             if (p < 1 || p > 100)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "precision must be between 1 and 100");
+                ExceptionHelper.ThrowRangeError(_engine.Realm, "precision must be between 1 and 100");
             }
 
             var dtoaBuilder = new DtoaBuilder(101);
@@ -336,7 +337,7 @@ namespace Jint.Native.Number
         {
             if (!thisObject.IsNumber() && (ReferenceEquals(thisObject.TryCast<NumberInstance>(), null)))
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             var radix = arguments.At(0).IsUndefined()
@@ -345,7 +346,7 @@ namespace Jint.Native.Number
 
             if (radix < 2 || radix > 36)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "radix must be between 2 and 36");
+                ExceptionHelper.ThrowRangeError(_engine.Realm, "radix must be between 2 and 36");
             }
 
             var x = TypeConverter.ToNumber(thisObject);

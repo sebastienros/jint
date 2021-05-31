@@ -51,7 +51,7 @@ namespace Jint.Native.Array
                 var jsValue = Get(i);
                 if ((jsValue.Type & elementTypes) == 0)
                 {
-                    ExceptionHelper.ThrowTypeErrorNoEngine<object>("invalid type");
+                    ExceptionHelper.ThrowTypeErrorNoEngine("invalid type");
                 }
 
                 jsValues[i] = jsValue;
@@ -91,9 +91,9 @@ namespace Jint.Native.Array
                 Reset();
             }
 
-            public JsValue Current 
+            public JsValue Current
             {
-                get 
+                get
                 {
                     if (!_initialized)
                     {
@@ -301,7 +301,7 @@ namespace Jint.Native.Array
                     var jsValue = _target.UnwrapJsValue(prop);
                     if ((jsValue.Type & elementTypes) == 0)
                     {
-                        ExceptionHelper.ThrowTypeErrorNoEngine<object>("invalid type");
+                        ExceptionHelper.ThrowTypeErrorNoEngine("invalid type");
                     }
 
                     jsValues[i] = jsValue;

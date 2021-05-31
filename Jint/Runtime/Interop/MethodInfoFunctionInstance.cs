@@ -118,11 +118,13 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            if (_fallbackClrFunctionInstance != null)
+            if (_fallbackClrFunctionInstance is not null)
             {
                 return _fallbackClrFunctionInstance.Call(thisObject, jsArguments);
             }
-            return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "No public methods with the specified arguments were found.");
+
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "No public methods with the specified arguments were found.");
+            return null;
         }
 
         /// <summary>

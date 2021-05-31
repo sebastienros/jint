@@ -57,7 +57,7 @@ namespace Jint.Native.Function
         {
             if (thisObj is not ICallable)
             {
-                ExceptionHelper.ThrowTypeError(Engine, "Bind must be called on a function");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Bind must be called on a function");
             }
 
             var thisArg = arguments.At(0);
@@ -121,12 +121,17 @@ namespace Jint.Native.Function
                 return thisObj.ToString();
             }
 
-            return ExceptionHelper.ThrowTypeError<FunctionInstance>(_engine, "Function.prototype.toString requires that 'this' be a Function");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "Function.prototype.toString requires that 'this' be a Function");
+            return null;
         }
 
         internal JsValue Apply(JsValue thisObject, JsValue[] arguments)
         {
-            var func = thisObject as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(Engine);
+            var func = thisObject as ICallable;
+            if (func is null)
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
+            }
             var thisArg = arguments.At(0);
             var argArray = arguments.At(1);
 
@@ -144,7 +149,11 @@ namespace Jint.Native.Function
 
         internal JsValue[] CreateListFromArrayLike(JsValue argArray, Types? elementTypes = null)
         {
-            var argArrayObj = argArray as ObjectInstance ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine);
+            var argArrayObj = argArray as ObjectInstance;
+            if (argArrayObj is null)
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
+            }
             var operations = ArrayOperations.For(argArrayObj);
             var allowedTypes = elementTypes ??
                                Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.Object;
@@ -155,7 +164,11 @@ namespace Jint.Native.Function
 
         private JsValue CallImpl(JsValue thisObject, JsValue[] arguments)
         {
-            var func = thisObject as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(Engine);
+            var func = thisObject as ICallable;
+            if (func is null)
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
+            }
             JsValue[] values = System.Array.Empty<JsValue>();
             if (arguments.Length > 1)
             {

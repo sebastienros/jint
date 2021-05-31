@@ -218,12 +218,12 @@ namespace Jint.Runtime.Descriptors
             get { return _flags; }
         }
 
-        public static PropertyDescriptor ToPropertyDescriptor(Engine engine, JsValue o)
+        public static PropertyDescriptor ToPropertyDescriptor(Realm realm, JsValue o)
         {
             var obj = o.TryCast<ObjectInstance>();
             if (ReferenceEquals(obj, null))
             {
-                ExceptionHelper.ThrowTypeError(engine);
+                ExceptionHelper.ThrowTypeError(realm);
             }
 
             var getProperty = obj.GetProperty(CommonProperties.Get);
@@ -234,7 +234,7 @@ namespace Jint.Runtime.Descriptors
             if ((obj.HasProperty(CommonProperties.Value) || obj.HasProperty(CommonProperties.Writable)) &&
                 (hasGetProperty || hasSetProperty))
             {
-                ExceptionHelper.ThrowTypeError(engine);
+                ExceptionHelper.ThrowTypeError(realm);
             }
 
             var desc = hasGetProperty || hasSetProperty
@@ -273,7 +273,7 @@ namespace Jint.Runtime.Descriptors
                 var getter = obj.UnwrapJsValue(getProperty);
                 if (!getter.IsUndefined() && getter.TryCast<ICallable>() == null)
                 {
-                    ExceptionHelper.ThrowTypeError(engine);
+                    ExceptionHelper.ThrowTypeError(realm);
                 }
 
                 ((GetSetPropertyDescriptor) desc).SetGet(getter);
@@ -284,7 +284,7 @@ namespace Jint.Runtime.Descriptors
                 var setter = obj.UnwrapJsValue(setProperty);
                 if (!setter.IsUndefined() && setter.TryCast<ICallable>() == null)
                 {
-                    ExceptionHelper.ThrowTypeError(engine);
+                    ExceptionHelper.ThrowTypeError(realm);
                 }
 
                 ((GetSetPropertyDescriptor) desc).SetSet(setter);
@@ -294,7 +294,7 @@ namespace Jint.Runtime.Descriptors
             {
                 if (!ReferenceEquals(desc.Value, null) || desc.WritableSet)
                 {
-                    ExceptionHelper.ThrowTypeError(engine);
+                    ExceptionHelper.ThrowTypeError(realm);
                 }
             }
 

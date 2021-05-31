@@ -21,7 +21,8 @@ namespace Jint.Native.Proxy
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Constructor Proxy requires 'new'");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "Constructor Proxy requires 'new'");
+            return null;
         }
 
         /// <summary>
@@ -34,7 +35,7 @@ namespace Jint.Native.Proxy
 
             if (!target.IsObject() || !handler.IsObject())
             {
-                return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "Cannot create proxy with a non-object as target or handler");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Cannot create proxy with a non-object as target or handler");
             }
             return Construct(target.AsObject(), handler.AsObject());
         }
@@ -57,11 +58,11 @@ namespace Jint.Native.Proxy
         {
             if (target is ProxyInstance targetProxy && targetProxy._handler is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
             if (handler is ProxyInstance handlerProxy && handlerProxy._handler is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
             var instance = new ProxyInstance(Engine, target, handler);
             return instance;

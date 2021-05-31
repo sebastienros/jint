@@ -69,7 +69,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            return _calleeExpression is JintSuperExpression 
+            return _calleeExpression is JintSuperExpression
                 ? SuperCall()
                 : Call();
         }
@@ -81,7 +81,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var func = GetSuperConstructor(thisEnvironment);
             if (!func.IsConstructor)
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Not a constructor");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Not a constructor");
             }
 
             var argList = ArgumentListEvaluation();
@@ -112,10 +112,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 return Undefined.Instance;
             }
-            
+
             var func = _engine.GetValue(reference, false);
 
-            if (reference is Reference referenceRecord 
+            if (reference is Reference referenceRecord
                 && !referenceRecord.IsPropertyReference()
                 && referenceRecord.GetReferencedName() == CommonProperties.Eval
                 && func is EvalFunctionInstance eval)
@@ -156,14 +156,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                 else
                 {
                     var baseValue = referenceRecord.GetBase();
-                    
+
                     // deviation from the spec to support null-propagation helper
-                    if (baseValue.IsNullOrUndefined() 
+                    if (baseValue.IsNullOrUndefined()
                         && _engine._referenceResolver.TryUnresolvableReference(_engine, referenceRecord, out var value))
                     {
                         return value;
                     }
-                    
+
                     var refEnv = (EnvironmentRecord) baseValue;
                     thisValue = refEnv.WithBaseObject();
                 }
@@ -172,21 +172,22 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 thisValue = Undefined.Instance;
             }
-            
+
             var argList = ArgumentListEvaluation();
 
             if (!func.IsObject() && !_engine._referenceResolver.TryGetCallable(_engine, reference, out func))
             {
-                var message = referenceRecord == null 
-                    ? reference + " is not a function" 
+                var message = referenceRecord == null
+                    ? reference + " is not a function"
                     : $"Property '{referenceRecord.GetReferencedName()}' of object is not a function";
-                ExceptionHelper.ThrowTypeError(_engine, message);
+                ExceptionHelper.ThrowTypeError(_engine.Realm, message);
             }
 
-            if (func is not ICallable callable)
+            var callable = func as ICallable;
+            if (callable is null)
             {
                 var message = $"{referenceRecord?.GetReferencedName() ?? reference} is not a function";
-                return ExceptionHelper.ThrowTypeError<object>(_engine, message);
+                ExceptionHelper.ThrowTypeError(_engine.Realm, message);
             }
 
             if (tailPosition)

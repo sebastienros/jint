@@ -12,7 +12,7 @@ namespace Jint.Native.Function
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
         private static readonly JsString _functionName = new JsString("eval");
 
-        public EvalFunctionInstance(Engine engine, FunctionPrototype functionPrototype) 
+        public EvalFunctionInstance(Engine engine, FunctionPrototype functionPrototype)
             : base(engine, _functionName, StrictModeScope.IsStrictModeCode ? FunctionThisMode.Strict : FunctionThisMode.Global)
         {
             _prototype = functionPrototype;
@@ -47,7 +47,7 @@ namespace Jint.Native.Function
                     var F = functionEnvironmentRecord._functionObject;
                     inFunction = true;
                     inMethod = thisEnvRec.HasSuperBinding();
-                    
+
                     if (F._constructorKind == ConstructorKind.Derived)
                     {
                         inDerivedConstructor = true;
@@ -56,16 +56,21 @@ namespace Jint.Native.Function
             }
 
             var parser = new JavaScriptParser(x.ToString(), ParserOptions);
-            Script script;
+            Script script = null;
             try
             {
                 script = parser.ParseScript(strictCaller);
             }
             catch (ParserException e)
             {
-                return e.Description == Messages.InvalidLHSInAssignment 
-                    ? ExceptionHelper.ThrowReferenceError<JsValue>(_engine)
-                    : ExceptionHelper.ThrowSyntaxError<JsValue>(_engine);
+                if (e.Description == Messages.InvalidLHSInAssignment)
+                {
+                    ExceptionHelper.ThrowReferenceError(callerRealm, (string) null);
+                }
+                else
+                {
+                    ExceptionHelper.ThrowSyntaxError(callerRealm);
+                }
             }
 
             var body = script.Body;
@@ -77,15 +82,15 @@ namespace Jint.Native.Function
             if (!inFunction)
             {
                 // if body Contains NewTarget, throw a SyntaxError exception.
-            } 
+            }
             if (!inMethod)
             {
                 // if body Contains SuperProperty, throw a SyntaxError exception.
-            } 
+            }
             if (!inDerivedConstructor)
             {
                 // if body Contains SuperCall, throw a SyntaxError exception.
-            } 
+            }
 
             var strictEval = script.Strict || _engine._isStrict;
             var ctx = _engine.ExecutionContext;
@@ -111,9 +116,9 @@ namespace Jint.Native.Function
                 }
 
                 // If ctx is not already suspended, suspend ctx.
-                
+
                 Engine.EnterExecutionContext(lexEnv, varEnv);
-                
+
                 try
                 {
                     Engine.EvalDeclarationInstantiation(script, varEnv, lexEnv, strictEval);

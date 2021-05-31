@@ -55,7 +55,7 @@ namespace Jint.Runtime.References
             // https://tc39.es/ecma262/#sec-ispropertyreference
             return (_baseValue._type & (InternalTypes.Primitive | InternalTypes.Object)) != 0;
         }
-        
+
         public JsValue GetThisValue()
         {
             if (IsSuperReference())
@@ -82,7 +82,7 @@ namespace Jint.Runtime.References
                 && (_baseValue._type & InternalTypes.ObjectEnvironmentRecord) != 0
                 && (_property == CommonProperties.Eval || _property == CommonProperties.Arguments))
             {
-                ExceptionHelper.ThrowSyntaxError(engine);
+                ExceptionHelper.ThrowSyntaxError(engine.Realm);
             }
         }
 

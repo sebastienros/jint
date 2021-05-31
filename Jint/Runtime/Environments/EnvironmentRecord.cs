@@ -91,12 +91,14 @@ namespace Jint.Runtime.Environments
 
         public override object ToObject()
         {
-            return ExceptionHelper.ThrowNotSupportedException<object>();
+            ExceptionHelper.ThrowNotSupportedException();
+            return null;
         }
 
         public override bool Equals(JsValue other)
         {
-            return ExceptionHelper.ThrowNotSupportedException<bool>();
+            ExceptionHelper.ThrowNotSupportedException();
+            return false;
         }
 
         public abstract JsValue GetThisBinding();

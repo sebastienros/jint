@@ -187,7 +187,7 @@ namespace Jint.Native
         {
             if (!TryGetIterator(engine, out var iterator))
             {
-                return ExceptionHelper.ThrowTypeError<IIterator>(engine, "The value is not iterable");
+                ExceptionHelper.ThrowTypeError(engine.Realm, "The value is not iterable");
             }
 
             return iterator;
@@ -206,9 +206,11 @@ namespace Jint.Native
                 return false;
             }
 
-            var obj = callable.Call(this, Arguments.Empty) as ObjectInstance
-                      ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(engine,
-                          "Result of the Symbol.iterator method is not an object");
+            var obj = callable.Call(this, Arguments.Empty) as ObjectInstance;
+            if (obj is null)
+            {
+                ExceptionHelper.ThrowTypeError(engine.Realm, "Result of the Symbol.iterator method is not an object");
+            }
 
             if (obj is IIterator i)
             {
@@ -393,8 +395,11 @@ namespace Jint.Native
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(params JsValue[] arguments)
         {
-            var callable = this as ICallable ??
-                           ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
+            var callable = this as ICallable;
+            if (callable is null)
+            {
+                ExceptionHelper.ThrowTypeErrorNoEngine("Can only invoke functions");
+            }
             return callable.Call(Undefined, arguments);
         }
 
@@ -419,7 +424,8 @@ namespace Jint.Native
         /// </summary>
         public virtual bool Set(JsValue property, JsValue value, JsValue receiver)
         {
-            return ExceptionHelper.ThrowNotSupportedException<bool>();
+            ExceptionHelper.ThrowNotSupportedException();
+            return false;
         }
 
         /// <summary>
@@ -427,9 +433,10 @@ namespace Jint.Native
         /// </summary>
         internal bool InstanceofOperator(JsValue target)
         {
-            if (target is not ObjectInstance oi)
+            var oi = target as ObjectInstance;
+            if (oi is null)
             {
-                return ExceptionHelper.ThrowTypeErrorNoEngine<bool>("not an object");
+                ExceptionHelper.ThrowTypeErrorNoEngine("not an object");
             }
 
             var instOfHandler = oi.GetMethod(GlobalSymbolRegistry.HasInstance);
@@ -440,7 +447,7 @@ namespace Jint.Native
 
             if (!target.IsCallable)
             {
-                return ExceptionHelper.ThrowTypeErrorNoEngine<bool>("not callable");
+                ExceptionHelper.ThrowTypeErrorNoEngine("not callable");
             }
 
             return target.OrdinaryHasInstance(this);
@@ -626,8 +633,7 @@ namespace Jint.Native
             var p = Get(CommonProperties.Prototype);
             if (p is not ObjectInstance)
             {
-                ExceptionHelper.ThrowTypeError(o.Engine,
-                    $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");
+                ExceptionHelper.ThrowTypeError(o.Engine.Realm, $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");
             }
 
             while (true)
@@ -700,9 +706,10 @@ namespace Jint.Native
 
         internal static IConstructor AssertConstructor(Engine engine, JsValue c)
         {
-            if (!(c is IConstructor constructor))
+            var constructor = c as IConstructor;
+            if (constructor is null)
             {
-                return ExceptionHelper.ThrowTypeError<IConstructor>(engine, c + " is not a constructor");
+                ExceptionHelper.ThrowTypeError(engine.Realm, c + " is not a constructor");
             }
 
             return constructor;

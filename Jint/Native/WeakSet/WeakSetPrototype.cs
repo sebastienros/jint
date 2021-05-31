@@ -61,9 +61,10 @@ namespace Jint.Native.WeakSet
 
         private WeakSetInstance AssertWeakSetInstance(JsValue thisObj)
         {
-            if (!(thisObj is WeakSetInstance set))
+            var set = thisObj as WeakSetInstance;
+            if (set is null)
             {
-                return ExceptionHelper.ThrowTypeError<WeakSetInstance>(_engine, "object must be a WeakSet");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "object must be a WeakSet");
             }
 
             return set;

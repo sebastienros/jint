@@ -27,7 +27,7 @@ namespace Jint.Runtime.Environments
         internal readonly FunctionInstance _functionObject;
 
         public FunctionEnvironmentRecord(
-            Engine engine, 
+            Engine engine,
             FunctionInstance functionObject,
             JsValue newTarget) : base(engine)
         {
@@ -46,14 +46,14 @@ namespace Jint.Runtime.Environments
 
         public override bool HasThisBinding() => _thisBindingStatus != ThisBindingStatus.Lexical;
 
-        public override bool HasSuperBinding() => 
+        public override bool HasSuperBinding() =>
             _thisBindingStatus != ThisBindingStatus.Lexical && !_functionObject._homeObject.IsUndefined();
 
         public JsValue BindThisValue(JsValue value)
         {
             if (_thisBindingStatus == ThisBindingStatus.Initialized)
             {
-                ExceptionHelper.ThrowReferenceError<JsValue>(_engine);
+                ExceptionHelper.ThrowReferenceError(_functionObject._realm, (string) null);
             }
             _thisValue = value;
             _thisBindingStatus = ThisBindingStatus.Initialized;
@@ -62,15 +62,19 @@ namespace Jint.Runtime.Environments
 
         public override JsValue GetThisBinding()
         {
-            return _thisBindingStatus == ThisBindingStatus.Uninitialized 
-                ? ExceptionHelper.ThrowReferenceError<JsValue>(_engine)
-                : _thisValue;
+            if (_thisBindingStatus != ThisBindingStatus.Uninitialized)
+            {
+                return _thisValue;
+            }
+
+            ExceptionHelper.ThrowReferenceError(_functionObject._realm, (string) null);
+            return null;
         }
 
         public JsValue GetSuperBase()
         {
             var home = _functionObject._homeObject;
-            return home.IsUndefined() 
+            return home.IsUndefined()
                 ? Undefined
                 : ((ObjectInstance) home).GetPrototypeOf();
         }
@@ -79,7 +83,7 @@ namespace Jint.Runtime.Environments
 
         internal void InitializeParameters(
             Key[] parameterNames,
-            bool hasDuplicates, 
+            bool hasDuplicates,
             JsValue[] arguments)
         {
             var value = hasDuplicates ? Undefined : null;
@@ -99,7 +103,7 @@ namespace Jint.Runtime.Environments
                 }
             }
         }
-        
+
         internal void AddFunctionParameters(IFunction functionDeclaration, JsValue[] arguments)
         {
             bool empty = _dictionary.Count == 0;
@@ -110,7 +114,7 @@ namespace Jint.Runtime.Environments
                 SetFunctionParameter(parameters[i], arguments, i, empty);
             }
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetFunctionParameter(
             Node parameter,
@@ -163,7 +167,7 @@ namespace Jint.Runtime.Environments
         {
             if (argument.IsNullOrUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is null or undefined");
+                ExceptionHelper.ThrowTypeError(_functionObject._realm, "Destructed parameter is null or undefined");
             }
 
             if (!argument.IsObject())
@@ -189,7 +193,7 @@ namespace Jint.Runtime.Environments
                 {
                     if (property is Property p)
                     {
-                        JsString propertyName;
+                        JsString propertyName = JsString.Empty;
                         if (p.Key is Identifier propertyIdentifier)
                         {
                             propertyName = JsString.Create(propertyIdentifier.Name);
@@ -206,7 +210,7 @@ namespace Jint.Runtime.Environments
                         }
                         else
                         {
-                            propertyName = ExceptionHelper.ThrowArgumentOutOfRangeException<JsString>("property", "unknown object pattern property type");
+                            ExceptionHelper.ThrowArgumentOutOfRangeException("property", "unknown object pattern property type");
                         }
 
                         processedProperties?.Add(propertyName.ToString());
@@ -223,7 +227,7 @@ namespace Jint.Runtime.Environments
                         }
                         else
                         {
-                            ExceptionHelper.ThrowSyntaxError(_engine, "Object rest parameter can only be objects");
+                            ExceptionHelper.ThrowSyntaxError(_functionObject._realm, "Object rest parameter can only be objects");
                         }
                     }
                 }
@@ -240,7 +244,7 @@ namespace Jint.Runtime.Environments
         {
             if (argument.IsNull())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Destructed parameter is null");
+                ExceptionHelper.ThrowTypeError(_functionObject._realm, "Destructed parameter is null");
             }
 
             ArrayInstance array = null;
@@ -303,7 +307,7 @@ namespace Jint.Runtime.Environments
             }
             else
             {
-                ExceptionHelper.ThrowSyntaxError(_engine, "Rest parameters can only be identifiers or arrays");
+                ExceptionHelper.ThrowSyntaxError(_functionObject._realm, "Rest parameters can only be identifiers or arrays");
             }
         }
 
@@ -318,7 +322,7 @@ namespace Jint.Runtime.Environments
                 && right is Identifier idRight
                 && idLeft.Name == idRight.Name)
             {
-                ExceptionHelper.ThrowReferenceError(_engine, idRight.Name);
+                ExceptionHelper.ThrowReferenceError(_functionObject._realm, idRight.Name);
             }
 
             if (argument.IsUndefined())
@@ -363,7 +367,7 @@ namespace Jint.Runtime.Environments
                 SetItemCheckExisting(name, argument);
             }
         }
-        
+
         private void SetItemCheckExisting(Key name, JsValue argument)
         {
             if (!_dictionary.TryGetValue(name, out var existing))
@@ -378,7 +382,7 @@ namespace Jint.Runtime.Environments
                 }
                 else
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, "Can't update the value of an immutable binding.");
+                    ExceptionHelper.ThrowTypeError(_functionObject._realm, "Can't update the value of an immutable binding.");
                 }
             }
         }

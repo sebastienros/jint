@@ -40,7 +40,7 @@ namespace Jint.Native.Set
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            ExceptionHelper.ThrowTypeError(_engine, "Constructor Set requires 'new'");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "Constructor Set requires 'new'");
             return null;
         }
 
@@ -51,7 +51,7 @@ namespace Jint.Native.Set
         {
             if (newTarget.IsUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             var set = OrdinaryCreateFromConstructor(
@@ -61,9 +61,10 @@ namespace Jint.Native.Set
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adderValue = set.Get("add");
-                if (!(adderValue is ICallable adder))
+                var adder = adderValue as ICallable;
+                if (adder is null)
                 {
-                    return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "add must be callable");
+                    ExceptionHelper.ThrowTypeError(_engine.Realm, "add must be callable");
                 }
 
                 var iterable = arguments.At(0).GetIterator(_engine);

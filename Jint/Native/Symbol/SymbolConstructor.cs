@@ -16,7 +16,7 @@ namespace Jint.Native.Symbol
         private static readonly JsString _functionName = new JsString("Symbol");
 
         internal SymbolConstructor(
-            Engine engine, 
+            Engine engine,
             FunctionPrototype functionPrototype,
             ObjectPrototype objectPrototype)
             : base(engine, _functionName, FunctionThisMode.Global)
@@ -84,12 +84,13 @@ namespace Jint.Native.Symbol
 
         public JsValue KeyFor(JsValue thisObj, JsValue[] arguments)
         {
-            if (!(arguments.At(0) is JsSymbol sym))
+            var symbol = arguments.At(0) as JsSymbol;
+            if (symbol is null)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
-            if (_engine.GlobalSymbolRegistry.TryGetSymbol(sym._value, out var e))
+            if (_engine.GlobalSymbolRegistry.TryGetSymbol(symbol._value, out var e))
             {
                 return e._value;
             }
@@ -99,7 +100,8 @@ namespace Jint.Native.Symbol
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            return ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
+            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            return null;
         }
 
         public SymbolInstance Construct(JsSymbol symbol)

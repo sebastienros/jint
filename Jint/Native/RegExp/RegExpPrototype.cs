@@ -50,9 +50,10 @@ namespace Jint.Native.RegExp
                             return protoValue ?? Undefined;
                         }
 
-                        if (!(thisObj is RegExpInstance r))
+                        var r = thisObj as RegExpInstance;
+                        if (r is null)
                         {
-                            return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
+                            ExceptionHelper.ThrowTypeError(_engine.Realm);
                         }
 
                         return valueExtractor(r);
@@ -97,9 +98,10 @@ namespace Jint.Native.RegExp
                 return DefaultSource;
             }
 
-            if (!(thisObj is RegExpInstance r))
+            var r = thisObj as RegExpInstance;
+            if (r is null)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             return r.Source.Replace("/", "\\/");
@@ -415,9 +417,9 @@ namespace Jint.Native.RegExp
                 if (R.Source == RegExpInstance.regExpForMatchingAllCharacters)
                 {
                     // if empty string, just a string split
-                    return StringPrototype.SplitWithStringSeparator(_engine, "", s, (uint) s.Length);                    
+                    return StringPrototype.SplitWithStringSeparator(_engine, "", s, (uint) s.Length);
                 }
-                
+
                 var a = (ArrayInstance) Engine.Realm.Intrinsics.Array.Construct(Arguments.Empty);
                 var match = R.Value.Match(s, 0);
 
@@ -569,7 +571,7 @@ namespace Jint.Native.RegExp
             {
                 if (!R.Sticky && !R.Global)
                 {
-                    R.Set(RegExpInstance.PropertyLastIndex, 0, throwOnError: true); 
+                    R.Set(RegExpInstance.PropertyLastIndex, 0, throwOnError: true);
                     return R.Value.IsMatch(s);
                 }
 
@@ -582,13 +584,13 @@ namespace Jint.Native.RegExp
                 var m = R.Value.Match(s, lastIndex);
                 if (!m.Success || (R.Sticky && m.Index != lastIndex))
                 {
-                    R.Set(RegExpInstance.PropertyLastIndex, 0, throwOnError: true); 
+                    R.Set(RegExpInstance.PropertyLastIndex, 0, throwOnError: true);
                     return JsBoolean.False;
                 }
                 R.Set(RegExpInstance.PropertyLastIndex, m.Index + m.Length, throwOnError: true);
                 return JsBoolean.True;
             }
-            
+
             var match = RegExpExec(r, s);
             return !match.IsNull();
         }
@@ -763,15 +765,16 @@ namespace Jint.Native.RegExp
                 var result = callable.Call(r, new JsValue[]  { s });
                 if (!result.IsNull() && !result.IsObject())
                 {
-                    return ExceptionHelper.ThrowTypeError<ObjectInstance>(r.Engine);
+                    ExceptionHelper.ThrowTypeError(r.Engine.Realm);
                 }
 
                 return result;
             }
 
-            if (!(r is RegExpInstance ri))
+            var ri = r as RegExpInstance;
+            if (ri is null)
             {
-                return ExceptionHelper.ThrowTypeError<ObjectInstance>(r.Engine);
+                ExceptionHelper.ThrowTypeError(r.Engine.Realm);
             }
 
             return RegExpBuiltinExec(ri, s);
@@ -910,9 +913,10 @@ namespace Jint.Native.RegExp
 
         private JsValue Exec(JsValue thisObj, JsValue[] arguments)
         {
-            if (!(thisObj is RegExpInstance r))
+            var r = thisObj as RegExpInstance;
+            if (r is null)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             var s = TypeConverter.ToString(arguments.At(0));

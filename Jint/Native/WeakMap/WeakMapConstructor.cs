@@ -23,7 +23,7 @@ namespace Jint.Native.WeakMap
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            ExceptionHelper.ThrowTypeError(_engine, "Constructor WeakMap requires 'new'");
+            ExceptionHelper.ThrowTypeError(_realm, "Constructor WeakMap requires 'new'");
             return null;
         }
 
@@ -31,10 +31,13 @@ namespace Jint.Native.WeakMap
         {
             if (newTarget.IsUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var map = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, _) => new WeakMapInstance(engine));
+            var map = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics =>  intrinsics.WeakMap.PrototypeObject,
+                static (engine, _) => new WeakMapInstance(engine));
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adder = map.Get("set");

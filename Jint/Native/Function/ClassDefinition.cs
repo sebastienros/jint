@@ -52,7 +52,7 @@ namespace Jint.Native.Function
         {
             // A class definition is always strict mode code.
             using var _ = (new StrictModeScope(true, true));
-            
+
             var classScope = JintEnvironment.NewDeclarativeEnvironment(engine, env);
 
             if (_className is not null)
@@ -80,7 +80,7 @@ namespace Jint.Native.Function
                 }
                 else if (!superclass.IsConstructor)
                 {
-                    ExceptionHelper.ThrowTypeError(engine, "super class is not a constructor");
+                    ExceptionHelper.ThrowTypeError(engine.Realm, "super class is not a constructor");
                 }
                 else
                 {
@@ -95,7 +95,7 @@ namespace Jint.Native.Function
                     }
                     else
                     {
-                        ExceptionHelper.ThrowTypeError(engine);
+                        ExceptionHelper.ThrowTypeError(engine.Realm);
                         return null!;
                     }
 
@@ -182,7 +182,11 @@ namespace Jint.Native.Function
             else
             {
                 var propKey = TypeConverter.ToPropertyKey(method.GetKey(engine));
-                var function = method.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(obj.Engine);
+                var function = method.Value as IFunction;
+                if (function is null)
+                {
+                    ExceptionHelper.ThrowSyntaxError(obj.Engine.Realm);
+                }
 
                 var closure = new ScriptFunctionInstance(
                     obj.Engine,

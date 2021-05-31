@@ -45,7 +45,7 @@ namespace Jint.Native.Set
             };
             SetSymbols(symbols);
         }
-        
+
         private JsValue Size(JsValue thisObj, JsValue[] arguments)
         {
             AssertSetInstance(thisObj);
@@ -106,15 +106,16 @@ namespace Jint.Native.Set
             var set = AssertSetInstance(thisObj);
             return set.Values();
         }
-        
+
         private SetInstance AssertSetInstance(JsValue thisObj)
         {
-            if (!(thisObj is SetInstance map))
+            var set = thisObj as SetInstance;
+            if (set is null)
             {
-                return ExceptionHelper.ThrowTypeError<SetInstance>(_engine, "object must be a Set");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "object must be a Set");
             }
 
-            return map;
+            return set;
         }
     }
 }

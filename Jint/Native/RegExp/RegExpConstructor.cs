@@ -100,7 +100,7 @@ namespace Jint.Native.RegExp
             try
             {
                 var scanner = new Scanner("/" + p + "/" + flags , new ParserOptions { AdaptRegexp = true });
-               
+
                 // seems valid
                 r.Value = scanner.TestRegExp(p, f);
 
@@ -112,12 +112,12 @@ namespace Jint.Native.RegExp
             }
             catch (Exception ex)
             {
-                ExceptionHelper.ThrowSyntaxError(_engine, ex.Message);
+                ExceptionHelper.ThrowSyntaxError(_engine.Realm, ex.Message);
             }
 
             r.Flags = f;
             r.Source = p;
-            
+
             RegExpInitialize(r);
 
             return r;
@@ -126,8 +126,8 @@ namespace Jint.Native.RegExp
         private RegExpInstance RegExpAlloc(JsValue newTarget)
         {
             var r = OrdinaryCreateFromConstructor(
-                newTarget, 
-                static intrinsics => intrinsics.RegExp.PrototypeObject, 
+                newTarget,
+                static intrinsics => intrinsics.RegExp.PrototypeObject,
                 static(engine, _) => new RegExpInstance(engine));
             return r;
         }
@@ -154,12 +154,12 @@ namespace Jint.Native.RegExp
 
             return r;
         }
-        
+
         private static void RegExpInitialize(RegExpInstance r)
         {
             r.SetOwnProperty(RegExpInstance.PropertyLastIndex, new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
         }
-        
+
         public RegExpPrototype PrototypeObject { get; private set; }
     }
 }

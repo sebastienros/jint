@@ -50,7 +50,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 // empty object initializer
                 return;
             }
-            
+
             _valueExpressions = new JintExpression[expression.Properties.Count];
             _properties = new ObjectProperty[expression.Properties.Count];
 
@@ -149,7 +149,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     continue;
                 }
-                
+
                 var property = objectProperty._value;
 
                 if (property.Method)
@@ -160,7 +160,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     obj.DefinePropertyOrThrow(methodDef.Key, desc);
                     continue;
                 }
-                
+
                 var propName = objectProperty.KeyJsString ?? property.GetKey(_engine);
                 if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
                 {
@@ -177,7 +177,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else if (property.Kind == PropertyKind.Get || property.Kind == PropertyKind.Set)
                 {
-                    var function = property.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(_engine);
+                    var function = property.Value as IFunction;
+                    if (function is null)
+                    {
+                        ExceptionHelper.ThrowSyntaxError(_engine.Realm);
+                    }
 
                     var closure = new ScriptFunctionInstance(
                         _engine,
@@ -190,7 +194,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         get: property.Kind == PropertyKind.Get ? closure : null,
                         set: property.Kind == PropertyKind.Set ? closure : null,
                         PropertyFlag.Enumerable | PropertyFlag.Configurable);
-                    
+
                     obj.DefinePropertyOrThrow(propName, propDesc);
                 }
             }

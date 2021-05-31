@@ -50,8 +50,11 @@ namespace Jint.Native.Promise
         {
             // 1. Let promise be the this value.
             // 2. If IsPromise(promise) is false, throw a TypeError exception.
-            var promise = thisValue as PromiseInstance ?? ExceptionHelper.ThrowTypeError<PromiseInstance>(_engine,
-                "Method Promise.prototype.then called on incompatible receiver");
+            var promise = thisValue as PromiseInstance;
+            if (promise is null)
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Method Promise.prototype.then called on incompatible receiver");
+            }
 
             // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
             var ctor = SpeciesConstructor(promise, _engine.Realm.Intrinsics.Promise);
@@ -64,7 +67,7 @@ namespace Jint.Native.Promise
         }
 
         // https://tc39.es/ecma262/#sec-promise.prototype.catch
-        // 
+        //
         // When the catch method is called with argument onRejected,
         // the following steps are taken:
         //
@@ -78,8 +81,11 @@ namespace Jint.Native.Promise
         {
             // 1. Let promise be the this value.
             // 2. If Type(promise) is not Object, throw a TypeError exception.
-            var promise = thisValue as ObjectInstance ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine,
-                "this passed to Promise.prototype.finally is not an object");
+            var promise = thisValue as ObjectInstance;
+            if (promise is null)
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "this passed to Promise.prototype.finally is not an object");
+            }
 
             // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
             // 4. Assert: IsConstructor(C) is true.

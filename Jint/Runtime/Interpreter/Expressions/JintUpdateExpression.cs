@@ -52,9 +52,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private object UpdateNonIdentifier()
         {
-            if (!(_argument.Evaluate() is Reference reference))
+            var reference = _argument.Evaluate() as Reference;
+            if (reference is null)
             {
-                return ExceptionHelper.ThrowTypeError<object>(_engine, "Invalid left-hand side expression");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid left-hand side expression");
             }
 
             reference.AssertValid(_engine);
@@ -104,7 +105,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 if (strict && _evalOrArguments)
                 {
-                    ExceptionHelper.ThrowSyntaxError(_engine);
+                    ExceptionHelper.ThrowSyntaxError(_engine.Realm);
                 }
 
                 var isInteger = value._type == InternalTypes.Integer;

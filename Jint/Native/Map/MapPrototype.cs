@@ -123,9 +123,10 @@ namespace Jint.Native.Map
 
         private MapInstance AssertMapInstance(JsValue thisObj)
         {
-            if (!(thisObj is MapInstance map))
+            var map = thisObj as MapInstance;
+            if (map is null)
             {
-                return ExceptionHelper.ThrowTypeError<MapInstance>(_engine, "object must be a Map");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "object must be a Map");
             }
 
             return map;

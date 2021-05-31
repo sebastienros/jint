@@ -89,7 +89,7 @@ namespace Jint.Runtime.Environments
         {
             if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
             {
-                ExceptionHelper.ThrowTypeError(_engine, name + " has already been declared");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, name + " has already been declared");
             }
 
             _declarativeRecord.CreateMutableBinding(name, canBeDeleted);
@@ -99,7 +99,7 @@ namespace Jint.Runtime.Environments
         {
             if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
             {
-                ExceptionHelper.ThrowTypeError(_engine, name + " has already been declared");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, name + " has already been declared");
             }
 
             _declarativeRecord.CreateImmutableBinding(name, strict);
@@ -115,7 +115,7 @@ namespace Jint.Runtime.Environments
             {
                 if (!_global.Set(name, value))
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
             }
         }
@@ -132,7 +132,7 @@ namespace Jint.Runtime.Environments
                 // _objectRecord.SetMutableBinding(name, value, strict); 
                 if (!_global.Set(name, value) && strict)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
             }
         }
@@ -150,7 +150,7 @@ namespace Jint.Runtime.Environments
                     // fast inlined path as we know we target global
                     if (!globalObject.Set(name.Key, value) && strict)
                     {
-                        ExceptionHelper.ThrowTypeError(_engine);
+                        ExceptionHelper.ThrowTypeError(_engine.Realm);
                     }
                 }
                 else

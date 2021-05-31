@@ -56,7 +56,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (!jsValue.IsConstructor)
             {
-                ExceptionHelper.ThrowTypeError(_engine,  _calleeExpression.SourceText + " is not a constructor");
+                ExceptionHelper.ThrowTypeError(_engine.Realm,  _calleeExpression.SourceText + " is not a constructor");
             }
 
             // construct the new instance using the Function's constructor method

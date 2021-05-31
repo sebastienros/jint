@@ -82,7 +82,11 @@ namespace Jint.Native.Object
         {
             var o = TypeConverter.ToObject(Engine, thisObject);
             var func = o.Get("toString");
-            var callable = func as ICallable ?? ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
+            var callable = func as ICallable;
+            if (callable is null)
+            {
+                ExceptionHelper.ThrowTypeErrorNoEngine("Can only invoke functions");
+            }
             return TypeConverter.ToString(callable.Call(thisObject, arguments));
         }
 

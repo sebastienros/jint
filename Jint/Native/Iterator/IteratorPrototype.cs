@@ -38,9 +38,10 @@ namespace Jint.Native.Iterator
 
         private JsValue Next(JsValue thisObj, JsValue[] arguments)
         {
-            if (!(thisObj is IteratorInstance iterator))
+            var iterator = thisObj as IteratorInstance;
+            if (iterator is null)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             iterator.TryIteratorStep(out var result);

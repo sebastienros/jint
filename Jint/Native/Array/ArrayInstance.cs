@@ -80,7 +80,7 @@ namespace Jint.Native.Array
                 uint newLen = TypeConverter.ToUint32(value);
                 if (newLen != TypeConverter.ToNumber(value))
                 {
-                    ExceptionHelper.ThrowRangeError(_engine);
+                    ExceptionHelper.ThrowRangeError(_engine.Realm);
                 }
 
                 newLenDesc.Value = newLen;
@@ -230,7 +230,7 @@ namespace Jint.Native.Array
             {
                 return 0;
             }
-            
+
             return (uint) ((JsNumber) _length._value)._value;
         }
 
@@ -548,7 +548,7 @@ namespace Jint.Native.Array
         {
             if (!Delete(index))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
             return true;
         }
@@ -570,7 +570,7 @@ namespace Jint.Native.Array
 
             return false;
         }
-        
+
         internal bool DeleteAt(uint index)
         {
             var temp = _dense;
@@ -589,7 +589,7 @@ namespace Jint.Native.Array
 
             return false;
         }
-        
+
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool TryGetDescriptor(uint index, out PropertyDescriptor descriptor)
@@ -721,7 +721,7 @@ namespace Jint.Native.Array
             {
                 if (!Set(CommonProperties.Length, newLength, this))
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
             }
 
@@ -897,7 +897,7 @@ namespace Jint.Native.Array
                 }
             }
         }
-        
+
         public override string ToString()
         {
             // debugger can make things hard when evaluates computed values
