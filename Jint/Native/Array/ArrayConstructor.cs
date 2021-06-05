@@ -18,8 +18,10 @@ namespace Jint.Native.Array
 
         internal ArrayConstructor(
             Engine engine,
+            Realm realm,
             FunctionPrototype functionPrototype,
-            ObjectPrototype objectPrototype) : base(engine, _functionName)
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
             PrototypeObject = new ArrayPrototype(engine, this, objectPrototype);

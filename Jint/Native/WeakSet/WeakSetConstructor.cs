@@ -9,8 +9,12 @@ namespace Jint.Native.WeakSet
     {
         private static readonly JsString _functionName = new JsString("WeakSet");
 
-        internal WeakSetConstructor(Engine engine, FunctionPrototype functionPrototype, ObjectPrototype objectPrototype)
-            : base(engine, _functionName)
+        internal WeakSetConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
             PrototypeObject = new WeakSetPrototype(engine, this, objectPrototype);

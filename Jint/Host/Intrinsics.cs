@@ -33,6 +33,7 @@ namespace Jint
         private static readonly JsString _uriErrorFunctionName = new("URIError");
 
         private readonly Engine _engine;
+        private readonly Realm _realm;
 
         // lazy properties
         private ErrorConstructor _error;
@@ -43,38 +44,40 @@ namespace Jint
         private ErrorConstructor _typeError;
         private ErrorConstructor _uriError;
 
-        public Intrinsics(Engine engine)
+        internal Intrinsics(Engine engine, Realm realm)
         {
             _engine = engine;
+            _realm = realm;
 
             // we need to transfer state currently to some initialization, would otherwise require quite the
             // ClrFunctionInstance constructor refactoring
             _engine._originalIntrinsics = this;
 
-            Object = new ObjectConstructor(engine);
-            Function = new FunctionConstructor(engine, Object.PrototypeObject);
+            Object = new ObjectConstructor(engine, realm);
+            Function = new FunctionConstructor(engine, realm, Object.PrototypeObject);
 
             // this is implementation dependent, and only to pass some unit tests
             Object._prototype = Function.PrototypeObject;
 
-            Symbol = new SymbolConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
-            Array = new ArrayConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
-            Map = new MapConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
-            Set = new SetConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
-            WeakMap = new WeakMapConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
-            WeakSet = new WeakSetConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
-            Promise = new PromiseConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
-            Iterator = new IteratorConstructor(engine, Object.PrototypeObject);
-            String = new StringConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
-            RegExp = new RegExpConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
-            Number = new NumberConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
-            Boolean = new BooleanConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
-            Date = new DateConstructor(engine, Function.PrototypeObject, Object.PrototypeObject);
+            Symbol = new SymbolConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
+            Array = new ArrayConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
+            Map = new MapConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
+            Set = new SetConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
+            WeakMap = new WeakMapConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
+            WeakSet = new WeakSetConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
+            Promise = new PromiseConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
+            Iterator = new IteratorConstructor(engine, realm, Object.PrototypeObject);
+            String = new StringConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
+            RegExp = new RegExpConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
+            Number = new NumberConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
+            Boolean = new BooleanConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
+            Date = new DateConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
+
             Math = new MathInstance(engine, Object.PrototypeObject);
             Json = new JsonInstance(engine, Object.PrototypeObject);
-            Proxy = new ProxyConstructor(engine);
+            Proxy = new ProxyConstructor(engine, realm);
             Reflect = new ReflectInstance(engine, Object.PrototypeObject);
-            Eval = new EvalFunctionInstance(engine, Function.PrototypeObject);
+            Eval = new EvalFunctionInstance(engine, realm, Function.PrototypeObject);
         }
 
         public ObjectConstructor Object { get; }
@@ -99,24 +102,24 @@ namespace Jint
         public EvalFunctionInstance Eval { get; }
 
         public ErrorConstructor Error =>
-            _error ??= new ErrorConstructor(_engine, Function.PrototypeObject, Object.PrototypeObject, _errorFunctionName);
+            _error ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, _errorFunctionName);
 
         public ErrorConstructor EvalError =>
-            _evalError ??= new ErrorConstructor(_engine, Function.PrototypeObject, Error.PrototypeObject, _evalErrorFunctionName);
+            _evalError ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject, _evalErrorFunctionName);
 
         public ErrorConstructor SyntaxError =>
-            _syntaxError ??= new ErrorConstructor(_engine, Function.PrototypeObject, Error.PrototypeObject, _syntaxErrorFunctionName);
+            _syntaxError ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject, _syntaxErrorFunctionName);
 
         public ErrorConstructor TypeError =>
-            _typeError ??= new ErrorConstructor(_engine, Function.PrototypeObject, Error.PrototypeObject, _typeErrorFunctionName);
+            _typeError ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject, _typeErrorFunctionName);
 
         public ErrorConstructor RangeError =>
-            _rangeError ??= new ErrorConstructor(_engine, Function.PrototypeObject, Error.PrototypeObject, _rangeErrorFunctionName);
+            _rangeError ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject, _rangeErrorFunctionName);
 
         public ErrorConstructor ReferenceError
-            => _referenceError ??= new ErrorConstructor(_engine, Function.PrototypeObject, Error.PrototypeObject, _referenceErrorFunctionName);
+            => _referenceError ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject, _referenceErrorFunctionName);
 
         public ErrorConstructor UriError =>
-            _uriError ??= new ErrorConstructor(_engine, Function.PrototypeObject, Error.PrototypeObject, _uriErrorFunctionName);
+            _uriError ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject, _uriErrorFunctionName);
     }
 }

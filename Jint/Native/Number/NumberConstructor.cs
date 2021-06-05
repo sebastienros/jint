@@ -15,8 +15,12 @@ namespace Jint.Native.Number
         private const long MinSafeInteger = -9007199254740991;
         internal const long MaxSafeInteger = 9007199254740991;
 
-        public NumberConstructor(Engine engine, FunctionPrototype functionPrototype, ObjectPrototype objectPrototype)
-            : base(engine, _functionName)
+        public NumberConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
             PrototypeObject = new NumberPrototype(engine, this, objectPrototype);
@@ -120,7 +124,7 @@ namespace Jint.Native.Number
         /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var value = arguments.Length > 0 
+            var value = arguments.Length > 0
                 ? JsNumber.Create(TypeConverter.ToNumber(arguments[0]))
                 : JsNumber.PositiveZero;
 

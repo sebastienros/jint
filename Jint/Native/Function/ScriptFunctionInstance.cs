@@ -22,7 +22,12 @@ namespace Jint.Native.Function
             EnvironmentRecord scope,
             bool strict,
             ObjectInstance proto = null)
-            : this(engine, new JintFunctionDefinition(engine, functionDeclaration), scope, strict ? FunctionThisMode.Strict : FunctionThisMode.Global, proto)
+            : this(
+                engine,
+                new JintFunctionDefinition(engine, functionDeclaration),
+                scope,
+                strict ? FunctionThisMode.Strict : FunctionThisMode.Global,
+                proto)
         {
         }
 
@@ -32,7 +37,7 @@ namespace Jint.Native.Function
             EnvironmentRecord scope,
             FunctionThisMode thisMode,
             ObjectInstance proto = null)
-            : base(engine, function, scope, thisMode)
+            : base(engine, engine.Realm, function, scope, thisMode)
         {
             _prototype = proto ?? _engine.Realm.Intrinsics.Function.PrototypeObject;
             _length = new LazyPropertyDescriptor(() => JsNumber.Create(function.Initialize(engine, this).Length), PropertyFlag.Configurable);
@@ -98,7 +103,7 @@ namespace Jint.Native.Function
         }
 
         internal override bool IsConstructor =>
-            (_homeObject.IsUndefined() || _isClassConstructor) 
+            (_homeObject.IsUndefined() || _isClassConstructor)
             && _functionDefinition?.Function is not ArrowFunctionExpression;
 
         /// <summary>
@@ -109,12 +114,12 @@ namespace Jint.Native.Function
             var kind = _constructorKind;
 
             var thisArgument = Undefined;
-            
+
             if (kind == ConstructorKind.Base)
             {
                 thisArgument = OrdinaryCreateFromConstructor(
                     newTarget,
-                    static intrinsics => intrinsics.Object.PrototypeObject, 
+                    static intrinsics => intrinsics.Object.PrototypeObject,
                     static (engine, _) => new ObjectInstance(engine));
             }
 
@@ -126,7 +131,7 @@ namespace Jint.Native.Function
             }
 
             var constructorEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment;
-            
+
             var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
             using (new StrictModeScope(strict, force: true))
             {
@@ -175,7 +180,7 @@ namespace Jint.Native.Function
 
             return (ObjectInstance) constructorEnv.GetThisBinding();
         }
-        
+
         internal void MakeConstructor(bool writableProperty = true, ObjectInstance prototype = null)
         {
             _constructorKind = ConstructorKind.Base;
@@ -188,13 +193,13 @@ namespace Jint.Native.Function
             }
 
             _prototypeDescriptor = new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false);
-        }        
+        }
 
         internal void MakeClassConstructor()
         {
             _isClassConstructor = true;
         }
-        
+
         private class ObjectInstanceWithConstructor : ObjectInstance
         {
             private PropertyDescriptor _constructor;

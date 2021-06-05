@@ -17,8 +17,10 @@ namespace Jint.Runtime.Interop
         private static readonly ConcurrentDictionary<Type, MethodDescriptor[]> _constructorCache = new();
         private static readonly ConcurrentDictionary<Tuple<Type, string>, ReflectionAccessor> _memberAccessors = new();
 
-        private TypeReference(Engine engine)
-            : base(engine, _name, FunctionThisMode.Global, ObjectClass.TypeReference)
+        private TypeReference(
+            Engine engine,
+            Realm realm)
+            : base(engine, realm, _name, FunctionThisMode.Global, ObjectClass.TypeReference)
         {
         }
 
@@ -26,7 +28,7 @@ namespace Jint.Runtime.Interop
 
         public static TypeReference CreateTypeReference(Engine engine, Type type)
         {
-            var obj = new TypeReference(engine);
+            var obj = new TypeReference(engine, engine.Realm);
             obj.PreventExtensions();
             obj.ReferenceType = type;
 

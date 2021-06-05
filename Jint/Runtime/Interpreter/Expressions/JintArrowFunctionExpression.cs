@@ -23,7 +23,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 scope,
                 FunctionThisMode.Lexical,
                 proto: _engine.Realm.Intrinsics.Function.PrototypeObject);
-            
+
             return closure;
         }
     }

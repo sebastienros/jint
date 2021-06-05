@@ -13,10 +13,13 @@ namespace Jint.Native.Function
         private static readonly JsString _functionName = new JsString("Function");
         private static readonly JsString _functionNameAnonymous = new JsString("anonymous");
 
-        internal FunctionConstructor(Engine engine, ObjectPrototype objectPrototype)
-            : base(engine, _functionName)
+        internal FunctionConstructor(
+            Engine engine,
+            Realm realm,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
-            PrototypeObject = new FunctionPrototype(engine, objectPrototype);
+            PrototypeObject = new FunctionPrototype(engine, realm, objectPrototype);
             _prototype = PrototypeObject;
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
             _length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
@@ -120,7 +123,10 @@ namespace Jint.Native.Function
                 Engine,
                 functionDeclaration,
                 env,
-                functionDeclaration.Strict || _engine._isStrict);
+                functionDeclaration.Strict || _engine._isStrict)
+            {
+                _realm = _realm
+            };
 
             functionObject.MakeConstructor();
 

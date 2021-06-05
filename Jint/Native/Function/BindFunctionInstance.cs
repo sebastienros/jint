@@ -5,8 +5,10 @@ namespace Jint.Native.Function
 {
     public sealed class BindFunctionInstance : FunctionInstance, IConstructor
     {
-        public BindFunctionInstance(Engine engine)
-            : base(engine, name: null, thisMode: FunctionThisMode.Strict)
+        public BindFunctionInstance(
+            Engine engine,
+            Realm realm)
+            : base(engine, realm, name: null, thisMode: FunctionThisMode.Strict)
         {
         }
 

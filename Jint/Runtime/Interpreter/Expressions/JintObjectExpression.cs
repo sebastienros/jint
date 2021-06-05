@@ -188,6 +188,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         function,
                         _engine.ExecutionContext.LexicalEnvironment,
                         isStrictModeCode);
+
                     closure.SetFunctionName(propName, property.Kind == PropertyKind.Get ? "get" : "set");
 
                     var propDesc = new GetSetPropertyDescriptor(

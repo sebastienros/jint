@@ -23,8 +23,12 @@ namespace Jint.Native.Promise
 
         internal PromisePrototype PrototypeObject { get; private set; }
 
-        internal PromiseConstructor(Engine engine, FunctionPrototype functionPrototype, ObjectPrototype objectPrototype)
-            : base(engine, _functionName)
+        internal PromiseConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
             PrototypeObject = new PromisePrototype(engine, this, objectPrototype);

@@ -11,8 +11,11 @@ namespace Jint.Native.Iterator
     {
         private static readonly JsString _functionName = new JsString("iterator");
 
-        internal IteratorConstructor(Engine engine, ObjectPrototype objectPrototype)
-            : base(engine, _functionName)
+        internal IteratorConstructor(
+            Engine engine,
+            Realm realm,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
             ArrayIteratorPrototypeObject = new IteratorPrototype(engine, "Array Iterator", objectPrototype);
             GenericIteratorPrototypeObject = new IteratorPrototype(engine, null, objectPrototype);
@@ -118,7 +121,7 @@ namespace Jint.Native.Iterator
 
             return instance;
         }
-       
+
         internal ObjectInstance CreateRegExpStringIterator(ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode)
         {
             var instance = new IteratorInstance.RegExpStringIterator(Engine, iteratingRegExp, iteratedString, global, unicode)

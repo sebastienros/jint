@@ -9,8 +9,11 @@ namespace Jint.Native.Function
 
         private readonly string _message;
 
-        public ThrowTypeError(Engine engine, string message = null)
-            : base(engine, _functionName)
+        public ThrowTypeError(
+            Engine engine,
+            Realm realm,
+            string message = null)
+            : base(engine, realm, _functionName)
         {
             _message = message;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;

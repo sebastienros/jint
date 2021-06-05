@@ -13,8 +13,10 @@ namespace Jint.Native.Proxy
         private static readonly JsString PropertyProxy = new JsString("proxy");
         private static readonly JsString PropertyRevoke = new JsString("revoke");
 
-        internal ProxyConstructor(Engine engine)
-            : base(engine, _name)
+        internal ProxyConstructor(
+            Engine engine,
+            Realm realm)
+            : base(engine, realm, _name)
         {
             _length = new PropertyDescriptor(2, PropertyFlag.Configurable);
         }

@@ -16,8 +16,12 @@ namespace Jint.Native.String
     {
         private static readonly JsString _functionName = new JsString("String");
 
-        public StringConstructor(Engine engine, FunctionPrototype functionPrototype, ObjectPrototype objectPrototype)
-            : base(engine, _functionName, FunctionThisMode.Global)
+        public StringConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName, FunctionThisMode.Global)
         {
             _prototype = functionPrototype;
             PrototypeObject = new StringPrototype(engine, this, objectPrototype);

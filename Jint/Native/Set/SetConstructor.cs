@@ -12,8 +12,12 @@ namespace Jint.Native.Set
     {
         private static readonly JsString _functionName = new JsString("Set");
 
-        internal SetConstructor(Engine engine, FunctionPrototype functionPrototype, ObjectPrototype objectPrototype)
-            : base(engine, _functionName, FunctionThisMode.Global)
+        internal SetConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName, FunctionThisMode.Global)
         {
             _prototype = functionPrototype;
             PrototypeObject = new SetPrototype(engine, this, objectPrototype);

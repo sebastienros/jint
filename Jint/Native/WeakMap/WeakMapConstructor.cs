@@ -10,8 +10,12 @@ namespace Jint.Native.WeakMap
     {
         private static readonly JsString _functionName = new JsString("WeakMap");
 
-        internal WeakMapConstructor(Engine engine, FunctionPrototype prototype, ObjectPrototype objectPrototype)
-            : base(engine, _functionName)
+        internal WeakMapConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype prototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
             _prototype = prototype;
             PrototypeObject = new WeakMapPrototype(engine, this, objectPrototype);

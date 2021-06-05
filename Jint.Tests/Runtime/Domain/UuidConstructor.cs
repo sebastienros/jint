@@ -12,7 +12,7 @@ namespace Jint.Tests.Runtime.Domain
     {
         private static readonly JsString _functionName = new JsString("Uuid");
 
-        private UuidConstructor(Engine engine) : base(engine, _functionName)
+        private UuidConstructor(Engine engine) : base(engine, engine.Realm, _functionName)
         {
         }
 

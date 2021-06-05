@@ -17,9 +17,10 @@ namespace Jint.Native.Symbol
 
         internal SymbolConstructor(
             Engine engine,
+            Realm realm,
             FunctionPrototype functionPrototype,
             ObjectPrototype objectPrototype)
-            : base(engine, _functionName, FunctionThisMode.Global)
+            : base(engine, realm, _functionName, FunctionThisMode.Global)
         {
             _prototype = functionPrototype;
             PrototypeObject = new SymbolPrototype(engine, this, objectPrototype);

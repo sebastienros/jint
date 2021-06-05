@@ -15,8 +15,12 @@ namespace Jint.Native.RegExp
     {
         private static readonly JsString _functionName = new JsString("RegExp");
 
-        internal RegExpConstructor(Engine engine, FunctionPrototype functionPrototype, ObjectPrototype objectPrototype)
-            : base(engine, _functionName, FunctionThisMode.Global)
+        internal RegExpConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName, FunctionThisMode.Global)
         {
             _prototype = functionPrototype;
             PrototypeObject = new RegExpPrototype(engine, this, objectPrototype);

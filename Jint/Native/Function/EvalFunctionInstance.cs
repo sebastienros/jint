@@ -12,8 +12,15 @@ namespace Jint.Native.Function
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
         private static readonly JsString _functionName = new JsString("eval");
 
-        public EvalFunctionInstance(Engine engine, FunctionPrototype functionPrototype)
-            : base(engine, _functionName, StrictModeScope.IsStrictModeCode ? FunctionThisMode.Strict : FunctionThisMode.Global)
+        public EvalFunctionInstance(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype)
+            : base(
+                engine,
+                realm,
+                _functionName,
+                StrictModeScope.IsStrictModeCode ? FunctionThisMode.Strict : FunctionThisMode.Global)
         {
             _prototype = functionPrototype;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;

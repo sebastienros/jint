@@ -13,8 +13,11 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class FunctionPrototype : FunctionInstance
     {
-        internal FunctionPrototype(Engine engine, ObjectPrototype objectPrototype)
-            : base(engine, JsString.Empty)
+        internal FunctionPrototype(
+            Engine engine,
+            Realm realm,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, JsString.Empty)
         {
             _prototype = objectPrototype;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
@@ -104,7 +107,7 @@ namespace Jint.Native.Function
         private FunctionInstance BoundFunctionCreate(ObjectInstance targetFunction, JsValue boundThis, JsValue[] boundArgs)
         {
             var proto = targetFunction.GetPrototypeOf();
-            var obj = new BindFunctionInstance(Engine)
+            var obj = new BindFunctionInstance(_engine, _realm)
             {
                 _prototype = proto,
                 TargetFunction = targetFunction,

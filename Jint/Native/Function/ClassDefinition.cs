@@ -193,6 +193,7 @@ namespace Jint.Native.Function
                     function,
                     obj.Engine.ExecutionContext.LexicalEnvironment,
                     true);
+
                 closure.SetFunctionName(propKey, method.Kind == PropertyKind.Get ? "get" : "set");
                 closure.MakeMethod(obj);
 

@@ -12,8 +12,10 @@ namespace Jint.Native.Object
     {
         private static readonly JsString _name = new JsString("delegate");
 
-        internal ObjectConstructor(Engine engine)
-            : base(engine, _name)
+        internal ObjectConstructor(
+            Engine engine,
+            Realm realm)
+            : base(engine, realm, _name)
         {
             PrototypeObject = new ObjectPrototype(engine, this);
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;

@@ -27,12 +27,25 @@ namespace Jint.Native.Function
         internal Realm _realm;
         private PrivateEnvironmentRecord  _privateEnvironment;
 
+        protected FunctionInstance(
+            Engine engine,
+            Realm realm,
+            JsString name)
+            : this(engine, realm, name, FunctionThisMode.Global, ObjectClass.Function)
+        {
+        }
+
         internal FunctionInstance(
             Engine engine,
+            Realm realm,
             JintFunctionDefinition function,
             EnvironmentRecord scope,
             FunctionThisMode thisMode)
-            : this(engine, !string.IsNullOrWhiteSpace(function.Name) ? new JsString(function.Name) : null, thisMode)
+            : this(
+                engine,
+                realm,
+                !string.IsNullOrWhiteSpace(function.Name) ? new JsString(function.Name) : null,
+                thisMode)
         {
             _functionDefinition = function;
             _environment = scope;
@@ -40,6 +53,7 @@ namespace Jint.Native.Function
 
         internal FunctionInstance(
             Engine engine,
+            Realm realm,
             JsString name,
             FunctionThisMode thisMode = FunctionThisMode.Global,
             ObjectClass objectClass = ObjectClass.Function)
@@ -49,15 +63,8 @@ namespace Jint.Native.Function
             {
                 _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
             }
-            _realm = engine.Realm;
+            _realm = realm;
             _thisMode = thisMode;
-        }
-
-        protected FunctionInstance(
-            Engine engine,
-            JsString name)
-            : this(engine, name, FunctionThisMode.Global, ObjectClass.Function)
-        {
         }
 
         // for example RavenDB wants to inspect this

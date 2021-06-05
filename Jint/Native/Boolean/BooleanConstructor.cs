@@ -9,8 +9,12 @@ namespace Jint.Native.Boolean
     {
         private static readonly JsString _functionName = new JsString("Boolean");
 
-        internal BooleanConstructor(Engine engine, FunctionPrototype functionPrototype, ObjectPrototype objectPrototype)
-            : base(engine, _functionName)
+        internal BooleanConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
             PrototypeObject = new BooleanPrototype(engine, this, objectPrototype);
@@ -46,7 +50,7 @@ namespace Jint.Native.Boolean
 
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
-                static intrinsics => intrinsics.Boolean.PrototypeObject, 
+                static intrinsics => intrinsics.Boolean.PrototypeObject,
                 static (engine, state) => new BooleanInstance(engine, (JsBoolean) state), b);
             return o;
         }

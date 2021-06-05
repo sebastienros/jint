@@ -12,10 +12,11 @@ namespace Jint.Native.Error
 
         internal ErrorConstructor(
             Engine engine,
+            Realm realm,
             FunctionPrototype functionPrototype,
             ObjectInstance objectPrototype,
-            JsString name) 
-            : base(engine, name)
+            JsString name)
+            : base(engine, realm, name)
         {
             _name = name;
             _prototype = functionPrototype;
