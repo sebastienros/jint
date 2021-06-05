@@ -7,11 +7,15 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Iterator
 {
-    internal sealed class IteratorPrototype : IteratorInstance
+    internal sealed class IteratorPrototype : Prototype
     {
         private readonly string _name;
 
-        internal IteratorPrototype(Engine engine, string name, ObjectPrototype objectPrototype) : base(engine)
+        internal IteratorPrototype(
+            Engine engine,
+            Realm realm,
+            string name,
+            ObjectPrototype objectPrototype) : base(engine, realm)
         {
             _prototype = objectPrototype;
             _name = name;

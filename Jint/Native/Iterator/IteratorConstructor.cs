@@ -17,12 +17,12 @@ namespace Jint.Native.Iterator
             ObjectPrototype objectPrototype)
             : base(engine, realm, _functionName)
         {
-            ArrayIteratorPrototypeObject = new IteratorPrototype(engine, "Array Iterator", objectPrototype);
-            GenericIteratorPrototypeObject = new IteratorPrototype(engine, null, objectPrototype);
-            MapIteratorPrototypeObject = new IteratorPrototype(engine, "Map Iterator", objectPrototype);
-            RegExpStringIteratorPrototypeObject = new IteratorPrototype(engine, "RegExp String Iterator", objectPrototype);
-            SetIteratorPrototypeObject = new IteratorPrototype(engine, "Set Iterator", objectPrototype);
-            StringIteratorPrototypeObject = new IteratorPrototype(engine, "String Iterator", objectPrototype);
+            ArrayIteratorPrototypeObject = new IteratorPrototype(engine, realm, "Array Iterator", objectPrototype);
+            GenericIteratorPrototypeObject = new IteratorPrototype(engine, realm, null, objectPrototype);
+            MapIteratorPrototypeObject = new IteratorPrototype(engine, realm, "Map Iterator", objectPrototype);
+            RegExpStringIteratorPrototypeObject = new IteratorPrototype(engine, realm, "RegExp String Iterator", objectPrototype);
+            SetIteratorPrototypeObject = new IteratorPrototype(engine, realm, "Set Iterator", objectPrototype);
+            StringIteratorPrototypeObject = new IteratorPrototype(engine, realm, "String Iterator", objectPrototype);
         }
 
         private IteratorPrototype ArrayIteratorPrototypeObject { get; }

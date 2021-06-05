@@ -10,11 +10,15 @@ namespace Jint.Native.WeakSet
     /// <summary>
     /// https://tc39.es/ecma262/#sec-weakset-objects
     /// </summary>
-    public sealed class WeakSetPrototype : ObjectInstance
+    public sealed class WeakSetPrototype : Prototype
     {
         private readonly WeakSetConstructor _constructor;
 
-        internal WeakSetPrototype(Engine engine, WeakSetConstructor constructor, ObjectPrototype prototype) : base(engine)
+        internal WeakSetPrototype(
+            Engine engine,
+            Realm realm,
+            WeakSetConstructor constructor,
+            ObjectPrototype prototype) : base(engine, realm)
         {
             _prototype = prototype;
             _constructor = constructor;
@@ -64,7 +68,7 @@ namespace Jint.Native.WeakSet
             var set = thisObj as WeakSetInstance;
             if (set is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "object must be a WeakSet");
+                ExceptionHelper.ThrowTypeError(_realm, "object must be a WeakSet");
             }
 
             return set;

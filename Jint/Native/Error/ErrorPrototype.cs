@@ -11,15 +11,18 @@ namespace Jint.Native.Error
     /// </summary>
     public sealed class ErrorPrototype : ErrorInstance
     {
+        private readonly Realm _realm;
         private readonly ErrorConstructor _constructor;
 
         internal ErrorPrototype(
             Engine engine,
+            Realm realm,
             ErrorConstructor constructor,
             ObjectInstance objectPrototype,
             JsString name)
             : base(engine, name)
         {
+            _realm = realm;
             _constructor = constructor;
             _prototype = objectPrototype;
         }
@@ -40,7 +43,7 @@ namespace Jint.Native.Error
             var o = thisObject.TryCast<ObjectInstance>();
             if (ReferenceEquals(o, null))
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var name = TypeConverter.ToString(o.Get("name", this));

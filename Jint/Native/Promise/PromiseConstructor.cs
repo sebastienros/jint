@@ -31,7 +31,7 @@ namespace Jint.Native.Promise
             : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
-            PrototypeObject = new PromisePrototype(engine, this, objectPrototype);
+            PrototypeObject = new PromisePrototype(engine, realm, this, objectPrototype);
             _length = new PropertyDescriptor(1, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }

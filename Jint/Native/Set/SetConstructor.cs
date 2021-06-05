@@ -20,7 +20,7 @@ namespace Jint.Native.Set
             : base(engine, realm, _functionName, FunctionThisMode.Global)
         {
             _prototype = functionPrototype;
-            PrototypeObject = new SetPrototype(engine, this, objectPrototype);
+            PrototypeObject = new SetPrototype(engine, realm, this, objectPrototype);
             _length = new PropertyDescriptor(0, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }

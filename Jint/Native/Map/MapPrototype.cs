@@ -10,11 +10,15 @@ namespace Jint.Native.Map
     /// <summary>
     /// https://www.ecma-international.org/ecma-262/6.0/#sec-map-objects
     /// </summary>
-    public sealed class MapPrototype : ObjectInstance
+    public sealed class MapPrototype : Prototype
     {
         private readonly MapConstructor _mapConstructor;
 
-        internal MapPrototype(Engine engine, MapConstructor mapConstructor, ObjectPrototype objectPrototype) : base(engine)
+        internal MapPrototype(
+            Engine engine,
+            Realm realm,
+            MapConstructor mapConstructor,
+            ObjectPrototype objectPrototype) : base(engine, realm)
         {
             _prototype = objectPrototype;
             _mapConstructor = mapConstructor;

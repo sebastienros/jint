@@ -21,7 +21,7 @@ namespace Jint.Native.Map
             : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
-            PrototypeObject = new MapPrototype(engine, this, objectPrototype);
+            PrototypeObject = new MapPrototype(engine, realm, this, objectPrototype);
             _length = new PropertyDescriptor(0, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }

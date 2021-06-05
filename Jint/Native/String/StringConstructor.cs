@@ -24,7 +24,7 @@ namespace Jint.Native.String
             : base(engine, realm, _functionName, FunctionThisMode.Global)
         {
             _prototype = functionPrototype;
-            PrototypeObject = new StringPrototype(engine, this, objectPrototype);
+            PrototypeObject = new StringPrototype(engine, realm, this, objectPrototype);
             _length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }

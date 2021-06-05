@@ -11,12 +11,18 @@ namespace Jint.Native.Boolean
     /// </summary>
     public sealed class BooleanPrototype : BooleanInstance
     {
+        private readonly Realm _realm;
         private readonly BooleanConstructor _constructor;
 
-        internal BooleanPrototype(Engine engine, BooleanConstructor constructor, ObjectPrototype objectPrototype) : base(engine)
+        internal BooleanPrototype(
+            Engine engine,
+            Realm realm,
+            BooleanConstructor constructor,
+            ObjectPrototype objectPrototype) : base(engine)
         {
             _prototype = objectPrototype;
             PrimitiveValue = JsBoolean.False;
+            _realm = realm;
             _constructor = constructor;
         }
 
@@ -43,7 +49,7 @@ namespace Jint.Native.Boolean
                 return bi.PrimitiveValue;
             }
 
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            ExceptionHelper.ThrowTypeError(_realm);
             return Undefined;
         }
 

@@ -23,7 +23,7 @@ namespace Jint.Native.Symbol
             : base(engine, realm, _functionName, FunctionThisMode.Global)
         {
             _prototype = functionPrototype;
-            PrototypeObject = new SymbolPrototype(engine, this, objectPrototype);
+            PrototypeObject = new SymbolPrototype(engine, realm, this, objectPrototype);
             _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }

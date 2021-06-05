@@ -17,7 +17,7 @@ namespace Jint.Native.Object
             Realm realm)
             : base(engine, realm, _name)
         {
-            PrototypeObject = new ObjectPrototype(engine, this);
+            PrototypeObject = new ObjectPrototype(engine, realm, this);
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }

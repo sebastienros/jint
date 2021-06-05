@@ -21,12 +21,18 @@ namespace Jint.Native.Date
         private const double MinMonth = -10000000.0;
         private const double MaxMonth = -MinMonth;
 
+        private readonly Realm _realm;
         private readonly DateConstructor _constructor;
 
-        internal DatePrototype(Engine engine, DateConstructor constructor, ObjectPrototype objectPrototype)
+        internal DatePrototype(
+            Engine engine,
+            Realm realm,
+            DateConstructor constructor,
+            ObjectPrototype objectPrototype)
             : base(engine)
         {
             _prototype = objectPrototype;
+            _realm = realm;
             _constructor = constructor;
         }
 
@@ -98,13 +104,13 @@ namespace Jint.Native.Date
             var oi = thisObject as ObjectInstance;
             if (oi is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var hint = arguments.At(0);
             if (!hint.IsString())
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var hintString = hint.ToString();
@@ -119,7 +125,7 @@ namespace Jint.Native.Date
             }
             else
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             return TypeConverter.OrdinaryToPrimitive(oi, tryFirst);
@@ -141,7 +147,7 @@ namespace Jint.Native.Date
                 return dateInstance;
             }
 
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "this is not a Date object");
+            ExceptionHelper.ThrowTypeError(_realm, "this is not a Date object");
             return null;
         }
 
@@ -658,7 +664,7 @@ namespace Jint.Native.Date
             var t = thisTime.PrimitiveValue;
             if (!IsFinite(t))
             {
-                ExceptionHelper.ThrowRangeError(_engine.Realm);
+                ExceptionHelper.ThrowRangeError(_realm);
             }
 
             if (thisTime.DateTimeRangeValid)
@@ -694,7 +700,7 @@ namespace Jint.Native.Date
             var callable = toIso as ICallable;
             if (callable is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             return callable.Call(o, Arguments.Empty);

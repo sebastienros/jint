@@ -9,15 +9,19 @@ namespace Jint.Native.Symbol
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.4
     /// </summary>
-    public sealed class SymbolPrototype : ObjectInstance
+    public sealed class SymbolPrototype : Prototype
     {
-        private readonly SymbolConstructor _symbolConstructor;
+        private readonly SymbolConstructor _constructor;
 
-        internal SymbolPrototype(Engine engine, SymbolConstructor symbolConstructor, ObjectPrototype objectPrototype)
-            : base(engine)
+        internal SymbolPrototype(
+            Engine engine,
+            Realm realm,
+            SymbolConstructor symbolConstructor,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm)
         {
             _prototype = objectPrototype;
-            _symbolConstructor = symbolConstructor;
+            _constructor = symbolConstructor;
         }
 
         protected override void Initialize()
@@ -27,7 +31,7 @@ namespace Jint.Native.Symbol
             SetProperties(new PropertyDictionary(5, checkExistingKeys: false)
             {
                 ["length"] = new PropertyDescriptor(JsNumber.PositiveZero, propertyFlags),
-                ["constructor"] = new PropertyDescriptor(_symbolConstructor, PropertyFlag.Configurable | PropertyFlag.Writable),
+                ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.Configurable | PropertyFlag.Writable),
                 ["description"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(Engine, "description", Description, 0, lengthFlags), Undefined, propertyFlags),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToSymbolString, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable)
@@ -76,7 +80,7 @@ namespace Jint.Native.Symbol
                 return instance.SymbolData;
             }
 
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            ExceptionHelper.ThrowTypeError(_realm);
             return null;
         }
     }

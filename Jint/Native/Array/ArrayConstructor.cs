@@ -24,7 +24,7 @@ namespace Jint.Native.Array
             : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
-            PrototypeObject = new ArrayPrototype(engine, this, objectPrototype);
+            PrototypeObject = new ArrayPrototype(engine, realm, this, objectPrototype);
             _length = new PropertyDescriptor(1, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }

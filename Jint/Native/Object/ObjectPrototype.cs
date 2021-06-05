@@ -8,10 +8,15 @@ namespace Jint.Native.Object
 {
     public sealed class ObjectPrototype : ObjectInstance
     {
+        private readonly Realm _realm;
         private readonly ObjectConstructor _constructor;
 
-        internal ObjectPrototype(Engine engine, ObjectConstructor constructor) : base(engine)
+        internal ObjectPrototype(
+            Engine engine,
+            Realm realm,
+            ObjectConstructor constructor) : base(engine)
         {
+            _realm = realm;
             _constructor = constructor;
         }
 
@@ -39,7 +44,7 @@ namespace Jint.Native.Object
             var desc = o.GetOwnProperty(p);
             if (desc == PropertyDescriptor.Undefined)
             {
-                return false;
+                return JsBoolean.False;
             }
             return desc.Enumerable;
         }
@@ -55,7 +60,7 @@ namespace Jint.Native.Object
             var arg = arguments[0];
             if (!arg.IsObject())
             {
-                return false;
+                return JsBoolean.False;
             }
 
             var v = arg.AsObject();
@@ -67,14 +72,13 @@ namespace Jint.Native.Object
 
                 if (ReferenceEquals(v, null))
                 {
-                    return false;
+                    return JsBoolean.False;
                 }
 
                 if (ReferenceEquals(o, v))
                 {
-                    return true;
+                    return JsBoolean.True;
                 }
-
             }
         }
 
@@ -85,9 +89,9 @@ namespace Jint.Native.Object
             var callable = func as ICallable;
             if (callable is null)
             {
-                ExceptionHelper.ThrowTypeErrorNoEngine("Can only invoke functions");
+                ExceptionHelper.ThrowTypeError(_realm, "Can only invoke functions");
             }
-            return TypeConverter.ToString(callable.Call(thisObject, arguments));
+            return TypeConverter.ToJsString(callable.Call(thisObject, arguments));
         }
 
         /// <summary>

@@ -62,7 +62,7 @@ namespace Jint.Native.Date
             : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
-            PrototypeObject = new DatePrototype(engine, this, objectPrototype);
+            PrototypeObject = new DatePrototype(engine, realm, this, objectPrototype);
             _length = new PropertyDescriptor(7, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }

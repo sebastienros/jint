@@ -7,11 +7,15 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise
 {
-    internal sealed class PromisePrototype : ObjectInstance
+    internal sealed class PromisePrototype : Prototype
     {
         private readonly PromiseConstructor _constructor;
 
-        internal PromisePrototype(Engine engine, PromiseConstructor constructor, ObjectPrototype objectPrototype) : base(engine)
+        internal PromisePrototype(
+            Engine engine,
+            Realm realm,
+            PromiseConstructor constructor,
+            ObjectPrototype objectPrototype) : base(engine, realm)
         {
             _prototype = objectPrototype;
             _constructor = constructor;

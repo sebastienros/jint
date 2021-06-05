@@ -29,7 +29,7 @@ namespace Jint.Native.Function
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             var properties = new PropertyDictionary(7, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(Engine.Realm.Intrinsics.Function, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_realm.Intrinsics.Function, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
                 ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2, lengthFlags), propertyFlags),
                 ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1, lengthFlags), propertyFlags),
@@ -60,7 +60,7 @@ namespace Jint.Native.Function
         {
             if (thisObj is not ICallable)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Bind must be called on a function");
+                ExceptionHelper.ThrowTypeError(_realm, "Bind must be called on a function");
             }
 
             var thisArg = arguments.At(0);
@@ -124,7 +124,7 @@ namespace Jint.Native.Function
                 return thisObj.ToString();
             }
 
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Function.prototype.toString requires that 'this' be a Function");
+            ExceptionHelper.ThrowTypeError(_realm, "Function.prototype.toString requires that 'this' be a Function");
             return null;
         }
 
@@ -133,7 +133,7 @@ namespace Jint.Native.Function
             var func = thisObject as ICallable;
             if (func is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
             var thisArg = arguments.At(0);
             var argArray = arguments.At(1);
@@ -155,7 +155,7 @@ namespace Jint.Native.Function
             var argArrayObj = argArray as ObjectInstance;
             if (argArrayObj is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
             var operations = ArrayOperations.For(argArrayObj);
             var allowedTypes = elementTypes ??
@@ -170,7 +170,7 @@ namespace Jint.Native.Function
             var func = thisObject as ICallable;
             if (func is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
             JsValue[] values = System.Array.Empty<JsValue>();
             if (arguments.Length > 1)

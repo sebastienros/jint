@@ -20,14 +20,20 @@ namespace Jint.Native.Array
     /// </summary>
     public sealed class ArrayPrototype : ArrayInstance
     {
-        private ArrayConstructor _arrayConstructor;
+        private readonly Realm _realm;
+        private readonly ArrayConstructor _constructor;
         internal ClrFunctionInstance _originalIteratorFunction;
 
-        internal ArrayPrototype(Engine engine, ArrayConstructor arrayConstructor, ObjectPrototype objectPrototype) : base(engine)
+        internal ArrayPrototype(
+            Engine engine,
+            Realm realm,
+            ArrayConstructor arrayConstructor,
+            ObjectPrototype objectPrototype) : base(engine)
         {
             _prototype = objectPrototype;
             _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Writable);
-            _arrayConstructor = arrayConstructor;
+            _realm = realm;
+            _constructor = arrayConstructor;
         }
 
         protected override void Initialize()
@@ -51,7 +57,7 @@ namespace Jint.Native.Array
             const PropertyFlag propertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
             var properties = new PropertyDictionary(32, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(_arrayConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), propertyFlags),
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), propertyFlags),
                 ["concat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), propertyFlags),
@@ -99,10 +105,10 @@ namespace Jint.Native.Array
         {
             if (thisObj is ObjectInstance oi && oi.IsArrayLike)
             {
-                return _engine.Realm.Intrinsics.Iterator.ConstructArrayLikeKeyIterator(oi);
+                return _realm.Intrinsics.Iterator.ConstructArrayLikeKeyIterator(oi);
             }
 
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "cannot construct iterator");
+            ExceptionHelper.ThrowTypeError(_realm, "cannot construct iterator");
             return null;
         }
 
@@ -110,10 +116,10 @@ namespace Jint.Native.Array
         {
             if (thisObj is ObjectInstance oi && oi.IsArrayLike)
             {
-                return _engine.Realm.Intrinsics.Iterator.ConstructArrayLikeValueIterator(oi);
+                return _realm.Intrinsics.Iterator.ConstructArrayLikeValueIterator(oi);
             }
 
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "cannot construct iterator");
+            ExceptionHelper.ThrowTypeError(_realm, "cannot construct iterator");
             return null;
         }
 
@@ -121,10 +127,10 @@ namespace Jint.Native.Array
         {
             if (thisObj is ObjectInstance oi)
             {
-                return _engine.Realm.Intrinsics.Iterator.Construct(oi);
+                return _realm.Intrinsics.Iterator.Construct(oi);
             }
 
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "cannot construct iterator");
+            ExceptionHelper.ThrowTypeError(_realm, "cannot construct iterator");
             return null;
         }
 
@@ -132,7 +138,7 @@ namespace Jint.Native.Array
         {
             if (thisObj.IsNullOrUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Cannot convert undefined or null to object");
+                ExceptionHelper.ThrowTypeError(_realm, "Cannot convert undefined or null to object");
             }
 
             var operations = ArrayOperations.For(thisObj as ObjectInstance);
@@ -178,7 +184,7 @@ namespace Jint.Native.Array
             // Steps 1-2.
             if (thisObj.IsNullOrUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "this is null or not defined");
+                ExceptionHelper.ThrowTypeError(_realm, "this is null or not defined");
             }
 
             JsValue target = arguments.At(0);
@@ -318,7 +324,7 @@ namespace Jint.Native.Array
 
             if (len == 0 && arguments.Length < 2)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var k = 0;
@@ -342,7 +348,7 @@ namespace Jint.Native.Array
 
                 if (kPresent == false)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm);
+                    ExceptionHelper.ThrowTypeError(_realm);
                 }
             }
 
@@ -375,7 +381,7 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var a = Engine.Realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), 0);
+            var a = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), 0);
             var operations = ArrayOperations.For(a);
 
             uint to = 0;
@@ -414,14 +420,14 @@ namespace Jint.Native.Array
 
             if (len > ArrayOperations.MaxArrayLength)
             {
-                ExceptionHelper.ThrowRangeError(_engine.Realm, "Invalid array length");;
+                ExceptionHelper.ThrowRangeError(_realm, "Invalid array length");;
             }
 
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
 
-            var a = ArrayOperations.For(Engine.Realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), (uint) len));
+            var a = ArrayOperations.For(_realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), (uint) len));
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o.Target;
             for (uint k = 0; k < len; k++)
@@ -458,7 +464,7 @@ namespace Jint.Native.Array
                 depthNum = 0;
             }
 
-            var A = _engine.Realm.Intrinsics.Array.ArraySpeciesCreate(O, 0);
+            var A = _realm.Intrinsics.Array.ArraySpeciesCreate(O, 0);
             FlattenIntoArray(A, O, sourceLen, 0, depthNum);
             return A;
         }
@@ -476,10 +482,10 @@ namespace Jint.Native.Array
 
             if (!mapperFunction.IsCallable)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "flatMap mapper function is not callable");
+                ExceptionHelper.ThrowTypeError(_realm, "flatMap mapper function is not callable");
             }
 
-            var A = _engine.Realm.Intrinsics.Array.ArraySpeciesCreate(O, 0);
+            var A = _realm.Intrinsics.Array.ArraySpeciesCreate(O, 0);
             FlattenIntoArray(A, O, sourceLen, 0, 1, (ICallable) mapperFunction, thisArg);
             return A;
         }
@@ -540,7 +546,7 @@ namespace Jint.Native.Array
                     {
                         if (targetIndex >= NumberConstructor.MaxSafeInteger)
                         {
-                            ExceptionHelper.ThrowTypeError(_engine.Realm);
+                            ExceptionHelper.ThrowTypeError(_realm);
                         }
 
                         target.CreateDataPropertyOrThrow(targetIndex, element);
@@ -794,10 +800,10 @@ namespace Jint.Native.Array
 
             if (len + insertCount - actualDeleteCount > ArrayOperations.MaxArrayLikeLength)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid array length");
+                ExceptionHelper.ThrowTypeError(_realm, "Invalid array length");
             }
 
-            var instance = Engine.Realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), actualDeleteCount);
+            var instance = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), actualDeleteCount);
             var a = ArrayOperations.For(instance);
             for (uint k = 0; k < actualDeleteCount; k++)
             {
@@ -870,7 +876,7 @@ namespace Jint.Native.Array
 
             if (len + argCount > ArrayOperations.MaxArrayLikeLength)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid array length");
+                ExceptionHelper.ThrowTypeError(_realm, "Invalid array length");
             }
 
             o.EnsureCapacity(len + argCount);
@@ -902,7 +908,7 @@ namespace Jint.Native.Array
         {
             if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Array.prorotype.sort can only be applied on objects");
+                ExceptionHelper.ThrowTypeError(_realm, "Array.prorotype.sort can only be applied on objects");
             }
 
             var obj = ArrayOperations.For(thisObj.AsObject());
@@ -913,7 +919,7 @@ namespace Jint.Native.Array
             {
                 if (compareArg.IsNull() || !(compareArg is ICallable))
                 {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm, "The comparison function must be either a function or undefined");
+                    ExceptionHelper.ThrowTypeError(_realm, "The comparison function must be either a function or undefined");
                 }
 
                 compareFn = (ICallable) compareArg;
@@ -989,11 +995,11 @@ namespace Jint.Native.Array
 
             if (k < final && final - k > ArrayOperations.MaxArrayLength)
             {
-                ExceptionHelper.ThrowRangeError(_engine.Realm, "Invalid array length");;
+                ExceptionHelper.ThrowRangeError(_realm, "Invalid array length");;
             }
 
             var length = (uint) System.Math.Max(0, (long) final - (long) k);
-            var a = Engine.Realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), length);
+            var a = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), length);
             if (thisObj is ArrayInstance ai && a is ArrayInstance a2)
             {
                 a2.CopyValues(ai, (uint) k, 0, length);
@@ -1150,7 +1156,7 @@ namespace Jint.Native.Array
                 var func = elementObj.Get("toLocaleString", elementObj) as ICallable;
                 if (func is null)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm);
+                    ExceptionHelper.ThrowTypeError(_realm);
                 }
 
                 r = func.Call(elementObj, Arguments.Empty);
@@ -1169,7 +1175,7 @@ namespace Jint.Native.Array
                     var func = elementObj.Get("toLocaleString", elementObj) as ICallable;
                     if (func is null)
                     {
-                        ExceptionHelper.ThrowTypeError(_engine.Realm);
+                        ExceptionHelper.ThrowTypeError(_realm);
                     }
                     r = func.Call(elementObj, Arguments.Empty);
                 }
@@ -1214,11 +1220,11 @@ namespace Jint.Native.Array
 
             if (capacity > NumberConstructor.MaxSafeInteger)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid array length");
+                ExceptionHelper.ThrowTypeError(_realm, "Invalid array length");
             }
 
             uint n = 0;
-            var a = Engine.Realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), capacity);
+            var a = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), capacity);
             var aOperations = ArrayOperations.For(a);
             for (var i = 0; i < items.Count; i++)
             {
@@ -1264,11 +1270,11 @@ namespace Jint.Native.Array
             ICallable func;
             func = array.Get("join", array).TryCast<ICallable>(x =>
             {
-                func = Engine.Realm.Intrinsics.Object.PrototypeObject.Get("toString", array).TryCast<ICallable>(y => ExceptionHelper.ThrowArgumentException());
+                func = _realm.Intrinsics.Object.PrototypeObject.Get("toString", array).TryCast<ICallable>(y => ExceptionHelper.ThrowArgumentException());
             });
 
             if (array.IsArrayLike == false || func == null)
-                return _engine.Realm.Intrinsics.Object.PrototypeObject.ToObjectString(array, Arguments.Empty);
+                return _realm.Intrinsics.Object.PrototypeObject.ToObjectString(array, Arguments.Empty);
 
             return func.Call(array, Arguments.Empty);
         }
@@ -1285,7 +1291,7 @@ namespace Jint.Native.Array
 
             if (len == 0 && arguments.Length < 2)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             long k = (long) (len - 1);
@@ -1309,7 +1315,7 @@ namespace Jint.Native.Array
 
                 if (kPresent == false)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm);
+                    ExceptionHelper.ThrowTypeError(_realm);
                 }
             }
 
@@ -1341,7 +1347,7 @@ namespace Jint.Native.Array
 
             if (n + (ulong) arguments.Length > ArrayOperations.MaxArrayLikeLength)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid array length");
+                ExceptionHelper.ThrowTypeError(_realm, "Invalid array length");
             }
 
             // cast to double as we need to prevent an overflow

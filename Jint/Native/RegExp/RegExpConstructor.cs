@@ -23,7 +23,7 @@ namespace Jint.Native.RegExp
             : base(engine, realm, _functionName, FunctionThisMode.Global)
         {
             _prototype = functionPrototype;
-            PrototypeObject = new RegExpPrototype(engine, this, objectPrototype);
+            PrototypeObject = new RegExpPrototype(engine, realm, this, objectPrototype);
             _length = new PropertyDescriptor(2, PropertyFlag.AllForbidden);
             _prototypeDescriptor= new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }

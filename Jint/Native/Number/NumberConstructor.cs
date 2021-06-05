@@ -23,7 +23,7 @@ namespace Jint.Native.Number
             : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
-            PrototypeObject = new NumberPrototype(engine, this, objectPrototype);
+            PrototypeObject = new NumberPrototype(engine, realm, this, objectPrototype);
             _length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
