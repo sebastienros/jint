@@ -116,7 +116,7 @@ namespace Jint.Native.RegExp
             }
             catch (Exception ex)
             {
-                ExceptionHelper.ThrowSyntaxError(_engine.Realm, ex.Message);
+                ExceptionHelper.ThrowSyntaxError(_realm, ex.Message);
             }
 
             r.Flags = f;

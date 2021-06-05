@@ -24,7 +24,7 @@ namespace Jint.Native.Object
 
         protected override void Initialize()
         {
-            _prototype = Engine.Realm.Intrinsics.Function.PrototypeObject;
+            _prototype = _realm.Intrinsics.Function.PrototypeObject;
 
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
@@ -98,7 +98,7 @@ namespace Jint.Native.Object
             var iterable = arguments.At(0);
             TypeConverter.CheckObjectCoercible(_engine, iterable);
 
-            var obj = _engine.Realm.Intrinsics.Object.Construct(0);
+            var obj = _realm.Intrinsics.Object.Construct(0);
 
             var adder = CreateDataPropertyOnObject.Instance;
             var iterator = arguments.At(0).GetIterator(_engine);
@@ -234,7 +234,7 @@ namespace Jint.Native.Object
         {
             var o = TypeConverter.ToObject(_engine, arguments.At(0));
             var ownKeys = o.GetOwnPropertyKeys();
-            var descriptors = _engine.Realm.Intrinsics.Object.Construct(0);
+            var descriptors = _realm.Intrinsics.Object.Construct(0);
             foreach (var key in ownKeys)
             {
                 var desc = o.GetOwnProperty(key);
@@ -251,14 +251,14 @@ namespace Jint.Native.Object
         {
             var o = TypeConverter.ToObject(_engine, arguments.At(0));
             var names = o.GetOwnPropertyKeys(Types.String);
-            return _engine.Realm.Intrinsics.Array.ConstructFast(names);
+            return _realm.Intrinsics.Array.ConstructFast(names);
         }
 
         private JsValue GetOwnPropertySymbols(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_engine, arguments.At(0));
             var keys = o.GetOwnPropertyKeys(Types.Symbol);
-            return _engine.Realm.Intrinsics.Array.ConstructFast(keys);
+            return _realm.Intrinsics.Array.ConstructFast(keys);
         }
 
         private JsValue Create(JsValue thisObject, JsValue[] arguments)
@@ -297,7 +297,7 @@ namespace Jint.Native.Object
             var name = TypeConverter.ToPropertyKey(p);
 
             var attributes = arguments.At(2);
-            var desc = PropertyDescriptor.ToPropertyDescriptor(_engine.Realm, attributes);
+            var desc = PropertyDescriptor.ToPropertyDescriptor(_realm, attributes);
             o.DefinePropertyOrThrow(name, desc);
 
             return arguments.At(0);
@@ -322,7 +322,7 @@ namespace Jint.Native.Object
                 }
 
                 var descObj = props.Get(p.Key, props);
-                var desc = PropertyDescriptor.ToPropertyDescriptor(_engine.Realm, descObj);
+                var desc = PropertyDescriptor.ToPropertyDescriptor(_realm, descObj);
                 descriptors.Add(new KeyValuePair<JsValue, PropertyDescriptor>(p.Key, desc));
             }
             foreach (var pair in descriptors)

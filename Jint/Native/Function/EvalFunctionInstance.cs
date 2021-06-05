@@ -28,7 +28,7 @@ namespace Jint.Native.Function
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            var callerRealm = _engine.ExecutionContext.Realm;
+            var callerRealm = _realm;
             return PerformEval(arguments.At(0), callerRealm, StrictModeScope.IsStrictModeCode, false);
         }
 
@@ -124,7 +124,7 @@ namespace Jint.Native.Function
 
                 // If ctx is not already suspended, suspend ctx.
 
-                Engine.EnterExecutionContext(lexEnv, varEnv);
+                Engine.EnterExecutionContext(lexEnv, varEnv, callerRealm);
 
                 try
                 {

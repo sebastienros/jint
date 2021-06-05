@@ -23,7 +23,7 @@ namespace Jint.Native.Proxy
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Constructor Proxy requires 'new'");
+            ExceptionHelper.ThrowTypeError(_realm, "Constructor Proxy requires 'new'");
             return null;
         }
 
@@ -37,7 +37,7 @@ namespace Jint.Native.Proxy
 
             if (!target.IsObject() || !handler.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Cannot create proxy with a non-object as target or handler");
+                ExceptionHelper.ThrowTypeError(_realm, "Cannot create proxy with a non-object as target or handler");
             }
             return Construct(target.AsObject(), handler.AsObject());
         }
@@ -53,18 +53,18 @@ namespace Jint.Native.Proxy
 
         protected internal override ObjectInstance GetPrototypeOf()
         {
-            return _engine.Realm.Intrinsics.Function.Prototype;
+            return _realm.Intrinsics.Function.Prototype;
         }
 
         public ProxyInstance Construct(ObjectInstance target, ObjectInstance handler)
         {
             if (target is ProxyInstance targetProxy && targetProxy._handler is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
             if (handler is ProxyInstance handlerProxy && handlerProxy._handler is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
             var instance = new ProxyInstance(Engine, target, handler);
             return instance;
@@ -82,7 +82,7 @@ namespace Jint.Native.Proxy
                 return Undefined;
             };
 
-            var result = _engine.Realm.Intrinsics.Object.Construct(System.Array.Empty<JsValue>());
+            var result = _realm.Intrinsics.Object.Construct(System.Array.Empty<JsValue>());
             result.DefineOwnProperty(PropertyRevoke, new PropertyDescriptor(new ClrFunctionInstance(_engine, name: null, revoke, 0, PropertyFlag.Configurable), PropertyFlag.ConfigurableEnumerableWritable));
             result.DefineOwnProperty(PropertyProxy, new PropertyDescriptor(p, PropertyFlag.ConfigurableEnumerableWritable));
             return result;

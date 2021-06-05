@@ -11,8 +11,14 @@ namespace Jint.Native.Reflect
     /// </summary>
     public sealed class ReflectInstance : ObjectInstance
     {
-        internal ReflectInstance(Engine engine, ObjectPrototype objectPrototype) : base(engine, ObjectClass.Reflect)
+        private readonly Realm _realm;
+
+        internal ReflectInstance(
+            Engine engine,
+            Realm realm,
+            ObjectPrototype objectPrototype) : base(engine, ObjectClass.Reflect)
         {
+            _realm = realm;
             _prototype = objectPrototype;
         }
 
@@ -39,7 +45,7 @@ namespace Jint.Native.Reflect
 
         private JsValue Apply(JsValue thisObject, JsValue[] arguments)
         {
-            return _engine.Realm.Intrinsics.Function.PrototypeObject.Apply(arguments.At(0), new[]
+            return _realm.Intrinsics.Function.PrototypeObject.Apply(arguments.At(0), new[]
             {
                 arguments.At(1),
                 arguments.At(2)
@@ -54,7 +60,7 @@ namespace Jint.Native.Reflect
             var newTargetArgument = arguments.At(2, arguments[0]);
             AssertConstructor(_engine, newTargetArgument);
 
-            var args = _engine.Realm.Intrinsics.Function.PrototypeObject.CreateListFromArrayLike(arguments.At(1));
+            var args = _realm.Intrinsics.Function.PrototypeObject.CreateListFromArrayLike(arguments.At(1));
 
             return target.Construct(args, newTargetArgument);
         }
@@ -64,14 +70,14 @@ namespace Jint.Native.Reflect
             var o = arguments.At(0) as ObjectInstance;
             if (o is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Reflect.defineProperty called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Reflect.defineProperty called on non-object");
             }
 
             var p = arguments.At(1);
             var name = TypeConverter.ToPropertyKey(p);
 
             var attributes = arguments.At(2);
-            var desc = PropertyDescriptor.ToPropertyDescriptor(_engine.Realm, attributes);
+            var desc = PropertyDescriptor.ToPropertyDescriptor(_realm, attributes);
 
             return o.DefineOwnProperty(name, desc);
         }
@@ -81,7 +87,7 @@ namespace Jint.Native.Reflect
             var o = arguments.At(0) as ObjectInstance;
             if (o is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Reflect.deleteProperty called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Reflect.deleteProperty called on non-object");
             }
 
             var property = TypeConverter.ToPropertyKey(arguments.At(1));
@@ -93,7 +99,7 @@ namespace Jint.Native.Reflect
             var o = arguments.At(0) as ObjectInstance;
             if (o is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Reflect.has called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Reflect.has called on non-object");
             }
 
             var property = TypeConverter.ToPropertyKey(arguments.At(1));
@@ -110,7 +116,7 @@ namespace Jint.Native.Reflect
             var o = target as ObjectInstance;
             if (o is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Reflect.set called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Reflect.set called on non-object");
             }
 
             return o.Set(property, value, receiver);
@@ -122,7 +128,7 @@ namespace Jint.Native.Reflect
             var o = target as ObjectInstance;
             if (o is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Reflect.get called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Reflect.get called on non-object");
             }
 
             var receiver = arguments.At(2, target);
@@ -134,9 +140,9 @@ namespace Jint.Native.Reflect
         {
             if (!arguments.At(0).IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Reflect.getOwnPropertyDescriptor called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Reflect.getOwnPropertyDescriptor called on non-object");
             }
-            return _engine.Realm.Intrinsics.Object.GetOwnPropertyDescriptor(Undefined, arguments);
+            return _realm.Intrinsics.Object.GetOwnPropertyDescriptor(Undefined, arguments);
         }
 
         private JsValue OwnKeys(JsValue thisObject, JsValue[] arguments)
@@ -144,11 +150,11 @@ namespace Jint.Native.Reflect
             var o = arguments.At(0) as ObjectInstance;
             if (o is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Reflect.get called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Reflect.get called on non-object");
             }
 
             var keys = o.GetOwnPropertyKeys();
-            return _engine.Realm.Intrinsics.Array.CreateArrayFromList(keys);
+            return _realm.Intrinsics.Array.CreateArrayFromList(keys);
         }
 
         private JsValue IsExtensible(JsValue thisObject, JsValue[] arguments)
@@ -156,7 +162,7 @@ namespace Jint.Native.Reflect
             var o = arguments.At(0) as ObjectInstance;
             if (o is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Reflect.isExtensible called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Reflect.isExtensible called on non-object");
             }
 
             return o.Extensible;
@@ -167,7 +173,7 @@ namespace Jint.Native.Reflect
             var o = arguments.At(0) as ObjectInstance;
             if (o is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Reflect.preventExtensions called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Reflect.preventExtensions called on non-object");
             }
 
             return o.PreventExtensions();
@@ -179,10 +185,10 @@ namespace Jint.Native.Reflect
 
             if (!target.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Reflect.getPrototypeOf called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Reflect.getPrototypeOf called on non-object");
             }
 
-            return _engine.Realm.Intrinsics.Object.GetPrototypeOf(Undefined, arguments);
+            return _realm.Intrinsics.Object.GetPrototypeOf(Undefined, arguments);
         }
 
         private JsValue SetPrototypeOf(JsValue thisObject, JsValue[] arguments)
@@ -192,13 +198,13 @@ namespace Jint.Native.Reflect
             var o = target as ObjectInstance;
             if (o is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Reflect.setPrototypeOf called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Reflect.setPrototypeOf called on non-object");
             }
 
             var prototype = arguments.At(1);
             if (!prototype.IsObject() && !prototype.IsNull())
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, $"Object prototype may only be an Object or null: {prototype}");
+                ExceptionHelper.ThrowTypeError(_realm, $"Object prototype may only be an Object or null: {prototype}");
             }
 
             return o.SetPrototypeOf(prototype);

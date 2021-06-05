@@ -180,13 +180,14 @@ namespace Jint
 
         internal ExecutionContext EnterExecutionContext(
             EnvironmentRecord lexicalEnvironment,
-            EnvironmentRecord variableEnvironment)
+            EnvironmentRecord variableEnvironment,
+            Realm realm)
         {
             var context = new ExecutionContext(
                 lexicalEnvironment,
                 variableEnvironment,
                 null,
-                Realm,
+                realm,
                 null);
 
             _executionContexts.Push(context);

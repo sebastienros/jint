@@ -226,7 +226,7 @@ namespace Jint.Native.Promise
                 // if "then" method is sync then it will be resolved BEFORE the next iteration cycle
                 if (results.TrueForAll(static x => x != null) && doneIterating)
                 {
-                    var array = _engine.Realm.Intrinsics.Array.ConstructFast(results);
+                    var array = _realm.Intrinsics.Array.ConstructFast(results);
                     resolve.Call(Undefined, new JsValue[] { array });
                 }
             }
@@ -305,7 +305,7 @@ namespace Jint.Native.Promise
             // resolve the promise sync
             if (results.Count == 0)
             {
-                resolve.Call(Undefined, new JsValue[] {Engine.Realm.Intrinsics.Array.ConstructFast(0)});
+                resolve.Call(Undefined, new JsValue[] {_realm.Intrinsics.Array.ConstructFast(0)});
             }
 
             return resultingPromise;

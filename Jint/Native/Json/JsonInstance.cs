@@ -9,9 +9,15 @@ namespace Jint.Native.Json
 {
     public sealed class JsonInstance : ObjectInstance
     {
-        internal JsonInstance(Engine engine, ObjectPrototype objectPrototype)
+        private readonly Realm _realm;
+
+        internal JsonInstance(
+            Engine engine,
+            Realm realm,
+            ObjectPrototype objectPrototype)
             : base(engine, objectClass: ObjectClass.JSON)
         {
+            _realm = realm;
             _prototype = objectPrototype;
         }
 
@@ -23,7 +29,7 @@ namespace Jint.Native.Json
                 ["stringify"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "stringify", Stringify, 3), true, false, true)
             };
             SetProperties(properties);
-            
+
             var symbols = new SymbolDictionary(1)
             {
                 [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("JSON", false, false, true),
@@ -89,7 +95,7 @@ namespace Jint.Native.Json
 
             if (reviver.IsCallable)
             {
-                var root = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
+                var root = _realm.Intrinsics.Object.Construct(Arguments.Empty);
                 var rootName = JsString.Empty;
                 root.CreateDataPropertyOrThrow(rootName, unfiltered);
                 return InternalizeJSONProperty(root, rootName, (ICallable) reviver);
@@ -106,7 +112,7 @@ namespace Jint.Native.Json
             var replacer = arguments.At(1);
             var space = arguments.At(2);
 
-            if (value.IsUndefined() && replacer.IsUndefined()) 
+            if (value.IsUndefined() && replacer.IsUndefined())
             {
                 return Undefined;
             }

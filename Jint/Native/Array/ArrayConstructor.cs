@@ -62,7 +62,7 @@ namespace Jint.Native.Array
 
             if (source is JsString jsString)
             {
-                var a = _engine.Realm.Intrinsics.Array.ConstructFast((uint) jsString.Length);
+                var a = _realm.Intrinsics.Array.ConstructFast((uint) jsString.Length);
                 for (int i = 0; i < jsString._value.Length; i++)
                 {
                     a.SetIndexValue((uint) i, JsString.Create(jsString._value[i]), updateLength: false);
@@ -72,7 +72,7 @@ namespace Jint.Native.Array
 
             if (thisObj.IsNull() || !(source is ObjectInstance objectInstance))
             {
-                return _engine.Realm.Intrinsics.Array.ConstructFast(0);
+                return _realm.Intrinsics.Array.ConstructFast(0);
             }
 
             if (objectInstance is IObjectWrapper wrapper && wrapper.Target is IEnumerable enumerable)
@@ -92,7 +92,7 @@ namespace Jint.Native.Array
             }
             else
             {
-                instance = _engine.Realm.Intrinsics.Array.ConstructFast(0);
+                instance = _realm.Intrinsics.Array.ConstructFast(0);
             }
 
             if (objectInstance.TryGetIterator(_engine, out var iterator))
@@ -124,7 +124,7 @@ namespace Jint.Native.Array
             }
             else
             {
-                a = _engine.Realm.Intrinsics.Array.ConstructFast(length);
+                a = _realm.Intrinsics.Array.ConstructFast(length);
             }
 
             var args = !ReferenceEquals(callable, null)
@@ -229,7 +229,7 @@ namespace Jint.Native.Array
             {
                 // faster for real arrays
                 ArrayInstance ai;
-                a = ai = _engine.Realm.Intrinsics.Array.Construct(len);
+                a = ai = _realm.Intrinsics.Array.Construct(len);
 
                 for (uint k = 0; k < arguments.Length; k++)
                 {
@@ -367,7 +367,7 @@ namespace Jint.Native.Array
             {
                 var jsItem = FromObject(Engine, item);
                 tempArray[0] = jsItem;
-                Engine.Realm.Intrinsics.Array.PrototypeObject.Push(jsArray, tempArray);
+                _realm.Intrinsics.Array.PrototypeObject.Push(jsArray, tempArray);
             }
 
             _engine._jsValueArrayPool.ReturnArray(tempArray);

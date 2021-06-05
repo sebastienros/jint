@@ -16,15 +16,16 @@ namespace Jint.Native.Global
 {
     public sealed class GlobalObject : ObjectInstance
     {
-        private readonly Intrinsics _intrinsics;
+        private readonly Realm _realm;
         private readonly StringBuilder _stringBuilder = new();
 
         internal GlobalObject(
-            Engine engine, Intrinsics intrinsics) : base(engine)
+            Engine engine,
+            Realm realm) : base(engine)
         {
-            _intrinsics = intrinsics;
+            _realm = realm;
             // this is implementation dependent, and only to pass some unit tests
-            _prototype = _intrinsics.Object.PrototypeObject;
+            _prototype = realm.Intrinsics.Object.PrototypeObject;
         }
 
         protected override void Initialize()
@@ -34,31 +35,31 @@ namespace Jint.Native.Global
 
             var properties = new PropertyDictionary(40, checkExistingKeys: false)
             {
-                ["Object"] = new PropertyDescriptor(_intrinsics.Object, propertyFlags),
-                ["Function"] = new PropertyDescriptor(_intrinsics.Function, propertyFlags),
-                ["Symbol"] = new PropertyDescriptor(_intrinsics.Symbol, propertyFlags),
-                ["Array"] = new PropertyDescriptor(_intrinsics.Array, propertyFlags),
-                ["Map"] = new PropertyDescriptor(_intrinsics.Map, propertyFlags),
-                ["Set"] = new PropertyDescriptor(_intrinsics.Set, propertyFlags),
-                ["WeakMap"] = new PropertyDescriptor(_intrinsics.WeakMap, propertyFlags),
-                ["WeakSet"] = new PropertyDescriptor(_intrinsics.WeakSet, propertyFlags),
-                ["Promise"] = new PropertyDescriptor(_intrinsics.Promise, propertyFlags),
-                ["String"] = new PropertyDescriptor(_intrinsics.String, propertyFlags),
-                ["RegExp"] = new PropertyDescriptor(_intrinsics.RegExp, propertyFlags),
-                ["Number"] = new PropertyDescriptor(_intrinsics.Number, propertyFlags),
-                ["Boolean"] = new PropertyDescriptor(_intrinsics.Boolean, propertyFlags),
-                ["Date"] = new PropertyDescriptor(_intrinsics.Date, propertyFlags),
-                ["Math"] = new PropertyDescriptor(_intrinsics.Math, propertyFlags),
-                ["JSON"] = new PropertyDescriptor(_intrinsics.Json, propertyFlags),
-                ["Error"] = new LazyPropertyDescriptor(() => _intrinsics.Error, propertyFlags),
-                ["EvalError"] = new LazyPropertyDescriptor(() => _intrinsics.EvalError, propertyFlags),
-                ["Proxy"] = new LazyPropertyDescriptor(() => _intrinsics.Proxy, propertyFlags),
-                ["RangeError"] = new LazyPropertyDescriptor(() => _intrinsics.RangeError, propertyFlags),
-                ["ReferenceError"] = new LazyPropertyDescriptor(() => _intrinsics.ReferenceError, propertyFlags),
-                ["Reflect"] = new LazyPropertyDescriptor(() => _intrinsics.Reflect, propertyFlags),
-                ["SyntaxError"] = new LazyPropertyDescriptor(() => _intrinsics.SyntaxError, propertyFlags),
-                ["TypeError"] = new LazyPropertyDescriptor(() => _intrinsics.TypeError, propertyFlags),
-                ["URIError"] = new LazyPropertyDescriptor(() => _intrinsics.UriError, propertyFlags),
+                ["Object"] = new PropertyDescriptor(_realm.Intrinsics.Object, propertyFlags),
+                ["Function"] = new PropertyDescriptor(_realm.Intrinsics.Function, propertyFlags),
+                ["Symbol"] = new PropertyDescriptor(_realm.Intrinsics.Symbol, propertyFlags),
+                ["Array"] = new PropertyDescriptor(_realm.Intrinsics.Array, propertyFlags),
+                ["Map"] = new PropertyDescriptor(_realm.Intrinsics.Map, propertyFlags),
+                ["Set"] = new PropertyDescriptor(_realm.Intrinsics.Set, propertyFlags),
+                ["WeakMap"] = new PropertyDescriptor(_realm.Intrinsics.WeakMap, propertyFlags),
+                ["WeakSet"] = new PropertyDescriptor(_realm.Intrinsics.WeakSet, propertyFlags),
+                ["Promise"] = new PropertyDescriptor(_realm.Intrinsics.Promise, propertyFlags),
+                ["String"] = new PropertyDescriptor(_realm.Intrinsics.String, propertyFlags),
+                ["RegExp"] = new PropertyDescriptor(_realm.Intrinsics.RegExp, propertyFlags),
+                ["Number"] = new PropertyDescriptor(_realm.Intrinsics.Number, propertyFlags),
+                ["Boolean"] = new PropertyDescriptor(_realm.Intrinsics.Boolean, propertyFlags),
+                ["Date"] = new PropertyDescriptor(_realm.Intrinsics.Date, propertyFlags),
+                ["Math"] = new PropertyDescriptor(_realm.Intrinsics.Math, propertyFlags),
+                ["JSON"] = new PropertyDescriptor(_realm.Intrinsics.Json, propertyFlags),
+                ["Error"] = new LazyPropertyDescriptor(() => _realm.Intrinsics.Error, propertyFlags),
+                ["EvalError"] = new LazyPropertyDescriptor(() => _realm.Intrinsics.EvalError, propertyFlags),
+                ["Proxy"] = new LazyPropertyDescriptor(() => _realm.Intrinsics.Proxy, propertyFlags),
+                ["RangeError"] = new LazyPropertyDescriptor(() => _realm.Intrinsics.RangeError, propertyFlags),
+                ["ReferenceError"] = new LazyPropertyDescriptor(() => _realm.Intrinsics.ReferenceError, propertyFlags),
+                ["Reflect"] = new LazyPropertyDescriptor(() => _realm.Intrinsics.Reflect, propertyFlags),
+                ["SyntaxError"] = new LazyPropertyDescriptor(() => _realm.Intrinsics.SyntaxError, propertyFlags),
+                ["TypeError"] = new LazyPropertyDescriptor(() => _realm.Intrinsics.TypeError, propertyFlags),
+                ["URIError"] = new LazyPropertyDescriptor(() => _realm.Intrinsics.UriError, propertyFlags),
                 ["NaN"] = new PropertyDescriptor(double.NaN, PropertyFlag.None),
                 ["Infinity"] = new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.None),
                 ["undefined"] = new PropertyDescriptor(Undefined, PropertyFlag.None),
@@ -73,7 +74,7 @@ namespace Jint.Native.Global
                 ["escape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "escape", Escape, 1, lengthFlags), propertyFlags),
                 ["unescape"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unescape", Unescape, 1, lengthFlags), propertyFlags),
                 ["globalThis"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "", GlobalThis, 0, lengthFlags), set: null, propertyFlags),
-                ["eval"] = new PropertyDescriptor(_intrinsics.Eval, PropertyFlag.Configurable | PropertyFlag.Writable),
+                ["eval"] = new PropertyDescriptor(_realm.Intrinsics.Eval, PropertyFlag.Configurable | PropertyFlag.Writable),
 
                 // toString is not mentioned or actually required in spec, but some tests rely on it
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToStringString, 1), propertyFlags)
@@ -84,12 +85,12 @@ namespace Jint.Native.Global
 
         private JsValue GlobalThis(JsValue thisObj, JsValue[] arguments)
         {
-            return _engine.Realm.GlobalEnv.GlobalThisValue;
+            return _realm.GlobalEnv.GlobalThisValue;
         }
 
         private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
         {
-            return _engine.Realm.Intrinsics.Object.PrototypeObject.ToObjectString(thisObj, Arguments.Empty);
+            return _realm.Intrinsics.Object.PrototypeObject.ToObjectString(thisObj, Arguments.Empty);
         }
 
         /// <summary>
@@ -438,7 +439,7 @@ namespace Jint.Native.Global
                 {
                     if (c >= 0xDC00 && c <= 0xDBFF)
                     {
-                        ExceptionHelper.ThrowUriError(_engine.Realm);
+                        ExceptionHelper.ThrowUriError(_realm);
                     }
 
                     int v;
@@ -451,13 +452,13 @@ namespace Jint.Native.Global
                         k++;
                         if (k == strLen)
                         {
-                            ExceptionHelper.ThrowUriError(_engine.Realm);
+                            ExceptionHelper.ThrowUriError(_realm);
                         }
 
                         var kChar = (int)uriString[k];
                         if (kChar < 0xDC00 || kChar > 0xDFFF)
                         {
-                            ExceptionHelper.ThrowUriError(_engine.Realm);
+                            ExceptionHelper.ThrowUriError(_realm);
                         }
 
                         v = (c - 0xD800) * 0x400 + (kChar - 0xDC00) + 0x10000;
@@ -491,7 +492,7 @@ namespace Jint.Native.Global
                     }
                     else if (v <= 0xDFFF)
                     {
-                        ExceptionHelper.ThrowUriError(_engine.Realm);
+                        ExceptionHelper.ThrowUriError(_realm);
                     }
                     else if (v <= 0xFFFF)
                     {
@@ -561,12 +562,12 @@ namespace Jint.Native.Global
                     var start = k;
                     if (k + 2 >= strLen)
                     {
-                        ExceptionHelper.ThrowUriError(_engine.Realm);
+                        ExceptionHelper.ThrowUriError(_realm);
                     }
 
                     if (!IsValidHexaChar(uriString[k + 1]) || !IsValidHexaChar(uriString[k + 2]))
                     {
-                        ExceptionHelper.ThrowUriError(_engine.Realm);
+                        ExceptionHelper.ThrowUriError(_realm);
                     }
 
                     var B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
@@ -591,7 +592,7 @@ namespace Jint.Native.Global
 
                         if (n == 1 || n > 4)
                         {
-                            ExceptionHelper.ThrowUriError(_engine.Realm);
+                            ExceptionHelper.ThrowUriError(_realm);
                         }
 
                         octets = octets.Length == n
@@ -602,7 +603,7 @@ namespace Jint.Native.Global
 
                         if (k + (3 * (n - 1)) >= strLen)
                         {
-                            ExceptionHelper.ThrowUriError(_engine.Realm);
+                            ExceptionHelper.ThrowUriError(_realm);
                         }
 
                         for (var j = 1; j < n; j++)
@@ -610,12 +611,12 @@ namespace Jint.Native.Global
                             k++;
                             if (uriString[k] != '%')
                             {
-                                ExceptionHelper.ThrowUriError(_engine.Realm);
+                                ExceptionHelper.ThrowUriError(_realm);
                             }
 
                             if (!IsValidHexaChar(uriString[k + 1]) || !IsValidHexaChar(uriString[k + 2]))
                             {
-                                ExceptionHelper.ThrowUriError(_engine.Realm);
+                                ExceptionHelper.ThrowUriError(_realm);
                             }
 
                             B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
@@ -623,7 +624,7 @@ namespace Jint.Native.Global
                             // B & 11000000 != 10000000
                             if ((B & 0xC0) != 0x80)
                             {
-                                ExceptionHelper.ThrowUriError(_engine.Realm);
+                                ExceptionHelper.ThrowUriError(_realm);
                             }
 
                             k += 2;
@@ -728,7 +729,7 @@ namespace Jint.Native.Global
         {
             if (!DefineOwnProperty(property, desc))
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             return true;

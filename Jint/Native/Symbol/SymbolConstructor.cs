@@ -88,7 +88,7 @@ namespace Jint.Native.Symbol
             var symbol = arguments.At(0) as JsSymbol;
             if (symbol is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             if (_engine.GlobalSymbolRegistry.TryGetSymbol(symbol._value, out var e))
@@ -101,7 +101,7 @@ namespace Jint.Native.Symbol
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            ExceptionHelper.ThrowTypeError(_realm);
             return null;
         }
 

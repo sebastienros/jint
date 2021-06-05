@@ -57,11 +57,11 @@ namespace Jint.Native.Promise
             var promise = thisValue as PromiseInstance;
             if (promise is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Method Promise.prototype.then called on incompatible receiver");
+                ExceptionHelper.ThrowTypeError(_realm, "Method Promise.prototype.then called on incompatible receiver");
             }
 
             // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
-            var ctor = SpeciesConstructor(promise, _engine.Realm.Intrinsics.Promise);
+            var ctor = SpeciesConstructor(promise, _realm.Intrinsics.Promise);
 
             // 4. Let resultCapability be ? NewPromiseCapability(C).
             var capability = PromiseConstructor.NewPromiseCapability(_engine, ctor as JsValue);
@@ -88,12 +88,12 @@ namespace Jint.Native.Promise
             var promise = thisValue as ObjectInstance;
             if (promise is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "this passed to Promise.prototype.finally is not an object");
+                ExceptionHelper.ThrowTypeError(_realm, "this passed to Promise.prototype.finally is not an object");
             }
 
             // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
             // 4. Assert: IsConstructor(C) is true.
-            var ctor = SpeciesConstructor(promise, _engine.Realm.Intrinsics.Promise);
+            var ctor = SpeciesConstructor(promise, _realm.Intrinsics.Promise);
 
             JsValue thenFinally;
             JsValue catchFinally;
@@ -127,7 +127,7 @@ namespace Jint.Native.Promise
                 var result = onFinally.Call(Undefined, Arguments.Empty);
 
                 // 7. Let promise be ? PromiseResolve(C, result).
-                var promise = _engine.Realm.Intrinsics.Promise.Resolve(ctor as JsValue, new[] {result});
+                var promise = _realm.Intrinsics.Promise.Resolve(ctor as JsValue, new[] {result});
 
                 // 8. Let valueThunk be equivalent to a function that returns value.
                 var valueThunk = new ClrFunctionInstance(_engine, "", (_, _) => value);
@@ -146,7 +146,7 @@ namespace Jint.Native.Promise
                 var result = onFinally.Call(Undefined, Arguments.Empty);
 
                 // 7. Let promise be ? PromiseResolve(C, result).
-                var promise = _engine.Realm.Intrinsics.Promise.Resolve(ctor as JsValue, new[] {result});
+                var promise = _realm.Intrinsics.Promise.Resolve(ctor as JsValue, new[] {result});
 
                 // 8. Let thrower be equivalent to a function that throws reason.
                 var thrower = new ClrFunctionInstance(_engine, "", (_, _) => throw new JavaScriptException(reason));

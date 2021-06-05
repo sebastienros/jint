@@ -74,9 +74,9 @@ namespace Jint
             Date = new DateConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
 
             Math = new MathInstance(engine, Object.PrototypeObject);
-            Json = new JsonInstance(engine, Object.PrototypeObject);
+            Json = new JsonInstance(engine, realm, Object.PrototypeObject);
             Proxy = new ProxyConstructor(engine, realm);
-            Reflect = new ReflectInstance(engine, Object.PrototypeObject);
+            Reflect = new ReflectInstance(engine, realm, Object.PrototypeObject);
             Eval = new EvalFunctionInstance(engine, realm, Function.PrototypeObject);
         }
 

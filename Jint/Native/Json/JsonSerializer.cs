@@ -16,10 +16,10 @@ namespace Jint.Native.Json
             _engine = engine;
         }
 
-        Stack<object> _stack;
-        string _indent, _gap;
-        List<JsValue> _propertyList;
-        JsValue _replacerFunction = Undefined.Instance;
+        private Stack<object> _stack;
+        private string _indent, _gap;
+        private List<JsValue> _propertyList;
+        private JsValue _replacerFunction = Undefined.Instance;
 
         public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
         {
@@ -192,7 +192,7 @@ namespace Jint.Native.Json
 
             if (value.IsObject() && isCallable == false)
             {
-                return value.AsObject().Class == ObjectClass.Array 
+                return value.AsObject().Class == ObjectClass.Array
                     ? SerializeArray(value)
                     : SerializeObject(value.AsObject());
             }

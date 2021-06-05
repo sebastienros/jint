@@ -130,7 +130,7 @@ namespace Jint.Native.Map
             var map = thisObj as MapInstance;
             if (map is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "object must be a Map");
+                ExceptionHelper.ThrowTypeError(_realm, "object must be a Map");
             }
 
             return map;

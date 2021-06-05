@@ -35,7 +35,7 @@ namespace Jint
 
         protected virtual ObjectInstance CreateGlobalObject(Realm realm)
         {
-            var globalObject = new GlobalObject(Engine, realm.Intrinsics);
+            var globalObject = new GlobalObject(Engine, realm);
             // Because the properties might need some of the built-in object
             // their configuration is delayed to a later step
             // trigger initialization
