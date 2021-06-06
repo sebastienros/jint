@@ -69,7 +69,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private static void HandleArrayPattern(Engine engine, ArrayPattern pattern, JsValue argument, EnvironmentRecord environment)
         {
-            var obj = TypeConverter.ToObject(engine, argument);
+            var realm = engine.Realm;
+            var obj = TypeConverter.ToObject(realm, argument);
             ArrayOperations arrayOperations = null;
             IIterator iterator = null;
 
@@ -80,9 +81,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else
             {
-                if (!obj.TryGetIterator(engine, out iterator))
+                if (!obj.TryGetIterator(realm, out iterator))
                 {
-                    ExceptionHelper.ThrowTypeError(engine.Realm);
+                    ExceptionHelper.ThrowTypeError(realm);
                     return;
                 }
             }
@@ -276,7 +277,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ? new HashSet<JsValue>()
                 : null;
 
-            var source = TypeConverter.ToObject(engine, argument);
+            var source = TypeConverter.ToObject(engine.Realm, argument);
             for (var i = 0; i < pattern.Properties.Count; i++)
             {
                 if (pattern.Properties[i] is Property p)

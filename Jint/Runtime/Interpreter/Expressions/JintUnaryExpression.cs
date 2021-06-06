@@ -123,7 +123,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             ExceptionHelper.ThrowReferenceError(_engine.Realm, r);
                         }
 
-                        var o = TypeConverter.ToObject(_engine, r.GetBase());
+                        var o = TypeConverter.ToObject(_engine.Realm, r.GetBase());
                         var deleteStatus = o.Delete(r.GetReferencedName());
                         if (!deleteStatus && r.IsStrictReference())
                         {

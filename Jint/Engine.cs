@@ -149,7 +149,7 @@ namespace Jint
         private void Reset()
         {
             _host = new DefaultHost(this);
-            _host.Initialize();
+            _host.InitializeHostDefinedRealm();
         }
 
         internal ref readonly ExecutionContext ExecutionContext
@@ -181,12 +181,13 @@ namespace Jint
         internal ExecutionContext EnterExecutionContext(
             EnvironmentRecord lexicalEnvironment,
             EnvironmentRecord variableEnvironment,
-            Realm realm)
+            Realm realm,
+            PrivateEnvironmentRecord privateEnvironment)
         {
             var context = new ExecutionContext(
                 lexicalEnvironment,
                 variableEnvironment,
-                null,
+                privateEnvironment,
                 realm,
                 null);
 
@@ -456,7 +457,7 @@ namespace Jint
 
                 if (baseValue.IsObject())
                 {
-                    var o = TypeConverter.ToObject(this, baseValue);
+                    var o = TypeConverter.ToObject(Realm, baseValue);
                     var v = o.Get(property, reference.GetThisValue());
                     return v;
                 }
@@ -474,7 +475,7 @@ namespace Jint
 
                     if (o is null)
                     {
-                        o = TypeConverter.ToObject(this, baseValue);
+                        o = TypeConverter.ToObject(Realm, baseValue);
                     }
 
                     var desc = o.GetProperty(property);
@@ -568,7 +569,7 @@ namespace Jint
             {
                 if (reference.HasPrimitiveBase())
                 {
-                    baseValue = TypeConverter.ToObject(this, baseValue);
+                    baseValue = TypeConverter.ToObject(Realm, baseValue);
                 }
 
                 var succeeded = baseValue.Set(reference.GetReferencedName(), value, reference.GetThisValue());
@@ -675,7 +676,7 @@ namespace Jint
         /// </summary>
         internal JsValue GetV(JsValue v, JsValue p)
         {
-            var o = TypeConverter.ToObject(this, v);
+            var o = TypeConverter.ToObject(Realm, v);
             return o.Get(p);
         }
 
@@ -1052,6 +1053,7 @@ namespace Jint
             Script script,
             EnvironmentRecord varEnv,
             EnvironmentRecord lexEnv,
+            PrivateEnvironmentRecord privateEnv,
             bool strict)
         {
             var hoistingScope = HoistingScope.GetProgramLevelDeclarations(script);

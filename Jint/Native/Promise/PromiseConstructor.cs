@@ -207,7 +207,7 @@ namespace Jint.Native.Promise
 
                 var iterable = arguments.At(0);
 
-                iterator = iterable.GetIterator(_engine);
+                iterator = iterable.GetIterator(_realm);
             }
             catch (JavaScriptException e)
             {
@@ -349,7 +349,7 @@ namespace Jint.Native.Promise
 
                 var iterable = arguments.At(0);
 
-                iterator = iterable.GetIterator(_engine);
+                iterator = iterable.GetIterator(_realm);
             }
             catch (JavaScriptException e)
             {

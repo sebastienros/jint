@@ -57,7 +57,7 @@ namespace Jint.Native.Object
 
         private JsValue Assign(JsValue thisObject, JsValue[] arguments)
         {
-            var to = TypeConverter.ToObject(_engine, arguments.At(0));
+            var to = TypeConverter.ToObject(_realm, arguments.At(0));
             if (arguments.Length < 2)
             {
                 return to;
@@ -71,7 +71,7 @@ namespace Jint.Native.Object
                     continue;
                 }
 
-                var from = TypeConverter.ToObject(_engine, nextSource);
+                var from = TypeConverter.ToObject(_realm, nextSource);
                 var keys = from.GetOwnPropertyKeys();
                 foreach (var nextKey in keys)
                 {
@@ -88,7 +88,7 @@ namespace Jint.Native.Object
 
         private JsValue Entries(JsValue thisObject, JsValue[] arguments)
         {
-            var obj = TypeConverter.ToObject(_engine, arguments.At(0));
+            var obj = TypeConverter.ToObject(_realm, arguments.At(0));
             var nameList = obj.EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind.KeyValue);
             return nameList;
         }
@@ -101,7 +101,7 @@ namespace Jint.Native.Object
             var obj = _realm.Intrinsics.Object.Construct(0);
 
             var adder = CreateDataPropertyOnObject.Instance;
-            var iterator = arguments.At(0).GetIterator(_engine);
+            var iterator = arguments.At(0).GetIterator(_realm);
 
             IteratorProtocol.AddEntriesFromIterable(obj, iterator, adder);
 
@@ -133,7 +133,7 @@ namespace Jint.Native.Object
                 return Construct(arguments);
             }
 
-            return TypeConverter.ToObject(_engine, arguments[0]);
+            return TypeConverter.ToObject(_realm, arguments[0]);
         }
 
         /// <summary>
@@ -165,7 +165,7 @@ namespace Jint.Native.Object
                 var type = value.Type;
                 if (type == Types.String || type == Types.Number || type == Types.Boolean)
                 {
-                    return TypeConverter.ToObject(_engine, value);
+                    return TypeConverter.ToObject(_realm, value);
                 }
             }
 
@@ -192,7 +192,7 @@ namespace Jint.Native.Object
 
         public JsValue GetPrototypeOf(JsValue thisObject, JsValue[] arguments)
         {
-            var obj = TypeConverter.ToObject(_engine, arguments.At(0));
+            var obj = TypeConverter.ToObject(_realm, arguments.At(0));
             return obj.Prototype ?? Null;
         }
 
@@ -221,7 +221,7 @@ namespace Jint.Native.Object
 
         internal JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(_engine, arguments.At(0));
+            var o = TypeConverter.ToObject(_realm, arguments.At(0));
 
             var p = arguments.At(1);
             var name = TypeConverter.ToPropertyKey(p);
@@ -232,7 +232,7 @@ namespace Jint.Native.Object
 
         private JsValue GetOwnPropertyDescriptors(JsValue thisObject, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(_engine, arguments.At(0));
+            var o = TypeConverter.ToObject(_realm, arguments.At(0));
             var ownKeys = o.GetOwnPropertyKeys();
             var descriptors = _realm.Intrinsics.Object.Construct(0);
             foreach (var key in ownKeys)
@@ -249,14 +249,14 @@ namespace Jint.Native.Object
 
         public JsValue GetOwnPropertyNames(JsValue thisObject, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(_engine, arguments.At(0));
+            var o = TypeConverter.ToObject(_realm, arguments.At(0));
             var names = o.GetOwnPropertyKeys(Types.String);
             return _realm.Intrinsics.Array.ConstructFast(names);
         }
 
         private JsValue GetOwnPropertySymbols(JsValue thisObject, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(_engine, arguments.At(0));
+            var o = TypeConverter.ToObject(_realm, arguments.At(0));
             var keys = o.GetOwnPropertyKeys(Types.Symbol);
             return _realm.Intrinsics.Array.ConstructFast(keys);
         }
@@ -312,7 +312,7 @@ namespace Jint.Native.Object
             }
 
             var properties = arguments.At(1);
-            var props = TypeConverter.ToObject(Engine, properties);
+            var props = TypeConverter.ToObject(_realm, properties);
             var descriptors = new List<KeyValuePair<JsValue, PropertyDescriptor>>();
             foreach (var p in props.GetOwnProperties())
             {
@@ -468,13 +468,13 @@ namespace Jint.Native.Object
 
         private JsValue Keys(JsValue thisObject, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(_engine, arguments.At(0));
+            var o = TypeConverter.ToObject(_realm, arguments.At(0));
             return o.EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind.Key);
         }
 
         private JsValue Values(JsValue thisObject, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(_engine, arguments.At(0));
+            var o = TypeConverter.ToObject(_realm, arguments.At(0));
             return o.EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind.Value);
         }
 

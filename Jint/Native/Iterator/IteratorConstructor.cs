@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Jint.Native.Function;
 using Jint.Native.Map;
@@ -25,8 +26,8 @@ namespace Jint.Native.Iterator
             StringIteratorPrototypeObject = new IteratorPrototype(engine, realm, "String Iterator", objectPrototype);
         }
 
-        private IteratorPrototype ArrayIteratorPrototypeObject { get; }
-        private IteratorPrototype GenericIteratorPrototypeObject { get; }
+        internal IteratorPrototype ArrayIteratorPrototypeObject { get; }
+        internal IteratorPrototype GenericIteratorPrototypeObject { get; }
         private IteratorPrototype MapIteratorPrototypeObject { get; }
         private IteratorPrototype RegExpStringIteratorPrototypeObject { get; }
         private IteratorPrototype SetIteratorPrototypeObject { get; }
@@ -62,11 +63,11 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance Construct(ObjectInstance array)
+        internal ObjectInstance Construct(ObjectInstance array, Func<Intrinsics, Prototype> prototypeSelector)
         {
             var instance = new IteratorInstance.ArrayLikeIterator(Engine, array)
             {
-                _prototype = GenericIteratorPrototypeObject
+                _prototype = prototypeSelector(_realm.Intrinsics)
             };
 
             return instance;

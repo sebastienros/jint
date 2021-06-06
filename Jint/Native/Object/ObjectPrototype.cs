@@ -40,7 +40,7 @@ namespace Jint.Native.Object
         private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue[] arguments)
         {
             var p = TypeConverter.ToPropertyKey(arguments[0]);
-            var o = TypeConverter.ToObject(Engine, thisObject);
+            var o = TypeConverter.ToObject(_realm, thisObject);
             var desc = o.GetOwnProperty(p);
             if (desc == PropertyDescriptor.Undefined)
             {
@@ -51,7 +51,7 @@ namespace Jint.Native.Object
 
         private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(Engine, thisObject);
+            var o = TypeConverter.ToObject(_realm, thisObject);
             return o;
         }
 
@@ -65,7 +65,7 @@ namespace Jint.Native.Object
 
             var v = arg.AsObject();
 
-            var o = TypeConverter.ToObject(Engine, thisObject);
+            var o = TypeConverter.ToObject(_realm, thisObject);
             while (true)
             {
                 v = v.Prototype;
@@ -84,7 +84,7 @@ namespace Jint.Native.Object
 
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(Engine, thisObject);
+            var o = TypeConverter.ToObject(_realm, thisObject);
             var func = o.Get("toString");
             var callable = func as ICallable;
             if (callable is null)
@@ -109,7 +109,7 @@ namespace Jint.Native.Object
                 return "[object Null]";
             }
 
-            var o = TypeConverter.ToObject(Engine, thisObject);
+            var o = TypeConverter.ToObject(_realm, thisObject);
 
             var tag = o.Get(GlobalSymbolRegistry.ToStringTag);
             if (!tag.IsString())
@@ -126,7 +126,7 @@ namespace Jint.Native.Object
         public JsValue HasOwnProperty(JsValue thisObject, JsValue[] arguments)
         {
             var p = TypeConverter.ToPropertyKey(arguments[0]);
-            var o = TypeConverter.ToObject(Engine, thisObject);
+            var o = TypeConverter.ToObject(_realm, thisObject);
             var desc = o.GetOwnProperty(p);
             return desc != PropertyDescriptor.Undefined;
         }

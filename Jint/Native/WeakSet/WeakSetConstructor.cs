@@ -49,7 +49,7 @@ namespace Jint.Native.WeakSet
                     ExceptionHelper.ThrowTypeError(_realm, "add must be callable");
                 }
 
-                var iterable = arguments.At(0).GetIterator(_engine);
+                var iterable = arguments.At(0).GetIterator(_realm);
 
                 try
                 {

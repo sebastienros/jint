@@ -22,9 +22,9 @@ namespace Jint.Native.Array
             return new ObjectInstanceOperations(instance);
         }
 
-        public static ArrayOperations For(Engine engine, JsValue thisObj)
+        public static ArrayOperations For(Realm realm, JsValue thisObj)
         {
-            var instance = TypeConverter.ToObject(engine, thisObj);
+            var instance = TypeConverter.ToObject(realm, thisObj);
             return For(instance);
         }
 

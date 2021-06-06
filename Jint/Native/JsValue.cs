@@ -183,11 +183,11 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal IIterator GetIterator(Engine engine)
+        internal IIterator GetIterator(Realm realm)
         {
-            if (!TryGetIterator(engine, out var iterator))
+            if (!TryGetIterator(realm, out var iterator))
             {
-                ExceptionHelper.ThrowTypeError(engine.Realm, "The value is not iterable");
+                ExceptionHelper.ThrowTypeError(realm, "The value is not iterable");
             }
 
             return iterator;
@@ -195,9 +195,9 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool TryGetIterator(Engine engine, out IIterator iterator)
+        internal bool TryGetIterator(Realm realm, out IIterator iterator)
         {
-            var objectInstance = TypeConverter.ToObject(engine, this);
+            var objectInstance = TypeConverter.ToObject(realm, this);
 
             if (!objectInstance.TryGetValue(GlobalSymbolRegistry.Iterator, out var value)
                 || !(value is ICallable callable))
@@ -209,7 +209,7 @@ namespace Jint.Native
             var obj = callable.Call(this, Arguments.Empty) as ObjectInstance;
             if (obj is null)
             {
-                ExceptionHelper.ThrowTypeError(engine.Realm, "Result of the Symbol.iterator method is not an object");
+                ExceptionHelper.ThrowTypeError(realm, "Result of the Symbol.iterator method is not an object");
             }
 
             if (obj is IIterator i)

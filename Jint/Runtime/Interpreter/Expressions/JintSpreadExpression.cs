@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         internal void GetValueAndCheckIterator(out JsValue instance, out IIterator iterator)
         {
             instance = _argument.GetValue();
-            if (instance is null || !instance.TryGetIterator(_engine, out iterator))
+            if (instance is null || !instance.TryGetIterator(_engine.Realm, out iterator))
             {
                 iterator = null;
                 ExceptionHelper.ThrowTypeError(_engine.Realm, _argumentName + " is not iterable");

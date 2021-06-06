@@ -689,7 +689,7 @@ namespace Jint.Native.Date
 
         private JsValue ToJSON(JsValue thisObj, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(Engine, thisObj);
+            var o = TypeConverter.ToObject(_realm, thisObj);
             var tv = TypeConverter.ToPrimitive(o, Types.Number);
             if (tv.IsNumber() && !IsFinite(((JsNumber) tv)._value))
             {

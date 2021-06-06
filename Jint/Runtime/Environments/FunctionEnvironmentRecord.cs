@@ -187,7 +187,8 @@ namespace Jint.Runtime.Environments
             {
                 var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                 var paramVarEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.Realm);
+                PrivateEnvironmentRecord privateEnvironment = null; // TODO PRIVATE check when implemented
+                _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.Realm, privateEnvironment);
 
                 try
                 {
@@ -253,7 +254,7 @@ namespace Jint.Runtime.Environments
             {
                 array = argument.AsArray();
             }
-            else if (argument.IsObject() && argument.TryGetIterator(_engine, out var iterator))
+            else if (argument.IsObject() && argument.TryGetIterator(_functionObject._realm, out var iterator))
             {
                 array = _engine.Realm.Intrinsics.Array.ConstructFast(0);
                 var protocol = new ArrayPatternProtocol(_engine, array, iterator, arrayPattern.Elements.Count);

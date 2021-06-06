@@ -95,7 +95,7 @@ namespace Jint.Native.Array
                 instance = _realm.Intrinsics.Array.ConstructFast(0);
             }
 
-            if (objectInstance.TryGetIterator(_engine, out var iterator))
+            if (objectInstance.TryGetIterator(_realm, out var iterator))
             {
                 var protocol = new ArrayProtocol(_engine, thisArg, instance, iterator, callable);
                 protocol.Execute();

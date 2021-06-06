@@ -71,7 +71,7 @@ namespace Jint.Native.Set
                     ExceptionHelper.ThrowTypeError(_engine.Realm, "add must be callable");
                 }
 
-                var iterable = arguments.At(0).GetIterator(_engine);
+                var iterable = arguments.At(0).GetIterator(_realm);
 
                 try
                 {

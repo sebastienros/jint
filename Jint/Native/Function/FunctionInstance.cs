@@ -317,7 +317,7 @@ namespace Jint.Native.Function
                 }
                 else
                 {
-                    thisValue = TypeConverter.ToObject(_engine, thisArgument);
+                    thisValue = TypeConverter.ToObject(_realm, thisArgument);
                 }
             }
 

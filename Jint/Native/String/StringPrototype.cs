@@ -97,7 +97,7 @@ namespace Jint.Native.String
                 return thisObj;
             }
 
-            var s = TypeConverter.ToObject(Engine, thisObj) as StringInstance;
+            var s = TypeConverter.ToObject(_realm, thisObj) as StringInstance;
             if (ReferenceEquals(s, null))
             {
                 ExceptionHelper.ThrowTypeError(_realm);

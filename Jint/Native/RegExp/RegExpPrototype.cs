@@ -251,7 +251,7 @@ namespace Jint.Native.RegExp
                 {
                     if (!namedCaptures.IsUndefined())
                     {
-                        namedCaptures = TypeConverter.ToObject(_engine, namedCaptures);
+                        namedCaptures = TypeConverter.ToObject(_realm, namedCaptures);
                     }
 
                     replacement = GetSubstitution(matched, s, position, captures.ToArray(), namedCaptures, TypeConverter.ToString(replaceValue));

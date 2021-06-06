@@ -65,7 +65,7 @@ namespace Jint.Native.Map
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adder = map.Get("set");
-                var iterator = arguments.At(0).GetIterator(_engine);
+                var iterator = arguments.At(0).GetIterator(_realm);
 
                 IteratorProtocol.AddEntriesFromIterable(map, iterator, adder);
             }

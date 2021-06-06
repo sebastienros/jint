@@ -13,19 +13,21 @@ namespace Jint
 
         protected Engine Engine { get; }
 
-        public void Initialize()
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-initializehostdefinedrealm
+        /// </summary>
+        public void InitializeHostDefinedRealm()
         {
             var realm = CreateRealm();
 
-            // create the global execution context http://www.ecma-international.org/ecma-262/5.1/#sec-10.4.1.1
-            var context = new ExecutionContext(
+            var newContext = new ExecutionContext(
                 lexicalEnvironment: realm.GlobalEnv,
                 variableEnvironment: realm.GlobalEnv,
                 privateEnvironment: null,
                 realm: realm,
                 function: null);
 
-            Engine.EnterExecutionContext(context);
+            Engine.EnterExecutionContext(newContext);
         }
 
         protected virtual GlobalEnvironmentRecord CreateGlobalEnvironment(ObjectInstance globalObject)
@@ -71,6 +73,15 @@ namespace Jint
         {
             var intrinsics = new Intrinsics(Engine, realmRec);
             realmRec.Intrinsics = intrinsics;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-hostensurecancompilestrings
+        /// </summary>
+        /// <param name="callerRealm"></param>
+        /// <param name="evalRealm"></param>
+        public virtual void EnsureCanCompileStrings(Realm callerRealm, Realm evalRealm)
+        {
         }
     }
 }

@@ -62,7 +62,7 @@ namespace Jint.Native.Array
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), propertyFlags),
                 ["concat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), propertyFlags),
                 ["copyWithin"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), propertyFlags),
-                ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Iterator, 0, PropertyFlag.Configurable), propertyFlags),
+                ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), propertyFlags),
                 ["fill"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), propertyFlags),
                 ["join"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "join", Join, 1, PropertyFlag.Configurable), propertyFlags),
                 ["pop"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "pop", Pop, 0, PropertyFlag.Configurable), propertyFlags),
@@ -123,11 +123,11 @@ namespace Jint.Native.Array
             return null;
         }
 
-        private ObjectInstance Iterator(JsValue thisObj, JsValue[] arguments)
+        private ObjectInstance Entries(JsValue thisObj, JsValue[] arguments)
         {
             if (thisObj is ObjectInstance oi)
             {
-                return _realm.Intrinsics.Iterator.Construct(oi);
+                return _realm.Intrinsics.Iterator.Construct(oi, intrinsics => intrinsics.Iterator.ArrayIteratorPrototypeObject);
             }
 
             ExceptionHelper.ThrowTypeError(_realm, "cannot construct iterator");
@@ -263,7 +263,7 @@ namespace Jint.Native.Array
 
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLongLength();
             if (len == 0)
             {
@@ -317,7 +317,7 @@ namespace Jint.Native.Array
             var callbackfn = arguments.At(0);
             var initialValue = arguments.At(1);
 
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLength();
 
             var callable = GetCallable(callbackfn);
@@ -376,12 +376,12 @@ namespace Jint.Native.Array
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
 
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLength();
 
             var callable = GetCallable(callbackfn);
 
-            var a = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), 0);
+            var a = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObj), 0);
             var operations = ArrayOperations.For(a);
 
             uint to = 0;
@@ -415,7 +415,7 @@ namespace Jint.Native.Array
                 return arrayInstance.Map(arguments);
             }
 
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLongLength();
 
             if (len > ArrayOperations.MaxArrayLength)
@@ -427,7 +427,7 @@ namespace Jint.Native.Array
             var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
 
-            var a = ArrayOperations.For(_realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), (uint) len));
+            var a = ArrayOperations.For(_realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObj), (uint) len));
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o.Target;
             for (uint k = 0; k < len; k++)
@@ -449,7 +449,7 @@ namespace Jint.Native.Array
         /// </summary>
         private JsValue Flat(JsValue thisObj, JsValue[] arguments)
         {
-            var O = TypeConverter.ToObject(_engine, thisObj);
+            var O = TypeConverter.ToObject(_realm, thisObj);
             var operations = ArrayOperations.For(O);
             var sourceLen = operations.GetLength();
             double depthNum = 1;
@@ -474,7 +474,7 @@ namespace Jint.Native.Array
         /// </summary>
         private JsValue FlatMap(JsValue thisObj, JsValue[] arguments)
         {
-            var O = TypeConverter.ToObject(_engine, thisObj);
+            var O = TypeConverter.ToObject(_realm, thisObj);
             var mapperFunction = arguments.At(0);
             var thisArg = arguments.At(1);
 
@@ -570,7 +570,7 @@ namespace Jint.Native.Array
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
 
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLength();
 
             var callable = GetCallable(callbackfn);
@@ -593,7 +593,7 @@ namespace Jint.Native.Array
 
         private JsValue Includes(JsValue thisObj, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLongLength();
 
             if (len == 0)
@@ -633,13 +633,13 @@ namespace Jint.Native.Array
 
         private JsValue Some(JsValue thisObj, JsValue[] arguments)
         {
-            var target = TypeConverter.ToObject(Engine, thisObj);
+            var target = TypeConverter.ToObject(_realm, thisObj);
             return target.FindWithCallback(arguments, out _, out _, false);
         }
 
         private JsValue Every(JsValue thisObj, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             ulong len = o.GetLongLength();
 
             if (len == 0)
@@ -673,7 +673,7 @@ namespace Jint.Native.Array
 
         private JsValue IndexOf(JsValue thisObj, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLongLength();
             if (len == 0)
             {
@@ -737,14 +737,14 @@ namespace Jint.Native.Array
 
         private JsValue Find(JsValue thisObj, JsValue[] arguments)
         {
-            var target = TypeConverter.ToObject(Engine, thisObj);
+            var target = TypeConverter.ToObject(_realm, thisObj);
             target.FindWithCallback(arguments, out _, out var value, true);
             return value;
         }
 
         private JsValue FindIndex(JsValue thisObj, JsValue[] arguments)
         {
-            var target = TypeConverter.ToObject(Engine, thisObj);
+            var target = TypeConverter.ToObject(_realm, thisObj);
             if (target.FindWithCallback(arguments, out var index, out _, true))
             {
                 return index;
@@ -757,7 +757,7 @@ namespace Jint.Native.Array
             var start = arguments.At(0);
             var deleteCount = arguments.At(1);
 
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLongLength();
             var relativeStart = TypeConverter.ToInteger(start);
 
@@ -803,7 +803,7 @@ namespace Jint.Native.Array
                 ExceptionHelper.ThrowTypeError(_realm, "Invalid array length");
             }
 
-            var instance = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), actualDeleteCount);
+            var instance = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObj), actualDeleteCount);
             var a = ArrayOperations.For(instance);
             for (uint k = 0; k < actualDeleteCount; k++)
             {
@@ -870,7 +870,7 @@ namespace Jint.Native.Array
 
         private JsValue Unshift(JsValue thisObj, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLongLength();
             var argCount = (uint) arguments.Length;
 
@@ -961,7 +961,7 @@ namespace Jint.Native.Array
             var start = arguments.At(0);
             var end = arguments.At(1);
 
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLongLength();
 
             var relativeStart = TypeConverter.ToInteger(start);
@@ -999,7 +999,7 @@ namespace Jint.Native.Array
             }
 
             var length = (uint) System.Math.Max(0, (long) final - (long) k);
-            var a = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), length);
+            var a = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObj), length);
             if (thisObj is ArrayInstance ai && a is ArrayInstance a2)
             {
                 a2.CopyValues(ai, (uint) k, 0, length);
@@ -1023,7 +1023,7 @@ namespace Jint.Native.Array
 
         private JsValue Shift(JsValue thisObj, JsValue[] arg2)
         {
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLength();
             if (len == 0)
             {
@@ -1053,7 +1053,7 @@ namespace Jint.Native.Array
 
         private JsValue Reverse(JsValue thisObj, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLongLength();
             var middle = (ulong) System.Math.Floor(len / 2.0);
             uint lower = 0;
@@ -1094,7 +1094,7 @@ namespace Jint.Native.Array
         private JsValue Join(JsValue thisObj, JsValue[] arguments)
         {
             var separator = arguments.At(0);
-            var o = ArrayOperations.For(Engine, thisObj);
+            var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLength();
             if (separator.IsUndefined())
             {
@@ -1137,7 +1137,7 @@ namespace Jint.Native.Array
 
         private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
         {
-            var array = ArrayOperations.For(Engine, thisObj);
+            var array = ArrayOperations.For(_realm, thisObj);
             var len = array.GetLength();
             const string separator = ",";
             if (len == 0)
@@ -1152,7 +1152,7 @@ namespace Jint.Native.Array
             }
             else
             {
-                var elementObj = TypeConverter.ToObject(Engine, firstElement);
+                var elementObj = TypeConverter.ToObject(_realm, firstElement);
                 var func = elementObj.Get("toLocaleString", elementObj) as ICallable;
                 if (func is null)
                 {
@@ -1171,7 +1171,7 @@ namespace Jint.Native.Array
                 }
                 else
                 {
-                    var elementObj = TypeConverter.ToObject(Engine, nextElement);
+                    var elementObj = TypeConverter.ToObject(_realm, nextElement);
                     var func = elementObj.Get("toLocaleString", elementObj) as ICallable;
                     if (func is null)
                     {
@@ -1188,7 +1188,7 @@ namespace Jint.Native.Array
 
         private JsValue Concat(JsValue thisObj, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(Engine, thisObj);
+            var o = TypeConverter.ToObject(_realm, thisObj);
             var items = new List<JsValue>(arguments.Length + 1) {o};
             items.AddRange(arguments);
 
@@ -1224,7 +1224,7 @@ namespace Jint.Native.Array
             }
 
             uint n = 0;
-            var a = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_engine, thisObj), capacity);
+            var a = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObj), capacity);
             var aOperations = ArrayOperations.For(a);
             for (var i = 0; i < items.Count; i++)
             {
@@ -1265,16 +1265,13 @@ namespace Jint.Native.Array
 
         private JsValue ToString(JsValue thisObj, JsValue[] arguments)
         {
-            var array = TypeConverter.ToObject(Engine, thisObj);
+            var array = TypeConverter.ToObject(_realm, thisObj);
 
-            ICallable func;
-            func = array.Get("join", array).TryCast<ICallable>(x =>
+            ICallable func = array.Get("join", array) as ICallable;
+            if (func is null)
             {
-                func = _realm.Intrinsics.Object.PrototypeObject.Get("toString", array).TryCast<ICallable>(y => ExceptionHelper.ThrowArgumentException());
-            });
-
-            if (array.IsArrayLike == false || func == null)
-                return _realm.Intrinsics.Object.PrototypeObject.ToObjectString(array, Arguments.Empty);
+                func = _realm.Intrinsics.Object.PrototypeObject.Get("toString", array) as ICallable;
+            }
 
             return func.Call(array, Arguments.Empty);
         }
@@ -1284,7 +1281,7 @@ namespace Jint.Native.Array
             var callbackfn = arguments.At(0);
             var initialValue = arguments.At(1);
 
-            var o = ArrayOperations.For(TypeConverter.ToObject(_engine, thisObj));
+            var o = ArrayOperations.For(TypeConverter.ToObject(_realm, thisObj));
             var len = o.GetLongLength();
 
             var callable = GetCallable(callbackfn);
@@ -1363,7 +1360,7 @@ namespace Jint.Native.Array
 
         public JsValue Pop(JsValue thisObject, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(Engine, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject);
             ulong len = o.GetLongLength();
             if (len == 0)
             {

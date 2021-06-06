@@ -28,7 +28,7 @@ namespace Jint.Native.Function
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            var callerRealm = _realm;
+            var callerRealm = _engine.ExecutionContext.Realm;
             return PerformEval(arguments.At(0), callerRealm, StrictModeScope.IsStrictModeCode, false);
         }
 
@@ -41,6 +41,9 @@ namespace Jint.Native.Function
             {
                 return x;
             }
+
+            var evalRealm = _engine.ExecutionContext.Realm;
+            _engine._host.EnsureCanCompileStrings(callerRealm, evalRealm);
 
             var inFunction = false;
             var inMethod = false;
@@ -106,15 +109,18 @@ namespace Jint.Native.Function
             {
                 EnvironmentRecord lexEnv;
                 EnvironmentRecord varEnv;
+                PrivateEnvironmentRecord privateEnv;
                 if (direct)
                 {
                     lexEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, ctx.LexicalEnvironment);
                     varEnv = ctx.VariableEnvironment;
+                    privateEnv = ctx.PrivateEnvironment;
                 }
                 else
                 {
-                    lexEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, ctx.Realm.GlobalEnv);
-                    varEnv = ctx.Realm.GlobalEnv;
+                    lexEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, evalRealm.GlobalEnv);
+                    varEnv = evalRealm.GlobalEnv;
+                    privateEnv = null;
                 }
 
                 if (strictEval)
@@ -124,11 +130,11 @@ namespace Jint.Native.Function
 
                 // If ctx is not already suspended, suspend ctx.
 
-                Engine.EnterExecutionContext(lexEnv, varEnv, callerRealm);
+                Engine.EnterExecutionContext(lexEnv, varEnv, evalRealm, privateEnv);
 
                 try
                 {
-                    Engine.EvalDeclarationInstantiation(script, varEnv, lexEnv, strictEval);
+                    Engine.EvalDeclarationInstantiation(script, varEnv, lexEnv, privateEnv, strictEval);
 
                     var statement = new JintScript(_engine, script);
                     var result = statement.Execute();

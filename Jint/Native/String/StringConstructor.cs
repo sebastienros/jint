@@ -98,8 +98,8 @@ namespace Jint.Native.String
         /// </summary>
         private JsValue Raw(JsValue thisObj, JsValue[] arguments)
         {
-            var cooked = TypeConverter.ToObject(_engine, arguments.At(0));
-            var raw = TypeConverter.ToObject(_engine, cooked.Get(JintTaggedTemplateExpression.PropertyRaw, cooked));
+            var cooked = TypeConverter.ToObject(_realm, arguments.At(0));
+            var raw = TypeConverter.ToObject(_realm, cooked.Get(JintTaggedTemplateExpression.PropertyRaw, cooked));
 
             var operations = ArrayOperations.For(raw);
             var length = operations.GetLength();

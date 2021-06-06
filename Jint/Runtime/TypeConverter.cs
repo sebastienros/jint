@@ -581,36 +581,36 @@ namespace Jint.Runtime
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ObjectInstance ToObject(Engine engine, JsValue value)
+        public static ObjectInstance ToObject(Realm realm, JsValue value)
         {
             if (value is ObjectInstance oi)
             {
                 return oi;
             }
 
-            return ToObjectNonObject(engine, value);
+            return ToObjectNonObject(realm, value);
         }
 
-        private static ObjectInstance ToObjectNonObject(Engine engine, JsValue value)
+        private static ObjectInstance ToObjectNonObject(Realm realm, JsValue value)
         {
             var type = value._type & ~InternalTypes.InternalFlags;
             switch (type)
             {
                 case InternalTypes.Boolean:
-                    return engine.Realm.Intrinsics.Boolean.Construct((JsBoolean)value);
+                    return realm.Intrinsics.Boolean.Construct((JsBoolean)value);
                 case InternalTypes.Number:
                 case InternalTypes.Integer:
-                    return engine.Realm.Intrinsics.Number.Construct((JsNumber)value);
+                    return realm.Intrinsics.Number.Construct((JsNumber)value);
                 case InternalTypes.String:
-                    return engine.Realm.Intrinsics.String.Construct(value.ToString());
+                    return realm.Intrinsics.String.Construct(value.ToString());
                 case InternalTypes.Symbol:
-                    return engine.Realm.Intrinsics.Symbol.Construct((JsSymbol)value);
+                    return realm.Intrinsics.Symbol.Construct((JsSymbol)value);
                 case InternalTypes.Null:
                 case InternalTypes.Undefined:
-                    ExceptionHelper.ThrowTypeError(engine.Realm, "Cannot convert undefined or null to object");
+                    ExceptionHelper.ThrowTypeError(realm, "Cannot convert undefined or null to object");
                     return null;
                 default:
-                    ExceptionHelper.ThrowTypeError(engine.Realm, "Cannot convert given item to object");
+                    ExceptionHelper.ThrowTypeError(realm, "Cannot convert given item to object");
                     return null;
             }
         }

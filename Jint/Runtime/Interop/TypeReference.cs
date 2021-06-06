@@ -53,7 +53,7 @@ namespace Jint.Runtime.Interop
             if (arguments.Length == 0 && ReferenceType.IsValueType)
             {
                 var instance = Activator.CreateInstance(ReferenceType);
-                var result = TypeConverter.ToObject(Engine, FromObject(Engine, instance));
+                var result = TypeConverter.ToObject(_realm, FromObject(Engine, instance));
 
                 return result;
             }
@@ -66,7 +66,7 @@ namespace Jint.Runtime.Interop
             {
                 var method = tuple.Item1;
                 var retVal = method.Call(Engine, null, arguments);
-                var result = TypeConverter.ToObject(Engine, retVal);
+                var result = TypeConverter.ToObject(_realm, retVal);
 
                 // todo: cache method info
 
