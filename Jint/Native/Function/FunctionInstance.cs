@@ -230,12 +230,12 @@ namespace Jint.Native.Function
         internal T OrdinaryCreateFromConstructor<T>(
             JsValue constructor,
             Func<Intrinsics, ObjectInstance> intrinsicDefaultProto,
-            Func<Engine, JsValue, T> objectCreator,
+            Func<Engine, Realm, JsValue, T> objectCreator,
             JsValue state = null) where T : ObjectInstance
         {
             var proto = GetPrototypeFromConstructor(constructor, intrinsicDefaultProto);
 
-            var obj = objectCreator(_engine, state);
+            var obj = objectCreator(_engine, _realm, state);
             obj._prototype = proto;
             return obj;
         }
@@ -349,12 +349,13 @@ namespace Jint.Native.Function
             var callerContext = _engine.ExecutionContext;
 
             var localEnv = JintEnvironment.NewFunctionEnvironment(_engine, this, newTarget);
+            var calleeRealm = _realm;
 
             var calleeContext = new ExecutionContext(
                 localEnv,
                 localEnv,
                 _privateEnvironment,
-                _realm,
+                calleeRealm,
                 this);
 
             // If callerContext is not already suspended, suspend callerContext.

@@ -187,7 +187,7 @@ namespace Jint.Native.Date
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Date.PrototypeObject,
-                static (engine, _) => new DateInstance(engine));
+                static (engine, realm, _) => new DateInstance(engine));
             o.PrimitiveValue = dv;
             return o;
         }

@@ -7,11 +7,13 @@ namespace Jint.Native.Map
 {
     public class MapInstance : ObjectInstance
     {
+        private readonly Realm _realm;
         internal readonly OrderedDictionary<JsValue, JsValue> _map;
 
-        public MapInstance(Engine engine)
+        public MapInstance(Engine engine, Realm realm)
             : base(engine, objectClass: ObjectClass.Map)
         {
+            _realm = realm;
             _map = new OrderedDictionary<JsValue, JsValue>();
         }
 
@@ -83,17 +85,17 @@ namespace Jint.Native.Map
 
         internal ObjectInstance Iterator()
         {
-            return _engine.Realm.Intrinsics.Iterator.Construct(this);
+            return _realm.Intrinsics.Iterator.Construct(this);
         }
 
         internal ObjectInstance Keys()
         {
-            return _engine.Realm.Intrinsics.Iterator.Construct(_map.Keys);
+            return _realm.Intrinsics.Iterator.Construct(_map.Keys);
         }
 
         internal ObjectInstance Values()
         {
-            return _engine.Realm.Intrinsics.Iterator.Construct(_map.Values);
+            return _realm.Intrinsics.Iterator.Construct(_map.Values);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

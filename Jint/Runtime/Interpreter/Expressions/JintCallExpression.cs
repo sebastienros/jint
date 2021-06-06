@@ -118,7 +118,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (reference is Reference referenceRecord
                 && !referenceRecord.IsPropertyReference()
                 && referenceRecord.GetReferencedName() == CommonProperties.Eval
-                && func is EvalFunctionInstance eval)
+                && ReferenceEquals(func, _engine.Realm.Intrinsics.Eval))
             {
                 var argList = ArgumentListEvaluation();
                 if (argList.Length == 0)
@@ -126,11 +126,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return Undefined.Instance;
                 }
 
+                var evalFunctionInstance = (EvalFunctionInstance) func;
                 var evalArg = argList[0];
                 var strictCaller = StrictModeScope.IsStrictModeCode;
-                var evalRealm = _engine.ExecutionContext.Realm;
+                var evalRealm = evalFunctionInstance._realm;
                 var direct = !((CallExpression) _expression).Optional;
-                var value = eval.PerformEval(evalArg, evalRealm, strictCaller, direct);
+                var value = evalFunctionInstance.PerformEval(evalArg, evalRealm, strictCaller, direct);
                 _engine._referencePool.Return(referenceRecord);
                 return value;
             }

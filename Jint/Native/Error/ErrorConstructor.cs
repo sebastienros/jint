@@ -40,7 +40,7 @@ namespace Jint.Native.Error
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
                 intrinsics => PrototypeObject,
-                static (e, state) => new ErrorInstance(e, (JsString) state),
+                static (engine, realm, state) => new ErrorInstance(engine, (JsString) state),
                 _name);
 
             var jsValue = arguments.At(0);

@@ -43,7 +43,7 @@ namespace Jint.Native.Function
                 return x;
             }
 
-            var evalRealm = _engine.ExecutionContext.Realm;
+            var evalRealm = _realm;
             _engine._host.EnsureCanCompileStrings(callerRealm, evalRealm);
 
             var inFunction = false;

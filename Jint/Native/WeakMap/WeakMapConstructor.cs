@@ -41,7 +41,7 @@ namespace Jint.Native.WeakMap
             var map = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics =>  intrinsics.WeakMap.PrototypeObject,
-                static (engine, _) => new WeakMapInstance(engine));
+                static (engine, realm, _) => new WeakMapInstance(engine));
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adder = map.Get("set");

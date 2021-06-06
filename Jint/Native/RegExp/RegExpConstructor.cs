@@ -132,7 +132,7 @@ namespace Jint.Native.RegExp
             var r = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.RegExp.PrototypeObject,
-                static(engine, _) => new RegExpInstance(engine));
+                static(engine, realm, _) => new RegExpInstance(engine));
             return r;
         }
 

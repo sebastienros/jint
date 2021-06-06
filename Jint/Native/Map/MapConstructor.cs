@@ -61,7 +61,7 @@ namespace Jint.Native.Map
             var map = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Map.PrototypeObject,
-                static (engine, _) => new MapInstance(engine));
+                static (engine, realm, _) => new MapInstance(engine, realm));
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adder = map.Get("set");
