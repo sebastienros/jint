@@ -29,7 +29,8 @@ namespace Jint.Native.Function
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             var callerRealm = _engine.ExecutionContext.Realm;
-            return PerformEval(arguments.At(0), callerRealm, StrictModeScope.IsStrictModeCode, false);
+            var x = arguments.At(0);
+            return PerformEval(x, callerRealm, false, false);
         }
 
         /// <summary>

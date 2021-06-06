@@ -39,7 +39,7 @@ namespace Jint.Native.Error
         {
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
-                _ => PrototypeObject,
+                intrinsics => PrototypeObject,
                 static (e, state) => new ErrorInstance(e, (JsString) state),
                 _name);
 
@@ -59,7 +59,7 @@ namespace Jint.Native.Error
             return o;
         }
 
-        public ErrorPrototype PrototypeObject { get; private set; }
+        public ErrorPrototype PrototypeObject { get; }
 
         protected internal override ObjectInstance GetPrototypeOf()
         {
