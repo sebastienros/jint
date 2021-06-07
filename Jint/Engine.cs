@@ -23,7 +23,7 @@ using Jint.Runtime.References;
 
 namespace Jint
 {
-    public class Engine
+    public partial class Engine
     {
         private static readonly ParserOptions DefaultParserOptions = new("<anonymous>")
         {
@@ -242,7 +242,7 @@ namespace Jint
             return SetValue(name, value);
         }
 
-        public void LeaveExecutionContext()
+        internal void LeaveExecutionContext()
         {
             _executionContexts.Pop();
         }
@@ -379,15 +379,6 @@ namespace Jint
         private void ResetLastStatement()
         {
             _lastSyntaxNode = null;
-        }
-
-        /// <summary>
-        /// Gets the last evaluated statement completion value
-        /// </summary>
-        [Obsolete("Prefer calling Evaluate which returns last completion value. Execute is for initialization and Evaluate returns final result.")]
-        public JsValue GetCompletionValue()
-        {
-            return _completionValue;
         }
 
         internal void RunBeforeExecuteStatementChecks(Statement statement)
@@ -861,7 +852,7 @@ namespace Jint
                     ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{fn}' has already been declared");
                 }
 
-                var fo = Realm.Intrinsics.Function.InstantiateFunctionObject(f, env);
+                var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, env);
                 env.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: false);
             }
 
@@ -1002,10 +993,11 @@ namespace Jint
             EnvironmentRecord lexEnv,
             DeclarativeEnvironmentRecord varEnvRec)
         {
+            var realm = Realm;
             foreach (var f in functionsToInitialize)
             {
                 var fn = f.Id.Name;
-                var fo = Realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv);
+                var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv);
                 varEnvRec.SetMutableBinding(fn, fo, strict: false);
             }
         }
@@ -1180,7 +1172,7 @@ namespace Jint
             foreach (var f in functionsToInitialize)
             {
                 var fn = f.Id.Name;
-                var fo = Realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv);
+                var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv);
                 if (varEnvRec is GlobalEnvironmentRecord ger)
                 {
                     ger.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: true);

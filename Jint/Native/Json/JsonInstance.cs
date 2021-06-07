@@ -1,4 +1,5 @@
-﻿using Jint.Collections;
+﻿using System;
+using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -25,8 +26,10 @@ namespace Jint.Native.Json
         {
             var properties = new PropertyDictionary(2, checkExistingKeys: false)
             {
+#pragma warning disable 618
                 ["parse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parse", Parse, 2), true, false, true),
                 ["stringify"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "stringify", Stringify, 3), true, false, true)
+#pragma warning restore 618
             };
             SetProperties(properties);
 
@@ -85,6 +88,7 @@ namespace Jint.Native.Json
         /// <summary>
         /// https://tc39.es/ecma262/#sec-json.parse
         /// </summary>
+        [Obsolete("Method will be made private, use JsonParser directly")]
         public JsValue Parse(JsValue thisObject, JsValue[] arguments)
         {
             var jsonString = TypeConverter.ToString(arguments.At(0));
@@ -106,6 +110,7 @@ namespace Jint.Native.Json
             }
         }
 
+        [Obsolete("Method will be made private, use JsonSerializer directly")]
         public JsValue Stringify(JsValue thisObject, JsValue[] arguments)
         {
             var value = arguments.At(0);
