@@ -2556,5 +2556,12 @@ namespace Jint.Tests.Runtime
             Assert.Equal(1, _engine.Evaluate("arr.indexOf(b)").AsNumber());
             Assert.True(_engine.Evaluate("arr.includes(b)").AsBoolean());
         }
+
+        [Fact]
+        public void ObjectWrapperWrappingDictionaryShouldNotBeArrayLike()
+        {
+            var wrapper = new ObjectWrapper(_engine, new Dictionary<string, object>());
+            Assert.False(wrapper.IsArrayLike);
+        }
     }
 }

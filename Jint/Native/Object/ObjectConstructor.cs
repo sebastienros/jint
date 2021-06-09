@@ -254,14 +254,14 @@ namespace Jint.Native.Object
         {
             var o = TypeConverter.ToObject(_engine, arguments.At(0));
             var names = o.GetOwnPropertyKeys(Types.String);
-            return _engine.Array.Construct(names.ToArray());
+            return _engine.Array.ConstructFast(names);
         }
 
         private JsValue GetOwnPropertySymbols(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_engine, arguments.At(0));
             var keys = o.GetOwnPropertyKeys(Types.Symbol);
-            return _engine.Array.Construct(keys.ToArray());
+            return _engine.Array.ConstructFast(keys);
         }
 
         private JsValue Create(JsValue thisObject, JsValue[] arguments)
