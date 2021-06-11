@@ -110,6 +110,7 @@ namespace Jint.Native.Function
         /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
+            var callerContext = _engine.ExecutionContext;
             var kind = _constructorKind;
 
             var thisArgument = Undefined;
@@ -163,7 +164,7 @@ namespace Jint.Native.Function
 
                         if (!result.Value.IsUndefined())
                         {
-                            ExceptionHelper.ThrowTypeError(_realm);
+                            ExceptionHelper.ThrowTypeError(callerContext.Realm);
                         }
                     }
                     else if (result.Type == CompletionType.Throw)
