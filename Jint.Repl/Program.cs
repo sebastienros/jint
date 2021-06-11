@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using Esprima;
 using Jint.Native;
+using Jint.Native.Json;
 using Jint.Runtime;
 
 namespace Jint.Repl
@@ -67,7 +68,8 @@ namespace Jint.Repl
                     var result = engine.Evaluate(input, parserOptions);
                     if (!result.IsNull() && !result.IsUndefined())
                     {
-                        var str = TypeConverter.ToString(engine.Realm.Intrinsics.Json.Stringify(engine.Realm.Intrinsics.Json, Arguments.From(result, Undefined.Instance, "  ")));
+                        var serializer = new JsonSerializer(engine);
+                        var str = serializer.Serialize(result, Undefined.Instance, "  ");
                         Console.WriteLine(str);
                     }
                     else
