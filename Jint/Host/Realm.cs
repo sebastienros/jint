@@ -5,6 +5,9 @@ namespace Jint
 {
     public class Realm
     {
+
+// helps when debugging which nested realm we are in...
+#if DEBUG
         private static int globalId = 1;
 
         public Realm()
@@ -13,6 +16,7 @@ namespace Jint
         }
 
         internal int Id;
+#endif
 
         /// <summary>
         /// The intrinsic values used by code associated with this realm.

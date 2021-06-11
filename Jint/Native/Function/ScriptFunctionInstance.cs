@@ -54,22 +54,21 @@ namespace Jint.Native.Function
         /// </summary>
         public override JsValue Call(JsValue thisArgument, JsValue[] arguments)
         {
-            if (_isClassConstructor)
-            {
-                ExceptionHelper.ThrowTypeError(_realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
-            }
-
-            var calleeContext = PrepareForOrdinaryCall(Undefined);
-
-            OrdinaryCallBindThis(calleeContext, thisArgument);
-
-            // actual call
-
             var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))
             {
                 try
                 {
+                    var calleeContext = PrepareForOrdinaryCall(Undefined);
+
+                    if (_isClassConstructor)
+                    {
+                        ExceptionHelper.ThrowTypeError(calleeContext.Realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
+                    }
+
+                    OrdinaryCallBindThis(calleeContext, thisArgument);
+
+                    // actual call
                     var result = OrdinaryCallEvaluateBody(arguments, calleeContext);
 
                     if (result.Type == CompletionType.Throw)

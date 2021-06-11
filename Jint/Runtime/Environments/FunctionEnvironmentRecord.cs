@@ -67,7 +67,7 @@ namespace Jint.Runtime.Environments
                 return _thisValue;
             }
 
-            ExceptionHelper.ThrowReferenceError(_functionObject._realm, (string) null);
+            ExceptionHelper.ThrowReferenceError(_engine.ExecutionContext.Realm, (string) null);
             return null;
         }
 
