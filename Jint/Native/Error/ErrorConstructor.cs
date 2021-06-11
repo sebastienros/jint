@@ -20,7 +20,7 @@ namespace Jint.Native.Error
         {
             _name = name;
             _prototype = functionPrototype;
-            PrototypeObject = new ErrorPrototype(engine, realm, this, objectPrototype, name);
+            PrototypeObject = new ErrorPrototype(engine, realm, this, objectPrototype, name, ObjectClass.Object);
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }

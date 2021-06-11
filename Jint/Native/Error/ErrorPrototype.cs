@@ -19,8 +19,9 @@ namespace Jint.Native.Error
             Realm realm,
             ErrorConstructor constructor,
             ObjectInstance objectPrototype,
-            JsString name)
-            : base(engine, name)
+            JsString name,
+            ObjectClass objectClass)
+            : base(engine, name, objectClass)
         {
             _realm = realm;
             _constructor = constructor;

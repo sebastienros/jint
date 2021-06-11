@@ -9,8 +9,11 @@ namespace Jint.Native.Error
         private readonly JsString _name;
         private PropertyDescriptor _descriptor;
 
-        public ErrorInstance(Engine engine, JsString name)
-            : base(engine, ObjectClass.Error)
+        internal ErrorInstance(
+            Engine engine,
+            JsString name,
+            ObjectClass objectClass = ObjectClass.Error)
+            : base(engine, objectClass)
         {
             _name = name;
         }
