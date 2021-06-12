@@ -18,14 +18,14 @@ namespace Jint.Native.Error
             Engine engine,
             Realm realm,
             ErrorConstructor constructor,
-            ObjectInstance objectPrototype,
+            ObjectInstance prototype,
             JsString name,
             ObjectClass objectClass)
             : base(engine, name, objectClass)
         {
             _realm = realm;
             _constructor = constructor;
-            _prototype = objectPrototype;
+            _prototype = prototype;
         }
 
         protected override void Initialize()

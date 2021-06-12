@@ -27,7 +27,7 @@ namespace Jint.Native.Error
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return Construct(arguments, thisObject);
+            return Construct(arguments, this);
         }
 
         public ObjectInstance Construct(JsValue[] arguments)
@@ -39,7 +39,7 @@ namespace Jint.Native.Error
         {
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
-                intrinsics => PrototypeObject,
+                static intrinsics => intrinsics.Error.PrototypeObject,
                 static (engine, realm, state) => new ErrorInstance(engine, (JsString) state),
                 _name);
 
@@ -53,7 +53,7 @@ namespace Jint.Native.Error
 
             var lastSyntaxNode = _engine.GetLastSyntaxNode();
             var stackString = lastSyntaxNode == null ? Undefined : _engine.CallStack.BuildCallStackString(lastSyntaxNode.Location);
-            var stackDesc = new PropertyDescriptor(stackString, true, false, true);
+            var stackDesc = new PropertyDescriptor(stackString, PropertyFlag.NonEnumerable);
             o.DefinePropertyOrThrow(CommonProperties.Stack, stackDesc);
 
             return o;
