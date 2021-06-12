@@ -4,19 +4,28 @@ using Jint.Runtime.Environments;
 
 namespace Jint.Runtime
 {
-    public abstract class Host
+    public class Host
     {
-        protected Host(Engine engine)
+        protected Engine Engine { get; private set; }
+
+        /// <summary>
+        /// Initializes the host.
+        /// </summary>
+        public void Initialize(Engine engine)
         {
             Engine = engine;
+            InitializeHostDefinedRealm();
+            PostInitialize();
         }
 
-        protected Engine Engine { get; }
+        protected virtual void PostInitialize()
+        {
+        }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-initializehostdefinedrealm
         /// </summary>
-        public void InitializeHostDefinedRealm()
+        protected virtual void InitializeHostDefinedRealm()
         {
             var realm = CreateRealm();
 
@@ -48,7 +57,7 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-createrealm
         /// </summary>
-        public Realm CreateRealm()
+        protected internal virtual Realm CreateRealm()
         {
             var realmRec = new Realm();
             Engine._realmInConstruction = realmRec;

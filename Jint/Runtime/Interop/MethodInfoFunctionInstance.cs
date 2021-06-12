@@ -14,7 +14,7 @@ namespace Jint.Runtime.Interop
         private readonly ClrFunctionInstance _fallbackClrFunctionInstance;
 
         public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods)
-            : base(engine,engine.Realm, _name)
+            : base(engine, engine.Realm, _name)
         {
             _methods = methods;
             _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;

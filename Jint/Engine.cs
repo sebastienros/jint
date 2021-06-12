@@ -127,10 +127,10 @@ namespace Jint
                 PropertyFlag.CustomJsValue,
                 "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
 
-            Reset();
-
             Options = new Options();
             options?.Invoke(this, Options);
+
+            Reset();
 
             // gather some options as fields for faster checks
             _isDebugMode = Options.IsDebugMode;
@@ -148,8 +148,8 @@ namespace Jint
 
         private void Reset()
         {
-            _host = new DefaultHost(this);
-            _host.InitializeHostDefinedRealm();
+            _host = Options._hostFactory(this);
+            _host.Initialize(this);
         }
 
         internal ref readonly ExecutionContext ExecutionContext

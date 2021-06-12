@@ -2,6 +2,7 @@ using System;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Date;
+using Jint.Native.Error;
 using Jint.Native.Function;
 using Jint.Native.Json;
 using Jint.Native.Object;
@@ -25,6 +26,12 @@ namespace Jint
 
         [Obsolete("Use active realms Intrinsics to access well-known object")]
         public DateConstructor Date => Realm.Intrinsics.Date;
+
+        [Obsolete("Use active realms Intrinsics to access well-known object")]
+        public EvalFunctionInstance Eval => Realm.Intrinsics.Eval;
+
+        [Obsolete("Use active realms Intrinsics to access well-known object")]
+        public ErrorConstructor Error => Realm.Intrinsics.Error;
 
         [Obsolete("Use active realms Intrinsics to access well-known object")]
         public FunctionConstructor Function => Realm.Intrinsics.Function;

@@ -39,6 +39,7 @@ namespace Jint
 
         private readonly List<Type> _extensionMethodClassTypes = new();
         internal ExtensionMethodCache _extensionMethods = ExtensionMethodCache.Empty;
+        internal Func<Engine, Host> _hostFactory = _ => new Host();
 
         /// <summary>
         /// Run the script in strict mode.
@@ -181,11 +182,11 @@ namespace Jint
 
         /// <summary>
         /// Registers a delegate that is called when CLR members are invoked. This allows
-        /// to change what values are returned for specific CLR objects, or if any value 
+        /// to change what values are returned for specific CLR objects, or if any value
         /// is returned at all.
         /// </summary>
         /// <param name="accessor">
-        /// The delegate to invoke for each CLR member. If the delegate 
+        /// The delegate to invoke for each CLR member. If the delegate
         /// returns <c>null</c>, the standard evaluation is performed.
         /// </param>
         public Options SetMemberAccessor(MemberAccessorDelegate accessor)
@@ -305,6 +306,17 @@ namespace Jint
         }
 
         /// <summary>
+        /// Allows to configure how the host is constructed.
+        /// </summary>
+        /// <remarks>
+        /// Passed Engine instance is still in construction and should not be used during call stage.
+        /// </remarks>
+        public void UseHostFactory<T>(Func<Engine, T> factory) where T : Host
+        {
+            _hostFactory = factory;
+        }
+
+        /// <summary>
         /// Called by the <see cref="Engine"/> instance that loads this <see cref="Options" />
         /// once it is loaded.
         /// </summary>
@@ -367,7 +379,7 @@ namespace Jint
 
         private sealed class DefaultReferenceResolver : IReferenceResolver
         {
-            public static readonly DefaultReferenceResolver Instance = new DefaultReferenceResolver();
+            public static readonly DefaultReferenceResolver Instance = new();
 
             private DefaultReferenceResolver()
             {
