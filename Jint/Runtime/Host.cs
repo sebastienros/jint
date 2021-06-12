@@ -2,7 +2,7 @@ using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Runtime.Environments;
 
-namespace Jint
+namespace Jint.Runtime
 {
     public abstract class Host
     {

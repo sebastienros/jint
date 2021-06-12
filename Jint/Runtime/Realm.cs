@@ -1,7 +1,7 @@
 using Jint.Native.Object;
 using Jint.Runtime.Environments;
 
-namespace Jint
+namespace Jint.Runtime
 {
     public class Realm
     {

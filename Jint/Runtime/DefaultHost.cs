@@ -1,4 +1,4 @@
-namespace Jint
+namespace Jint.Runtime
 {
     internal class DefaultHost : Host
     {

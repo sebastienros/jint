@@ -5,6 +5,7 @@ using Jint.Native.Function;
 using Jint.Native.Map;
 using Jint.Native.Object;
 using Jint.Native.Set;
+using Jint.Runtime;
 
 namespace Jint.Native.Iterator
 {

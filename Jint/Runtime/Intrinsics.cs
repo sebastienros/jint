@@ -20,7 +20,7 @@ using Jint.Native.Symbol;
 using Jint.Native.WeakMap;
 using Jint.Native.WeakSet;
 
-namespace Jint
+namespace Jint.Runtime
 {
     public class Intrinsics
     {
