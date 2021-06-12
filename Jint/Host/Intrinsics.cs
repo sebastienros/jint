@@ -105,21 +105,21 @@ namespace Jint
             _error ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, _errorFunctionName);
 
         public ErrorConstructor EvalError =>
-            _evalError ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject, _evalErrorFunctionName);
+            _evalError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _evalErrorFunctionName);
 
         public ErrorConstructor SyntaxError =>
-            _syntaxError ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject, _syntaxErrorFunctionName);
+            _syntaxError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _syntaxErrorFunctionName);
 
         public ErrorConstructor TypeError =>
-            _typeError ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject, _typeErrorFunctionName);
+            _typeError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _typeErrorFunctionName);
 
         public ErrorConstructor RangeError =>
-            _rangeError ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject, _rangeErrorFunctionName);
+            _rangeError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _rangeErrorFunctionName);
 
         public ErrorConstructor ReferenceError
-            => _referenceError ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject, _referenceErrorFunctionName);
+            => _referenceError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _referenceErrorFunctionName);
 
         public ErrorConstructor UriError =>
-            _uriError ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Error.PrototypeObject, _uriErrorFunctionName);
+            _uriError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _uriErrorFunctionName);
     }
 }

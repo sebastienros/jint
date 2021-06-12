@@ -8,12 +8,11 @@ namespace Jint.Native.Error
     public sealed class ErrorConstructor : FunctionInstance, IConstructor
     {
         private readonly JsString _name;
-        private static readonly JsString _functionName = new JsString("Error");
 
         internal ErrorConstructor(
             Engine engine,
             Realm realm,
-            FunctionPrototype functionPrototype,
+            ObjectInstance functionPrototype,
             ObjectInstance objectPrototype,
             JsString name)
             : base(engine, realm, name)
@@ -24,6 +23,8 @@ namespace Jint.Native.Error
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
+
+        public ErrorPrototype PrototypeObject { get; }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
@@ -57,13 +58,6 @@ namespace Jint.Native.Error
             o.DefinePropertyOrThrow(CommonProperties.Stack, stackDesc);
 
             return o;
-        }
-
-        public ErrorPrototype PrototypeObject { get; }
-
-        protected internal override ObjectInstance GetPrototypeOf()
-        {
-            return _name._value != "Error" ? _realm.Intrinsics.Error : _prototype;
         }
     }
 }
