@@ -6,7 +6,7 @@ namespace Jint.Runtime.Environments
 {
     /// <summary>
     /// Represents a declarative environment record
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.1
+    /// https://tc39.es/ecma262/#sec-declarative-environment-records
     /// </summary>
     internal class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
