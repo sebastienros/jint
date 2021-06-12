@@ -32,6 +32,9 @@ namespace Jint.Native.Function
             return Construct(arguments, thisObject);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-createdynamicfunction
+        /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var argCount = arguments.Length;
@@ -97,11 +100,15 @@ namespace Jint.Native.Function
                 ExceptionHelper.ThrowSyntaxError(_realm);
             }
 
+            // TODO generators etc, rewrite logic
+            var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.Function.PrototypeObject);
+
             var functionObject = new ScriptFunctionInstance(
                 Engine,
                 function,
                 _realm.GlobalEnv,
-                function.Strict)
+                function.Strict,
+                proto)
             {
                 _realm = _realm
             };
