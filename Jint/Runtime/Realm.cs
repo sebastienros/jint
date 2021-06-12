@@ -3,7 +3,7 @@ using Jint.Runtime.Environments;
 
 namespace Jint.Runtime
 {
-    public class Realm
+    public sealed class Realm
     {
 
 // helps when debugging which nested realm we are in...

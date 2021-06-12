@@ -22,7 +22,7 @@ using Jint.Native.WeakSet;
 
 namespace Jint.Runtime
 {
-    public class Intrinsics
+    public sealed class Intrinsics
     {
         private static readonly JsString _errorFunctionName = new("Error");
         private static readonly JsString _evalErrorFunctionName = new("EvalError");
