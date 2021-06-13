@@ -40,7 +40,7 @@ namespace Jint.Native.Function
             : base(engine, engine.Realm, function, scope, thisMode)
         {
             _prototype = proto ?? _engine.Realm.Intrinsics.Function.PrototypeObject;
-            _length = new LazyPropertyDescriptor(_realm, realm => JsNumber.Create(function.Initialize(this).Length), PropertyFlag.Configurable);
+            _length = new LazyPropertyDescriptor(null, _ => JsNumber.Create(function.Initialize(this).Length), PropertyFlag.Configurable);
 
             if (!function.Strict && !engine._isStrict && function.Function is not ArrowFunctionExpression)
             {

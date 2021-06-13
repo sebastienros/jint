@@ -5,19 +5,19 @@ namespace Jint.Runtime.Descriptors.Specialized
 {
     internal sealed class LazyPropertyDescriptor : PropertyDescriptor
     {
-        private readonly Realm _realm;
-        private readonly Func<Realm, JsValue> _resolver;
+        private readonly object _state;
+        private readonly Func<object, JsValue> _resolver;
 
-        internal LazyPropertyDescriptor(Realm realm, Func<Realm, JsValue> resolver, PropertyFlag flags)
+        internal LazyPropertyDescriptor(object state, Func<object, JsValue> resolver, PropertyFlag flags)
             : base(null, flags | PropertyFlag.CustomJsValue)
         {
-            _realm = realm;
+            _state = state;
             _resolver = resolver;
         }
 
         protected internal override JsValue CustomValue
         {
-            get => _value ??= _resolver(_realm);
+            get => _value ??= _resolver(_state);
             set => _value = value;
         }
     }
