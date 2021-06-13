@@ -43,6 +43,24 @@ namespace Jint.Runtime
         private ErrorConstructor _syntaxError;
         private ErrorConstructor _typeError;
         private ErrorConstructor _uriError;
+        private WeakMapConstructor _weakMap;
+        private WeakSetConstructor _weakSet;
+        private PromiseConstructor _promise;
+        private ProxyConstructor _proxy;
+        private ReflectInstance _reflect;
+        private EvalFunctionInstance _eval;
+        private DateConstructor _date;
+        private IteratorConstructor _iterator;
+        private MathInstance _math;
+        private JsonInstance _json;
+        private SymbolConstructor _symbol;
+        private RegExpConstructor _regExp;
+        private NumberConstructor _number;
+        private StringConstructor _string;
+        private MapConstructor _map;
+        private SetConstructor _set;
+        private ArrayConstructor _array;
+        private BooleanConstructor _boolean;
 
         internal Intrinsics(Engine engine, Realm realm)
         {
@@ -58,48 +76,64 @@ namespace Jint.Runtime
 
             // this is implementation dependent, and only to pass some unit tests
             Object._prototype = Function.PrototypeObject;
-
-            Symbol = new SymbolConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
-            Array = new ArrayConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
-            Map = new MapConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
-            Set = new SetConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
-            WeakMap = new WeakMapConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
-            WeakSet = new WeakSetConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
-            Promise = new PromiseConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
-            Iterator = new IteratorConstructor(engine, realm, Object.PrototypeObject);
-            String = new StringConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
-            RegExp = new RegExpConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
-            Number = new NumberConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
-            Boolean = new BooleanConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
-            Date = new DateConstructor(engine, realm, Function.PrototypeObject, Object.PrototypeObject);
-
-            Math = new MathInstance(engine, Object.PrototypeObject);
-            Json = new JsonInstance(engine, realm, Object.PrototypeObject);
-            Proxy = new ProxyConstructor(engine, realm);
-            Reflect = new ReflectInstance(engine, realm, Object.PrototypeObject);
-            Eval = new EvalFunctionInstance(engine, realm, Function.PrototypeObject);
         }
 
         public ObjectConstructor Object { get; }
         public FunctionConstructor Function { get; }
-        public ArrayConstructor Array { get; }
-        public MapConstructor Map { get; }
-        public SetConstructor Set { get; }
-        public WeakMapConstructor WeakMap { get; }
-        public WeakSetConstructor WeakSet { get; }
-        public PromiseConstructor Promise { get; }
-        public IteratorConstructor Iterator { get; }
-        public StringConstructor String { get; }
-        public RegExpConstructor RegExp { get; }
-        public BooleanConstructor Boolean { get; }
-        public NumberConstructor Number { get; }
-        public DateConstructor Date { get; }
-        public MathInstance Math { get; }
-        public JsonInstance Json { get; }
-        public ProxyConstructor Proxy { get; }
-        public ReflectInstance Reflect { get; }
-        public SymbolConstructor Symbol { get; }
-        public EvalFunctionInstance Eval { get; }
+
+        public ArrayConstructor Array =>
+            _array ??= new ArrayConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public MapConstructor Map =>
+            _map ??= new MapConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public SetConstructor Set =>
+            _set ??= new SetConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public WeakMapConstructor WeakMap =>
+            _weakMap ??= new WeakMapConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public WeakSetConstructor WeakSet =>
+            _weakSet ??= new WeakSetConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public PromiseConstructor Promise =>
+            _promise ??= new PromiseConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public IteratorConstructor Iterator =>
+            _iterator ??= new IteratorConstructor(_engine, _realm, Object.PrototypeObject);
+
+        public StringConstructor String =>
+            _string ??= new StringConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public RegExpConstructor RegExp =>
+            _regExp ??= new RegExpConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public BooleanConstructor Boolean =>
+            _boolean ??= new BooleanConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public NumberConstructor Number =>
+            _number ??= new NumberConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public DateConstructor Date =>
+            _date ??= new DateConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public MathInstance Math=>
+            _math ??= new MathInstance(_engine, Object.PrototypeObject);
+
+        public JsonInstance Json =>
+            _json ??= new JsonInstance(_engine, _realm, Object.PrototypeObject);
+
+        public ProxyConstructor Proxy =>
+            _proxy ??= new ProxyConstructor(_engine, _realm);
+
+        public ReflectInstance Reflect =>
+            _reflect ??= new ReflectInstance(_engine, _realm, Object.PrototypeObject);
+
+        public SymbolConstructor Symbol =>
+            _symbol ??= new SymbolConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public EvalFunctionInstance Eval =>
+            _eval ??= new EvalFunctionInstance(_engine, _realm, Function.PrototypeObject);
 
         public ErrorConstructor Error =>
             _error ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, _errorFunctionName);
@@ -114,7 +148,8 @@ namespace Jint.Runtime
             _typeError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _typeErrorFunctionName);
 
         public ErrorConstructor RangeError =>
-            _rangeError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _rangeErrorFunctionName);
+            _rangeError ??=
+                new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _rangeErrorFunctionName);
 
         public ErrorConstructor ReferenceError
             => _referenceError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _referenceErrorFunctionName);

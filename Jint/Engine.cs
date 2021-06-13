@@ -876,7 +876,7 @@ namespace Jint
             var envRec = (FunctionEnvironmentRecord) env;
             var strict = StrictModeScope.IsStrictModeCode;
 
-            var configuration = func.Initialize(this, functionInstance);
+            var configuration = func.Initialize(functionInstance);
             var parameterNames = configuration.ParameterNames;
             var hasDuplicates = configuration.HasDuplicates;
             var simpleParameterList = configuration.IsSimpleParameterList;

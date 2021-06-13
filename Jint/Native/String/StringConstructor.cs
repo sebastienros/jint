@@ -29,7 +29,7 @@ namespace Jint.Native.String
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public StringPrototype PrototypeObject { get; private set; }
+        public StringPrototype PrototypeObject { get; }
 
         protected override void Initialize()
         {
