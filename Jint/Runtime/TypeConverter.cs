@@ -82,13 +82,16 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-toprimitive
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue ToPrimitive(JsValue input, Types preferredType = Types.None)
         {
-            if (!(input is ObjectInstance oi))
-            {
-                return input;
-            }
+            return input is not ObjectInstance oi
+                ? input
+                : ToPrimitiveObjectInstance(oi, preferredType);
+        }
 
+        private static JsValue ToPrimitiveObjectInstance(ObjectInstance oi, Types preferredType)
+        {
             var hint = preferredType switch
             {
                 Types.String => JsString.StringString,

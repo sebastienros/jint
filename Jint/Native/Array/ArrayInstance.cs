@@ -353,7 +353,7 @@ namespace Jint.Native.Array
             var prop = GetOwnProperty(index);
             if (prop == PropertyDescriptor.Undefined)
             {
-                prop = Prototype?.GetProperty(index) ?? PropertyDescriptor.Undefined;
+                prop = Prototype?.GetProperty(JsString.Create(index)) ?? PropertyDescriptor.Undefined;
             }
 
             return UnwrapJsValue(prop);
@@ -367,7 +367,7 @@ namespace Jint.Native.Array
             {
                 return prop;
             }
-            return Prototype?.GetProperty(index) ?? PropertyDescriptor.Undefined;
+            return Prototype?.GetProperty(JsString.Create(index)) ?? PropertyDescriptor.Undefined;
         }
 
         protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
@@ -538,7 +538,7 @@ namespace Jint.Native.Array
 
             if (!TryGetDescriptor(index, out var desc))
             {
-                desc = GetProperty(index);
+                desc = GetProperty(JsString.Create(index));
             }
 
             return desc.TryGetValue(this, out value);
