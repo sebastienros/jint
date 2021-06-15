@@ -51,10 +51,9 @@ namespace Jint.Runtime
         // internal usage
         ObjectEnvironmentRecord = 512,
         RequiresCloning = 1024,
-        Realm = 2048,
 
         Primitive = Boolean | String | Number | Integer | Symbol,
-        InternalFlags = ObjectEnvironmentRecord | RequiresCloning | Realm
+        InternalFlags = ObjectEnvironmentRecord | RequiresCloning
     }
 
     public static class TypeConverter
