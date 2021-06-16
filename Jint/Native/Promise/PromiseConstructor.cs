@@ -23,22 +23,17 @@ namespace Jint.Native.Promise
 
         internal PromisePrototype PrototypeObject { get; private set; }
 
-        private PromiseConstructor(Engine engine)
-            : base(engine, _functionName)
+        internal PromiseConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
-        }
-
-        internal static PromiseConstructor CreatePromiseConstructor(Engine engine)
-        {
-            var obj = new PromiseConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            obj.PrototypeObject = PromisePrototype.CreatePrototypeObject(engine, obj);
-            obj._length = new PropertyDescriptor(1, PropertyFlag.Configurable);
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-            return obj;
+            _prototype = functionPrototype;
+            PrototypeObject = new PromisePrototype(engine, realm, this, objectPrototype);
+            _length = new PropertyDescriptor(1, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         protected override void Initialize()
@@ -71,26 +66,28 @@ namespace Jint.Native.Promise
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
-        { 
-            return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Constructor Promise requires 'new'");
+        {
+            ExceptionHelper.ThrowTypeError(_realm, "Constructor Promise requires 'new'");
+            return null;
         }
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Constructor Promise requires 'new'");
-            }
-            
-            if (arguments.At(0) is not ICallable promiseExecutor)
-            {
-                return ExceptionHelper.ThrowTypeError<ObjectInstance>(
-                    _engine,
-                    $"Promise executor {(arguments.At(0))} is not a function");
+                ExceptionHelper.ThrowTypeError(_realm, "Constructor Promise requires 'new'");
             }
 
-            var instance = OrdinaryCreateFromConstructor(newTarget, PrototypeObject,
-                static(engine, _) => new PromiseInstance(engine));
+            var promiseExecutor = arguments.At(0) as ICallable;
+            if (promiseExecutor is null)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, $"Promise executor {(arguments.At(0))} is not a function");
+            }
+
+            var instance = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Promise.PrototypeObject,
+                static(engine, realm, _) => new PromiseInstance(engine));
 
             var (resolve, reject) = instance.CreateResolvingFunctions();
             promiseExecutor.Call(Undefined, new JsValue[] {resolve, reject});
@@ -112,12 +109,12 @@ namespace Jint.Native.Promise
         {
             if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "PromiseResolve called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "PromiseResolve called on non-object");
             }
 
             if (thisObj is not IConstructor)
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Promise.resolve invoked on a non-constructor value");
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.resolve invoked on a non-constructor value");
             }
 
             JsValue x = arguments.At(0);
@@ -141,12 +138,12 @@ namespace Jint.Native.Promise
         {
             if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Promise.reject called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.reject called on non-object");
             }
 
             if (thisObj is not IConstructor)
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Promise.reject invoked on a non-constructor value");
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.reject invoked on a non-constructor value");
             }
 
             var r = arguments.At(0);
@@ -177,7 +174,7 @@ namespace Jint.Native.Promise
         {
             if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Promise.all called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.all called on non-object");
             }
 
             //2. Let promiseCapability be ? NewPromiseCapability(C).
@@ -205,12 +202,12 @@ namespace Jint.Native.Promise
             {
                 if (arguments.Length == 0)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, "no arguments were passed to Promise.all");
+                    ExceptionHelper.ThrowTypeError(_realm, "no arguments were passed to Promise.all");
                 }
 
                 var iterable = arguments.At(0);
 
-                iterator = iterable.GetIterator(_engine);
+                iterator = iterable.GetIterator(_realm);
             }
             catch (JavaScriptException e)
             {
@@ -229,7 +226,7 @@ namespace Jint.Native.Promise
                 // if "then" method is sync then it will be resolved BEFORE the next iteration cycle
                 if (results.TrueForAll(static x => x != null) && doneIterating)
                 {
-                    var array = _engine.Array.ConstructFast(results);
+                    var array = _realm.Intrinsics.Array.ConstructFast(results);
                     resolve.Call(Undefined, new JsValue[] { array });
                 }
             }
@@ -290,7 +287,7 @@ namespace Jint.Native.Promise
                     }
                     else
                     {
-                        ExceptionHelper.ThrowTypeError(_engine, "Passed non Promise-like value");
+                        ExceptionHelper.ThrowTypeError(_realm, "Passed non Promise-like value");
                     }
 
                     index += 1;
@@ -308,7 +305,7 @@ namespace Jint.Native.Promise
             // resolve the promise sync
             if (results.Count == 0)
             {
-                resolve.Call(Undefined, new JsValue[] {Engine.Array.ConstructFast(0)});
+                resolve.Call(Undefined, new JsValue[] {_realm.Intrinsics.Array.ConstructFast(0)});
             }
 
             return resultingPromise;
@@ -319,7 +316,7 @@ namespace Jint.Native.Promise
         {
             if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Promise.all called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.all called on non-object");
             }
 
             // 2. Let promiseCapability be ? NewPromiseCapability(C).
@@ -347,12 +344,12 @@ namespace Jint.Native.Promise
             {
                 if (arguments.Length == 0)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, "no arguments were passed to Promise.all");
+                    ExceptionHelper.ThrowTypeError(_realm, "no arguments were passed to Promise.all");
                 }
 
                 var iterable = arguments.At(0);
 
-                iterator = iterable.GetIterator(_engine);
+                iterator = iterable.GetIterator(_realm);
             }
             catch (JavaScriptException e)
             {
@@ -424,7 +421,7 @@ namespace Jint.Native.Promise
                 return resolve;
             }
 
-            ExceptionHelper.ThrowTypeError(_engine, "resolve is not a function");
+            ExceptionHelper.ThrowTypeError(_realm, "resolve is not a function");
             // Note: throws right before return
             return null;
         }
@@ -465,7 +462,7 @@ namespace Jint.Native.Promise
                 if (resolveArg != null && resolveArg != Undefined ||
                     rejectArg != null && rejectArg != Undefined)
                 {
-                    ExceptionHelper.ThrowTypeError(engine, "executor was already called with not undefined args");
+                    ExceptionHelper.ThrowTypeError(engine.Realm, "executor was already called with not undefined args");
                 }
 
                 resolveArg = arguments.At(0);
@@ -487,7 +484,7 @@ namespace Jint.Native.Promise
             }
             else
             {
-                ExceptionHelper.ThrowTypeError(engine, "resolve is not a function");
+                ExceptionHelper.ThrowTypeError(engine.Realm, "resolve is not a function");
             }
 
             if (rejectArg is ICallable rejFunc)
@@ -496,7 +493,7 @@ namespace Jint.Native.Promise
             }
             else
             {
-                ExceptionHelper.ThrowTypeError(engine, "reject is not a function");
+                ExceptionHelper.ThrowTypeError(engine.Realm, "reject is not a function");
             }
 
             return new PromiseCapability(instance, resolve, reject, rejectArg);

@@ -41,10 +41,10 @@ namespace Jint.Runtime.Interop
             {
                 var genericTypeReference = arguments[i];
                 if (genericTypeReference.IsUndefined()
-                    || !genericTypeReference.IsObject() 
+                    || !genericTypeReference.IsObject()
                     || genericTypeReference.AsObject().Class != ObjectClass.TypeReference)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?");
+                    ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?");
                 }
 
                 genericTypes[i] = ((TypeReference) genericTypeReference).ReferenceType;
@@ -65,7 +65,8 @@ namespace Jint.Runtime.Interop
             }
             catch (Exception e)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?", e);
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?", e);
+                return null;
             }
         }
 

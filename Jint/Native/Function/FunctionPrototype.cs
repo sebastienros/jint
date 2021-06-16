@@ -13,21 +13,14 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class FunctionPrototype : FunctionInstance
     {
-        private FunctionPrototype(Engine engine)
-            : base(engine, JsString.Empty)
+        internal FunctionPrototype(
+            Engine engine,
+            Realm realm,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, JsString.Empty)
         {
-        }
-
-        public static FunctionPrototype CreatePrototypeObject(Engine engine)
-        {
-            var obj = new FunctionPrototype(engine)
-            {
-                // The value of the [[Prototype]] internal property of the Function prototype object is the standard built-in Object prototype object
-                _prototype = engine.Object.PrototypeObject,
-                _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero
-            };
-
-            return obj;
+            _prototype = objectPrototype;
+            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
         }
 
         protected override void Initialize()
@@ -36,7 +29,7 @@ namespace Jint.Native.Function
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             var properties = new PropertyDictionary(7, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(Engine.Function, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_realm.Intrinsics.Function, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
                 ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2, lengthFlags), propertyFlags),
                 ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1, lengthFlags), propertyFlags),
@@ -67,7 +60,7 @@ namespace Jint.Native.Function
         {
             if (thisObj is not ICallable)
             {
-                ExceptionHelper.ThrowTypeError(Engine, "Bind must be called on a function");
+                ExceptionHelper.ThrowTypeError(_realm, "Bind must be called on a function");
             }
 
             var thisArg = arguments.At(0);
@@ -114,7 +107,7 @@ namespace Jint.Native.Function
         private FunctionInstance BoundFunctionCreate(ObjectInstance targetFunction, JsValue boundThis, JsValue[] boundArgs)
         {
             var proto = targetFunction.GetPrototypeOf();
-            var obj = new BindFunctionInstance(Engine)
+            var obj = new BindFunctionInstance(_engine, _realm)
             {
                 _prototype = proto,
                 TargetFunction = targetFunction,
@@ -131,12 +124,17 @@ namespace Jint.Native.Function
                 return thisObj.ToString();
             }
 
-            return ExceptionHelper.ThrowTypeError<FunctionInstance>(_engine, "Function.prototype.toString requires that 'this' be a Function");
+            ExceptionHelper.ThrowTypeError(_realm, "Function.prototype.toString requires that 'this' be a Function");
+            return null;
         }
 
         internal JsValue Apply(JsValue thisObject, JsValue[] arguments)
         {
-            var func = thisObject as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(Engine);
+            var func = thisObject as ICallable;
+            if (func is null)
+            {
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
             var thisArg = arguments.At(0);
             var argArray = arguments.At(1);
 
@@ -154,7 +152,11 @@ namespace Jint.Native.Function
 
         internal JsValue[] CreateListFromArrayLike(JsValue argArray, Types? elementTypes = null)
         {
-            var argArrayObj = argArray as ObjectInstance ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine);
+            var argArrayObj = argArray as ObjectInstance;
+            if (argArrayObj is null)
+            {
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
             var operations = ArrayOperations.For(argArrayObj);
             var allowedTypes = elementTypes ??
                                Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.Object;
@@ -165,7 +167,11 @@ namespace Jint.Native.Function
 
         private JsValue CallImpl(JsValue thisObject, JsValue[] arguments)
         {
-            var func = thisObject as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(Engine);
+            var func = thisObject as ICallable;
+            if (func is null)
+            {
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
             JsValue[] values = System.Array.Empty<JsValue>();
             if (arguments.Length > 1)
             {

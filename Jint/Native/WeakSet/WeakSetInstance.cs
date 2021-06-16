@@ -30,7 +30,7 @@ namespace Jint.Native.WeakSet
         {
             if (value.IsPrimitive())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "WeakSet value must be an object, got " + value.ToString());
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakSet value must be an object, got " + value.ToString());
             }
 
 #if NETSTANDARD2_1

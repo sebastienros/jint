@@ -25,7 +25,7 @@ namespace Jint.Pooling
         {
             return new ArgumentsInstance(_engine)
             {
-                _prototype = _engine.Object.PrototypeObject
+                _prototype = _engine.Realm.Intrinsics.Object.PrototypeObject
             };
         }
 

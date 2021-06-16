@@ -54,26 +54,17 @@ namespace Jint.Native.Date
 
         private static readonly JsString _functionName = new JsString("Date");
 
-        public DateConstructor(Engine engine) : base(engine, _functionName)
+        internal DateConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
-        }
-
-        public static DateConstructor CreateDateConstructor(Engine engine)
-        {
-            var obj = new DateConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the Date constructor is the Function prototype object
-            obj.PrototypeObject = DatePrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(7, PropertyFlag.Configurable);
-
-            // The initial value of Date.prototype is the Date prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
+            _prototype = functionPrototype;
+            PrototypeObject = new DatePrototype(engine, realm, this, objectPrototype);
+            _length = new PropertyDescriptor(7, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         protected override void Initialize()
@@ -193,7 +184,10 @@ namespace Jint.Native.Date
                 dv = TimeClip(PrototypeObject.Utc(finalDate));
             }
 
-            var o = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, _) => new DateInstance(engine));
+            var o = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Date.PrototypeObject,
+                static (engine, realm, _) => new DateInstance(engine));
             o.PrimitiveValue = dv;
             return o;
         }

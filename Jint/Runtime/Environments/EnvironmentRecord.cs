@@ -6,7 +6,7 @@ namespace Jint.Runtime.Environments
 {
     /// <summary>
     /// Base implementation of an Environment Record
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1
+    /// https://tc39.es/ecma262/#sec-environment-records
     /// </summary>
     public abstract class EnvironmentRecord : JsValue
     {
@@ -91,12 +91,14 @@ namespace Jint.Runtime.Environments
 
         public override object ToObject()
         {
-            return ExceptionHelper.ThrowNotSupportedException<object>();
+            ExceptionHelper.ThrowNotSupportedException();
+            return null;
         }
 
         public override bool Equals(JsValue other)
         {
-            return ExceptionHelper.ThrowNotSupportedException<bool>();
+            ExceptionHelper.ThrowNotSupportedException();
+            return false;
         }
 
         public abstract JsValue GetThisBinding();

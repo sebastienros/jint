@@ -9,24 +9,19 @@ namespace Jint.Native.Symbol
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.4
     /// </summary>
-    public sealed class SymbolPrototype : ObjectInstance
+    public sealed class SymbolPrototype : Prototype
     {
-        private SymbolConstructor _symbolConstructor;
+        private readonly SymbolConstructor _constructor;
 
-        private SymbolPrototype(Engine engine)
-            : base(engine)
+        internal SymbolPrototype(
+            Engine engine,
+            Realm realm,
+            SymbolConstructor symbolConstructor,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm)
         {
-        }
-
-        public static SymbolPrototype CreatePrototypeObject(Engine engine, SymbolConstructor symbolConstructor)
-        {
-            var obj = new SymbolPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _symbolConstructor = symbolConstructor
-            };
-
-            return obj;
+            _prototype = objectPrototype;
+            _constructor = symbolConstructor;
         }
 
         protected override void Initialize()
@@ -36,7 +31,7 @@ namespace Jint.Native.Symbol
             SetProperties(new PropertyDictionary(5, checkExistingKeys: false)
             {
                 ["length"] = new PropertyDescriptor(JsNumber.PositiveZero, propertyFlags),
-                ["constructor"] = new PropertyDescriptor(_symbolConstructor, PropertyFlag.Configurable | PropertyFlag.Writable),
+                ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.Configurable | PropertyFlag.Writable),
                 ["description"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(Engine, "description", Description, 0, lengthFlags), Undefined, propertyFlags),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToSymbolString, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable)
@@ -85,7 +80,8 @@ namespace Jint.Native.Symbol
                 return instance.SymbolData;
             }
 
-            return ExceptionHelper.ThrowTypeError<JsSymbol>(_engine);
+            ExceptionHelper.ThrowTypeError(_realm);
+            return null;
         }
     }
 }

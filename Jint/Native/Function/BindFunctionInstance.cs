@@ -5,8 +5,10 @@ namespace Jint.Native.Function
 {
     public sealed class BindFunctionInstance : FunctionInstance, IConstructor
     {
-        public BindFunctionInstance(Engine engine)
-            : base(engine, name: null, thisMode: FunctionThisMode.Strict)
+        public BindFunctionInstance(
+            Engine engine,
+            Realm realm)
+            : base(engine, realm, name: null, thisMode: FunctionThisMode.Strict)
         {
         }
 
@@ -18,9 +20,10 @@ namespace Jint.Native.Function
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            if (!(TargetFunction is FunctionInstance f))
+            var f = TargetFunction as FunctionInstance;
+            if (f is null)
             {
-                return ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var args = CreateArguments(arguments);
@@ -32,9 +35,10 @@ namespace Jint.Native.Function
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            if (!(TargetFunction is IConstructor target))
+            var target = TargetFunction as IConstructor;
+            if (target is null)
             {
-                return ExceptionHelper.ThrowTypeError<ObjectInstance>(Engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var args = CreateArguments(arguments);
@@ -52,10 +56,11 @@ namespace Jint.Native.Function
 
         internal override bool OrdinaryHasInstance(JsValue v)
         {
-            var f = TargetFunction.TryCast<FunctionInstance>(x =>
+            var f = TargetFunction as FunctionInstance;
+            if (f is null)
             {
-                ExceptionHelper.ThrowTypeError(Engine);
-            });
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
 
             return f.OrdinaryHasInstance(v);
         }

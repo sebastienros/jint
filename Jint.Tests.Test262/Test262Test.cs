@@ -24,11 +24,9 @@ namespace Jint.Tests.Test262
 
         private static readonly TimeZoneInfo _pacificTimeZone;
 
-        private static readonly Dictionary<string, string> _skipReasons =
-            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, string> _skipReasons = new(StringComparer.OrdinalIgnoreCase);
 
-        private static readonly HashSet<string> _strictSkips =
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> _strictSkips = new(StringComparer.OrdinalIgnoreCase);
 
         static Test262Test()
         {
@@ -102,7 +100,7 @@ namespace Jint.Tests.Test262
             engine.SetValue("print",
                 new ClrFunctionInstance(engine, "print", (thisObj, args) => TypeConverter.ToString(args.At(0))));
 
-            var o = engine.Object.Construct(Arguments.Empty);
+            var o = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
             o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunctionInstance(engine, "evalScript",
                 (thisObj, args) =>
                 {
@@ -116,7 +114,15 @@ namespace Jint.Tests.Test262
                     var script = parser.ParseScript(strict);
 
                     return engine.Evaluate(script);
+                }), true, true, true));   
+            o.FastSetProperty("createRealm", new PropertyDescriptor(new ClrFunctionInstance(engine, "createRealm",
+                (thisObj, args) =>
+                {
+                    var realm = engine._host.CreateRealm();
+                    realm.GlobalObject.Set("global", realm.GlobalObject);
+                    return realm.GlobalObject;
                 }), true, true, true));
+
             engine.SetValue("$262", o);
 
             var includes = Regex.Match(code, @"includes: \[(.+?)\]");
@@ -216,10 +222,6 @@ namespace Jint.Tests.Test262
                         switch (item)
                         {
                             // TODO implement
-                            case "cross-realm":
-                                skip = true;
-                                reason = "realms not implemented";
-                                break;
                             case "tail-call-optimization":
                                 skip = true;
                                 reason = "tail-calls not implemented";

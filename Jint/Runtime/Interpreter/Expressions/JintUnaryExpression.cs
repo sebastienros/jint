@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class JintUnaryExpression : JintExpression
     {
 #if NETSTANDARD
-        private static readonly ConcurrentDictionary<(string OperatorName, System.Type Operand), MethodDescriptor> _knownOperators = 
+        private static readonly ConcurrentDictionary<(string OperatorName, System.Type Operand), MethodDescriptor> _knownOperators =
             new ConcurrentDictionary<(string OperatorName, System.Type Operand), MethodDescriptor>();
 #else
         private static readonly ConcurrentDictionary<string, MethodDescriptor> _knownOperators = new ConcurrentDictionary<string, MethodDescriptor>();
@@ -109,7 +109,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         if (r.IsStrictReference())
                         {
-                            ExceptionHelper.ThrowSyntaxError(_engine);
+                            ExceptionHelper.ThrowSyntaxError(_engine.Realm);
                         }
 
                         _engine._referencePool.Return(r);
@@ -120,14 +120,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         if (r.IsSuperReference())
                         {
-                            ExceptionHelper.ThrowReferenceError(_engine, r);
+                            ExceptionHelper.ThrowReferenceError(_engine.Realm, r);
                         }
 
-                        var o = TypeConverter.ToObject(_engine, r.GetBase());
+                        var o = TypeConverter.ToObject(_engine.Realm, r.GetBase());
                         var deleteStatus = o.Delete(r.GetReferencedName());
                         if (!deleteStatus && r.IsStrictReference())
                         {
-                            ExceptionHelper.ThrowTypeError(_engine);
+                            ExceptionHelper.ThrowTypeError(_engine.Realm);
                         }
 
                         _engine._referencePool.Return(r);
@@ -136,7 +136,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (r.IsStrictReference())
                     {
-                        ExceptionHelper.ThrowSyntaxError(_engine);
+                        ExceptionHelper.ThrowSyntaxError(_engine.Realm);
                     }
 
                     var bindings = r.GetBase().TryCast<EnvironmentRecord>();
@@ -189,7 +189,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return JsString.ObjectString;
 
                 default:
-                    return ExceptionHelper.ThrowArgumentException<object>();
+                    ExceptionHelper.ThrowArgumentException();
+                    return null;
             }
         }
 

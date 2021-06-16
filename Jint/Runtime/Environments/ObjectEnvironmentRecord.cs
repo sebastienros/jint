@@ -8,7 +8,7 @@ namespace Jint.Runtime.Environments
 {
     /// <summary>
     /// Represents an object environment record
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2
+    /// https://tc39.es/ecma262/#sec-object-environment-records
     /// </summary>
     internal sealed class ObjectEnvironmentRecord : EnvironmentRecord
     {
@@ -18,8 +18,8 @@ namespace Jint.Runtime.Environments
 
         public ObjectEnvironmentRecord(
             Engine engine,
-            ObjectInstance bindingObject, 
-            bool provideThis, 
+            ObjectInstance bindingObject,
+            bool provideThis,
             bool withEnvironment) : base(engine)
         {
             _bindingObject = bindingObject;
@@ -41,7 +41,7 @@ namespace Jint.Runtime.Environments
             {
                 return true;
             }
-            
+
             return !IsBlocked(name);
         }
 
@@ -101,8 +101,8 @@ namespace Jint.Runtime.Environments
                 : new PropertyDescriptor(Undefined, PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding);
 
             _bindingObject.DefinePropertyOrThrow(name, propertyDescriptor);
-        }  
-        
+        }
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-createmutablebinding-n-d
         /// </summary>
@@ -114,7 +114,7 @@ namespace Jint.Runtime.Environments
 
             _bindingObject.DefinePropertyOrThrow(name, propertyDescriptor);
         }
-        
+
         /// <summary>
         ///  http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-createimmutablebinding-n-s
         /// </summary>
@@ -140,7 +140,7 @@ namespace Jint.Runtime.Environments
         {
             if (!_bindingObject.Set(name.StringValue, value) && strict)
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
         }
 
@@ -149,7 +149,7 @@ namespace Jint.Runtime.Environments
             var desc = _bindingObject.GetProperty(name);
             if (strict && desc == PropertyDescriptor.Undefined)
             {
-                ExceptionHelper.ThrowReferenceError(_engine, name.ToString());
+                ExceptionHelper.ThrowReferenceError(_engine.Realm, name.ToString());
             }
 
             return ObjectInstance.UnwrapJsValue(desc, this);

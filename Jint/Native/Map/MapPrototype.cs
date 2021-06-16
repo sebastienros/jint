@@ -10,23 +10,18 @@ namespace Jint.Native.Map
     /// <summary>
     /// https://www.ecma-international.org/ecma-262/6.0/#sec-map-objects
     /// </summary>
-    public sealed class MapPrototype : ObjectInstance
+    public sealed class MapPrototype : Prototype
     {
-        private MapConstructor _mapConstructor;
+        private readonly MapConstructor _mapConstructor;
 
-        private MapPrototype(Engine engine) : base(engine)
+        internal MapPrototype(
+            Engine engine,
+            Realm realm,
+            MapConstructor mapConstructor,
+            ObjectPrototype objectPrototype) : base(engine, realm)
         {
-        }
-
-        public static MapPrototype CreatePrototypeObject(Engine engine, MapConstructor mapConstructor)
-        {
-            var obj = new MapPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _mapConstructor = mapConstructor
-            };
-
-            return obj;
+            _prototype = objectPrototype;
+            _mapConstructor = mapConstructor;
         }
 
         protected override void Initialize()
@@ -132,9 +127,10 @@ namespace Jint.Native.Map
 
         private MapInstance AssertMapInstance(JsValue thisObj)
         {
-            if (!(thisObj is MapInstance map))
+            var map = thisObj as MapInstance;
+            if (map is null)
             {
-                return ExceptionHelper.ThrowTypeError<MapInstance>(_engine, "object must be a Map");
+                ExceptionHelper.ThrowTypeError(_realm, "object must be a Map");
             }
 
             return map;

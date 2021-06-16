@@ -13,18 +13,9 @@ namespace Jint.Native.Math
     {
         private Random _random;
 
-        private MathInstance(Engine engine) : base(engine, ObjectClass.Math)
+        internal MathInstance(Engine engine, ObjectPrototype objectPrototype) : base(engine, ObjectClass.Math)
         {
-        }
-
-        public static MathInstance CreateMathObject(Engine engine)
-        {
-            var math = new MathInstance(engine)
-            {
-                _prototype = engine.Object.PrototypeObject
-            };
-
-            return math;
+            _prototype = objectPrototype;
         }
 
         protected override void Initialize()

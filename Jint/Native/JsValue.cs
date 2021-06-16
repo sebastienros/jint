@@ -183,11 +183,11 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal IIterator GetIterator(Engine engine)
+        internal IIterator GetIterator(Realm realm)
         {
-            if (!TryGetIterator(engine, out var iterator))
+            if (!TryGetIterator(realm, out var iterator))
             {
-                return ExceptionHelper.ThrowTypeError<IIterator>(engine, "The value is not iterable");
+                ExceptionHelper.ThrowTypeError(realm, "The value is not iterable");
             }
 
             return iterator;
@@ -195,9 +195,9 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool TryGetIterator(Engine engine, out IIterator iterator)
+        internal bool TryGetIterator(Realm realm, out IIterator iterator)
         {
-            var objectInstance = TypeConverter.ToObject(engine, this);
+            var objectInstance = TypeConverter.ToObject(realm, this);
 
             if (!objectInstance.TryGetValue(GlobalSymbolRegistry.Iterator, out var value)
                 || !(value is ICallable callable))
@@ -206,9 +206,11 @@ namespace Jint.Native
                 return false;
             }
 
-            var obj = callable.Call(this, Arguments.Empty) as ObjectInstance
-                      ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(engine,
-                          "Result of the Symbol.iterator method is not an object");
+            var obj = callable.Call(this, Arguments.Empty) as ObjectInstance;
+            if (obj is null)
+            {
+                ExceptionHelper.ThrowTypeError(realm, "Result of the Symbol.iterator method is not an object");
+            }
 
             if (obj is IIterator i)
             {
@@ -366,7 +368,7 @@ namespace Jint.Native
             var arrayLength = (uint) array.Length;
 
             var jsArray = new ArrayInstance(e, arrayLength);
-            jsArray._prototype = e.Array.PrototypeObject;
+            jsArray._prototype = e.Realm.Intrinsics.Array.PrototypeObject;
 
             for (uint i = 0; i < arrayLength; ++i)
             {
@@ -393,8 +395,11 @@ namespace Jint.Native
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(params JsValue[] arguments)
         {
-            var callable = this as ICallable ??
-                           ExceptionHelper.ThrowTypeErrorNoEngine<ICallable>("Can only invoke functions");
+            var callable = this as ICallable;
+            if (callable is null)
+            {
+                ExceptionHelper.ThrowTypeErrorNoEngine("Can only invoke functions");
+            }
             return callable.Call(Undefined, arguments);
         }
 
@@ -419,7 +424,8 @@ namespace Jint.Native
         /// </summary>
         public virtual bool Set(JsValue property, JsValue value, JsValue receiver)
         {
-            return ExceptionHelper.ThrowNotSupportedException<bool>();
+            ExceptionHelper.ThrowNotSupportedException();
+            return false;
         }
 
         /// <summary>
@@ -427,9 +433,10 @@ namespace Jint.Native
         /// </summary>
         internal bool InstanceofOperator(JsValue target)
         {
-            if (target is not ObjectInstance oi)
+            var oi = target as ObjectInstance;
+            if (oi is null)
             {
-                return ExceptionHelper.ThrowTypeErrorNoEngine<bool>("not an object");
+                ExceptionHelper.ThrowTypeErrorNoEngine("not an object");
             }
 
             var instOfHandler = oi.GetMethod(GlobalSymbolRegistry.HasInstance);
@@ -440,7 +447,7 @@ namespace Jint.Native
 
             if (!target.IsCallable)
             {
-                return ExceptionHelper.ThrowTypeErrorNoEngine<bool>("not callable");
+                ExceptionHelper.ThrowTypeErrorNoEngine("not callable");
             }
 
             return target.OrdinaryHasInstance(this);
@@ -626,8 +633,7 @@ namespace Jint.Native
             var p = Get(CommonProperties.Prototype);
             if (p is not ObjectInstance)
             {
-                ExceptionHelper.ThrowTypeError(o.Engine,
-                    $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");
+                ExceptionHelper.ThrowTypeError(o.Engine.Realm, $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");
             }
 
             while (true)
@@ -700,9 +706,10 @@ namespace Jint.Native
 
         internal static IConstructor AssertConstructor(Engine engine, JsValue c)
         {
-            if (!(c is IConstructor constructor))
+            var constructor = c as IConstructor;
+            if (constructor is null)
             {
-                return ExceptionHelper.ThrowTypeError<IConstructor>(engine, c + " is not a constructor");
+                ExceptionHelper.ThrowTypeError(engine.Realm, c + " is not a constructor");
             }
 
             return constructor;

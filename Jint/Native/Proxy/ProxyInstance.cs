@@ -40,15 +40,16 @@ namespace Jint.Native.Proxy
 
         public JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            var jsValues = new[] { _target, thisObject, _engine.Array.ConstructFast(arguments) };
+            var jsValues = new[] { _target, thisObject, _engine.Realm.Intrinsics.Array.ConstructFast(arguments) };
             if (TryCallHandler(TrapApply, jsValues, out var result))
             {
                 return result;
             }
 
-            if (!(_target is ICallable callable))
+            var callable = _target as ICallable;
+            if (callable is null)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine, _target + " is not a function");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, _target + " is not a function");
             }
 
             return callable.Call(thisObject, arguments);
@@ -56,22 +57,24 @@ namespace Jint.Native.Proxy
 
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var argArray = _engine.Array.Construct(arguments, _engine.Array);
+            var argArray = _engine.Realm.Intrinsics.Array.Construct(arguments, _engine.Realm.Intrinsics.Array);
 
             if (!TryCallHandler(TrapConstruct, new[] { _target, argArray, newTarget }, out var result))
             {
-                if (!(_target is IConstructor constructor))
+                var constructor = _target as IConstructor;
+                if (constructor is null)
                 {
-                    return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
                 return constructor.Construct(arguments, newTarget);
             }
 
-            if (!(result is ObjectInstance oi))
+            var oi = result as ObjectInstance;
+            if (oi is null)
             {
-                return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
-           
+
             return oi;
         }
 
@@ -81,10 +84,11 @@ namespace Jint.Native.Proxy
             return _target.IsArray();
         }
 
-        internal override bool IsConstructor => 
-            _handler is not null
-            && _handler.TryGetValue(TrapConstruct, out var handlerFunction) 
-            && handlerFunction is IConstructor;
+        internal override bool IsConstructor =>
+            _target is not null && _target.IsConstructor
+            || _handler is not null
+                && _handler.TryGetValue(TrapConstruct, out var handlerFunction)
+                && handlerFunction is IConstructor;
 
         public override JsValue Get(JsValue property, JsValue receiver)
         {
@@ -100,11 +104,11 @@ namespace Jint.Native.Proxy
             {
                 if (targetDesc.IsDataDescriptor() && !targetDesc.Configurable && !targetDesc.Writable && !ReferenceEquals(result, targetDesc._value))
                 {
-                   ExceptionHelper.ThrowTypeError(_engine);
+                   ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
                 if (targetDesc.IsAccessorDescriptor() && !targetDesc.Configurable && targetDesc.Get.IsUndefined() && !result.IsUndefined())
                 {
-                   ExceptionHelper.ThrowTypeError(_engine, $"'get' on proxy: property '{property}' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined' (got '{result}')");
+                   ExceptionHelper.ThrowTypeError(_engine.Realm, $"'get' on proxy: property '{property}' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined' (got '{result}')");
                 }
             }
 
@@ -118,11 +122,11 @@ namespace Jint.Native.Proxy
                 return _target.GetOwnPropertyKeys(types);
             }
 
-            var trapResult = new List<JsValue>(_engine.Function.PrototypeObject.CreateListFromArrayLike(result, Types.String | Types.Symbol));
+            var trapResult = new List<JsValue>(_engine.Realm.Intrinsics.Function.PrototypeObject.CreateListFromArrayLike(result, Types.String | Types.Symbol));
 
             if (trapResult.Count != new HashSet<JsValue>(trapResult).Count)
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             var extensibleTarget = _target.Extensible;
@@ -141,7 +145,7 @@ namespace Jint.Native.Proxy
                 {
                     targetConfigurableKeys.Add(property);
                 }
-                
+
             }
 
             var uncheckedResultKeys = new HashSet<JsValue>(trapResult);
@@ -150,7 +154,7 @@ namespace Jint.Native.Proxy
                 var key = targetNonconfigurableKeys[i];
                 if (!uncheckedResultKeys.Remove(key))
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
             }
 
@@ -164,13 +168,13 @@ namespace Jint.Native.Proxy
                 var key = targetConfigurableKeys[i];
                 if (!uncheckedResultKeys.Remove(key))
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
             }
 
             if (uncheckedResultKeys.Count > 0)
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             return trapResult;
@@ -185,7 +189,7 @@ namespace Jint.Native.Proxy
 
             if (!result.IsObject() && !result.IsUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             var targetDesc = _target.GetOwnProperty(property);
@@ -199,24 +203,24 @@ namespace Jint.Native.Proxy
 
                 if (!targetDesc.Configurable || !_target.Extensible)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
 
                 return PropertyDescriptor.Undefined;
             }
 
             var extensibleTarget = _target.Extensible;
-            var resultDesc = PropertyDescriptor.ToPropertyDescriptor(_engine, result);
+            var resultDesc = PropertyDescriptor.ToPropertyDescriptor(_engine.Realm, result);
 
             var valid = IsCompatiblePropertyDescriptor(extensibleTarget, resultDesc, targetDesc);
             if (!valid)
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             if (!resultDesc.Configurable && (targetDesc == PropertyDescriptor.Undefined || targetDesc.Configurable))
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             return resultDesc;
@@ -242,7 +246,7 @@ namespace Jint.Native.Proxy
                 {
                     if (targetDesc.Value != value)
                     {
-                        ExceptionHelper.ThrowTypeError(_engine);
+                        ExceptionHelper.ThrowTypeError(_engine.Realm);
                     }
                 }
 
@@ -250,11 +254,11 @@ namespace Jint.Native.Proxy
                 {
                     if (targetDesc.Set.IsUndefined())
                     {
-                        ExceptionHelper.ThrowTypeError(_engine);
+                        ExceptionHelper.ThrowTypeError(_engine.Realm);
                     }
                 }
             }
-            
+
             return true;
         }
 
@@ -280,18 +284,18 @@ namespace Jint.Native.Proxy
             {
                 if (!extensibleTarget || settingConfigFalse)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
             }
             else
             {
                 if (!IsCompatiblePropertyDescriptor(extensibleTarget, desc, targetDesc))
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
                 if (targetDesc.Configurable && settingConfigFalse)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
             }
 
@@ -319,12 +323,12 @@ namespace Jint.Native.Proxy
                 {
                     if (!targetDesc.Configurable)
                     {
-                        ExceptionHelper.ThrowTypeError(_engine);
+                        ExceptionHelper.ThrowTypeError(_engine.Realm);
                     }
 
                     if (!_target.Extensible)
                     {
-                        ExceptionHelper.ThrowTypeError(_engine);
+                        ExceptionHelper.ThrowTypeError(_engine.Realm);
                     }
                 }
             }
@@ -346,7 +350,7 @@ namespace Jint.Native.Proxy
                 var targetDesc = _target.GetOwnProperty(property);
                 if (targetDesc != PropertyDescriptor.Undefined && !targetDesc.Configurable)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine, $"'deleteProperty' on proxy: trap returned truish for property '{property}' which is non-configurable in the proxy target");
+                    ExceptionHelper.ThrowTypeError(_engine.Realm, $"'deleteProperty' on proxy: trap returned truish for property '{property}' which is non-configurable in the proxy target");
                 }
             }
 
@@ -364,7 +368,7 @@ namespace Jint.Native.Proxy
 
             if (success && _target.Extensible)
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             return success ? JsBoolean.True : JsBoolean.False;
@@ -383,7 +387,7 @@ namespace Jint.Native.Proxy
                 var targetResult = _target.Extensible;
                 if (booleanTrapResult != targetResult)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
                 return booleanTrapResult;
             }
@@ -398,7 +402,7 @@ namespace Jint.Native.Proxy
 
             if (!handlerProto.IsObject() && !handlerProto.IsNull())
             {
-                ExceptionHelper.ThrowTypeError(_engine, "'getPrototypeOf' on proxy: trap returned neither object nor null");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "'getPrototypeOf' on proxy: trap returned neither object nor null");
             }
 
             if (_target.Extensible)
@@ -408,7 +412,7 @@ namespace Jint.Native.Proxy
 
             if (!ReferenceEquals(handlerProto, _target.Prototype))
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             return (ObjectInstance) handlerProto;
@@ -435,7 +439,7 @@ namespace Jint.Native.Proxy
 
             if (!ReferenceEquals(value, _target.Prototype))
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             return true;
@@ -451,9 +455,10 @@ namespace Jint.Native.Proxy
             var handlerFunction = _handler.Get(propertyName);
             if (!handlerFunction.IsNullOrUndefined())
             {
-                if (!(handlerFunction is ICallable callable))
+                var callable = handlerFunction as ICallable;
+                if (callable is null)
                 {
-                    return ExceptionHelper.ThrowTypeError<bool>(_engine, $"{_handler} returned for property '{propertyName}' of object '{_target}' is not a function");
+                    ExceptionHelper.ThrowTypeError(_engine.Realm, $"{_handler} returned for property '{propertyName}' of object '{_target}' is not a function");
                 }
 
                 result = callable.Call(_handler, arguments);
@@ -467,7 +472,7 @@ namespace Jint.Native.Proxy
         {
             if (_handler is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine, $"Cannot perform '{key}' on a proxy that has been revoked");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, $"Cannot perform '{key}' on a proxy that has been revoked");
             }
         }
 
@@ -475,10 +480,10 @@ namespace Jint.Native.Proxy
         {
             if (_target is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine, $"Cannot perform '{key}' on a proxy that has been revoked");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, $"Cannot perform '{key}' on a proxy that has been revoked");
             }
         }
-        
+
         public override string ToString() => "function () { [native code] }";
     }
 }

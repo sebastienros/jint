@@ -10,23 +10,18 @@ namespace Jint.Native.Set
     /// <summary>
     /// https://www.ecma-international.org/ecma-262/6.0/#sec-set-objects
     /// </summary>
-    public sealed class SetPrototype : ObjectInstance
+    public sealed class SetPrototype : Prototype
     {
-        private SetConstructor _mapConstructor;
+        private readonly SetConstructor _constructor;
 
-        private SetPrototype(Engine engine) : base(engine)
+        internal SetPrototype(
+            Engine engine,
+            Realm realm,
+            SetConstructor setConstructor,
+            ObjectPrototype objectPrototype) : base(engine, realm)
         {
-        }
-
-        public static SetPrototype CreatePrototypeObject(Engine engine, SetConstructor mapConstructor)
-        {
-            var obj = new SetPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _mapConstructor = mapConstructor
-            };
-
-            return obj;
+            _prototype = objectPrototype;
+            _constructor = setConstructor;
         }
 
         protected override void Initialize()
@@ -34,7 +29,7 @@ namespace Jint.Native.Set
             var properties = new PropertyDictionary(12, checkExistingKeys: false)
             {
                 ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
-                ["constructor"] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
                 ["add"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "add", Add, 1, PropertyFlag.Configurable), true, false, true),
                 ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), true, false, true),
                 ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), true, false, true),
@@ -54,7 +49,7 @@ namespace Jint.Native.Set
             };
             SetSymbols(symbols);
         }
-        
+
         private JsValue Size(JsValue thisObj, JsValue[] arguments)
         {
             AssertSetInstance(thisObj);
@@ -115,15 +110,16 @@ namespace Jint.Native.Set
             var set = AssertSetInstance(thisObj);
             return set.Values();
         }
-        
+
         private SetInstance AssertSetInstance(JsValue thisObj)
         {
-            if (!(thisObj is SetInstance map))
+            var set = thisObj as SetInstance;
+            if (set is null)
             {
-                return ExceptionHelper.ThrowTypeError<SetInstance>(_engine, "object must be a Set");
+                ExceptionHelper.ThrowTypeError(_realm, "object must be a Set");
             }
 
-            return map;
+            return set;
         }
     }
 }

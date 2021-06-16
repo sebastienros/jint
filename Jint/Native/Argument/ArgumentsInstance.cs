@@ -32,9 +32,9 @@ namespace Jint.Native.Argument
         }
 
         internal void Prepare(
-            FunctionInstance func, 
-            Key[] names, 
-            JsValue[] args, 
+            FunctionInstance func,
+            Key[] names,
+            JsValue[] args,
             DeclarativeEnvironmentRecord env,
             bool hasRestParameter)
         {
@@ -59,13 +59,13 @@ namespace Jint.Native.Argument
             {
                 // unmapped
                 ParameterMap = null;
-                
+
                 for (uint i = 0; i < (uint) args.Length; i++)
                 {
                     var val = args[i];
-                    CreateDataProperty(JsNumber.Create(i), val);
+                    CreateDataProperty(JsString.Create(i), val);
                 }
-                
+
                 DefinePropertyOrThrow(CommonProperties.Callee, _engine._callerCalleeArgumentsThrowerNonConfigurable);
             }
             else
@@ -76,17 +76,17 @@ namespace Jint.Native.Argument
                     var mappedNamed = _mappedNamed.Value;
                     mappedNamed.Clear();
 
-                    map = Engine.Object.Construct(Arguments.Empty);
+                    map = Engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
 
                     for (uint i = 0; i < (uint) args.Length; i++)
                     {
-                        SetOwnProperty(i, new PropertyDescriptor(args[i], PropertyFlag.ConfigurableEnumerableWritable));
+                        SetOwnProperty(JsString.Create(i), new PropertyDescriptor(args[i], PropertyFlag.ConfigurableEnumerableWritable));
                         if (i < _names.Length)
                         {
                             var name = _names[i];
                             if (mappedNamed.Add(name))
                             {
-                                map.SetOwnProperty(i, new ClrAccessDescriptor(_env, Engine, name));
+                                map.SetOwnProperty(JsString.Create(i), new ClrAccessDescriptor(_env, Engine, name));
                             }
                         }
                     }
@@ -98,11 +98,13 @@ namespace Jint.Native.Argument
                 DefinePropertyOrThrow(CommonProperties.Callee, new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
             }
 
-            var iteratorFunction = new ClrFunctionInstance(Engine, "iterator", _engine.Array.PrototypeObject.Values, 0, PropertyFlag.Configurable);
+            var iteratorFunction = new ClrFunctionInstance(Engine, "iterator", _engine.Realm.Intrinsics.Array.PrototypeObject.Values, 0, PropertyFlag.Configurable);
             DefinePropertyOrThrow(GlobalSymbolRegistry.Iterator, new PropertyDescriptor(iteratorFunction, PropertyFlag.Writable | PropertyFlag.Configurable));
         }
 
         public ObjectInstance ParameterMap { get; set; }
+
+        internal override bool IsIntegerIndexedArray => true;
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {

@@ -14,10 +14,10 @@ namespace Jint.Runtime.Interop
         private readonly ClrFunctionInstance _fallbackClrFunctionInstance;
 
         public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods)
-            : base(engine, _name)
+            : base(engine, engine.Realm, _name)
         {
             _methods = methods;
-            _prototype = engine.Function.PrototypeObject;
+            _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
         }
 
         public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods, ClrFunctionInstance fallbackClrFunctionInstance)
@@ -118,11 +118,13 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            if (_fallbackClrFunctionInstance != null)
+            if (_fallbackClrFunctionInstance is not null)
             {
                 return _fallbackClrFunctionInstance.Call(thisObject, jsArguments);
             }
-            return ExceptionHelper.ThrowTypeError<JsValue>(_engine, "No public methods with the specified arguments were found.");
+
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "No public methods with the specified arguments were found.");
+            return null;
         }
 
         /// <summary>
@@ -145,8 +147,8 @@ namespace Jint.Runtime.Interop
                 return jsArguments;
             }
 
-            var jsArray = Engine.Array.Construct(Arguments.Empty);
-            Engine.Array.PrototypeObject.Push(jsArray, argsToTransform);
+            var jsArray = Engine.Realm.Intrinsics.Array.Construct(Arguments.Empty);
+            Engine.Realm.Intrinsics.Array.PrototypeObject.Push(jsArray, argsToTransform);
 
             var newArgumentsCollection = new JsValue[nonParamsArgumentsCount + 1];
             for (var j = 0; j < nonParamsArgumentsCount; ++j)

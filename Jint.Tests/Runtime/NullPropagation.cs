@@ -99,7 +99,7 @@ function test2(arg) {
         {
             var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
 
-            var jsObject = engine.Object.Construct(Arguments.Empty);
+            var jsObject = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
             jsObject.Set("NullField", JsValue.Null);
 
             var script = @"

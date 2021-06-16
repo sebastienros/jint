@@ -1,4 +1,5 @@
-﻿using Jint.Collections;
+﻿using System;
+using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -9,29 +10,29 @@ namespace Jint.Native.Json
 {
     public sealed class JsonInstance : ObjectInstance
     {
-        private JsonInstance(Engine engine)
+        private readonly Realm _realm;
+
+        internal JsonInstance(
+            Engine engine,
+            Realm realm,
+            ObjectPrototype objectPrototype)
             : base(engine, objectClass: ObjectClass.JSON)
         {
-        }
-
-        public static JsonInstance CreateJsonObject(Engine engine)
-        {
-            var json = new JsonInstance(engine)
-            {
-                _prototype = engine.Object.PrototypeObject
-            };
-            return json;
+            _realm = realm;
+            _prototype = objectPrototype;
         }
 
         protected override void Initialize()
         {
             var properties = new PropertyDictionary(2, checkExistingKeys: false)
             {
+#pragma warning disable 618
                 ["parse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parse", Parse, 2), true, false, true),
                 ["stringify"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "stringify", Stringify, 3), true, false, true)
+#pragma warning restore 618
             };
             SetProperties(properties);
-            
+
             var symbols = new SymbolDictionary(1)
             {
                 [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("JSON", false, false, true),
@@ -87,6 +88,7 @@ namespace Jint.Native.Json
         /// <summary>
         /// https://tc39.es/ecma262/#sec-json.parse
         /// </summary>
+        [Obsolete("Method will be made private, use JsonParser directly")]
         public JsValue Parse(JsValue thisObject, JsValue[] arguments)
         {
             var jsonString = TypeConverter.ToString(arguments.At(0));
@@ -97,7 +99,7 @@ namespace Jint.Native.Json
 
             if (reviver.IsCallable)
             {
-                var root = _engine.Object.Construct(Arguments.Empty);
+                var root = _realm.Intrinsics.Object.Construct(Arguments.Empty);
                 var rootName = JsString.Empty;
                 root.CreateDataPropertyOrThrow(rootName, unfiltered);
                 return InternalizeJSONProperty(root, rootName, (ICallable) reviver);
@@ -108,13 +110,14 @@ namespace Jint.Native.Json
             }
         }
 
+        [Obsolete("Method will be made private, use JsonSerializer directly")]
         public JsValue Stringify(JsValue thisObject, JsValue[] arguments)
         {
             var value = arguments.At(0);
             var replacer = arguments.At(1);
             var space = arguments.At(2);
 
-            if (value.IsUndefined() && replacer.IsUndefined()) 
+            if (value.IsUndefined() && replacer.IsUndefined())
             {
                 return Undefined;
             }

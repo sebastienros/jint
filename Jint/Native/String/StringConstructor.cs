@@ -16,30 +16,20 @@ namespace Jint.Native.String
     {
         private static readonly JsString _functionName = new JsString("String");
 
-        public StringConstructor(Engine engine)
-            : base(engine, _functionName, FunctionThisMode.Global)
+        public StringConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName, FunctionThisMode.Global)
         {
+            _prototype = functionPrototype;
+            PrototypeObject = new StringPrototype(engine, realm, this, objectPrototype);
+            _length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public StringPrototype PrototypeObject { get; private set; }
-
-        public static StringConstructor CreateStringConstructor(Engine engine)
-        {
-            var obj = new StringConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the String constructor is the Function prototype object
-            obj.PrototypeObject = StringPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
-
-            // The initial value of String.prototype is the String prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
-        }
+        public StringPrototype PrototypeObject { get; }
 
         protected override void Initialize()
         {
@@ -76,7 +66,7 @@ namespace Jint.Native.String
                     || double.IsNaN(codePoint)
                     || TypeConverter.ToInt32(codePoint) != codePoint)
                 {
-                    return ExceptionHelper.ThrowRangeError<JsValue>(_engine, "Invalid code point " + codePoint);
+                    ExceptionHelper.ThrowRangeError(_realm, "Invalid code point " + codePoint);
                 }
 
                 var point = (uint) codePoint;
@@ -108,8 +98,8 @@ namespace Jint.Native.String
         /// </summary>
         private JsValue Raw(JsValue thisObj, JsValue[] arguments)
         {
-            var cooked = TypeConverter.ToObject(_engine, arguments.At(0));
-            var raw = TypeConverter.ToObject(_engine, cooked.Get(JintTaggedTemplateExpression.PropertyRaw, cooked));
+            var cooked = TypeConverter.ToObject(_realm, arguments.At(0));
+            var raw = TypeConverter.ToObject(_realm, cooked.Get(JintTaggedTemplateExpression.PropertyRaw, cooked));
 
             var operations = ArrayOperations.For(raw);
             var length = operations.GetLength();
@@ -176,7 +166,7 @@ namespace Jint.Native.String
                 return StringCreate(s, PrototypeObject);
             }
 
-            return StringCreate(s, GetPrototypeFromConstructor(newTarget, PrototypeObject));
+            return StringCreate(s, GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.String.PrototypeObject));
         }
 
         public StringInstance Construct(string value)

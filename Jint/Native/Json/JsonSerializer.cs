@@ -16,10 +16,10 @@ namespace Jint.Native.Json
             _engine = engine;
         }
 
-        Stack<object> _stack;
-        string _indent, _gap;
-        List<JsValue> _propertyList;
-        JsValue _replacerFunction = Undefined.Instance;
+        private Stack<object> _stack;
+        private string _indent, _gap;
+        private List<JsValue> _propertyList;
+        private JsValue _replacerFunction = Undefined.Instance;
 
         public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
         {
@@ -112,7 +112,7 @@ namespace Jint.Native.Json
                 _gap = string.Empty;
             }
 
-            var wrapper = _engine.Object.Construct(Arguments.Empty);
+            var wrapper = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
             wrapper.DefineOwnProperty(JsString.Empty, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
 
             return Str(JsString.Empty, wrapper);
@@ -192,7 +192,7 @@ namespace Jint.Native.Json
 
             if (value.IsObject() && isCallable == false)
             {
-                return value.AsObject().Class == ObjectClass.Array 
+                return value.AsObject().Class == ObjectClass.Array
                     ? SerializeArray(value)
                     : SerializeObject(value.AsObject());
             }
@@ -294,7 +294,7 @@ namespace Jint.Native.Json
 
             if (_stack.Contains(value))
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Cyclic reference detected.");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Cyclic reference detected.");
             }
         }
 

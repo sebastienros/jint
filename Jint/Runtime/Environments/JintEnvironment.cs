@@ -2,7 +2,6 @@
 
 using Jint.Native;
 using Jint.Native.Function;
-using Jint.Native.Global;
 using Jint.Native.Object;
 
 namespace Jint.Runtime.Environments
@@ -20,7 +19,7 @@ namespace Jint.Runtime.Environments
             record = default;
             value = default;
 
-            if (ReferenceEquals(lex, engine.GlobalEnvironment)
+            if (ReferenceEquals(lex, engine.Realm.GlobalEnv)
                 && lex.TryGetBinding(name, strict, out _, out value))
             {
                 record = lex;
@@ -70,7 +69,7 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// https://tc39.es/ecma262/#sec-newglobalenvironment
         /// </summary>
-        internal static GlobalEnvironmentRecord NewGlobalEnvironment(Engine engine, GlobalObject objectInstance, JsValue thisValue)
+        internal static GlobalEnvironmentRecord NewGlobalEnvironment(Engine engine, ObjectInstance objectInstance, JsValue thisValue)
         {
             return new GlobalEnvironmentRecord(engine, objectInstance)
             {
@@ -87,6 +86,14 @@ namespace Jint.Runtime.Environments
             {
                 _outerEnv = outer
             };
+        } 
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-newprivateenvironment
+        /// </summary>
+        internal static PrivateEnvironmentRecord NewPrivateEnvironment(Engine engine, PrivateEnvironmentRecord outerPriv)
+        {
+            return new PrivateEnvironmentRecord(outerPriv);
         } 
     }
 }

@@ -7,35 +7,28 @@ namespace Jint.Native.Error
 {
     public sealed class ErrorConstructor : FunctionInstance, IConstructor
     {
-        private JsString _name;
-        private static readonly JsString _functionName = new JsString("Error");
+        private readonly JsString _name;
 
-        public ErrorConstructor(Engine engine, JsString functionName) : base(engine, functionName)
+        internal ErrorConstructor(
+            Engine engine,
+            Realm realm,
+            ObjectInstance functionPrototype,
+            ObjectInstance objectPrototype,
+            JsString name)
+            : base(engine, realm, name)
         {
+            _name = name;
+            _prototype = functionPrototype;
+            PrototypeObject = new ErrorPrototype(engine, realm, this, objectPrototype, name, ObjectClass.Object);
+            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public static ErrorConstructor CreateErrorConstructor(Engine engine, JsString name)
-        {
-            var obj = new ErrorConstructor(engine, name)
-            {
-                _name = name,
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the Error constructor is the Function prototype object (15.11.3)
-            obj.PrototypeObject = ErrorPrototype.CreatePrototypeObject(engine, obj, name);
-
-            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
-
-            // The initial value of Error.prototype is the Error prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
-        }
+        public ErrorPrototype PrototypeObject { get; }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return Construct(arguments, thisObject);
+            return Construct(arguments, this);
         }
 
         public ObjectInstance Construct(JsValue[] arguments)
@@ -47,8 +40,8 @@ namespace Jint.Native.Error
         {
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
-                PrototypeObject,
-                static (e, state) => new ErrorInstance(e, (JsString) state),
+                static intrinsics => intrinsics.Error.PrototypeObject,
+                static (engine, realm, state) => new ErrorInstance(engine, (JsString) state),
                 _name);
 
             var jsValue = arguments.At(0);
@@ -61,17 +54,10 @@ namespace Jint.Native.Error
 
             var lastSyntaxNode = _engine.GetLastSyntaxNode();
             var stackString = lastSyntaxNode == null ? Undefined : _engine.CallStack.BuildCallStackString(lastSyntaxNode.Location);
-            var stackDesc = new PropertyDescriptor(stackString, true, false, true);
+            var stackDesc = new PropertyDescriptor(stackString, PropertyFlag.NonEnumerable);
             o.DefinePropertyOrThrow(CommonProperties.Stack, stackDesc);
 
             return o;
-        }
-
-        public ErrorPrototype PrototypeObject { get; private set; }
-
-        protected internal override ObjectInstance GetPrototypeOf()
-        {
-            return _name._value != "Error" ? _engine.Error : _prototype;
         }
     }
 }

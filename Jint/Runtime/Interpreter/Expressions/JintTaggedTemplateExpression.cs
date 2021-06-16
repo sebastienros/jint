@@ -8,7 +8,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class JintTaggedTemplateExpression : JintExpression
     {
         internal static  readonly JsString PropertyRaw = new JsString("raw");
-        
+
         private readonly TaggedTemplateExpression _taggedTemplateExpression;
         private JintExpression _tagIdentifier;
         private JintTemplateLiteralExpression _quasi;
@@ -28,12 +28,15 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            var tagger = _engine.GetValue(_tagIdentifier.GetValue()) as ICallable
-                         ?? ExceptionHelper.ThrowTypeError<ICallable>(_engine, "Argument must be callable");
+            var tagger = _engine.GetValue(_tagIdentifier.GetValue()) as ICallable;
+            if (tagger is null)
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Argument must be callable");
+            }
 
             var expressions = _quasi._expressions;
 
-            var args = _engine._jsValueArrayPool.RentArray((expressions.Length + 1));
+            var args = _engine._jsValueArrayPool.RentArray(expressions.Length + 1);
 
             var template = GetTemplateObject();
             args[0] = template;
@@ -55,8 +58,8 @@ namespace Jint.Runtime.Interpreter.Expressions
         private ArrayInstance GetTemplateObject()
         {
             var count = (uint) _quasi._templateLiteralExpression.Quasis.Count;
-            var template = _engine.Array.ConstructFast(count);
-            var rawObj = _engine.Array.ConstructFast(count);
+            var template = _engine.Realm.Intrinsics.Array.ConstructFast(count);
+            var rawObj = _engine.Realm.Intrinsics.Array.ConstructFast(count);
             for (uint i = 0; i < _quasi._templateLiteralExpression.Quasis.Count; ++i)
             {
                 var templateElementValue = _quasi._templateLiteralExpression.Quasis[(int) i].Value;

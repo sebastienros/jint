@@ -1,9 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Jint.Native.Function;
 using Jint.Native.Map;
 using Jint.Native.Object;
 using Jint.Native.Set;
+using Jint.Runtime;
 
 namespace Jint.Native.Iterator
 {
@@ -11,30 +13,26 @@ namespace Jint.Native.Iterator
     {
         private static readonly JsString _functionName = new JsString("iterator");
 
-        private IteratorConstructor(Engine engine)
-            : base(engine, _functionName)
+        internal IteratorConstructor(
+            Engine engine,
+            Realm realm,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
+            ArrayIteratorPrototypeObject = new IteratorPrototype(engine, realm, "Array Iterator", objectPrototype);
+            GenericIteratorPrototypeObject = new IteratorPrototype(engine, realm, null, objectPrototype);
+            MapIteratorPrototypeObject = new IteratorPrototype(engine, realm, "Map Iterator", objectPrototype);
+            RegExpStringIteratorPrototypeObject = new IteratorPrototype(engine, realm, "RegExp String Iterator", objectPrototype);
+            SetIteratorPrototypeObject = new IteratorPrototype(engine, realm, "Set Iterator", objectPrototype);
+            StringIteratorPrototypeObject = new IteratorPrototype(engine, realm, "String Iterator", objectPrototype);
         }
 
-        private IteratorPrototype ArrayIteratorPrototypeObject { get; set; }
-        private IteratorPrototype GenericIteratorPrototypeObject { get; set; }
-        private IteratorPrototype MapIteratorPrototypeObject { get; set; }
-        private IteratorPrototype RegExpStringIteratorPrototypeObject { get; set; }
-        private IteratorPrototype SetIteratorPrototypeObject { get; set; }
-        private IteratorPrototype StringIteratorPrototypeObject { get; set; }
-
-        public static IteratorConstructor CreateIteratorConstructor(Engine engine)
-        {
-            var obj = new IteratorConstructor(engine);
-            obj.ArrayIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "Array Iterator", obj);
-            obj.GenericIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, null, obj);
-            obj.MapIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "Map Iterator", obj);
-            obj.RegExpStringIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "RegExp String Iterator", obj);
-            obj.SetIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "Set Iterator", obj);
-            obj.StringIteratorPrototypeObject = IteratorPrototype.CreatePrototypeObject(engine, "String Iterator", obj);
-            return obj;
-        }
-
+        internal IteratorPrototype ArrayIteratorPrototypeObject { get; }
+        internal IteratorPrototype GenericIteratorPrototypeObject { get; }
+        private IteratorPrototype MapIteratorPrototypeObject { get; }
+        private IteratorPrototype RegExpStringIteratorPrototypeObject { get; }
+        private IteratorPrototype SetIteratorPrototypeObject { get; }
+        private IteratorPrototype StringIteratorPrototypeObject { get; }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
@@ -66,11 +64,11 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance Construct(ObjectInstance array)
+        internal ObjectInstance Construct(ObjectInstance array, Func<Intrinsics, Prototype> prototypeSelector)
         {
             var instance = new IteratorInstance.ArrayLikeIterator(Engine, array)
             {
-                _prototype = GenericIteratorPrototypeObject
+                _prototype = prototypeSelector(_realm.Intrinsics)
             };
 
             return instance;
@@ -125,7 +123,7 @@ namespace Jint.Native.Iterator
 
             return instance;
         }
-       
+
         internal ObjectInstance CreateRegExpStringIterator(ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode)
         {
             var instance = new IteratorInstance.RegExpStringIterator(Engine, iteratingRegExp, iteratedString, global, unicode)

@@ -15,27 +15,17 @@ namespace Jint.Native.RegExp
     {
         private static readonly JsString _functionName = new JsString("RegExp");
 
-        public RegExpConstructor(Engine engine)
-            : base(engine, _functionName, FunctionThisMode.Global)
+        internal RegExpConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName, FunctionThisMode.Global)
         {
-        }
-
-        public static RegExpConstructor CreateRegExpConstructor(Engine engine)
-        {
-            var obj = new RegExpConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the RegExp constructor is the Function prototype object
-            obj.PrototypeObject = RegExpPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(2, PropertyFlag.AllForbidden);
-
-            // The initial value of RegExp.prototype is the RegExp prototype object
-            obj._prototypeDescriptor= new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
+            _prototype = functionPrototype;
+            PrototypeObject = new RegExpPrototype(engine, realm, this, objectPrototype);
+            _length = new PropertyDescriptor(2, PropertyFlag.AllForbidden);
+            _prototypeDescriptor= new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         protected override void Initialize()
@@ -114,7 +104,7 @@ namespace Jint.Native.RegExp
             try
             {
                 var scanner = new Scanner("/" + p + "/" + flags , new ParserOptions { AdaptRegexp = true });
-               
+
                 // seems valid
                 r.Value = scanner.TestRegExp(p, f);
 
@@ -126,12 +116,12 @@ namespace Jint.Native.RegExp
             }
             catch (Exception ex)
             {
-                ExceptionHelper.ThrowSyntaxError(_engine, ex.Message);
+                ExceptionHelper.ThrowSyntaxError(_realm, ex.Message);
             }
 
             r.Flags = f;
             r.Source = p;
-            
+
             RegExpInitialize(r);
 
             return r;
@@ -139,7 +129,10 @@ namespace Jint.Native.RegExp
 
         private RegExpInstance RegExpAlloc(JsValue newTarget)
         {
-            var r = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static(engine, value) => new RegExpInstance(engine));
+            var r = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.RegExp.PrototypeObject,
+                static(engine, realm, _) => new RegExpInstance(engine));
             return r;
         }
 
@@ -165,12 +158,12 @@ namespace Jint.Native.RegExp
 
             return r;
         }
-        
+
         private static void RegExpInitialize(RegExpInstance r)
         {
             r.SetOwnProperty(RegExpInstance.PropertyLastIndex, new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
         }
-        
+
         public RegExpPrototype PrototypeObject { get; private set; }
     }
 }

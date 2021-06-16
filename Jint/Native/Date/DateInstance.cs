@@ -21,9 +21,13 @@ namespace Jint.Native.Date
 
         public DateTime ToDateTime()
         {
-            return DateTimeRangeValid 
-                ? DateConstructor.Epoch.AddMilliseconds(PrimitiveValue)
-                : ExceptionHelper.ThrowRangeError<DateTime>(Engine);
+            if (DateTimeRangeValid)
+            {
+                return DateConstructor.Epoch.AddMilliseconds(PrimitiveValue);
+            }
+
+            ExceptionHelper.ThrowRangeError(_engine.Realm);
+            return DateTime.MinValue;
         }
 
         public double PrimitiveValue { get; set; }

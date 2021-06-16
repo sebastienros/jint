@@ -45,14 +45,14 @@ namespace Jint
 
             return value.ToString();
         }
-        
+
         /// <summary>
         /// If the value is a Promise
         ///     1. If "Fulfilled" returns the value it was fulfilled with
         ///     2. If "Rejected" throws "PromiseRejectedException" with the rejection reason
         ///     3. If "Pending" throws "InvalidOperationException". Should be called only in "Settled" state
         /// Else
-        ///     returns the value intact 
+        ///     returns the value intact
         /// </summary>
         /// <param name="value">value to unwrap</param>
         /// <returns>inner value if Promise the value itself otherwise</returns>
@@ -60,19 +60,26 @@ namespace Jint
         {
             if (value is PromiseInstance promise)
             {
-                return promise.State switch
+                switch (promise.State)
                 {
-                    PromiseState.Pending => ExceptionHelper.ThrowInvalidOperationException<JsValue>(
-                        "'UnwrapIfPromise' called before Promise was settled"),
-                    PromiseState.Fulfilled => promise.Value,
-                    PromiseState.Rejected => ExceptionHelper.ThrowPromiseRejectedException<JsValue>(promise.Value),
-                    _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JsValue>()
-                };
+                    case PromiseState.Pending:
+                        ExceptionHelper.ThrowInvalidOperationException("'UnwrapIfPromise' called before Promise was settled");
+                        return null;
+                    case PromiseState.Fulfilled:
+                        return promise.Value;
+                    case PromiseState.Rejected:
+                        ExceptionHelper.ThrowPromiseRejectedException(promise.Value);
+                        return null;
+                    default:
+                        ExceptionHelper.ThrowArgumentOutOfRangeException();
+                        return null;
+                }
             }
 
             return value;
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private static void ThrowWrongTypeException(JsValue value, string expectedType)
         {
             ExceptionHelper.ThrowArgumentException($"Expected {expectedType} but got {value._type}");

@@ -32,7 +32,8 @@ namespace Jint
 
             if (!resolveComputed || !TryGetComputedPropertyKey(expression, engine, out var propertyKey))
             {
-                return ExceptionHelper.ThrowArgumentException<JsValue>("Unable to extract correct key, node type: " + expression.Type);
+                ExceptionHelper.ThrowArgumentException("Unable to extract correct key, node type: " + expression.Type);
+                return null;
             }
 
             return propertyKey;
@@ -60,9 +61,9 @@ namespace Jint
         internal static bool IsFunctionWithName<T>(this T node) where T : Node
         {
             var type = node.Type;
-            return type == Nodes.FunctionExpression 
-                   || type == Nodes.ArrowFunctionExpression 
-                   || type == Nodes.ArrowParameterPlaceHolder 
+            return type == Nodes.FunctionExpression
+                   || type == Nodes.ArrowFunctionExpression
+                   || type == Nodes.ArrowParameterPlaceHolder
                    || type == Nodes.ClassExpression;
         }
 
@@ -89,7 +90,7 @@ namespace Jint
             }
             return literal.Value as string ?? Convert.ToString(literal.Value, provider: null);
         }
-        
+
         internal static void GetBoundNames(this VariableDeclaration variableDeclaration, List<string> target)
         {
             ref readonly var declarations = ref variableDeclaration.Declarations;
@@ -106,7 +107,7 @@ namespace Jint
             {
                 return;
             }
-            
+
             // try to get away without a loop
             if (parameter is Identifier id)
             {
@@ -176,7 +177,7 @@ namespace Jint
         }
 
         internal static void BindingInitialization(
-            this Expression? expression, 
+            this Expression? expression,
             Engine engine,
             JsValue value,
             EnvironmentRecord env)
@@ -203,11 +204,15 @@ namespace Jint
         {
             var engine = obj.Engine;
             var property = TypeConverter.ToPropertyKey(m.GetKey(engine));
-            var prototype = functionPrototype ?? engine.Function.PrototypeObject;
-            var function = m.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(engine);
+            var prototype = functionPrototype ?? engine.Realm.Intrinsics.Function.PrototypeObject;
+            var function = m.Value as IFunction;
+            if (function is null)
+            {
+                ExceptionHelper.ThrowSyntaxError(engine.Realm);
+            }
             var functionDefinition = new JintFunctionDefinition(engine, function);
             var functionThisMode = functionDefinition.Strict || engine._isStrict
-                ? FunctionThisMode.Strict 
+                ? FunctionThisMode.Strict
                 : FunctionThisMode.Global;
 
             var closure = new ScriptFunctionInstance(

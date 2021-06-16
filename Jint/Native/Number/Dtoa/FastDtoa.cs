@@ -706,7 +706,7 @@ namespace Jint.Native.Number.Dtoa
 
             var mk = powerResult.decimalExponent;
             var ten_mk = powerResult.cMk;
-            
+
             Debug.Assert((MinimalTargetExponent <= w.E + ten_mk.E + DiyFp.KSignificandSize) && (MaximalTargetExponent >= w.E + ten_mk.E + DiyFp.KSignificandSize));
             // Note that ten_mk is only an approximation of 10^-k. A DiyFp only contains a
             // 64 bit significand and ten_mk is thus only precise up to 64 bits.
@@ -740,8 +740,8 @@ namespace Jint.Native.Number.Dtoa
             Debug.Assert(!double.IsNaN(v));
             Debug.Assert(!double.IsInfinity(v));
 
-            bool result;
-            int decimal_exponent = 0;
+            var result = false;
+            var decimal_exponent = 0;
             switch (mode)
             {
                 case DtoaMode.Shortest:
@@ -751,7 +751,7 @@ namespace Jint.Native.Number.Dtoa
                     result = Grisu3Counted(v, requested_digits, buffer, out decimal_exponent);
                     break;
                 default:
-                    result = ExceptionHelper.ThrowArgumentOutOfRangeException<bool>();
+                    ExceptionHelper.ThrowArgumentOutOfRangeException();
                     break;
             }
 

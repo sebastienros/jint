@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using Jint.Collections;
 using Jint.Native.Number.Dtoa;
+using Jint.Native.Object;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -15,31 +16,27 @@ namespace Jint.Native.Number
     /// </summary>
     public sealed class NumberPrototype : NumberInstance
     {
-        private NumberConstructor _numberConstructor;
+        private readonly Realm _realm;
+        private readonly NumberConstructor _constructor;
 
-        private NumberPrototype(Engine engine)
+        internal NumberPrototype(
+            Engine engine,
+            Realm realm,
+            NumberConstructor constructor,
+            ObjectPrototype objectPrototype)
             : base(engine)
         {
-        }
-
-        public static NumberPrototype CreatePrototypeObject(Engine engine, NumberConstructor numberConstructor)
-        {
-            var obj = new NumberPrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                NumberData = JsNumber.Create(0),
-                _numberConstructor = numberConstructor
-            };
-
-
-            return obj;
+            _prototype = objectPrototype;
+            NumberData = JsNumber.Create(0);
+            _realm = realm;
+            _constructor = constructor;
         }
 
         protected override void Initialize()
         {
             var properties = new PropertyDictionary(8, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(_numberConstructor, true, false, true),
+                ["constructor"] = new PropertyDescriptor(_constructor, true, false, true),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToNumberString, 1, PropertyFlag.Configurable), true, false, true),
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true),
@@ -54,7 +51,7 @@ namespace Jint.Native.Number
         {
             if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var m = TypeConverter.ToNumber(thisObject);
@@ -99,7 +96,8 @@ namespace Jint.Native.Number
                 return thisObj;
             }
 
-            return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
+            ExceptionHelper.ThrowTypeError(_realm);
+            return null;
         }
 
         private const double Ten21 = 1e21;
@@ -109,13 +107,13 @@ namespace Jint.Native.Number
             var f = (int) TypeConverter.ToInteger(arguments.At(0, 0));
             if (f < 0 || f > 100)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 100");
+                ExceptionHelper.ThrowRangeError(_realm, "fractionDigits argument must be between 0 and 100");
             }
 
             // limitation with .NET, max is 99
             if (f == 100)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "100 fraction digits is not supported due to .NET format specifier limitation");
+                ExceptionHelper.ThrowRangeError(_realm, "100 fraction digits is not supported due to .NET format specifier limitation");
             }
 
             var x = TypeConverter.ToNumber(thisObj);
@@ -146,7 +144,7 @@ namespace Jint.Native.Number
         {
             if (!thisObj.IsNumber() && ReferenceEquals(thisObj.TryCast<NumberInstance>(), null))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var x = TypeConverter.ToNumber(thisObj);
@@ -170,7 +168,7 @@ namespace Jint.Native.Number
 
             if (f < 0 || f > 100)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "fractionDigits argument must be between 0 and 100");
+                ExceptionHelper.ThrowRangeError(_realm, "fractionDigits argument must be between 0 and 100");
             }
 
             if (arguments.At(0).IsUndefined())
@@ -223,7 +221,7 @@ namespace Jint.Native.Number
         {
             if (!thisObj.IsNumber() && ReferenceEquals(thisObj.TryCast<NumberInstance>(), null))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var x = TypeConverter.ToNumber(thisObj);
@@ -248,7 +246,7 @@ namespace Jint.Native.Number
 
             if (p < 1 || p > 100)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "precision must be between 1 and 100");
+                ExceptionHelper.ThrowRangeError(_realm, "precision must be between 1 and 100");
             }
 
             var dtoaBuilder = new DtoaBuilder(101);
@@ -345,7 +343,7 @@ namespace Jint.Native.Number
         {
             if (!thisObject.IsNumber() && (ReferenceEquals(thisObject.TryCast<NumberInstance>(), null)))
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var radix = arguments.At(0).IsUndefined()
@@ -354,7 +352,7 @@ namespace Jint.Native.Number
 
             if (radix < 2 || radix > 36)
             {
-                ExceptionHelper.ThrowRangeError(_engine, "radix must be between 2 and 36");
+                ExceptionHelper.ThrowRangeError(_realm, "radix must be between 2 and 36");
             }
 
             var x = TypeConverter.ToNumber(thisObject);

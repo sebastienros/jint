@@ -12,30 +12,20 @@ namespace Jint.Native.Set
     {
         private static readonly JsString _functionName = new JsString("Set");
 
-        private SetConstructor(Engine engine)
-            : base(engine, _functionName, FunctionThisMode.Global)
+        internal SetConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName, FunctionThisMode.Global)
         {
+            _prototype = functionPrototype;
+            PrototypeObject = new SetPrototype(engine, realm, this, objectPrototype);
+            _length = new PropertyDescriptor(0, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         public SetPrototype PrototypeObject { get; private set; }
-
-        public static SetConstructor CreateSetConstructor(Engine engine)
-        {
-            var obj = new SetConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the Set constructor is the Function prototype object
-            obj.PrototypeObject = SetPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
-
-            // The initial value of Set.prototype is the Set prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
-        }
 
         protected override void Initialize()
         {
@@ -54,7 +44,7 @@ namespace Jint.Native.Set
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            ExceptionHelper.ThrowTypeError(_engine, "Constructor Set requires 'new'");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "Constructor Set requires 'new'");
             return null;
         }
 
@@ -65,19 +55,23 @@ namespace Jint.Native.Set
         {
             if (newTarget.IsUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
-            var set = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, _) => new SetInstance(engine));
+            var set = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Set.PrototypeObject,
+                static (engine, realm, _) => new SetInstance(engine));
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adderValue = set.Get("add");
-                if (!(adderValue is ICallable adder))
+                var adder = adderValue as ICallable;
+                if (adder is null)
                 {
-                    return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "add must be callable");
+                    ExceptionHelper.ThrowTypeError(_engine.Realm, "add must be callable");
                 }
 
-                var iterable = arguments.At(0).GetIterator(_engine);
+                var iterable = arguments.At(0).GetIterator(_realm);
 
                 try
                 {

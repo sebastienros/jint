@@ -61,7 +61,7 @@ namespace Jint.Native.Array
         public override bool IsArrayLike => true;
 
         internal override bool HasOriginalIterator
-            => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _engine.Array.PrototypeObject._originalIteratorFunction);
+            => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _engine.Realm.Intrinsics.Array.PrototypeObject._originalIteratorFunction);
 
         public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
@@ -80,7 +80,7 @@ namespace Jint.Native.Array
                 uint newLen = TypeConverter.ToUint32(value);
                 if (newLen != TypeConverter.ToNumber(value))
                 {
-                    ExceptionHelper.ThrowRangeError(_engine);
+                    ExceptionHelper.ThrowRangeError(_engine.Realm);
                 }
 
                 newLenDesc.Value = newLen;
@@ -230,7 +230,7 @@ namespace Jint.Native.Array
             {
                 return 0;
             }
-            
+
             return (uint) ((JsNumber) _length._value)._value;
         }
 
@@ -353,7 +353,7 @@ namespace Jint.Native.Array
             var prop = GetOwnProperty(index);
             if (prop == PropertyDescriptor.Undefined)
             {
-                prop = Prototype?.GetProperty(index) ?? PropertyDescriptor.Undefined;
+                prop = Prototype?.GetProperty(JsString.Create(index)) ?? PropertyDescriptor.Undefined;
             }
 
             return UnwrapJsValue(prop);
@@ -367,7 +367,7 @@ namespace Jint.Native.Array
             {
                 return prop;
             }
-            return Prototype?.GetProperty(index) ?? PropertyDescriptor.Undefined;
+            return Prototype?.GetProperty(JsString.Create(index)) ?? PropertyDescriptor.Undefined;
         }
 
         protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
@@ -538,7 +538,7 @@ namespace Jint.Native.Array
 
             if (!TryGetDescriptor(index, out var desc))
             {
-                desc = GetProperty(index);
+                desc = GetProperty(JsString.Create(index));
             }
 
             return desc.TryGetValue(this, out value);
@@ -548,7 +548,7 @@ namespace Jint.Native.Array
         {
             if (!Delete(index))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
             return true;
         }
@@ -570,7 +570,7 @@ namespace Jint.Native.Array
 
             return false;
         }
-        
+
         internal bool DeleteAt(uint index)
         {
             var temp = _dense;
@@ -589,7 +589,7 @@ namespace Jint.Native.Array
 
             return false;
         }
-        
+
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool TryGetDescriptor(uint index, out PropertyDescriptor descriptor)
@@ -721,7 +721,7 @@ namespace Jint.Native.Array
             {
                 if (!Set(CommonProperties.Length, newLength, this))
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
             }
 
@@ -759,7 +759,7 @@ namespace Jint.Native.Array
             var len = GetLength();
 
             var callable = GetCallable(callbackfn);
-            var a = Engine.Array.ConstructFast(len);
+            var a = Engine.Realm.Intrinsics.Array.ConstructFast(len);
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
             for (uint k = 0; k < len; k++)
@@ -845,7 +845,7 @@ namespace Jint.Native.Array
         internal ArrayInstance ToArray(Engine engine)
         {
             var length = GetLength();
-            var array = _engine.Array.ConstructFast(length);
+            var array = _engine.Realm.Intrinsics.Array.ConstructFast(length);
             for (uint i = 0; i < length; i++)
             {
                 if (TryGetValue(i, out var kValue))
@@ -897,7 +897,7 @@ namespace Jint.Native.Array
                 }
             }
         }
-        
+
         public override string ToString()
         {
             // debugger can make things hard when evaluates computed values

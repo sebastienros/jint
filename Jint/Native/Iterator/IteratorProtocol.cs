@@ -88,10 +88,10 @@ namespace Jint.Native.Iterator
 
         internal static void AddEntriesFromIterable(ObjectInstance target, IIterator iterable, object adder)
         {
-            if (!(adder is ICallable callable))
+            var callable = adder as ICallable;
+            if (callable is null)
             {
-                ExceptionHelper.ThrowTypeError(target.Engine, "adder must be callable");
-                return;
+                ExceptionHelper.ThrowTypeError(target.Engine.Realm, "adder must be callable");
             }
 
             var args = target.Engine._jsValueArrayPool.RentArray(2);
@@ -109,10 +109,10 @@ namespace Jint.Native.Iterator
                     var temp = nextItem.Get(CommonProperties.Value);
 
                     skipClose = false;
-                    if (!(temp is ObjectInstance oi))
+                    var oi = temp as ObjectInstance;
+                    if (oi is null)
                     {
-                        ExceptionHelper.ThrowTypeError(target.Engine, "iterator's value must be an object");
-                        return;
+                        ExceptionHelper.ThrowTypeError(target.Engine.Realm, "iterator's value must be an object");
                     }
 
                     var k = oi.Get(JsString.NumberZeroString);

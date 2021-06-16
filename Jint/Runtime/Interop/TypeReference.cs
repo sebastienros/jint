@@ -17,8 +17,10 @@ namespace Jint.Runtime.Interop
         private static readonly ConcurrentDictionary<Type, MethodDescriptor[]> _constructorCache = new();
         private static readonly ConcurrentDictionary<Tuple<Type, string>, ReflectionAccessor> _memberAccessors = new();
 
-        private TypeReference(Engine engine)
-            : base(engine, _name, FunctionThisMode.Global, ObjectClass.TypeReference)
+        private TypeReference(
+            Engine engine,
+            Realm realm)
+            : base(engine, realm, _name, FunctionThisMode.Global, ObjectClass.TypeReference)
         {
         }
 
@@ -26,16 +28,16 @@ namespace Jint.Runtime.Interop
 
         public static TypeReference CreateTypeReference(Engine engine, Type type)
         {
-            var obj = new TypeReference(engine);
+            var obj = new TypeReference(engine, engine.Realm);
             obj.PreventExtensions();
             obj.ReferenceType = type;
 
             // The value of the [[Prototype]] internal property of the TypeReference constructor is the Function prototype object
-            obj._prototype = engine.Function.PrototypeObject;
+            obj._prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
             obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
 
             // The initial value of Boolean.prototype is the Boolean prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(engine.Object.PrototypeObject, PropertyFlag.AllForbidden);
+            obj._prototypeDescriptor = new PropertyDescriptor(engine.Realm.Intrinsics.Object.PrototypeObject, PropertyFlag.AllForbidden);
 
             return obj;
         }
@@ -51,7 +53,7 @@ namespace Jint.Runtime.Interop
             if (arguments.Length == 0 && ReferenceType.IsValueType)
             {
                 var instance = Activator.CreateInstance(ReferenceType);
-                var result = TypeConverter.ToObject(Engine, FromObject(Engine, instance));
+                var result = TypeConverter.ToObject(_realm, FromObject(Engine, instance));
 
                 return result;
             }
@@ -64,14 +66,15 @@ namespace Jint.Runtime.Interop
             {
                 var method = tuple.Item1;
                 var retVal = method.Call(Engine, null, arguments);
-                var result = TypeConverter.ToObject(Engine, retVal);
+                var result = TypeConverter.ToObject(_realm, retVal);
 
                 // todo: cache method info
 
                 return result;
             }
 
-            return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "No public methods with the specified arguments were found.");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "No public methods with the specified arguments were found.");
+            return null;
         }
 
         internal override bool OrdinaryHasInstance(JsValue v)

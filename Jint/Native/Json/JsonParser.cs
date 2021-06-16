@@ -97,7 +97,7 @@ namespace Jint.Native.Json
                 }
                 else
                 {
-                    ExceptionHelper.ThrowSyntaxError(_engine, $"Expected hexadecimal digit:{_source}");
+                    ExceptionHelper.ThrowSyntaxError(_engine.Realm, $"Expected hexadecimal digit:{_source}");
                 }
             }
             return (char)code;
@@ -152,7 +152,8 @@ namespace Jint.Native.Json
                         };
             }
 
-            return ExceptionHelper.ThrowSyntaxError<Token>(_engine, string.Format(Messages.UnexpectedToken, code));
+            ExceptionHelper.ThrowSyntaxError(_engine.Realm, string.Format(Messages.UnexpectedToken, code));
+            return null;
         }
 
         private Token ScanNumericLiteral()
@@ -181,7 +182,7 @@ namespace Jint.Native.Json
                     // decimal number starts with '0' such as '09' is illegal.
                     if (ch > 0 && IsDecimalDigit(ch))
                     {
-                        ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, ch));
+                        ExceptionHelper.ThrowSyntaxError(_engine.Realm, string.Format(Messages.UnexpectedToken, ch));
                     }
                 }
 
@@ -220,7 +221,7 @@ namespace Jint.Native.Json
                 }
                 else
                 {
-                    ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, _source.CharCodeAt(_index)));
+                    ExceptionHelper.ThrowSyntaxError(_engine.Realm, string.Format(Messages.UnexpectedToken, _source.CharCodeAt(_index)));
                 }
             }
 
@@ -256,7 +257,8 @@ namespace Jint.Native.Json
                 };
             }
 
-            return ExceptionHelper.ThrowSyntaxError<Token>(_engine, string.Format(Messages.UnexpectedToken, s));
+            ExceptionHelper.ThrowSyntaxError(_engine.Realm, string.Format(Messages.UnexpectedToken, s));
+            return null;
         }
 
         private Token ScanNullLiteral()
@@ -281,7 +283,8 @@ namespace Jint.Native.Json
                 };
             }
 
-            return ExceptionHelper.ThrowSyntaxError<Token>(_engine, string.Format(Messages.UnexpectedToken, s));
+            ExceptionHelper.ThrowSyntaxError(_engine.Realm, string.Format(Messages.UnexpectedToken, s));
+            return null;
         }
 
         private Token ScanStringLiteral()
@@ -305,7 +308,7 @@ namespace Jint.Native.Json
 
                 if (ch <= 31)
                 {
-                    ExceptionHelper.ThrowSyntaxError(_engine, $"Invalid character '{ch}', position:{_index}, string:{_source}");
+                    ExceptionHelper.ThrowSyntaxError(_engine.Realm, $"Invalid character '{ch}', position:{_index}, string:{_source}");
                 }
 
                 if (ch == '\\')
@@ -397,7 +400,7 @@ namespace Jint.Native.Json
 
             if (quote != 0)
             {
-                ExceptionHelper.ThrowSyntaxError(_engine, string.Format(Messages.UnexpectedToken, _source));
+                ExceptionHelper.ThrowSyntaxError(_engine.Realm, string.Format(Messages.UnexpectedToken, _source));
             }
 
             return new Token
@@ -599,8 +602,6 @@ namespace Jint.Native.Json
             return node;
         }
 
-        // Throw an exception
-
         private void ThrowError(Token token, string messageFormat, params object[] arguments)
         {
             string msg = System.String.Format(messageFormat, arguments);
@@ -684,14 +685,14 @@ namespace Jint.Native.Json
 
             Expect("]");
 
-            return _engine.Array.ConstructFast(elements);
+            return _engine.Realm.Intrinsics.Array.ConstructFast(elements);
         }
 
         public ObjectInstance ParseJsonObject()
         {
             Expect("{");
 
-            var obj = _engine.Object.Construct(Arguments.Empty);
+            var obj = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
 
             while (!Match("}"))
             {
@@ -704,7 +705,7 @@ namespace Jint.Native.Json
                 var name = Lex().Value.ToString();
                 if (PropertyNameContainsInvalidCharacters(name))
                 {
-                    ExceptionHelper.ThrowSyntaxError(_engine, $"Invalid character in property name '{name}'");
+                    ExceptionHelper.ThrowSyntaxError(_engine.Realm, $"Invalid character in property name '{name}'");
                 }
 
                 Expect(":");
@@ -827,7 +828,7 @@ namespace Jint.Native.Json
 
                 if(_lookahead.Type != Tokens.EOF)
                 {
-                    ExceptionHelper.ThrowSyntaxError(_engine, $"Unexpected {_lookahead.Type} {_lookahead.Value}");
+                    ExceptionHelper.ThrowSyntaxError(_engine.Realm, $"Unexpected {_lookahead.Type} {_lookahead.Value}");
                 }
                 return jsv;
             }

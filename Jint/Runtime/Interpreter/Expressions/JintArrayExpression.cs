@@ -36,7 +36,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            var a = _engine.Array.ConstructFast(_hasSpreads ? 0 : (uint) _expressions.Length);
+            var a = _engine.Realm.Intrinsics.Array.ConstructFast(_hasSpreads ? 0 : (uint) _expressions.Length);
             var expressions = _expressions;
 
             uint arrayIndexCounter = 0;

@@ -36,7 +36,11 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            var lref = _left.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
+            var lref = _left.Evaluate() as Reference;
+            if (lref is null)
+            {
+                ExceptionHelper.ThrowReferenceError(_engine.Realm, "not a valid reference");
+            }
 
             var rval = _right.GetValue();
             var lval = _engine.GetValue(lref, false);
@@ -133,7 +137,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                     break;
 
                 default:
-                    return ExceptionHelper.ThrowNotImplementedException<object>();
+                    ExceptionHelper.ThrowNotImplementedException();
+                    return null;
             }
 
             _engine.PutValue(lref, lval);
@@ -178,7 +183,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             private JsValue SetValue()
             {
                 // slower version
-                var lref = _left.Evaluate() as Reference ?? ExceptionHelper.ThrowReferenceError<Reference>(_engine);
+                var lref = _left.Evaluate() as Reference;
+                if (lref is null)
+                {
+                    ExceptionHelper.ThrowReferenceError(_engine.Realm, "not a valid reference");
+                }
                 lref.AssertValid(_engine);
 
                 var rval = _right.GetValue();
@@ -206,7 +215,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     if (strict && hasEvalOrArguments)
                     {
-                        ExceptionHelper.ThrowSyntaxError(engine);
+                        ExceptionHelper.ThrowSyntaxError(engine.Realm);
                     }
 
                     var rval = right.GetValue().Clone();

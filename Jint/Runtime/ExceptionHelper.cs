@@ -9,22 +9,10 @@ namespace Jint.Runtime
 {
     internal static class ExceptionHelper
     {
-        public static T ThrowSyntaxError<T>(Engine engine, string message = null)
-        {
-            ThrowSyntaxError(engine, message);
-            return default;
-        }
-
         [DoesNotReturn]
-        public static void ThrowSyntaxError(Engine engine, string message = null)
+        public static void ThrowSyntaxError(Realm realm, string message = null)
         {
-            throw new JavaScriptException(engine.SyntaxError, message);
-        }
-
-        public static T ThrowArgumentException<T>(string message = null)
-        {
-            ThrowArgumentException(message);
-            return default;
+            throw new JavaScriptException(realm.Intrinsics.SyntaxError, message);
         }
 
         [DoesNotReturn]
@@ -40,76 +28,46 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowReferenceError(Engine engine, Reference reference)
+        public static void ThrowReferenceError(Realm realm, Reference reference)
         {
-            ThrowReferenceError(engine, reference?.GetReferencedName()?.ToString());
+            ThrowReferenceError(realm, reference?.GetReferencedName()?.ToString());
         }
 
         [DoesNotReturn]
-        public static void ThrowReferenceError(Engine engine, string name)
+        public static void ThrowReferenceError(Realm realm, string name)
         {
             var message = name != null ? name + " is not defined" : null;
-            throw new JavaScriptException(engine.ReferenceError, message);
+            throw new JavaScriptException(realm.Intrinsics.ReferenceError, message);
         }
 
-        public static T ThrowTypeErrorNoEngine<T>(string message = null, Exception exception = null)
+        [DoesNotReturn]
+        public static void ThrowTypeErrorNoEngine(string message = null, Exception exception = null)
         {
             throw new TypeErrorException(message);
         }
 
-        public static T ThrowReferenceError<T>(Engine engine, string message = null)
+        [DoesNotReturn]
+        public static void ThrowTypeError(Realm realm, string message = null, Exception exception = null)
         {
-            throw new JavaScriptException(engine.ReferenceError, message);
-        }
-
-        public static T ThrowTypeError<T>(Engine engine, string message = null, Exception exception = null)
-        {
-            ThrowTypeError(engine, message, exception);
-            return default;
+            throw new JavaScriptException(realm.Intrinsics.TypeError, message, exception);
         }
 
         [DoesNotReturn]
-        public static void ThrowTypeError(Engine engine, string message = null, Exception exception = null)
+        public static void ThrowRangeError(Realm realm, string message = null)
         {
-            throw new JavaScriptException(engine.TypeError, message, exception);
-        }
-
-        public static T ThrowRangeError<T>(Engine engine, string message = null)
-        {
-            throw new JavaScriptException(engine.RangeError, message);
+            throw new JavaScriptException(realm.Intrinsics.RangeError, message);
         }
 
         [DoesNotReturn]
-        public static void ThrowRangeError(Engine engine, string message = null)
+        public static void ThrowUriError(Realm realm)
         {
-            throw new JavaScriptException(engine.RangeError, message);
-        }
-
-        [DoesNotReturn]
-        public static void ThrowUriError(Engine engine)
-        {
-            throw new JavaScriptException(engine.UriError);
+            throw new JavaScriptException(realm.Intrinsics.UriError);
         }
 
         [DoesNotReturn]
         public static void ThrowNotImplementedException(string message = null)
         {
             throw new NotImplementedException(message);
-        }
-
-        public static T ThrowNotImplementedException<T>()
-        {
-            throw new NotImplementedException();
-        }
-
-        public static T ThrowArgumentOutOfRangeException<T>()
-        {
-            throw new ArgumentOutOfRangeException();
-        }
-
-        public static T ThrowArgumentOutOfRangeException<T>(string paramName, string message)
-        {
-            throw new ArgumentOutOfRangeException(paramName, message);
         }
 
         [DoesNotReturn]
@@ -136,11 +94,6 @@ namespace Jint.Runtime
             throw new ArgumentOutOfRangeException();
         }
 
-        public static T ThrowNotSupportedException<T>(string message = null)
-        {
-            throw new NotSupportedException(message);
-        }
-
         [DoesNotReturn]
         public static void ThrowNotSupportedException(string message = null)
         {
@@ -152,13 +105,9 @@ namespace Jint.Runtime
         {
             throw new InvalidOperationException(message);
         }
-        
-        public static T ThrowInvalidOperationException<T>(string message = null)
-        {
-            throw new InvalidOperationException(message);
-        }
-        
-        public static T ThrowPromiseRejectedException<T>(JsValue error)
+
+        [DoesNotReturn]
+        public static void ThrowPromiseRejectedException(JsValue error)
         {
             throw new PromiseRejectedException(error);
         }
@@ -170,18 +119,14 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowRecursionDepthOverflowException(JintCallStack currentStack, string currentExpressionReference)
+        public static void ThrowRecursionDepthOverflowException(JintCallStack currentStack,
+            string currentExpressionReference)
         {
             throw new RecursionDepthOverflowException(currentStack, currentExpressionReference);
         }
 
         [DoesNotReturn]
         public static void ThrowArgumentNullException(string paramName)
-        {
-            throw new ArgumentNullException(paramName);
-        }
-
-        public static T ThrowArgumentNullException<T>(string paramName)
         {
             throw new ArgumentNullException(paramName);
         }
@@ -193,15 +138,17 @@ namespace Jint.Runtime
 
             var handler = engine.Options._ClrExceptionsHandler;
             if (handler != null && handler(meaningfulException))
+            {
                 ThrowError(engine, meaningfulException.Message);
+            }
 
             throw meaningfulException;
         }
 
         [DoesNotReturn]
-        public static void ThrowError(Engine engine, string message)
+        private static void ThrowError(Engine engine, string message)
         {
-            throw new JavaScriptException(engine.Error, message);
+            throw new JavaScriptException(engine.Realm.Intrinsics.Error, message);
         }
 
         [DoesNotReturn]

@@ -13,36 +13,28 @@ namespace Jint.Native.Function
         private static readonly JsString _functionName = new JsString("Function");
         private static readonly JsString _functionNameAnonymous = new JsString("anonymous");
 
-        private FunctionConstructor(Engine engine)
-            : base(engine, _functionName)
+        internal FunctionConstructor(
+            Engine engine,
+            Realm realm,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
+            PrototypeObject = new FunctionPrototype(engine, realm, objectPrototype);
+            _prototype = PrototypeObject;
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
+            _length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
         }
 
-        public static FunctionConstructor CreateFunctionConstructor(Engine engine)
-        {
-            var obj = new FunctionConstructor(engine)
-            {
-                PrototypeObject = FunctionPrototype.CreatePrototypeObject(engine)
-            };
-
-            // The initial value of Function.prototype is the standard built-in Function prototype object
-
-            // The value of the [[Prototype]] internal property of the Function constructor is the standard built-in Function prototype object
-            obj._prototype = obj.PrototypeObject;
-
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-            obj._length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
-
-            return obj;
-        }
-
-        public FunctionPrototype PrototypeObject { get; private set; }
+        public FunctionPrototype PrototypeObject { get; }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             return Construct(arguments, thisObject);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-createdynamicfunction
+        /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var argCount = arguments.Length;
@@ -66,7 +58,7 @@ namespace Jint.Native.Function
                 body = TypeConverter.ToString(arguments[argCount-1]);
             }
 
-            IFunction function;
+            IFunction function = null;
             try
             {
                 string functionExpression;
@@ -105,15 +97,22 @@ namespace Jint.Native.Function
             }
             catch (ParserException)
             {
-                return ExceptionHelper.ThrowSyntaxError<ObjectInstance>(_engine);
+                ExceptionHelper.ThrowSyntaxError(_realm);
             }
+
+            // TODO generators etc, rewrite logic
+            var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.Function.PrototypeObject);
 
             var functionObject = new ScriptFunctionInstance(
                 Engine,
                 function,
-                _engine.GlobalEnvironment,
-                function.Strict);
-            
+                _realm.GlobalEnv,
+                function.Strict,
+                proto)
+            {
+                _realm = _realm
+            };
+
             functionObject.MakeConstructor();
 
             // the function is not actually a named function
@@ -130,9 +129,12 @@ namespace Jint.Native.Function
             var functionObject = new ScriptFunctionInstance(
                 Engine,
                 functionDeclaration,
-                env, 
-                functionDeclaration.Strict || _engine._isStrict);
-            
+                env,
+                functionDeclaration.Strict || _engine._isStrict)
+            {
+                _realm = _realm
+            };
+
             functionObject.MakeConstructor();
 
             return functionObject;

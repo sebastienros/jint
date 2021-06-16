@@ -15,28 +15,17 @@ namespace Jint.Native.Number
         private const long MinSafeInteger = -9007199254740991;
         internal const long MaxSafeInteger = 9007199254740991;
 
-        public NumberConstructor(Engine engine)
-            : base(engine, _functionName)
+        public NumberConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
-
-        }
-
-        public static NumberConstructor CreateNumberConstructor(Engine engine)
-        {
-            var obj = new NumberConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the Number constructor is the Function prototype object
-            obj.PrototypeObject = NumberPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
-
-            // The initial value of Number.prototype is the Number prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
+            _prototype = functionPrototype;
+            PrototypeObject = new NumberPrototype(engine, realm, this, objectPrototype);
+            _length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         protected override void Initialize()
@@ -135,7 +124,7 @@ namespace Jint.Native.Number
         /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var value = arguments.Length > 0 
+            var value = arguments.Length > 0
                 ? JsNumber.Create(TypeConverter.ToNumber(arguments[0]))
                 : JsNumber.PositiveZero;
 
@@ -144,7 +133,10 @@ namespace Jint.Native.Number
                 return Construct(value);
             }
 
-            var o = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, state) => new NumberInstance(engine, (JsNumber) state), value);
+            var o = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Number.PrototypeObject,
+                static (engine, realm, state) => new NumberInstance(engine, (JsNumber) state), value);
             return o;
         }
 

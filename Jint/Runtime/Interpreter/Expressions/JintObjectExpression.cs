@@ -50,7 +50,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 // empty object initializer
                 return;
             }
-            
+
             _valueExpressions = new JintExpression[expression.Properties.Count];
             _properties = new ObjectProperty[expression.Properties.Count];
 
@@ -110,7 +110,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// </summary>
         private object BuildObjectFast()
         {
-            var obj = _engine.Object.Construct(0);
+            var obj = _engine.Realm.Intrinsics.Object.Construct(0);
             if (_properties.Length == 0)
             {
                 return obj;
@@ -133,7 +133,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// </summary>
         private object BuildObjectNormal()
         {
-            var obj = _engine.Object.Construct(_properties.Length);
+            var obj = _engine.Realm.Intrinsics.Object.Construct(_properties.Length);
             bool isStrictModeCode = _engine._isStrict || StrictModeScope.IsStrictModeCode;
 
             for (var i = 0; i < _properties.Length; i++)
@@ -149,7 +149,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     continue;
                 }
-                
+
                 var property = objectProperty._value;
 
                 if (property.Method)
@@ -160,7 +160,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     obj.DefinePropertyOrThrow(methodDef.Key, desc);
                     continue;
                 }
-                
+
                 var propName = objectProperty.KeyJsString ?? property.GetKey(_engine);
                 if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
                 {
@@ -177,20 +177,25 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else if (property.Kind == PropertyKind.Get || property.Kind == PropertyKind.Set)
                 {
-                    var function = property.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(_engine);
+                    var function = property.Value as IFunction;
+                    if (function is null)
+                    {
+                        ExceptionHelper.ThrowSyntaxError(_engine.Realm);
+                    }
 
                     var closure = new ScriptFunctionInstance(
                         _engine,
                         function,
                         _engine.ExecutionContext.LexicalEnvironment,
                         isStrictModeCode);
+
                     closure.SetFunctionName(propName, property.Kind == PropertyKind.Get ? "get" : "set");
 
                     var propDesc = new GetSetPropertyDescriptor(
                         get: property.Kind == PropertyKind.Get ? closure : null,
                         set: property.Kind == PropertyKind.Set ? closure : null,
                         PropertyFlag.Enumerable | PropertyFlag.Configurable);
-                    
+
                     obj.DefinePropertyOrThrow(propName, propDesc);
                 }
             }

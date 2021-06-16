@@ -13,7 +13,7 @@ namespace Jint.Runtime.Interpreter
     internal sealed class JintFunctionDefinition
     {
         private readonly Engine _engine;
-        
+
         private JintExpression _bodyExpression;
         private JintStatementList _bodyStatementList;
 
@@ -62,7 +62,7 @@ namespace Jint.Runtime.Interpreter
             return _bodyStatementList.Execute();
         }
 
-        internal State Initialize(Engine engine, FunctionInstance functionInstance)
+        internal State Initialize(FunctionInstance functionInstance)
         {
             return _state ??= DoInitialize(functionInstance);
         }
@@ -99,7 +99,7 @@ namespace Jint.Runtime.Interpreter
         private State DoInitialize(FunctionInstance functionInstance)
         {
             var state = new State();
-            
+
             ProcessParameters(Function, state, out var hasArguments);
 
             var hoistingScope = HoistingScope.GetFunctionLevelDeclarations(Function, collectVarNames: true, collectLexicalNames: true);
@@ -144,7 +144,7 @@ namespace Jint.Runtime.Interpreter
                     state.ArgumentsObjectNeeded = false;
                 }
             }
-            
+
             var parameterBindings = new HashSet<Key>(state.ParameterNames);
             if (state.ArgumentsObjectNeeded)
             {
@@ -175,10 +175,10 @@ namespace Jint.Runtime.Interpreter
             }
             else
             {
-                var instantiatedVarNames = state.VarNames != null 
-                    ? new HashSet<Key>(state.ParameterBindings) 
+                var instantiatedVarNames = state.VarNames != null
+                    ? new HashSet<Key>(state.ParameterBindings)
                     : null;
-                
+
                 for (var i = 0; i < state.VarNames?.Count; i++)
                 {
                     var n = state.VarNames[i];
@@ -219,16 +219,16 @@ namespace Jint.Runtime.Interpreter
                 }
                 state.LexicalDeclarations = declarations;
             }
-            
+
             return state;
         }
 
         private static void GetBoundNames(
             Expression parameter,
-            List<Key> target, 
-            bool checkDuplicates, 
-            ref bool _hasRestParameter, 
-            ref bool _hasParameterExpressions, 
+            List<Key> target,
+            bool checkDuplicates,
+            ref bool _hasRestParameter,
+            ref bool _hasParameterExpressions,
             ref bool _hasDuplicates,
             ref bool hasArguments)
         {
@@ -258,7 +258,7 @@ namespace Jint.Runtime.Interpreter
                     {
                         var expression = arrayPatternElements[i];
                         GetBoundNames(
-                            expression, 
+                            expression,
                             target,
                             checkDuplicates,
                             ref _hasRestParameter,
@@ -277,7 +277,7 @@ namespace Jint.Runtime.Interpreter
                         if (property is Property p)
                         {
                             GetBoundNames(
-                                p.Value, 
+                                p.Value,
                                 target,
                                 checkDuplicates,
                                 ref _hasRestParameter,
@@ -333,11 +333,11 @@ namespace Jint.Runtime.Interpreter
                 {
                     state.IsSimpleParameterList = false;
                     GetBoundNames(
-                        parameter, 
+                        parameter,
                         parameterNames,
                         checkDuplicates: true,
                         ref state.HasRestParameter,
-                        ref state.HasParameterExpressions, 
+                        ref state.HasParameterExpressions,
                         ref state.HasDuplicates,
                         ref hasArguments);
                 }

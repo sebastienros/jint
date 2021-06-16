@@ -25,7 +25,7 @@ namespace Jint.Native.Number.Dtoa
             {
                 negative = true;
                 v = -v;
-            } 
+            }
 
             if (v == 0)
             {
@@ -52,7 +52,7 @@ namespace Jint.Native.Number.Dtoa
                     fast_worked = FastDtoa.NumberToString(v, DtoaMode.Precision, requested_digits, out point, buffer);
                     break;
                 default:
-                    ExceptionHelper.ThrowArgumentOutOfRangeException<string>();
+                    ExceptionHelper.ThrowArgumentOutOfRangeException();
                     return;
             }
 

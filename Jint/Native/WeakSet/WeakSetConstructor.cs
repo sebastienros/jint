@@ -9,34 +9,24 @@ namespace Jint.Native.WeakSet
     {
         private static readonly JsString _functionName = new JsString("WeakSet");
 
-        private WeakSetConstructor(Engine engine)
-            : base(engine, _functionName)
+        internal WeakSetConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
+            _prototype = functionPrototype;
+            PrototypeObject = new WeakSetPrototype(engine, realm, this, objectPrototype);
+            _length = new PropertyDescriptor(0, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public WeakSetPrototype PrototypeObject { get; private set; }
-
-        public static WeakSetConstructor CreateWeakSetConstructor(Engine engine)
-        {
-            var obj = new WeakSetConstructor(engine)
-            {
-                _prototype = engine.Function.PrototypeObject
-            };
-
-            // The value of the [[Prototype]] internal property of the WeakSet constructor is the Function prototype object
-            obj.PrototypeObject = WeakSetPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(0, PropertyFlag.Configurable);
-
-            // The initial value of WeakSet.prototype is the WeakSet prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
-        }
+        public WeakSetPrototype PrototypeObject { get; }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            ExceptionHelper.ThrowTypeError(_engine, "Constructor WeakSet requires 'new'");
+            ExceptionHelper.ThrowTypeError(_realm, "Constructor WeakSet requires 'new'");
             return null;
         }
 
@@ -44,19 +34,22 @@ namespace Jint.Native.WeakSet
         {
             if (newTarget.IsUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var set = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, _) => new WeakSetInstance(engine));
+            var set = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.WeakSet.PrototypeObject,
+                static (engine, realm, _) => new WeakSetInstance(engine));
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
-                var adderValue = set.Get("add");
-                if (!(adderValue is ICallable adder))
+                var adder = set.Get("add") as ICallable;
+                if (adder is null)
                 {
-                    return ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine, "add must be callable");
+                    ExceptionHelper.ThrowTypeError(_realm, "add must be callable");
                 }
 
-                var iterable = arguments.At(0).GetIterator(_engine);
+                var iterable = arguments.At(0).GetIterator(_realm);
 
                 try
                 {

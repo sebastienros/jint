@@ -9,28 +9,20 @@ namespace Jint.Native.Boolean
     {
         private static readonly JsString _functionName = new JsString("Boolean");
 
-        private BooleanConstructor(Engine engine)
-            : base(engine, _functionName)
+        internal BooleanConstructor(
+            Engine engine,
+            Realm realm,
+            FunctionPrototype functionPrototype,
+            ObjectPrototype objectPrototype)
+            : base(engine, realm, _functionName)
         {
+            _prototype = functionPrototype;
+            PrototypeObject = new BooleanPrototype(engine, realm, this, objectPrototype);
+            _length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         public BooleanPrototype PrototypeObject { get; private set; }
-
-        public static BooleanConstructor CreateBooleanConstructor(Engine engine)
-        {
-            var obj = new BooleanConstructor(engine);
-
-            // The value of the [[Prototype]] internal property of the Boolean constructor is the Function prototype object
-            obj._prototype = engine.Function.PrototypeObject;
-            obj.PrototypeObject = BooleanPrototype.CreatePrototypeObject(engine, obj);
-
-            obj._length = new PropertyDescriptor(JsNumber.One, PropertyFlag.Configurable);
-
-            // The initial value of Boolean.prototype is the Boolean prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(obj.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
-        }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
@@ -56,7 +48,10 @@ namespace Jint.Native.Boolean
                 return Construct(b);
             }
 
-            var o = OrdinaryCreateFromConstructor(newTarget, PrototypeObject, static (engine, state) => new BooleanInstance(engine, (JsBoolean) state), b);
+            var o = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Boolean.PrototypeObject,
+                static (engine, realm, state) => new BooleanInstance(engine, (JsBoolean) state), b);
             return o;
         }
 

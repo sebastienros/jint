@@ -817,7 +817,7 @@ namespace Jint.Tests.Runtime
                     var instance = new ObjectWrapper(engine, target);
                     if (instance.IsArrayLike)
                     {
-                        instance.SetPrototypeOf(engine.Array.PrototypeObject);
+                        instance.SetPrototypeOf(engine.Realm.Intrinsics.Array.PrototypeObject);
                     }
                     return instance;
                 })

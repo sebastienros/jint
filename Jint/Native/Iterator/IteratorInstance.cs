@@ -56,7 +56,7 @@ namespace Jint.Native.Iterator
 
         private ObjectInstance CreateIterResultObject(JsValue value, bool done)
         {
-            var obj = _engine.Object.Construct(2);
+            var obj = _engine.Realm.Intrinsics.Object.Construct(2);
             obj.SetDataProperty("value", value);
             obj.SetDataProperty("done", done);
             return obj;
@@ -71,7 +71,7 @@ namespace Jint.Native.Iterator
                 var done = ReferenceEquals(null, key) && ReferenceEquals(null, value);
                 if (!done)
                 {
-                    var arrayInstance = engine.Array.ConstructFast(2);
+                    var arrayInstance = engine.Realm.Intrinsics.Array.ConstructFast(2);
                     arrayInstance.SetIndexValue(0, key, false);
                     arrayInstance.SetIndexValue(1, value, false);
                     SetProperty("value", new PropertyDescriptor(arrayInstance, PropertyFlag.AllForbidden));
@@ -132,10 +132,10 @@ namespace Jint.Native.Iterator
 
             public ArrayLikeIterator(Engine engine, JsValue target) : base(engine)
             {
-                if (!(target is ObjectInstance objectInstance))
+                var objectInstance = target as ObjectInstance;
+                if (objectInstance is null)
                 {
-                    ExceptionHelper.ThrowTypeError(engine, "Target must be an object");
-                    return;
+                    ExceptionHelper.ThrowTypeError(engine.Realm, "Target must be an object");
                 }
 
                 _array = ArrayOperations.For(objectInstance);
@@ -239,7 +239,7 @@ namespace Jint.Native.Iterator
                 nextItem = KeyValueIteratorPosition.Done;
                 return false;
             }
-        } 
+        }
 
         public class ArrayLikeKeyIterator : IteratorInstance
         {
@@ -304,8 +304,11 @@ namespace Jint.Native.Iterator
             public ObjectIterator(ObjectInstance target)
             {
                 _target = target;
-                _nextMethod = target.Get(CommonProperties.Next, target) as ICallable
-                            ?? ExceptionHelper.ThrowTypeError<ICallable>(target.Engine);
+                _nextMethod = target.Get(CommonProperties.Next, target) as ICallable;
+                if (_nextMethod is null)
+                {
+                    ExceptionHelper.ThrowTypeError(target.Engine.Realm);
+                }
             }
 
             public bool TryIteratorStep(out ObjectInstance result)
@@ -324,7 +327,13 @@ namespace Jint.Native.Iterator
             private ObjectInstance IteratorNext()
             {
                 var jsValue = _nextMethod.Call(_target, Arguments.Empty);
-                return jsValue as ObjectInstance ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(_target.Engine, "Iterator result " + jsValue + " is not an object");
+                var instance = jsValue as ObjectInstance;
+                if (instance is null)
+                {
+                    ExceptionHelper.ThrowTypeError(_target.Engine.Realm, "Iterator result " + jsValue + " is not an object");
+                }
+
+                return instance;
             }
 
             public void Close(CompletionType completion)
@@ -335,7 +344,11 @@ namespace Jint.Native.Iterator
                     return;
                 }
 
-                var callable = func as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(_target.Engine, func + " is not a function");
+                var callable = func as ICallable;
+                if (callable is null)
+                {
+                    ExceptionHelper.ThrowTypeError(_target.Engine.Realm, func + " is not a function");
+                }
 
                 var innerResult = Undefined;
                 try
@@ -351,7 +364,7 @@ namespace Jint.Native.Iterator
                 }
                 if (completion != CompletionType.Throw && !innerResult.IsObject())
                 {
-                    ExceptionHelper.ThrowTypeError(_target.Engine);
+                    ExceptionHelper.ThrowTypeError(_target.Engine.Realm);
                 }
             }
         }
@@ -377,7 +390,7 @@ namespace Jint.Native.Iterator
                 return false;
             }
         }
-        
+
         internal class RegExpStringIterator : IteratorInstance
         {
             private readonly RegExpInstance _iteratingRegExp;
@@ -389,12 +402,12 @@ namespace Jint.Native.Iterator
 
             public RegExpStringIterator(Engine engine, ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode) : base(engine)
             {
-                if (!(iteratingRegExp is RegExpInstance r))
+                var r = iteratingRegExp as RegExpInstance;
+                if (r is null)
                 {
-                    ExceptionHelper.ThrowTypeError(engine);
-                    return;
+                    ExceptionHelper.ThrowTypeError(engine.Realm);
                 }
-                
+
                 _iteratingRegExp = r;
                 _s = iteratedString;
                 _global = global;
@@ -408,7 +421,7 @@ namespace Jint.Native.Iterator
                     nextItem = CreateIterResultObject(Undefined, true);
                     return false;
                 }
-                
+
                 var match  = RegExpPrototype.RegExpExec(_iteratingRegExp, _s);
                 if (match.IsNull())
                 {

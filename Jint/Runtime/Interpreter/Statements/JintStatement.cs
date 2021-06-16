@@ -60,7 +60,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected internal static JintStatement Build(Engine engine, Statement statement)
         {
-            return statement.Type switch
+            JintStatement result = statement.Type switch
             {
                 Nodes.BlockStatement => new JintBlockStatement(engine, (BlockStatement) statement),
                 Nodes.ReturnStatement => new JintReturnStatement(engine, (ReturnStatement) statement),
@@ -82,10 +82,17 @@ namespace Jint.Runtime.Interpreter.Statements
                 Nodes.WhileStatement => new JintWhileStatement(engine, (WhileStatement) statement),
                 Nodes.WithStatement => new JintWithStatement(engine, (WithStatement) statement),
                 Nodes.DebuggerStatement => new JintDebuggerStatement(engine, (DebuggerStatement) statement),
-                Nodes.Program => new JintScript(engine, statement as Script ?? ExceptionHelper.ThrowArgumentException<Script>("modules not supported")),
+                Nodes.Program when statement is Script s => new JintScript(engine, s),
                 Nodes.ClassDeclaration => new JintClassDeclarationStatement(engine, (ClassDeclaration) statement),
-                _ => ExceptionHelper.ThrowArgumentOutOfRangeException<JintStatement>(nameof(statement.Type), $"unsupported statement type '{statement.Type}'")
+                _ => null
             };
+
+            if (result is null)
+            {
+                ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(statement.Type), $"unsupported statement type '{statement.Type}'");
+            }
+
+            return result;
         }
 
         internal static Completion? FastResolve(StatementListItem statement)

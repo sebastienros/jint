@@ -16,11 +16,12 @@ namespace Jint.Runtime.Interop
         private readonly Delegate _d;
         private readonly bool _delegateContainsParamsArgument;
 
-        public DelegateWrapper(Engine engine, Delegate d)
-            : base(engine, _name, FunctionThisMode.Global)
+        public DelegateWrapper(
+            Engine engine, Delegate d)
+            : base(engine, engine.Realm, _name, FunctionThisMode.Global)
         {
             _d = d;
-            _prototype = engine.Function.PrototypeObject;
+            _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
 
             var parameterInfos = _d.Method.GetParameters();
 

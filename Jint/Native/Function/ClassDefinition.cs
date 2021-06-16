@@ -52,7 +52,7 @@ namespace Jint.Native.Function
         {
             // A class definition is always strict mode code.
             using var _ = (new StrictModeScope(true, true));
-            
+
             var classScope = JintEnvironment.NewDeclarativeEnvironment(engine, env);
 
             if (_className is not null)
@@ -64,8 +64,8 @@ namespace Jint.Native.Function
             ObjectInstance? constructorParent = null;
             if (_superClass is null)
             {
-                protoParent = engine.Object.PrototypeObject;
-                constructorParent = engine.Function.PrototypeObject;
+                protoParent = engine.Realm.Intrinsics.Object.PrototypeObject;
+                constructorParent = engine.Realm.Intrinsics.Function.PrototypeObject;
             }
             else
             {
@@ -76,11 +76,11 @@ namespace Jint.Native.Function
                 if (superclass.IsNull())
                 {
                     protoParent = null;
-                    constructorParent = engine.Function.PrototypeObject;
+                    constructorParent = engine.Realm.Intrinsics.Function.PrototypeObject;
                 }
                 else if (!superclass.IsConstructor)
                 {
-                    ExceptionHelper.ThrowTypeError(engine, "super class is not a constructor");
+                    ExceptionHelper.ThrowTypeError(engine.Realm, "super class is not a constructor");
                 }
                 else
                 {
@@ -95,7 +95,7 @@ namespace Jint.Native.Function
                     }
                     else
                     {
-                        ExceptionHelper.ThrowTypeError(engine);
+                        ExceptionHelper.ThrowTypeError(engine.Realm);
                         return null!;
                     }
 
@@ -182,13 +182,18 @@ namespace Jint.Native.Function
             else
             {
                 var propKey = TypeConverter.ToPropertyKey(method.GetKey(engine));
-                var function = method.Value as IFunction ?? ExceptionHelper.ThrowSyntaxError<IFunction>(obj.Engine);
+                var function = method.Value as IFunction;
+                if (function is null)
+                {
+                    ExceptionHelper.ThrowSyntaxError(obj.Engine.Realm);
+                }
 
                 var closure = new ScriptFunctionInstance(
                     obj.Engine,
                     function,
                     obj.Engine.ExecutionContext.LexicalEnvironment,
                     true);
+
                 closure.SetFunctionName(propKey, method.Kind == PropertyKind.Get ? "get" : "set");
                 closure.MakeMethod(obj);
 

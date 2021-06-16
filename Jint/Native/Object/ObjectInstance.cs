@@ -65,7 +65,7 @@ namespace Jint.Native.Object
 
         internal PropertyDictionary Properties
         {
-            [DebuggerStepThrough]            
+            [DebuggerStepThrough]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _properties;
         }
@@ -101,9 +101,10 @@ namespace Jint.Native.Object
                 return defaultConstructor;
             }
 
-            if (!(c is ObjectInstance oi))
+            var oi = c as ObjectInstance;
+            if (oi is null)
             {
-                return ExceptionHelper.ThrowTypeError<IConstructor>(o._engine);
+                ExceptionHelper.ThrowTypeError(o._engine.Realm);
             }
 
             var s = oi.Get(GlobalSymbolRegistry.Species);
@@ -116,10 +117,10 @@ namespace Jint.Native.Object
             {
                 return (IConstructor) s;
             }
-            
-            return ExceptionHelper.ThrowTypeError<IConstructor>(o._engine);
-        }
 
+            ExceptionHelper.ThrowTypeError(o._engine.Realm);
+            return null;
+        }
 
         internal void SetProperties(PropertyDictionary properties)
         {
@@ -435,7 +436,7 @@ namespace Jint.Native.Object
         {
             if (!Set(p, v, this) && throwOnError)
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             return true;
@@ -505,7 +506,7 @@ namespace Jint.Native.Object
 
             return true;
         }
-        
+
         /// <summary>
         /// Returns a Boolean value indicating whether a
         /// [[Put]] operation with PropertyName can be
@@ -590,7 +591,7 @@ namespace Jint.Native.Object
         {
             if (!Delete(property))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
             return true;
         }
@@ -622,7 +623,7 @@ namespace Jint.Native.Object
         {
             if (!DefineOwnProperty(property, desc))
             {
-                ExceptionHelper.ThrowTypeError(_engine, "Cannot redefine property: " + property);
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Cannot redefine property: " + property);
             }
 
             return true;
@@ -680,7 +681,7 @@ namespace Jint.Native.Object
                             };
                         }
 
-                        propertyDescriptor._flags |= desc._flags & PropertyFlag.MutableBinding; 
+                        propertyDescriptor._flags |= desc._flags & PropertyFlag.MutableBinding;
                         o.SetOwnProperty(property, propertyDescriptor);
                     }
                     else
@@ -1017,7 +1018,7 @@ namespace Jint.Native.Object
                 }
 
                 return (long) System.Math.Max(
-                    0, 
+                    0,
                     System.Math.Min(len, ArrayOperations.MaxArrayLikeLength));
             }
 
@@ -1035,7 +1036,7 @@ namespace Jint.Native.Object
                 value = Undefined;
                 return false;
             }
-            
+
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
@@ -1073,7 +1074,8 @@ namespace Jint.Native.Object
                 return callable;
             }
 
-            return ExceptionHelper.ThrowTypeError<ICallable>(_engine, "Argument must be callable");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "Argument must be callable");
+            return null;
         }
 
         internal bool IsConcatSpreadable
@@ -1169,7 +1171,7 @@ namespace Jint.Native.Object
             var newDesc = new PropertyDescriptor(v, PropertyFlag.NonEnumerable);
             return DefineOwnProperty(p, newDesc);
         }
-        
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-createdatapropertyorthrow
         /// </summary>
@@ -1186,7 +1188,7 @@ namespace Jint.Native.Object
         {
             if (!CreateDataProperty(p, v))
             {
-                ExceptionHelper.ThrowTypeError(_engine);
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             return true;
@@ -1206,7 +1208,12 @@ namespace Jint.Native.Object
                 return null;
             }
 
-            return jsValue as ICallable ?? ExceptionHelper.ThrowTypeError<ICallable>(engine, "Value returned for property '" + p + "' of object is not a function");
+            var callable = jsValue as ICallable;
+            if (callable is null)
+            {
+                ExceptionHelper.ThrowTypeError(engine.Realm, "Value returned for property '" + p + "' of object is not a function");
+            }
+            return callable;
         }
 
         internal void CopyDataProperties(
@@ -1232,7 +1239,7 @@ namespace Jint.Native.Object
         {
             var ownKeys = GetOwnPropertyKeys(Types.String);
 
-            var array = Engine.Array.ConstructFast((uint) ownKeys.Count);
+            var array = Engine.Realm.Intrinsics.Array.ConstructFast((uint) ownKeys.Count);
             uint index = 0;
 
             for (var i = 0; i < ownKeys.Count; i++)
@@ -1243,7 +1250,7 @@ namespace Jint.Native.Object
                 {
                     continue;
                 }
-                
+
                 var desc = GetOwnProperty(property);
                 if (desc != PropertyDescriptor.Undefined && desc.Enumerable)
                 {
@@ -1260,7 +1267,7 @@ namespace Jint.Native.Object
                         }
                         else
                         {
-                            var objectInstance = _engine.Array.ConstructFast(2);
+                            var objectInstance = _engine.Realm.Intrinsics.Array.ConstructFast(2);
                             objectInstance.SetIndexValue(0,  property, updateLength: false);
                             objectInstance.SetIndexValue(1, value, updateLength: false);
                             array.SetIndexValue(index, objectInstance, updateLength: false);
@@ -1284,13 +1291,18 @@ namespace Jint.Native.Object
 
         internal ObjectInstance AssertThisIsObjectInstance(JsValue value, string methodName)
         {
-            return value as ObjectInstance ?? ThrowIncompatibleReceiver<ObjectInstance>(value, methodName);
+            var instance = value as ObjectInstance;
+            if (instance is null)
+            {
+                ThrowIncompatibleReceiver(value, methodName);
+            }
+            return instance;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private T ThrowIncompatibleReceiver<T>(JsValue value, string methodName)
+        private void ThrowIncompatibleReceiver(JsValue value, string methodName)
         {
-            return ExceptionHelper.ThrowTypeError<T>(_engine, $"Method {methodName} called on incompatible receiver {value}");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, $"Method {methodName} called on incompatible receiver {value}");
         }
 
         public override bool Equals(JsValue obj)

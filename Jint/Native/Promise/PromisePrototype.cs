@@ -7,23 +7,18 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Promise
 {
-    internal sealed class PromisePrototype : ObjectInstance
+    internal sealed class PromisePrototype : Prototype
     {
-        private PromiseConstructor _promiseConstructor;
+        private readonly PromiseConstructor _constructor;
 
-        private PromisePrototype(Engine engine) : base(engine)
+        internal PromisePrototype(
+            Engine engine,
+            Realm realm,
+            PromiseConstructor constructor,
+            ObjectPrototype objectPrototype) : base(engine, realm)
         {
-        }
-
-        public static PromisePrototype CreatePrototypeObject(Engine engine, PromiseConstructor promiseConstructor)
-        {
-            var obj = new PromisePrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _promiseConstructor = promiseConstructor
-            };
-
-            return obj;
+            _prototype = objectPrototype;
+            _constructor = constructor;
         }
 
         protected override void Initialize()
@@ -32,7 +27,7 @@ namespace Jint.Native.Promise
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
-                ["constructor"] = new(_promiseConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
                 ["then"] = new(new ClrFunctionInstance(Engine, "then", Then, 2, lengthFlags), propertyFlags),
                 ["catch"] = new(new ClrFunctionInstance(Engine, "catch", Catch, 1, lengthFlags), propertyFlags),
                 ["finally"] = new(new ClrFunctionInstance(Engine, "finally", Finally, 1, lengthFlags), propertyFlags)
@@ -59,11 +54,14 @@ namespace Jint.Native.Promise
         {
             // 1. Let promise be the this value.
             // 2. If IsPromise(promise) is false, throw a TypeError exception.
-            var promise = thisValue as PromiseInstance ?? ExceptionHelper.ThrowTypeError<PromiseInstance>(_engine,
-                "Method Promise.prototype.then called on incompatible receiver");
+            var promise = thisValue as PromiseInstance;
+            if (promise is null)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "Method Promise.prototype.then called on incompatible receiver");
+            }
 
             // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
-            var ctor = SpeciesConstructor(promise, _engine.Promise);
+            var ctor = SpeciesConstructor(promise, _realm.Intrinsics.Promise);
 
             // 4. Let resultCapability be ? NewPromiseCapability(C).
             var capability = PromiseConstructor.NewPromiseCapability(_engine, ctor as JsValue);
@@ -73,7 +71,7 @@ namespace Jint.Native.Promise
         }
 
         // https://tc39.es/ecma262/#sec-promise.prototype.catch
-        // 
+        //
         // When the catch method is called with argument onRejected,
         // the following steps are taken:
         //
@@ -87,12 +85,15 @@ namespace Jint.Native.Promise
         {
             // 1. Let promise be the this value.
             // 2. If Type(promise) is not Object, throw a TypeError exception.
-            var promise = thisValue as ObjectInstance ?? ExceptionHelper.ThrowTypeError<ObjectInstance>(_engine,
-                "this passed to Promise.prototype.finally is not an object");
+            var promise = thisValue as ObjectInstance;
+            if (promise is null)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "this passed to Promise.prototype.finally is not an object");
+            }
 
             // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
             // 4. Assert: IsConstructor(C) is true.
-            var ctor = SpeciesConstructor(promise, _engine.Promise);
+            var ctor = SpeciesConstructor(promise, _realm.Intrinsics.Promise);
 
             JsValue thenFinally;
             JsValue catchFinally;
@@ -126,7 +127,7 @@ namespace Jint.Native.Promise
                 var result = onFinally.Call(Undefined, Arguments.Empty);
 
                 // 7. Let promise be ? PromiseResolve(C, result).
-                var promise = _engine.Promise.Resolve(ctor as JsValue, new[] {result});
+                var promise = _realm.Intrinsics.Promise.Resolve(ctor as JsValue, new[] {result});
 
                 // 8. Let valueThunk be equivalent to a function that returns value.
                 var valueThunk = new ClrFunctionInstance(_engine, "", (_, _) => value);
@@ -145,7 +146,7 @@ namespace Jint.Native.Promise
                 var result = onFinally.Call(Undefined, Arguments.Empty);
 
                 // 7. Let promise be ? PromiseResolve(C, result).
-                var promise = _engine.Promise.Resolve(ctor as JsValue, new[] {result});
+                var promise = _realm.Intrinsics.Promise.Resolve(ctor as JsValue, new[] {result});
 
                 // 8. Let thrower be equivalent to a function that throws reason.
                 var thrower = new ClrFunctionInstance(_engine, "", (_, _) => throw new JavaScriptException(reason));

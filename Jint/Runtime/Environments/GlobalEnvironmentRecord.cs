@@ -9,16 +9,16 @@ using Jint.Runtime.Descriptors;
 namespace Jint.Runtime.Environments
 {
     /// <summary>
-    ///     http://www.ecma-international.org/ecma-262/6.0/#sec-global-environment-records
+    /// https://tc39.es/ecma262/#sec-global-environment-records
     /// </summary>
-    internal sealed class GlobalEnvironmentRecord : EnvironmentRecord
+    public sealed class GlobalEnvironmentRecord : EnvironmentRecord
     {
-        private readonly GlobalObject _global;
+        private readonly ObjectInstance _global;
         private readonly DeclarativeEnvironmentRecord _declarativeRecord;
         private readonly ObjectEnvironmentRecord _objectRecord;
         private readonly HashSet<string> _varNames = new HashSet<string>();
 
-        public GlobalEnvironmentRecord(Engine engine, GlobalObject global) : base(engine)
+        public GlobalEnvironmentRecord(Engine engine, ObjectInstance global) : base(engine)
         {
             _global = global;
             _objectRecord = new ObjectEnvironmentRecord(engine, global, provideThis: false, withEnvironment: false);
@@ -58,7 +58,7 @@ namespace Jint.Runtime.Environments
 
             return TryGetBindingForGlobalParent(name, out value, property);
         }
-        
+
         [MethodImpl(MethodImplOptions.NoInlining)]
         private bool TryGetBindingForGlobalParent(
             in BindingName name,
@@ -89,7 +89,7 @@ namespace Jint.Runtime.Environments
         {
             if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
             {
-                ExceptionHelper.ThrowTypeError(_engine, name + " has already been declared");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, name + " has already been declared");
             }
 
             _declarativeRecord.CreateMutableBinding(name, canBeDeleted);
@@ -99,7 +99,7 @@ namespace Jint.Runtime.Environments
         {
             if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
             {
-                ExceptionHelper.ThrowTypeError(_engine, name + " has already been declared");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, name + " has already been declared");
             }
 
             _declarativeRecord.CreateImmutableBinding(name, strict);
@@ -115,7 +115,7 @@ namespace Jint.Runtime.Environments
             {
                 if (!_global.Set(name, value))
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
             }
         }
@@ -129,10 +129,10 @@ namespace Jint.Runtime.Environments
             else
             {
                 // fast inlined path as we know we target global, otherwise would be
-                // _objectRecord.SetMutableBinding(name, value, strict); 
+                // _objectRecord.SetMutableBinding(name, value, strict);
                 if (!_global.Set(name, value) && strict)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
             }
         }
@@ -145,11 +145,17 @@ namespace Jint.Runtime.Environments
             }
             else
             {
-                // fast inlined path as we know we target global, otherwise would be
-                // _objectRecord.SetMutableBinding(name, value, strict); 
-                if (!_global.Set(name.Key, value) && strict)
+                if (_global is GlobalObject globalObject)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine);
+                    // fast inlined path as we know we target global
+                    if (!globalObject.Set(name.Key, value) && strict)
+                    {
+                        ExceptionHelper.ThrowTypeError(_engine.Realm);
+                    }
+                }
+                else
+                {
+                    _objectRecord.SetMutableBinding(name, value ,strict);
                 }
             }
         }
@@ -235,7 +241,7 @@ namespace Jint.Runtime.Environments
 
         public bool CanDeclareGlobalFunction(string name)
         {
-            if (!_global._properties.TryGetValue(name, out var existingProp) 
+            if (!_global._properties.TryGetValue(name, out var existingProp)
                 || existingProp == PropertyDescriptor.Undefined)
             {
                 return _global.Extensible;

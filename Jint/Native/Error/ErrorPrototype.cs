@@ -11,39 +11,30 @@ namespace Jint.Native.Error
     /// </summary>
     public sealed class ErrorPrototype : ErrorInstance
     {
-        private ErrorConstructor _errorConstructor;
+        private readonly Realm _realm;
+        private readonly ErrorConstructor _constructor;
 
-        private ErrorPrototype(Engine engine, JsString name)
-            : base(engine, name)
+        internal ErrorPrototype(
+            Engine engine,
+            Realm realm,
+            ErrorConstructor constructor,
+            ObjectInstance prototype,
+            JsString name,
+            ObjectClass objectClass)
+            : base(engine, name, objectClass)
         {
-        }
-
-        public static ErrorPrototype CreatePrototypeObject(Engine engine, ErrorConstructor errorConstructor, JsString name)
-        {
-            var obj = new ErrorPrototype(engine, name)
-            {
-                _errorConstructor = errorConstructor,
-            };
-
-            if (name._value != "Error")
-            {
-                obj._prototype = engine.Error.PrototypeObject;
-            }
-            else
-            {
-                obj._prototype = engine.Object.PrototypeObject;
-            }
-
-            return obj;
+            _realm = realm;
+            _constructor = constructor;
+            _prototype = prototype;
         }
 
         protected override void Initialize()
         {
             var properties = new PropertyDictionary(3, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(_errorConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
                 ["message"] = new PropertyDescriptor("", PropertyFlag.Configurable | PropertyFlag.Writable),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString), PropertyFlag.Configurable | PropertyFlag.Writable)
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), PropertyFlag.Configurable | PropertyFlag.Writable)
             };
             SetProperties(properties);
         }
@@ -53,7 +44,7 @@ namespace Jint.Native.Error
             var o = thisObject.TryCast<ObjectInstance>();
             if (ReferenceEquals(o, null))
             {
-                ExceptionHelper.ThrowTypeError(Engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var name = TypeConverter.ToString(o.Get("name", this));

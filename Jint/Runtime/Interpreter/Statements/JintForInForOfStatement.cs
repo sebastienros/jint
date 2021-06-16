@@ -29,7 +29,7 @@ namespace Jint.Runtime.Interpreter.Statements
         private LhsKind _lhsKind;
 
         public JintForInForOfStatement(
-            Engine engine, 
+            Engine engine,
             ForInStatement statement) : base(engine, statement)
         {
             _initialized = false;
@@ -55,7 +55,7 @@ namespace Jint.Runtime.Interpreter.Statements
             _lhsKind = LhsKind.Assignment;
             if (_leftNode is VariableDeclaration variableDeclaration)
             {
-                _lhsKind = variableDeclaration.Kind == VariableDeclarationKind.Var 
+                _lhsKind = variableDeclaration.Kind == VariableDeclarationKind.Var
                     ? LhsKind.VarBinding
                     : LhsKind.LexicalBinding;
 
@@ -135,12 +135,12 @@ namespace Jint.Runtime.Interpreter.Statements
                     return false;
                 }
 
-                var obj = TypeConverter.ToObject(_engine, exprValue);
+                var obj = TypeConverter.ToObject(_engine.Realm, exprValue);
                 result = EnumeratorObjectProperties(obj);
             }
             else
             {
-                result = exprValue as IIterator ?? exprValue.GetIterator(_engine);
+                result = exprValue as IIterator ?? exprValue.GetIterator(_engine.Realm);
             }
 
             return true;
@@ -151,7 +151,7 @@ namespace Jint.Runtime.Interpreter.Statements
         /// </summary>
         private Completion BodyEvaluation(
             JintExpression lhs,
-            JintStatement stmt, 
+            JintStatement stmt,
             IIterator iteratorRecord,
             IterationKind iterationKind,
             LhsKind lhsKind,
@@ -241,13 +241,13 @@ namespace Jint.Runtime.Interpreter.Statements
                         }
                         else
                         {
-                            // BindingInitialization for lhs passing nextValue and iterationEnv as arguments                            
+                            // BindingInitialization for lhs passing nextValue and iterationEnv as arguments
                         }
                     }
 
                     var result = stmt.Execute();
                     _engine.UpdateLexicalEnvironment(oldEnv);
-                    
+
                     if (!ReferenceEquals(result.Value, null))
                     {
                         v = result.Value;
@@ -317,7 +317,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         private enum LhsKind
         {
-            Assignment, 
+            Assignment,
             VarBinding,
             LexicalBinding
         }

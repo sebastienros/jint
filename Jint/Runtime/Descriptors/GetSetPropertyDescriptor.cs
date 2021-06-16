@@ -35,7 +35,7 @@ namespace Jint.Runtime.Descriptors
         {
             _get = getter;
         }
-        
+
         internal void SetSet(JsValue setter)
         {
             _set = setter;
@@ -46,7 +46,7 @@ namespace Jint.Runtime.Descriptors
             private readonly Engine _engine;
             private readonly string _message;
             private JsValue _thrower;
-            
+
             public ThrowerPropertyDescriptor(Engine engine, PropertyFlag flags, string message)
                 : base(flags)
             {
@@ -54,8 +54,8 @@ namespace Jint.Runtime.Descriptors
                 _message = message;
             }
 
-            public override JsValue Get => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
-            public override JsValue Set => _thrower ??= new ThrowTypeError(_engine, _message) { _prototype = _engine.Function.PrototypeObject};
+            public override JsValue Get => _thrower ??= new ThrowTypeError(_engine, _engine.Realm, _message) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject};
+            public override JsValue Set => _thrower ??= new ThrowTypeError(_engine, _engine.Realm, _message) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject};
 
             protected internal override JsValue CustomValue
             {

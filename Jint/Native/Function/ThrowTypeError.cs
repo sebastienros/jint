@@ -9,18 +9,22 @@ namespace Jint.Native.Function
 
         private readonly string _message;
 
-        public ThrowTypeError(Engine engine, string message = null)
-            : base(engine, _functionName)
+        public ThrowTypeError(
+            Engine engine,
+            Realm realm,
+            string message = null)
+            : base(engine, realm, _functionName)
         {
             _message = message;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
-            _environment = engine.GlobalEnvironment;
+            _environment = realm.GlobalEnv;
             PreventExtensions();
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            return ExceptionHelper.ThrowTypeError<JsValue>(_engine, _message);
+            ExceptionHelper.ThrowTypeError(_realm, _message);
+            return null;
         }
     }
 }

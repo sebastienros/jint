@@ -21,22 +21,19 @@ namespace Jint.Native.Date
         private const double MinMonth = -10000000.0;
         private const double MaxMonth = -MinMonth;
 
-        private DateConstructor _dateConstructor;
+        private readonly Realm _realm;
+        private readonly DateConstructor _constructor;
 
-        private DatePrototype(Engine engine)
+        internal DatePrototype(
+            Engine engine,
+            Realm realm,
+            DateConstructor constructor,
+            ObjectPrototype objectPrototype)
             : base(engine)
         {
-        }
-
-        public static DatePrototype CreatePrototypeObject(Engine engine, DateConstructor dateConstructor)
-        {
-            var obj = new DatePrototype(engine)
-            {
-                _prototype = engine.Object.PrototypeObject,
-                _dateConstructor = dateConstructor
-            };
-
-            return obj;
+            _prototype = objectPrototype;
+            _realm = realm;
+            _constructor = constructor;
         }
 
         protected override  void Initialize()
@@ -46,7 +43,7 @@ namespace Jint.Native.Date
 
             var properties = new PropertyDictionary(50, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(_dateConstructor, PropertyFlag.NonEnumerable),
+                ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
                 ["toDateString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toDateString", ToDateString, 0, lengthFlags), propertyFlags),
                 ["toTimeString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toTimeString", ToTimeString, 0, lengthFlags), propertyFlags),
@@ -104,15 +101,16 @@ namespace Jint.Native.Date
 
         private JsValue ToPrimitive(JsValue thisObject, JsValue[] arguments)
         {
-            if (!(thisObject is ObjectInstance oi))
+            var oi = thisObject as ObjectInstance;
+            if (oi is null)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var hint = arguments.At(0);
             if (!hint.IsString())
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             var hintString = hint.ToString();
@@ -127,7 +125,7 @@ namespace Jint.Native.Date
             }
             else
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(_engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             return TypeConverter.OrdinaryToPrimitive(oi, tryFirst);
@@ -144,8 +142,13 @@ namespace Jint.Native.Date
         /// </summary>
         private DateInstance EnsureDateInstance(JsValue thisObj)
         {
-            return thisObj as DateInstance
-                   ?? ExceptionHelper.ThrowTypeError<DateInstance>(_engine, "this is not a Date object");
+            if (thisObj is DateInstance dateInstance)
+            {
+                return dateInstance;
+            }
+
+            ExceptionHelper.ThrowTypeError(_realm, "this is not a Date object");
+            return null;
         }
 
         public JsValue ToString(JsValue thisObj, JsValue[] arg2)
@@ -661,7 +664,7 @@ namespace Jint.Native.Date
             var t = thisTime.PrimitiveValue;
             if (!IsFinite(t))
             {
-                ExceptionHelper.ThrowRangeError(_engine);
+                ExceptionHelper.ThrowRangeError(_realm);
             }
 
             if (thisTime.DateTimeRangeValid)
@@ -686,7 +689,7 @@ namespace Jint.Native.Date
 
         private JsValue ToJSON(JsValue thisObj, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(Engine, thisObj);
+            var o = TypeConverter.ToObject(_realm, thisObj);
             var tv = TypeConverter.ToPrimitive(o, Types.Number);
             if (tv.IsNumber() && !IsFinite(((JsNumber) tv)._value))
             {
@@ -694,9 +697,10 @@ namespace Jint.Native.Date
             }
 
             var toIso = o.Get("toISOString", o);
-            if (!(toIso is ICallable callable))
+            var callable = toIso as ICallable;
+            if (callable is null)
             {
-                return ExceptionHelper.ThrowTypeError<JsValue>(Engine);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
 
             return callable.Call(o, Arguments.Empty);
@@ -806,7 +810,8 @@ namespace Jint.Native.Date
                 return 1;
             }
 
-            return ExceptionHelper.ThrowArgumentException<int>();
+            ExceptionHelper.ThrowArgumentException();
+            return 0;
         }
 
         /// <summary>
