@@ -344,9 +344,9 @@ namespace Jint.Runtime.Environments
                     _engine.LeaveExecutionContext();
                 }
 
-                if (idLeft != null && right.IsFunctionWithName())
+                if (idLeft != null && right.IsAnonymousFunctionDefinition())
                 {
-                    ((FunctionInstance) argument).SetFunctionName(idLeft.Name);
+                    ((FunctionInstance) argument).SetFunctionName(idLeft.Name, force: true);
                 }
             }
 

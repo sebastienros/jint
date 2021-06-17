@@ -220,7 +220,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     var rval = right.GetValue().Clone();
 
-                    if (right._expression.IsFunctionWithName())
+                    if (right._expression.IsAnonymousFunctionDefinition())
                     {
                         ((FunctionInstance) rval).SetFunctionName(left._expressionName.StringValue);
                     }

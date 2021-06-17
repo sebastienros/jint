@@ -67,6 +67,22 @@ namespace Jint
                    || type == Nodes.ClassExpression;
         }
 
+        internal static bool IsAnonymousFunctionDefinition<T>(this T node) where T : Node
+        {
+            var type = node.Type;
+            if (type == Nodes.ArrowFunctionExpression || type == Nodes.ArrowParameterPlaceHolder)
+            {
+                return true;
+            }
+            
+            if (node is FunctionExpression functionExpression)
+            {
+                return string.IsNullOrWhiteSpace(functionExpression.Id?.Name);
+            }
+
+            return false;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool IsOptional<T>(this T node) where T : Expression
         {

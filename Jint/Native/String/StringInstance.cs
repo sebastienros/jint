@@ -86,10 +86,9 @@ namespace Jint.Native.String
                 keys.Add(JsString.Create(i));
             }
 
-            keys.AddRange(base.GetOwnPropertyKeys(types));
-            keys.Sort((v1, v2) => TypeConverter.ToNumber(v1).CompareTo(TypeConverter.ToNumber(v2)));
-
             keys.Add(JsString.LengthString);
+            keys.AddRange(base.GetOwnPropertyKeys(Types.String));
+            keys.AddRange(base.GetOwnPropertyKeys(Types.Symbol));
 
             return keys;
         }
