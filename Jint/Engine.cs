@@ -683,7 +683,7 @@ namespace Jint
         /// <summary>
         /// Gets the last evaluated <see cref="Node"/>.
         /// </summary>
-        internal Node GetLastSyntaxNode()
+        public Node GetLastSyntaxNode()
         {
             return _lastSyntaxNode;
         }
