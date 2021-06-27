@@ -42,6 +42,23 @@ namespace Jint.Runtime
             _callStack = value;
             if (Error.IsObject())
             {
+                if (!Error.AsObject().HasOwnProperty(CommonProperties.OriginalStack))
+                {
+                    // Store the original stack if this is the first throw only
+                    Error.AsObject()
+                        .FastAddProperty(CommonProperties.OriginalStack, new JsString(value), false, false,false);
+                }
+                if (Error.AsObject().HasOwnProperty(CommonProperties.Stack))
+                {
+                    // If the stack property has been set previously, write the new one together with the original one.
+                    string dividerString = "\nRethrown from:";
+                    bool previousRethrow = Error.AsObject().Get(CommonProperties.Stack).AsString()
+                        .Contains(dividerString);
+                    string dividerSuffix = previousRethrow
+                        ? " (multiple rethrows, showing origin)\n"
+                        : "\n";
+                    value = value + dividerString + dividerSuffix + Error.AsObject().Get(CommonProperties.OriginalStack).AsString();
+                }
                 Error.AsObject()
                     .FastAddProperty(CommonProperties.Stack, new JsString(value), false, false, false);
             }
