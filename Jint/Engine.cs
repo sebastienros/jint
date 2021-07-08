@@ -16,6 +16,7 @@ using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
@@ -40,42 +41,20 @@ namespace Jint
         private DebugHandler _debugHandler;
 
         // cached access
-        private readonly List<IConstraint> _constraints;
+        internal readonly IObjectConverter[] _objectConverters;
+        private readonly IConstraint[] _constraints;
         internal readonly bool _isDebugMode;
         internal readonly bool _isStrict;
         internal readonly IReferenceResolver _referenceResolver;
         internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
+        internal readonly ExtensionMethodCache _extensionMethods;
 
         public ITypeConverter ClrTypeConverter { get; internal set; }
 
         // cache of types used when resolving CLR type names
         internal readonly Dictionary<string, Type> TypeCache = new();
-
-        internal static Dictionary<Type, Func<Engine, object, JsValue>> TypeMappers = new()
-        {
-            {typeof(bool), (engine, v) => (bool) v ? JsBoolean.True : JsBoolean.False},
-            {typeof(byte), (engine, v) => JsNumber.Create((byte) v)},
-            {typeof(char), (engine, v) => JsString.Create((char) v)},
-            {typeof(DateTime), (engine, v) => engine.Realm.Intrinsics.Date.Construct((DateTime) v)},
-            {typeof(DateTimeOffset), (engine, v) => engine.Realm.Intrinsics.Date.Construct((DateTimeOffset) v)},
-            {typeof(decimal), (engine, v) => (JsValue) (double) (decimal) v},
-            {typeof(double), (engine, v) => (JsValue) (double) v},
-            {typeof(Int16), (engine, v) => JsNumber.Create((Int16) v)},
-            {typeof(Int32), (engine, v) => JsNumber.Create((Int32) v)},
-            {typeof(Int64), (engine, v) => (JsValue) (Int64) v},
-            {typeof(SByte), (engine, v) => JsNumber.Create((SByte) v)},
-            {typeof(Single), (engine, v) => (JsValue) (Single) v},
-            {typeof(string), (engine, v) => JsString.Create((string) v)},
-            {typeof(UInt16), (engine, v) => JsNumber.Create((UInt16) v)},
-            {typeof(UInt32), (engine, v) => JsNumber.Create((UInt32) v)},
-            {typeof(UInt64), (engine, v) => JsNumber.Create((UInt64) v)},
-            {
-                typeof(System.Text.RegularExpressions.Regex),
-                (engine, v) => engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex) v, "")
-            }
-        };
 
         // shared frozen version
         internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerConfigurable;
@@ -130,11 +109,17 @@ namespace Jint
             Reset();
 
             // gather some options as fields for faster checks
-            _isDebugMode = Options.IsDebugMode;
-            _isStrict = Options.IsStrict;
-            _constraints = Options._Constraints;
+            _isDebugMode = Options.Debugger.Enabled;
+            _isStrict = Options.Strict;
+
+            _objectConverters = Options.Interop.ObjectConverters.Count > 0
+                ? Options.Interop.ObjectConverters.ToArray()
+                : null;
+
+            _constraints = Options.Constraints.Constraints.ToArray();
             _referenceResolver = Options.ReferenceResolver;
-            CallStack = new JintCallStack(Options.MaxRecursionDepth >= 0);
+            _extensionMethods = ExtensionMethodCache.Build(Options.Interop.ExtensionMethodTypes);
+            CallStack = new JintCallStack(Options.Constraints.MaxRecursionDepth >= 0);
 
             _referencePool = new ReferencePool();
             _argumentsInstancePool = new ArgumentsInstancePool(this);
@@ -145,7 +130,7 @@ namespace Jint
 
         private void Reset()
         {
-            _host = Options._hostFactory(this);
+            _host = Options.Host.Factory(this);
             _host.Initialize(this);
         }
 
@@ -249,9 +234,9 @@ namespace Jint
         /// </summary>
         public void ResetConstraints()
         {
-            for (var i = 0; i < _constraints.Count; i++)
+            foreach (var constraint in _constraints)
             {
-                _constraints[i].Reset();
+                constraint.Reset();
             }
         }
 
@@ -381,9 +366,9 @@ namespace Jint
         internal void RunBeforeExecuteStatementChecks(Statement statement)
         {
             // Avoid allocating the enumerator because we run this loop very often.
-            for (var i = 0; i < _constraints.Count; i++)
+            foreach (var constraint in _constraints)
             {
-                _constraints[i].Check();
+                constraint.Check();
             }
 
             if (_isDebugMode)
@@ -1249,7 +1234,7 @@ namespace Jint
             var callStackElement = new CallStackElement(functionInstance, expression, ExecutionContext);
             var recursionDepth = CallStack.Push(callStackElement);
 
-            if (recursionDepth > Options.MaxRecursionDepth)
+            if (recursionDepth > Options.Constraints.MaxRecursionDepth)
             {
                 // pop the current element as it was never reached
                 CallStack.Pop();
@@ -1272,7 +1257,7 @@ namespace Jint
             var callStackElement = new CallStackElement(functionInstance, expression, ExecutionContext);
             var recursionDepth = CallStack.Push(callStackElement);
 
-            if (recursionDepth > Options.MaxRecursionDepth)
+            if (recursionDepth > Options.Constraints.MaxRecursionDepth)
             {
                 // pop the current element as it was never reached
                 CallStack.Pop();

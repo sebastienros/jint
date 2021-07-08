@@ -158,7 +158,7 @@ namespace Jint.Native.Date
             if (double.IsNaN(dateInstance.PrimitiveValue))
                 return "Invalid Date";
 
-            var t = ToLocalTime(dateInstance.ToDateTime(), Engine.Options._LocalTimeZone);
+            var t = ToLocalTime(dateInstance.ToDateTime(), Engine.Options.TimeZone);
             return t.ToString("ddd MMM dd yyyy HH:mm:ss ", CultureInfo.InvariantCulture) + TimeZoneString(t);
         }
 
@@ -169,7 +169,7 @@ namespace Jint.Native.Date
             if (double.IsNaN(dateInstance.PrimitiveValue))
                 return "Invalid Date";
 
-            return ToLocalTime(dateInstance.ToDateTime(), Engine.Options._LocalTimeZone).ToString("ddd MMM dd yyyy", CultureInfo.InvariantCulture);
+            return ToLocalTime(dateInstance.ToDateTime(), Engine.Options.TimeZone).ToString("ddd MMM dd yyyy", CultureInfo.InvariantCulture);
         }
 
         private JsValue ToTimeString(JsValue thisObj, JsValue[] arguments)
@@ -179,7 +179,7 @@ namespace Jint.Native.Date
             if (double.IsNaN(dateInstance.PrimitiveValue))
                 return "Invalid Date";
 
-            var t = ToLocalTime(dateInstance.ToDateTime(), Engine.Options._LocalTimeZone);
+            var t = ToLocalTime(dateInstance.ToDateTime(), Engine.Options.TimeZone);
 
             var timeString = t.ToString("HH:mm:ss ", CultureInfo.InvariantCulture);
             var timeZoneString = TimeZoneString(t);
@@ -198,7 +198,7 @@ namespace Jint.Native.Date
             if (double.IsNaN(dateInstance.PrimitiveValue))
                 return "Invalid Date";
 
-            return ToLocalTime(dateInstance.ToDateTime(), Engine.Options._LocalTimeZone).ToString("F", Engine.Options._Culture);
+            return ToLocalTime(dateInstance.ToDateTime(), Engine.Options.TimeZone).ToString("F", Engine.Options.Culture);
         }
 
         private JsValue ToLocaleDateString(JsValue thisObj, JsValue[] arguments)
@@ -208,7 +208,7 @@ namespace Jint.Native.Date
             if (double.IsNaN(dateInstance.PrimitiveValue))
                 return "Invalid Date";
 
-            return ToLocalTime(dateInstance.ToDateTime(), Engine.Options._LocalTimeZone).ToString("D", Engine.Options._Culture);
+            return ToLocalTime(dateInstance.ToDateTime(), Engine.Options.TimeZone).ToString("D", Engine.Options.Culture);
         }
 
         private JsValue ToLocaleTimeString(JsValue thisObj, JsValue[] arguments)
@@ -218,7 +218,7 @@ namespace Jint.Native.Date
             if (double.IsNaN(dateInstance.PrimitiveValue))
                 return "Invalid Date";
 
-            return ToLocalTime(dateInstance.ToDateTime(), Engine.Options._LocalTimeZone).ToString("T", Engine.Options._Culture);
+            return ToLocalTime(dateInstance.ToDateTime(), Engine.Options.TimeZone).ToString("T", Engine.Options.Culture);
         }
 
         private JsValue GetTime(JsValue thisObj, JsValue[] arguments)
@@ -968,7 +968,7 @@ namespace Jint.Native.Date
             return (Day(t) + 4)%7;
         }
 
-        public long LocalTza => (long) Engine.Options._LocalTimeZone.BaseUtcOffset.TotalMilliseconds;
+        public long LocalTza => (long) Engine.Options.TimeZone.BaseUtcOffset.TotalMilliseconds;
 
         public double DaylightSavingTa(double t)
         {
@@ -998,7 +998,7 @@ namespace Jint.Native.Date
 
             var dateTime = new DateTime(year, 1, 1).AddMilliseconds(timeInYear);
 
-            return Engine.Options._LocalTimeZone.IsDaylightSavingTime(dateTime) ? MsPerHour : 0;
+            return Engine.Options.TimeZone.IsDaylightSavingTime(dateTime) ? MsPerHour : 0;
         }
 
         private static DateTimeOffset ToLocalTime(DateTime t, TimeZoneInfo timeZone)

@@ -142,7 +142,7 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            if (engine.Options._extensionMethods.TryGetExtensionMethods(type, out var extensionMethods))
+            if (engine._extensionMethods.TryGetExtensionMethods(type, out var extensionMethods))
             {
                 var matches = new List<MethodInfo>();
                 foreach (var method in extensionMethods)

@@ -55,10 +55,10 @@ namespace Jint.Runtime.Interop
                 if (_properties is null || !_properties.ContainsKey(member))
                 {
                     // can try utilize fast path
-                    var accessor = _engine.Options._TypeResolver.GetAccessor(_engine, Target.GetType(), member);
+                    var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, Target.GetType(), member);
 
                     // CanPut logic
-                    if (!accessor.Writable || !_engine.Options._IsClrWriteAllowed)
+                    if (!accessor.Writable || !_engine.Options.Interop.AllowWrite)
                     {
                         return false;
                     }
@@ -106,7 +106,7 @@ namespace Jint.Runtime.Interop
             if (property is JsString stringKey)
             {
                 var member = stringKey.ToString();
-                var result = Engine.Options._MemberAccessor?.Invoke(Engine, Target, member);
+                var result = Engine.Options.Interop.MemberAccessor?.Invoke(Engine, Target, member);
                 if (result is not null)
                 {
                     return result;
@@ -115,7 +115,7 @@ namespace Jint.Runtime.Interop
                 if (_properties is null || !_properties.ContainsKey(member))
                 {
                     // can try utilize fast path
-                    var accessor = _engine.Options._TypeResolver.GetAccessor(_engine, Target.GetType(), member);
+                    var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, Target.GetType(), member);
                     var value = accessor.GetValue(_engine, Target);
                     if (value is not null)
                     {
@@ -226,13 +226,13 @@ namespace Jint.Runtime.Interop
             }
 
             var member = property.ToString();
-            var result = Engine.Options._MemberAccessor?.Invoke(Engine, Target, member);
+            var result = Engine.Options.Interop.MemberAccessor?.Invoke(Engine, Target, member);
             if (result is not null)
             {
                 return new PropertyDescriptor(result, PropertyFlag.OnlyEnumerable);
             }
 
-            var accessor = _engine.Options._TypeResolver.GetAccessor(_engine, Target.GetType(), member);
+            var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, Target.GetType(), member);
             var descriptor = accessor.CreatePropertyDescriptor(_engine, Target);
             SetProperty(member, descriptor);
             return descriptor;
@@ -252,7 +252,7 @@ namespace Jint.Runtime.Interop
                     _ => null
                 };
             }
-            return engine.Options._TypeResolver.GetAccessor(engine, target.GetType(), member.Name, Factory).CreatePropertyDescriptor(engine, target);
+            return engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, Factory).CreatePropertyDescriptor(engine, target);
         }
 
         public override bool Equals(JsValue obj)

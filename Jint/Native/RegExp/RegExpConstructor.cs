@@ -108,7 +108,7 @@ namespace Jint.Native.RegExp
                 // seems valid
                 r.Value = scanner.TestRegExp(p, f);
 
-                var timeout = _engine.Options._RegexTimeoutInterval;
+                var timeout = _engine.Options.Constraints.RegexTimeout;
                 if (timeout.Ticks > 0)
                 {
                     r.Value = r.Value != null ? new Regex(r.Value.ToString(), r.Value.Options, timeout) : null;
@@ -144,7 +144,7 @@ namespace Jint.Native.RegExp
             r.Flags = flags;
             r.Source = regExp?.ToString();
 
-            var timeout = _engine.Options._RegexTimeoutInterval;
+            var timeout = _engine.Options.Constraints.RegexTimeout;
             if (timeout.Ticks > 0)
             {
                 r.Value = regExp != null ? new Regex(regExp.ToString(), regExp.Options, timeout) : null;

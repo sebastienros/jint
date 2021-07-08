@@ -791,7 +791,7 @@ namespace Jint.Runtime
             Node sourceNode,
             string referenceName)
         {
-            if (!engine.Options.ReferenceResolver.CheckCoercible(o))
+            if (!engine._referenceResolver.CheckCoercible(o))
             {
                 ThrowMemberNullOrUndefinedError(engine, o, sourceNode, referenceName);
             }

@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using Jint.Native.Array;
 using Jint.Native.Date;
 using Jint.Native.Iterator;
@@ -13,8 +11,6 @@ using Jint.Native.Promise;
 using Jint.Native.RegExp;
 using Jint.Native.Symbol;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native
 {
@@ -292,7 +288,7 @@ namespace Jint.Native
         /// </summary>
         public static JsValue FromObject(Engine engine, object value)
         {
-            if (value == null)
+            if (value is null)
             {
                 return Null;
             }
@@ -302,81 +298,23 @@ namespace Jint.Native
                 return jsValue;
             }
 
-            var converters = engine.Options._ObjectConverters;
-            var convertersCount = converters.Count;
-            for (var i = 0; i < convertersCount; i++)
+            if (engine._objectConverters != null)
             {
-                var converter = converters[i];
-                if (converter.TryConvert(engine, value, out var result))
+                foreach (var converter in engine._objectConverters)
                 {
-                    return result;
+                    if (converter.TryConvert(engine, value, out var result))
+                    {
+                        return result;
+                    }
                 }
             }
 
-            var valueType = value.GetType();
-
-            var typeMappers = Engine.TypeMappers;
-
-            if (typeMappers.TryGetValue(valueType, out var typeMapper))
+            if (DefaultObjectConverter.TryConvert(engine, value, out var defaultConversion))
             {
-                return typeMapper(engine, value);
+                return defaultConversion;
             }
 
-            if (value is System.Array a)
-            {
-                // racy, we don't care, worst case we'll catch up later
-                Interlocked.CompareExchange(ref Engine.TypeMappers,
-                    new Dictionary<Type, Func<Engine, object, JsValue>>(typeMappers)
-                    {
-                        [valueType] = Convert
-                    }, typeMappers);
-
-                return Convert(engine, a);
-            }
-
-            if (value is Delegate d)
-            {
-                return new DelegateWrapper(engine, d);
-            }
-
-            Type t = value.GetType();
-            if (t.IsEnum)
-            {
-                Type ut = Enum.GetUnderlyingType(t);
-
-                if (ut == typeof(ulong))
-                    return JsNumber.Create(System.Convert.ToDouble(value));
-
-                if (ut == typeof(uint) || ut == typeof(long))
-                    return JsNumber.Create(System.Convert.ToInt64(value));
-
-                return JsNumber.Create(System.Convert.ToInt32(value));
-            }
-
-            // if no known type could be guessed, wrap it as an ObjectInstance
-            var h = engine.Options._WrapObjectHandler;
-            var o = h?.Invoke(engine, value) ?? new ObjectWrapper(engine, value);
-            return o;
-        }
-
-        private static JsValue Convert(Engine e, object v)
-        {
-            var array = (System.Array) v;
-            var arrayLength = (uint) array.Length;
-
-            var jsArray = new ArrayInstance(e, arrayLength);
-            jsArray._prototype = e.Realm.Intrinsics.Array.PrototypeObject;
-
-            for (uint i = 0; i < arrayLength; ++i)
-            {
-                var jsItem = FromObject(e, array.GetValue(i));
-                jsArray.WriteArrayValue(i, new PropertyDescriptor(jsItem, PropertyFlag.ConfigurableEnumerableWritable));
-            }
-
-            jsArray.SetOwnProperty(CommonProperties.Length,
-                new PropertyDescriptor(arrayLength, PropertyFlag.OnlyWritable));
-
-            return jsArray;
+            return null;
         }
 
         /// <summary>
