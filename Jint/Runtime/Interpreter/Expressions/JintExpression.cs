@@ -411,8 +411,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override void ProcessItem(JsValue[] args, JsValue currentValue)
             {
-                var jsValue = ExtractValueFromIteratorInstance(currentValue);
-                _instance.Add(jsValue);
+                _instance.Add(currentValue);
             }
         }
 

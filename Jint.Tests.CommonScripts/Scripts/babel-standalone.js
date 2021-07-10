@@ -1,4 +1,6 @@
-﻿console = typeof console !== 'undefined' ? console : null;
+﻿/*** POLYFILLS ***/
+
+console = typeof console !== 'undefined' ? console : null;
 if (console) assert = console.assert
 
 if (!console) console = {
@@ -24,7 +26,11 @@ describe = (description, callback) => {
 }
 it = (description, callback) => {
     itContext = description;
-    callback();
+    try {
+      callback();
+    } catch(error) {
+      assert(false, "error in " + describeContext + " -> " + itContext + "\n" + error.message);
+    }
 }
 
 expect = (subject) => {
@@ -118820,5 +118826,4 @@ describe(
 }`);
       });
     });
-  },
-);
+});

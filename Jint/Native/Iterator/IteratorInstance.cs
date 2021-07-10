@@ -311,20 +311,11 @@ namespace Jint.Native.Iterator
             public override bool TryIteratorStep(out ObjectInstance nextItem)
             {
                 var length = _operations.GetLength();
-                if (!_closed && _position < (length + length))
+                if (!_closed && _position < length)
                 {
-                    var isKey = _position % 2 == 0;
-                    var index = _position / 2;
+                    _operations.TryGetValue(_position, out var value);
+                    nextItem = new KeyValueIteratorPosition(_engine, _position, value);
                     _position++;
-                    if (isKey)
-                    {
-                        nextItem = new ValueIteratorPosition(_engine, index);
-                    }
-                    else
-                    {
-                        _operations.TryGetValue(index, out var value);
-                        nextItem = new ValueIteratorPosition(_engine, value);
-                    }
                     return true;
                 }
 

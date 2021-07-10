@@ -186,17 +186,16 @@ namespace Jint.Native.Array
             protected override void ProcessItem(JsValue[] args, JsValue currentValue)
             {
                 _index++;
-                var sourceValue = ExtractValueFromIteratorInstance(currentValue);
                 JsValue jsValue;
                 if (!ReferenceEquals(_callable, null))
                 {
-                    args[0] = sourceValue;
+                    args[0] = currentValue;
                     args[1] = _index;
                     jsValue = _callable.Call(_thisArg, args);
                 }
                 else
                 {
-                    jsValue = sourceValue;
+                    jsValue = currentValue;
                 }
 
                 _instance.Set((uint) _index, jsValue, updateLength: false, throwOnError: true);

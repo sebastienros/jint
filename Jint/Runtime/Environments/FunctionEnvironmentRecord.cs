@@ -407,8 +407,7 @@ namespace Jint.Runtime.Environments
             protected override void ProcessItem(JsValue[] args, JsValue currentValue)
             {
                 _index++;
-                var jsValue = ExtractValueFromIteratorInstance(currentValue);
-                _instance.SetIndexValue((uint) _index, jsValue, updateLength: false);
+                _instance.SetIndexValue((uint) _index, currentValue, updateLength: false);
             }
 
             protected override bool ShouldContinue => _index < _max;

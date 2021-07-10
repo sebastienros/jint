@@ -138,9 +138,19 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ArrayFromShouldNotFlattenInputArray()
+        {
+            Assert.Equal("0,a;1,b", _engine.Evaluate("[...['a', 'b'].entries()].join(';')"));
+            Assert.Equal("0,c;1,d", _engine.Evaluate("Array.from(['c', 'd'].entries()).join(';')"));
+            Assert.Equal("0,e;1,f", _engine.Evaluate("Array.from([[0, 'e'],[1, 'f']]).join(';')"));
+        }
+
+        [Fact]
         public void ArrayEntriesShouldReturnKeyValuePairs()
         {
             Assert.Equal("0,hello,1,world", _engine.Evaluate("Array.from(['hello', 'world'].entries()).join()"));
+            Assert.Equal("0,hello;1,world", _engine.Evaluate("Array.from(['hello', 'world'].entries()).join(';')"));
+            Assert.Equal("0,;1,1;2,5", _engine.Evaluate("Array.from([,1,5,].entries()).join(';')"));
         }
 
         [Fact]
