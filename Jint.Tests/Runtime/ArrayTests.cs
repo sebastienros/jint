@@ -129,5 +129,18 @@ namespace Jint.Tests.Runtime
             _engine.Evaluate("const a = new MyArr(1,2);");
             Assert.True(_engine.Evaluate("a instanceof MyArr").AsBoolean());
         }
+
+        [Fact]
+        public void IteratorShouldBeConvertibleToArray()
+        {
+            Assert.Equal("hello", _engine.Evaluate("Array.from(['hello'].values()).join()"));
+            Assert.Equal("hello", _engine.Evaluate("Array.from(new Map([['hello', 'world']]).keys()).join()"));
+        }
+
+        [Fact]
+        public void ArrayEntriesShouldReturnKeyValuePairs()
+        {
+            Assert.Equal("0,hello,1,world", _engine.Evaluate("Array.from(['hello', 'world'].entries()).join()"));
+        }
     }
 }
