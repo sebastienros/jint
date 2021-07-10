@@ -142,5 +142,12 @@ namespace Jint.Tests.Runtime
         {
             Assert.Equal("0,hello,1,world", _engine.Evaluate("Array.from(['hello', 'world'].entries()).join()"));
         }
+
+        [Fact]
+        public void IteratorsShouldHaveIteratorSymbol()
+        {
+            _engine.Execute("assert(!!['hello'].values()[Symbol.iterator])");
+            _engine.Execute("assert(!!new Map([['hello', 'world']]).keys()[Symbol.iterator])");
+        }
     }
 }

@@ -30,7 +30,7 @@ namespace Jint.Native.Iterator
             };
             SetProperties(properties);
 
-            var symbols = new SymbolDictionary(2)
+            var symbols = new SymbolDictionary(_name != null ? 2 : 1)
             {
                 [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", ToIterator, 1, PropertyFlag.Configurable), true, false, true),
             };
