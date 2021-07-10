@@ -6,7 +6,7 @@ esid: sec-integer-indexed-exotic-objects-defineownproperty-p-desc
 description: >
     Defining a typed array element to a value that, when converted to the typed
     array element type, detaches the typed array's underlying buffer, should
-    throw a TypeError and not modify the typed array.
+    return true and not modify the typed array.
 info: |
   9.4.5.3 [[DefineOwnProperty]] ( P, Desc )
 
@@ -20,13 +20,23 @@ info: |
         2. Return ? IntegerIndexedElementSet(O, numericIndex, value).
   ...
 
-  9.4.5.9 IntegerIndexedElementSet ( O, index, value )
+  IntegerIndexedElementSet ( O, index, value )
 
-  ...
-  15. Perform SetValueInBuffer(buffer, indexedPosition, elementType, numValue).
-  16. Return true.
+  Assert: O is an Integer-Indexed exotic object.
+  If O.[[ContentType]] is BigInt, let numValue be ? ToBigInt(value).
+  Otherwise, let numValue be ? ToNumber(value).
+  Let buffer be O.[[ViewedArrayBuffer]].
+  If IsDetachedBuffer(buffer) is false and ! IsValidIntegerIndex(O, index) is true, then
+    Let offset be O.[[ByteOffset]].
+    Let arrayTypeName be the String value of O.[[TypedArrayName]].
+    Let elementSize be the Element Size value specified in Table 62 for arrayTypeName.
+    Let indexedPosition be (ℝ(index) × elementSize) + offset.
+    Let elementType be the Element Type value in Table 62 for arrayTypeName.
+    Perform SetValueInBuffer(buffer, indexedPosition, elementType, numValue, true, Unordered).
+  Return NormalCompletion(undefined).
+
 includes: [testTypedArray.js, detachArrayBuffer.js]
-features: [Reflect, TypedArray]
+features: [align-detached-buffer-semantics-with-web-reality, Reflect, TypedArray]
 ---*/
 
 testWithTypedArrayConstructors(function(TA) {
@@ -35,21 +45,18 @@ testWithTypedArrayConstructors(function(TA) {
   var desc =
     {
       value: {
-        valueOf: function() {
-          $262.detachArrayBuffer(ta.buffer);
+        valueOf() {
+          $DETACHBUFFER(ta.buffer);
           return 42;
         }
       }
     };
 
-  assert.throws(TypeError, function() {
-    Reflect.defineProperty(ta, 0, desc);
-  },
-  "detaching a ArrayBuffer during defining an element of a typed array " +
-  "viewing it should throw");
-
-  assert.throws(TypeError, function() {
-    ta[0];
-  });
+  assert.sameValue(
+    Reflect.defineProperty(ta, 0, desc),
+    true,
+    'Reflect.defineProperty(ta, 0, {value: {valueOf() {$DETACHBUFFER(ta.buffer); return 42;}}} ) must return true'
+  );
+  assert.sameValue(ta[0], undefined, 'The value of ta[0] is expected to equal `undefined`');
 });
 

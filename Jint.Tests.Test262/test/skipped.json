@@ -127,80 +127,12 @@
     "reason": "Uint8Array not implemented"
   },
   {
-    "source": "built-ins/Map/prototype/clear/context-is-weakmap-object-throws.js",
-    "reason": "WeakMap not implemented"
-  },
-  {
-    "source": "built-ins/Map/prototype/delete/context-is-weakmap-object-throws.js",
-    "reason": "WeakMap not implemented"
-  },
-  {
-    "source": "built-ins/Map/prototype/entries/does-not-have-mapdata-internal-slot-weakmap.js",
-    "reason": "WeakMap not implemented"
-  },
-  {
-    "source": "built-ins/Map/prototype/forEach/does-not-have-mapdata-internal-slot-weakmap.js",
-    "reason": "WeakMap not implemented"
-  },
-  {
     "source": "built-ins/Map/prototype/forEach/iterates-values-deleted-then-readded.js",
     "reason": "delete/add detection not implemented for map iterator during iteration"
   },
   {
-    "source": "built-ins/Map/prototype/get/does-not-have-mapdata-internal-slot-weakmap.js",
-    "reason": "WeakMap not implemented"
-  },
-  {
-    "source": "built-ins/Map/prototype/has/does-not-have-mapdata-internal-slot-weakmap.js",
-    "reason": "WeakMap not implemented"
-  },
-  {
-    "source": "built-ins/Map/prototype/keys/does-not-have-mapdata-internal-slot-weakmap.js",
-    "reason": "WeakMap not implemented"
-  },
-  {
-    "source": "built-ins/Map/prototype/set/does-not-have-mapdata-internal-slot-weakmap.js",
-    "reason": "WeakMap not implemented"
-  },
-  {
-    "source": "built-ins/Map/prototype/size/does-not-have-mapdata-internal-slot-weakmap.js",
-    "reason": "WeakMap not implemented"
-  },
-  {
-    "source": "built-ins/Map/prototype/values/does-not-have-mapdata-internal-slot-weakmap.js",
-    "reason": "WeakMap not implemented"
-  },
-  {
-    "source": "built-ins/Set/prototype/add/does-not-have-setdata-internal-slot-weakset.js",
-    "reason": "WeakSet not implemented"
-  },
-  {
-    "source": "built-ins/Set/prototype/clear/does-not-have-setdata-internal-slot-weakset.js",
-    "reason": "WeakSet not implemented"
-  },
-  {
-    "source": "built-ins/Set/prototype/delete/does-not-have-setdata-internal-slot-weakset.js",
-    "reason": "WeakSet not implemented"
-  },
-  {
-    "source": "built-ins/Set/prototype/entries/does-not-have-setdata-internal-slot-weakset.js",
-    "reason": "WeakSet not implemented"
-  },
-  {
-    "source": "built-ins/Set/prototype/foreach/does-not-have-setdata-internal-slot-weakset.js",
-    "reason": "WeakSet not implemented"
-  },
-  {
     "source": "built-ins/Set/prototype/forEach/iterates-values-revisits-after-delete-re-add.js",
     "reason": "delete/add detection not implemented for set iterator during iteration"
-  },
-  {
-    "source": "built-ins/Set/prototype/has/does-not-have-setdata-internal-slot-weakset.js",
-    "reason": "WeakSet not implemented"
-  },
-  {
-    "source": "built-ins/Set/prototype/values/does-not-have-setdata-internal-slot-weakset.js",
-    "reason": "WeakSet not implemented"
   },
   {
     "source": "built-ins/Array/prototype/toLocaleString/primitive_this_value.js",
