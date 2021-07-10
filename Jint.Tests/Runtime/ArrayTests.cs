@@ -133,13 +133,14 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void IteratorShouldBeConvertibleToArray()
         {
-            Assert.Equal("hello", _engine.Evaluate("Array.from(['hello'].values()).join()"));
-            Assert.Equal("hello", _engine.Evaluate("Array.from(new Map([['hello', 'world']]).keys()).join()"));
+            Assert.Equal("hello;again", _engine.Evaluate("Array.from(['hello', 'again'].values()).join(';')"));
+            Assert.Equal("hello;another", _engine.Evaluate("Array.from(new Map([['hello', 'world'], ['another', 'value']]).keys()).join(';')"));
         }
 
         [Fact]
         public void ArrayFromShouldNotFlattenInputArray()
         {
+            Assert.Equal("a;b", _engine.Evaluate("[...['a', 'b']].join(';')"));
             Assert.Equal("0,a;1,b", _engine.Evaluate("[...['a', 'b'].entries()].join(';')"));
             Assert.Equal("0,c;1,d", _engine.Evaluate("Array.from(['c', 'd'].entries()).join(';')"));
             Assert.Equal("0,e;1,f", _engine.Evaluate("Array.from([[0, 'e'],[1, 'f']]).join(';')"));
