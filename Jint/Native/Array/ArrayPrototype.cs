@@ -125,9 +125,9 @@ namespace Jint.Native.Array
 
         private ObjectInstance Entries(JsValue thisObj, JsValue[] arguments)
         {
-            if (thisObj is ObjectInstance oi)
+            if (thisObj is ObjectInstance oi && oi.IsArrayLike)
             {
-                return _realm.Intrinsics.Iterator.Construct(oi, intrinsics => intrinsics.Iterator.ArrayIteratorPrototypeObject);
+                return _realm.Intrinsics.Iterator.ConstructArrayLikeEntriesIterator(oi);
             }
 
             ExceptionHelper.ThrowTypeError(_realm, "cannot construct iterator");
