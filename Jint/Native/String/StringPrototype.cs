@@ -39,6 +39,9 @@ namespace Jint.Native.String
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = lengthFlags | PropertyFlag.Writable;
+
+            var trimStart = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trimStart", TrimStart, 0, lengthFlags), propertyFlags);
+            var trimEnd = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trimEnd", TrimEnd, 0, lengthFlags), propertyFlags);
             var properties = new PropertyDictionary(35, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
@@ -66,8 +69,10 @@ namespace Jint.Native.String
                 ["toUpperCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toUpperCase", ToUpperCase, 0, lengthFlags), propertyFlags),
                 ["toLocaleUpperCase"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleUpperCase", ToLocaleUpperCase, 0, lengthFlags), propertyFlags),
                 ["trim"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trim", Trim, 0, lengthFlags), propertyFlags),
-                ["trimStart"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trimStart", TrimStart, 0, lengthFlags), propertyFlags),
-                ["trimEnd"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trimEnd", TrimEnd, 0, lengthFlags), propertyFlags),
+                ["trimStart"] = trimStart,
+                ["trimEnd"] = trimEnd,
+                ["trimLeft"] = trimStart,
+                ["trimRight"] = trimEnd,
                 ["padStart"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "padStart", PadStart, 1, lengthFlags), propertyFlags),
                 ["padEnd"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "padEnd", PadEnd, 1, lengthFlags), propertyFlags),
                 ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, lengthFlags), propertyFlags),
