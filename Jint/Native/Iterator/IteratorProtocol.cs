@@ -69,23 +69,6 @@ namespace Jint.Native.Iterator
 
         protected abstract void ProcessItem(JsValue[] args, JsValue currentValue);
 
-        protected static JsValue ExtractValueFromIteratorInstance(JsValue jsValue)
-        {
-            if (jsValue is ArrayInstance ai)
-            {
-                uint index = 0;
-                if (ai.GetLength() > 1)
-                {
-                    index = 1;
-                }
-
-                ai.TryGetValue(index, out var value);
-                return value;
-            }
-
-            return jsValue;
-        }
-
         internal static void AddEntriesFromIterable(ObjectInstance target, IIterator iterable, object adder)
         {
             var callable = adder as ICallable;

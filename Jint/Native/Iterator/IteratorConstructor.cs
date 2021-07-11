@@ -124,6 +124,16 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
+        internal ObjectInstance ConstructArrayLikeEntriesIterator(ObjectInstance array)
+        {
+            var instance = new IteratorInstance.ArrayLikeEntriesIterator(Engine, array)
+            {
+                _prototype = ArrayIteratorPrototypeObject
+            };
+
+            return instance;
+        }
+
         internal ObjectInstance CreateRegExpStringIterator(ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode)
         {
             var instance = new IteratorInstance.RegExpStringIterator(Engine, iteratingRegExp, iteratedString, global, unicode)

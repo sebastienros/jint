@@ -129,5 +129,36 @@ namespace Jint.Tests.Runtime
             _engine.Evaluate("const a = new MyArr(1,2);");
             Assert.True(_engine.Evaluate("a instanceof MyArr").AsBoolean());
         }
+
+        [Fact]
+        public void IteratorShouldBeConvertibleToArray()
+        {
+            Assert.Equal("hello;again", _engine.Evaluate("Array.from(['hello', 'again'].values()).join(';')"));
+            Assert.Equal("hello;another", _engine.Evaluate("Array.from(new Map([['hello', 'world'], ['another', 'value']]).keys()).join(';')"));
+        }
+
+        [Fact]
+        public void ArrayFromShouldNotFlattenInputArray()
+        {
+            Assert.Equal("a;b", _engine.Evaluate("[...['a', 'b']].join(';')"));
+            Assert.Equal("0,a;1,b", _engine.Evaluate("[...['a', 'b'].entries()].join(';')"));
+            Assert.Equal("0,c;1,d", _engine.Evaluate("Array.from(['c', 'd'].entries()).join(';')"));
+            Assert.Equal("0,e;1,f", _engine.Evaluate("Array.from([[0, 'e'],[1, 'f']]).join(';')"));
+        }
+
+        [Fact]
+        public void ArrayEntriesShouldReturnKeyValuePairs()
+        {
+            Assert.Equal("0,hello,1,world", _engine.Evaluate("Array.from(['hello', 'world'].entries()).join()"));
+            Assert.Equal("0,hello;1,world", _engine.Evaluate("Array.from(['hello', 'world'].entries()).join(';')"));
+            Assert.Equal("0,;1,1;2,5", _engine.Evaluate("Array.from([,1,5,].entries()).join(';')"));
+        }
+
+        [Fact]
+        public void IteratorsShouldHaveIteratorSymbol()
+        {
+            _engine.Execute("assert(!!['hello'].values()[Symbol.iterator])");
+            _engine.Execute("assert(!!new Map([['hello', 'world']]).keys()[Symbol.iterator])");
+        }
     }
 }

@@ -111,7 +111,7 @@ namespace Jint.Native.Iterator
             {
                 if (_position < _map.GetSize())
                 {
-                    var key  = _map._map.GetKey(_position);
+                    var key = _map._map.GetKey(_position);
                     var value = _map._map[key];
 
                     _position++;
@@ -178,7 +178,7 @@ namespace Jint.Native.Iterator
                 {
                     var value = _set._set[_position];
                     _position++;
-                    nextItem = new  ValueIteratorPosition(_engine, value);
+                    nextItem = new ValueIteratorPosition(_engine, value);
                     return true;
                 }
 
@@ -204,7 +204,7 @@ namespace Jint.Native.Iterator
                 {
                     var value = _set._set[_position];
                     _position++;
-                    nextItem = new  KeyValueIteratorPosition(_engine, value, value);
+                    nextItem = new KeyValueIteratorPosition(_engine, value, value);
                     return true;
                 }
 
@@ -231,7 +231,7 @@ namespace Jint.Native.Iterator
                 {
                     var value = _values[_position];
                     _position++;
-                    nextItem = new  ValueIteratorPosition(_engine, value);
+                    nextItem = new ValueIteratorPosition(_engine, value);
                     return true;
                 }
 
@@ -258,7 +258,7 @@ namespace Jint.Native.Iterator
                 var length = _operations.GetLength();
                 if (!_closed && _position < length)
                 {
-                    nextItem = new  ValueIteratorPosition(_engine, _position++);
+                    nextItem = new ValueIteratorPosition(_engine, _position++);
                     return true;
                 }
 
@@ -287,6 +287,35 @@ namespace Jint.Native.Iterator
                 {
                     _operations.TryGetValue(_position++, out var value);
                     nextItem = new ValueIteratorPosition(_engine, value);
+                    return true;
+                }
+
+                _closed = true;
+                nextItem = KeyValueIteratorPosition.Done;
+                return false;
+            }
+        }
+
+        public class ArrayLikeEntriesIterator : IteratorInstance
+        {
+            private readonly ArrayOperations _operations;
+            private uint _position;
+            private bool _closed;
+
+            public ArrayLikeEntriesIterator(Engine engine, ObjectInstance objectInstance) : base(engine)
+            {
+                _operations = ArrayOperations.For(objectInstance);
+                _position = 0;
+            }
+
+            public override bool TryIteratorStep(out ObjectInstance nextItem)
+            {
+                var length = _operations.GetLength();
+                if (!_closed && _position < length)
+                {
+                    _operations.TryGetValue(_position, out var value);
+                    nextItem = new KeyValueIteratorPosition(_engine, _position, value);
+                    _position++;
                     return true;
                 }
 
@@ -422,7 +451,7 @@ namespace Jint.Native.Iterator
                     return false;
                 }
 
-                var match  = RegExpPrototype.RegExpExec(_iteratingRegExp, _s);
+                var match = RegExpPrototype.RegExpExec(_iteratingRegExp, _s);
                 if (match.IsNull())
                 {
                     _done = true;

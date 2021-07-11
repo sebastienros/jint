@@ -30,14 +30,21 @@ namespace Jint.Native.Iterator
             };
             SetProperties(properties);
 
+            var symbols = new SymbolDictionary(_name != null ? 2 : 1)
+            {
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", ToIterator, 1, PropertyFlag.Configurable), true, false, true),
+            };
+
             if (_name != null)
             {
-                var symbols = new SymbolDictionary(1)
-                {
-                    [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(_name, PropertyFlag.Configurable)
-                };
-                SetSymbols(symbols);
+                symbols[GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(_name, PropertyFlag.Configurable);
             }
+            SetSymbols(symbols);
+        }
+
+        private JsValue ToIterator(JsValue thisObj, JsValue[] arguments)
+        {
+            return thisObj;
         }
 
         private JsValue Next(JsValue thisObj, JsValue[] arguments)

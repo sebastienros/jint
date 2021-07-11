@@ -12,7 +12,7 @@ namespace Jint.Tests.CommonScripts
         {
             var engine = new Engine()
                 .SetValue("log", new Action<object>(Console.WriteLine))
-                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("assert", new Action<bool, string>(Assert.True))
             ;
 
             try
@@ -54,6 +54,7 @@ namespace Jint.Tests.CommonScripts
         [InlineData("string-tagcloud.js")]
         [InlineData("string-unpack-code.js")]
         [InlineData("string-validate-input.js")]
+        [InlineData("babel-standalone.js")]
         public void RunScript(string url)
         {
             var content = GetEmbeddedFile(url);

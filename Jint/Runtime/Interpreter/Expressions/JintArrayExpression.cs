@@ -104,9 +104,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 _index++;
                 _addedCount++;
-                var jsValue = ExtractValueFromIteratorInstance(currentValue);
-
-                _instance.SetIndexValue((uint) _index, jsValue, updateLength: false);
+                _instance.SetIndexValue((uint) _index, currentValue, updateLength: false);
             }
         }
     }

@@ -30,5 +30,14 @@ bar += 'bar';
             Assert.Equal("foofoo", foo);
             Assert.Equal("foofoobar", bar);
         }
+
+        [Fact]
+        public void TrimLeftRightShouldBeSameAsTrimStartEnd()
+        {
+            _engine.Execute(@"
+                equal(''.trimLeft, ''.trimStart);
+                equal(''.trimRight, ''.trimEnd);
+");
+        }
     }
 }
