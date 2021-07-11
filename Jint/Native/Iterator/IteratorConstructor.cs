@@ -74,7 +74,7 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance Construct(MapInstance map)
+        internal ObjectInstance ConstructEntryIterator(MapInstance map)
         {
             var instance = new IteratorInstance.MapIterator(Engine, map)
             {
@@ -84,11 +84,21 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        internal ObjectInstance Construct(SetInstance set)
+        internal ObjectInstance ConstructKeyIterator(MapInstance map)
         {
-            var instance = new IteratorInstance.SetIterator(Engine, set)
+            var instance = new IteratorInstance(Engine, map._map.Keys)
             {
-                _prototype = SetIteratorPrototypeObject
+                _prototype = MapIteratorPrototypeObject
+            };
+
+            return instance;
+        }
+
+        internal ObjectInstance ConstructValueIterator(MapInstance map)
+        {
+            var instance = new IteratorInstance(Engine, map._map.Values)
+            {
+                _prototype = MapIteratorPrototypeObject
             };
 
             return instance;
@@ -98,7 +108,17 @@ namespace Jint.Native.Iterator
         {
             var instance = new IteratorInstance.SetEntryIterator(Engine, set)
             {
-                _prototype = GenericIteratorPrototypeObject
+                _prototype = SetIteratorPrototypeObject
+            };
+
+            return instance;
+        }
+
+        internal ObjectInstance ConstructValueIterator(SetInstance set)
+        {
+            var instance = new IteratorInstance.ListIterator(Engine, set._set._list)
+            {
+                _prototype = SetIteratorPrototypeObject
             };
 
             return instance;

@@ -85,17 +85,17 @@ namespace Jint.Native.Map
 
         internal ObjectInstance Iterator()
         {
-            return _realm.Intrinsics.Iterator.Construct(this);
+            return _realm.Intrinsics.Iterator.ConstructEntryIterator(this);
         }
 
         internal ObjectInstance Keys()
         {
-            return _realm.Intrinsics.Iterator.Construct(_map.Keys);
+            return _realm.Intrinsics.Iterator.ConstructKeyIterator(this);
         }
 
         internal ObjectInstance Values()
         {
-            return _realm.Intrinsics.Iterator.Construct(_map.Values);
+            return _realm.Intrinsics.Iterator.ConstructValueIterator(this);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

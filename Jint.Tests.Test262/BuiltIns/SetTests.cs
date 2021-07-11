@@ -7,7 +7,15 @@ namespace Jint.Tests.Test262.BuiltIns
         [Theory(DisplayName = "built-ins\\Set")]
         [MemberData(nameof(SourceFiles), "built-ins\\Set", false)]
         [MemberData(nameof(SourceFiles), "built-ins\\Set", true, Skip = "Skipped")]
-        protected void RunTest(SourceFile sourceFile)
+        protected void Set(SourceFile sourceFile)
+        {
+            RunTestInternal(sourceFile);
+        }
+
+        [Theory(DisplayName = "built-ins\\SetIteratorPrototype")]
+        [MemberData(nameof(SourceFiles), "built-ins\\SetIteratorPrototype", false)]
+        [MemberData(nameof(SourceFiles), "built-ins\\SetIteratorPrototype", true, Skip = "Skipped")]
+        protected void SetIteratorPrototype(SourceFile sourceFile)
         {
             RunTestInternal(sourceFile);
         }

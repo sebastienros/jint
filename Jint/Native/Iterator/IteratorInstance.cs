@@ -161,32 +161,6 @@ namespace Jint.Native.Iterator
             }
         }
 
-        public class SetIterator : IteratorInstance
-        {
-            private readonly SetInstance _set;
-            private int _position;
-
-            public SetIterator(Engine engine, SetInstance set) : base(engine)
-            {
-                _set = set;
-                _position = 0;
-            }
-
-            public override bool TryIteratorStep(out ObjectInstance nextItem)
-            {
-                if (_position < _set._set._list.Count)
-                {
-                    var value = _set._set[_position];
-                    _position++;
-                    nextItem = new ValueIteratorPosition(_engine, value);
-                    return true;
-                }
-
-                nextItem = KeyValueIteratorPosition.Done;
-                return false;
-            }
-        }
-
         public class SetEntryIterator : IteratorInstance
         {
             private readonly SetInstance _set;

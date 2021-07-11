@@ -12,7 +12,7 @@ namespace Jint.Tests.Test262.BuiltIns
             RunTestInternal(sourceFile);
         }
 
-        [Theory(DisplayName = "built-ins\\StringIteratorPrototype")]
+        [Theory(DisplayName = "built-ins\\RegExpStringIteratorPrototype")]
         [MemberData(nameof(SourceFiles), "built-ins\\RegExpStringIteratorPrototype", false)]
         [MemberData(nameof(SourceFiles), "built-ins\\RegExpStringIteratorPrototype", true, Skip = "Skipped")]
         protected void RegExpStringIteratorPrototype(SourceFile sourceFile)

@@ -131,6 +131,10 @@
     "reason": "delete/add detection not implemented for map iterator during iteration"
   },
   {
+    "source": "built-ins/MapIteratorPrototype/next/iteration-mutable.js",
+    "reason": "delete/add detection not implemented for map iterator during iteration"
+  },
+  {
     "source": "built-ins/Set/prototype/forEach/iterates-values-revisits-after-delete-re-add.js",
     "reason": "delete/add detection not implemented for set iterator during iteration"
   },
