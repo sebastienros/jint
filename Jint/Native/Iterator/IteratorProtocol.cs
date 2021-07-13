@@ -1,5 +1,4 @@
-﻿using Jint.Native.Array;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 
 namespace Jint.Native.Iterator
@@ -9,7 +8,7 @@ namespace Jint.Native.Iterator
     /// </summary>
     internal abstract class IteratorProtocol
     {
-        protected readonly Engine _engine;
+        private readonly Engine _engine;
         private readonly IIterator _iterator;
         private readonly int _argCount;
 

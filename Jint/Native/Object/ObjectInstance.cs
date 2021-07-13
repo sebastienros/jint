@@ -1197,10 +1197,10 @@ namespace Jint.Native.Object
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ICallable GetMethod(JsValue property)
         {
-            return GetMethod(_engine, this, property);
+            return GetMethod(_engine.Realm, this, property);
         }
 
-        internal static ICallable GetMethod(Engine engine, JsValue v, JsValue p)
+        internal static ICallable GetMethod(Realm realm, JsValue v, JsValue p)
         {
             var jsValue = v.Get(p);
             if (jsValue.IsNullOrUndefined())
@@ -1211,7 +1211,7 @@ namespace Jint.Native.Object
             var callable = jsValue as ICallable;
             if (callable is null)
             {
-                ExceptionHelper.ThrowTypeError(engine.Realm, "Value returned for property '" + p + "' of object is not a function");
+                ExceptionHelper.ThrowTypeError(realm, "Value returned for property '" + p + "' of object is not a function");
             }
             return callable;
         }

@@ -1263,7 +1263,7 @@ namespace Jint.Native.Array
             return a;
         }
 
-        private JsValue ToString(JsValue thisObj, JsValue[] arguments)
+        internal JsValue ToString(JsValue thisObj, JsValue[] arguments)
         {
             var array = TypeConverter.ToObject(_realm, thisObj);
 

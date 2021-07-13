@@ -60,6 +60,8 @@ namespace Jint.Native.Array
 
         public override bool IsArrayLike => true;
 
+        public override bool IsArray() => true;
+
         internal override bool HasOriginalIterator
             => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _engine.Realm.Intrinsics.Array.PrototypeObject._originalIteratorFunction);
 
@@ -419,7 +421,7 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsArrayIndex(JsValue p, out uint index)
+        internal static bool IsArrayIndex(JsValue p, out uint index)
         {
             if (p is JsNumber number)
             {

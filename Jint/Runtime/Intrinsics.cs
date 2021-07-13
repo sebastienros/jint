@@ -1,6 +1,8 @@
 using Jint.Native;
 using Jint.Native.Array;
+using Jint.Native.ArrayBuffer;
 using Jint.Native.Boolean;
+using Jint.Native.DataView;
 using Jint.Native.Date;
 using Jint.Native.Error;
 using Jint.Native.Function;
@@ -61,6 +63,8 @@ namespace Jint.Runtime
         private SetConstructor _set;
         private ArrayConstructor _array;
         private BooleanConstructor _boolean;
+        private ArrayBufferConstructor _arrayBufferConstructor;
+        private DataViewConstructor _dataView;
 
         internal Intrinsics(Engine engine, Realm realm)
         {
@@ -83,6 +87,12 @@ namespace Jint.Runtime
 
         public ArrayConstructor Array =>
             _array ??= new ArrayConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public DataViewConstructor DataView =>
+            _dataView ??= new DataViewConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public ArrayBufferConstructor ArrayBuffer =>
+            _arrayBufferConstructor ??= new ArrayBufferConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
         public MapConstructor Map =>
             _map ??= new MapConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
@@ -117,7 +127,7 @@ namespace Jint.Runtime
         public DateConstructor Date =>
             _date ??= new DateConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
-        public MathInstance Math=>
+        public MathInstance Math =>
             _math ??= new MathInstance(_engine, Object.PrototypeObject);
 
         public JsonInstance Json =>
