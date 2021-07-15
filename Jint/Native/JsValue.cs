@@ -57,10 +57,7 @@ namespace Jint.Native
         }
 
         [Pure]
-        public virtual bool IsArray()
-        {
-            return this is ArrayInstance;
-        }
+        public virtual bool IsArray() => false;
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

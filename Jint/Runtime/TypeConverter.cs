@@ -163,7 +163,7 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.2
+        /// https://tc39.es/ecma262/#sec-toboolean
         /// </summary>
         public static bool ToBoolean(JsValue o)
         {
@@ -188,7 +188,7 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.3
+        /// https://tc39.es/ecma262/#sec-tonumber
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double ToNumber(JsValue o)
@@ -211,7 +211,7 @@ namespace Jint.Runtime
                 case InternalTypes.Object when o is IPrimitiveInstance p:
                     return ToNumber(ToPrimitive(p.PrimitiveValue, Types.Number));
                 case InternalTypes.Boolean:
-                    return (((JsBoolean)o)._value ? 1 : 0);
+                    return ((JsBoolean) o)._value ? 1 : 0;
                 case InternalTypes.String:
                     return ToNumber(o.ToString());
                 case InternalTypes.Symbol:
@@ -231,7 +231,7 @@ namespace Jint.Runtime
                 return 0;
             }
 
-            char first = input[0];
+            var first = input[0];
             if (input.Length == 1 && first >= '0' && first <= '9')
             {
                 // simple constant number
@@ -263,7 +263,7 @@ namespace Jint.Runtime
             {
                 if (s.Length > 2 && s[0] == '0' && char.IsLetter(s[1]))
                 {
-                    int fromBase = 0;
+                    var fromBase = 0;
                     if (s[1] == 'x' || s[1] == 'X')
                     {
                         fromBase = 16;
@@ -291,7 +291,7 @@ namespace Jint.Runtime
                     return double.NaN;
                 }
 
-                double n = double.Parse(s,
+                var n = double.Parse(s,
                     NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
                     NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
                     NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
@@ -392,11 +392,11 @@ namespace Jint.Runtime
         {
             // Computes the integral value of the number mod 2^32.
 
-            long doubleBits = BitConverter.DoubleToInt64Bits(o);
-            int sign = (int)(doubleBits >> 63);   // 0 if positive, -1 if negative
-            int exponent = (int)((doubleBits >> 52) & 0x7FF) - 1023;
+            var doubleBits = BitConverter.DoubleToInt64Bits(o);
+            var sign = (int) (doubleBits >> 63); // 0 if positive, -1 if negative
+            var exponent = (int) ((doubleBits >> 52) & 0x7FF) - 1023;
 
-            if ((uint)exponent >= 84)
+            if ((uint) exponent >= 84)
             {
                 // Anything with an exponent that is negative or >= 84 will convert to zero.
                 // This includes infinities and NaNs, which have exponent = 1024
@@ -404,8 +404,8 @@ namespace Jint.Runtime
                 return 0;
             }
 
-            long mantissa = (doubleBits & 0xFFFFFFFFFFFFFL) | 0x10000000000000L;
-            int int32Value = (exponent >= 52) ? (int)(mantissa << (exponent - 52)) : (int)(mantissa >> (52 - exponent));
+            var mantissa = (doubleBits & 0xFFFFFFFFFFFFFL) | 0x10000000000000L;
+            var int32Value = exponent >= 52 ? (int) (mantissa << (exponent - 52)) : (int) (mantissa >> (52 - exponent));
 
             return (int32Value + sign) ^ sign;
         }
@@ -420,11 +420,11 @@ namespace Jint.Runtime
                 return o.AsInteger();
             }
 
-            double doubleVal = ToNumber(o);
-            if (doubleVal >= -(double)int.MinValue && doubleVal <= (double)int.MaxValue)
+            var doubleVal = ToNumber(o);
+            if (doubleVal >= -(double) int.MinValue && doubleVal <= int.MaxValue)
             {
                 // Double-to-int cast is correct in this range
-                return (int)doubleVal;
+                return (int) doubleVal;
             }
 
             return DoubleToInt32Slow(doubleVal);
@@ -437,17 +437,17 @@ namespace Jint.Runtime
         {
             if (o._type == InternalTypes.Integer)
             {
-                return (uint)o.AsInteger();
+                return (uint) o.AsInteger();
             }
 
-            double doubleVal = ToNumber(o);
-            if (doubleVal >= 0.0 && doubleVal <= (double)uint.MaxValue)
+            var doubleVal = ToNumber(o);
+            if (doubleVal >= 0.0 && doubleVal <= uint.MaxValue)
             {
                 // Double-to-uint cast is correct in this range
-                return (uint)doubleVal;
+                return (uint) doubleVal;
             }
 
-            return (uint)DoubleToInt32Slow(doubleVal);
+            return (uint) DoubleToInt32Slow(doubleVal);
         }
 
         /// <summary>
@@ -458,6 +458,128 @@ namespace Jint.Runtime
             return o._type == InternalTypes.Integer
                 ? (ushort) (uint) o.AsInteger()
                 : (ushort) (uint) ToNumber(o);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-toint16
+        /// </summary>
+        internal static double ToInt16(JsValue o)
+        {
+            return o._type == InternalTypes.Integer
+                ? (short) o.AsInteger()
+                : (short) (long) ToNumber(o);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-toint8
+        /// </summary>
+        internal static double ToInt8(JsValue o)
+        {
+            return o._type == InternalTypes.Integer
+                ? (sbyte) o.AsInteger()
+                : (sbyte) (long) ToNumber(o);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-touint8
+        /// </summary>
+        internal static double ToUint8(JsValue o)
+        {
+            return o._type == InternalTypes.Integer
+                ? (byte) o.AsInteger()
+                : (byte) (long) ToNumber(o);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-touint8clamp
+        /// </summary>
+        internal static double ToUint8Clamp(JsValue o)
+        {
+            if (o._type == InternalTypes.Integer)
+            {
+                var intValue = o.AsInteger();
+                if (intValue is > -1 and < 256)
+                {
+                    return intValue;
+                }
+            }
+
+            var number = ToNumber(o);
+            if (double.IsNaN(number))
+            {
+                return 0;
+            }
+
+            if (number <= 0)
+            {
+                return 0;
+            }
+
+            if (number >= 255)
+            {
+                return 255;
+            }
+
+            var f = Math.Floor(number);
+            if (f + 0.5 < number)
+            {
+                return f + 1;
+            }
+
+            if (number < f + 0.5)
+            {
+                return f;
+            }
+
+            if (f % 2 != 0)
+            {
+                return f + 1;
+            }
+
+            return f;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-tobigint64
+        /// </summary>
+        internal static double ToBigInt64(JsValue value)
+        {
+            ExceptionHelper.ThrowNotImplementedException("BigInt not implemented");
+            return 0;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-tobiguint64
+        /// </summary>
+        internal static double ToBigUint64(JsValue value)
+        {
+            ExceptionHelper.ThrowNotImplementedException("BigInt not implemented");
+            return 0;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-toindex
+        /// </summary>
+        public static uint ToIndex(Realm realm, JsValue value)
+        {
+            if (value.IsUndefined())
+            {
+                return 0;
+            }
+
+            var integerIndex = ToIntegerOrInfinity(value);
+            if (integerIndex < 0)
+            {
+                ExceptionHelper.ThrowRangeError(realm);
+            }
+
+            var index = ToLength(integerIndex);
+            if (integerIndex != index)
+            {
+                ExceptionHelper.ThrowRangeError(realm, "Invalid index");
+            }
+
+            return (uint) Math.Min(uint.MaxValue, index);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -552,6 +674,7 @@ namespace Jint.Runtime
             {
                 return s;
             }
+
             return JsString.Create(ToStringNonString(o));
         }
 
@@ -561,11 +684,11 @@ namespace Jint.Runtime
             switch (type)
             {
                 case InternalTypes.Boolean:
-                    return ((JsBoolean)o)._value ? "true" : "false";
+                    return ((JsBoolean) o)._value ? "true" : "false";
                 case InternalTypes.Integer:
-                    return ToString((int)((JsNumber)o)._value);
+                    return ToString((int) ((JsNumber) o)._value);
                 case InternalTypes.Number:
-                    return ToString(((JsNumber)o)._value);
+                    return ToString(((JsNumber) o)._value);
                 case InternalTypes.Symbol:
                     ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a Symbol value to a string");
                     return null;
@@ -599,14 +722,14 @@ namespace Jint.Runtime
             switch (type)
             {
                 case InternalTypes.Boolean:
-                    return realm.Intrinsics.Boolean.Construct((JsBoolean)value);
+                    return realm.Intrinsics.Boolean.Construct((JsBoolean) value);
                 case InternalTypes.Number:
                 case InternalTypes.Integer:
-                    return realm.Intrinsics.Number.Construct((JsNumber)value);
+                    return realm.Intrinsics.Number.Construct((JsNumber) value);
                 case InternalTypes.String:
                     return realm.Intrinsics.String.Construct(value.ToString());
                 case InternalTypes.Symbol:
-                    return realm.Intrinsics.Symbol.Construct((JsSymbol)value);
+                    return realm.Intrinsics.Symbol.Construct((JsSymbol) value);
                 case InternalTypes.Null:
                 case InternalTypes.Undefined:
                     ExceptionHelper.ThrowTypeError(realm, "Cannot convert undefined or null to object");
@@ -723,9 +846,9 @@ namespace Jint.Runtime
                             else
                             {
                                 if (argType.GetOperatorOverloadMethods()
-                                  .Any(m => paramType.IsAssignableFrom(m.ReturnType) &&
-                                    (m.Name == "op_Implicit" ||
-                                    m.Name == "op_Explicit")))
+                                    .Any(m => paramType.IsAssignableFrom(m.ReturnType) &&
+                                              (m.Name == "op_Implicit" ||
+                                               m.Name == "op_Explicit")))
                                 {
                                     score -= 100;
                                 }

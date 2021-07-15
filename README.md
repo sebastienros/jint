@@ -23,33 +23,37 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 
 #### ECMAScript 2015 (ES6)
 
+- ✔ ArrayBuffer
 - ✔ Arrow function expression
+- ✔ Binary and octal literals
 - ✔ Class support
-- ✔ Enhanced object literals
-- ✔ Template strings
+- ✔ DataView
 - ✔ Destructuring
 - ✔ Default, rest and spread
-- ✔ Lexical scoping of variables (let and const)
+- ✔ Enhanced object literals
 - ✔ `for...of`
-- ✔ Map and Set
-- ✔ Proxies
-- ✔ Symbols
-- ✔ Reflect
-- ✔ Binary and octal literals
 - ❌ Generators
-- ❌ Unicode
+- ✔ Template strings
+- ✔ Lexical scoping of variables (let and const)
+- ✔ Map and Set
 - ❌ Modules and module loaders
-- ✔ Weakmap and Weakset
 - ✔ Promises (Experimental, API is unstable)
+- ✔ Reflect
+- ✔ Proxies
+- ✔ Reflect
+- ✔ Symbols
 - ❌ Tail calls
+- ❌ Typed arrays
+- ❌ Unicode
+- ✔ Weakmap and Weakset
 
 #### ECMAScript 2016
 
-- ✔ Block-scoping of variables and functions
-- ✔ Destructuring patterns (of variables)
-- ✔ Exponentiation operator `**`
 - ✔ `Array.prototype.includes`
 - ❌ `await`, `async`
+- ✔ Block-scoping of variables and functions
+- ✔ Exponentiation operator `**`
+- ✔ Destructuring patterns (of variables)
 
 ####  ECMAScript 2017
 
@@ -57,8 +61,8 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 
 #### ECMAScript 2018
 
-- ✔ Rest/spread operators for object literals (`...identifier`),
 - ✔ `Promise.prototype.finally`
+- ✔ Rest/spread operators for object literals (`...identifier`),
 
 #### ECMAScript 2019
 
@@ -66,9 +70,9 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 
 #### ECMAScript 2020
 
-- ✔ Nullish coalescing operator (`??`)
-- ✔ `globalThis` object
 - ❌ BigInt
+- ✔ `globalThis` object
+- ✔ Nullish coalescing operator (`??`)
 
 #### Other
 

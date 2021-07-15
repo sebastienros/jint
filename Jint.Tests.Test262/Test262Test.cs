@@ -7,6 +7,8 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using Esprima;
 using Esprima.Ast;
+using Jint.Native;
+using Jint.Native.ArrayBuffer;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -67,7 +69,8 @@ namespace Jint.Tests.Test262
                 "wellKnownIntrinsicObjects.js",
                 "fnGlobalObject.js",
                 "testTypedArray.js",
-                "detachArrayBuffer.js"
+                "detachArrayBuffer.js",
+                "byteConversionValues.js"
             };
 
             Sources = new Dictionary<string, Script>(files.Length);
@@ -124,6 +127,14 @@ namespace Jint.Tests.Test262
                     var realm = engine._host.CreateRealm();
                     realm.GlobalObject.Set("global", realm.GlobalObject);
                     return realm.GlobalObject;
+                }), true, true, true));
+
+            o.FastSetProperty("detachArrayBuffer", new PropertyDescriptor(new ClrFunctionInstance(engine, "detachArrayBuffer",
+                (thisObj, args) =>
+                {
+                    var buffer = (ArrayBufferInstance) args.At(0);
+                    buffer.DetachArrayBuffer();
+                    return JsValue.Undefined;
                 }), true, true, true));
 
             engine.SetValue("$262", o);
@@ -282,6 +293,26 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "Int32Array not implemented";
                                 break;
+                            case "Int8Array":
+                                skip = true;
+                                reason = "Int8Array not implemented";
+                                break;
+                            case "Uint8Array":
+                                skip = true;
+                                reason = "Uint8Array not implemented";
+                                break;
+                            case "SharedArrayBuffer":
+                                skip = true;
+                                reason = "SharedArrayBuffer not implemented";
+                                break;
+                            case "resizable-arraybuffer":
+                                skip = true;
+                                reason = "resizable-arraybuffer not implemented";
+                                break;
+                            case "TypedArray.prototype.at":
+                                skip = true;
+                                reason = "TypedArray.prototype.at not implemented";
+                                break;
                         }
                     }
                 }
@@ -310,28 +341,10 @@ namespace Jint.Tests.Test262
                     reason = "Unicode support and its special cases need more work";
                 }
 
-                if (name.StartsWith("language/statements/class/subclass/builtin-objects/Promise"))
-                {
-                    skip = true;
-                    reason = "Promise not implemented";
-                }
-
                 if (name.StartsWith("language/statements/class/subclass/builtin-objects/TypedArray"))
                 {
                     skip = true;
                     reason = "TypedArray not implemented";
-                }
-
-                if (name.StartsWith("language/statements/class/subclass/builtin-objects/ArrayBuffer/"))
-                {
-                    skip = true;
-                    reason = "ArrayBuffer not implemented";
-                }
-
-                if (name.StartsWith("language/statements/class/subclass/builtin-objects/DataView"))
-                {
-                    skip = true;
-                    reason = "DataView not implemented";
                 }
 
                 if (name.StartsWith("language/statements/class/subclass/builtins.js"))

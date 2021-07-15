@@ -332,7 +332,7 @@ namespace Jint.Native.String
 
             if (separator is ObjectInstance oi)
             {
-                var splitter = GetMethod(_engine, oi, GlobalSymbolRegistry.Split);
+                var splitter = GetMethod(_realm, oi, GlobalSymbolRegistry.Split);
                 if (splitter != null)
                 {
                     return splitter.Call(separator, new[] { thisObj, limit });
@@ -452,7 +452,7 @@ namespace Jint.Native.String
 
             if (regex is ObjectInstance oi)
             {
-                var searcher = GetMethod(_engine, oi, GlobalSymbolRegistry.Search);
+                var searcher = GetMethod(_realm, oi, GlobalSymbolRegistry.Search);
                 if (searcher != null)
                 {
                     return searcher.Call(regex, new[] { thisObj });
@@ -473,7 +473,7 @@ namespace Jint.Native.String
 
             if (!searchValue.IsNullOrUndefined())
             {
-                var replacer = GetMethod(_engine, searchValue, GlobalSymbolRegistry.Replace);
+                var replacer = GetMethod(_realm, searchValue, GlobalSymbolRegistry.Replace);
                 if (replacer != null)
                 {
                     return replacer.Call(searchValue, new[] { thisObj, replaceValue});
@@ -521,7 +521,7 @@ namespace Jint.Native.String
             var regex = arguments.At(0);
             if (regex is ObjectInstance oi)
             {
-                var matcher = GetMethod(_engine, oi, GlobalSymbolRegistry.Match);
+                var matcher = GetMethod(_realm, oi, GlobalSymbolRegistry.Match);
                 if (matcher != null)
                 {
                     return matcher.Call(regex, new[] { thisObj });
@@ -550,7 +550,7 @@ namespace Jint.Native.String
                         ExceptionHelper.ThrowTypeError(_realm);
                     }
                 }
-                var matcher = GetMethod(_engine, (ObjectInstance) regex, GlobalSymbolRegistry.MatchAll);
+                var matcher = GetMethod(_realm, (ObjectInstance) regex, GlobalSymbolRegistry.MatchAll);
                 if (matcher != null)
                 {
                     return matcher.Call(regex, new[] { thisObj });

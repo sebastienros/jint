@@ -115,10 +115,6 @@
     "reason": "for-of not implemented"
   },
   {
-    "source": "built-ins/Array/from/items-is-arraybuffer.js",
-    "reason": "ArrayBuffer not implemented"
-  },
-  {
     "source": "built-ins/Array/prototype/concat/Array.prototype.concat_large-typed-array.js",
     "reason": "Uint8Array not implemented"
   },
