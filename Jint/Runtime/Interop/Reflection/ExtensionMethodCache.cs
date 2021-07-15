@@ -27,6 +27,11 @@ namespace Jint.Runtime.Interop.Reflection
 
         internal static ExtensionMethodCache Build(List<Type> extensionMethodContainerTypes)
         {
+            if (extensionMethodContainerTypes.Count == 0)
+            {
+                return Empty;
+            }
+
             Type GetTypeDefinition(Type type)
             {
                 return type.IsConstructedGenericType && type.GenericTypeArguments.Any(x => x.IsGenericParameter) ?

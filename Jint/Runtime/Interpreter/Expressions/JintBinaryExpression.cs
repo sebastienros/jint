@@ -260,7 +260,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading("op_LessThan", out var opResult))
                 {
                     return opResult;
@@ -284,7 +284,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading("op_GreaterThan", out var opResult))
                 {
                     return opResult;
@@ -308,7 +308,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading("op_Addition", out var opResult))
                 {
                     return opResult;
@@ -337,7 +337,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading("op_Subtraction", out var opResult))
                 {
                     return opResult;
@@ -360,7 +360,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading("op_Multiply", out var opResult))
                 {
                     return opResult;
@@ -391,7 +391,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading("op_Division", out var opResult))
                 {
                     return opResult;
@@ -415,7 +415,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading(_invert ? "op_Inequality" : "op_Equality", out var opResult))
                 {
                     return opResult;
@@ -441,7 +441,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading(_leftFirst ? "op_GreaterThanOrEqual" : "op_LessThanOrEqual", out var opResult))
                 {
                     return opResult;
@@ -518,7 +518,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading("op_Modulus", out var opResult))
                 {
                     return opResult;
@@ -581,7 +581,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading(OperatorClrName, out var opResult))
                 {
                     return opResult;

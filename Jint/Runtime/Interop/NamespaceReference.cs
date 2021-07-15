@@ -109,7 +109,7 @@ namespace Jint.Runtime.Interop
 
             // search in lookup assemblies
             var comparedPath = path.Replace("+", ".");
-            foreach (var assembly in _engine.Options._LookupAssemblies)
+            foreach (var assembly in _engine.Options.Interop.AllowedAssemblies)
             {
                 type = assembly.GetType(path);
                 if (type != null)

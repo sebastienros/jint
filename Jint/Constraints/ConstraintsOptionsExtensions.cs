@@ -6,6 +6,9 @@ namespace Jint
 {
     public static class ConstraintsOptionsExtensions
     {
+        /// <summary>
+        /// Limits the allowed statement count that can be run as part of the program.
+        /// </summary>
         public static Options MaxStatements(this Options options, int maxStatements = 0)
         {
             options.WithoutConstraint(x => x is MaxStatements);

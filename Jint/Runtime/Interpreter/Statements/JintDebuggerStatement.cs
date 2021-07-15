@@ -11,7 +11,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal()
         {
-            switch (_engine.Options._DebuggerStatementHandling)
+            switch (_engine.Options.Debugger.StatementHandling)
             {
                 case DebuggerStatementHandling.Clr:
                     if (!System.Diagnostics.Debugger.IsAttached)

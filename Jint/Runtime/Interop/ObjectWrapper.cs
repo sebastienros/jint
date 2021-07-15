@@ -60,7 +60,7 @@ namespace Jint.Runtime.Interop
                     var accessor = GetAccessor(_engine, Target.GetType(), member);
 
                     // CanPut logic
-                    if (!accessor.Writable || !_engine.Options._IsClrWriteAllowed)
+                    if (!accessor.Writable || !_engine.Options.Interop.AllowWrite)
                     {
                         return false;
                     }
@@ -108,7 +108,7 @@ namespace Jint.Runtime.Interop
             if (property is JsString stringKey)
             {
                 var member = stringKey.ToString();
-                var result = Engine.Options._MemberAccessor?.Invoke(Engine, Target, member);
+                var result = Engine.Options.Interop.MemberAccessor(Engine, Target, member);
                 if (result is not null)
                 {
                     return result;
@@ -228,7 +228,7 @@ namespace Jint.Runtime.Interop
             }
 
             var member = property.ToString();
-            var result = Engine.Options._MemberAccessor?.Invoke(Engine, Target, member);
+            var result = Engine.Options.Interop.MemberAccessor(Engine, Target, member);
             if (result is not null)
             {
                 return new PropertyDescriptor(result, PropertyFlag.OnlyEnumerable);
@@ -356,7 +356,7 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            if (engine.Options._extensionMethods.TryGetExtensionMethods(type, out var extensionMethods))
+            if (engine._extensionMethods.TryGetExtensionMethods(type, out var extensionMethods))
             {
                 var matches = new List<MethodInfo>();
                 foreach (var method in extensionMethods)

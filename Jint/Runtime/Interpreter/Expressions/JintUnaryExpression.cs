@@ -53,7 +53,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            if (_engine.Options._IsOperatorOverloadingAllowed)
+            if (_engine.Options.Interop.OperatorOverloadingAllowed)
             {
                 string operatorClrName = null;
                 switch (_operator)

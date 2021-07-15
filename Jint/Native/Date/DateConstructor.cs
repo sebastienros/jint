@@ -89,7 +89,7 @@ namespace Jint.Native.Date
             {
                 if (!DateTime.TryParseExact(date, SecondaryFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
                 {
-                    if (!DateTime.TryParse(date, Engine.Options._Culture, DateTimeStyles.AdjustToUniversal, out result))
+                    if (!DateTime.TryParse(date, Engine.Options.Culture, DateTimeStyles.AdjustToUniversal, out result))
                     {
                         if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
                         {
