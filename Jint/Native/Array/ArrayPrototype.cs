@@ -614,15 +614,10 @@ namespace Jint.Native.Array
                     ? n
                     : len - System.Math.Abs(n), 0);
 
-            static bool SameValueZero(JsValue x, JsValue y)
-            {
-                return x == y || (x is JsNumber xNum && y is JsNumber yNum && double.IsNaN(xNum._value) && double.IsNaN(yNum._value));
-            }
-
             while (k < len)
             {
                 var value = o.Get(k);
-                if (SameValueZero(value, searchElement))
+                if (JintBinaryExpression.SameValueZero(value, searchElement))
                 {
                     return true;
                 }
@@ -908,7 +903,7 @@ namespace Jint.Native.Array
         {
             if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_realm, "Array.prorotype.sort can only be applied on objects");
+                ExceptionHelper.ThrowTypeError(_realm, "Array.prototype.sort can only be applied on objects");
             }
 
             var obj = ArrayOperations.For(thisObj.AsObject());
@@ -946,7 +941,7 @@ namespace Jint.Native.Array
                     {
                         obj.DeletePropertyOrThrow(i);
                     }
-            }
+                }
             }
             catch (InvalidOperationException e)
             {
@@ -956,7 +951,7 @@ namespace Jint.Native.Array
             return obj.Target;
         }
 
-        internal JsValue Slice(JsValue thisObj, JsValue[] arguments)
+        private JsValue Slice(JsValue thisObj, JsValue[] arguments)
         {
             var start = arguments.At(0);
             var end = arguments.At(1);
@@ -1091,15 +1086,11 @@ namespace Jint.Native.Array
             return o.Target;
         }
 
-        private JsValue Join(JsValue thisObj, JsValue[] arguments)
+        internal JsValue Join(JsValue thisObj, JsValue[] arguments)
         {
-            var separator = arguments.At(0);
+            var separator = arguments.At(0, JsString.CommaString);
             var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLength();
-            if (separator.IsUndefined())
-            {
-                separator = ",";
-            }
 
             var sep = TypeConverter.ToString(separator);
 
@@ -1109,7 +1100,7 @@ namespace Jint.Native.Array
                 return JsString.Empty;
             }
 
-            string StringFromJsValue(JsValue value)
+            static string StringFromJsValue(JsValue value)
             {
                 return value.IsNullOrUndefined()
                     ? ""
@@ -1122,17 +1113,15 @@ namespace Jint.Native.Array
                 return s;
             }
 
-            using (var sb = StringBuilderPool.Rent())
+            using var sb = StringBuilderPool.Rent();
+            sb.Builder.Append(s);
+            for (uint k = 1; k < len; k++)
             {
-                sb.Builder.Append(s);
-                for (uint k = 1; k < len; k++)
-                {
-                    sb.Builder.Append(sep);
-                    sb.Builder.Append(StringFromJsValue(o.Get(k)));
-                }
-
-                return sb.ToString();
+                sb.Builder.Append(sep);
+                sb.Builder.Append(StringFromJsValue(o.Get(k)));
             }
+
+            return sb.ToString();
         }
 
         private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)

@@ -285,22 +285,6 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "regexp-lookbehind not implemented";
                                 break;
-                            case "TypedArray":
-                                skip = true;
-                                reason = "TypedArray not implemented";
-                                break;
-                            case "Int32Array":
-                                skip = true;
-                                reason = "Int32Array not implemented";
-                                break;
-                            case "Int8Array":
-                                skip = true;
-                                reason = "Int8Array not implemented";
-                                break;
-                            case "Uint8Array":
-                                skip = true;
-                                reason = "Uint8Array not implemented";
-                                break;
                             case "SharedArrayBuffer":
                                 skip = true;
                                 reason = "SharedArrayBuffer not implemented";
@@ -339,18 +323,6 @@ namespace Jint.Tests.Test262
                 {
                     skip = true;
                     reason = "Unicode support and its special cases need more work";
-                }
-
-                if (name.StartsWith("language/statements/class/subclass/builtin-objects/TypedArray"))
-                {
-                    skip = true;
-                    reason = "TypedArray not implemented";
-                }
-
-                if (name.StartsWith("language/statements/class/subclass/builtins.js"))
-                {
-                    skip = true;
-                    reason = "Uint8Array not implemented";
                 }
 
                 if (name.StartsWith("built-ins/RegExp/CharacterClassEscapes/"))
