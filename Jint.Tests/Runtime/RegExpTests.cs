@@ -69,5 +69,17 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal("/test/g", result);
         }
+
+        [Fact]
+        public void ShouldNotThrowErrorOnIncompatibleRegex()
+        {
+            var engine = new Engine();
+            Assert.NotNull(engine.Evaluate(@"/[^]*?(:[rp][el]a[\w-]+)[^]*/"));
+            Assert.NotNull(engine.Evaluate("/[^]a/"));
+            Assert.NotNull(engine.Evaluate("new RegExp('[^]a')"));
+
+            Assert.NotNull(engine.Evaluate("/[]/"));
+            Assert.NotNull(engine.Evaluate("new RegExp('[]')"));
+        }
     }
 }
