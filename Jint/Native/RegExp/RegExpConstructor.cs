@@ -111,7 +111,7 @@ namespace Jint.Native.RegExp
                 var timeout = _engine.Options._RegexTimeoutInterval;
                 if (timeout.Ticks > 0)
                 {
-                    r.Value = new Regex(r.Value.ToString(), r.Value.Options, timeout);
+                    r.Value = r.Value != null ? new Regex(r.Value.ToString(), r.Value.Options, timeout) : null;
                 }
             }
             catch (Exception ex)
@@ -142,12 +142,12 @@ namespace Jint.Native.RegExp
             r._prototype = PrototypeObject;
 
             r.Flags = flags;
-            r.Source = regExp.ToString();
+            r.Source = regExp?.ToString();
 
             var timeout = _engine.Options._RegexTimeoutInterval;
             if (timeout.Ticks > 0)
             {
-                r.Value = new Regex(regExp.ToString(), regExp.Options, timeout);
+                r.Value = regExp != null ? new Regex(regExp.ToString(), regExp.Options, timeout) : null;
             }
             else
             {
