@@ -107,7 +107,7 @@ namespace Jint.Native.Date
         {
             var y = TypeConverter.ToNumber(arguments.At(0));
             var m = TypeConverter.ToNumber(arguments.At(1, JsNumber.PositiveZero));
-            var dt = TypeConverter.ToNumber(arguments.At(2, JsNumber.One));
+            var dt = TypeConverter.ToNumber(arguments.At(2, JsNumber.PositiveOne));
             var h = TypeConverter.ToNumber(arguments.At(3, JsNumber.PositiveZero));
             var min = TypeConverter.ToNumber(arguments.At(4, JsNumber.PositiveZero));
             var s = TypeConverter.ToNumber(arguments.At(5, JsNumber.PositiveZero));
@@ -165,7 +165,7 @@ namespace Jint.Native.Date
             {
                 var y = TypeConverter.ToNumber(arguments.At(0));
                 var m = TypeConverter.ToNumber(arguments.At(1));
-                var dt = TypeConverter.ToNumber(arguments.At(2, JsNumber.One));
+                var dt = TypeConverter.ToNumber(arguments.At(2, JsNumber.PositiveOne));
                 var h = TypeConverter.ToNumber(arguments.At(3, JsNumber.PositiveZero));
                 var min = TypeConverter.ToNumber(arguments.At(4, JsNumber.PositiveZero));
                 var s = TypeConverter.ToNumber(arguments.At(5, JsNumber.PositiveZero));

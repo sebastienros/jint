@@ -160,6 +160,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             return (JsValue) EvaluateInternal();
         }
 
+        public static bool SameValueZero(JsValue x, JsValue y)
+        {
+            return x == y || (x is JsNumber xNum && y is JsNumber yNum && double.IsNaN(xNum._value) && double.IsNaN(yNum._value));
+        }
+
         public static bool StrictlyEqual(JsValue x, JsValue y)
         {
             var typeX = x._type & ~InternalTypes.InternalFlags;

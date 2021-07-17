@@ -19,6 +19,7 @@ using Jint.Native.RegExp;
 using Jint.Native.Set;
 using Jint.Native.String;
 using Jint.Native.Symbol;
+using Jint.Native.TypedArray;
 using Jint.Native.WeakMap;
 using Jint.Native.WeakSet;
 
@@ -66,6 +67,19 @@ namespace Jint.Runtime
         private ArrayBufferConstructor _arrayBufferConstructor;
         private DataViewConstructor _dataView;
 
+        private IntrinsicTypedArrayConstructor _typedArray;
+        private Int8ArrayConstructor _int8Array;
+        private Uint8ArrayConstructor _uint8Array;
+        private Uint8ClampedArrayConstructor _uint8ClampedArray;
+        private Int16ArrayConstructor _int16Array;
+        private Uint16ArrayConstructor _uint16Array;
+        private Int32ArrayConstructor _int32Array;
+        private Uint32ArrayConstructor _uint32Array;
+        private BigInt64ArrayConstructor _bigInt64Array;
+        private BigUint64ArrayConstructor _bigUint64Array;
+        private Float32ArrayConstructor _float32Array;
+        private Float64ArrayConstructor _float64Array;
+
         internal Intrinsics(Engine engine, Realm realm)
         {
             _engine = engine;
@@ -93,6 +107,42 @@ namespace Jint.Runtime
 
         public ArrayBufferConstructor ArrayBuffer =>
             _arrayBufferConstructor ??= new ArrayBufferConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        internal IntrinsicTypedArrayConstructor TypedArray =>
+            _typedArray ??= new IntrinsicTypedArrayConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, "TypedArray");
+
+        public Int8ArrayConstructor Int8Array =>
+            _int8Array ??= new Int8ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
+
+        public Uint8ArrayConstructor Uint8Array =>
+            _uint8Array ??= new Uint8ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
+
+        public Uint8ClampedArrayConstructor Uint8ClampedArray =>
+            _uint8ClampedArray ??= new Uint8ClampedArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
+
+        public Int16ArrayConstructor Int16Array =>
+            _int16Array ??= new Int16ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
+
+        public Uint16ArrayConstructor Uint16Array =>
+            _uint16Array ??= new Uint16ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
+
+        public Int32ArrayConstructor Int32Array =>
+            _int32Array ??= new Int32ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
+
+        public Uint32ArrayConstructor Uint32Array =>
+            _uint32Array ??= new Uint32ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
+
+        public BigInt64ArrayConstructor BigInt64Array =>
+            _bigInt64Array ??= new BigInt64ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
+
+        public BigUint64ArrayConstructor BigUint64Array =>
+            _bigUint64Array ??= new BigUint64ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
+
+        public Float32ArrayConstructor Float32Array =>
+            _float32Array ??= new Float32ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
+
+        public Float64ArrayConstructor Float64Array =>
+            _float64Array ??= new Float64ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
 
         public MapConstructor Map =>
             _map ??= new MapConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);

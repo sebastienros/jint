@@ -83,7 +83,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-construct
         /// </summary>
-        internal ObjectInstance Construct(IConstructor f, JsValue[] argumentsList = null, IConstructor newTarget = null)
+        internal static ObjectInstance Construct(IConstructor f, JsValue[] argumentsList = null, IConstructor newTarget = null)
         {
             newTarget ??= f;
             argumentsList ??= System.Array.Empty<JsValue>();
@@ -893,15 +893,15 @@ namespace Jint.Native.Object
                 case ObjectClass.Array:
                     if (this is ArrayInstance arrayInstance)
                     {
-                        var len = TypeConverter.ToInt32(arrayInstance.Get(CommonProperties.Length, arrayInstance));
+                        var len = arrayInstance.Length;
                         var result = new object[len];
-                        for (var k = 0; k < len; k++)
+                        for (uint k = 0; k < len; k++)
                         {
                             var pk = TypeConverter.ToJsString(k);
                             var kpresent = arrayInstance.HasProperty(pk);
                             if (kpresent)
                             {
-                                var kvalue = arrayInstance.Get(pk, arrayInstance);
+                                var kvalue = arrayInstance.Get(k);
                                 result[k] = kvalue.ToObject();
                             }
                             else

@@ -3,6 +3,7 @@ using Jint.Native.DataView;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
+using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -53,7 +54,7 @@ namespace Jint.Native.ArrayBuffer
         private static JsValue IsView(JsValue thisObject, JsValue[] arguments)
         {
             var arg = arguments.At(0);
-            return arg is DataViewInstance;
+            return arg is DataViewInstance or TypedArrayInstance;
         }
 
         /// <summary>
@@ -81,12 +82,12 @@ namespace Jint.Native.ArrayBuffer
             return AllocateArrayBuffer(newTarget, byteLength);
         }
 
-        internal ArrayBufferInstance AllocateArrayBuffer(JsValue constructor, uint byteLength)
+        internal ArrayBufferInstance AllocateArrayBuffer(JsValue constructor, ulong byteLength)
         {
             var obj = OrdinaryCreateFromConstructor(
                 constructor,
                 static intrinsics => intrinsics.ArrayBuffer.PrototypeObject,
-                static (engine, realm, state) => new ArrayBufferInstance(engine, (uint) ((JsNumber) state)._value),
+                static (engine, realm, state) => new ArrayBufferInstance(engine, (ulong) ((JsNumber) state)._value),
                 JsNumber.Create(byteLength));
 
             return obj;

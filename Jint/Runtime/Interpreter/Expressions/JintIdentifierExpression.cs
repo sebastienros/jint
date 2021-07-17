@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Argument;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -37,30 +38,41 @@ namespace Jint.Runtime.Interpreter.Expressions
             // need to notify correct node when taking shortcut
             _engine._lastSyntaxNode = _expression;
 
-            if (!(_calculatedValue is null))
+            if (_calculatedValue is not null)
             {
                 return _calculatedValue;
             }
 
             var strict = StrictModeScope.IsStrictModeCode;
             var env = _engine.ExecutionContext.LexicalEnvironment;
+
+            JsValue value;
             if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 _engine,
                 env,
                 _expressionName,
                 strict,
                 out _,
-                out var value))
+                out value))
             {
                 if (value is null)
                 {
                     ExceptionHelper.ThrowReferenceError(_engine.Realm, _expressionName.Key.Name + " has not been initialized");
                 }
-                return value;
+            }
+            else
+            {
+                var reference = _engine._referencePool.Rent(JsValue.Undefined, _expressionName.StringValue, strict, thisValue: null);
+                value = _engine.GetValue(reference, true);
             }
 
-            var reference = _engine._referencePool.Rent(JsValue.Undefined, _expressionName.StringValue, strict, thisValue: null);
-            return _engine.GetValue(reference, true);
+            // make sure arguments access freezes state
+            if (value is ArgumentsInstance argumentsInstance)
+            {
+                argumentsInstance.Materialize();
+            }
+
+            return value;
         }
     }
 }
