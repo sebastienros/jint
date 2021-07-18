@@ -321,12 +321,6 @@ namespace Jint.Tests.Test262
                     reason = "Unicode support and its special cases need more work";
                 }
 
-                if (name.StartsWith("built-ins/RegExp/CharacterClassEscapes/"))
-                {
-                    skip = true;
-                    reason = "for-of not implemented";
-                }
-
                 // Promises
                 if (name.StartsWith("built-ins/Promise/allSettled") ||
                     name.StartsWith("built-ins/Promise/any"))
