@@ -190,6 +190,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         isStrictModeCode);
 
                     closure.SetFunctionName(propName, property.Kind == PropertyKind.Get ? "get" : "set");
+                    closure.MakeMethod(obj);
 
                     var propDesc = new GetSetPropertyDescriptor(
                         get: property.Kind == PropertyKind.Get ? closure : null,

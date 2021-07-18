@@ -105,23 +105,36 @@ namespace Jint.Native.Function
 
         public override List<JsValue> GetOwnPropertyKeys(Types types)
         {
-            var keys = new List<JsValue>();
-            if (_prototypeDescriptor != null)
-            {
-                keys.Add(CommonProperties.Prototype);
-            }
-            if (_length != null)
-            {
-                keys.Add(CommonProperties.Length);
-            }
-            if (_nameDescriptor != null)
+            var keys = base.GetOwnPropertyKeys(types);
+
+            // works around a problem where we don't use property for function names and classes should report it last
+            // as it's the last operation when creating a class constructor
+            if ((types & Types.String) != 0 && _nameDescriptor != null && this is ScriptFunctionInstance { _isClassConstructor: true })
             {
                 keys.Add(CommonProperties.Name);
             }
 
-            keys.AddRange(base.GetOwnPropertyKeys(types));
-
             return keys;
+        }
+
+        internal override IEnumerable<JsValue> GetInitialOwnStringPropertyKeys()
+        {
+            if (_length != null)
+            {
+                yield return CommonProperties.Length;
+            }
+
+            // works around a problem where we don't use property for function names and classes should report it last
+            // as it's the last operation when creating a class constructor
+            if (_nameDescriptor != null && this is not ScriptFunctionInstance { _isClassConstructor: true })
+            {
+                yield return CommonProperties.Name;
+            }
+
+            if (_prototypeDescriptor != null)
+            {
+                yield return CommonProperties.Prototype;
+            }
         }
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)
