@@ -258,7 +258,7 @@ namespace Jint.Native.Array
             return base.TryGetProperty(property, out descriptor);
         }
 
-        public override List<JsValue> GetOwnPropertyKeys(Types types)
+        public override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
         {
             var properties = new List<JsValue>(_dense?.Length ?? 0 + 1);
             if (_dense != null)

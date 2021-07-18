@@ -80,7 +80,7 @@ namespace Jint.Native.Function
                 }
                 else
                 {
-                    ExceptionHelper.ThrowSyntaxError(callerRealm);
+                    ExceptionHelper.ThrowSyntaxError(callerRealm, e.Message);
                 }
             }
 
