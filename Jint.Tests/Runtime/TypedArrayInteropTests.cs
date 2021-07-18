@@ -96,7 +96,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(source, fromEngine.AsUint32Array());
         }
 
-        [Fact(Skip = "BigInt not implemented")]
+        [Fact]
         public void CanInteropWithBigInt64()
         {
             var engine = new Engine();
@@ -109,7 +109,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(source, fromEngine.AsBigInt64Array());
         }
 
-        [Fact(Skip = "BigInt not implemented")]
+        [Fact]
         public void CanInteropWithBigUint64()
         {
             var engine = new Engine();

@@ -73,6 +73,7 @@ namespace Jint.Tests.Test262
                 "detachArrayBuffer.js",
                 "byteConversionValues.js",
                 "hidden-constructors.js",
+                "testBigIntTypedArray.js"
             };
 
             Sources = new Dictionary<string, Script>(files.Length);
@@ -241,10 +242,6 @@ namespace Jint.Tests.Test262
                             case "tail-call-optimization":
                                 skip = true;
                                 reason = "tail-calls not implemented";
-                                break;
-                            case "BigInt":
-                                skip = true;
-                                reason = "BigInt not implemented";
                                 break;
                             case "generators":
                                 skip = true;
