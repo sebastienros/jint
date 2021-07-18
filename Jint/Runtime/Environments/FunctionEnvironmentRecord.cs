@@ -76,7 +76,7 @@ namespace Jint.Runtime.Environments
             var home = _functionObject._homeObject;
             return home.IsUndefined()
                 ? Undefined
-                : ((ObjectInstance) home).GetPrototypeOf();
+                : ((ObjectInstance) home).GetPrototypeOf() ?? Null;
         }
 
         // optimization to have logic near record internal structures.

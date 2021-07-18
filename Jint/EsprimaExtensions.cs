@@ -42,11 +42,12 @@ namespace Jint
         private static bool TryGetComputedPropertyKey<T>(T expression, Engine engine, out JsValue propertyKey)
             where T : Expression
         {
-            if (expression.Type == Nodes.Identifier
-                || expression.Type == Nodes.CallExpression
-                || expression.Type == Nodes.BinaryExpression
-                || expression.Type == Nodes.UpdateExpression
-                || expression.Type == Nodes.AssignmentExpression
+            if (expression.Type is Nodes.Identifier
+                or Nodes.CallExpression
+                or Nodes.BinaryExpression
+                or Nodes.UpdateExpression
+                or Nodes.AssignmentExpression
+                or Nodes.UnaryExpression
                 || expression is StaticMemberExpression)
             {
                 propertyKey = TypeConverter.ToPropertyKey(JintExpression.Build(engine, expression).GetValue());

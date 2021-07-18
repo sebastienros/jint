@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Dynamic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Array;
@@ -217,8 +218,13 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            var keys = new List<JsValue>(_properties?.Count ?? 0 + _symbols?.Count ?? 0);
             var propertyKeys = new List<JsValue>();
+            if ((types & Types.String) != 0)
+            {
+                propertyKeys.AddRange(GetInitialOwnStringPropertyKeys());
+            }
+
+            var keys = new List<JsValue>(_properties?.Count ?? 0 + _symbols?.Count ?? 0 + propertyKeys.Count);
             List<JsValue> symbolKeys = null;
 
             if ((types & Types.String) != 0 && _properties != null)
@@ -256,6 +262,8 @@ namespace Jint.Native.Object
 
             return keys;
         }
+
+        internal virtual IEnumerable<JsValue> GetInitialOwnStringPropertyKeys() => Enumerable.Empty<JsValue>();
 
         protected virtual void AddProperty(JsValue property, PropertyDescriptor descriptor)
         {
