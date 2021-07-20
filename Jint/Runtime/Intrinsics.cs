@@ -53,16 +53,21 @@ namespace Jint.Runtime
         private ReflectInstance _reflect;
         private EvalFunctionInstance _eval;
         private DateConstructor _date;
-        private IteratorConstructor _iterator;
+        private IteratorPrototype _iteratorPrototype;
         private MathInstance _math;
         private JsonInstance _json;
         private SymbolConstructor _symbol;
         private RegExpConstructor _regExp;
+        private RegExpStringIteratorPrototype _regExpStringIteratorPrototype;
         private NumberConstructor _number;
         private StringConstructor _string;
+        private StringIteratorPrototype _stringIteratorPrototype;
         private MapConstructor _map;
+        private MapIteratorPrototype _mapIteratorPrototype;
         private SetConstructor _set;
+        private SetIteratorPrototype _setIteratorPrototype;
         private ArrayConstructor _array;
+        private ArrayIteratorPrototype _arrayIteratorPrototype;
         private BooleanConstructor _boolean;
         private ArrayBufferConstructor _arrayBufferConstructor;
         private DataViewConstructor _dataView;
@@ -101,6 +106,9 @@ namespace Jint.Runtime
 
         public ArrayConstructor Array =>
             _array ??= new ArrayConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        internal ArrayIteratorPrototype ArrayIteratorPrototype =>
+            _arrayIteratorPrototype ??= new ArrayIteratorPrototype(_engine, _realm, Object.PrototypeObject);
 
         public DataViewConstructor DataView =>
             _dataView ??= new DataViewConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
@@ -147,8 +155,14 @@ namespace Jint.Runtime
         public MapConstructor Map =>
             _map ??= new MapConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
+        internal MapIteratorPrototype MapIteratorPrototype =>
+            _mapIteratorPrototype ??= new MapIteratorPrototype(_engine, _realm, Object.PrototypeObject);
+
         public SetConstructor Set =>
             _set ??= new SetConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        internal SetIteratorPrototype SetIteratorPrototype =>
+            _setIteratorPrototype ??= new SetIteratorPrototype(_engine, _realm, Object.PrototypeObject);
 
         public WeakMapConstructor WeakMap =>
             _weakMap ??= new WeakMapConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
@@ -159,14 +173,20 @@ namespace Jint.Runtime
         public PromiseConstructor Promise =>
             _promise ??= new PromiseConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
-        public IteratorConstructor Iterator =>
-            _iterator ??= new IteratorConstructor(_engine, _realm, Object.PrototypeObject);
+        internal IteratorPrototype IteratorPrototype =>
+            _iteratorPrototype ??= new IteratorPrototype(_engine, _realm, null, Object.PrototypeObject);
 
         public StringConstructor String =>
             _string ??= new StringConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
+        internal StringIteratorPrototype StringIteratorPrototype =>
+            _stringIteratorPrototype ??= new StringIteratorPrototype(_engine, _realm, Object.PrototypeObject);
+
         public RegExpConstructor RegExp =>
             _regExp ??= new RegExpConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        internal RegExpStringIteratorPrototype RegExpStringIteratorPrototype =>
+            _regExpStringIteratorPrototype ??= new RegExpStringIteratorPrototype(_engine, _realm, Object.PrototypeObject);
 
         public BooleanConstructor Boolean =>
             _boolean ??= new BooleanConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);

@@ -1,4 +1,5 @@
-﻿using Jint.Collections;
+﻿using System.Collections.Generic;
+using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -7,7 +8,10 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Iterator
 {
-    internal sealed class IteratorPrototype : Prototype
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-%iteratorprototype%-object
+    /// </summary>
+    internal class IteratorPrototype : Prototype
     {
         private readonly string _name;
 
@@ -42,7 +46,27 @@ namespace Jint.Native.Iterator
             SetSymbols(symbols);
         }
 
-        private JsValue ToIterator(JsValue thisObj, JsValue[] arguments)
+        internal IteratorInstance Construct(IEnumerable<JsValue> enumerable)
+        {
+            var instance = new IteratorInstance(Engine, enumerable)
+            {
+                _prototype = this
+            };
+
+            return instance;
+        }
+
+        internal IteratorInstance Construct(List<JsValue> enumerable)
+        {
+            var instance = new IteratorInstance.ListIterator(Engine, enumerable)
+            {
+                _prototype = this
+            };
+
+            return instance;
+        }
+
+        private static JsValue ToIterator(JsValue thisObj, JsValue[] arguments)
         {
             return thisObj;
         }

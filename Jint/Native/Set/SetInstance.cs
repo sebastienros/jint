@@ -73,12 +73,12 @@ namespace Jint.Native.Set
 
         internal ObjectInstance Entries()
         {
-            return _engine.Realm.Intrinsics.Iterator.ConstructEntryIterator(this);
+            return _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructEntryIterator(this);
         }
 
         internal ObjectInstance Values()
         {
-            return _engine.Realm.Intrinsics.Iterator.ConstructValueIterator(this);
+            return _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructValueIterator(this);
         }
     }
 }

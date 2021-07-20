@@ -736,7 +736,7 @@ namespace Jint.Native.RegExp
             var global = flags.IndexOf('g') != -1;
             var fullUnicode = flags.IndexOf('u') != -1;
 
-            return _realm.Intrinsics.Iterator.CreateRegExpStringIterator(matcher, s, global, fullUnicode);
+            return _realm.Intrinsics.RegExpStringIteratorPrototype.Construct(matcher, s, global, fullUnicode);
         }
 
         private static int AdvanceStringIndex(string s, int index, bool unicode)

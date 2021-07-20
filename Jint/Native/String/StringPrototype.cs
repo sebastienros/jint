@@ -92,7 +92,7 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(_engine, thisObj);
             var str = TypeConverter.ToString(thisObj);
-            return _realm.Intrinsics.Iterator.Construct(str);
+            return _realm.Intrinsics.StringIteratorPrototype.Construct(str);
         }
 
         private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
