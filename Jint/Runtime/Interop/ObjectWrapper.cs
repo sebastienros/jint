@@ -219,7 +219,7 @@ namespace Jint.Runtime.Interop
             {
                 var iteratorFunction = new ClrFunctionInstance(
                     Engine, "iterator",
-                    (thisObject, arguments) => _engine.Realm.Intrinsics.Iterator.Construct(this, intrinsics => intrinsics.Iterator.GenericIteratorPrototypeObject),
+                    (thisObject, arguments) => _engine.Realm.Intrinsics.ArrayIteratorPrototype.Construct(this, intrinsics => intrinsics.IteratorPrototype),
                     1,
                     PropertyFlag.Configurable);
                 var iteratorProperty = new PropertyDescriptor(iteratorFunction, PropertyFlag.Configurable | PropertyFlag.Writable);

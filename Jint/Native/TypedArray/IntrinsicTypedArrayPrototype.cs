@@ -266,7 +266,7 @@ namespace Jint.Native.TypedArray
         private JsValue Entries(JsValue thisObj, JsValue[] arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
-            return _realm.Intrinsics.Iterator.CreateArrayLikeIterator(o, ArrayIteratorType.KeyAndValue);
+            return _realm.Intrinsics.ArrayIteratorPrototype.Construct(o, ArrayIteratorType.KeyAndValue);
         }
 
         /// <summary>
@@ -622,7 +622,7 @@ namespace Jint.Native.TypedArray
         private JsValue Keys(JsValue thisObj, JsValue[] arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
-            return _realm.Intrinsics.Iterator.CreateArrayLikeIterator(o, ArrayIteratorType.Key);
+            return _realm.Intrinsics.ArrayIteratorPrototype.Construct(o, ArrayIteratorType.Key);
         }
 
         /// <summary>
@@ -1266,7 +1266,7 @@ namespace Jint.Native.TypedArray
         private JsValue Values(JsValue thisObj, JsValue[] arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
-            return _realm.Intrinsics.Iterator.CreateArrayLikeIterator(o, ArrayIteratorType.Value);
+            return _realm.Intrinsics.ArrayIteratorPrototype.Construct(o, ArrayIteratorType.Value);
         }
 
         /// <summary>

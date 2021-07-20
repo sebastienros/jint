@@ -106,7 +106,7 @@ namespace Jint.Native.Array
         {
             if (thisObj is ObjectInstance oi && oi.IsArrayLike)
             {
-                return _realm.Intrinsics.Iterator.CreateArrayLikeIterator(oi, ArrayIteratorType.Key);
+                return _realm.Intrinsics.ArrayIteratorPrototype.Construct(oi, ArrayIteratorType.Key);
             }
 
             ExceptionHelper.ThrowTypeError(_realm, "cannot construct iterator");
@@ -117,7 +117,7 @@ namespace Jint.Native.Array
         {
             if (thisObj is ObjectInstance oi && oi.IsArrayLike)
             {
-                return _realm.Intrinsics.Iterator.CreateArrayLikeIterator(oi, ArrayIteratorType.Value);
+                return _realm.Intrinsics.ArrayIteratorPrototype.Construct(oi, ArrayIteratorType.Value);
             }
 
             ExceptionHelper.ThrowTypeError(_realm, "cannot construct iterator");
@@ -128,7 +128,7 @@ namespace Jint.Native.Array
         {
             if (thisObj is ObjectInstance oi && oi.IsArrayLike)
             {
-                return _realm.Intrinsics.Iterator.CreateArrayLikeIterator(oi, ArrayIteratorType.KeyAndValue);
+                return _realm.Intrinsics.ArrayIteratorPrototype.Construct(oi, ArrayIteratorType.KeyAndValue);
             }
 
             ExceptionHelper.ThrowTypeError(_realm, "cannot construct iterator");
