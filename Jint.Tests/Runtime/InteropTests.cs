@@ -2563,5 +2563,33 @@ namespace Jint.Tests.Runtime
             var wrapper = new ObjectWrapper(_engine, new Dictionary<string, object>());
             Assert.False(wrapper.IsArrayLike);
         }
+
+        [Fact]
+        public void ShouldHandleCyclicReferences()
+        {
+            var engine=new Engine();
+
+            static void Test(string message, object value) { Console.WriteLine(message); }
+
+            engine.Realm.GlobalObject.FastAddProperty("global", engine.Realm.GlobalObject, true, true, true);
+            engine.Realm.GlobalObject.FastAddProperty("test", new DelegateWrapper(engine, (Action<string, object>) Test), true, true, true);
+
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Realm.GlobalObject.ToObject());
+            Assert.Equal("Cyclic reference detected.", ex.Message);
+
+            ex = Assert.Throws<JavaScriptException>(() =>
+                engine.Execute(@"
+                    var demo={};
+                    demo.value=1;
+                    test('Test 1', demo.value===1);
+                    test('Test 2', demo.value);
+                    demo.demo=demo;
+                    test('Test 3', demo);
+                    test('Test 4', global);"
+                )
+            );
+
+            Assert.Equal("Cyclic reference detected.", ex.Message);
+        }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Jint.Collections;
 using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -16,14 +17,14 @@ namespace Jint.Native.Json
             _engine = engine;
         }
 
-        private Stack<object> _stack;
+        private ObjectTraverseStack _stack;
         private string _indent, _gap;
         private List<JsValue> _propertyList;
         private JsValue _replacerFunction = Undefined.Instance;
 
         public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
         {
-            _stack = new Stack<object>();
+            _stack = new ObjectTraverseStack(_engine);
 
             // for JSON.stringify(), any function passed as the first argument will return undefined
             // if the replacer is not defined. The function is not called either.
@@ -247,8 +248,7 @@ namespace Jint.Native.Json
 
         private string SerializeArray(JsValue value)
         {
-            EnsureNonCyclicity(value);
-            _stack.Push(value);
+            _stack.Enter(value);
             var stepback = _indent;
             _indent = _indent + _gap;
             var partial = new List<string>();
@@ -262,7 +262,7 @@ namespace Jint.Native.Json
             }
             if (partial.Count == 0)
             {
-                _stack.Pop();
+                _stack.Exit();
                 return "[]";
             }
 
@@ -280,30 +280,16 @@ namespace Jint.Native.Json
                 final = "[\n" + _indent + properties + "\n" + stepback + "]";
             }
 
-            _stack.Pop();
+            _stack.Exit();
             _indent = stepback;
             return final;
-        }
-
-        private void EnsureNonCyclicity(object value)
-        {
-            if (value == null)
-            {
-                ExceptionHelper.ThrowArgumentNullException(nameof(value));
-            }
-
-            if (_stack.Contains(value))
-            {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Cyclic reference detected.");
-            }
         }
 
         private string SerializeObject(ObjectInstance value)
         {
             string final;
 
-            EnsureNonCyclicity(value);
-            _stack.Push(value);
+            _stack.Enter(value);
             var stepback = _indent;
             _indent += _gap;
 
@@ -346,7 +332,7 @@ namespace Jint.Native.Json
                     final = "{\n" + _indent + properties + "\n" + stepback + "}";
                 }
             }
-            _stack.Pop();
+            _stack.Exit();
             _indent = stepback;
             return final;
         }
