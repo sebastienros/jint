@@ -891,11 +891,19 @@ namespace Jint.Native.Object
 
         public override object ToObject()
         {
+            return ToObject(new ObjectTraverseStack(_engine));
+        }
+
+        private object ToObject(ObjectTraverseStack stack)
+        {
+            stack.Enter(this);
             if (this is IObjectWrapper wrapper)
             {
+                stack.Exit();
                 return wrapper.Target;
             }
 
+            object converted = null;
             switch (Class)
             {
                 case ObjectClass.Array:
@@ -910,49 +918,47 @@ namespace Jint.Native.Object
                             if (kpresent)
                             {
                                 var kvalue = arrayInstance.Get(k);
-                                result[k] = kvalue.ToObject();
+                                var value = kvalue is ObjectInstance oi
+                                    ? oi.ToObject(stack)
+                                    : kvalue.ToObject();
+                                result[k] = value;
                             }
                             else
                             {
                                 result[k] = null;
                             }
                         }
-
-                        return result;
+                        converted = result;
                     }
-
                     break;
 
                 case ObjectClass.String:
                     if (this is StringInstance stringInstance)
                     {
-                        return stringInstance.PrimitiveValue.ToString();
+                        converted = stringInstance.PrimitiveValue.ToString();
                     }
-
                     break;
 
                 case ObjectClass.Date:
                     if (this is DateInstance dateInstance)
                     {
-                        return dateInstance.ToDateTime();
+                        converted = dateInstance.ToDateTime();
                     }
-
                     break;
 
                 case ObjectClass.Boolean:
                     if (this is BooleanInstance booleanInstance)
                     {
-                        return ((JsBoolean) booleanInstance.PrimitiveValue)._value
-                             ? JsBoolean.BoxedTrue
-                             : JsBoolean.BoxedFalse;
+                        converted = ((JsBoolean) booleanInstance.PrimitiveValue)._value
+                            ? JsBoolean.BoxedTrue
+                            : JsBoolean.BoxedFalse;
                     }
-
                     break;
 
                 case ObjectClass.Function:
                     if (this is FunctionInstance function)
                     {
-                        return (Func<JsValue, JsValue[], JsValue>) function.Call;
+                        converted = (Func<JsValue, JsValue[], JsValue>) function.Call;
                     }
 
                     break;
@@ -960,17 +966,15 @@ namespace Jint.Native.Object
                 case ObjectClass.Number:
                     if (this is NumberInstance numberInstance)
                     {
-                        return numberInstance.NumberData._value;
+                        converted = numberInstance.NumberData._value;
                     }
-
                     break;
 
                 case ObjectClass.RegExp:
                     if (this is RegExpInstance regeExpInstance)
                     {
-                        return regeExpInstance.Value;
+                        converted = regeExpInstance.Value;
                     }
-
                     break;
 
                 case ObjectClass.Arguments:
@@ -983,14 +987,23 @@ namespace Jint.Native.Object
                             continue;
                         }
 
-                        o.Add(p.Key.ToString(), Get(p.Key, this).ToObject());
+                        var key = p.Key.ToString();
+                        var propertyValue = Get(p.Key, this);
+                        var value = propertyValue is ObjectInstance oi
+                            ? oi.ToObject(stack)
+                            : propertyValue.ToObject();
+                        o.Add(key, value);
                     }
 
-                    return o;
+                    converted = o;
+                    break;
+                default:
+                    converted = this;
+                    break;
             }
 
-
-            return this;
+            stack.Exit();
+            return converted;
         }
 
         /// <summary>

@@ -26,7 +26,8 @@ namespace Jint.Native.Iterator
 
         public override object ToObject()
         {
-            throw new System.NotImplementedException();
+            ExceptionHelper.ThrowNotImplementedException();
+            return null;
         }
 
         public override bool Equals(JsValue other)
