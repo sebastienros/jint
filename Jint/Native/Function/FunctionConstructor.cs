@@ -4,6 +4,7 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Function
 {
@@ -124,13 +125,13 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-instantiatefunctionobject
         /// </summary>
-        internal FunctionInstance InstantiateFunctionObject(FunctionDeclaration functionDeclaration, EnvironmentRecord env)
+        internal FunctionInstance InstantiateFunctionObject(JintFunctionDefinition functionDeclaration, EnvironmentRecord env)
         {
             var functionObject = new ScriptFunctionInstance(
                 Engine,
                 functionDeclaration,
                 env,
-                functionDeclaration.Strict || _engine._isStrict)
+                functionDeclaration.Strict || _engine._isStrict ? FunctionThisMode.Strict : FunctionThisMode.Global)
             {
                 _realm = _realm
             };

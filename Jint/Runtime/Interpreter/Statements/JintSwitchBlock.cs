@@ -51,7 +51,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 {
                     oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var blockEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                    JintStatementList.BlockDeclarationInstantiation(blockEnv, clause.LexicalDeclarations);
+                    JintStatementList.BlockDeclarationInstantiation(_engine, blockEnv, clause.LexicalDeclarations);
                     _engine.UpdateLexicalEnvironment(blockEnv);
                 }
 
@@ -95,7 +95,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 {
                     oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                     var blockEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                    JintStatementList.BlockDeclarationInstantiation(blockEnv, defaultCase.LexicalDeclarations);
+                    JintStatementList.BlockDeclarationInstantiation(_engine, blockEnv, defaultCase.LexicalDeclarations);
                     _engine.UpdateLexicalEnvironment(blockEnv);
                 }
 

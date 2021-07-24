@@ -739,7 +739,7 @@ namespace Jint
             var varDeclarations = hoistingScope._variablesDeclarations;
             var lexDeclarations = hoistingScope._lexicalDeclarations;
 
-            var functionToInitialize = new LinkedList<FunctionDeclaration>();
+            var functionToInitialize = new LinkedList<JintFunctionDefinition>();
             var declaredFunctionNames = new HashSet<string>();
             var declaredVarNames = new List<string>();
 
@@ -760,7 +760,7 @@ namespace Jint
                         }
 
                         declaredFunctionNames.Add(fn);
-                        functionToInitialize.AddFirst(d);
+                        functionToInitialize.AddFirst(new JintFunctionDefinition(this, d));
                     }
                 }
             }
@@ -827,7 +827,7 @@ namespace Jint
 
             foreach (var f in functionToInitialize)
             {
-                var fn = f.Id!.Name;
+                var fn = f.Function.Id!.Name;
 
                 if (env.HasLexicalDeclaration(fn))
                 {
@@ -879,8 +879,7 @@ namespace Jint
                 {
                     // NOTE: mapped argument object is only provided for non-strict functions that don't have a rest parameter,
                     // any parameter default value initializers, or any destructured parameters.
-                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, envRec,
-                        configuration.HasRestParameter);
+                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, envRec, configuration.HasRestParameter);
                 }
 
                 if (strict)
@@ -971,14 +970,14 @@ namespace Jint
         }
 
         private void InitializeFunctions(
-            LinkedList<FunctionDeclaration> functionsToInitialize,
+            LinkedList<JintFunctionDefinition> functionsToInitialize,
             EnvironmentRecord lexEnv,
             DeclarativeEnvironmentRecord varEnvRec)
         {
             var realm = Realm;
             foreach (var f in functionsToInitialize)
             {
-                var fn = f.Id.Name;
+                var fn = f.Function.Id.Name;
                 var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv);
                 varEnvRec.SetMutableBinding(fn, fo, strict: false);
             }
@@ -1076,7 +1075,7 @@ namespace Jint
             }
 
             var functionDeclarations = hoistingScope._functionDeclarations;
-            var functionsToInitialize = new LinkedList<FunctionDeclaration>();
+            var functionsToInitialize = new LinkedList<JintFunctionDefinition>();
             var declaredFunctionNames = new HashSet<string>();
 
             if (functionDeclarations != null)
@@ -1097,7 +1096,7 @@ namespace Jint
                         }
 
                         declaredFunctionNames.Add(fn);
-                        functionsToInitialize.AddFirst(d);
+                        functionsToInitialize.AddFirst(new JintFunctionDefinition(this, d));
                     }
                 }
             }
@@ -1153,7 +1152,7 @@ namespace Jint
 
             foreach (var f in functionsToInitialize)
             {
-                var fn = f.Id.Name;
+                var fn = f.Function.Id.Name;
                 var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv);
                 if (varEnvRec is GlobalEnvironmentRecord ger)
                 {

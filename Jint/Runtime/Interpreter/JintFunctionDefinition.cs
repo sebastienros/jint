@@ -31,21 +31,6 @@ namespace Jint.Runtime.Interpreter
             Function = function;
             Name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id.Name : null;
             Strict = function.Strict;
-
-            if (!Strict && !function.Expression)
-            {
-                // Esprima doesn't detect strict at the moment for
-                // language/expressions/object/method-definition/name-invoke-fn-strict.js
-                var blockStatement = (BlockStatement) function.Body;
-                ref readonly var statements = ref blockStatement.Body;
-                for (int i = 0; i < statements.Count; ++i)
-                {
-                    if (statements[i] is Directive d && d.Directiv == "use strict")
-                    {
-                        Strict = true;
-                    }
-                }
-            }
         }
 
         internal Completion Execute()
@@ -77,7 +62,7 @@ namespace Jint.Runtime.Interpreter
             public bool HasParameterExpressions;
             public bool ArgumentsObjectNeeded;
             public List<Key> VarNames;
-            public LinkedList<FunctionDeclaration> FunctionsToInitialize;
+            public LinkedList<JintFunctionDefinition> FunctionsToInitialize;
             public readonly HashSet<Key> FunctionNames = new HashSet<Key>();
             public LexicalVariableDeclaration[] LexicalDeclarations = Array.Empty<LexicalVariableDeclaration>();
             public HashSet<Key> ParameterBindings;
@@ -107,18 +92,18 @@ namespace Jint.Runtime.Interpreter
             var lexicalNames = hoistingScope._lexicalNames;
             state.VarNames = hoistingScope._varNames;
 
-            LinkedList<FunctionDeclaration> functionsToInitialize = null;
+            LinkedList<JintFunctionDefinition> functionsToInitialize = null;
 
             if (functionDeclarations != null)
             {
-                functionsToInitialize = new LinkedList<FunctionDeclaration>();
+                functionsToInitialize = new LinkedList<JintFunctionDefinition>();
                 for (var i = functionDeclarations.Count - 1; i >= 0; i--)
                 {
                     var d = functionDeclarations[i];
                     var fn = d.Id.Name;
                     if (state.FunctionNames.Add(fn))
                     {
-                        functionsToInitialize.AddFirst(d);
+                        functionsToInitialize.AddFirst(new JintFunctionDefinition(_engine, d));
                     }
                 }
             }
