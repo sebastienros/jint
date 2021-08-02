@@ -47,6 +47,7 @@ namespace Jint.Tests.Runtime
             public static Vector2 operator +(Vector2 left, double right) => new Vector2(left.X + right, left.Y + right);
             public static Vector2 operator +(string left, Vector2 right) => new Vector2(right.X, right.Y);
             public static Vector2 operator +(double left, Vector2 right) => new Vector2(right.X + left, right.Y + left);
+            public static Vector2 operator -(Vector2 left, Vector2 right) => new Vector2(left.X - right.X, left.Y - right.Y);
             public static Vector2 operator *(Vector2 left, double right) => new Vector2(left.X * right, left.Y * right);
             public static Vector2 operator /(Vector2 left, double right) => new Vector2(left.X / right, left.Y / right);
 
@@ -137,6 +138,9 @@ namespace Jint.Tests.Runtime
                 equal(3, r8.X);
                 equal(0, r8.Y);
 
+                var r9 = v2 - v1;
+                equal(2, r9.X);
+                equal(2, r9.Y);
                 
                 var vSmall = new Vector2(3, 4);
                 var vBig = new Vector2(4, 4);
@@ -156,6 +160,60 @@ namespace Jint.Tests.Runtime
                 assertFalse(vBig > vBig);
                 assertFalse(vBig < vSmall);
                 assertFalse(vBig <= vSmall);
+            ");
+        }
+
+        [Fact]
+        public void OperatorOverloading_AssignmentOperators()
+        {
+            RunTest(@"
+                var v1 = new Vector2(1, 2);
+                var v2 = new Vector2(3, 4);
+                var n = 6;
+
+                var r1 = v1;
+                r1 += v2;
+                equal(4, r1.X);
+                equal(6, r1.Y);
+
+                var r2 = n;
+                r2 += v1;
+                equal(7, r2.X);
+                equal(8, r2.Y);
+
+                var r3 = v1;
+                r3 += n;
+                equal(7, r3.X);
+                equal(8, r3.Y);
+
+                var r4 = v1;
+                r4 *= n;
+                equal(6, r4.X);
+                equal(12, r4.Y);
+
+                var r5 = v1;
+                r5 /= n;
+                equal(1 / 6, r5.X);
+                equal(2 / 6, r5.Y);
+
+                var r6 = v2;
+                r6 %= new Vector2(2, 3);
+                equal(1, r6.X);
+                equal(1, r6.Y);
+
+                var r7 = v2;
+                r7 &= v1;
+                equal(11, r7);
+
+                var r8 = new Vector2(3, 4);
+                r8 |= new Vector2(2, 0);
+                equal(3, r8.X);
+                equal(0, r8.Y);
+
+                var r9 = v2;
+                r9 -= v1;
+                equal(2, r9.X);
+                equal(2, r9.Y);
             ");
         }
 

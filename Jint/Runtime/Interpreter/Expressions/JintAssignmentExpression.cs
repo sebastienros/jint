@@ -44,101 +44,157 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var rval = _right.GetValue();
             var lval = _engine.GetValue(lref, false);
+            var handledByOverload = false;
 
-            switch (_operator)
+            if (_engine.Options._IsOperatorOverloadingAllowed)
             {
-                case AssignmentOperator.PlusAssign:
-                    if (AreIntegerOperands(lval, rval))
-                    {
-                        lval = (long) lval.AsInteger() + rval.AsInteger();
-                    }
-                    else
-                    {
-                        var lprim = TypeConverter.ToPrimitive(lval);
-                        var rprim = TypeConverter.ToPrimitive(rval);
+                string operatorClrName = null;
+                switch (_operator)
+                {
+                    case AssignmentOperator.PlusAssign:
+                        operatorClrName = "op_Addition";
+                        break;
+                    case AssignmentOperator.MinusAssign:
+                        operatorClrName = "op_Subtraction";
+                        break;
+                    case AssignmentOperator.TimesAssign:
+                        operatorClrName = "op_Multiply";
+                        break;
+                    case AssignmentOperator.DivideAssign:
+                        operatorClrName = "op_Division";
+                        break;
+                    case AssignmentOperator.ModuloAssign:
+                        operatorClrName = "op_Modulus";
+                        break;
+                    case AssignmentOperator.BitwiseAndAssign:
+                        operatorClrName = "op_BitwiseAnd";
+                        break;
+                    case AssignmentOperator.BitwiseOrAssign:
+                        operatorClrName = "op_BitwiseOr";
+                        break;
+                    case AssignmentOperator.BitwiseXOrAssign:
+                        operatorClrName = "op_ExclusiveOr";
+                        break;
+                    case AssignmentOperator.LeftShiftAssign:
+                        operatorClrName = "op_LeftShift";
+                        break;
+                    case AssignmentOperator.RightShiftAssign:
+                        operatorClrName = "op_RightShift";
+                        break;
+                    case AssignmentOperator.UnsignedRightShiftAssign:
+                        operatorClrName = "op_UnsignedRightShift";
+                        break;
+                    case AssignmentOperator.ExponentiationAssign:
+                    case AssignmentOperator.Assign:
+                    default:
+                        break;
+                }
 
-                        if (lprim.IsString() || rprim.IsString())
+                if (operatorClrName != null &&
+                    JintBinaryExpression.TryOperatorOverloading(_engine, lval, rval, operatorClrName, out var result))
+                {
+                    lval = JsValue.FromObject(_engine, result);
+                    handledByOverload = true;
+                }
+            }
+
+            if (!handledByOverload)
+            {
+                switch (_operator)
+                {
+                    case AssignmentOperator.PlusAssign:
+                        if (AreIntegerOperands(lval, rval))
                         {
-                            if (!(lprim is JsString jsString))
-                            {
-                                jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
-                            }
-
-                            lval = jsString.Append(rprim);
+                            lval = (long) lval.AsInteger() + rval.AsInteger();
                         }
                         else
                         {
-                            lval = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
+                            var lprim = TypeConverter.ToPrimitive(lval);
+                            var rprim = TypeConverter.ToPrimitive(rval);
+
+                            if (lprim.IsString() || rprim.IsString())
+                            {
+                                if (!(lprim is JsString jsString))
+                                {
+                                    jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
+                                }
+
+                                lval = jsString.Append(rprim);
+                            }
+                            else
+                            {
+                                lval = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
+                            }
                         }
-                    }
 
-                    break;
+                        break;
 
-                case AssignmentOperator.MinusAssign:
-                    lval = AreIntegerOperands(lval, rval)
-                        ? JsNumber.Create(lval.AsInteger() - rval.AsInteger())
-                        : JsNumber.Create(TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval));
-                    break;
+                    case AssignmentOperator.MinusAssign:
+                        lval = AreIntegerOperands(lval, rval)
+                            ? JsNumber.Create(lval.AsInteger() - rval.AsInteger())
+                            : JsNumber.Create(TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval));
+                        break;
 
-                case AssignmentOperator.TimesAssign:
-                    if (AreIntegerOperands(lval, rval))
-                    {
-                        lval = (long) lval.AsInteger() * rval.AsInteger();
-                    }
-                    else if (lval.IsUndefined() || rval.IsUndefined())
-                    {
-                        lval = Undefined.Instance;
-                    }
-                    else
-                    {
-                        lval = TypeConverter.ToNumber(lval) * TypeConverter.ToNumber(rval);
-                    }
+                    case AssignmentOperator.TimesAssign:
+                        if (AreIntegerOperands(lval, rval))
+                        {
+                            lval = (long) lval.AsInteger() * rval.AsInteger();
+                        }
+                        else if (lval.IsUndefined() || rval.IsUndefined())
+                        {
+                            lval = Undefined.Instance;
+                        }
+                        else
+                        {
+                            lval = TypeConverter.ToNumber(lval) * TypeConverter.ToNumber(rval);
+                        }
 
-                    break;
+                        break;
 
-                case AssignmentOperator.DivideAssign:
-                    lval = Divide(lval, rval);
-                    break;
+                    case AssignmentOperator.DivideAssign:
+                        lval = Divide(lval, rval);
+                        break;
 
-                case AssignmentOperator.ModuloAssign:
-                    if (lval.IsUndefined() || rval.IsUndefined())
-                    {
-                        lval = Undefined.Instance;
-                    }
-                    else
-                    {
-                        lval = TypeConverter.ToNumber(lval) % TypeConverter.ToNumber(rval);
-                    }
+                    case AssignmentOperator.ModuloAssign:
+                        if (lval.IsUndefined() || rval.IsUndefined())
+                        {
+                            lval = Undefined.Instance;
+                        }
+                        else
+                        {
+                            lval = TypeConverter.ToNumber(lval) % TypeConverter.ToNumber(rval);
+                        }
 
-                    break;
+                        break;
 
-                case AssignmentOperator.BitwiseAndAssign:
-                    lval = TypeConverter.ToInt32(lval) & TypeConverter.ToInt32(rval);
-                    break;
+                    case AssignmentOperator.BitwiseAndAssign:
+                        lval = TypeConverter.ToInt32(lval) & TypeConverter.ToInt32(rval);
+                        break;
 
-                case AssignmentOperator.BitwiseOrAssign:
-                    lval = TypeConverter.ToInt32(lval) | TypeConverter.ToInt32(rval);
-                    break;
+                    case AssignmentOperator.BitwiseOrAssign:
+                        lval = TypeConverter.ToInt32(lval) | TypeConverter.ToInt32(rval);
+                        break;
 
-                case AssignmentOperator.BitwiseXOrAssign:
-                    lval = TypeConverter.ToInt32(lval) ^ TypeConverter.ToInt32(rval);
-                    break;
+                    case AssignmentOperator.BitwiseXOrAssign:
+                        lval = TypeConverter.ToInt32(lval) ^ TypeConverter.ToInt32(rval);
+                        break;
 
-                case AssignmentOperator.LeftShiftAssign:
-                    lval = TypeConverter.ToInt32(lval) << (int) (TypeConverter.ToUint32(rval) & 0x1F);
-                    break;
+                    case AssignmentOperator.LeftShiftAssign:
+                        lval = TypeConverter.ToInt32(lval) << (int) (TypeConverter.ToUint32(rval) & 0x1F);
+                        break;
 
-                case AssignmentOperator.RightShiftAssign:
-                    lval = TypeConverter.ToInt32(lval) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
-                    break;
+                    case AssignmentOperator.RightShiftAssign:
+                        lval = TypeConverter.ToInt32(lval) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
+                        break;
 
-                case AssignmentOperator.UnsignedRightShiftAssign:
-                    lval = (uint) TypeConverter.ToInt32(lval) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
-                    break;
+                    case AssignmentOperator.UnsignedRightShiftAssign:
+                        lval = (uint) TypeConverter.ToInt32(lval) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
+                        break;
 
-                default:
-                    ExceptionHelper.ThrowNotImplementedException();
-                    return null;
+                    default:
+                        ExceptionHelper.ThrowNotImplementedException();
+                        return null;
+                }
             }
 
             _engine.PutValue(lref, lval);

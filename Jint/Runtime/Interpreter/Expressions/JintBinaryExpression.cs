@@ -29,9 +29,11 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected bool TryOperatorOverloading(string clrName, out object result)
         {
-            var leftValue = _left.GetValue();
-            var rightValue = _right.GetValue();
+            return TryOperatorOverloading(_engine, _left.GetValue(), _right.GetValue(), clrName, out result);
+        }
 
+        internal static bool TryOperatorOverloading(Engine engine, JsValue leftValue, JsValue rightValue, string clrName, out object result)
+        {
             var left = leftValue.ToObject();
             var right = rightValue.ToObject();
 
@@ -54,12 +56,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var methods = leftMethods.Concat(rightMethods).Where(x => x.Name == clrName && x.GetParameters().Length == 2);
                     var _methods = MethodDescriptor.Build(methods.ToArray());
 
-                    return TypeConverter.FindBestMatch(_engine, _methods, _ => arguments).FirstOrDefault()?.Item1;
+                    return TypeConverter.FindBestMatch(engine, _methods, _ => arguments).FirstOrDefault()?.Item1;
                 });
 
                 if (method != null)
                 {
-                    result = method.Call(_engine, null, arguments);
+                    result = method.Call(engine, null, arguments);
                     return true;
                 }
             }
