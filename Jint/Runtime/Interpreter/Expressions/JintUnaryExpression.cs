@@ -150,6 +150,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return bindings.DeleteBinding(property.ToString()) ? JsBoolean.True : JsBoolean.False;
 
                 case UnaryOperator.Void:
+                    _argument.GetValue();
                     return Undefined.Instance;
 
                 case UnaryOperator.TypeOf:
@@ -165,7 +166,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                     }
 
-                    var v = _engine.GetValue(value, true);
+                    // TODO: double evaluation problem
+                    var v = _argument.GetValue();
                     if (v.IsUndefined())
                     {
                         return JsString.UndefinedString;
