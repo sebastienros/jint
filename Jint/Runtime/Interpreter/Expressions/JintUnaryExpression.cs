@@ -53,50 +53,54 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            var v = _argument.GetValue();
-            if (_engine.Options._IsOperatorOverloadingAllowed)
-            {
-                string operatorClrName = null;
-                switch (_operator)
-                {
-                    case UnaryOperator.Plus:
-                        operatorClrName = "op_UnaryPlus";
-                        break;
-                    case UnaryOperator.Minus:
-                        operatorClrName = "op_UnaryNegation";
-                        break;
-                    case UnaryOperator.BitwiseNot:
-                        operatorClrName = "op_OnesComplement";
-                        break;
-                    case UnaryOperator.LogicalNot:
-                        operatorClrName = "op_LogicalNot";
-                        break;
-                    default:
-                        break;
-                }
-
-                if (operatorClrName != null &&
-                    TryOperatorOverloading(_engine, v, operatorClrName, out var result))
-                {
-                    return result;
-                }
-            }
-
             switch (_operator)
             {
                 case UnaryOperator.Plus:
+                {
+                    var v = _argument.GetValue();
+                    if (_engine.Options._IsOperatorOverloadingAllowed &&
+                        TryOperatorOverloading(_engine, v, "op_UnaryPlus", out var result))
+                    {
+                        return result;
+                    }
+
                     return v.IsInteger() && v.AsInteger() != 0
                         ? v
                         : JsNumber.Create(TypeConverter.ToNumber(v));
-
+                }
                 case UnaryOperator.Minus:
+                {
+                    var v = _argument.GetValue();
+                    if (_engine.Options._IsOperatorOverloadingAllowed &&
+                        TryOperatorOverloading(_engine, v, "op_UnaryNegation", out var result))
+                    {
+                        return result;
+                    }
+
                     return EvaluateMinus(v);
-
+                }
                 case UnaryOperator.BitwiseNot:
-                    return JsNumber.Create(~TypeConverter.ToInt32(v));
+                {
+                    var v = _argument.GetValue();
+                    if (_engine.Options._IsOperatorOverloadingAllowed &&
+                        TryOperatorOverloading(_engine, v, "op_OnesComplement", out var result))
+                    {
+                        return result;
+                    }
 
+                    return JsNumber.Create(~TypeConverter.ToInt32(v));
+                }
                 case UnaryOperator.LogicalNot:
+                {
+                    var v = _argument.GetValue();
+                    if (_engine.Options._IsOperatorOverloadingAllowed &&
+                        TryOperatorOverloading(_engine, v, "op_LogicalNot", out var result))
+                    {
+                        return result;
+                    }
+
                     return !TypeConverter.ToBoolean(v) ? JsBoolean.True : JsBoolean.False;
+                }
 
                 case UnaryOperator.Delete:
                     var r = _argument.Evaluate() as Reference;
@@ -149,6 +153,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return Undefined.Instance;
 
                 case UnaryOperator.TypeOf:
+                {
                     var value = _argument.Evaluate();
                     r = value as Reference;
                     if (r != null)
@@ -160,6 +165,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                     }
 
+                    var v = _engine.GetValue(value, true);
                     if (v.IsUndefined())
                     {
                         return JsString.UndefinedString;
@@ -184,7 +190,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     return JsString.ObjectString;
-
+                }
                 default:
                     ExceptionHelper.ThrowArgumentException();
                     return null;
