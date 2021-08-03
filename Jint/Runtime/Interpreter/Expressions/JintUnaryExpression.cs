@@ -53,6 +53,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
+            var v = _argument.GetValue();
             if (_engine.Options._IsOperatorOverloadingAllowed)
             {
                 string operatorClrName = null;
@@ -75,7 +76,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
 
                 if (operatorClrName != null &&
-                    TryOperatorOverloading(_engine, _argument.GetValue(), operatorClrName, out var result))
+                    TryOperatorOverloading(_engine, v, operatorClrName, out var result))
                 {
                     return result;
                 }
@@ -84,19 +85,18 @@ namespace Jint.Runtime.Interpreter.Expressions
             switch (_operator)
             {
                 case UnaryOperator.Plus:
-                    var plusValue = _argument.GetValue();
-                    return plusValue.IsInteger() && plusValue.AsInteger() != 0
-                        ? plusValue
-                        : JsNumber.Create(TypeConverter.ToNumber(plusValue));
+                    return v.IsInteger() && v.AsInteger() != 0
+                        ? v
+                        : JsNumber.Create(TypeConverter.ToNumber(v));
 
                 case UnaryOperator.Minus:
-                    return EvaluateMinus(_argument.GetValue());
+                    return EvaluateMinus(v);
 
                 case UnaryOperator.BitwiseNot:
-                    return JsNumber.Create(~TypeConverter.ToInt32(_argument.GetValue()));
+                    return JsNumber.Create(~TypeConverter.ToInt32(v));
 
                 case UnaryOperator.LogicalNot:
-                    return !TypeConverter.ToBoolean(_argument.GetValue()) ? JsBoolean.True : JsBoolean.False;
+                    return !TypeConverter.ToBoolean(v) ? JsBoolean.True : JsBoolean.False;
 
                 case UnaryOperator.Delete:
                     var r = _argument.Evaluate() as Reference;
@@ -146,7 +146,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return bindings.DeleteBinding(property.ToString()) ? JsBoolean.True : JsBoolean.False;
 
                 case UnaryOperator.Void:
-                    _argument.GetValue();
                     return Undefined.Instance;
 
                 case UnaryOperator.TypeOf:
@@ -160,8 +159,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                             return JsString.UndefinedString;
                         }
                     }
-
-                    var v = _argument.GetValue();
 
                     if (v.IsUndefined())
                     {
