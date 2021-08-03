@@ -315,5 +315,29 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void OperatorOverloading_ShouldEvaluateOnlyOnce()
+        {
+            RunTest(@"
+                var c;
+                var resolve = v => { c++; return v; };
+
+                c = 0;
+                var n1 = resolve(1) + 2;
+                equal(n1, 3);
+                equal(c, 1);
+
+                c = 0;
+                var n2 = resolve(2) + resolve(3);
+                equal(n2, 5);
+                equal(c, 2);
+
+                c = 0;
+                var n3 = -resolve(1);
+                equal(n3, -1);
+                equal(c, 1);
+            ");
+        }
+
     }
 }

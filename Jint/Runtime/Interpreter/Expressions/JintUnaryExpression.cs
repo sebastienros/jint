@@ -53,50 +53,54 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            if (_engine.Options._IsOperatorOverloadingAllowed)
-            {
-                string operatorClrName = null;
-                switch (_operator)
-                {
-                    case UnaryOperator.Plus:
-                        operatorClrName = "op_UnaryPlus";
-                        break;
-                    case UnaryOperator.Minus:
-                        operatorClrName = "op_UnaryNegation";
-                        break;
-                    case UnaryOperator.BitwiseNot:
-                        operatorClrName = "op_OnesComplement";
-                        break;
-                    case UnaryOperator.LogicalNot:
-                        operatorClrName = "op_LogicalNot";
-                        break;
-                    default:
-                        break;
-                }
-
-                if (operatorClrName != null &&
-                    TryOperatorOverloading(_engine, _argument.GetValue(), operatorClrName, out var result))
-                {
-                    return result;
-                }
-            }
-
             switch (_operator)
             {
                 case UnaryOperator.Plus:
-                    var plusValue = _argument.GetValue();
-                    return plusValue.IsInteger() && plusValue.AsInteger() != 0
-                        ? plusValue
-                        : JsNumber.Create(TypeConverter.ToNumber(plusValue));
+                {
+                    var v = _argument.GetValue();
+                    if (_engine.Options._IsOperatorOverloadingAllowed &&
+                        TryOperatorOverloading(_engine, v, "op_UnaryPlus", out var result))
+                    {
+                        return result;
+                    }
 
+                    return v.IsInteger() && v.AsInteger() != 0
+                        ? v
+                        : JsNumber.Create(TypeConverter.ToNumber(v));
+                }
                 case UnaryOperator.Minus:
-                    return EvaluateMinus(_argument.GetValue());
+                {
+                    var v = _argument.GetValue();
+                    if (_engine.Options._IsOperatorOverloadingAllowed &&
+                        TryOperatorOverloading(_engine, v, "op_UnaryNegation", out var result))
+                    {
+                        return result;
+                    }
 
+                    return EvaluateMinus(v);
+                }
                 case UnaryOperator.BitwiseNot:
-                    return JsNumber.Create(~TypeConverter.ToInt32(_argument.GetValue()));
+                {
+                    var v = _argument.GetValue();
+                    if (_engine.Options._IsOperatorOverloadingAllowed &&
+                        TryOperatorOverloading(_engine, v, "op_OnesComplement", out var result))
+                    {
+                        return result;
+                    }
 
+                    return JsNumber.Create(~TypeConverter.ToInt32(v));
+                }
                 case UnaryOperator.LogicalNot:
-                    return !TypeConverter.ToBoolean(_argument.GetValue()) ? JsBoolean.True : JsBoolean.False;
+                {
+                    var v = _argument.GetValue();
+                    if (_engine.Options._IsOperatorOverloadingAllowed &&
+                        TryOperatorOverloading(_engine, v, "op_LogicalNot", out var result))
+                    {
+                        return result;
+                    }
+
+                    return !TypeConverter.ToBoolean(v) ? JsBoolean.True : JsBoolean.False;
+                }
 
                 case UnaryOperator.Delete:
                     var r = _argument.Evaluate() as Reference;
@@ -150,6 +154,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return Undefined.Instance;
 
                 case UnaryOperator.TypeOf:
+                {
                     var value = _argument.Evaluate();
                     r = value as Reference;
                     if (r != null)
@@ -161,8 +166,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                     }
 
+                    // TODO: double evaluation problem
                     var v = _argument.GetValue();
-
                     if (v.IsUndefined())
                     {
                         return JsString.UndefinedString;
@@ -187,7 +192,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     return JsString.ObjectString;
-
+                }
                 default:
                     ExceptionHelper.ThrowArgumentException();
                     return null;

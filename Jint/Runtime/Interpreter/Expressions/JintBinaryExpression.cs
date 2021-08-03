@@ -27,9 +27,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             _right = Build(_engine, expression.Right);
         }
 
-        protected bool TryOperatorOverloading(string clrName, out object result)
+        protected bool TryOperatorOverloading(JsValue left, JsValue right, string clrName, out object result)
         {
-            return TryOperatorOverloading(_engine, _left.GetValue(), _right.GetValue(), clrName, out result);
+            return TryOperatorOverloading(_engine, left, right, clrName, out result);
         }
 
         internal static bool TryOperatorOverloading(Engine engine, JsValue leftValue, JsValue rightValue, string clrName, out object result)
@@ -267,14 +267,14 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
+                var left = _left.GetValue();
+                var right = _right.GetValue();
+
                 if (_engine.Options._IsOperatorOverloadingAllowed
-                    && TryOperatorOverloading("op_LessThan", out var opResult))
+                    && TryOperatorOverloading(left, right, "op_LessThan", out var opResult))
                 {
                     return opResult;
                 }
-
-                var left = _left.GetValue();
-                var right = _right.GetValue();
                 var value = Compare(left, right);
 
                 return value._type == InternalTypes.Undefined
@@ -291,14 +291,15 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
+                var left = _left.GetValue();
+                var right = _right.GetValue();
+
                 if (_engine.Options._IsOperatorOverloadingAllowed
-                    && TryOperatorOverloading("op_GreaterThan", out var opResult))
+                    && TryOperatorOverloading(left, right, "op_GreaterThan", out var opResult))
                 {
                     return opResult;
                 }
 
-                var left = _left.GetValue();
-                var right = _right.GetValue();
                 var value = Compare(right, left, false);
 
                 return value._type == InternalTypes.Undefined
@@ -315,14 +316,14 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
+                var left = _left.GetValue();
+                var right = _right.GetValue();
+
                 if (_engine.Options._IsOperatorOverloadingAllowed
-                    && TryOperatorOverloading("op_Addition", out var opResult))
+                    && TryOperatorOverloading(left, right, "op_Addition", out var opResult))
                 {
                     return opResult;
                 }
-
-                var left = _left.GetValue();
-                var right = _right.GetValue();
 
                 if (AreIntegerOperands(left, right))
                 {
@@ -344,14 +345,14 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
+                var left = _left.GetValue();
+                var right = _right.GetValue();
+
                 if (_engine.Options._IsOperatorOverloadingAllowed
-                    && TryOperatorOverloading("op_Subtraction", out var opResult))
+                    && TryOperatorOverloading(left, right, "op_Subtraction", out var opResult))
                 {
                     return opResult;
                 }
-
-                var left = _left.GetValue();
-                var right = _right.GetValue();
 
                 return AreIntegerOperands(left, right)
                     ? JsNumber.Create(left.AsInteger() - right.AsInteger())
@@ -367,14 +368,14 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
+                var left = _left.GetValue();
+                var right = _right.GetValue();
+
                 if (_engine.Options._IsOperatorOverloadingAllowed
-                    && TryOperatorOverloading("op_Multiply", out var opResult))
+                    && TryOperatorOverloading(left, right, "op_Multiply", out var opResult))
                 {
                     return opResult;
                 }
-
-                var left = _left.GetValue();
-                var right = _right.GetValue();
 
                 if (AreIntegerOperands(left, right))
                 {
@@ -398,14 +399,14 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
+                var left = _left.GetValue();
+                var right = _right.GetValue();
+
                 if (_engine.Options._IsOperatorOverloadingAllowed
-                    && TryOperatorOverloading("op_Division", out var opResult))
+                    && TryOperatorOverloading(left, right, "op_Division", out var opResult))
                 {
                     return opResult;
                 }
-
-                var left = _left.GetValue();
-                var right = _right.GetValue();
 
                 return Divide(left, right);
             }
@@ -422,14 +423,14 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
+                var left = _left.GetValue();
+                var right = _right.GetValue();
+
                 if (_engine.Options._IsOperatorOverloadingAllowed
-                    && TryOperatorOverloading(_invert ? "op_Inequality" : "op_Equality", out var opResult))
+                    && TryOperatorOverloading(left, right, _invert ? "op_Inequality" : "op_Equality", out var opResult))
                 {
                     return opResult;
                 }
-
-                var left = _left.GetValue();
-                var right = _right.GetValue();
 
                 return Equal(left, right) == !_invert
                     ? JsBoolean.True
@@ -448,14 +449,14 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
+                var leftValue = _left.GetValue();
+                var rightValue = _right.GetValue();
+
                 if (_engine.Options._IsOperatorOverloadingAllowed
-                    && TryOperatorOverloading(_leftFirst ? "op_GreaterThanOrEqual" : "op_LessThanOrEqual", out var opResult))
+                    && TryOperatorOverloading(leftValue, rightValue, _leftFirst ? "op_GreaterThanOrEqual" : "op_LessThanOrEqual", out var opResult))
                 {
                     return opResult;
                 }
-
-                var leftValue = _left.GetValue();
-                var rightValue = _right.GetValue();
 
                 var left = _leftFirst ? leftValue : rightValue;
                 var right = _leftFirst ? rightValue : leftValue;
@@ -525,14 +526,14 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
+                var left = _left.GetValue();
+                var right = _right.GetValue();
+
                 if (_engine.Options._IsOperatorOverloadingAllowed
-                    && TryOperatorOverloading("op_Modulus", out var opResult))
+                    && TryOperatorOverloading(left, right, "op_Modulus", out var opResult))
                 {
                     return opResult;
                 }
-
-                var left = _left.GetValue();
-                var right = _right.GetValue();
 
                 if (AreIntegerOperands(left, right))
                 {
@@ -588,14 +589,14 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal()
             {
+                var left = _left.GetValue();
+                var right = _right.GetValue();
+
                 if (_engine.Options._IsOperatorOverloadingAllowed
-                    && TryOperatorOverloading(OperatorClrName, out var opResult))
+                    && TryOperatorOverloading(left, right, OperatorClrName, out var opResult))
                 {
                     return opResult;
                 }
-
-                var left = _left.GetValue();
-                var right = _right.GetValue();
 
                 if (AreIntegerOperands(left, right))
                 {
