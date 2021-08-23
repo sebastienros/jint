@@ -64,7 +64,7 @@ namespace Jint.Tests.Runtime
         public EngineTests(ITestOutputHelper output)
         {
             _engine = new Engine()
-                .SetValue("log", new Action<object>( o => output.WriteLine(o.ToString())))
+                .SetValue("log", new Action<object>(o => output.WriteLine(o.ToString())))
                 .SetValue("assert", new Action<bool>(Assert.True))
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
                 ;
@@ -1003,7 +1003,7 @@ myarr[0](0);
         {
             const string code = @"var obj = { get test() { return this.test + '2';  } }; obj.test;";
             var engine = new Engine(cfg => cfg.LimitRecursion(10));
-            
+
             Assert.Throws<RecursionDepthOverflowException>(() => engine.Evaluate(code));
         }
 
@@ -1260,7 +1260,7 @@ myarr[0](0);
         {
             var ex = Assert.Throws<ParserException>(() => _engine.Evaluate("JSON.parse('');"));
             Assert.Equal("Line 1: Unexpected end of input", ex.Message);
-       }
+        }
 
         [Fact]
         [ReplaceCulture("fr-FR")]
@@ -1527,6 +1527,15 @@ var prep = function (fn) { fn(); };
         {
             var content = GetEmbeddedFile("knockout-3.4.0.js");
             _engine.Execute(content, new ParserOptions { Tolerant = true });
+        }
+
+        [Fact]
+        public void ShouldAllowDuplicateProtoProperty()
+        {
+            var code = "if({ __proto__: [] } instanceof Array) {}";
+            _engine.Execute(code);
+            _engine.Execute($"eval('{code}')");
+            _engine.Execute($"new Function('{code}')");
         }
 
         [Fact]
@@ -2101,7 +2110,7 @@ var prep = function (fn) { fn(); };
 
             engine.Evaluate("var d = new Number(-1.23);");
             engine.Evaluate("equal('-1.23', d.toString());");
-            
+
             // NET 5 globalization APIs use ICU libraries on newer Windows 10 giving different result
             // build server is older Windows...
             engine.Evaluate("assert('-1,230' === d.toLocaleString() || '-1,23' === d.toLocaleString());");
