@@ -1514,28 +1514,35 @@ var prep = function (fn) { fn(); };
         }
 
         [Fact]
-        public void ShouldExecuteKnockoutWithErrorWhenIntolerant()
-        {
-            var content = GetEmbeddedFile("knockout-3.4.0.js");
-
-            var ex = Assert.Throws<ParserException>(() => _engine.Execute(content, new ParserOptions { Tolerant = false }));
-            Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
-        }
-
-        [Fact]
-        public void ShouldExecuteKnockoutWithoutErrorWhenTolerant()
+        public void ShouldExecuteKnockoutWithoutErrorWhetherTolerantOrIntolerant()
         {
             var content = GetEmbeddedFile("knockout-3.4.0.js");
             _engine.Execute(content, new ParserOptions { Tolerant = true });
+            _engine.Execute(content, new ParserOptions { Tolerant = false });
         }
 
         [Fact]
-        public void ShouldAllowDuplicateProtoProperty()
+        public void ShouldAllowProtoProperty()
         {
             var code = "if({ __proto__: [] } instanceof Array) {}";
             _engine.Execute(code);
             _engine.Execute($"eval('{code}')");
             _engine.Execute($"new Function('{code}')");
+        }
+
+        [Fact]
+        public void ShouldNotAllowDuplicateProtoProperty()
+        {
+            var code = "if({ __proto__: [], __proto__:[] } instanceof Array) {}";
+
+            Exception ex = Assert.Throws<ParserException>(() => _engine.Execute(code, new ParserOptions { Tolerant = false }));
+            Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
+
+            ex = Assert.Throws<JavaScriptException>(() => _engine.Execute($"eval('{code}')"));
+            Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
+
+            Assert.Throws<JavaScriptException>(() => _engine.Execute($"new Function('{code}')"));
+            Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
         }
 
         [Fact]
@@ -2813,8 +2820,8 @@ function output(x) {
 };
 ";
             _engine.Execute(program);
-            var result1 = (ObjectInstance)_engine.Evaluate("output(x1)");
-            var result2 = (ObjectInstance)_engine.Evaluate("output(x2)");
+            var result1 = (ObjectInstance) _engine.Evaluate("output(x1)");
+            var result2 = (ObjectInstance) _engine.Evaluate("output(x2)");
 
             Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum1")));
             Assert.Equal(9, TypeConverter.ToNumber(result1.Get("TestDictionarySum2")));
@@ -2864,13 +2871,13 @@ function output(x) {
                 var r = [...arr2, ...arr1];
             ");
 
-            var arrayInstance = (ArrayInstance)_engine.GetValue("r");
+            var arrayInstance = (ArrayInstance) _engine.GetValue("r");
             Assert.Equal(arrayInstance[0], 3);
             Assert.Equal(arrayInstance[1], 4);
             Assert.Equal(arrayInstance[2], 1);
             Assert.Equal(arrayInstance[3], 2);
 
-            arrayInstance = (ArrayInstance)_engine.GetValue("s");
+            arrayInstance = (ArrayInstance) _engine.GetValue("s");
             Assert.Equal(arrayInstance[0], 'a');
             Assert.Equal(arrayInstance[1], 'b');
             Assert.Equal(arrayInstance[2], 'c');
