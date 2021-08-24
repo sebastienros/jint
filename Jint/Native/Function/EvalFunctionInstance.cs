@@ -9,7 +9,7 @@ namespace Jint.Native.Function
 {
     public sealed class EvalFunctionInstance : FunctionInstance
     {
-        private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = true };
+        private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
         private static readonly JsString _functionName = new JsString("eval");
 
         public EvalFunctionInstance(
