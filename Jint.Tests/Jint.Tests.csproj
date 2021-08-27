@@ -6,6 +6,7 @@
     <SignAssembly>true</SignAssembly>
     <IsPackable>false</IsPackable>
     <LangVersion>latest</LangVersion>
+    <NoWarn>612</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Runtime\Scripts\*.*;Parser\Scripts\*.*" />

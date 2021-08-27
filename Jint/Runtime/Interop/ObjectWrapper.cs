@@ -261,7 +261,7 @@ namespace Jint.Runtime.Interop
         {
             var key = new ClrPropertyDescriptorFactoriesKey(type, member);
 
-            var factories = Engine.ReflectionAccessors;
+            var factories = engine.ReflectionAccessors;
             if (factories.TryGetValue(key, out var accessor))
             {
                 return accessor;
@@ -270,7 +270,7 @@ namespace Jint.Runtime.Interop
             accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member);
 
             // racy, we don't care, worst case we'll catch up later
-            Interlocked.CompareExchange(ref Engine.ReflectionAccessors,
+            Interlocked.CompareExchange(ref engine.ReflectionAccessors,
                 new Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor>(factories)
                 {
                     [key] = accessor
@@ -279,15 +279,20 @@ namespace Jint.Runtime.Interop
             return accessor;
         }
 
-        private static ReflectionAccessor ResolvePropertyDescriptorFactory(Engine engine, Type type, string memberName)
+        private static ReflectionAccessor ResolvePropertyDescriptorFactory(
+            Engine engine,
+            Type type,
+            string memberName)
         {
             var isNumber = uint.TryParse(memberName, out _);
+
+            var filter = engine.Options._MemberFilter;
 
             // we can always check indexer if there's one, and then fall back to properties if indexer returns null
             IndexerAccessor.TryFindIndexer(engine, type, memberName, out var indexerAccessor, out var indexer);
 
             // properties and fields cannot be numbers
-            if (!isNumber && TryFindStringPropertyAccessor(type, memberName, indexer, out var temp))
+            if (!isNumber && TryFindStringPropertyAccessor(type, memberName, indexer, filter, out var temp))
             {
                 return temp;
             }
@@ -309,6 +314,11 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var iprop in iface.GetProperties())
                 {
+                    if (!filter(iprop, null))
+                    {
+                        continue;
+                    }
+
                     if (iprop.Name == "Item" && iprop.GetIndexParameters().Length == 1)
                     {
                         // never take indexers, should use the actual indexer
@@ -334,6 +344,11 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var imethod in iface.GetMethods())
                 {
+                    if (!filter(imethod, null))
+                    {
+                        continue;
+                    }
+
                     if (EqualsIgnoreCasing(imethod.Name, memberName))
                     {
                         explicitMethods ??= new List<MethodInfo>();
@@ -361,6 +376,11 @@ namespace Jint.Runtime.Interop
                 var matches = new List<MethodInfo>();
                 foreach (var method in extensionMethods)
                 {
+                    if (!filter(method, null))
+                    {
+                        continue;
+                    }
+
                     if (EqualsIgnoreCasing(method.Name, memberName))
                     {
                         matches.Add(method);
@@ -379,12 +399,18 @@ namespace Jint.Runtime.Interop
             Type type,
             string memberName,
             PropertyInfo indexerToTry,
+            MemberFilter filter,
             out ReflectionAccessor wrapper)
         {
             // look for a property, bit be wary of indexers, we don't want indexers which have name "Item" to take precedence
             PropertyInfo property = null;
             foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
             {
+                if (!filter(p, null))
+                {
+                    continue;
+                }
+
                 // only if it's not an indexer, we can do case-ignoring matches
                 var isStandardIndexer = p.GetIndexParameters().Length == 1 && p.Name == "Item";
                 if (!isStandardIndexer && EqualsIgnoreCasing(p.Name, memberName))
@@ -404,6 +430,11 @@ namespace Jint.Runtime.Interop
             FieldInfo field = null;
             foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
             {
+                if (!filter(f, null))
+                {
+                    continue;
+                }
+
                 if (EqualsIgnoreCasing(f.Name, memberName))
                 {
                     field = f;
@@ -421,6 +452,11 @@ namespace Jint.Runtime.Interop
             List<MethodInfo> methods = null;
             foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
             {
+                if (!filter(m, null))
+                {
+                    continue;
+                }
+
                 if (EqualsIgnoreCasing(m.Name, memberName))
                 {
                     methods ??= new List<MethodInfo>();

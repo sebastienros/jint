@@ -28,6 +28,7 @@ namespace Jint
         private readonly List<IObjectConverter> _objectConverters = new();
         private Func<Engine, object, ObjectInstance> _wrapObjectHandler;
         private MemberAccessorDelegate _memberAccessor;
+        private MemberFilter _memberFilter = (_, _) => true;
         private int _maxRecursionDepth = -1;
         private TimeSpan _regexTimeoutInterval = TimeSpan.FromSeconds(10);
         private CultureInfo _culture = CultureInfo.CurrentCulture;
@@ -192,6 +193,16 @@ namespace Jint
         public Options SetMemberAccessor(MemberAccessorDelegate accessor)
         {
             _memberAccessor = accessor;
+            return this;
+        }
+
+        /// <summary>
+        /// Registers a filter that determines whether given member is wrapped to interop or returned as undefined.
+        /// </summary>
+        /// <param name="filter">The filter to use, if filter returns false, member is skipped.</param>
+        public Options SetMemberFilter(MemberFilter filter)
+        {
+            _memberFilter = filter;
             return this;
         }
 
@@ -366,6 +377,7 @@ namespace Jint
 
         internal Func<Engine, object, ObjectInstance> _WrapObjectHandler => _wrapObjectHandler;
         internal MemberAccessorDelegate _MemberAccessor => _memberAccessor;
+        internal MemberFilter _MemberFilter => _memberFilter;
 
         internal int MaxRecursionDepth => _maxRecursionDepth;
 

@@ -60,8 +60,10 @@ namespace Jint.Runtime.Interop.Reflection
                 return null;
             }
 
+            var filter = engine.Options._MemberFilter;
+
             // default indexer wins
-            if (typeof(IList).IsAssignableFrom(targetType))
+            if (typeof(IList).IsAssignableFrom(targetType) && filter(_iListIndexer, null))
             {
                 indexerAccessor = ComposeIndexerFactory(_iListIndexer, typeof(int));
                 if (indexerAccessor != null)
@@ -74,6 +76,11 @@ namespace Jint.Runtime.Interop.Reflection
             // try to find first indexer having either public getter or setter with matching argument type
             foreach (var candidate in targetType.GetProperties())
             {
+                if (!filter(candidate, null))
+                {
+                    continue;
+                }
+
                 var indexParameters = candidate.GetIndexParameters();
                 if (indexParameters.Length != 1)
                 {
