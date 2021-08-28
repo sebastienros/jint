@@ -28,7 +28,6 @@ namespace Jint
         private readonly List<IObjectConverter> _objectConverters = new();
         private Func<Engine, object, ObjectInstance> _wrapObjectHandler;
         private MemberAccessorDelegate _memberAccessor;
-        private MemberFilter _memberFilter = (_, _) => true;
         private int _maxRecursionDepth = -1;
         private TimeSpan _regexTimeoutInterval = TimeSpan.FromSeconds(10);
         private CultureInfo _culture = CultureInfo.CurrentCulture;
@@ -36,6 +35,7 @@ namespace Jint
         private List<Assembly> _lookupAssemblies = new();
         private Predicate<Exception> _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
+        private TypeResolver _typeResolver = TypeResolver.Default;
         private readonly List<Action<Engine>> _configurations = new();
 
         private readonly List<Type> _extensionMethodClassTypes = new();
@@ -182,6 +182,16 @@ namespace Jint
         }
 
         /// <summary>
+        /// Sets member name comparison strategy when finding CLR objects members.
+        /// By default member's first character casing is ignored and rest of the name is compared with strict equality.
+        /// </summary>
+        public Options SetTypeResolver(TypeResolver resolver)
+        {
+            _typeResolver = resolver;
+            return this;
+        }
+
+        /// <summary>
         /// Registers a delegate that is called when CLR members are invoked. This allows
         /// to change what values are returned for specific CLR objects, or if any value
         /// is returned at all.
@@ -193,16 +203,6 @@ namespace Jint
         public Options SetMemberAccessor(MemberAccessorDelegate accessor)
         {
             _memberAccessor = accessor;
-            return this;
-        }
-
-        /// <summary>
-        /// Registers a filter that determines whether given member is wrapped to interop or returned as undefined.
-        /// </summary>
-        /// <param name="filter">The filter to use, if filter returns false, member is skipped.</param>
-        public Options SetMemberFilter(MemberFilter filter)
-        {
-            _memberFilter = filter;
             return this;
         }
 
@@ -376,8 +376,9 @@ namespace Jint
         internal List<IConstraint> _Constraints => _constraints;
 
         internal Func<Engine, object, ObjectInstance> _WrapObjectHandler => _wrapObjectHandler;
+
         internal MemberAccessorDelegate _MemberAccessor => _memberAccessor;
-        internal MemberFilter _MemberFilter => _memberFilter;
+        internal TypeResolver _TypeResolver => _typeResolver;
 
         internal int MaxRecursionDepth => _maxRecursionDepth;
 

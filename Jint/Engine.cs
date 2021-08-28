@@ -16,7 +16,6 @@ using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
-using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
@@ -81,8 +80,6 @@ namespace Jint
         // shared frozen version
         internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerConfigurable;
         internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerNonConfigurable;
-
-        internal Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> ReflectionAccessors = new();
 
         internal readonly JintCallStack CallStack;
 

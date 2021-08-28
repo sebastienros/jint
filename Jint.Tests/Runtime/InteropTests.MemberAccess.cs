@@ -1,5 +1,6 @@
 using System;
 using Jint.Native;
+using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Domain;
 using Xunit;
 
@@ -54,7 +55,10 @@ namespace Jint.Tests.Runtime
         public void ShouldBeAbleToFilterMembers()
         {
             var engine = new Engine(options => options
-                .SetMemberFilter((member, state) => !Attribute.IsDefined(member, typeof(ObsoleteAttribute)))
+                .SetTypeResolver(new TypeResolver
+                {
+                    MemberFilter = member => !Attribute.IsDefined(member, typeof(ObsoleteAttribute))
+                })
             );
 
             engine.SetValue("m", new HiddenMembers());
@@ -72,7 +76,10 @@ namespace Jint.Tests.Runtime
         public void ShouldBeAbleToHideGetType()
         {
             var engine = new Engine(options => options
-                .SetMemberFilter((member, state) => !Attribute.IsDefined(member, typeof(ObsoleteAttribute)))
+                .SetTypeResolver(new TypeResolver
+                {
+                    MemberFilter = member => !Attribute.IsDefined(member, typeof(ObsoleteAttribute))
+                })
             );
             engine.SetValue("m", new HiddenMembers());
 
@@ -83,7 +90,10 @@ namespace Jint.Tests.Runtime
 
             // but not when we forbid GetType
             var hiddenGetTypeEngine = new Engine(options => options
-                .SetMemberFilter((member, state) => member.Name != nameof(GetType))
+                .SetTypeResolver(new TypeResolver
+                {
+                    MemberFilter = member => member.Name != nameof(GetType)
+                })
             );
             hiddenGetTypeEngine.SetValue("m", new HiddenMembers());
             Assert.True(hiddenGetTypeEngine.Evaluate("m.GetType").IsUndefined());
