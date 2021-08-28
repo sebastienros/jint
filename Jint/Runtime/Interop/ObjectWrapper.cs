@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.Globalization;
 using System.Reflection;
-using System.Threading;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -261,7 +260,7 @@ namespace Jint.Runtime.Interop
         {
             var key = new ClrPropertyDescriptorFactoriesKey(type, member);
 
-            var factories = Engine.ReflectionAccessors;
+            var factories = engine.ReflectionAccessors;
             if (factories.TryGetValue(key, out var accessor))
             {
                 return accessor;
@@ -269,12 +268,7 @@ namespace Jint.Runtime.Interop
 
             accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member);
 
-            // racy, we don't care, worst case we'll catch up later
-            Interlocked.CompareExchange(ref Engine.ReflectionAccessors,
-                new Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor>(factories)
-                {
-                    [key] = accessor
-                }, factories);
+            engine.ReflectionAccessors[key] = accessor;
 
             return accessor;
         }
@@ -287,7 +281,7 @@ namespace Jint.Runtime.Interop
             IndexerAccessor.TryFindIndexer(engine, type, memberName, out var indexerAccessor, out var indexer);
 
             // properties and fields cannot be numbers
-            if (!isNumber && TryFindStringPropertyAccessor(type, memberName, indexer, out var temp))
+            if (!isNumber && TryFindStringPropertyAccessor(type, memberName, engine.Options._MemberNameComparer, indexer, out var temp))
             {
                 return temp;
             }
@@ -304,6 +298,7 @@ namespace Jint.Runtime.Interop
             }
 
             // try to find a single explicit property implementation
+            var comparer = engine.Options._MemberNameComparer;
             List<PropertyInfo> list = null;
             foreach (Type iface in type.GetInterfaces())
             {
@@ -315,7 +310,7 @@ namespace Jint.Runtime.Interop
                         continue;
                     }
 
-                    if (EqualsIgnoreCasing(iprop.Name, memberName))
+                    if (comparer.Equals(iprop.Name, memberName))
                     {
                         list ??= new List<PropertyInfo>();
                         list.Add(iprop);
@@ -334,7 +329,7 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var imethod in iface.GetMethods())
                 {
-                    if (EqualsIgnoreCasing(imethod.Name, memberName))
+                    if (comparer.Equals(imethod.Name, memberName))
                     {
                         explicitMethods ??= new List<MethodInfo>();
                         explicitMethods.Add(imethod);
@@ -361,7 +356,7 @@ namespace Jint.Runtime.Interop
                 var matches = new List<MethodInfo>();
                 foreach (var method in extensionMethods)
                 {
-                    if (EqualsIgnoreCasing(method.Name, memberName))
+                    if (comparer.Equals(method.Name, memberName))
                     {
                         matches.Add(method);
                     }
@@ -378,6 +373,7 @@ namespace Jint.Runtime.Interop
         private static bool TryFindStringPropertyAccessor(
             Type type,
             string memberName,
+            StringComparer stringComparer,
             PropertyInfo indexerToTry,
             out ReflectionAccessor wrapper)
         {
@@ -387,7 +383,7 @@ namespace Jint.Runtime.Interop
             {
                 // only if it's not an indexer, we can do case-ignoring matches
                 var isStandardIndexer = p.GetIndexParameters().Length == 1 && p.Name == "Item";
-                if (!isStandardIndexer && EqualsIgnoreCasing(p.Name, memberName))
+                if (!isStandardIndexer && stringComparer.Equals(p.Name, memberName))
                 {
                     property = p;
                     break;
@@ -404,7 +400,7 @@ namespace Jint.Runtime.Interop
             FieldInfo field = null;
             foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
             {
-                if (EqualsIgnoreCasing(f.Name, memberName))
+                if (stringComparer.Equals(f.Name, memberName))
                 {
                     field = f;
                     break;
@@ -421,7 +417,7 @@ namespace Jint.Runtime.Interop
             List<MethodInfo> methods = null;
             foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
             {
-                if (EqualsIgnoreCasing(m.Name, memberName))
+                if (stringComparer.Equals(m.Name, memberName))
                 {
                     methods ??= new List<MethodInfo>();
                     methods.Add(m);
@@ -436,30 +432,6 @@ namespace Jint.Runtime.Interop
 
             wrapper = default;
             return false;
-        }
-
-        private static bool EqualsIgnoreCasing(string s1, string s2)
-        {
-            if (s1.Length != s2.Length)
-            {
-                return false;
-            }
-
-            var equals = false;
-            if (s1.Length > 0)
-            {
-                equals = char.ToLowerInvariant(s1[0]) == char.ToLowerInvariant(s2[0]);
-            }
-
-            if (@equals && s1.Length > 1)
-            {
-#if NETSTANDARD2_1
-                equals = s1.AsSpan(1).SequenceEqual(s2.AsSpan(1));
-#else
-                equals = s1.Substring(1) == s2.Substring(1);
-#endif
-            }
-            return equals;
         }
 
         public override bool Equals(JsValue obj)

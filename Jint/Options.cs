@@ -35,6 +35,7 @@ namespace Jint
         private List<Assembly> _lookupAssemblies = new();
         private Predicate<Exception> _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
+        private StringComparer _memberNameComparer = DefaultMemberNameComparer.Instance;
         private readonly List<Action<Engine>> _configurations = new();
 
         private readonly List<Type> _extensionMethodClassTypes = new();
@@ -177,6 +178,16 @@ namespace Jint
         public Options SetTypeConverter(Func<Engine, ITypeConverter> typeConverterFactory)
         {
             _configurations.Add(engine => engine.ClrTypeConverter = typeConverterFactory(engine));
+            return this;
+        }
+
+        /// <summary>
+        /// Sets member name comparison strategy when finding CLR objects members.
+        /// By default member's first character casing is ignored and rest of the name is compared with strict equality.
+        /// </summary>
+        public Options SetMemberNameComparer(StringComparer comparer)
+        {
+            _memberNameComparer = comparer;
             return this;
         }
 
@@ -376,6 +387,57 @@ namespace Jint
         internal TimeZoneInfo _LocalTimeZone => _localTimeZone;
 
         internal IReferenceResolver ReferenceResolver => _referenceResolver;
+
+        internal StringComparer _MemberNameComparer => _memberNameComparer;
+
+        private sealed class DefaultMemberNameComparer : StringComparer
+        {
+            public static readonly StringComparer Instance = new DefaultMemberNameComparer();
+
+            public override int Compare(string x, string y)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override bool Equals(string x, string y)
+            {
+                if (ReferenceEquals(x, y))
+                {
+                    return true;
+                }
+
+                if (x == null || y == null)
+                {
+                    return false;
+                }
+
+                if (x.Length != y.Length)
+                {
+                    return false;
+                }
+
+                var equals = false;
+                if (x.Length > 0)
+                {
+                    equals = char.ToLowerInvariant(x[0]) == char.ToLowerInvariant(y[0]);
+                }
+
+                if (equals && x.Length > 1)
+                {
+#if NETSTANDARD2_1
+                    equals = x.AsSpan(1).SequenceEqual(y.AsSpan(1));
+#else
+                    equals = x.Substring(1) == y.Substring(1);
+#endif
+                }
+                return equals;
+            }
+
+            public override int GetHashCode(string obj)
+            {
+                throw new NotImplementedException();
+            }
+        }
 
         private sealed class DefaultReferenceResolver : IReferenceResolver
         {

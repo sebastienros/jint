@@ -2591,5 +2591,34 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal("Cyclic reference detected.", ex.Message);
         }
+
+        [Fact]
+        public void CanConfigurePropertyNameMatcher()
+        {
+            // defaults
+            var e = new Engine();
+            e.SetValue("a", new A());
+            Assert.True(e.Evaluate("a.call1").IsObject());
+            Assert.True(e.Evaluate("a.Call1").IsObject());
+            Assert.True(e.Evaluate("a.CALL1").IsUndefined());
+
+            e = new Engine(options =>
+            {
+                options.SetMemberNameComparer(StringComparer.Ordinal);
+            });
+            e.SetValue("a", new A());
+            Assert.True(e.Evaluate("a.call1").IsUndefined());
+            Assert.True(e.Evaluate("a.Call1").IsObject());
+            Assert.True(e.Evaluate("a.CALL1").IsUndefined());
+
+            e = new Engine(options =>
+            {
+                options.SetMemberNameComparer(StringComparer.OrdinalIgnoreCase);
+            });
+            e.SetValue("a", new A());
+            Assert.True(e.Evaluate("a.call1").IsObject());
+            Assert.True(e.Evaluate("a.Call1").IsObject());
+            Assert.True(e.Evaluate("a.CALL1").IsObject());
+        }
     }
 }

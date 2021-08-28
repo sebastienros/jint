@@ -82,7 +82,7 @@ namespace Jint
         internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerConfigurable;
         internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerNonConfigurable;
 
-        internal static Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> ReflectionAccessors = new();
+        internal Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> ReflectionAccessors = new();
 
         internal readonly JintCallStack CallStack;
 
