@@ -19,7 +19,7 @@ using Xunit;
 
 namespace Jint.Tests.Runtime
 {
-    public class InteropTests : IDisposable
+    public partial class InteropTests : IDisposable
     {
         private readonly Engine _engine;
 
@@ -2279,49 +2279,6 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldHideSpecificMembers()
-        {
-            var engine = new Engine(options => options.SetMemberAccessor((e, target, member) =>
-            {
-                if (target is HiddenMembers)
-                {
-                    if (member == nameof(HiddenMembers.Member2) || member == nameof(HiddenMembers.Method2))
-                    {
-                        return JsValue.Undefined;
-                    }
-                }
-
-                return null;
-            }));
-
-            engine.SetValue("m", new HiddenMembers());
-
-            Assert.Equal("Member1", engine.Evaluate("m.Member1").ToString());
-            Assert.Equal("undefined", engine.Evaluate("m.Member2").ToString());
-            Assert.Equal("Method1", engine.Evaluate("m.Method1()").ToString());
-            // check the method itself, not its invokation as it would mean invoking "undefined"
-            Assert.Equal("undefined", engine.Evaluate("m.Method2").ToString());
-        }
-
-        [Fact]
-        public void ShouldOverrideMembers()
-        {
-            var engine = new Engine(options => options.SetMemberAccessor((e, target, member) =>
-            {
-                if (target is HiddenMembers && member == nameof(HiddenMembers.Member1))
-                {
-                    return "Orange";
-                }
-
-                return null;
-            }));
-
-            engine.SetValue("m", new HiddenMembers());
-
-            Assert.Equal("Orange", engine.Evaluate("m.Member1").ToString());
-        }
-
-        [Fact]
         public void SettingValueViaIntegerIndexer()
         {
             var engine = new Engine(cfg => cfg.AllowClr(typeof(FloatIndexer).GetTypeInfo().Assembly));
@@ -2590,6 +2547,41 @@ namespace Jint.Tests.Runtime
             );
 
             Assert.Equal("Cyclic reference detected.", ex.Message);
+        }
+
+        [Fact]
+        public void CanConfigurePropertyNameMatcher()
+        {
+            // defaults
+            var e = new Engine();
+            e.SetValue("a", new A());
+            Assert.True(e.Evaluate("a.call1").IsObject());
+            Assert.True(e.Evaluate("a.Call1").IsObject());
+            Assert.True(e.Evaluate("a.CALL1").IsUndefined());
+
+            e = new Engine(options =>
+            {
+                options.SetTypeResolver(new TypeResolver
+                {
+                    MemberNameComparer = StringComparer.Ordinal
+                });
+            });
+            e.SetValue("a", new A());
+            Assert.True(e.Evaluate("a.call1").IsUndefined());
+            Assert.True(e.Evaluate("a.Call1").IsObject());
+            Assert.True(e.Evaluate("a.CALL1").IsUndefined());
+
+            e = new Engine(options =>
+            {
+                options.SetTypeResolver(new TypeResolver
+                {
+                    MemberNameComparer = StringComparer.OrdinalIgnoreCase
+                });
+            });
+            e.SetValue("a", new A());
+            Assert.True(e.Evaluate("a.call1").IsObject());
+            Assert.True(e.Evaluate("a.Call1").IsObject());
+            Assert.True(e.Evaluate("a.CALL1").IsObject());
         }
     }
 }

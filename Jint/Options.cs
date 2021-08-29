@@ -35,6 +35,7 @@ namespace Jint
         private List<Assembly> _lookupAssemblies = new();
         private Predicate<Exception> _clrExceptionsHandler;
         private IReferenceResolver _referenceResolver = DefaultReferenceResolver.Instance;
+        private TypeResolver _typeResolver = TypeResolver.Default;
         private readonly List<Action<Engine>> _configurations = new();
 
         private readonly List<Type> _extensionMethodClassTypes = new();
@@ -177,6 +178,16 @@ namespace Jint
         public Options SetTypeConverter(Func<Engine, ITypeConverter> typeConverterFactory)
         {
             _configurations.Add(engine => engine.ClrTypeConverter = typeConverterFactory(engine));
+            return this;
+        }
+
+        /// <summary>
+        /// Sets member name comparison strategy when finding CLR objects members.
+        /// By default member's first character casing is ignored and rest of the name is compared with strict equality.
+        /// </summary>
+        public Options SetTypeResolver(TypeResolver resolver)
+        {
+            _typeResolver = resolver;
             return this;
         }
 
@@ -365,7 +376,9 @@ namespace Jint
         internal List<IConstraint> _Constraints => _constraints;
 
         internal Func<Engine, object, ObjectInstance> _WrapObjectHandler => _wrapObjectHandler;
+
         internal MemberAccessorDelegate _MemberAccessor => _memberAccessor;
+        internal TypeResolver _TypeResolver => _typeResolver;
 
         internal int MaxRecursionDepth => _maxRecursionDepth;
 

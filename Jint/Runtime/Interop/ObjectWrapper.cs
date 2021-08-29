@@ -1,10 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Dynamic;
 using System.Globalization;
 using System.Reflection;
-using System.Threading;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -57,7 +55,7 @@ namespace Jint.Runtime.Interop
                 if (_properties is null || !_properties.ContainsKey(member))
                 {
                     // can try utilize fast path
-                    var accessor = GetAccessor(_engine, Target.GetType(), member);
+                    var accessor = _engine.Options._TypeResolver.GetAccessor(_engine, Target.GetType(), member);
 
                     // CanPut logic
                     if (!accessor.Writable || !_engine.Options._IsClrWriteAllowed)
@@ -117,7 +115,7 @@ namespace Jint.Runtime.Interop
                 if (_properties is null || !_properties.ContainsKey(member))
                 {
                     // can try utilize fast path
-                    var accessor = GetAccessor(_engine, Target.GetType(), member);
+                    var accessor = _engine.Options._TypeResolver.GetAccessor(_engine, Target.GetType(), member);
                     var value = accessor.GetValue(_engine, Target);
                     if (value is not null)
                     {
@@ -234,7 +232,7 @@ namespace Jint.Runtime.Interop
                 return new PropertyDescriptor(result, PropertyFlag.OnlyEnumerable);
             }
 
-            var accessor = GetAccessor(_engine, Target.GetType(), member);
+            var accessor = _engine.Options._TypeResolver.GetAccessor(_engine, Target.GetType(), member);
             var descriptor = accessor.CreatePropertyDescriptor(_engine, Target);
             SetProperty(member, descriptor);
             return descriptor;
@@ -254,212 +252,7 @@ namespace Jint.Runtime.Interop
                     _ => null
                 };
             }
-            return GetAccessor(engine, target.GetType(), member.Name, Factory).CreatePropertyDescriptor(engine, target);
-        }
-
-        private static ReflectionAccessor GetAccessor(Engine engine, Type type, string member, Func<ReflectionAccessor> accessorFactory = null)
-        {
-            var key = new ClrPropertyDescriptorFactoriesKey(type, member);
-
-            var factories = Engine.ReflectionAccessors;
-            if (factories.TryGetValue(key, out var accessor))
-            {
-                return accessor;
-            }
-
-            accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member);
-
-            // racy, we don't care, worst case we'll catch up later
-            Interlocked.CompareExchange(ref Engine.ReflectionAccessors,
-                new Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor>(factories)
-                {
-                    [key] = accessor
-                }, factories);
-
-            return accessor;
-        }
-
-        private static ReflectionAccessor ResolvePropertyDescriptorFactory(Engine engine, Type type, string memberName)
-        {
-            var isNumber = uint.TryParse(memberName, out _);
-
-            // we can always check indexer if there's one, and then fall back to properties if indexer returns null
-            IndexerAccessor.TryFindIndexer(engine, type, memberName, out var indexerAccessor, out var indexer);
-
-            // properties and fields cannot be numbers
-            if (!isNumber && TryFindStringPropertyAccessor(type, memberName, indexer, out var temp))
-            {
-                return temp;
-            }
-
-            if (typeof(DynamicObject).IsAssignableFrom(type))
-            {
-                return new DynamicObjectAccessor(type, memberName);
-            }
-
-            // if no methods are found check if target implemented indexing
-            if (indexerAccessor != null)
-            {
-                return indexerAccessor;
-            }
-
-            // try to find a single explicit property implementation
-            List<PropertyInfo> list = null;
-            foreach (Type iface in type.GetInterfaces())
-            {
-                foreach (var iprop in iface.GetProperties())
-                {
-                    if (iprop.Name == "Item" && iprop.GetIndexParameters().Length == 1)
-                    {
-                        // never take indexers, should use the actual indexer
-                        continue;
-                    }
-
-                    if (EqualsIgnoreCasing(iprop.Name, memberName))
-                    {
-                        list ??= new List<PropertyInfo>();
-                        list.Add(iprop);
-                    }
-                }
-            }
-
-            if (list?.Count == 1)
-            {
-                return new PropertyAccessor(memberName, list[0]);
-            }
-
-            // try to find explicit method implementations
-            List<MethodInfo> explicitMethods = null;
-            foreach (Type iface in type.GetInterfaces())
-            {
-                foreach (var imethod in iface.GetMethods())
-                {
-                    if (EqualsIgnoreCasing(imethod.Name, memberName))
-                    {
-                        explicitMethods ??= new List<MethodInfo>();
-                        explicitMethods.Add(imethod);
-                    }
-                }
-            }
-
-            if (explicitMethods?.Count > 0)
-            {
-                return new MethodAccessor(MethodDescriptor.Build(explicitMethods));
-            }
-
-            // try to find explicit indexer implementations
-            foreach (var interfaceType in type.GetInterfaces())
-            {
-                if (IndexerAccessor.TryFindIndexer(engine, interfaceType, memberName, out var accessor, out _))
-                {
-                    return accessor;
-                }
-            }
-
-            if (engine.Options._extensionMethods.TryGetExtensionMethods(type, out var extensionMethods))
-            {
-                var matches = new List<MethodInfo>();
-                foreach (var method in extensionMethods)
-                {
-                    if (EqualsIgnoreCasing(method.Name, memberName))
-                    {
-                        matches.Add(method);
-                    }
-                }
-                if (matches.Count > 0)
-                {
-                    return new MethodAccessor(MethodDescriptor.Build(matches));
-                }
-            }
-
-            return ConstantValueAccessor.NullAccessor;
-        }
-
-        private static bool TryFindStringPropertyAccessor(
-            Type type,
-            string memberName,
-            PropertyInfo indexerToTry,
-            out ReflectionAccessor wrapper)
-        {
-            // look for a property, bit be wary of indexers, we don't want indexers which have name "Item" to take precedence
-            PropertyInfo property = null;
-            foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
-            {
-                // only if it's not an indexer, we can do case-ignoring matches
-                var isStandardIndexer = p.GetIndexParameters().Length == 1 && p.Name == "Item";
-                if (!isStandardIndexer && EqualsIgnoreCasing(p.Name, memberName))
-                {
-                    property = p;
-                    break;
-                }
-            }
-
-            if (property != null)
-            {
-                wrapper = new PropertyAccessor(memberName, property, indexerToTry);
-                return true;
-            }
-
-            // look for a field
-            FieldInfo field = null;
-            foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
-            {
-                if (EqualsIgnoreCasing(f.Name, memberName))
-                {
-                    field = f;
-                    break;
-                }
-            }
-
-            if (field != null)
-            {
-                wrapper = new FieldAccessor(field, memberName, indexerToTry);
-                return true;
-            }
-
-            // if no properties were found then look for a method
-            List<MethodInfo> methods = null;
-            foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
-            {
-                if (EqualsIgnoreCasing(m.Name, memberName))
-                {
-                    methods ??= new List<MethodInfo>();
-                    methods.Add(m);
-                }
-            }
-
-            if (methods?.Count > 0)
-            {
-                wrapper = new MethodAccessor(MethodDescriptor.Build(methods));
-                return true;
-            }
-
-            wrapper = default;
-            return false;
-        }
-
-        private static bool EqualsIgnoreCasing(string s1, string s2)
-        {
-            if (s1.Length != s2.Length)
-            {
-                return false;
-            }
-
-            var equals = false;
-            if (s1.Length > 0)
-            {
-                equals = char.ToLowerInvariant(s1[0]) == char.ToLowerInvariant(s2[0]);
-            }
-
-            if (@equals && s1.Length > 1)
-            {
-#if NETSTANDARD2_1
-                equals = s1.AsSpan(1).SequenceEqual(s2.AsSpan(1));
-#else
-                equals = s1.Substring(1) == s2.Substring(1);
-#endif
-            }
-            return equals;
+            return engine.Options._TypeResolver.GetAccessor(engine, target.GetType(), member.Name, Factory).CreatePropertyDescriptor(engine, target);
         }
 
         public override bool Equals(JsValue obj)
