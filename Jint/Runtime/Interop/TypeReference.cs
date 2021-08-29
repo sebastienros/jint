@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Reflection;
 using Jint.Collections;
 using Jint.Native;
@@ -24,7 +23,7 @@ namespace Jint.Runtime.Interop
         {
         }
 
-        public Type ReferenceType { get; set; }
+        public Type ReferenceType { get; private set; }
 
         public static TypeReference CreateTypeReference(Engine engine, Type type)
         {
@@ -137,23 +136,25 @@ namespace Jint.Runtime.Interop
 
         private PropertyDescriptor CreatePropertyDescriptor(string name)
         {
-            var accessor = _memberAccessors.GetOrAdd(
-                new Tuple<Type, string>(ReferenceType, name),
-                key => ResolveMemberAccessor(key.Item1, key.Item2)
-            );
+            var key = new Tuple<Type, string>(ReferenceType, name);
+            var accessor = _memberAccessors.GetOrAdd(key, x => ResolveMemberAccessor(x.Item1, x.Item2));
             return accessor.CreatePropertyDescriptor(_engine, ReferenceType);
         }
 
-        private static ReflectionAccessor ResolveMemberAccessor(Type type, string name)
+        private ReflectionAccessor ResolveMemberAccessor(Type type, string name)
         {
+            var typeResolver = _engine.Options._TypeResolver;
+
             if (type.IsEnum)
             {
+                var memberNameComparer = typeResolver.MemberNameComparer;
+
                 var enumValues = Enum.GetValues(type);
                 var enumNames = Enum.GetNames(type);
 
                 for (var i = 0; i < enumValues.Length; i++)
                 {
-                    if (enumNames.GetValue(i) as string == name)
+                    if (memberNameComparer.Equals(enumNames.GetValue(i), name))
                     {
                         var value = enumValues.GetValue(i);
                         return new ConstantValueAccessor(JsNumber.Create(value));
@@ -163,36 +164,10 @@ namespace Jint.Runtime.Interop
                 return ConstantValueAccessor.NullAccessor;
             }
 
-            var propertyInfo = type.GetProperty(name, BindingFlags.Public | BindingFlags.Static);
-            if (propertyInfo != null)
-            {
-                return new PropertyAccessor(name, propertyInfo);
-            }
-
-            var fieldInfo = type.GetField(name, BindingFlags.Public | BindingFlags.Static);
-            if (fieldInfo != null)
-            {
-                return new FieldAccessor(fieldInfo, name);
-            }
-
-            List<MethodInfo> methods = null;
-            foreach (var mi in type.GetMethods(BindingFlags.Public | BindingFlags.Static))
-            {
-                if (mi.Name != name)
-                {
-                    continue;
-                }
-
-                methods ??= new List<MethodInfo>();
-                methods.Add(mi);
-            }
-
-            if (methods == null || methods.Count == 0)
-            {
-                return ConstantValueAccessor.NullAccessor;
-            }
-
-            return new MethodAccessor(MethodDescriptor.Build(methods));
+            const BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Static;
+            return typeResolver.TryFindMemberAccessor(type, name, bindingFlags, indexerToTry: null, out var accessor)
+                ? accessor
+                : ConstantValueAccessor.NullAccessor;
         }
 
         public object Target => ReferenceType;

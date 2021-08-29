@@ -56,13 +56,13 @@ namespace Jint.Runtime.Interop
         {
             var isNumber = uint.TryParse(memberName, out _);
 
-            var typeResolver = engine.Options._TypeResolver;
-
             // we can always check indexer if there's one, and then fall back to properties if indexer returns null
             IndexerAccessor.TryFindIndexer(engine, type, memberName, out var indexerAccessor, out var indexer);
 
+            const BindingFlags bindingFlags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public;
+
             // properties and fields cannot be numbers
-            if (!isNumber && TryFindStringPropertyAccessor(type, memberName, indexer, out var temp))
+            if (!isNumber && TryFindMemberAccessor(type, memberName, bindingFlags, indexer, out var temp))
             {
                 return temp;
             }
@@ -167,15 +167,16 @@ namespace Jint.Runtime.Interop
             return ConstantValueAccessor.NullAccessor;
         }
 
-        private bool TryFindStringPropertyAccessor(
+        internal bool TryFindMemberAccessor(
             Type type,
             string memberName,
+            BindingFlags bindingFlags,
             PropertyInfo indexerToTry,
-            out ReflectionAccessor wrapper)
+            out ReflectionAccessor accessor)
         {
             // look for a property, bit be wary of indexers, we don't want indexers which have name "Item" to take precedence
             PropertyInfo property = null;
-            foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+            foreach (var p in type.GetProperties(bindingFlags))
             {
                 if (!MemberFilter(p))
                 {
@@ -193,13 +194,13 @@ namespace Jint.Runtime.Interop
 
             if (property != null)
             {
-                wrapper = new PropertyAccessor(memberName, property, indexerToTry);
+                accessor = new PropertyAccessor(memberName, property, indexerToTry);
                 return true;
             }
 
             // look for a field
             FieldInfo field = null;
-            foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+            foreach (var f in type.GetFields(bindingFlags))
             {
                 if (!MemberFilter(f))
                 {
@@ -215,13 +216,13 @@ namespace Jint.Runtime.Interop
 
             if (field != null)
             {
-                wrapper = new FieldAccessor(field, memberName, indexerToTry);
+                accessor = new FieldAccessor(field, memberName, indexerToTry);
                 return true;
             }
 
             // if no properties were found then look for a method
             List<MethodInfo> methods = null;
-            foreach (var m in type.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+            foreach (var m in type.GetMethods(bindingFlags))
             {
                 if (!MemberFilter(m))
                 {
@@ -237,11 +238,11 @@ namespace Jint.Runtime.Interop
 
             if (methods?.Count > 0)
             {
-                wrapper = new MethodAccessor(MethodDescriptor.Build(methods));
+                accessor = new MethodAccessor(MethodDescriptor.Build(methods));
                 return true;
             }
 
-            wrapper = default;
+            accessor = default;
             return false;
         }
 

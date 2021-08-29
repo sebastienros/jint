@@ -98,5 +98,31 @@ namespace Jint.Tests.Runtime
             hiddenGetTypeEngine.SetValue("m", new HiddenMembers());
             Assert.True(hiddenGetTypeEngine.Evaluate("m.GetType").IsUndefined());
         }
+
+        [Fact]
+        public void TypeReferenceShouldUseTypeResolverConfiguration()
+        {
+            var engine = new Engine(options =>
+            {
+                options.SetTypeResolver(new TypeResolver
+                {
+                    MemberFilter = member => !Attribute.IsDefined(member, typeof(ObsoleteAttribute))
+                });
+            });
+            engine.SetValue("EchoService", TypeReference.CreateTypeReference(engine, typeof(EchoService)));
+            Assert.Equal("anyone there", engine.Evaluate("EchoService.Echo('anyone there')").AsString());
+            Assert.Equal("anyone there", engine.Evaluate("EchoService.echo('anyone there')").AsString());
+            Assert.True(engine.Evaluate("EchoService.ECHO").IsUndefined());
+
+            Assert.True(engine.Evaluate("EchoService.Hidden").IsUndefined());
+        }
+
+        private static class EchoService
+        {
+            public static string Echo(string message) => message;
+
+            [Obsolete]
+            public static string Hidden(string message) => message;
+        }
     }
 }
