@@ -59,13 +59,51 @@ namespace Jint
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool IsFunctionWithName<T>(this T node) where T : Node
+        internal static bool IsFunctionDefinition<T>(this T node) where T : Node
         {
             var type = node.Type;
-            return type == Nodes.FunctionExpression
-                   || type == Nodes.ArrowFunctionExpression
-                   || type == Nodes.ArrowParameterPlaceHolder
-                   || type == Nodes.ClassExpression;
+            return type
+                is Nodes.FunctionExpression
+                or Nodes.ArrowFunctionExpression
+                or Nodes.ArrowParameterPlaceHolder
+                or Nodes.ClassExpression;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool HasName<T>(this T node) where T : Node
+        {
+            if (!node.IsFunctionDefinition())
+            {
+                return false;
+            }
+
+            if ((node as IFunction)?.Id is not null)
+            {
+                return true;
+            }
+
+            if ((node as ClassExpression)?.Id is not null)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool IsAnonymousFunctionDefinition<T>(this T node) where T : Node
+        {
+            if (!node.IsFunctionDefinition())
+            {
+                return false;
+            }
+
+            if (node.HasName())
+            {
+                return false;
+            }
+
+            return true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

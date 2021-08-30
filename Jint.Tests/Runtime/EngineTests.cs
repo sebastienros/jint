@@ -1003,7 +1003,7 @@ myarr[0](0);
         {
             const string code = @"var obj = { get test() { return this.test + '2';  } }; obj.test;";
             var engine = new Engine(cfg => cfg.LimitRecursion(10));
-            
+
             Assert.Throws<RecursionDepthOverflowException>(() => engine.Evaluate(code));
         }
 
@@ -1511,15 +1511,6 @@ var prep = function (fn) { fn(); };
 
             var content = GetEmbeddedFile("dromaeo-string-base64.js");
             RunTest(content);
-        }
-
-        [Fact]
-        public void ShouldExecuteKnockoutWithErrorWhenIntolerant()
-        {
-            var content = GetEmbeddedFile("knockout-3.4.0.js");
-
-            var ex = Assert.Throws<ParserException>(() => _engine.Execute(content, new ParserOptions { Tolerant = false }));
-            Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
         }
 
         [Fact]
@@ -2101,7 +2092,7 @@ var prep = function (fn) { fn(); };
 
             engine.Evaluate("var d = new Number(-1.23);");
             engine.Evaluate("equal('-1.23', d.toString());");
-            
+
             // NET 5 globalization APIs use ICU libraries on newer Windows 10 giving different result
             // build server is older Windows...
             engine.Evaluate("assert('-1,230' === d.toLocaleString() || '-1,23' === d.toLocaleString());");
