@@ -45,12 +45,12 @@ namespace Jint.Runtime.Interpreter.Statements
                 {
                     left = JintExpression.Build(_engine, declaration.Id);
                 }
-                
+
                 if (declaration.Init != null)
                 {
                     init = JintExpression.Build(_engine, declaration.Init);
                 }
-                
+
                 var leftIdentifier = left as JintIdentifierExpression;
                 _declarations[i] = new ResolvedDeclaration
                 {
@@ -70,7 +70,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 _initialized = true;
                 Initialize();
             }
-            
+
             foreach (var declaration in _declarations)
             {
                 if (_statement.Kind != VariableDeclarationKind.Var && declaration.Left != null)
@@ -80,7 +80,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     if (declaration.Init != null)
                     {
                         value = declaration.Init.GetValue().Clone();
-                        if (declaration.Init._expression.IsFunctionWithName())
+                        if (declaration.Init._expression.IsFunctionDefinition())
                         {
                             ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
                         }
@@ -117,7 +117,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                         var value = declaration.Init.GetValue().Clone();
 
-                        if (declaration.Init._expression.IsFunctionWithName())
+                        if (declaration.Init._expression.IsFunctionDefinition())
                         {
                             ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
                         }

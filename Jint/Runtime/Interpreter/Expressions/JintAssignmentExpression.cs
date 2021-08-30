@@ -42,7 +42,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ExceptionHelper.ThrowReferenceError(_engine.Realm, "not a valid reference");
             }
 
-            var rval = _right.GetValue();
             var lval = _engine.GetValue(lref, false);
             var handledByOverload = false;
 
@@ -90,11 +89,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                         break;
                 }
 
-                if (operatorClrName != null &&
-                    JintBinaryExpression.TryOperatorOverloading(_engine, lval, rval, operatorClrName, out var result))
+                if (operatorClrName != null)
                 {
-                    lval = JsValue.FromObject(_engine, result);
-                    handledByOverload = true;
+                    var rval = _right.GetValue();
+                    if (JintBinaryExpression.TryOperatorOverloading(_engine, lval, rval, operatorClrName, out var result))
+                    {
+                        lval = JsValue.FromObject(_engine, result);
+                        handledByOverload = true;
+                    }
                 }
             }
 
@@ -103,6 +105,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 switch (_operator)
                 {
                     case AssignmentOperator.PlusAssign:
+                    {
+                        var rval = _right.GetValue();
                         if (AreIntegerOperands(lval, rval))
                         {
                             lval = (long) lval.AsInteger() + rval.AsInteger();
@@ -128,14 +132,20 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
 
                         break;
+                    }
 
                     case AssignmentOperator.MinusAssign:
+                    {
+                        var rval = _right.GetValue();
                         lval = AreIntegerOperands(lval, rval)
                             ? JsNumber.Create(lval.AsInteger() - rval.AsInteger())
                             : JsNumber.Create(TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval));
                         break;
+                    }
 
                     case AssignmentOperator.TimesAssign:
+                    {
+                        var rval = _right.GetValue();
                         if (AreIntegerOperands(lval, rval))
                         {
                             lval = (long) lval.AsInteger() * rval.AsInteger();
@@ -150,12 +160,18 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
 
                         break;
+                    }
 
                     case AssignmentOperator.DivideAssign:
+                    {
+                        var rval = _right.GetValue();
                         lval = Divide(lval, rval);
                         break;
+                    }
 
                     case AssignmentOperator.ModuloAssign:
+                    {
+                        var rval = _right.GetValue();
                         if (lval.IsUndefined() || rval.IsUndefined())
                         {
                             lval = Undefined.Instance;
@@ -166,30 +182,85 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
 
                         break;
+                    }
 
                     case AssignmentOperator.BitwiseAndAssign:
+                    {
+                        var rval = _right.GetValue();
                         lval = TypeConverter.ToInt32(lval) & TypeConverter.ToInt32(rval);
                         break;
+                    }
 
                     case AssignmentOperator.BitwiseOrAssign:
+                    {
+                        var rval = _right.GetValue();
                         lval = TypeConverter.ToInt32(lval) | TypeConverter.ToInt32(rval);
                         break;
+                    }
 
                     case AssignmentOperator.BitwiseXOrAssign:
+                    {
+                        var rval = _right.GetValue();
                         lval = TypeConverter.ToInt32(lval) ^ TypeConverter.ToInt32(rval);
                         break;
+                    }
 
                     case AssignmentOperator.LeftShiftAssign:
+                    {
+                        var rval = _right.GetValue();
                         lval = TypeConverter.ToInt32(lval) << (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
+                    }
 
                     case AssignmentOperator.RightShiftAssign:
+                    {
+                        var rval = _right.GetValue();
                         lval = TypeConverter.ToInt32(lval) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
+                    }
 
                     case AssignmentOperator.UnsignedRightShiftAssign:
+                    {
+                        var rval = _right.GetValue();
                         lval = (uint) TypeConverter.ToInt32(lval) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
+                    }
+
+                    case AssignmentOperator.NullishAssign:
+                    {
+                        if (!lval.IsNullOrUndefined())
+                        {
+                            return lval;
+                        }
+
+                        var rval = NamedEvaluation(_right);
+                        lval = rval;
+                        break;
+                    }
+
+                    case AssignmentOperator.AndAssign:
+                    {
+                        if (!TypeConverter.ToBoolean(lval))
+                        {
+                            return lval;
+                        }
+
+                        var rval = NamedEvaluation(_right);
+                        lval = rval;
+                        break;
+                    }
+
+                    case AssignmentOperator.OrAssign:
+                    {
+                        if (TypeConverter.ToBoolean(lval))
+                        {
+                            return lval;
+                        }
+
+                        var rval = NamedEvaluation(_right);
+                        lval = rval;
+                        break;
+                    }
 
                     default:
                         ExceptionHelper.ThrowNotImplementedException();
@@ -201,6 +272,17 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             _engine._referencePool.Return(lref);
             return lval;
+        }
+
+        private JsValue NamedEvaluation(JintExpression expression)
+        {
+            var rval = expression.GetValue();
+            if (expression._expression.IsAnonymousFunctionDefinition() && _left._expression.Type == Nodes.Identifier)
+            {
+                ((FunctionInstance) rval).SetFunctionName(((Identifier) _left._expression).Name);
+            }
+
+            return rval;
         }
 
         internal sealed class SimpleAssignmentExpression : JintExpression
@@ -276,7 +358,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     var rval = right.GetValue().Clone();
 
-                    if (right._expression.IsFunctionWithName())
+                    if (right._expression.IsFunctionDefinition())
                     {
                         ((FunctionInstance) rval).SetFunctionName(left._expressionName.StringValue);
                     }

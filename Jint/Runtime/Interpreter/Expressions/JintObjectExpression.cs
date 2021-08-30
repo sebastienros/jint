@@ -76,7 +76,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         var propertyValue = p.Value;
                         _valueExpressions[i] = Build(_engine, propertyValue);
-                        _canBuildFast &= !propertyValue.IsFunctionWithName();
+                        _canBuildFast &= !propertyValue.IsFunctionDefinition();
                     }
                     else
                     {
@@ -166,7 +166,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     var expr = _valueExpressions[i];
                     JsValue propValue = expr.GetValue().Clone();
-                    if (expr._expression.IsFunctionWithName())
+                    if (expr._expression.IsFunctionDefinition())
                     {
                         var closure = (FunctionInstance) propValue;
                         closure.SetFunctionName(propName);
