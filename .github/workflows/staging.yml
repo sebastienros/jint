@@ -9,7 +9,6 @@ on:
     - '*.md'
 
 jobs:
-  jobs:
   build:
 
     runs-on: ubuntu-latest
