@@ -1,0 +1,36 @@
+name: Publish on MyGet
+
+on:
+
+  push:
+    branches: [ main ]
+    paths-ignore:
+    - 'doc/**'
+    - '*.md'
+
+jobs:
+  jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    env:
+        DOTNET_NOLOGO: true
+        DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v2
+
+    - name: Setup dotnet 5.0
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.*
+
+    - name: Test
+      run: dotnet test --configuration Release
+
+    - name: Pack with dotnet
+      run: dotnet pack --output artifacts --configuration Release -p:PackageVersion=$GITHUB_RUN_ID
+
+    - name: Push with dotnet
+      run: dotnet nuget push artifacts/*.nupkg --api-key ${{ secrets.MYGET_API_KEY }} --skip-duplicate --source https://www.myget.org/F/jint/api/v2/package

@@ -1,7 +1,7 @@
 [![Build](https://github.com/sebastienros/jint/actions/workflows/build.yml/badge.svg)](https://github.com/sebastienros/jint/actions/workflows/build.yml)
 [![NuGet](https://img.shields.io/nuget/v/Jint.svg)](https://www.nuget.org/packages/Jint)
 [![NuGet](https://img.shields.io/nuget/vpre/Jint.svg)](https://www.nuget.org/packages/Jint)
-<!-- [![MyGet](https://img.shields.io/myget/jint/vpre/jint.svg)](https://www.myget.org/feed/Packages/Jint) -->
+[![MyGet](https://img.shields.io/myget/jint/vpre/jint.svg?label=MyGet)](https://www.myget.org/feed/jint/package/nuget/Jint)
 [![Join the chat at https://gitter.im/sebastienros/jint](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/sebastienros/jint)
 
 # Jint
@@ -338,12 +338,10 @@ The following features provide you with a secure, sand-boxed environment to run 
 - Limit depth of calls to prevent deep recursion calls.
 - Define a timeout, to prevent scripts from taking too long to finish.
 
-Continuous Integration kindly provided by  [AppVeyor](https://www.appveyor.com)
-
 ## Branches and releases
 
-- The recommended branch is __dev__, any PR should target this branch
-- The __dev__ branch is automatically built and published on [Myget](https://www.myget.org/feed/Packages/jint). Add this feed to your NuGet sources to use it: https://www.myget.org/F/jint/api/v3/index.json
-- The __dev__ branch is occasionally merged to __master__ and published on [NuGet](https://www.nuget.org/packages/jint)
+- The recommended branch is __main__, any PR should target this branch
+- The __main__ branch is automatically built and published on [MyGet](https://www.myget.org/feed/Packages/jint). Add this feed to your NuGet sources to use it: https://www.myget.org/F/jint/api/v3/index.json
+- The __main__ branch is occasionally published on [NuGet](https://www.nuget.org/packages/jint)
 - The 3.x releases have more features (from es6) and is faster than the 2.x ones. They run the same test suite so they are as reliable. For instance [RavenDB](https://github.com/ravendb/ravendb) is using the 3.x version.
 - The 3.x versions are marked as _beta_ as they might get breaking changes while es6 features are added.

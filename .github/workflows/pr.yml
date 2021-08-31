@@ -1,12 +1,7 @@
 name: Build
 
 on:
-  push:
-    branches: [ main, release/2.x ]
-    paths-ignore:
-    - 'doc/**'
-    - '*.md'
-
+  
   pull_request:
     branches: [ main, release/2.x ]
     paths-ignore:
