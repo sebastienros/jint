@@ -19,13 +19,13 @@ namespace Jint.Runtime.Interop
         /// <summary>
         /// Registers a filter that determines whether given member is wrapped to interop or returned as undefined.
         /// </summary>
-        public Predicate<MemberInfo> MemberFilter { get; init; } = _ => true;
+        public Predicate<MemberInfo> MemberFilter { get; set; } = _ => true;
 
         /// <summary>
         /// Sets member name comparison strategy when finding CLR objects members.
         /// By default member's first character casing is ignored and rest of the name is compared with strict equality.
         /// </summary>
-        public StringComparer MemberNameComparer { get; init; } = DefaultMemberNameComparer.Instance;
+        public StringComparer MemberNameComparer { get; set; } = DefaultMemberNameComparer.Instance;
 
         internal ReflectionAccessor GetAccessor(Engine engine, Type type, string member, Func<ReflectionAccessor> accessorFactory = null)
         {
