@@ -1,4 +1,4 @@
-name: Publish on MyGet
+name: Build
 
 on:
 
