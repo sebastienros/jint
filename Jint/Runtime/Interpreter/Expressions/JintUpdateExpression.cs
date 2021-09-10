@@ -66,7 +66,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             JsValue newValue = null;
 
             var operatorOverloaded = false;
-            if (_engine.Options._IsOperatorOverloadingAllowed)
+            if (_engine.Options.Interop.OperatorOverloadingAllowed)
             {
                 if (JintUnaryExpression.TryOperatorOverloading(_engine, _argument.GetValue(), _change > 0 ? "op_Increment" : "op_Decrement", out var result))
                 {
@@ -113,7 +113,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 JsValue newValue = null;
 
                 var operatorOverloaded = false;
-                if (_engine.Options._IsOperatorOverloadingAllowed)
+                if (_engine.Options.Interop.OperatorOverloadingAllowed)
                 {
                     if (JintUnaryExpression.TryOperatorOverloading(_engine, _argument.GetValue(), _change > 0 ? "op_Increment" : "op_Decrement", out var result))
                     {

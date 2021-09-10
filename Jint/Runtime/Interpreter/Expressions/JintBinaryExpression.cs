@@ -270,7 +270,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading(left, right, "op_LessThan", out var opResult))
                 {
                     return opResult;
@@ -294,7 +294,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading(left, right, "op_GreaterThan", out var opResult))
                 {
                     return opResult;
@@ -319,7 +319,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading(left, right, "op_Addition", out var opResult))
                 {
                     return opResult;
@@ -348,7 +348,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading(left, right, "op_Subtraction", out var opResult))
                 {
                     return opResult;
@@ -371,7 +371,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading(left, right, "op_Multiply", out var opResult))
                 {
                     return opResult;
@@ -402,7 +402,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading(left, right, "op_Division", out var opResult))
                 {
                     return opResult;
@@ -426,7 +426,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading(left, right, _invert ? "op_Inequality" : "op_Equality", out var opResult))
                 {
                     return opResult;
@@ -452,7 +452,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var leftValue = _left.GetValue();
                 var rightValue = _right.GetValue();
 
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading(leftValue, rightValue, _leftFirst ? "op_GreaterThanOrEqual" : "op_LessThanOrEqual", out var opResult))
                 {
                     return opResult;
@@ -529,7 +529,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading(left, right, "op_Modulus", out var opResult))
                 {
                     return opResult;
@@ -592,7 +592,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue();
                 var right = _right.GetValue();
 
-                if (_engine.Options._IsOperatorOverloadingAllowed
+                if (_engine.Options.Interop.OperatorOverloadingAllowed
                     && TryOperatorOverloading(left, right, OperatorClrName, out var opResult))
                 {
                     return opResult;

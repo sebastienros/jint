@@ -136,8 +136,7 @@ namespace Jint.Runtime
         {
             var meaningfulException = exception.InnerException ?? exception;
 
-            var handler = engine.Options._ClrExceptionsHandler;
-            if (handler != null && handler(meaningfulException))
+            if (engine.Options.Interop.ExceptionHandler(meaningfulException))
             {
                 ThrowError(engine, meaningfulException.Message);
             }

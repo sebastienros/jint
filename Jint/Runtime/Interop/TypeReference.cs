@@ -143,7 +143,7 @@ namespace Jint.Runtime.Interop
 
         private ReflectionAccessor ResolveMemberAccessor(Type type, string name)
         {
-            var typeResolver = _engine.Options._TypeResolver;
+            var typeResolver = _engine.Options.Interop.TypeResolver;
 
             if (type.IsEnum)
             {

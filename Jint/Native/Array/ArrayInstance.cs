@@ -12,8 +12,7 @@ namespace Jint.Native.Array
     {
         internal PropertyDescriptor _length;
 
-        private const int MaxDenseArrayLength = 1024 * 10;
-        private const ulong MaxArrayLength = 4294967295;
+        private const int MaxDenseArrayLength = 10_000_000;
 
         // we have dense and sparse, we usually can start with dense and fall back to sparse when necessary
         internal PropertyDescriptor[] _dense;
@@ -21,6 +20,11 @@ namespace Jint.Native.Array
 
         public ArrayInstance(Engine engine, uint capacity = 0) : base(engine, ObjectClass.Array)
         {
+            if (capacity > engine.Options.Constraints.MaxArraySize)
+            {
+                ThrowMaximumArraySizeReachedException(engine, capacity);
+            }
+
             if (capacity < MaxDenseArrayLength)
             {
                 _dense = capacity > 0 ? new PropertyDescriptor[capacity] : System.Array.Empty<PropertyDescriptor>();
@@ -664,6 +668,11 @@ namespace Jint.Native.Array
                 return;
             }
 
+            if (capacity > _engine.Options.Constraints.MaxArraySize)
+            {
+                ThrowMaximumArraySizeReachedException(_engine, capacity);
+            }
+
             // need to grow
             var newArray = new PropertyDescriptor[capacity];
             System.Array.Copy(_dense, newArray, _dense.Length);
@@ -904,6 +913,13 @@ namespace Jint.Native.Array
         {
             // debugger can make things hard when evaluates computed values
             return "(" + (_length?._value.AsNumber() ?? 0) + ")[]";
+        }
+
+        private static void ThrowMaximumArraySizeReachedException(Engine engine, uint capacity)
+        {
+            ExceptionHelper.ThrowMemoryLimitExceededException(
+                $"The array size {capacity} is larger than maximum allowed ({engine.Options.Constraints.MaxArraySize})"
+            );
         }
     }
 }

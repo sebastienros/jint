@@ -45,7 +45,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var lval = _engine.GetValue(lref, false);
             var handledByOverload = false;
 
-            if (_engine.Options._IsOperatorOverloadingAllowed)
+            if (_engine.Options.Interop.OperatorOverloadingAllowed)
             {
                 string operatorClrName = null;
                 switch (_operator)

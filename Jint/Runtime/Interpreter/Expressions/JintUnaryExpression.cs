@@ -58,7 +58,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 case UnaryOperator.Plus:
                 {
                     var v = _argument.GetValue();
-                    if (_engine.Options._IsOperatorOverloadingAllowed &&
+                    if (_engine.Options.Interop.OperatorOverloadingAllowed &&
                         TryOperatorOverloading(_engine, v, "op_UnaryPlus", out var result))
                     {
                         return result;
@@ -71,7 +71,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 case UnaryOperator.Minus:
                 {
                     var v = _argument.GetValue();
-                    if (_engine.Options._IsOperatorOverloadingAllowed &&
+                    if (_engine.Options.Interop.OperatorOverloadingAllowed &&
                         TryOperatorOverloading(_engine, v, "op_UnaryNegation", out var result))
                     {
                         return result;
@@ -82,7 +82,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 case UnaryOperator.BitwiseNot:
                 {
                     var v = _argument.GetValue();
-                    if (_engine.Options._IsOperatorOverloadingAllowed &&
+                    if (_engine.Options.Interop.OperatorOverloadingAllowed &&
                         TryOperatorOverloading(_engine, v, "op_OnesComplement", out var result))
                     {
                         return result;
@@ -93,7 +93,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 case UnaryOperator.LogicalNot:
                 {
                     var v = _argument.GetValue();
-                    if (_engine.Options._IsOperatorOverloadingAllowed &&
+                    if (_engine.Options.Interop.OperatorOverloadingAllowed &&
                         TryOperatorOverloading(_engine, v, "op_LogicalNot", out var result))
                     {
                         return result;
