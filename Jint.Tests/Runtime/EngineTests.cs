@@ -2744,21 +2744,6 @@ x.test = {
             Assert.Equal(1389, result);
         }
 
-        [Fact]
-        public void ObjectHasOwnShouldWork()
-        {
-            var content = GetEmbeddedFile("has-own.js");
-
-            _engine.SetValue("assertTrue", new Action<bool, string>(Assert.True));
-            _engine.SetValue("assertFalse", new Action<bool, string>(Assert.False));
-            _engine.SetValue("assertThrows", new Action<Func<JsValue, JsValue[], JsValue>>((cb) => Assert.ThrowsAny<Exception>(() => cb.Invoke(null, new JsValue[0]))));
-            RunTest(content);
-
-            RunTest("assertThrows(() => Object.hasOwn(null, 'a'))");
-            RunTest("assertThrows(() => Object.hasOwn(undefined, 'a'))");
-            RunTest("assertFalse(Object.hasOwn(5, 'a'))");
-        }
-
         private class Wrapper
         {
             public Testificate Test { get; set; }
