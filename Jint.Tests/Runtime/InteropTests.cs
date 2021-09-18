@@ -81,7 +81,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            var dictionary = new Dictionary<string,object> {
+            var dictionary = new Dictionary<string, object> {
                 { "foo", 5 },
                 { "bar", "A string"},
             };
@@ -705,7 +705,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void CanUseTrim()
         {
-            var p = new Person { Name = "Mickey Mouse "};
+            var p = new Person { Name = "Mickey Mouse " };
             _engine.SetValue("p", p);
 
             RunTest(@"
@@ -860,10 +860,10 @@ namespace Jint.Tests.Runtime
             var parts = result.ToObject();
 
             Assert.True(parts.GetType().IsArray);
-            Assert.Equal(3, ((object[])parts).Length);
-            Assert.Equal(2d, ((object[])parts)[0]);
-            Assert.Equal(4d, ((object[])parts)[1]);
-            Assert.Equal(6d, ((object[])parts)[2]);
+            Assert.Equal(3, ((object[]) parts).Length);
+            Assert.Equal(2d, ((object[]) parts)[0]);
+            Assert.Equal(4d, ((object[]) parts)[1]);
+            Assert.Equal(6d, ((object[]) parts)[2]);
         }
 
         [Fact]
@@ -876,10 +876,10 @@ namespace Jint.Tests.Runtime
             var parts = result.ToObject();
 
             Assert.True(parts.GetType().IsArray);
-            Assert.Equal(3, ((object[])parts).Length);
-            Assert.Equal(2d, ((object[])parts)[0]);
-            Assert.Equal(4d, ((object[])parts)[1]);
-            Assert.Equal(6d, ((object[])parts)[2]);
+            Assert.Equal(3, ((object[]) parts).Length);
+            Assert.Equal(2d, ((object[]) parts)[0]);
+            Assert.Equal(4d, ((object[]) parts)[1]);
+            Assert.Equal(6d, ((object[]) parts)[2]);
         }
 
         [Fact]
@@ -888,9 +888,9 @@ namespace Jint.Tests.Runtime
             var parts = _engine.Evaluate("'foo@bar.com'.split('@');").ToObject();
 
             Assert.True(parts.GetType().IsArray);
-            Assert.Equal(2, ((object[])parts).Length);
-            Assert.Equal("foo", ((object[])parts)[0]);
-            Assert.Equal("bar.com", ((object[])parts)[1]);
+            Assert.Equal(2, ((object[]) parts).Length);
+            Assert.Equal("foo", ((object[]) parts)[0]);
+            Assert.Equal("bar.com", ((object[]) parts)[1]);
         }
 
         [Fact]
@@ -964,7 +964,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(1, value.a);
             Assert.Equal("foo", value.b);
 
-            var dic = (IDictionary<string, object>)result.ToObject();
+            var dic = (IDictionary<string, object>) result.ToObject();
 
             Assert.Equal(1d, dic["a"]);
             Assert.Equal("foo", dic["b"]);
@@ -1278,12 +1278,12 @@ namespace Jint.Tests.Runtime
             var engine1 = new Engine();
             engine1.SetValue("p", new { Test = true });
             engine1.Execute("var result = p.Test;");
-            Assert.True((bool)engine1.GetValue("result").ToObject());
+            Assert.True((bool) engine1.GetValue("result").ToObject());
 
             var engine2 = new Engine(o => o.AddObjectConverter(new NegateBoolConverter()));
             engine2.SetValue("p", new { Test = true });
             engine2.Execute("var result = p.Test;");
-            Assert.False((bool)engine2.GetValue("result").ToObject());
+            Assert.False((bool) engine2.GetValue("result").ToObject());
 
         }
 
@@ -1295,7 +1295,7 @@ namespace Jint.Tests.Runtime
             engine1.SetValue("p", new { Comparison = StringComparison.CurrentCulture });
             engine1.Execute("assert(p.Comparison === 'CurrentCulture');");
             engine1.Execute("var result = p.Comparison;");
-            Assert.Equal("CurrentCulture", (string)engine1.GetValue("result").ToObject());
+            Assert.Equal("CurrentCulture", (string) engine1.GetValue("result").ToObject());
         }
 
         [Fact]
@@ -1526,7 +1526,7 @@ namespace Jint.Tests.Runtime
         public void ShouldUseExplicitIndexerPropertyGetter()
         {
             var company = new Company("ACME");
-            ((ICompany)company)["Foo"] = "Bar";
+            ((ICompany) company)["Foo"] = "Bar";
             _engine.SetValue("c", company);
 
             RunTest(@"
@@ -1549,7 +1549,7 @@ namespace Jint.Tests.Runtime
         public void ShouldUseExplicitIndexerPropertySetter()
         {
             var company = new Company("ACME");
-            ((ICompany)company)["Foo"] = "Bar";
+            ((ICompany) company)["Foo"] = "Bar";
             _engine.SetValue("c", company);
 
             RunTest(@"
@@ -1646,7 +1646,7 @@ namespace Jint.Tests.Runtime
         public void ShouldReturnUndefinedProperty()
         {
             _engine.SetValue("uo", new { foo = "bar" });
-            _engine.SetValue("ud", new Dictionary<string, object> { {"foo", "bar"} });
+            _engine.SetValue("ud", new Dictionary<string, object> { { "foo", "bar" } });
             _engine.SetValue("ul", new List<string> { "foo", "bar" });
 
             RunTest(@"
@@ -2078,7 +2078,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ArrayFromShouldConvertArrayToArrayLike()
         {
-            var list = new []
+            var list = new[]
             {
                 new Person {Name = "Mike"},
                 new Person {Name = "Mika"}
@@ -2103,7 +2103,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ArrayFromShouldConvertIEnumerable()
         {
-            var enumerable = new []
+            var enumerable = new[]
             {
                 new Person {Name = "Mike"},
                 new Person {Name = "Mika"}
@@ -2148,7 +2148,7 @@ namespace Jint.Tests.Runtime
             ");
 
             Assert.NotNull(c.ToString());
-            Assert.Equal((uint)0, c.As<ObjectInstance>().Length);
+            Assert.Equal((uint) 0, c.As<ObjectInstance>().Length);
         }
 
         class DictionaryWrapper
@@ -2524,7 +2524,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldHandleCyclicReferences()
         {
-            var engine=new Engine();
+            var engine = new Engine();
 
             static void Test(string message, object value) { Console.WriteLine(message); }
 
@@ -2582,6 +2582,44 @@ namespace Jint.Tests.Runtime
             Assert.True(e.Evaluate("a.call1").IsObject());
             Assert.True(e.Evaluate("a.Call1").IsObject());
             Assert.True(e.Evaluate("a.CALL1").IsObject());
+        }
+
+        [Fact]
+        public void ShouldNotEnumerateClassMethods()
+        {
+            var engine = new Engine();
+
+            var dictionary = new Dictionary<string, object> {
+                { "foo", 5 },
+                { "bar", "A string"},
+            };
+            engine.SetValue("dictionary", dictionary);
+
+            var result = engine.Evaluate($"Object.keys(dictionary).join(',')").AsString();
+            Assert.Equal("foo,bar", result);
+
+
+            engine.Execute("dictionary.ContainsKey('foo')");
+            result = engine.Evaluate($"Object.keys(dictionary).join(',')").AsString();
+            Assert.Equal("foo,bar", result);
+        }
+
+        [Fact]
+        public void ShouldNotEnumerateExtensionMethods()
+        {
+            var engine = new Engine(cfg => cfg.AddExtensionMethods(typeof(Enumerable)));
+
+            var result = engine.Evaluate("Object.keys({ ...[1,2,3] }).join(',')").AsString();
+            Assert.Equal("0,1,2", result);
+
+            var script = @"
+                var arr = [1,2,3];
+                var keys = [];
+                for(var index in arr) keys.push(index);
+                keys.join(',');
+            ";
+            result = engine.Evaluate(script).ToString();
+            Assert.Equal("0,1,2", result);
         }
     }
 }

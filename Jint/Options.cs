@@ -127,7 +127,7 @@ namespace Jint
                         ? new MethodInfoFunctionInstance(engine, MethodDescriptor.Build(overloads.ToList()))
                         : new MethodInfoFunctionInstance(engine, MethodDescriptor.Build(overloads.ToList()), function);
 
-                    return new PropertyDescriptor(instance, PropertyFlag.NonConfigurable);
+                    return new PropertyDescriptor(instance, PropertyFlag.AllForbidden);
                 }
 
                 JsValue key = overloads.Key;
