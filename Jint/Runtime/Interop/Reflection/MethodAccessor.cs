@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interop.Reflection
         }
 
         public override bool Writable => false;
-        
+
         protected override object DoGetValue(object target)
         {
             return null;
@@ -24,7 +24,7 @@ namespace Jint.Runtime.Interop.Reflection
 
         public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target)
         {
-            return new(new MethodInfoFunctionInstance(engine, _methods), PropertyFlag.OnlyEnumerable);
+            return new(new MethodInfoFunctionInstance(engine, _methods), PropertyFlag.AllForbidden);
         }
     }
 }
