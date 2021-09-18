@@ -50,7 +50,8 @@ namespace Jint.Native.Object
                 ["isExtensible"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isExtensible", IsExtensible, 1), propertyFlags),
                 ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 1, lengthFlags), propertyFlags),
                 ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 1, lengthFlags), propertyFlags),
-                ["setPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setPrototypeOf", SetPrototypeOf, 2, lengthFlags), propertyFlags)
+                ["setPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setPrototypeOf", SetPrototypeOf, 2, lengthFlags), propertyFlags),
+                ["hasOwn"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "hasOwn", HasOwn, 2, lengthFlags), propertyFlags),
             };
             SetProperties(properties);
         }
@@ -217,6 +218,13 @@ namespace Jint.Native.Object
                 ExceptionHelper.ThrowTypeError(_realm);
             }
             return o;
+        }
+
+        private JsValue HasOwn(JsValue thisObject, JsValue[] arguments)
+        {
+            var o = TypeConverter.ToObject(_realm, arguments.At(0));
+            var property = TypeConverter.ToPropertyKey(arguments.At(1));
+            return o.HasOwnProperty(property) ? JsBoolean.True : JsBoolean.False;
         }
 
         internal JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsValue[] arguments)

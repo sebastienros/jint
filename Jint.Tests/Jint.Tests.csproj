@@ -16,6 +16,9 @@
     <EmbeddedResource Include="Runtime\Scripts\*.*;Parser\Scripts\*.*" />
   </ItemGroup>
   <ItemGroup>
+    <None Remove="Runtime\Scripts\has-own.js" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
   </ItemGroup>
   <ItemGroup>
