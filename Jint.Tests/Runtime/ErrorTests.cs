@@ -1,5 +1,6 @@
 ﻿using Esprima;
 using Jint.Runtime;
+using Jint.Tests.Runtime.TestClasses;
 using System;
 using System.Collections.Generic;
 using Xunit;
@@ -282,6 +283,21 @@ var x = b(7);";
             EqualIgnoringNewLineDifferences(expected, ex.ToString());
         }
 
+        [Fact]
+        public void StackTraceIsForOriginalException()
+        {
+            var engine = new Engine();
+            engine.SetValue("HelloWorld", new HelloWorld());
+            const string script = @"HelloWorld.ThrowException();";
+
+            var ex = Assert.Throws<DivideByZeroException>(() => engine.Execute(script));
+
+            const string expected = @"System.DivideByZeroException: Attempted to divide by zero.
+   at Jint.Tests.Runtime.TestClasses.HelloWorld.ThrowException() in C:\Jint\jint\Jint.Tests\Runtime\TestClasses\HelloWorld.cs:line ";
+
+            StartsWithIgnoringNewLineDifferences(expected, ex.ToString());
+        }
+
         [Theory]
         [InlineData("Error")]
         [InlineData("EvalError")]
@@ -302,6 +318,13 @@ var x = b(7);";
             expected = expected.Replace("\r\n", "\n");
             actual = actual.Replace("\r\n", "\n");
             Assert.Equal(expected, actual);
+        }
+
+        private static void StartsWithIgnoringNewLineDifferences(string expectedStartString, string actualString)
+        {
+            expectedStartString = expectedStartString.Replace("\r\n", "\n");
+            actualString = actualString.Replace("\r\n", "\n");
+            Assert.StartsWith(expectedStartString, actualString);
         }
     }
 }
