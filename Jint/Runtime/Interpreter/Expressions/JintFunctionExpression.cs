@@ -24,15 +24,11 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             var funcEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
 
-            var functionThisMode = _function.Strict || _engine._isStrict
-                ? FunctionThisMode.Strict
-                : FunctionThisMode.Global;
-
             var closure = new ScriptFunctionInstance(
                 _engine,
                 _function,
                 funcEnv,
-                functionThisMode);
+                _function.ThisMode);
 
             closure.MakeConstructor();
 

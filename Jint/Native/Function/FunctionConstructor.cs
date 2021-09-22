@@ -131,7 +131,7 @@ namespace Jint.Native.Function
                 Engine,
                 functionDeclaration,
                 env,
-                functionDeclaration.Strict || _engine._isStrict ? FunctionThisMode.Strict : FunctionThisMode.Global)
+                functionDeclaration.ThisMode)
             {
                 _realm = _realm
             };

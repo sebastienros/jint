@@ -199,7 +199,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         _engine,
                         function,
                         _engine.ExecutionContext.LexicalEnvironment,
-                        function.Strict || _engine._isStrict ? FunctionThisMode.Strict : FunctionThisMode.Global);
+                        function.ThisMode);
 
                     closure.SetFunctionName(propName, property.Kind == PropertyKind.Get ? "get" : "set");
                     closure.MakeMethod(obj);

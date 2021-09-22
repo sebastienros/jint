@@ -249,16 +249,13 @@ namespace Jint
             {
                 ExceptionHelper.ThrowSyntaxError(engine.Realm);
             }
-            var functionDefinition = new JintFunctionDefinition(engine, function);
-            var functionThisMode = functionDefinition.Strict || engine._isStrict
-                ? FunctionThisMode.Strict
-                : FunctionThisMode.Global;
 
+            var functionDefinition = new JintFunctionDefinition(engine, function);
             var closure = new ScriptFunctionInstance(
                 engine,
                 functionDefinition,
                 engine.ExecutionContext.LexicalEnvironment,
-                functionThisMode,
+                functionDefinition.ThisMode,
                 prototype);
 
             closure.MakeMethod(obj);

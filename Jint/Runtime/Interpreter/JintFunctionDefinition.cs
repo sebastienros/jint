@@ -33,6 +33,8 @@ namespace Jint.Runtime.Interpreter
             Strict = function.Strict;
         }
 
+        public FunctionThisMode ThisMode => Strict || _engine._isStrict ? FunctionThisMode.Strict : FunctionThisMode.Global;
+
         internal Completion Execute()
         {
             if (Function.Expression)
