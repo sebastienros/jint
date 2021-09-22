@@ -292,10 +292,9 @@ var x = b(7);";
 
             var ex = Assert.Throws<DivideByZeroException>(() => engine.Execute(script));
 
-            const string expected = @"System.DivideByZeroException: Attempted to divide by zero.
-   at Jint.Tests.Runtime.TestClasses.HelloWorld.ThrowException() in C:\Jint\jint\Jint.Tests\Runtime\TestClasses\HelloWorld.cs:line ";
+            const string expected = "HelloWorld";
 
-            StartsWithIgnoringNewLineDifferences(expected, ex.ToString());
+            ContainsIgnoringNewLineDifferences(expected, ex.ToString());
         }
 
         [Theory]
@@ -320,11 +319,11 @@ var x = b(7);";
             Assert.Equal(expected, actual);
         }
 
-        private static void StartsWithIgnoringNewLineDifferences(string expectedStartString, string actualString)
+        private static void ContainsIgnoringNewLineDifferences(string expectedSubstring, string actualString)
         {
-            expectedStartString = expectedStartString.Replace("\r\n", "\n");
+            expectedSubstring = expectedSubstring.Replace("\r\n", "\n");
             actualString = actualString.Replace("\r\n", "\n");
-            Assert.StartsWith(expectedStartString, actualString);
+            Assert.Contains(expectedSubstring, actualString);
         }
     }
 }
