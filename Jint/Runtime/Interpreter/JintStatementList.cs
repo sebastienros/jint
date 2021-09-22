@@ -61,7 +61,7 @@ namespace Jint.Runtime.Interpreter
             JintStatement s = null;
             var c = new Completion(CompletionType.Normal, null, null, _engine._lastSyntaxNode?.Location ?? default);
             Completion sl = c;
-            
+
             // The value of a StatementList is the value of the last value-producing item in the StatementList
             JsValue lastValue = null;
             try
@@ -112,6 +112,7 @@ namespace Jint.Runtime.Interpreter
         /// https://tc39.es/ecma262/#sec-blockdeclarationinstantiation
         /// </summary>
         internal static void BlockDeclarationInstantiation(
+            Engine engine,
             EnvironmentRecord env,
             List<Declaration> declarations)
         {
@@ -138,7 +139,8 @@ namespace Jint.Runtime.Interpreter
                 if (d is FunctionDeclaration functionDeclaration)
                 {
                     var fn = functionDeclaration.Id!.Name;
-                    var fo = env._engine.Realm.Intrinsics.Function.InstantiateFunctionObject(functionDeclaration, env);
+                    var functionDefinition = new JintFunctionDefinition(engine, functionDeclaration);
+                    var fo = env._engine.Realm.Intrinsics.Function.InstantiateFunctionObject(functionDefinition, env);
                     envRec.InitializeBinding(fn, fo);
                 }
             }

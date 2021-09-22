@@ -337,6 +337,7 @@ namespace Jint.Native.Function
             localEnv.BindThisValue(thisValue);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Completion OrdinaryCallEvaluateBody(
             JsValue[] arguments,
             ExecutionContext calleeContext)
@@ -347,11 +348,9 @@ namespace Jint.Native.Function
                 calleeContext.LexicalEnvironment);
 
             var result = _functionDefinition.Execute();
-            var value = result.GetValueOrDefault().Clone();
-
             argumentsInstance?.FunctionWasCalled();
 
-            return new Completion(result.Type, value, result.Identifier, result.Location);
+            return result;
         }
 
         /// <summary>

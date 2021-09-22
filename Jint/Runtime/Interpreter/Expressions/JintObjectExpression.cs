@@ -26,6 +26,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             internal readonly string? _key;
             private JsString? _keyJsString;
             internal readonly Property _value;
+            private JintFunctionDefinition? _functionDefinition;
 
             public ObjectProperty(string? key, Property property)
             {
@@ -34,6 +35,23 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             public JsString? KeyJsString => _keyJsString ??= _key != null ? JsString.Create(_key) : null;
+
+            public JintFunctionDefinition GetFunctionDefinition(Engine engine)
+            {
+                if (_functionDefinition is not null)
+                {
+                    return _functionDefinition;
+                }
+
+                var function = _value.Value as IFunction;
+                if (function is null)
+                {
+                    ExceptionHelper.ThrowSyntaxError(engine.Realm);
+                }
+
+                _functionDefinition = new JintFunctionDefinition(engine, function);
+                return _functionDefinition;
+            }
         }
 
         public JintObjectExpression(Engine engine, ObjectExpression expression) : base(engine, expression)
@@ -134,7 +152,6 @@ namespace Jint.Runtime.Interpreter.Expressions
         private object BuildObjectNormal()
         {
             var obj = _engine.Realm.Intrinsics.Object.Construct(_properties.Length);
-            bool isStrictModeCode = _engine._isStrict || StrictModeScope.IsStrictModeCode;
 
             for (var i = 0; i < _properties.Length; i++)
             {
@@ -177,17 +194,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else if (property.Kind == PropertyKind.Get || property.Kind == PropertyKind.Set)
                 {
-                    var function = property.Value as IFunction;
-                    if (function is null)
-                    {
-                        ExceptionHelper.ThrowSyntaxError(_engine.Realm);
-                    }
-
+                    var function = objectProperty.GetFunctionDefinition(_engine);
                     var closure = new ScriptFunctionInstance(
                         _engine,
                         function,
                         _engine.ExecutionContext.LexicalEnvironment,
-                        isStrictModeCode);
+                        function.ThisMode);
 
                     closure.SetFunctionName(propName, property.Kind == PropertyKind.Get ? "get" : "set");
                     closure.MakeMethod(obj);

@@ -15,20 +15,21 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected override void Initialize()
         {
             var expression = (SequenceExpression) _expression;
-            _expressions = new JintExpression[expression.Expressions.Count];
-            for (var i = 0; i < expression.Expressions.Count; i++)
+            ref readonly var expressions = ref expression.Expressions;
+            var temp = new JintExpression[expressions.Count];
+            for (var i = 0; i < (uint) temp.Length; i++)
             {
-                _expressions[i] = Build(_engine, expression.Expressions[i]);
+                temp[i] = Build(_engine, expressions[i]);
             }
+
+            _expressions = temp;
         }
 
         protected override object EvaluateInternal()
         {
             var result = Undefined.Instance;
-            var expressions = _expressions;
-            for (var i = 0; i < (uint) expressions.Length; i++)
+            foreach (var expression in _expressions)
             {
-                var expression = expressions[i];
                 result = expression.GetValue();
             }
 

@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
 
@@ -16,17 +17,18 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal()
         {
-            var funcEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
+            return GetValue();
+        }
 
-            var functionThisMode = _function.Strict || _engine._isStrict
-                ? FunctionThisMode.Strict
-                : FunctionThisMode.Global;
+        public override JsValue GetValue()
+        {
+            var funcEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
 
             var closure = new ScriptFunctionInstance(
                 _engine,
                 _function,
                 funcEnv,
-                functionThisMode);
+                _function.ThisMode);
 
             closure.MakeConstructor();
 
