@@ -1,5 +1,6 @@
 ﻿using Esprima;
 using Jint.Runtime;
+using Jint.Tests.Runtime.TestClasses;
 using System;
 using System.Collections.Generic;
 using Xunit;
@@ -282,6 +283,20 @@ var x = b(7);";
             EqualIgnoringNewLineDifferences(expected, ex.ToString());
         }
 
+        [Fact]
+        public void StackTraceIsForOriginalException()
+        {
+            var engine = new Engine();
+            engine.SetValue("HelloWorld", new HelloWorld());
+            const string script = @"HelloWorld.ThrowException();";
+
+            var ex = Assert.Throws<DivideByZeroException>(() => engine.Execute(script));
+
+            const string expected = "HelloWorld";
+
+            ContainsIgnoringNewLineDifferences(expected, ex.ToString());
+        }
+
         [Theory]
         [InlineData("Error")]
         [InlineData("EvalError")]
@@ -302,6 +317,13 @@ var x = b(7);";
             expected = expected.Replace("\r\n", "\n");
             actual = actual.Replace("\r\n", "\n");
             Assert.Equal(expected, actual);
+        }
+
+        private static void ContainsIgnoringNewLineDifferences(string expectedSubstring, string actualString)
+        {
+            expectedSubstring = expectedSubstring.Replace("\r\n", "\n");
+            actualString = actualString.Replace("\r\n", "\n");
+            Assert.Contains(expectedSubstring, actualString);
         }
     }
 }

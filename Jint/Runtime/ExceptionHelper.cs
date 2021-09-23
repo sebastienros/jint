@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using Jint.Native;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.References;
@@ -141,7 +142,7 @@ namespace Jint.Runtime
                 ThrowError(engine, meaningfulException.Message);
             }
 
-            throw meaningfulException;
+            ExceptionDispatchInfo.Capture(meaningfulException).Throw();
         }
 
         [DoesNotReturn]
