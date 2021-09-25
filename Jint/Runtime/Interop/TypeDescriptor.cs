@@ -14,6 +14,7 @@ namespace Jint.Runtime.Interop
         {
             IsArrayLike = DetermineIfObjectIsArrayLikeClrCollection(type);
             IsDictionary = typeof(IDictionary).IsAssignableFrom(type) || typeof(IDictionary<string, object>).IsAssignableFrom(type);
+            IsEnumerable = typeof(IEnumerable).IsAssignableFrom(type);
 
             if (IsArrayLike)
             {
@@ -25,7 +26,10 @@ namespace Jint.Runtime.Interop
         public bool IsArrayLike { get; }
         public bool IsIntegerIndexedArray { get; }
         public bool IsDictionary { get; }
+        public bool IsEnumerable { get; }
         public PropertyInfo LengthProperty { get; }
+
+        public bool Iterable => IsArrayLike || IsDictionary || IsEnumerable;
 
         public static TypeDescriptor Get(Type type)
         {

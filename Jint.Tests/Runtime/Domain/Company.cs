@@ -35,5 +35,13 @@ namespace Jint.Tests.Runtime.Domain
         {
             return string.Compare(_name, other.Name, StringComparison.CurrentCulture);
         }
+
+        public IEnumerable<char> GetNameChars()
+        {
+            foreach (var c in _name)
+            {
+                yield return c;
+            }
+        }
     }
 }

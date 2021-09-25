@@ -208,22 +208,19 @@ namespace Jint.Runtime.Interop
                 return x;
             }
 
-            if (property.IsSymbol() && property == GlobalSymbolRegistry.Iterator)
+            // if we have array-like or dictionary or expando, we can provide iterator
+            if (property.IsSymbol() && property == GlobalSymbolRegistry.Iterator && _typeDescriptor.Iterable)
             {
-                // if we have array-like or dictionary or expando, we can provide iterator
-                if (_typeDescriptor.IsArrayLike || _typeDescriptor.IsDictionary)
-                {
-                    var iteratorFunction = new ClrFunctionInstance(
-                        Engine,
-                        "iterator",
-                        Iterator,
-                        1,
-                        PropertyFlag.Configurable);
+                var iteratorFunction = new ClrFunctionInstance(
+                    Engine,
+                    "iterator",
+                    Iterator,
+                    1,
+                    PropertyFlag.Configurable);
 
-                    var iteratorProperty = new PropertyDescriptor(iteratorFunction, PropertyFlag.Configurable | PropertyFlag.Writable);
-                    SetProperty(GlobalSymbolRegistry.Iterator, iteratorProperty);
-                    return iteratorProperty;
-                }
+                var iteratorProperty = new PropertyDescriptor(iteratorFunction, PropertyFlag.Configurable | PropertyFlag.Writable);
+                SetProperty(GlobalSymbolRegistry.Iterator, iteratorProperty);
+                return iteratorProperty;
             }
 
             var member = property.ToString();
@@ -259,14 +256,10 @@ namespace Jint.Runtime.Interop
         private static JsValue Iterator(JsValue thisObj, JsValue[] arguments)
         {
             var wrapper = (ObjectWrapper) thisObj;
-            var intrinsics = wrapper._engine.Realm.Intrinsics;
 
-            if (wrapper._typeDescriptor.IsDictionary)
-            {
-                return new DictionaryIterator(wrapper._engine, wrapper);
-            }
-
-            return new ListIterator(wrapper._engine, (IList) wrapper.Target);
+            return wrapper._typeDescriptor.IsDictionary
+                ? new DictionaryIterator(wrapper._engine, wrapper)
+                : new EnumerableIterator(wrapper._engine, (IEnumerable) wrapper.Target);
         }
 
         private static JsValue GetLength(JsValue thisObj, JsValue[] arguments)
@@ -332,23 +325,20 @@ namespace Jint.Runtime.Interop
             }
         }
 
-        private sealed class ListIterator : IteratorInstance
+        private sealed class EnumerableIterator : IteratorInstance
         {
-            private readonly IList _list;
-            private int _position;
+            private readonly IEnumerator _enumerator;
 
-            public ListIterator(Engine engine, IList list) : base(engine)
+            public EnumerableIterator(Engine engine, IEnumerable target) : base(engine)
             {
-                _list = list;
-                _position = 0;
+                _enumerator = target.GetEnumerator();
             }
 
             public override bool TryIteratorStep(out ObjectInstance nextItem)
             {
-                if (_position < _list.Count)
+                if (_enumerator.MoveNext())
                 {
-                    var value = _list[_position];
-                    _position++;
+                    var value = _enumerator.Current;
                     nextItem = new ValueIteratorPosition(_engine, FromObject(_engine, value));
                     return true;
                 }
@@ -357,6 +347,5 @@ namespace Jint.Runtime.Interop
                 return false;
             }
         }
-
     }
 }

@@ -574,6 +574,16 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldForOfOnEnumerable()
+        {
+            _engine.SetValue("c", new Company("name"));
+
+            var result = _engine.Evaluate("var l = ''; for (var x of c.getNameChars()) l += x + ','; return l;").AsString();
+
+            Assert.Equal("n,a,m,e,", result);
+        }
+
+        [Fact]
         public void ShouldThrowWhenForOfOnObject()
         {
             // normal objects are not iterable in javascript
