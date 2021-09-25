@@ -74,6 +74,5 @@ namespace Jint.Native.Map
                 return false;
             }
         }
-
     }
 }

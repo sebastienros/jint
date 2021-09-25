@@ -530,6 +530,61 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldForOfOnLists()
+        {
+            _engine.SetValue("list", new List<string> { "a", "b" });
+
+            var result = _engine.Evaluate("var l = ''; for (var x of list) l += x; return l;").AsString();
+
+            Assert.Equal("ab", result);
+        }
+
+        [Fact]
+        public void ShouldForOfOnArrays()
+        {
+            _engine.SetValue("arr", new[] { "a", "b" });
+
+            var result = _engine.Evaluate("var l = ''; for (var x of arr) l += x; return l;").AsString();
+
+            Assert.Equal("ab", result);
+        }
+
+        [Fact]
+        public void ShouldForOfOnDictionaries()
+        {
+            _engine.SetValue("dict", new Dictionary<string, string> { {"a", "1"}, {"b", "2"} });
+
+            var result = _engine.Evaluate("var l = ''; for (var x of dict) l += x; return l;").AsString();
+
+            Assert.Equal("a,1b,2", result);
+        }
+
+        [Fact]
+        public void ShouldForOfOnExpandoObject()
+        {
+            dynamic o = new ExpandoObject();
+            o.a = 1;
+            o.b = 2;
+
+            _engine.SetValue("dynamic", o);
+
+            var result = _engine.Evaluate("var l = ''; for (var x of dynamic) l += x; return l;").AsString();
+
+            Assert.Equal("a,1b,2", result);
+        }
+
+        [Fact]
+        public void ShouldThrowWhenForOfOnObject()
+        {
+            // normal objects are not iterable in javascript
+            var o = new { A = 1, B = 2 };
+            _engine.SetValue("anonymous", o);
+
+            var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("for (var x of anonymous) {}"));
+            Assert.Equal("The value is not iterable", ex.Message);
+        }
+
+        [Fact]
         public void CanAccessAnonymousObject()
         {
             var p = new

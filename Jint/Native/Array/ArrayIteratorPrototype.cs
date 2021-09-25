@@ -18,16 +18,6 @@ namespace Jint.Native.Array
         {
         }
 
-        internal IteratorInstance Construct(ObjectInstance array, Func<Intrinsics, Prototype> prototypeSelector)
-        {
-            var instance = new ArrayLikeIterator(Engine, array, ArrayIteratorType.KeyAndValue)
-            {
-                _prototype = prototypeSelector(_realm.Intrinsics)
-            };
-
-            return instance;
-        }
-
         internal IteratorInstance Construct(ObjectInstance array, ArrayIteratorType kind)
         {
             var instance = new ArrayLikeIterator(Engine, array, kind)

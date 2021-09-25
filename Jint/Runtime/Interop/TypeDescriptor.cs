@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace Jint.Runtime.Interop
 {
@@ -12,18 +13,25 @@ namespace Jint.Runtime.Interop
         private TypeDescriptor(Type type)
         {
             IsArrayLike = DetermineIfObjectIsArrayLikeClrCollection(type);
-            IsIntegerIndexedArray = typeof(IList).IsAssignableFrom(type);
-        }
+            IsDictionary = typeof(IDictionary).IsAssignableFrom(type) || typeof(IDictionary<string, object>).IsAssignableFrom(type);
 
+            if (IsArrayLike)
+            {
+                LengthProperty = type.GetProperty("Count") ?? type.GetProperty("Length");
+                IsIntegerIndexedArray = typeof(IList).IsAssignableFrom(type);
+            }
+        }
 
         public bool IsArrayLike { get; }
         public bool IsIntegerIndexedArray { get; }
+        public bool IsDictionary { get; }
+        public PropertyInfo LengthProperty { get; }
 
         public static TypeDescriptor Get(Type type)
         {
             return _cache.GetOrAdd(type, t => new TypeDescriptor(t));
         }
-        
+
         private static bool DetermineIfObjectIsArrayLikeClrCollection(Type type)
         {
             if (typeof(IDictionary).IsAssignableFrom(type))
@@ -36,14 +44,14 @@ namespace Jint.Runtime.Interop
             {
                 return true;
             }
-            
+
             foreach (var interfaceType in type.GetInterfaces())
             {
                 if (!interfaceType.IsGenericType)
                 {
                     continue;
                 }
-                
+
                 if (interfaceType.GetGenericTypeDefinition() == typeof(IReadOnlyCollection<>)
                     || interfaceType.GetGenericTypeDefinition() == typeof(ICollection<>))
                 {
@@ -53,6 +61,5 @@ namespace Jint.Runtime.Interop
 
             return false;
         }
-
     }
 }
