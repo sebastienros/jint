@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using Jint.Native;
+using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
@@ -23,20 +24,14 @@ namespace Jint.Runtime.Interop
         {
             Target = obj;
             _typeDescriptor = TypeDescriptor.Get(obj.GetType());
-            if (_typeDescriptor.IsArrayLike)
+            if (_typeDescriptor.LengthProperty is not null)
             {
                 // create a forwarder to produce length from Count or Length if one of them is present
-                var lengthProperty = obj.GetType().GetProperty("Count") ?? obj.GetType().GetProperty("Length");
-                if (lengthProperty is null)
-                {
-                    return;
-                }
-                var functionInstance = new ClrFunctionInstance(engine, "length", (_, _) => JsNumber.Create((int) lengthProperty.GetValue(obj)));
+                var functionInstance = new ClrFunctionInstance(engine, "length", GetLength);
                 var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
                 SetProperty(KnownKeys.Length, descriptor);
             }
         }
-
 
         public object Target { get; }
 
@@ -213,20 +208,23 @@ namespace Jint.Runtime.Interop
                 return x;
             }
 
-            if (property.IsSymbol() && property == GlobalSymbolRegistry.Iterator)
+            // if we have array-like or dictionary or expando, we can provide iterator
+            if (property.IsSymbol() && property == GlobalSymbolRegistry.Iterator && _typeDescriptor.Iterable)
             {
                 var iteratorFunction = new ClrFunctionInstance(
-                    Engine, "iterator",
-                    (thisObject, arguments) => _engine.Realm.Intrinsics.ArrayIteratorPrototype.Construct(this, intrinsics => intrinsics.IteratorPrototype),
+                    Engine,
+                    "iterator",
+                    Iterator,
                     1,
                     PropertyFlag.Configurable);
+
                 var iteratorProperty = new PropertyDescriptor(iteratorFunction, PropertyFlag.Configurable | PropertyFlag.Writable);
                 SetProperty(GlobalSymbolRegistry.Iterator, iteratorProperty);
                 return iteratorProperty;
             }
 
             var member = property.ToString();
-            var result = Engine.Options.Interop.MemberAccessor?.Invoke(Engine, Target, member);
+            var result = Engine.Options.Interop.MemberAccessor(Engine, Target, member);
             if (result is not null)
             {
                 return new PropertyDescriptor(result, PropertyFlag.OnlyEnumerable);
@@ -253,6 +251,21 @@ namespace Jint.Runtime.Interop
                 };
             }
             return engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, Factory).CreatePropertyDescriptor(engine, target);
+        }
+
+        private static JsValue Iterator(JsValue thisObj, JsValue[] arguments)
+        {
+            var wrapper = (ObjectWrapper) thisObj;
+
+            return wrapper._typeDescriptor.IsDictionary
+                ? new DictionaryIterator(wrapper._engine, wrapper)
+                : new EnumerableIterator(wrapper._engine, (IEnumerable) wrapper.Target);
+        }
+
+        private static JsValue GetLength(JsValue thisObj, JsValue[] arguments)
+        {
+            var wrapper = (ObjectWrapper) thisObj;
+            return JsNumber.Create((int) wrapper._typeDescriptor.LengthProperty.GetValue(wrapper.Target));
         }
 
         public override bool Equals(JsValue obj)
@@ -283,6 +296,56 @@ namespace Jint.Runtime.Interop
         public override int GetHashCode()
         {
             return Target?.GetHashCode() ?? 0;
+        }
+
+        private sealed class DictionaryIterator : IteratorInstance
+        {
+            private readonly ObjectWrapper _target;
+            private readonly IEnumerator<JsValue> _enumerator;
+
+            public DictionaryIterator(Engine engine, ObjectWrapper target) : base(engine)
+            {
+                _target = target;
+                _enumerator = target.EnumerateOwnPropertyKeys(Types.String).GetEnumerator();
+            }
+
+            public override bool TryIteratorStep(out ObjectInstance nextItem)
+            {
+                if (_enumerator.MoveNext())
+                {
+                    var key = _enumerator.Current;
+                    var value = _target.Get(key);
+
+                    nextItem = new KeyValueIteratorPosition(_engine, key, value);
+                    return true;
+                }
+
+                nextItem = KeyValueIteratorPosition.Done;
+                return false;
+            }
+        }
+
+        private sealed class EnumerableIterator : IteratorInstance
+        {
+            private readonly IEnumerator _enumerator;
+
+            public EnumerableIterator(Engine engine, IEnumerable target) : base(engine)
+            {
+                _enumerator = target.GetEnumerator();
+            }
+
+            public override bool TryIteratorStep(out ObjectInstance nextItem)
+            {
+                if (_enumerator.MoveNext())
+                {
+                    var value = _enumerator.Current;
+                    nextItem = new ValueIteratorPosition(_engine, FromObject(_engine, value));
+                    return true;
+                }
+
+                nextItem = KeyValueIteratorPosition.Done;
+                return false;
+            }
         }
     }
 }

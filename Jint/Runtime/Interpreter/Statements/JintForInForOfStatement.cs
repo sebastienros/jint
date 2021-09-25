@@ -340,7 +340,7 @@ namespace Jint.Runtime.Interpreter.Statements
             AsyncIterate
         }
 
-        internal class ObjectKeyVisitor : IteratorInstance
+        private sealed class ObjectKeyVisitor : IteratorInstance
         {
             public ObjectKeyVisitor(Engine engine, ObjectInstance obj)
                 : base(engine, CreateEnumerator(engine, obj))

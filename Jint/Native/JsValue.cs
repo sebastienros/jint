@@ -193,7 +193,7 @@ namespace Jint.Native
             var objectInstance = TypeConverter.ToObject(realm, this);
 
             if (!objectInstance.TryGetValue(GlobalSymbolRegistry.Iterator, out var value)
-                || !(value is ICallable callable))
+                || value is not ICallable callable)
             {
                 iterator = null;
                 return false;
