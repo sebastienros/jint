@@ -403,6 +403,25 @@ namespace Jint
             return null;
         }
 
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsCallable(this JsValue value)
+        {
+            return value.IsCallable;
+        }
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ICallable AsCallable(this JsValue value)
+        {
+            if (!value.IsCallable())
+            {
+                ThrowWrongTypeException(value, "Callable");
+            }
+
+            return value as ICallable;
+        }
+
         /// <summary>
         /// If the value is a Promise
         ///     1. If "Fulfilled" returns the value it was fulfilled with
