@@ -2698,6 +2698,8 @@ namespace Jint.Tests.Runtime
 
             var callable = result.AsCallable();
             Assert.True(callable.Call(JsValue.Undefined, Array.Empty<JsValue>()).AsBoolean());
+
+            Assert.True(callable.Call().AsBoolean());
         }
     }
 }

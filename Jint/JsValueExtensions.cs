@@ -422,6 +422,13 @@ namespace Jint
             return value as ICallable;
         }
 
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static JsValue Call(this ICallable value, params JsValue[] arguments)
+        {
+            return value.Call(JsValue.Undefined, arguments);
+        }
+
         /// <summary>
         /// If the value is a Promise
         ///     1. If "Fulfilled" returns the value it was fulfilled with
