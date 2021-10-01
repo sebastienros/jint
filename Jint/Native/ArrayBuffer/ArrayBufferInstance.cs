@@ -110,7 +110,7 @@ namespace Jint.Native.ArrayBuffer
         /// <summary>
         /// https://tc39.es/ecma262/#sec-rawbytestonumeric
         /// </summary>
-        private double RawBytesToNumeric(TypedArrayElementType type, int byteIndex, bool isLittleEndian)
+        internal double RawBytesToNumeric(TypedArrayElementType type, int byteIndex, bool isLittleEndian)
         {
             var elementSize = type.GetElementSize();
             var rawBytes = _arrayBufferData;
