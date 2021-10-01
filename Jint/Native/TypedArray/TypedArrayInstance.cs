@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Jint.Native.ArrayBuffer;
@@ -329,6 +330,24 @@ namespace Jint.Native.TypedArray
             return !double.IsNaN(value)
                    && !double.IsInfinity(value)
                    && System.Math.Floor(System.Math.Abs(value)) == System.Math.Abs(value);
+        }
+
+        internal T[] ToNativeArray<T>()
+        {
+            var conversionType = typeof(T);
+            var elementSize = _arrayElementType.GetElementSize();
+            var byteOffset = _byteOffset;
+            var buffer = _viewedArrayBuffer;
+
+            var array = new T[Length];
+            for (var i = 0; i < array.Length; ++i)
+            {
+                var indexedPosition = i * elementSize + byteOffset;
+                var value = buffer.RawBytesToNumeric(_arrayElementType, indexedPosition, BitConverter.IsLittleEndian);
+                array[i] = (T) Convert.ChangeType(value, conversionType);
+            }
+
+            return array;
         }
     }
 }

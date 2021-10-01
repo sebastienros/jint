@@ -2686,5 +2686,20 @@ namespace Jint.Tests.Runtime
             result = engine.Evaluate(script).ToString();
             Assert.Equal("0,1,2", result);
         }
+
+        [Fact]
+        public void CanCheckIfCallable()
+        {
+            var engine = new Engine();
+            engine.Evaluate("var f = () => true;");
+
+            var result = engine.GetValue("f");
+            Assert.True(result.IsCallable());
+
+            var callable = result.AsCallable();
+            Assert.True(callable.Call(JsValue.Undefined, Array.Empty<JsValue>()).AsBoolean());
+
+            Assert.True(callable.Call().AsBoolean());
+        }
     }
 }

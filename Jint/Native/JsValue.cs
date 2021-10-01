@@ -32,147 +32,11 @@ namespace Jint.Native
         }
 
         [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsPrimitive()
-        {
-            return (_type & (InternalTypes.Primitive | InternalTypes.Undefined | InternalTypes.Null)) != 0;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsUndefined()
-        {
-            return _type == InternalTypes.Undefined;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool IsNullOrUndefined()
-        {
-            return _type < InternalTypes.Boolean;
-        }
-
-        [Pure]
         public virtual bool IsArray() => false;
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsDate()
-        {
-            return this is DateInstance;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsPromise()
-        {
-            return this is PromiseInstance;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsRegExp()
-        {
-            if (!(this is ObjectInstance oi))
-            {
-                return false;
-            }
-
-            var matcher = oi.Get(GlobalSymbolRegistry.Match);
-            if (!matcher.IsUndefined())
-            {
-                return TypeConverter.ToBoolean(matcher);
-            }
-
-            return this is RegExpInstance;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsObject()
-        {
-            return (_type & InternalTypes.Object) != 0;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsString()
-        {
-            return (_type & InternalTypes.String) != 0;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsNumber()
-        {
-            return (_type & (InternalTypes.Number | InternalTypes.Integer)) != 0;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool IsInteger()
-        {
-            return _type == InternalTypes.Integer;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsBoolean()
-        {
-            return _type == InternalTypes.Boolean;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsNull()
-        {
-            return _type == InternalTypes.Null;
-        }
 
         internal virtual bool IsIntegerIndexedArray => false;
 
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsSymbol()
-        {
-            return _type == InternalTypes.Symbol;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ObjectInstance AsObject()
-        {
-            if (!IsObject())
-            {
-                ExceptionHelper.ThrowArgumentException("The value is not an object");
-            }
-
-            return this as ObjectInstance;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public TInstance AsInstance<TInstance>() where TInstance : class
-        {
-            if (!IsObject())
-            {
-                ExceptionHelper.ThrowArgumentException("The value is not an object");
-            }
-
-            return this as TInstance;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ArrayInstance AsArray()
-        {
-            if (!IsArray())
-            {
-                ExceptionHelper.ThrowArgumentException("The value is not an array");
-            }
-
-            return this as ArrayInstance;
-        }
+        internal virtual bool IsConstructor => false;
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -217,62 +81,6 @@ namespace Jint.Native
             return true;
         }
 
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public DateInstance AsDate()
-        {
-            if (!IsDate())
-            {
-                ExceptionHelper.ThrowArgumentException("The value is not a date");
-            }
-
-            return this as DateInstance;
-        }
-
-        [Pure]
-        public RegExpInstance AsRegExp()
-        {
-            if (!IsRegExp())
-            {
-                ExceptionHelper.ThrowArgumentException("The value is not a regex");
-            }
-
-            return this as RegExpInstance;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T TryCast<T>() where T : class
-        {
-            return this as T;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T TryCast<T>(Action<JsValue> fail) where T : class
-        {
-            if (this is T o)
-            {
-                return o;
-            }
-
-            fail.Invoke(this);
-
-            return null;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T As<T>() where T : ObjectInstance
-        {
-            if (IsObject())
-            {
-                return this as T;
-            }
-
-            return null;
-        }
-
         public Types Type
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -280,8 +88,6 @@ namespace Jint.Native
                 ? Types.Number
                 : (Types) (_type & ~InternalTypes.InternalFlags);
         }
-
-        internal virtual bool IsConstructor => false;
 
         /// <summary>
         /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance
