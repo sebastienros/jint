@@ -166,7 +166,7 @@ public class GeneratorTests
         Assert.True(_engine.Evaluate("item.done").AsBoolean());
     }
 
-    [Fact(Skip = "TODO es6-generators")]
+    [Fact]
     public void Sending()
     {
         const string Script = """
@@ -186,7 +186,7 @@ public class GeneratorTests
         Assert.Equal("bar", _engine.Evaluate("sent[1]"));
     }
 
-    [Fact(Skip = "TODO es6-generators")]
+    [Fact]
     public void Sending2()
     {
         const string Script = """
@@ -214,7 +214,7 @@ public class GeneratorTests
         Assert.Equal(26, _engine.Evaluate("generatorFunc.next(10).value")); // 26
     }
 
-    [Fact(Skip = "TODO es6-generators")]
+    [Fact]
     public void Fibonacci()
     {
         const string Script = """
