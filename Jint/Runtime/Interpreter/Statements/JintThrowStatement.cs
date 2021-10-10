@@ -10,19 +10,18 @@ namespace Jint.Runtime.Interpreter.Statements
     {
         private JintExpression _argument;
 
-        public JintThrowStatement(Engine engine, ThrowStatement statement) : base(engine, statement)
+        public JintThrowStatement(ThrowStatement statement) : base(statement)
         {
-            _initialized = false;
         }
 
-        protected override void Initialize()
+        protected override void Initialize(EvaluationContext context)
         {
-            _argument = JintExpression.Build(_engine, _statement.Argument);
+            _argument = JintExpression.Build(context.Engine, _statement.Argument);
         }
 
-        protected override Completion ExecuteInternal()
+        protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            var jsValue = _argument.GetValue();
+            var jsValue = _argument.GetValue(context);
             return new Completion(CompletionType.Throw, jsValue, null, _statement.Location);
         }
     }

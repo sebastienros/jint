@@ -9,33 +9,37 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
     {
-        private readonly JintStatement _body;
-        private readonly string _labelSetName;
-        private readonly JintExpression _test;
+        private JintStatement _body;
+        private string _labelSetName;
+        private JintExpression _test;
 
-        public JintDoWhileStatement(Engine engine, DoWhileStatement statement) : base(engine, statement)
+        public JintDoWhileStatement(DoWhileStatement statement) : base(statement)
         {
-            _body = Build(_engine, statement.Body);
-            _test = JintExpression.Build(engine, statement.Test);
-            _labelSetName = statement.LabelSet?.Name;
         }
 
-        protected override Completion ExecuteInternal()
+        protected override void Initialize(EvaluationContext context)
+        {
+            _body = Build(_statement.Body);
+            _test = JintExpression.Build(context.Engine, _statement.Test);
+            _labelSetName = _statement.LabelSet?.Name;
+        }
+
+        protected override Completion ExecuteInternal(EvaluationContext context)
         {
             JsValue v = Undefined.Instance;
             bool iterating;
 
             do
             {
-                var completion = _body.Execute();
+                var completion = _body.Execute(context);
                 if (!ReferenceEquals(completion.Value, null))
                 {
                     v = completion.Value;
                 }
 
-                if (completion.Type != CompletionType.Continue || completion.Identifier != _labelSetName)
+                if (completion.Type != CompletionType.Continue || completion.Target != _labelSetName)
                 {
-                    if (completion.Type == CompletionType.Break && (completion.Identifier == null || completion.Identifier == _labelSetName))
+                    if (completion.Type == CompletionType.Break && (completion.Target == null || completion.Target == _labelSetName))
                     {
                         return new Completion(CompletionType.Normal, v, null, Location);
                     }
@@ -46,7 +50,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                 }
 
-                iterating = TypeConverter.ToBoolean(_test.GetValue());
+                iterating = TypeConverter.ToBoolean(_test.GetValue(context));
             } while (iterating);
 
             return new Completion(CompletionType.Normal, v, null, Location);

@@ -339,6 +339,7 @@ namespace Jint.Native.Function
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Completion OrdinaryCallEvaluateBody(
+            EvaluationContext context,
             JsValue[] arguments,
             ExecutionContext calleeContext)
         {
@@ -347,7 +348,7 @@ namespace Jint.Native.Function
                 arguments,
                 calleeContext.LexicalEnvironment);
 
-            var result = _functionDefinition.Execute();
+            var result = _functionDefinition.Execute(context);
             argumentsInstance?.FunctionWasCalled();
 
             return result;

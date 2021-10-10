@@ -5,17 +5,21 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintExpressionStatement : JintStatement<ExpressionStatement>
     {
-        private readonly JintExpression _expression;
+        private JintExpression _expression;
 
-        public JintExpressionStatement(Engine engine, ExpressionStatement statement) : base(engine, statement)
+        public JintExpressionStatement(ExpressionStatement statement) : base(statement)
         {
-            _expression = JintExpression.Build(engine, statement.Expression);
         }
 
-        protected override Completion ExecuteInternal()
+        protected override void Initialize(EvaluationContext context)
         {
-            var value = _expression.GetValue();
-            return new Completion(CompletionType.Normal, value, null, Location);
+            _expression = JintExpression.Build(context.Engine, _statement.Expression);
+        }
+
+        protected override Completion ExecuteInternal(EvaluationContext context)
+        {
+            var value = _expression.GetValue(context);
+            return new Completion(CompletionType.Normal, value, Location);
         }
     }
 }

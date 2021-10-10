@@ -35,18 +35,18 @@ namespace Jint.Runtime.Interpreter
 
         public FunctionThisMode ThisMode => Strict || _engine._isStrict ? FunctionThisMode.Strict : FunctionThisMode.Global;
 
-        internal Completion Execute()
+        internal Completion Execute(EvaluationContext context)
         {
             if (Function.Expression)
             {
                 _bodyExpression ??= JintExpression.Build(_engine, (Expression) Function.Body);
-                var jsValue = _bodyExpression?.GetValue() ?? Undefined.Instance;
-                return new Completion(CompletionType.Return, jsValue, null, Function.Body.Location);
+                var jsValue = _bodyExpression?.GetValue(context) ?? Undefined.Instance;
+                return new Completion(CompletionType.Return, jsValue, Function.Body.Location);
             }
 
             var blockStatement = (BlockStatement) Function.Body;
-            _bodyStatementList ??= new JintStatementList(_engine, blockStatement, blockStatement.Body);
-            return _bodyStatementList.Execute();
+            _bodyStatementList ??= new JintStatementList(blockStatement, blockStatement.Body);
+            return _bodyStatementList.Execute(context);
         }
 
         internal State Initialize(FunctionInstance functionInstance)
@@ -54,7 +54,7 @@ namespace Jint.Runtime.Interpreter
             return _state ??= DoInitialize(functionInstance);
         }
 
-        internal class State
+        internal sealed class State
         {
             public bool HasRestParameter;
             public int Length;

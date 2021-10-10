@@ -33,7 +33,7 @@ namespace Jint
 
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
-        internal Node _lastSyntaxNode;
+        internal EvaluationContext _activeEvaluationContext;
 
         private readonly EventLoop _eventLoop = new();
 
@@ -266,8 +266,10 @@ namespace Jint
 
         public Engine Execute(Script script)
         {
+            var ownsContext = _activeEvaluationContext is null;
+            _activeEvaluationContext ??= new EvaluationContext(this);
+
             ResetConstraints();
-            ResetLastStatement();
 
             using (new StrictModeScope(_isStrict || script.Strict))
             {
@@ -275,17 +277,23 @@ namespace Jint
                     script,
                     Realm.GlobalEnv);
 
-                var list = new JintStatementList(this, null, script.Body);
+                var list = new JintStatementList(null, script.Body);
 
                 Completion result;
                 try
                 {
-                    result = list.Execute();
+                    result = list.Execute(_activeEvaluationContext);
                 }
                 catch
                 {
                     // unhandled exception
                     ResetCallStack();
+
+                    if (ownsContext)
+                    {
+                        _activeEvaluationContext = null;
+                    }
+
                     throw;
                 }
 
@@ -294,6 +302,12 @@ namespace Jint
                     var ex = new JavaScriptException(result.GetValueOrDefault())
                         .SetCallstack(this, result.Location);
                     ResetCallStack();
+
+                    if (ownsContext)
+                    {
+                        _activeEvaluationContext = null;
+                    }
+
                     throw ex;
                 }
 
@@ -301,6 +315,12 @@ namespace Jint
                 RunAvailableContinuations(_eventLoop);
 
                 _completionValue = result.GetValueOrDefault();
+
+                if (ownsContext)
+                {
+                    _activeEvaluationContext = null;
+                }
+
             }
 
             return this;
@@ -357,11 +377,6 @@ namespace Jint
                 // note that continuation can enqueue new events
                 nextContinuation();
             }
-        }
-
-        private void ResetLastStatement()
-        {
-            _lastSyntaxNode = null;
         }
 
         internal void RunBeforeExecuteStatementChecks(Statement statement)
@@ -619,16 +634,28 @@ namespace Jint
                 ExceptionHelper.ThrowTypeError(Realm, "Can only invoke functions");
             }
 
-            var items = _jsValueArrayPool.RentArray(arguments.Length);
-            for (int i = 0; i < arguments.Length; ++i)
+            var ownsContext = _activeEvaluationContext is null;
+            _activeEvaluationContext ??= new EvaluationContext(this);
+
+            try
             {
-                items[i] = JsValue.FromObject(this, arguments[i]);
+                var items = _jsValueArrayPool.RentArray(arguments.Length);
+                for (var i = 0; i < arguments.Length; ++i)
+                {
+                    items[i] = JsValue.FromObject(this, arguments[i]);
+                }
+
+                var result = callable.Call(JsValue.FromObject(this, thisObj), items);
+                _jsValueArrayPool.ReturnArray(items);
+                return result;
             }
-
-            var result = callable.Call(JsValue.FromObject(this, thisObj), items);
-            _jsValueArrayPool.ReturnArray(items);
-
-            return result;
+            finally
+            {
+                if (ownsContext)
+                {
+                    _activeEvaluationContext = null;
+                }
+            }
         }
 
         /// <summary>
@@ -636,19 +663,32 @@ namespace Jint
         /// </summary>
         internal JsValue Invoke(JsValue v, JsValue p, JsValue[] arguments)
         {
-            var func = GetV(v, p);
-            var callable = func as ICallable;
-            if (callable is null)
+            var ownsContext = _activeEvaluationContext is null;
+            _activeEvaluationContext ??= new EvaluationContext(this);
+            try
             {
-                ExceptionHelper.ThrowTypeErrorNoEngine("Can only invoke functions");
+                var func = GetV(v, p);
+                var callable = func as ICallable;
+                if (callable is null)
+                {
+                    ExceptionHelper.ThrowTypeErrorNoEngine("Can only invoke functions");
+                }
+
+                return callable.Call(v, arguments);
             }
-            return callable.Call(v, arguments);
+            finally
+            {
+                if (ownsContext)
+                {
+                    _activeEvaluationContext = null;
+                }
+            }
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-getv
         /// </summary>
-        internal JsValue GetV(JsValue v, JsValue p)
+        private JsValue GetV(JsValue v, JsValue p)
         {
             var o = TypeConverter.ToObject(Realm, v);
             return o.Get(p);
@@ -668,7 +708,7 @@ namespace Jint
         /// </summary>
         internal Node GetLastSyntaxNode()
         {
-            return _lastSyntaxNode;
+            return _activeEvaluationContext?.LastSyntaxNode;
         }
 
         /// <summary>
@@ -693,7 +733,7 @@ namespace Jint
             return GetIdentifierReference(env, name, StrictModeScope.IsStrictModeCode);
         }
 
-        private Reference GetIdentifierReference(EnvironmentRecord env, string name, bool strict)
+        private static Reference GetIdentifierReference(EnvironmentRecord env, string name, bool strict)
         {
             if (env is null)
             {
@@ -896,7 +936,7 @@ namespace Jint
             if (!canInitializeParametersOnDeclaration)
             {
                 // slower set
-                envRec.AddFunctionParameters(func.Function, argumentsList);
+                envRec.AddFunctionParameters(_activeEvaluationContext, func.Function, argumentsList);
             }
 
             // Let iteratorRecord be CreateListIteratorRecord(argumentsList).

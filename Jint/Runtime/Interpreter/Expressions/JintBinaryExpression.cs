@@ -21,18 +21,13 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _left;
         private readonly JintExpression _right;
 
-        private JintBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
+        private JintBinaryExpression(Engine engine, BinaryExpression expression) : base(expression)
         {
-            _left = Build(_engine, expression.Left);
-            _right = Build(_engine, expression.Right);
+            _left = Build(engine, expression.Left);
+            _right = Build(engine, expression.Right);
         }
 
-        protected bool TryOperatorOverloading(JsValue left, JsValue right, string clrName, out object result)
-        {
-            return TryOperatorOverloading(_engine, left, right, clrName, out result);
-        }
-
-        internal static bool TryOperatorOverloading(Engine engine, JsValue leftValue, JsValue rightValue, string clrName, out object result)
+        internal static bool TryOperatorOverloading(EvaluationContext context, JsValue leftValue, JsValue rightValue, string clrName, out object result)
         {
             var left = leftValue.ToObject();
             var right = rightValue.ToObject();
@@ -56,12 +51,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var methods = leftMethods.Concat(rightMethods).Where(x => x.Name == clrName && x.GetParameters().Length == 2);
                     var _methods = MethodDescriptor.Build(methods.ToArray());
 
-                    return TypeConverter.FindBestMatch(engine, _methods, _ => arguments).FirstOrDefault()?.Item1;
+                    return TypeConverter.FindBestMatch(_methods, _ => arguments).FirstOrDefault()?.Item1;
                 });
 
                 if (method != null)
                 {
-                    result = method.Call(engine, null, arguments);
+                    result = method.Call(context.Engine, null, arguments);
                     return true;
                 }
             }
@@ -146,20 +141,20 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (lval is not null && rval is not null)
                 {
                     // we have fixed result
-                    return new JintConstantExpression(engine, expression, result.GetValue());
+                    return new JintConstantExpression(expression, result.GetValue(new EvaluationContext(engine)));
                 }
             }
 
             return result;
         }
 
-        public override JsValue GetValue()
+        public override JsValue GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
-            _engine._lastSyntaxNode = _expression;
+            context.LastSyntaxNode = _expression;
 
             // we always create a JsValue
-            return (JsValue) EvaluateInternal();
+            return (JsValue) EvaluateInternal(context);
         }
 
         public static bool SameValueZero(JsValue x, JsValue y)
@@ -234,10 +229,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
                 var equal = StrictlyEqual(left, right);
                 return equal ? JsBoolean.True : JsBoolean.False;
             }
@@ -249,10 +244,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
                 return StrictlyEqual(left, right)
                     ? JsBoolean.False
                     : JsBoolean.True;
@@ -265,13 +260,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
-                if (_engine.Options.Interop.OperatorOverloadingAllowed
-                    && TryOperatorOverloading(left, right, "op_LessThan", out var opResult))
+                if (context.OperatorOverloadingAllowed
+                    && TryOperatorOverloading(context, left, right, "op_LessThan", out var opResult))
                 {
                     return opResult;
                 }
@@ -289,13 +284,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
-                if (_engine.Options.Interop.OperatorOverloadingAllowed
-                    && TryOperatorOverloading(left, right, "op_GreaterThan", out var opResult))
+                if (context.OperatorOverloadingAllowed
+                    && TryOperatorOverloading(context, left, right, "op_GreaterThan", out var opResult))
                 {
                     return opResult;
                 }
@@ -314,13 +309,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
-                if (_engine.Options.Interop.OperatorOverloadingAllowed
-                    && TryOperatorOverloading(left, right, "op_Addition", out var opResult))
+                if (context.OperatorOverloadingAllowed
+                    && TryOperatorOverloading(context, left, right, "op_Addition", out var opResult))
                 {
                     return opResult;
                 }
@@ -343,13 +338,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
-                if (_engine.Options.Interop.OperatorOverloadingAllowed
-                    && TryOperatorOverloading(left, right, "op_Subtraction", out var opResult))
+                if (context.OperatorOverloadingAllowed
+                    && TryOperatorOverloading(context, left, right, "op_Subtraction", out var opResult))
                 {
                     return opResult;
                 }
@@ -366,13 +361,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
-                if (_engine.Options.Interop.OperatorOverloadingAllowed
-                    && TryOperatorOverloading(left, right, "op_Multiply", out var opResult))
+                if (context.OperatorOverloadingAllowed
+                    && TryOperatorOverloading(context, left, right, "op_Multiply", out var opResult))
                 {
                     return opResult;
                 }
@@ -397,13 +392,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
-                if (_engine.Options.Interop.OperatorOverloadingAllowed
-                    && TryOperatorOverloading(left, right, "op_Division", out var opResult))
+                if (context.OperatorOverloadingAllowed
+                    && TryOperatorOverloading(context, left, right, "op_Division", out var opResult))
                 {
                     return opResult;
                 }
@@ -421,13 +416,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _invert = invert;
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
-                if (_engine.Options.Interop.OperatorOverloadingAllowed
-                    && TryOperatorOverloading(left, right, _invert ? "op_Inequality" : "op_Equality", out var opResult))
+                if (context.OperatorOverloadingAllowed
+                    && TryOperatorOverloading(context, left, right, _invert ? "op_Inequality" : "op_Equality", out var opResult))
                 {
                     return opResult;
                 }
@@ -447,13 +442,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _leftFirst = leftFirst;
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var leftValue = _left.GetValue();
-                var rightValue = _right.GetValue();
+                var leftValue = _left.GetValue(context);
+                var rightValue = _right.GetValue(context);
 
-                if (_engine.Options.Interop.OperatorOverloadingAllowed
-                    && TryOperatorOverloading(leftValue, rightValue, _leftFirst ? "op_GreaterThanOrEqual" : "op_LessThanOrEqual", out var opResult))
+                if (context.OperatorOverloadingAllowed
+                    && TryOperatorOverloading(context, leftValue, rightValue, _leftFirst ? "op_GreaterThanOrEqual" : "op_LessThanOrEqual", out var opResult))
                 {
                     return opResult;
                 }
@@ -474,10 +469,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var value = _left.GetValue();
-                return value.InstanceofOperator(_right.GetValue())
+                var value = _left.GetValue(context);
+                return value.InstanceofOperator(_right.GetValue(context))
                     ? JsBoolean.True
                     : JsBoolean.False;
             }
@@ -489,10 +484,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
                 return JsNumber.Create(Math.Pow(TypeConverter.ToNumber(left), TypeConverter.ToNumber(right)));
             }
@@ -503,15 +498,15 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
                 var oi = right as ObjectInstance;
                 if (oi is null)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm, "in can only be used with an object");
+                    ExceptionHelper.ThrowTypeError(context.Engine.Realm, "in can only be used with an object");
                 }
 
                 return oi.HasProperty(left) ? JsBoolean.True : JsBoolean.False;
@@ -524,13 +519,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
-                if (_engine.Options.Interop.OperatorOverloadingAllowed
-                    && TryOperatorOverloading(left, right, "op_Modulus", out var opResult))
+                if (context.OperatorOverloadingAllowed
+                    && TryOperatorOverloading(context, left, right, "op_Modulus", out var opResult))
                 {
                     return opResult;
                 }
@@ -587,13 +582,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _operator = expression.Operator;
             }
 
-            protected override object EvaluateInternal()
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue();
-                var right = _right.GetValue();
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
-                if (_engine.Options.Interop.OperatorOverloadingAllowed
-                    && TryOperatorOverloading(left, right, OperatorClrName, out var opResult))
+                if (context.OperatorOverloadingAllowed
+                    && TryOperatorOverloading(context, left, right, OperatorClrName, out var opResult))
                 {
                     return opResult;
                 }

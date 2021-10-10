@@ -9,34 +9,35 @@ namespace Jint.Runtime.Interpreter.Statements
         private JintStatementList _statementList;
         private List<Declaration> _lexicalDeclarations;
 
-        public JintBlockStatement(Engine engine, BlockStatement blockStatement) : base(engine, blockStatement)
+        public JintBlockStatement(BlockStatement blockStatement) : base(blockStatement)
         {
-            _initialized = false;
         }
 
-        protected override void Initialize()
+        protected override void Initialize(EvaluationContext context)
         {
-            _statementList = new JintStatementList(_engine, _statement, _statement.Body);
+            _statementList = new JintStatementList(_statement, _statement.Body);
             _lexicalDeclarations = HoistingScope.GetLexicalDeclarations(_statement);
         }
 
-        // http://www.ecma-international.org/ecma-262/6.0/#sec-blockdeclarationinstantiation
-        protected override Completion ExecuteInternal()
+        protected override bool SupportsResume => true;
+
+        protected override Completion ExecuteInternal(EvaluationContext context)
         {
             EnvironmentRecord oldEnv = null;
+            var engine = context.Engine;
             if (_lexicalDeclarations != null)
             {
-                oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                var blockEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
-                JintStatementList.BlockDeclarationInstantiation(_engine, blockEnv, _lexicalDeclarations);
-                _engine.UpdateLexicalEnvironment(blockEnv);
+                oldEnv = engine.ExecutionContext.LexicalEnvironment;
+                var blockEnv = JintEnvironment.NewDeclarativeEnvironment(engine, engine.ExecutionContext.LexicalEnvironment);
+                JintStatementList.BlockDeclarationInstantiation(engine, blockEnv, _lexicalDeclarations);
+                engine.UpdateLexicalEnvironment(blockEnv);
             }
 
-            var blockValue = _statementList.Execute();
+            var blockValue = _statementList.Execute(context);
 
             if (oldEnv is not null)
             {
-                _engine.UpdateLexicalEnvironment(oldEnv);
+                engine.UpdateLexicalEnvironment(oldEnv);
             }
 
             return blockValue;

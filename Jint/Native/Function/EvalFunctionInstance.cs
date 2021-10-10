@@ -138,7 +138,7 @@ namespace Jint.Native.Function
                     Engine.EvalDeclarationInstantiation(script, varEnv, lexEnv, privateEnv, strictEval);
 
                     var statement = new JintScript(_engine, script);
-                    var result = statement.Execute();
+                    var result = statement.Execute(_engine._activeEvaluationContext);
                     var value = result.GetValueOrDefault();
 
                     if (result.Type == CompletionType.Throw)

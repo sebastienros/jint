@@ -9,35 +9,40 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintWithStatement : JintStatement<WithStatement>
     {
-        private readonly JintStatement _body;
-        private readonly JintExpression _object;
+        private JintStatement _body;
+        private JintExpression _object;
 
-        public JintWithStatement(Engine engine, WithStatement statement) : base(engine, statement)
+        public JintWithStatement(WithStatement statement) : base(statement)
         {
-            _body = Build(engine, statement.Body);
-            _object = JintExpression.Build(engine, _statement.Object);
         }
 
-        protected override Completion ExecuteInternal()
+        protected override void Initialize(EvaluationContext context)
         {
-            var jsValue = _object.GetValue();
-            var obj = TypeConverter.ToObject(_engine.Realm, jsValue);
-            var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-            var newEnv = JintEnvironment.NewObjectEnvironment(_engine, obj, oldEnv, provideThis: true, withEnvironment: true);
-            _engine.UpdateLexicalEnvironment(newEnv);
+            _body = Build(_statement.Body);
+            _object = JintExpression.Build(context.Engine, _statement.Object);
+        }
+
+        protected override Completion ExecuteInternal(EvaluationContext context)
+        {
+            var jsValue = _object.GetValue(context);
+            var engine = context.Engine;
+            var obj = TypeConverter.ToObject(engine.Realm, jsValue);
+            var oldEnv = engine.ExecutionContext.LexicalEnvironment;
+            var newEnv = JintEnvironment.NewObjectEnvironment(engine, obj, oldEnv, provideThis: true, withEnvironment: true);
+            engine.UpdateLexicalEnvironment(newEnv);
 
             Completion c;
             try
             {
-                c = _body.Execute();
+                c = _body.Execute(context);
             }
             catch (JavaScriptException e)
             {
-                c = new Completion(CompletionType.Throw, e.Error, null, _statement.Location);
+                c = new Completion(CompletionType.Throw, e.Error, _statement.Location);
             }
             finally
             {
-                _engine.UpdateLexicalEnvironment(oldEnv);
+                engine.UpdateLexicalEnvironment(oldEnv);
             }
 
             return c;

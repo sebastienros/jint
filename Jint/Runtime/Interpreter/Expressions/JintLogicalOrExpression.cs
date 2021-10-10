@@ -8,15 +8,15 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _left;
         private readonly JintExpression _right;
 
-        public JintLogicalOrExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
+        public JintLogicalOrExpression(Engine engine, BinaryExpression expression) : base(expression)
         {
             _left = Build(engine, expression.Left);
             _right = Build(engine, expression.Right);
         }
 
-        protected override object EvaluateInternal()
+        protected override object EvaluateInternal(EvaluationContext context)
         {
-            var left = _left.GetValue();
+            var left = _left.GetValue(context);
 
             if (left is JsBoolean b && b._value)
             {
@@ -28,7 +28,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return left;
             }
 
-            return _right.GetValue();
+            return _right.GetValue(context);
         }
     }
 }

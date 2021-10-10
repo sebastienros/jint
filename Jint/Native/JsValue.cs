@@ -128,16 +128,13 @@ namespace Jint.Native
         /// <summary>
         /// Invoke the current value as function.
         /// </summary>
+        /// <param name="engine">The engine handling the invoke.</param>
         /// <param name="arguments">The arguments of the function call.</param>
         /// <returns>The value returned by the function call.</returns>
-        public JsValue Invoke(params JsValue[] arguments)
+        [Obsolete("Should use Engine.Invoke when direct invoking is needed.")]
+        public JsValue Invoke(Engine engine, params JsValue[] arguments)
         {
-            var callable = this as ICallable;
-            if (callable is null)
-            {
-                ExceptionHelper.ThrowTypeErrorNoEngine("Can only invoke functions");
-            }
-            return callable.Call(Undefined, arguments);
+            return engine.Invoke(this, arguments);
         }
 
         public virtual bool HasOwnProperty(JsValue property) => false;
@@ -293,7 +290,7 @@ namespace Jint.Native
             return _type.GetHashCode();
         }
 
-        internal class JsValueDebugView
+        internal sealed class JsValueDebugView
         {
             public string Value;
 

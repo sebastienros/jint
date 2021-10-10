@@ -4,7 +4,7 @@
 
 namespace Jint.Native.Number.Dtoa
 {
-    internal class DtoaBuilder
+    internal sealed class DtoaBuilder
     {
         // allocate buffer for generated digits + extra notation + padding zeroes
         internal readonly char[] _chars;

@@ -9,12 +9,12 @@ namespace Jint.Runtime.Interpreter.Statements
     {
         private readonly string _label;
 
-        public JintBreakStatement(Engine engine, BreakStatement statement) : base(engine, statement)
+        public JintBreakStatement(BreakStatement statement) : base(statement)
         {
             _label = statement.Label?.Name;
         }
 
-        protected override Completion ExecuteInternal()
+        protected override Completion ExecuteInternal(EvaluationContext context)
         {
             return new Completion(CompletionType.Break, null, _label, Location);
         }

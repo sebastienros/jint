@@ -6,18 +6,18 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly bool _newTarget;
 
-        public JintMetaPropertyExpression(Engine engine, MetaProperty expression) : base(engine, expression)
+        public JintMetaPropertyExpression(MetaProperty expression) : base(expression)
         {
             _newTarget = expression.Meta.Name == "new" && expression.Property.Name == "target";
         }
 
-        protected override object EvaluateInternal()
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             if (_newTarget)
             {
-                return _engine.GetNewTarget();
+                return context.Engine.GetNewTarget();
             }
-            
+
             ExceptionHelper.ThrowNotImplementedException();
             return null;
         }

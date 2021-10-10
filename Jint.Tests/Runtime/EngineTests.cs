@@ -3,7 +3,6 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
@@ -11,6 +10,8 @@ using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
 using Xunit.Abstractions;
+
+#pragma warning disable 618
 
 namespace Jint.Tests.Runtime
 {
@@ -816,7 +817,7 @@ namespace Jint.Tests.Runtime
 
             var add = _engine.GetValue("add");
 
-            Assert.Equal(3, add.Invoke(1, 2));
+            Assert.Equal(3, add.Invoke(_engine, 1, 2));
         }
 
         [Fact]
@@ -828,7 +829,7 @@ namespace Jint.Tests.Runtime
 
             var add = _engine.GetValue("get");
             string str = null;
-            Assert.Equal(Native.JsValue.Null, add.Invoke(str));
+            Assert.Equal(Native.JsValue.Null, add.Invoke(_engine, str));
         }
 
 
@@ -841,7 +842,8 @@ namespace Jint.Tests.Runtime
 
             var x = _engine.GetValue("x");
 
-            Assert.Throws<TypeErrorException>(() => x.Invoke(1, 2));
+            var exception = Assert.Throws<JavaScriptException>(() => x.Invoke(_engine, 1, 2));
+            Assert.Equal("Can only invoke functions", exception.Message);
         }
 
         [Fact]
@@ -1020,16 +1022,6 @@ namespace Jint.Tests.Runtime
 
             result = engine.Evaluate("JSON.parse('{\"x\" : 3.3}').x").AsNumber();
             Assert.Equal(3.3d, result);
-        }
-
-        [Fact]
-        public void ShouldGetTheLastSyntaxNode()
-        {
-            var engine = new Engine();
-            engine.Evaluate("1.2");
-
-            var result = engine.GetLastSyntaxNode();
-            Assert.Equal(Nodes.Literal, result.Type);
         }
 
         [Fact]
@@ -2509,7 +2501,7 @@ var prep = function (fn) { fn(); };
                 }");
 
             var concat = _engine.GetValue("concat");
-            var result = concat.Invoke("concat", "well", "done").ToObject() as string;
+            var result = concat.Invoke(_engine, "concat", "well", "done").ToObject() as string;
             Assert.Equal("concatwelldone", result);
         }
 
@@ -2643,10 +2635,10 @@ function output(x) {
             ");
 
             var function = _engine.GetValue("f");
-            var result = function.Invoke(3).ToString();
+            var result = function.Invoke(_engine, 3).ToString();
             Assert.Equal("15", result);
 
-            result = function.Invoke(3, JsValue.Undefined).ToString();
+            result = function.Invoke(_engine, 3, JsValue.Undefined).ToString();
             Assert.Equal("15", result);
         }
 

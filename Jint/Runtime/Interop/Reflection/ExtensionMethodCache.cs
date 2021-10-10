@@ -10,7 +10,7 @@ namespace Jint.Runtime.Interop.Reflection
     /// <summary>
     /// A extension method lookup that can be shared between engines, build based on extension methods provided via options.
     /// </summary>
-    internal class ExtensionMethodCache
+    internal sealed class ExtensionMethodCache
     {
         internal static readonly ExtensionMethodCache Empty = new(new Dictionary<Type, MethodInfo[]>());
 

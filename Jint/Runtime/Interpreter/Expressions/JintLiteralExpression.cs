@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal class JintLiteralExpression : JintExpression
     {
-        private JintLiteralExpression(Engine engine, Literal expression) : base(engine, expression)
+        private JintLiteralExpression(Literal expression) : base(expression)
         {
         }
 
@@ -16,10 +16,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             var constantValue = ConvertToJsValue(expression);
             if (!(constantValue is null))
             {
-                return new JintConstantExpression(engine, expression, constantValue);
+                return new JintConstantExpression(expression, constantValue);
             }
-            
-            return new JintLiteralExpression(engine, expression);
+
+            return new JintLiteralExpression(expression);
         }
 
         internal static JsValue ConvertToJsValue(Literal literal)
@@ -51,25 +51,25 @@ namespace Jint.Runtime.Interpreter.Expressions
             return null;
         }
 
-        public override JsValue GetValue()
+        public override JsValue GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
-            _engine._lastSyntaxNode = _expression;
-            
-            return ResolveValue();
+            context.LastSyntaxNode = _expression;
+
+            return ResolveValue(context);
         }
 
-        protected override object EvaluateInternal() => ResolveValue();
+        protected override object EvaluateInternal(EvaluationContext context) => ResolveValue(context);
 
-        private JsValue ResolveValue()
+        private JsValue ResolveValue(EvaluationContext context)
         {
             var expression = (Literal) _expression;
             if (expression.TokenType == TokenType.RegularExpression)
             {
-                return _engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex) expression.Value, expression.Regex.Flags);
+                return context.Engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex) expression.Value, expression.Regex.Flags);
             }
 
-            return JsValue.FromObject(_engine, expression.Value);
+            return JsValue.FromObject(context.Engine, expression.Value);
         }
     }
 }

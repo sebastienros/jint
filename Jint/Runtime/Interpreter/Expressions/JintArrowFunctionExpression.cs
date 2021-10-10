@@ -8,21 +8,22 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintFunctionDefinition _function;
 
         public JintArrowFunctionExpression(Engine engine, IFunction function)
-            : base(engine, ArrowParameterPlaceHolder.Empty)
+            : base(ArrowParameterPlaceHolder.Empty)
         {
             _function = new JintFunctionDefinition(engine, function);
         }
 
-        protected override object EvaluateInternal()
+        protected override object EvaluateInternal(EvaluationContext context)
         {
-            var scope = _engine.ExecutionContext.LexicalEnvironment;
+            var engine = context.Engine;
+            var scope = engine.ExecutionContext.LexicalEnvironment;
 
             var closure = new ScriptFunctionInstance(
-                _engine,
+                engine,
                 _function,
                 scope,
                 FunctionThisMode.Lexical,
-                proto: _engine.Realm.Intrinsics.Function.PrototypeObject);
+                proto: engine.Realm.Intrinsics.Function.PrototypeObject);
 
             return closure;
         }

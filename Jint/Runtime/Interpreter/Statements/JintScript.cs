@@ -6,14 +6,14 @@ namespace Jint.Runtime.Interpreter.Statements
     {
         private readonly JintStatementList _list;
 
-        public JintScript(Engine engine, Script script) : base(engine, script)
+        public JintScript(Engine engine, Script script) : base(script)
         {
-            _list = new JintStatementList(_engine, null, _statement.Body);
+            _list = new JintStatementList(script);
         }
 
-        protected override Completion ExecuteInternal()
+        protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            return _list.Execute();
+            return _list.Execute(context);
         }
     }
 }

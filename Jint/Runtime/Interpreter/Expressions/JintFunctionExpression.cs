@@ -10,22 +10,23 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintFunctionDefinition _function;
 
         public JintFunctionExpression(Engine engine, IFunction function)
-            : base(engine, ArrowParameterPlaceHolder.Empty)
+            : base(ArrowParameterPlaceHolder.Empty)
         {
             _function = new JintFunctionDefinition(engine, function);
         }
 
-        protected override object EvaluateInternal()
+        protected override object EvaluateInternal(EvaluationContext context)
         {
-            return GetValue();
+            return GetValue(context);
         }
 
-        public override JsValue GetValue()
+        public override JsValue GetValue(EvaluationContext context)
         {
-            var funcEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
+            var engine = context.Engine;
+            var funcEnv = JintEnvironment.NewDeclarativeEnvironment(engine, engine.ExecutionContext.LexicalEnvironment);
 
             var closure = new ScriptFunctionInstance(
-                _engine,
+                engine,
                 _function,
                 funcEnv,
                 _function.ThisMode);
