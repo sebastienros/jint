@@ -236,7 +236,7 @@ namespace Jint.Runtime.Interpreter.Statements
                             _assignmentPattern,
                             nextValue,
                             iterationEnv,
-                            checkObjectPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
+                            checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
 
                         if (lhsKind == LhsKind.Assignment)
                         {

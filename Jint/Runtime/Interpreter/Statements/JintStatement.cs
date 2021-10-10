@@ -50,7 +50,7 @@ namespace Jint.Runtime.Interpreter.Statements
             return ExecuteInternal(context);
         }
 
-        protected virtual bool SupportsResume => false;
+        internal virtual bool SupportsResume => false;
 
         protected abstract Completion ExecuteInternal(EvaluationContext context);
 

@@ -48,16 +48,16 @@ namespace Jint.Runtime.Interpreter.Expressions
             BindingPattern pattern,
             JsValue argument,
             EnvironmentRecord environment,
-            bool checkObjectPatternPropertyReference = true)
+            bool checkPatternPropertyReference = true)
         {
             if (pattern is ArrayPattern ap)
             {
-                return HandleArrayPattern(context, ap, argument, environment, checkObjectPatternPropertyReference);
+                return HandleArrayPattern(context, ap, argument, environment, checkPatternPropertyReference);
             }
 
             if (pattern is ObjectPattern op)
             {
-                return HandleObjectPattern(context, op, argument, environment, checkObjectPatternPropertyReference);
+                return HandleObjectPattern(context, op, argument, environment, checkPatternPropertyReference);
             }
 
             ExceptionHelper.ThrowArgumentException("Not a pattern");
@@ -216,7 +216,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         if (restElement.Argument is Identifier leftIdentifier)
                         {
-                            AssignToIdentifier(engine, leftIdentifier.Name, array, environment);
+                            AssignToIdentifier(engine, leftIdentifier.Name, array, environment, checkReference);
                         }
                         else if (restElement.Argument is BindingPattern bp)
                         {
@@ -257,7 +257,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                                 ((FunctionInstance) value).SetFunctionName(new JsString(leftIdentifier.Name));
                             }
 
-                            AssignToIdentifier(engine, leftIdentifier.Name, value, environment);
+                            AssignToIdentifier(engine, leftIdentifier.Name, value, environment, checkReference);
                         }
                         else if (assignmentPattern.Left is BindingPattern bp)
                         {
@@ -351,7 +351,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             ((FunctionInstance) value).SetFunctionName(target.Name);
                         }
 
-                        AssignToIdentifier(context.Engine, target.Name, value, environment);
+                        AssignToIdentifier(context.Engine, target.Name, value, environment, checkReference);
                     }
                     else if (p.Value is BindingPattern bindingPattern)
                     {
@@ -380,7 +380,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         var count = Math.Max(0, source.Properties?.Count ?? 0) - processedProperties.Count;
                         var rest = context.Engine.Realm.Intrinsics.Object.Construct(count);
                         source.CopyDataProperties(rest, processedProperties);
-                        AssignToIdentifier(context.Engine, leftIdentifier.Name, rest, environment);
+                        AssignToIdentifier(context.Engine, leftIdentifier.Name, rest, environment, checkReference);
                     }
                     else if (restElement.Argument is BindingPattern bp)
                     {
@@ -448,7 +448,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 if (checkReference && lhs.IsUnresolvableReference() && StrictModeScope.IsStrictModeCode)
                 {
-                    ExceptionHelper.ThrowReferenceError(engine.Realm, "invalid reference");
+                    ExceptionHelper.ThrowReferenceError(engine.Realm, lhs);
                 }
                 engine.PutValue(lhs, rval);
             }

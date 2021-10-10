@@ -80,4 +80,9 @@ public abstract partial class Test262Test
             engine.Execute(new JavaScriptParser(file.Program, new ParserOptions(file.FileName)).ParseScript());
         }
     }
+    
+    private partial bool ShouldThrow(Test262File testCase, bool strict)
+    {
+        return testCase.Negative;
+    }
 }

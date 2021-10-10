@@ -804,7 +804,7 @@ namespace Jint.Native.Json
             }
         }
 
-        private class Extra
+        private sealed class Extra
         {
             public int? Loc;
             public int[] Range;

@@ -8,7 +8,7 @@ namespace Jint.Runtime.Interpreter
 {
     internal sealed class JintStatementList
     {
-        private class Pair
+        private sealed class Pair
         {
             internal JintStatement Statement;
             internal Completion? Value;
@@ -19,6 +19,14 @@ namespace Jint.Runtime.Interpreter
 
         private Pair[] _jintStatements;
         private bool _initialized;
+        private uint _index;
+        private readonly bool _generator;
+
+        public JintStatementList(IFunction function)
+            : this((BlockStatement) function.Body)
+        {
+            _generator = function.Generator;
+        }
 
         public JintStatementList(BlockStatement blockStatement)
             : this(blockStatement, blockStatement.Body)
@@ -51,6 +59,7 @@ namespace Jint.Runtime.Interpreter
                     Value = value
                 };
             }
+
             _jintStatements = jintStatements;
         }
 
@@ -127,7 +136,7 @@ namespace Jint.Runtime.Interpreter
             EnvironmentRecord env,
             List<Declaration> declarations)
         {
-            var envRec = env;
+            var privateEnv = env._engine.ExecutionContext.PrivateEnvironment;
             var boundNames = new List<string>();
             for (var i = 0; i < declarations.Count; i++)
             {
@@ -139,20 +148,20 @@ namespace Jint.Runtime.Interpreter
                     var dn = boundNames[j];
                     if (d is VariableDeclaration { Kind: VariableDeclarationKind.Const })
                     {
-                        envRec.CreateImmutableBinding(dn, strict: true);
+                        env.CreateImmutableBinding(dn, strict: true);
                     }
                     else
                     {
-                        envRec.CreateMutableBinding(dn, canBeDeleted: false);
+                        env.CreateMutableBinding(dn, canBeDeleted: false);
                     }
                 }
 
                 if (d is FunctionDeclaration functionDeclaration)
                 {
-                    var fn = functionDeclaration.Id!.Name;
-                    var functionDefinition = new JintFunctionDefinition(engine, functionDeclaration);
-                    var fo = env._engine.Realm.Intrinsics.Function.InstantiateFunctionObject(functionDefinition, env);
-                    envRec.InitializeBinding(fn, fo);
+                    var definition = new JintFunctionDefinition(engine, functionDeclaration);
+                    var fn = definition.Name;
+                    var fo = env._engine.Realm.Intrinsics.Function.InstantiateFunctionObject(definition, env, privateEnv);
+                    env.InitializeBinding(fn, fo);
                 }
             }
         }

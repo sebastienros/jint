@@ -32,11 +32,11 @@ using System.Diagnostics;
 
 namespace Jint.Native.Number.Dtoa
 {
-    internal sealed class CachedPowers
+    internal static class CachedPowers
     {
         private const double Kd1Log210 = 0.30102999566398114; //  1 / lg(10)
 
-        private class CachedPower
+        private sealed class CachedPower
         {
             internal readonly ulong Significand;
             internal readonly short BinaryExponent;

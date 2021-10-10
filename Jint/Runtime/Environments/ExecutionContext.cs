@@ -39,6 +39,11 @@ namespace Jint.Runtime.Environments
             return new ExecutionContext(ScriptOrModule, LexicalEnvironment, variableEnvironment, PrivateEnvironment, Realm, Function);
         }
 
+        public ExecutionContext UpdatePrivateEnvironment(PrivateEnvironmentRecord privateEnvironment)
+        {
+            return new ExecutionContext(ScriptOrModule, LexicalEnvironment, VariableEnvironment, privateEnvironment, Realm, Function);
+        }
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-getthisenvironment
         /// </summary>
@@ -54,7 +59,7 @@ namespace Jint.Runtime.Environments
                     if (lex.HasThisBinding())
                     {
                         return lex;
-                        
+
                     }
 
                     lex = lex._outerEnv;
