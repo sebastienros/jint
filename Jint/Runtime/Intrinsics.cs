@@ -10,6 +10,7 @@ using Jint.Native.Date;
 using Jint.Native.Error;
 using Jint.Native.FinalizationRegistry;
 using Jint.Native.Function;
+using Jint.Native.Generator;
 using Jint.Native.Iterator;
 using Jint.Native.Json;
 using Jint.Native.Map;
@@ -66,6 +67,7 @@ namespace Jint.Runtime
         private MathInstance? _math;
         private JsonInstance? _json;
         private SymbolConstructor? _symbol;
+        private GeneratorFunctionConstructor? _generatorFunction;
         private RegExpConstructor? _regExp;
         private RegExpStringIteratorPrototype? _regExpStringIteratorPrototype;
         private NumberConstructor? _number;
@@ -243,6 +245,9 @@ namespace Jint.Runtime
 
         public ShadowRealmConstructor ShadowRealm =>
             _shadowRealm ??= new ShadowRealmConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        internal GeneratorFunctionConstructor GeneratorFunction =>
+            _generatorFunction ??= new GeneratorFunctionConstructor(_engine, _realm, Function.PrototypeObject, IteratorPrototype);
 
         internal EvalFunctionInstance Eval =>
             _eval ??= new EvalFunctionInstance(_engine, _realm, Function.PrototypeObject);

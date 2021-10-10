@@ -18,8 +18,6 @@ namespace Jint.Runtime.Interpreter.Statements
             _lexicalDeclarations = HoistingScope.GetLexicalDeclarations(_statement);
         }
 
-        internal override bool SupportsResume => true;
-
         /// <summary>
         /// Optimized for direct access without virtual dispatch.
         /// </summary>

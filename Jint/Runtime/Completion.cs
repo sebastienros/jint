@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Esprima;
@@ -22,14 +23,16 @@ public enum CompletionType : byte
 public readonly struct Completion
 {
     private static readonly Node _emptyNode = new Identifier("");
-    private static readonly Completion _emptyCompletion = new(CompletionType.Normal, null!, _emptyNode);
+    private static readonly Completion _emptyCompletion = new(CompletionType.Normal, JsEmpty.Instance, _emptyNode);
 
     internal readonly SyntaxElement _source;
 
     public Completion(CompletionType type, JsValue value, SyntaxElement source)
     {
+        Debug.Assert(value is not null);
+
         Type = type;
-        Value = value;
+        Value = value!;
         _source = source;
     }
 
@@ -40,23 +43,17 @@ public readonly struct Completion
     public static ref readonly Completion Empty() => ref _emptyCompletion;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public JsValue GetValueOrDefault()
-    {
-        return Value ?? JsValue.Undefined;
-    }
+    public JsValue GetValueOrDefault() => ReferenceEquals(Value, JsEmpty.Instance) ? JsValue.Undefined : Value;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool IsAbrupt()
-    {
-        return Type != CompletionType.Normal;
-    }
+    public bool IsAbrupt() => Type != CompletionType.Normal;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-updateempty
     /// </summary>
     internal Completion UpdateEmpty(JsValue value)
     {
-        if (Value is not null)
+        if (Value?._type != InternalTypes.Empty)
         {
             return this;
         }

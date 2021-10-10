@@ -23,7 +23,7 @@ internal sealed class JintIfStatement : JintStatement<IfStatement>
 
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        Completion result = default;
+        var result = Completion.Empty();
         if (TypeConverter.ToBoolean(_test.GetValue(context)))
         {
             result = _statementConsequent.Execute(context);

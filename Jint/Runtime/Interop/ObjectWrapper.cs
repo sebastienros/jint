@@ -125,7 +125,7 @@ namespace Jint.Runtime.Interop
             return Prototype?.Get(property, receiver) ?? Undefined;
         }
 
-        public override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
+        public override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
         {
             return new List<JsValue>(EnumerateOwnPropertyKeys(types));
         }
@@ -141,7 +141,7 @@ namespace Jint.Runtime.Interop
         private IEnumerable<JsValue> EnumerateOwnPropertyKeys(Types types)
         {
             // prefer object order, add possible other properties after
-            var includeStrings = (types & Types.String) != Types.None;
+            var includeStrings = (types & Types.String) != Types.Empty;
             if (includeStrings && _typeDescriptor.IsStringKeyedGenericDictionary) // expando object for instance
             {
                 var keys = _typeDescriptor.GetKeys(Target);

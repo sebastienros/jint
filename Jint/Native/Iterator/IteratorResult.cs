@@ -1,5 +1,6 @@
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Iterator;
 
@@ -43,6 +44,21 @@ internal sealed class IteratorResult : ObjectInstance
         }
 
         return base.Get(property, receiver);
+    }
+
+    public override PropertyDescriptor GetOwnProperty(JsValue property)
+    {
+        if (CommonProperties.Value.Equals(property))
+        {
+            return new PropertyDescriptor(_value, PropertyFlag.AllForbidden);
+        }
+
+        if (CommonProperties.Done.Equals(property))
+        {
+            return new PropertyDescriptor(_done, PropertyFlag.AllForbidden);
+        }
+
+        return base.GetOwnProperty(property);
     }
 
     public override object ToObject() => this;

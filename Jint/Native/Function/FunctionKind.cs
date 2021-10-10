@@ -1,10 +1,9 @@
-namespace Jint.Native.Function
+namespace Jint.Native.Function;
+
+internal enum FunctionKind
 {
-    internal enum FunctionKind
-    {
-        Normal,
-        Async,
-        Generator,
-        AsyncGenerator
-    }
+    Normal,
+    Async,
+    Generator,
+    AsyncGenerator
 }

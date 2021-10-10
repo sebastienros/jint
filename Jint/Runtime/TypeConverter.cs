@@ -17,7 +17,7 @@ namespace Jint.Runtime
     [Flags]
     public enum Types
     {
-        None = 0,
+        Empty = 0,
         Undefined = 1,
         Null = 2,
         Boolean = 4,
@@ -32,7 +32,7 @@ namespace Jint.Runtime
     internal enum InternalTypes
     {
         // should not be used, used for empty match
-        None = 0,
+        Empty = 0,
 
         Undefined = 1,
         Null = 2,
@@ -90,7 +90,7 @@ namespace Jint.Runtime
         /// https://tc39.es/ecma262/#sec-toprimitive
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static JsValue ToPrimitive(JsValue input, Types preferredType = Types.None)
+        public static JsValue ToPrimitive(JsValue input, Types preferredType = Types.Empty)
         {
             return input is not ObjectInstance oi
                 ? input
@@ -121,13 +121,13 @@ namespace Jint.Runtime
                 }
             }
 
-            return OrdinaryToPrimitive(oi, preferredType == Types.None ? Types.Number : preferredType);
+            return OrdinaryToPrimitive(oi, preferredType == Types.Empty ? Types.Number : preferredType);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ordinarytoprimitive
         /// </summary>
-        internal static JsValue OrdinaryToPrimitive(ObjectInstance input, Types hint = Types.None)
+        internal static JsValue OrdinaryToPrimitive(ObjectInstance input, Types hint = Types.Empty)
         {
             JsString property1;
             JsString property2;
@@ -920,7 +920,7 @@ namespace Jint.Runtime
         public static JsValue ToPropertyKey(JsValue o)
         {
             const InternalTypes PropertyKeys = InternalTypes.String | InternalTypes.Symbol | InternalTypes.PrivateName;
-            return (o._type & PropertyKeys) != InternalTypes.None
+            return (o._type & PropertyKeys) != InternalTypes.Empty
                 ? o
                 : ToPropertyKeyNonString(o);
         }
@@ -930,7 +930,7 @@ namespace Jint.Runtime
         {
             const InternalTypes PropertyKeys = InternalTypes.String | InternalTypes.Symbol | InternalTypes.PrivateName;
             var primitive = ToPrimitive(o, Types.String);
-            return (primitive._type & PropertyKeys) != InternalTypes.None
+            return (primitive._type & PropertyKeys) != InternalTypes.Empty
                 ? primitive
                 : ToStringNonString(primitive);
         }

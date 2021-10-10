@@ -27,8 +27,6 @@ namespace Jint.Runtime.Interpreter.Statements
             }
         }
 
-        internal override bool SupportsResume => true;
-
         protected override Completion ExecuteInternal(EvaluationContext context)
         {
             var engine = context.Engine;

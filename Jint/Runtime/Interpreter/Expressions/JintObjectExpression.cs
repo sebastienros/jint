@@ -177,10 +177,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (property.Method)
                 {
-                    var methodDef = property.DefineMethod(obj);
-                    methodDef.Closure.SetFunctionName(methodDef.Key);
-                    var desc = new PropertyDescriptor(methodDef.Closure, PropertyFlag.ConfigurableEnumerableWritable);
-                    obj.DefinePropertyOrThrow(methodDef.Key, desc);
+                    ClassDefinition.MethodDefinitionEvaluation(engine, obj, property, enumerable: true);
                     continue;
                 }
 
@@ -221,10 +218,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                         closure.SetFunctionName(propName);
                     }
 
-                    var propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
-                    obj.DefinePropertyOrThrow(propName, propDesc);
+                    obj.CreateDataPropertyOrThrow(propName, propValue);
                 }
-                else if (property.Kind == PropertyKind.Get || property.Kind == PropertyKind.Set)
+                else if (property.Kind is PropertyKind.Get or PropertyKind.Set)
                 {
                     var function = objectProperty.GetFunctionDefinition(engine);
                     var closure = engine.Realm.Intrinsics.Function.OrdinaryFunctionCreate(

@@ -32,7 +32,7 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
         do
         {
             var completion = _body.Execute(context);
-            if (!ReferenceEquals(completion.Value, null))
+            if (!ReferenceEquals(completion.Value, JsEmpty.Instance))
             {
                 v = completion.Value;
             }

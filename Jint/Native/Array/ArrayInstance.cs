@@ -314,9 +314,9 @@ namespace Jint.Native.Array
             return base.TryGetProperty(property, out descriptor);
         }
 
-        public sealed override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
+        public sealed override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
         {
-            if ((types & Types.String) == Types.None)
+            if ((types & Types.String) == Types.Empty)
             {
                 return base.GetOwnPropertyKeys(types);
             }

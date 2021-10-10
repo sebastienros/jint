@@ -342,23 +342,23 @@ internal sealed class ClassDefinition
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-methoddefinitionevaluation
     /// </summary>
-    private static PrivateElement? MethodDefinitionEvaluation(
+    internal static PrivateElement? MethodDefinitionEvaluation<T>(
         Engine engine,
         ObjectInstance obj,
-        MethodDefinition method,
-        bool enumerable)
+        T method,
+        bool enumerable) where T : IProperty
     {
-        if (method.Kind != PropertyKind.Get && method.Kind != PropertyKind.Set)
-        {
-            var methodDef = method.DefineMethod(obj);
-            methodDef.Closure.SetFunctionName(methodDef.Key);
-            return DefineMethodProperty(obj, methodDef.Key, methodDef.Closure, enumerable);
-        }
-
         var function = method.Value as IFunction;
         if (function is null)
         {
             ExceptionHelper.ThrowSyntaxError(obj.Engine.Realm);
+        }
+
+        if (method.Kind != PropertyKind.Get && method.Kind != PropertyKind.Set && !function.Generator)
+        {
+            var methodDef = method.DefineMethod(obj);
+            methodDef.Closure.SetFunctionName(methodDef.Key);
+            return DefineMethodProperty(obj, methodDef.Key, methodDef.Closure, enumerable);
         }
 
         var getter = method.Kind == PropertyKind.Get;
@@ -371,27 +371,39 @@ internal sealed class ClassDefinition
         var env = engine.ExecutionContext.LexicalEnvironment;
         var privateEnv = engine.ExecutionContext.PrivateEnvironment;
 
-        var closure = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, definition.ThisMode, env, privateEnv);
-        closure.MakeMethod(obj);
-        closure.SetFunctionName(propKey, getter ? "get" : "set");
-
-        if (method.Key is PrivateIdentifier privateIdentifier)
+        if (function.Generator)
         {
-            return new PrivateElement
-            {
-                Key = privateEnv!.Names[privateIdentifier],
-                Kind = PrivateElementKind.Accessor,
-                Get = getter ? closure : null,
-                Set = !getter ? closure : null
-            };
+            var closure = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.GeneratorFunction.PrototypeObject, definition, definition.ThisMode, env, privateEnv);
+            closure.MakeMethod(obj);
+            closure.SetFunctionName(propKey);
+            var prototype = ObjectInstance.OrdinaryObjectCreate(engine, intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject);
+            closure.DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, PropertyFlag.Writable));
+            return DefineMethodProperty(obj, propKey, closure, enumerable);
         }
+        else
+        {
+            var closure = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, definition.ThisMode, env, privateEnv);
+            closure.MakeMethod(obj);
+            closure.SetFunctionName(propKey, getter ? "get" : "set");
 
-        var propDesc = new GetSetPropertyDescriptor(
-            getter ? closure : null,
-            !getter ? closure : null,
-            PropertyFlag.Configurable);
+            if (method.Key is PrivateIdentifier privateIdentifier)
+            {
+                return new PrivateElement
+                {
+                    Key = privateEnv!.Names[privateIdentifier],
+                    Kind = PrivateElementKind.Accessor,
+                    Get = getter ? closure : null,
+                    Set = !getter ? closure : null
+                };
+            }
 
-        obj.DefinePropertyOrThrow(propKey, propDesc);
+            var propDesc = new GetSetPropertyDescriptor(
+                getter ? closure : null,
+                !getter ? closure : null,
+                PropertyFlag.Configurable);
+
+            obj.DefinePropertyOrThrow(propKey, propDesc);
+        }
 
         return null;
     }
@@ -406,7 +418,7 @@ internal sealed class ClassDefinition
             return new PrivateElement { Key = (PrivateName) key, Kind = PrivateElementKind.Method, Value = closure };
         }
 
-        var desc = new PropertyDescriptor(closure, enumerable ? PropertyFlag.Enumerable : PropertyFlag.NonEnumerable);
+        var desc = new PropertyDescriptor(closure, enumerable ? PropertyFlag.ConfigurableEnumerableWritable : PropertyFlag.NonEnumerable);
         homeObject.DefinePropertyOrThrow(key, desc);
         return null;
     }

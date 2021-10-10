@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interpreter
         private sealed class Pair
         {
             internal JintStatement Statement = null!;
-            internal Completion? Value;
+            internal Completion Value;
         }
 
         private readonly Statement? _statement;
@@ -53,7 +53,7 @@ namespace Jint.Runtime.Interpreter
                 var esprimaStatement = _statements[i];
                 var statement = JintStatement.Build(esprimaStatement);
                 // When in debug mode, don't do FastResolve: Stepping requires each statement to be actually executed.
-                var value = context.DebugMode ? null : JintStatement.FastResolve(esprimaStatement);
+                var value = context.DebugMode ? Completion.Empty() : JintStatement.FastResolve(esprimaStatement);
                 jintStatements[i] = new Pair
                 {
                     Statement = statement,
@@ -81,7 +81,7 @@ namespace Jint.Runtime.Interpreter
             }
 
             JintStatement? s = null;
-            Completion c = default;
+            Completion c = Completion.Empty();
             Completion sl = c;
 
             // The value of a StatementList is the value of the last value-producing item in the StatementList
@@ -91,8 +91,8 @@ namespace Jint.Runtime.Interpreter
                 foreach (var pair in _jintStatements!)
                 {
                     s = pair.Statement;
-                    c = pair.Value.GetValueOrDefault();
-                    if (c.Value is null)
+                    c = pair.Value;
+                    if (ReferenceEquals(c.Value, JsEmpty.Instance))
                     {
                         c = s.Execute(context);
                         if (context.Engine._error is not null)
@@ -103,10 +103,11 @@ namespace Jint.Runtime.Interpreter
 
                     if (c.Type != CompletionType.Normal)
                     {
-                        return new Completion(c.Type, c.Value ?? sl.Value!, c._source);
+                        var value = ReferenceEquals(c.Value, JsEmpty.Instance) ? sl.Value : c.Value;
+                        return new Completion(c.Type, value, c._source);
                     }
                     sl = c;
-                    if (c.Value is not null)
+                    if (!ReferenceEquals(c.Value, JsEmpty.Instance))
                     {
                         lastValue = c.Value;
                     }

@@ -136,14 +136,14 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
 
                 var result = _body.Execute(context);
-                if (!ReferenceEquals(result.Value, null))
+                if (!ReferenceEquals(result.Value, JsEmpty.Instance))
                 {
                     v = result.Value;
                 }
 
                 if (result.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
                 {
-                    return new Completion(CompletionType.Normal, result.Value!, ((JintStatement) this)._statement);
+                    return new Completion(CompletionType.Normal, result.Value, ((JintStatement) this)._statement);
                 }
 
                 if (result.Type != CompletionType.Continue || (context.Target != null && !string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))

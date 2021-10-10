@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
-using Jint.Native;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter.Statements
@@ -41,15 +40,8 @@ namespace Jint.Runtime.Interpreter.Statements
                 _initialized = true;
             }
 
-            if (context.ResumedCompletion.IsAbrupt() && !SupportsResume)
-            {
-                return new Completion(CompletionType.Normal, JsValue.Undefined, _statement);
-            }
-
             return ExecuteInternal(context);
         }
-
-        internal virtual bool SupportsResume => false;
 
         protected abstract Completion ExecuteInternal(EvaluationContext context);
 
@@ -103,7 +95,7 @@ namespace Jint.Runtime.Interpreter.Statements
             return result;
         }
 
-        internal static Completion? FastResolve(StatementListItem statement)
+        internal static Completion FastResolve(StatementListItem statement)
         {
             if (statement is ReturnStatement rs && rs.Argument is Literal l)
             {
@@ -114,7 +106,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
             }
 
-            return null;
+            return Completion.Empty();
         }
     }
 }
