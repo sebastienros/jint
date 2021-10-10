@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.Generator;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
@@ -63,11 +64,7 @@ internal sealed class JintFunctionDefinition
         }
         else if (Function.Generator)
         {
-            // TODO generators
-            // result = EvaluateGeneratorBody(functionObject, argumentsList);
-            argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
-            _bodyStatementList ??= new JintStatementList(Function);
-            result = _bodyStatementList.Execute(context);
+            result = EvaluateGeneratorBody(context, functionObject, argumentsList);
         }
         else
         {
@@ -108,7 +105,11 @@ internal sealed class JintFunctionDefinition
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asyncblockstart
     /// </summary>
-    private static void AsyncBlockStart(EvaluationContext context, PromiseCapability promiseCapability, Func<EvaluationContext, Completion> asyncBody, in ExecutionContext asyncContext)
+    private static void AsyncBlockStart(
+        EvaluationContext context,
+        PromiseCapability promiseCapability,
+        Func<EvaluationContext, Completion> asyncBody,
+        in ExecutionContext asyncContext)
     {
         var runningContext = context.Engine.ExecutionContext;
         // Set the code evaluation state of asyncContext such that when evaluation is resumed for that execution contxt the following steps will be performed:
@@ -149,10 +150,23 @@ internal sealed class JintFunctionDefinition
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-evaluategeneratorbody
     /// </summary>
-    private static Completion EvaluateGeneratorBody(Function functionObject, JsValue[] argumentsList)
+    private Completion EvaluateGeneratorBody(
+        EvaluationContext context,
+        Function functionObject,
+        JsValue[] argumentsList)
     {
-        ExceptionHelper.ThrowNotImplementedException("generators not implemented");
-        return default;
+        var engine = context.Engine;
+        engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+        var G = engine.Realm.Intrinsics.Function.OrdinaryCreateFromConstructor(
+            functionObject,
+            static intrinsics => intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject,
+            static (Engine engine , Realm _, object? _) => new GeneratorInstance(engine));
+
+        _bodyStatementList ??= new JintStatementList(Function);
+        _bodyStatementList.Reset();
+        G.GeneratorStart(_bodyStatementList);
+
+        return new Completion(CompletionType.Return, G, Function.Body);
     }
 
     internal State Initialize()

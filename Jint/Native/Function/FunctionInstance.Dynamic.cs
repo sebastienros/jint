@@ -2,6 +2,7 @@ using Esprima;
 using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 using Environment = Jint.Runtime.Environments.Environment;
@@ -45,6 +46,8 @@ public partial class Function
                 fallbackProto = static intrinsics => intrinsics.AsyncFunction.PrototypeObject;
                 break;
             case FunctionKind.Generator:
+                fallbackProto = static intrinsics => intrinsics.GeneratorFunction.PrototypeObject;
+                break;
             case FunctionKind.AsyncGenerator:
             default:
                 ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(kind), kind.ToString());
@@ -164,7 +167,8 @@ public partial class Function
 
         if (kind == FunctionKind.Generator)
         {
-            ExceptionHelper.ThrowNotImplementedException("generators not implemented");
+            var prototype = OrdinaryObjectCreate(_engine, _realm.Intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject);
+            F.DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, PropertyFlag.Writable));
         }
         else if (kind == FunctionKind.AsyncGenerator)
         {

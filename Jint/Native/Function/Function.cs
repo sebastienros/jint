@@ -332,6 +332,7 @@ namespace Jint.Native.Function
                 variableEnvironment: localEnv,
                 _privateEnvironment,
                 calleeRealm,
+                generator: null,
                 function: this);
 
             // If callerContext is not already suspended, suspend callerContext.
