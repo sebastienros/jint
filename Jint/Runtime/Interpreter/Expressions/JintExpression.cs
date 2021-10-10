@@ -132,6 +132,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     ? new JintCallExpression((CallExpression) ((ChainExpression) expression).Expression)
                     : new JintMemberExpression((MemberExpression) ((ChainExpression) expression).Expression),
                 Nodes.AwaitExpression => new JintAwaitExpression((AwaitExpression) expression),
+                Nodes.YieldExpression => new JintYieldExpression((YieldExpression) expression),
                 _ =>  null
             };
 
