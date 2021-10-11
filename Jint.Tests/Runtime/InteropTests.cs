@@ -2701,5 +2701,51 @@ namespace Jint.Tests.Runtime
 
             Assert.True(callable.Call().AsBoolean());
         }
+
+        [Fact]
+        public void CanGiveCustomNameToInteropMembers()
+        {
+            static IEnumerable<string> MemberNameCreator(MemberInfo prop)
+            {
+                var attributes = prop.GetCustomAttributes(typeof(CustomNameAttribute), inherit: true);
+                if (attributes.Length > 0)
+                {
+                    foreach (CustomNameAttribute attribute in attributes)
+                    {
+                        yield return attribute.Name;
+                    }
+                }
+                else
+                {
+                    yield return prop.Name;
+                }
+            }
+
+            var customTypeResolver = new TypeResolver
+            {
+                MemberNameCreator = MemberNameCreator
+            };
+
+            var engine = new Engine(options =>
+            {
+                options.SetTypeResolver(customTypeResolver);
+                options.AddExtensionMethods(typeof(CustomNamedExtensions));
+            });
+            engine.SetValue("o", new CustomNamed());
+            Assert.Equal("StringField", engine.Evaluate("o.jsStringField").AsString());
+            Assert.Equal("StringField", engine.Evaluate("o.jsStringField2").AsString());
+            Assert.Equal("StaticStringField", engine.Evaluate("o.jsStaticStringField").AsString());
+            Assert.Equal("StringProperty", engine.Evaluate("o.jsStringProperty").AsString());
+            Assert.Equal("Method", engine.Evaluate("o.jsMethod()").AsString());
+            Assert.Equal("StaticMethod", engine.Evaluate("o.jsStaticMethod()").AsString());
+            Assert.Equal("InterfaceStringProperty", engine.Evaluate("o.jsInterfaceStringProperty").AsString());
+            Assert.Equal("InterfaceMethod", engine.Evaluate("o.jsInterfaceMethod()").AsString());
+            Assert.Equal("ExtensionMethod", engine.Evaluate("o.jsExtensionMethod()").AsString());
+
+            engine.SetValue("XmlHttpRequest", typeof(CustomNamedEnum));
+            engine.Evaluate("o.jsEnumProperty = XmlHttpRequest.HEADERS_RECEIVED;");
+            Assert.Equal((int) CustomNamedEnum.HeadersReceived, engine.Evaluate("o.jsEnumProperty").AsNumber());
+        }
+
     }
 }
