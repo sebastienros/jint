@@ -39,7 +39,7 @@ namespace Jint.Runtime.Interop.Reflection
             {
                 return constantValue;
             }
-            
+
             // first check indexer so we don't confuse inherited properties etc
             var value = TryReadFromIndexer(target);
 
@@ -94,6 +94,12 @@ namespace Jint.Runtime.Interop.Reflection
             if (_memberType == typeof(JsValue))
             {
                 converted = value;
+            }
+            else if (_memberType == typeof(string) && (value._type & InternalTypes.Primitive) != 0)
+            {
+                // we know how to print out correct string presentation for primitives
+                // that are non-null and non-undefined
+                converted = TypeConverter.ToString(value);
             }
             else
             {

@@ -819,9 +819,11 @@ namespace Jint.Tests.Runtime
 
         private class TestClass
         {
+            public string String { get; set; }
             public int? NullableInt { get; set; }
             public DateTime? NullableDate { get; set; }
             public bool? NullableBool { get; set; }
+            public bool Bool { get; set; }
             public TestEnumInt32? NullableEnum { get; set; }
             public TestStruct? NullableStruct { get; set; }
         }
@@ -987,6 +989,30 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(typeof(bool), value.GetType());
             Assert.Equal(true, value);
+        }
+
+        [Fact]
+        public void ShouldConvertBooleanToLowerCaseStrings()
+        {
+            // basic premise, booleans in JS are lower-case, so should the the toString under interop
+            Assert.Equal("true", _engine.Evaluate("'' + true").AsString());
+
+            _engine.SetValue("o", new TestClass());
+            Assert.Equal("false", _engine.Evaluate("'' + o.Bool").AsString());
+
+            Assert.Equal("true", _engine.Evaluate("o.Bool = true; o.String = o.Bool; return o.String;").AsString());
+
+            Assert.Equal("true", _engine.Evaluate("o.String = true; return o.String;").AsString());
+
+            _engine.SetValue("func1", new Func<bool>(() => true));
+            Assert.Equal("true", _engine.Evaluate("'' + func1()").AsString());
+
+            _engine.SetValue("func2", new Func<JsValue>(() => JsBoolean.True));
+            Assert.Equal("true", _engine.Evaluate("'' + func2()").AsString());
+
+            // but null and undefined should be injected as nulls to c# objects
+            Assert.True(_engine.Evaluate("o.String = null; return o.String;").IsNull());
+            Assert.True(_engine.Evaluate("o.String = undefined; return o.String;").IsNull());
         }
 
         [Fact]
