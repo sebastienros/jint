@@ -22,6 +22,17 @@ namespace Jint.Runtime.Interop
         public Predicate<MemberInfo> MemberFilter { get; set; } = _ => true;
 
         /// <summary>
+        /// Gives the exposed names for a member. Allows to expose C# convention following member like IsSelected
+        /// as more JS idiomatic "selected" for example. Defaults to returning the <see cref="MemberInfo.Name"/> as-is.
+        /// </summary>
+        public Func<MemberInfo, IEnumerable<string>> MemberNameCreator { get; set; } = NameCreator;
+
+        private static IEnumerable<string> NameCreator(MemberInfo info)
+        {
+            yield return info.Name;
+        }
+
+        /// <summary>
         /// Sets member name comparison strategy when finding CLR objects members.
         /// By default member's first character casing is ignored and rest of the name is compared with strict equality.
         /// </summary>
@@ -81,6 +92,7 @@ namespace Jint.Runtime.Interop
             // try to find a single explicit property implementation
             List<PropertyInfo> list = null;
             var typeResolverMemberNameComparer = MemberNameComparer;
+            var typeResolverMemberNameCreator = MemberNameCreator;
             foreach (var iface in type.GetInterfaces())
             {
                 foreach (var iprop in iface.GetProperties())
@@ -96,10 +108,13 @@ namespace Jint.Runtime.Interop
                         continue;
                     }
 
-                    if (typeResolverMemberNameComparer.Equals(iprop.Name, memberName))
+                    foreach (var name in typeResolverMemberNameCreator(iprop))
                     {
-                        list ??= new List<PropertyInfo>();
-                        list.Add(iprop);
+                        if (typeResolverMemberNameComparer.Equals(name, memberName))
+                        {
+                            list ??= new List<PropertyInfo>();
+                            list.Add(iprop);
+                        }
                     }
                 }
             }
@@ -120,10 +135,13 @@ namespace Jint.Runtime.Interop
                         continue;
                     }
 
-                    if (typeResolverMemberNameComparer.Equals(imethod.Name, memberName))
+                    foreach (var name in typeResolverMemberNameCreator(imethod))
                     {
-                        explicitMethods ??= new List<MethodInfo>();
-                        explicitMethods.Add(imethod);
+                        if (typeResolverMemberNameComparer.Equals(name, memberName))
+                        {
+                            explicitMethods ??= new List<MethodInfo>();
+                            explicitMethods.Add(imethod);
+                        }
                     }
                 }
             }
@@ -152,9 +170,12 @@ namespace Jint.Runtime.Interop
                         continue;
                     }
 
-                    if (typeResolverMemberNameComparer.Equals(method.Name, memberName))
+                    foreach (var name in typeResolverMemberNameCreator(method))
                     {
-                        matches.Add(method);
+                        if (typeResolverMemberNameComparer.Equals(name, memberName))
+                        {
+                            matches.Add(method);
+                        }
                     }
                 }
 
@@ -176,6 +197,8 @@ namespace Jint.Runtime.Interop
         {
             // look for a property, bit be wary of indexers, we don't want indexers which have name "Item" to take precedence
             PropertyInfo property = null;
+            var memberNameComparer = MemberNameComparer;
+            var typeResolverMemberNameCreator = MemberNameCreator;
             foreach (var p in type.GetProperties(bindingFlags))
             {
                 if (!MemberFilter(p))
@@ -185,10 +208,16 @@ namespace Jint.Runtime.Interop
 
                 // only if it's not an indexer, we can do case-ignoring matches
                 var isStandardIndexer = p.GetIndexParameters().Length == 1 && p.Name == "Item";
-                if (!isStandardIndexer && MemberNameComparer.Equals(p.Name, memberName))
+                if (!isStandardIndexer)
                 {
-                    property = p;
-                    break;
+                    foreach (var name in typeResolverMemberNameCreator(p))
+                    {
+                        if (memberNameComparer.Equals(name, memberName))
+                        {
+                            property = p;
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -207,10 +236,13 @@ namespace Jint.Runtime.Interop
                     continue;
                 }
 
-                if (MemberNameComparer.Equals(f.Name, memberName))
+                foreach (var name in typeResolverMemberNameCreator(f))
                 {
-                    field = f;
-                    break;
+                    if (memberNameComparer.Equals(name, memberName))
+                    {
+                        field = f;
+                        break;
+                    }
                 }
             }
 
@@ -229,10 +261,13 @@ namespace Jint.Runtime.Interop
                     continue;
                 }
 
-                if (MemberNameComparer.Equals(m.Name, memberName))
+                foreach (var name in typeResolverMemberNameCreator(m))
                 {
-                    methods ??= new List<MethodInfo>();
-                    methods.Add(m);
+                    if (memberNameComparer.Equals(name, memberName))
+                    {
+                        methods ??= new List<MethodInfo>();
+                        methods.Add(m);
+                    }
                 }
             }
 
