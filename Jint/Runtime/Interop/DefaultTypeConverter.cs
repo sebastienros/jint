@@ -8,6 +8,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Extensions;
 using Jint.Native;
+using Jint.Runtime.Interop.Reflection;
 
 namespace Jint.Runtime.Interop
 {
@@ -23,7 +24,6 @@ namespace Jint.Runtime.Interop
         private static readonly ConcurrentDictionary<string, MethodInfo> _knownCastOperators = new ConcurrentDictionary<string, MethodInfo>();
 #endif
 
-        private static readonly Type nullableType = typeof(Nullable<>);
         private static readonly Type intType = typeof(int);
         private static readonly Type iCallableType = typeof(Func<JsValue, JsValue[], JsValue>);
         private static readonly Type jsValueType = typeof(JsValue);
@@ -59,7 +59,7 @@ namespace Jint.Runtime.Interop
                 return value;
             }
 
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == nullableType)
+            if (type.IsNullable())
             {
                 type = Nullable.GetUnderlyingType(type);
             }

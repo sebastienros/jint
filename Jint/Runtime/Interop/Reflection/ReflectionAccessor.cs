@@ -90,18 +90,33 @@ namespace Jint.Runtime.Interop.Reflection
 
         public void SetValue(Engine engine, object target, JsValue value)
         {
-            object converted;
+            object converted = null;
             if (_memberType == typeof(JsValue))
             {
                 converted = value;
             }
-            else if (_memberType == typeof(string) && (value._type & InternalTypes.Primitive) != 0)
+            else if (_memberType == typeof(bool)
+                     && (engine.Options.Interop.ValueCoercion & ValueCoercionType.Boolean) != 0)
+            {
+                converted = TypeConverter.ToBoolean(value);
+            }
+            else if (_memberType == typeof(string)
+                     && !value.IsNullOrUndefined()
+                     && (engine.Options.Interop.ValueCoercion & ValueCoercionType.String) != 0)
             {
                 // we know how to print out correct string presentation for primitives
                 // that are non-null and non-undefined
                 converted = TypeConverter.ToString(value);
             }
-            else
+            else if (_memberType.IsClrNumericCoercible() && (engine.Options.Interop.ValueCoercion & ValueCoercionType.Number) != 0)
+            {
+                // we know how to print out correct string presentation for primitives
+                // that are non-null and non-undefined
+                var number = TypeConverter.ToNumber(value);
+                converted = number.AsNumberOfType(Type.GetTypeCode(_memberType));
+            }
+
+            if (converted is null)
             {
                 // attempt to convert the JsValue to the target type
                 converted = value.ToObject();
