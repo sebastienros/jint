@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Reflection;
+using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
 
@@ -56,24 +57,30 @@ namespace Jint.Runtime.Interop
             int jsArgumentsCount = jsArguments.Length;
             int jsArgumentsWithoutParamsCount = Math.Min(jsArgumentsCount, delegateNonParamsArgumentsCount);
 
+            var clrTypeConverter = Engine.ClrTypeConverter;
+            var valueCoercionType = Engine.Options.Interop.ValueCoercion;
             var parameters = new object[delegateArgumentsCount];
 
             // convert non params parameter to expected types
             for (var i = 0; i < jsArgumentsWithoutParamsCount; i++)
             {
                 var parameterType = parameterInfos[i].ParameterType;
+                var value = jsArguments[i];
+                object converted;
 
                 if (parameterType == typeof(JsValue))
                 {
-                    parameters[i] = jsArguments[i];
+                    converted = value;
                 }
-                else
+                else if (!ReflectionExtensions.TryConvertViaTypeCoercion(parameterType, valueCoercionType, value, out converted))
                 {
-                    parameters[i] = Engine.ClrTypeConverter.Convert(
-                        jsArguments[i].ToObject(),
+                    converted = clrTypeConverter.Convert(
+                        value.ToObject(),
                         parameterType,
                         CultureInfo.InvariantCulture);
                 }
+
+                parameters[i] = converted;
             }
 
             // assign null to parameters not provided
@@ -89,7 +96,7 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            // assign params to array and converts each objet to expected type
+            // assign params to array and converts each object to expected type
             if (_delegateContainsParamsArgument)
             {
                 int paramsArgumentIndex = delegateArgumentsCount - 1;
@@ -101,21 +108,27 @@ namespace Jint.Runtime.Interop
                 for (var i = paramsArgumentIndex; i < jsArgumentsCount; i++)
                 {
                     var paramsIndex = i - paramsArgumentIndex;
+                    var value = jsArguments[i];
+                    object converted;
 
                     if (paramsParameterType == typeof(JsValue))
                     {
-                        paramsParameter[paramsIndex] = jsArguments[i];
+                        converted = value;
                     }
-                    else
+                    else if (!ReflectionExtensions.TryConvertViaTypeCoercion(paramsParameterType, valueCoercionType, value, out converted))
                     {
-                        paramsParameter[paramsIndex] = Engine.ClrTypeConverter.Convert(
-                            jsArguments[i].ToObject(),
+                        converted = Engine.ClrTypeConverter.Convert(
+                            value.ToObject(),
                             paramsParameterType,
                             CultureInfo.InvariantCulture);
                     }
+
+                    paramsParameter[paramsIndex] = converted;
                 }
+
                 parameters[paramsArgumentIndex] = paramsParameter;
             }
+
             try
             {
                 return FromObject(Engine, _d.DynamicInvoke(parameters));

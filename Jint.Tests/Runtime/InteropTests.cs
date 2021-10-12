@@ -827,6 +827,10 @@ namespace Jint.Tests.Runtime
             public bool Bool { get; set; }
             public TestEnumInt32? NullableEnum { get; set; }
             public TestStruct? NullableStruct { get; set; }
+
+            public void SetBool(bool value) => Bool = value;
+            public void SetInt(int value) => Int = value;
+            public void SetString(string value) => String = value;
         }
 
         [Fact]
@@ -1008,6 +1012,21 @@ namespace Jint.Tests.Runtime
             Assert.False(engine.Evaluate("o.Bool = ''; return o.Bool;").AsBoolean());
             Assert.False(engine.Evaluate("o.Bool = null; return o.Bool;").AsBoolean());
             Assert.False(engine.Evaluate("o.Bool = undefined; return o.Bool;").AsBoolean());
+
+            engine.Evaluate("class MyClass { valueOf() { return 42; } }");
+            Assert.Equal(true, engine.Evaluate("let obj = new MyClass(); o.Bool = obj; return o.Bool;").AsBoolean());
+
+            engine.SetValue("func3", new Action<bool, bool, bool>((param1, param2, param3) =>
+            {
+                Assert.True(param1);
+                Assert.True(param2);
+                Assert.True(param3);
+            }));
+            engine.Evaluate("func3(true, obj, [ 1, 2, 3])");
+
+            Assert.Equal(true, engine.Evaluate("o.SetBool(42); return o.Bool;").AsBoolean());
+            Assert.Equal(true, engine.Evaluate("o.SetBool(obj); return o.Bool;").AsBoolean());
+            Assert.Equal(true, engine.Evaluate("o.SetBool([ 1, 2, 3].length); return o.Bool;").AsBoolean());
         }
 
         [Fact]
@@ -1028,6 +1047,18 @@ namespace Jint.Tests.Runtime
             // but null and undefined should be injected as nulls to nullable objects
             Assert.True(engine.Evaluate("o.NullableInt = null; return o.NullableInt;").IsNull());
             Assert.True(engine.Evaluate("o.NullableInt = undefined; return o.NullableInt;").IsNull());
+
+            engine.SetValue("func3", new Action<int, double, long>((param1, param2, param3) =>
+            {
+                Assert.Equal(1, param1);
+                Assert.Equal(42, param2);
+                Assert.Equal(3, param3);
+            }));
+            engine.Evaluate("func3(true, obj, [ 1, 2, 3].length)");
+
+            Assert.Equal(1, engine.Evaluate("o.SetInt(true); return o.Int;").AsNumber());
+            Assert.Equal(42, engine.Evaluate("o.SetInt(obj); return o.Int;").AsNumber());
+            Assert.Equal(3, engine.Evaluate("o.SetInt([ 1, 2, 3].length); return o.Int;").AsNumber());
         }
 
         [Fact]
@@ -1062,6 +1093,18 @@ namespace Jint.Tests.Runtime
 
             engine.Evaluate("class MyClass { toString() { return 'hello world'; } }");
             Assert.Equal("hello world", engine.Evaluate("let obj = new MyClass(); o.String = obj; return o.String;").AsString());
+
+            engine.SetValue("func3", new Action<string, string, string>((param1, param2, param3) =>
+            {
+                Assert.Equal("true", param1);
+                Assert.Equal("hello world", param2);
+                Assert.Equal("1,2,3", param3);
+            }));
+            engine.Evaluate("func3(true, obj, [ 1, 2, 3])");
+
+            Assert.Equal("true", engine.Evaluate("o.SetString(true); return o.String;").AsString());
+            Assert.Equal("hello world", engine.Evaluate("o.SetString(obj); return o.String;").AsString());
+            Assert.Equal("1,2,3", engine.Evaluate("o.SetString([ 1, 2, 3]); return o.String;").AsString());
         }
 
         [Fact]

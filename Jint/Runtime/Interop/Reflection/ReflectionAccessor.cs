@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Reflection;
+using Jint.Extensions;
 using Jint.Native;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -95,28 +96,7 @@ namespace Jint.Runtime.Interop.Reflection
             {
                 converted = value;
             }
-            else if (_memberType == typeof(bool)
-                     && (engine.Options.Interop.ValueCoercion & ValueCoercionType.Boolean) != 0)
-            {
-                converted = TypeConverter.ToBoolean(value);
-            }
-            else if (_memberType == typeof(string)
-                     && !value.IsNullOrUndefined()
-                     && (engine.Options.Interop.ValueCoercion & ValueCoercionType.String) != 0)
-            {
-                // we know how to print out correct string presentation for primitives
-                // that are non-null and non-undefined
-                converted = TypeConverter.ToString(value);
-            }
-            else if (_memberType.IsClrNumericCoercible() && (engine.Options.Interop.ValueCoercion & ValueCoercionType.Number) != 0)
-            {
-                // we know how to print out correct string presentation for primitives
-                // that are non-null and non-undefined
-                var number = TypeConverter.ToNumber(value);
-                converted = number.AsNumberOfType(Type.GetTypeCode(_memberType));
-            }
-
-            if (converted is null)
+            else if (!ReflectionExtensions.TryConvertViaTypeCoercion(_memberType, engine.Options.Interop.ValueCoercion, value, out converted))
             {
                 // attempt to convert the JsValue to the target type
                 converted = value.ToObject();

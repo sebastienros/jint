@@ -106,6 +106,8 @@ namespace Jint
             Options = new Options();
             options?.Invoke(this, Options);
 
+            _extensionMethods = ExtensionMethodCache.Build(Options.Interop.ExtensionMethodTypes);
+
             Reset();
 
             // gather some options as fields for faster checks
@@ -118,7 +120,6 @@ namespace Jint
 
             _constraints = Options.Constraints.Constraints.ToArray();
             _referenceResolver = Options.ReferenceResolver;
-            _extensionMethods = ExtensionMethodCache.Build(Options.Interop.ExtensionMethodTypes);
             CallStack = new JintCallStack(Options.Constraints.MaxRecursionDepth >= 0);
 
             _referencePool = new ReferencePool();
