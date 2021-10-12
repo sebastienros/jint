@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Jint.Extensions;
 
 namespace Jint.Runtime.Interop
 {
@@ -106,23 +107,29 @@ namespace Jint.Runtime.Interop
         {
             var parameters = new object[arguments.Length];
             var methodParameters = Parameters;
+            var valueCoercionType = _engine.Options.Interop.ValueCoercion;
+
             try
             {
                 for (var i = 0; i < arguments.Length; i++)
                 {
                     var parameterType = methodParameters[i].ParameterType;
+                    var value = arguments[i];
+                    object converted;
 
                     if (typeof(JsValue).IsAssignableFrom(parameterType))
                     {
-                        parameters[i] = arguments[i];
+                        converted = value;
                     }
-                    else
+                    else if (!ReflectionExtensions.TryConvertViaTypeCoercion(parameterType, valueCoercionType, value, out converted))
                     {
-                        parameters[i] = _engine.ClrTypeConverter.Convert(
-                            arguments[i].ToObject(),
+                        converted = _engine.ClrTypeConverter.Convert(
+                            value.ToObject(),
                             parameterType,
                             System.Globalization.CultureInfo.InvariantCulture);
                     }
+
+                    parameters[i] = converted;
                 }
 
                 if (Method is MethodInfo m)

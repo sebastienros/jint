@@ -2,13 +2,9 @@
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
-using Jint.Native.Array;
-using Jint.Native.Date;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
 using Jint.Native.Object;
-using Jint.Native.Promise;
-using Jint.Native.RegExp;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 
