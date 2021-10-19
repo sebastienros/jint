@@ -19,6 +19,7 @@ using Jint.Runtime.Interop;
 using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
+using Jint.Runtime.Modules;
 using Jint.Runtime.References;
 
 namespace Jint

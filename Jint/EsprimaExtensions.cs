@@ -11,6 +11,7 @@ using Jint.Runtime;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
+using Jint.Runtime.Modules;
 
 namespace Jint
 {
@@ -261,6 +262,117 @@ namespace Jint
             closure.MakeMethod(obj);
 
             return new Record(property, closure);
+        }
+
+        internal static void GetImportEntries(this ImportDeclaration import, List<ImportEntry> importEntries)
+        {
+            var source = import.Source.StringValue;
+            var specifiers = import.Specifiers;
+
+            foreach (var specifier in specifiers)
+            {
+                switch (specifier)
+                {
+                    case ImportNamespaceSpecifier namespaceSpecifier:
+                        importEntries.Add(new ImportEntry(source, "*", namespaceSpecifier.Local.Name));
+                        break;
+                    case ImportSpecifier importSpecifier:
+                        importEntries.Add(new ImportEntry(source, importSpecifier.Imported.Name, importSpecifier.Local.Name));
+                        break;
+                    case ImportDefaultSpecifier defaultSpecifier:
+                        importEntries.Add(new ImportEntry(source, "default", defaultSpecifier.Local.Name));
+                        break;
+                }
+            }
+        }
+
+        internal static void GetExportEntries(this ExportDeclaration export, List<ExportEntry> exportEntries)
+        {
+            switch (export)
+            {
+                case ExportDefaultDeclaration defaultDeclaration:
+                    GetExportEntries(true, defaultDeclaration.Declaration, exportEntries);
+                    break;
+                case ExportAllDeclaration allDeclaration:
+                    //Note: there is a pending PR for Esprima to support exporting an imported modules content as a namespace i.e. 'export * as ns from "mod"'
+                    exportEntries.Add(new(null, allDeclaration.Source.StringValue, "*", null));
+                    break;
+                case ExportNamedDeclaration namedDeclaration:
+                    var specifiers = namedDeclaration.Specifiers;
+                    if (specifiers.Count == 0)
+                    {
+                        GetExportEntries(false, namedDeclaration.Declaration!, exportEntries, namedDeclaration.Source?.StringValue);
+                    }
+                    else
+                    {
+                        foreach(var specifier in specifiers)
+                        {
+                            exportEntries.Add(new(specifier.Local.Name, namedDeclaration.Source?.StringValue, specifier.Exported.Name, null));
+                        }
+                    }
+                    break;
+            }
+        }
+
+        private static void GetExportEntries(bool defaultExport, StatementListItem declaration, List<ExportEntry> exportEntries, string? moduleRequest = null)
+        {
+            var names = GetExportNames(declaration);
+
+            if(names.Count == 0)
+            {
+                if (!defaultExport)
+                {
+                    ExceptionHelper.ThrowTypeErrorNoEngine("export declaration requires an identifier");
+                }
+
+                exportEntries.Add(new("default", null, null, "*default*"));
+            }
+            else
+            {
+                for(var i = 0; i < names.Count; i++)
+                {
+                    var name = names[i];
+                    var exportName = defaultExport ? "default" : name;
+                    exportEntries.Add(new(exportName, moduleRequest, null, name));
+                }
+            }
+            
+        }
+
+        private static List<string> GetExportNames(StatementListItem declaration)
+        {
+            var result = new List<string>();
+
+            switch (declaration)
+            {
+                case FunctionDeclaration functionDeclaration:
+                    var funcName = functionDeclaration.Id?.Name;
+                    if(funcName is not null)
+                    {
+                        result.Add(funcName);
+                    }
+                    break;
+                case ClassDeclaration classDeclaration:
+                    var className = classDeclaration.Id?.Name;
+                    if(className is not null)
+                    {
+                        result.Add(className);
+                    }
+                    break;
+                case VariableDeclaration variableDeclaration:
+                    var declarators = variableDeclaration.Declarations;
+                    foreach(var declarator in declarators)
+                    {
+                        var varName = declarator.Id.As<Identifier>()?.Name;
+                        if(varName is not null)
+                        {
+                            result.Add(varName);
+                        }
+                    }
+                    break;
+            }
+
+            return result;
         }
 
         internal readonly struct Record

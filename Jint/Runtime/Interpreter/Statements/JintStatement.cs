@@ -84,6 +84,10 @@ namespace Jint.Runtime.Interpreter.Statements
                 Nodes.DebuggerStatement => new JintDebuggerStatement(engine, (DebuggerStatement) statement),
                 Nodes.Program when statement is Script s => new JintScript(engine, s),
                 Nodes.ClassDeclaration => new JintClassDeclarationStatement(engine, (ClassDeclaration) statement),
+                Nodes.ExportAllDeclaration or
+                Nodes.ExportDefaultDeclaration or
+                Nodes.ExportNamedDeclaration or
+                Nodes.ImportDeclaration => new JintEmptyStatement(engine, new EmptyStatement()),
                 _ => null
             };
 

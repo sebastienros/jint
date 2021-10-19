@@ -143,10 +143,16 @@ namespace Jint.Native.Promise
                     break;
             }
 
-            // TODO do we actually need to track that? 
-            // it seems this is mostly for debugging purposes.
-            // E.g. to report unhandled promises to dev
-            // 12. Set promise.[[PromiseIsHandled]] to true.
+            //https://tc39.es/ecma262/#sec-performpromisethen
+            //...
+            //13. If resultCapability is undefined, then
+            //      a. Return undefined
+            //14. Else
+            //      a. Return resultCapability.[[Promise]]
+            if(resultCapability is null)
+            {
+                return JsValue.Undefined;
+            }
 
             return resultCapability.PromiseInstance;
         }

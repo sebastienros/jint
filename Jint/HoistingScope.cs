@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Linq;
 using Esprima.Ast;
+using Jint.Runtime.Modules;
 
 namespace Jint
 {
@@ -58,6 +60,22 @@ namespace Jint
                 treeWalker._lexicalNames);
         }
 
+        public static HoistingScope GetModuleLevelDeclarations(
+            Module module,
+            bool collectVarNames = false,
+            bool collectLexicalNames = false)
+        {
+            //Modules area always strict
+            var treeWalker = new ScriptWalker(true, collectVarNames, collectLexicalNames);
+            treeWalker.Visit(module, null);
+            return new HoistingScope(
+                treeWalker._functions,
+                treeWalker._varNames,
+                treeWalker._variableDeclarations,
+                treeWalker._lexicalDeclarations,
+                treeWalker._lexicalNames);
+        }
+
         public static List<Declaration> GetLexicalDeclarations(BlockStatement statement)
         {
             List<Declaration> lexicalDeclarations = null ;
@@ -105,6 +123,65 @@ namespace Jint
             }
 
             return lexicalDeclarations;
+        }
+
+        public static void GetImportsAndExports(
+            Module module, 
+            out List<string> requestedModules,
+            out List<ImportEntry> importEntries,
+            out List<ExportEntry> localExportEntries,
+            out List<ExportEntry> indirectExportEntries,
+            out List<ExportEntry> starExportEntries)
+        {
+            var treeWalker = new ModuleWalker();
+            treeWalker.Visit(module);
+
+            importEntries = treeWalker._importEntries;
+            requestedModules = treeWalker.RequestedModules;
+            var importedBoundNames = new HashSet<string>(importEntries?.Select(x => x.LocalName));
+
+            var exportEntries = treeWalker._exportEntries;
+            localExportEntries = null;
+            indirectExportEntries = null;
+            starExportEntries = null;
+
+            for(int i = 0; i < exportEntries.Count; i++)
+            {
+                var ee = exportEntries[i];
+
+                if (ee.ModuleRequest is null)
+                {
+                    if (!importedBoundNames.Contains(ee.LocalName))
+                    {
+                        localExportEntries ??= new();
+                        localExportEntries.Add(ee);
+                    }
+                    else
+                    {
+                        var ie = importEntries.First(x => x.LocalName == ee.LocalName);
+                        if (ie.ImportName == "*")
+                        {
+                            localExportEntries ??= new();
+                            localExportEntries.Add(ee);
+                        }
+                        else
+                        {
+                            indirectExportEntries ??= new();
+                            indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, ie.ImportName, null));
+                        }
+                    }
+                }
+                else if (ee.ImportName == "*"  && ee.ExportName is null)
+                {
+                    starExportEntries ??= new();
+                    starExportEntries.Add(ee);
+                }
+                else
+                {
+                    indirectExportEntries ??= new();
+                    indirectExportEntries.Add(ee);
+                }
+            }
         }
 
         private sealed class ScriptWalker
@@ -191,6 +268,53 @@ namespace Jint
                         && childNode.ChildNodes.Count > 0)
                     {
                         Visit(childNode, node);
+                    }
+                }
+            }
+        }
+
+        private sealed class ModuleWalker
+        {
+            internal List<string> RequestedModules
+            {
+                get
+                {
+                    var requestedModules = new List<string>();
+                    requestedModules.AddRange(_importEntries.Where(x => x.ModuleRequest is not null).Select(x => x.ModuleRequest));
+                    requestedModules.AddRange(_exportEntries.Where(x => x.ModuleRequest is not null).Select(x => x.ModuleRequest));
+                    return requestedModules.Distinct().ToList();
+                }
+            }
+            internal List<ImportEntry> _importEntries;
+            internal List<ExportEntry> _exportEntries;
+
+            internal void Visit(Node node)
+            {
+                foreach(var childNode in node.ChildNodes)
+                {
+                    if (childNode is null)
+                    {
+                        continue;
+                    }
+
+                    if (childNode.Type == Nodes.ImportDeclaration)
+                    {
+                        _importEntries ??= new();
+                        var import = childNode as ImportDeclaration;
+                        import.GetImportEntries(_importEntries);
+                    }
+                    else if (childNode.Type == Nodes.ExportAllDeclaration ||
+                             childNode.Type == Nodes.ExportDefaultDeclaration ||
+                             childNode.Type == Nodes.ExportNamedDeclaration)
+                    {
+                        _exportEntries ??= new();
+                        var export = childNode as ExportDeclaration;
+                        export.GetExportEntries(_exportEntries);
+                    }
+
+                    if(childNode.ChildNodes.Count > 0)
+                    {
+                        Visit(childNode);
                     }
                 }
             }

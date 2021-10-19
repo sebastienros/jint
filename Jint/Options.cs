@@ -12,6 +12,7 @@ using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Modules;
 
 namespace Jint
 {
@@ -44,6 +45,11 @@ namespace Jint
         /// Host options.
         /// </summary>
         internal HostOptions Host { get; } = new();
+
+        /// <summary>
+        /// Module options
+        /// </summary>
+        public ModuleOptions Modules { get; } = new();
 
         /// <summary>
         /// Whether the code should be always considered to be in strict mode. Can improve performance.
@@ -95,6 +101,16 @@ namespace Jint
             if (Interop.ExtensionMethodTypes.Count > 0)
             {
                 AttachExtensionMethodsToPrototypes(engine);
+            }
+
+            if (Modules.Allowed)
+            {
+                engine.ModuleLoader = Modules.CustomModuleLoader ?? new ModuleLoader();
+                engine.ModuleLoader.AddModuleSource(Modules.CustomModuleSources.ToArray());
+            }
+            else
+            {
+                engine.ModuleLoader = new ModuleLoader();
             }
 
             // ensure defaults
@@ -271,5 +287,26 @@ namespace Jint
     public class HostOptions
     {
         internal Func<Engine, Host> Factory { get; set; } = _ => new Host();
+    }
+
+    /// <summary>
+    /// Module related customization, work in progress
+    /// </summary>
+    public class ModuleOptions
+    {
+        /// <summary>
+        /// Indicates if modules are allowed in the current engine context
+        /// </summary>
+        public bool Allowed { get; set; } = false;
+
+        /// <summary>
+        /// Custom module loader implementation
+        /// </summary>
+        public IModuleLoader? CustomModuleLoader { get; set; }
+
+        /// <summary>
+        /// Custom module sources used if no custom module loader is set
+        /// </summary>
+        public List<IModuleSource> CustomModuleSources { get; } = new();
     }
 }

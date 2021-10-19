@@ -8,6 +8,7 @@ using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Modules;
 
 namespace Jint
 {
@@ -240,6 +241,24 @@ namespace Jint
         public static void UseHostFactory<T>(this Options options, Func<Engine, T> factory) where T : Host
         {
             options.Host.Factory = factory;
+        }
+
+        public static Options AllowModules(this Options options, bool allow = true)
+        {
+            options.Modules.Allowed = allow;
+            return options;
+        }
+
+        public static Options CustomModuleLoader(this Options options, IModuleLoader moduleLoader)
+        {
+            options.Modules.CustomModuleLoader = moduleLoader;
+            return options;
+        }
+
+        public static Options CustomModuleSource(this Options options, params IModuleSource[] sources)
+        {
+            options.Modules.CustomModuleSources.AddRange(sources);
+            return options;
         }
     }
 }

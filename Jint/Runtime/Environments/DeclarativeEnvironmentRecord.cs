@@ -19,12 +19,12 @@ namespace Jint.Runtime.Environments
             _catchEnvironment = catchEnvironment;
         }
 
-        public sealed override bool HasBinding(string name)
+        public override bool HasBinding(string name)
         {
             return _dictionary.ContainsKey(name);
         }
 
-        internal sealed override bool TryGetBinding(
+        internal override bool TryGetBinding(
             in BindingName name,
             bool strict,
             out Binding binding,
@@ -110,7 +110,7 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        public sealed override JsValue GetBindingValue(string name, bool strict)
+        public override JsValue GetBindingValue(string name, bool strict)
         {
             _dictionary.TryGetValue(name, out var binding);
             return UnwrapBindingValue(strict, binding);
