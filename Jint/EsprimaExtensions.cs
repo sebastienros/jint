@@ -49,7 +49,7 @@ namespace Jint
                 or Nodes.UpdateExpression
                 or Nodes.AssignmentExpression
                 or Nodes.UnaryExpression
-                || expression is StaticMemberExpression)
+                or Nodes.MemberExpression)
             {
                 propertyKey = TypeConverter.ToPropertyKey(JintExpression.Build(engine, expression).GetValue());
                 return true;

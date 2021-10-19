@@ -16,29 +16,23 @@ namespace Jint.Runtime.Interop
         private static readonly ConcurrentDictionary<Type, MethodDescriptor[]> _constructorCache = new();
         private static readonly ConcurrentDictionary<Tuple<Type, string>, ReflectionAccessor> _memberAccessors = new();
 
-        private TypeReference(
-            Engine engine,
-            Realm realm)
-            : base(engine, realm, _name, FunctionThisMode.Global, ObjectClass.TypeReference)
+        private TypeReference(Engine engine, Type type)
+            : base(engine, engine.Realm, _name, FunctionThisMode.Global, ObjectClass.TypeReference)
         {
+            ReferenceType = type;
+
+            _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
+            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
+            _prototypeDescriptor = new PropertyDescriptor(engine.Realm.Intrinsics.Object.PrototypeObject, PropertyFlag.AllForbidden);
+
+            PreventExtensions();
         }
 
-        public Type ReferenceType { get; private set; }
+        public Type ReferenceType { get; }
 
         public static TypeReference CreateTypeReference(Engine engine, Type type)
         {
-            var obj = new TypeReference(engine, engine.Realm);
-            obj.PreventExtensions();
-            obj.ReferenceType = type;
-
-            // The value of the [[Prototype]] internal property of the TypeReference constructor is the Function prototype object
-            obj._prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
-            obj._length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
-
-            // The initial value of Boolean.prototype is the Boolean prototype object
-            obj._prototypeDescriptor = new PropertyDescriptor(engine.Realm.Intrinsics.Object.PrototypeObject, PropertyFlag.AllForbidden);
-
-            return obj;
+            return new TypeReference(engine, type);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -148,16 +142,22 @@ namespace Jint.Runtime.Interop
             if (type.IsEnum)
             {
                 var memberNameComparer = typeResolver.MemberNameComparer;
+                var typeResolverMemberNameCreator = typeResolver.MemberNameCreator;
 
                 var enumValues = Enum.GetValues(type);
                 var enumNames = Enum.GetNames(type);
 
                 for (var i = 0; i < enumValues.Length; i++)
                 {
-                    if (memberNameComparer.Equals(enumNames.GetValue(i), name))
+                    var enumOriginalName = enumNames.GetValue(i).ToString();
+                    var member = type.GetMember(enumOriginalName)[0];
+                    foreach (var exposedName in typeResolverMemberNameCreator(member))
                     {
-                        var value = enumValues.GetValue(i);
-                        return new ConstantValueAccessor(JsNumber.Create(value));
+                        if (memberNameComparer.Equals(name, exposedName))
+                        {
+                            var value = enumValues.GetValue(i);
+                            return new ConstantValueAccessor(JsNumber.Create(value));
+                        }
                     }
                 }
 

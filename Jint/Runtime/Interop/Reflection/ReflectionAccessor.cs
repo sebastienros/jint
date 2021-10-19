@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Reflection;
+using Jint.Extensions;
 using Jint.Native;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -39,7 +40,7 @@ namespace Jint.Runtime.Interop.Reflection
             {
                 return constantValue;
             }
-            
+
             // first check indexer so we don't confuse inherited properties etc
             var value = TryReadFromIndexer(target);
 
@@ -90,12 +91,12 @@ namespace Jint.Runtime.Interop.Reflection
 
         public void SetValue(Engine engine, object target, JsValue value)
         {
-            object converted;
+            object converted = null;
             if (_memberType == typeof(JsValue))
             {
                 converted = value;
             }
-            else
+            else if (!ReflectionExtensions.TryConvertViaTypeCoercion(_memberType, engine.Options.Interop.ValueCoercion, value, out converted))
             {
                 // attempt to convert the JsValue to the target type
                 converted = value.ToObject();

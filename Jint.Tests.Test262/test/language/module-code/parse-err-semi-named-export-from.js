@@ -22,6 +22,6 @@ negative:
 flags: [module]
 ---*/
 
-throw "Test262: This statement should not be evaluated.";
+$DONOTEVALUATE();
 
 export {} from './parse-err-semi-export-clause-from.js' null;

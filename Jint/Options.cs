@@ -256,6 +256,45 @@ namespace Jint
         /// As this object holds caching state same instance should be shared between engines, if possible.
         /// </remarks>
         public TypeResolver TypeResolver { get; set; } = TypeResolver.Default;
+
+        /// <summary>
+        /// When writing values to CLR objects, how should JS values be coerced to CLR types.
+        /// Defaults to only coercing to string values when writing to string targets.
+        /// </summary>
+        public ValueCoercionType ValueCoercion { get; set; } = ValueCoercionType.String;
+    }
+
+    /// <summary>
+    /// Rules for writing values to CLR fields.
+    /// </summary>
+    [Flags]
+    public enum ValueCoercionType
+    {
+        /// <summary>
+        /// No coercion will be done. If there's no type converter, and error will be thrown.
+        /// </summary>
+        None = 0,
+
+        /// <summary>
+        /// JS coercion using boolean rules "dog" == true, "" == false, 1 == true, 3 == true, 0 == false, { "prop": 1 } == true etc.
+        /// </summary>
+        Boolean = 1,
+
+        /// <summary>
+        /// JS coercion to numbers, false == 0, true == 1. valueOf functions will be used when available for object instances.
+        /// Valid against targets of type: Decimal, Double, Int32, Int64.
+        /// </summary>
+        Number = 2,
+
+        /// <summary>
+        /// JS coercion to strings, toString function will be used when available for objects.
+        /// </summary>
+        String = 4,
+
+        /// <summary>
+        /// All coercion rules enabled.
+        /// </summary>
+        All = Boolean | Number | String
     }
 
     public class ConstraintOptions

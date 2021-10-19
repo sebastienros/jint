@@ -2744,6 +2744,31 @@ x.test = {
             Assert.Equal(1389, result);
         }
 
+        [Fact]
+        public void MemberExpressionInObjectProperty()
+        {
+            var engine = new Engine();
+            dynamic result = engine.Evaluate(@"
+                const colorMap = {
+                    Red: ""red"",
+                    Orange: ""orange"",
+                    White: ""white"",
+                };
+
+                Object
+                    .keys(colorMap)
+                    .reduce((agg, next) => {
+                          return {...agg, ...{ [colorMap[next]]: next } };
+                    },
+                    {});
+                ")
+                .ToObject();
+
+            Assert.Equal("Red", result.red);
+            Assert.Equal("Orange", result.orange);
+            Assert.Equal("White", result.white);
+        }
+
         private class Wrapper
         {
             public Testificate Test { get; set; }
