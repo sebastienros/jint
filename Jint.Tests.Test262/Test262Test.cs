@@ -142,9 +142,15 @@ namespace Jint.Tests.Test262
             var includes = Regex.Match(code, @"includes: \[(.+?)\]");
             if (includes.Success)
             {
-                var files = includes.Groups[1].Captures[0].Value.Split(',');
+                var files = includes.Groups[1].Captures[0].Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
                 foreach (var file in files)
                 {
+                    if (file == "hidden-constructors.js")
+                    {
+                        // suite refers to non-existent file
+                        continue;
+                    }
+
                     engine.Execute(Sources[file.Trim()]);
                 }
             }

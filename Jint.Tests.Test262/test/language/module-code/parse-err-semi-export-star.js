@@ -22,6 +22,6 @@ flags: [module]
 features: [export-star-as-namespace-from-module]
 ---*/
 
-throw "Test262: This statement should not be evaluated.";
+$DONOTEVALUATE();
 
 export * from './parse-err-semi-export-star.js' null;
