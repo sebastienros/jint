@@ -41,5 +41,14 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
             Assert.True(engine.Evaluate(code).AsBoolean());
         }
+
+        [Fact]
+        public void ShouldHavePrototypeInPlaceByDefault()
+        {
+            var engine = new Engine();
+            var instance = new ObjectInstance(engine);
+            Assert.NotNull(instance.GetPrototypeOf());
+            Assert.Equal("[object Object]", instance.ToString());
+        }
     }
 }
