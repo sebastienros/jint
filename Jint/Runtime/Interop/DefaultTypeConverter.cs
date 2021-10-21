@@ -8,7 +8,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Extensions;
 using Jint.Native;
-using Jint.Runtime.Interop.Reflection;
 
 namespace Jint.Runtime.Interop
 {

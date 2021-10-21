@@ -94,7 +94,7 @@ namespace Jint.Native.Array
                 }
 
                 _closed = true;
-                nextItem = KeyValueIteratorPosition.Done;
+                nextItem = KeyValueIteratorPosition.Done(_engine);
                 return false;
             }
         }
