@@ -50,7 +50,8 @@ namespace Jint
                 or Nodes.UnaryExpression
                 or Nodes.MemberExpression)
             {
-                propertyKey = TypeConverter.ToPropertyKey(JintExpression.Build(engine, expression).GetValue());
+                var context = engine._activeEvaluationContext;
+                propertyKey = TypeConverter.ToPropertyKey(JintExpression.Build(engine, expression).GetValue(context).Value);
                 return true;
             }
 
@@ -201,14 +202,6 @@ namespace Jint
                 else if (parameter is AssignmentPattern assignmentPattern)
                 {
                     parameter = assignmentPattern.Left;
-                    if (assignmentPattern.Right is ClassExpression classExpression)
-                    {
-                        // TODO check if there's more generic rule
-                        if (classExpression.Id is not null)
-                        {
-                            target.Add(classExpression.Id.Name!);
-                        }
-                    }
                     continue;
                 }
                 break;
@@ -217,7 +210,7 @@ namespace Jint
 
         internal static void BindingInitialization(
             this Expression? expression,
-            Engine engine,
+            EvaluationContext context,
             JsValue value,
             EnvironmentRecord env)
         {
@@ -229,7 +222,7 @@ namespace Jint
             else if (expression is BindingPattern bindingPattern)
             {
                 BindingPatternAssignmentExpression.ProcessPatterns(
-                    engine,
+                    context,
                     bindingPattern,
                     value,
                     env);

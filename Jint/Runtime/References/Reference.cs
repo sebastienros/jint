@@ -76,13 +76,13 @@ namespace Jint.Runtime.References
             return this;
         }
 
-        internal void AssertValid(Engine engine)
+        internal void AssertValid(Realm realm)
         {
             if (_strict
                 && (_baseValue._type & InternalTypes.ObjectEnvironmentRecord) != 0
                 && (_property == CommonProperties.Eval || _property == CommonProperties.Arguments))
             {
-                ExceptionHelper.ThrowSyntaxError(engine.Realm);
+                ExceptionHelper.ThrowSyntaxError(realm);
             }
         }
 

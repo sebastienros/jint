@@ -1,7 +1,9 @@
-﻿using Jint.Native;
+﻿using System.Diagnostics;
+using Jint.Native;
 
 namespace Jint.Runtime.Environments
 {
+    [DebuggerDisplay("Mutable: {Mutable}, Strict: {Strict}, CanBeDeleted: {CanBeDeleted}, Value: {Value}")]
     public readonly struct Binding
     {
         public Binding(
@@ -26,6 +28,6 @@ namespace Jint.Runtime.Environments
             return new Binding(argument, CanBeDeleted, Mutable, Strict);
         }
 
-        public bool IsInitialized() => !(Value is null);
+        public bool IsInitialized() => Value is not null;
     }
 }

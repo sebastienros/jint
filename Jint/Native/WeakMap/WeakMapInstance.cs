@@ -28,7 +28,7 @@ namespace Jint.Native.WeakMap
         {
             if (key.IsPrimitive())
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakMap key must be an object, got " + key.ToString());
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakMap key must be an object, got " + key);
             }
 
 #if NETSTANDARD2_1

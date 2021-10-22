@@ -15,15 +15,16 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JintExpression _calleeExpression;
         private bool _hasSpreads;
 
-        public JintCallExpression(Engine engine, CallExpression expression) : base(engine, expression)
+        public JintCallExpression(CallExpression expression) : base(expression)
         {
             _initialized = false;
         }
 
-        protected override void Initialize()
+        protected override void Initialize(EvaluationContext context)
         {
+            var engine = context.Engine;
             var expression = (CallExpression) _expression;
-            _calleeExpression = Build(_engine, expression.Callee);
+            _calleeExpression = Build(engine, expression.Callee);
             var cachedArgumentsHolder = new CachedArgumentsHolder
             {
                 JintArguments = new JintExpression[expression.Arguments.Count]
@@ -39,7 +40,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             for (var i = 0; i < expression.Arguments.Count; i++)
             {
                 var expressionArgument = expression.Arguments[i];
-                cachedArgumentsHolder.JintArguments[i] = Build(_engine, expressionArgument);
+                cachedArgumentsHolder.JintArguments[i] = Build(engine, expressionArgument);
                 cacheable &= expressionArgument.Type == Nodes.Literal;
                 _hasSpreads |= CanSpread(expressionArgument);
                 if (expressionArgument is ArrayExpression ae)
@@ -58,7 +59,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (cachedArgumentsHolder.JintArguments.Length > 0)
                 {
                     arguments = new JsValue[cachedArgumentsHolder.JintArguments.Length];
-                    BuildArguments(cachedArgumentsHolder.JintArguments, arguments);
+                    BuildArguments(context, cachedArgumentsHolder.JintArguments, arguments);
                 }
 
                 cachedArgumentsHolder.CachedArguments = arguments;
@@ -67,26 +68,28 @@ namespace Jint.Runtime.Interpreter.Expressions
             _cachedArguments = cachedArgumentsHolder;
         }
 
-        protected override object EvaluateInternal()
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
-            return _calleeExpression is JintSuperExpression
-                ? SuperCall()
-                : Call();
+            return NormalCompletion(_calleeExpression is JintSuperExpression
+                ? SuperCall(context)
+                : Call(context)
+            );
         }
 
-        private object SuperCall()
+        private JsValue SuperCall(EvaluationContext context)
         {
-            var thisEnvironment = (FunctionEnvironmentRecord) _engine.ExecutionContext.GetThisEnvironment();
-            var newTarget = _engine.GetNewTarget(thisEnvironment);
+            var engine = context.Engine;
+            var thisEnvironment = (FunctionEnvironmentRecord) engine.ExecutionContext.GetThisEnvironment();
+            var newTarget = engine.GetNewTarget(thisEnvironment);
             var func = GetSuperConstructor(thisEnvironment);
             if (!func.IsConstructor)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Not a constructor");
+                ExceptionHelper.ThrowTypeError(engine.Realm, "Not a constructor");
             }
 
-            var argList = ArgumentListEvaluation();
+            var argList = ArgumentListEvaluation(context);
             var result = ((IConstructor) func).Construct(argList, newTarget);
-            var thisER = (FunctionEnvironmentRecord) _engine.ExecutionContext.GetThisEnvironment();
+            var thisER = (FunctionEnvironmentRecord) engine.ExecutionContext.GetThisEnvironment();
             return thisER.BindThisValue(result);
         }
 
@@ -104,23 +107,24 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// https://tc39.es/ecma262/#sec-function-calls
         /// </summary>
-        private object Call()
+        private JsValue Call(EvaluationContext context)
         {
-            var reference = _calleeExpression.Evaluate();
+            var reference = _calleeExpression.Evaluate(context).Value;
 
             if (ReferenceEquals(reference, Undefined.Instance))
             {
                 return Undefined.Instance;
             }
 
-            var func = _engine.GetValue(reference, false);
+            var engine = context.Engine;
+            var func = engine.GetValue(reference, false);
 
             if (reference is Reference referenceRecord
                 && !referenceRecord.IsPropertyReference()
                 && referenceRecord.GetReferencedName() == CommonProperties.Eval
-                && ReferenceEquals(func, _engine.Realm.Intrinsics.Eval))
+                && ReferenceEquals(func, engine.Realm.Intrinsics.Eval))
             {
-                var argList = ArgumentListEvaluation();
+                var argList = ArgumentListEvaluation(context);
                 if (argList.Length == 0)
                 {
                     return Undefined.Instance;
@@ -132,22 +136,23 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var evalRealm = evalFunctionInstance._realm;
                 var direct = !((CallExpression) _expression).Optional;
                 var value = evalFunctionInstance.PerformEval(evalArg, evalRealm, strictCaller, direct);
-                _engine._referencePool.Return(referenceRecord);
+                engine._referencePool.Return(referenceRecord);
                 return value;
             }
 
             var thisCall = (CallExpression) _expression;
             var tailCall = IsInTailPosition(thisCall);
-            return EvaluateCall(func, reference, thisCall.Arguments, tailCall);
+            return EvaluateCall(context, func, reference, thisCall.Arguments, tailCall);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-evaluatecall
         /// </summary>
-        private object EvaluateCall(JsValue func, object reference, in NodeList<Expression> arguments, bool tailPosition)
+        private JsValue EvaluateCall(EvaluationContext context, JsValue func, object reference, in NodeList<Expression> arguments, bool tailPosition)
         {
             JsValue thisValue;
             var referenceRecord = reference as Reference;
+            var engine = context.Engine;
             if (referenceRecord is not null)
             {
                 if (referenceRecord.IsPropertyReference())
@@ -160,7 +165,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     // deviation from the spec to support null-propagation helper
                     if (baseValue.IsNullOrUndefined()
-                        && _engine._referenceResolver.TryUnresolvableReference(_engine, referenceRecord, out var value))
+                        && engine._referenceResolver.TryUnresolvableReference(engine, referenceRecord, out var value))
                     {
                         return value;
                     }
@@ -174,21 +179,21 @@ namespace Jint.Runtime.Interpreter.Expressions
                 thisValue = Undefined.Instance;
             }
 
-            var argList = ArgumentListEvaluation();
+            var argList = ArgumentListEvaluation(context);
 
-            if (!func.IsObject() && !_engine._referenceResolver.TryGetCallable(_engine, reference, out func))
+            if (!func.IsObject() && !engine._referenceResolver.TryGetCallable(engine, reference, out func))
             {
                 var message = referenceRecord == null
                     ? reference + " is not a function"
                     : $"Property '{referenceRecord.GetReferencedName()}' of object is not a function";
-                ExceptionHelper.ThrowTypeError(_engine.Realm, message);
+                ExceptionHelper.ThrowTypeError(engine.Realm, message);
             }
 
             var callable = func as ICallable;
             if (callable is null)
             {
                 var message = $"{referenceRecord?.GetReferencedName() ?? reference} is not a function";
-                ExceptionHelper.ThrowTypeError(_engine.Realm, message);
+                ExceptionHelper.ThrowTypeError(engine.Realm, message);
             }
 
             if (tailPosition)
@@ -197,14 +202,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                 // PrepareForTailCall();
             }
 
-            var result = _engine.Call(callable, thisValue, argList, _calleeExpression);
+            var result = engine.Call(callable, thisValue, argList, _calleeExpression);
 
             if (!_cached && argList.Length > 0)
             {
-                _engine._jsValueArrayPool.ReturnArray(argList);
+                engine._jsValueArrayPool.ReturnArray(argList);
             }
 
-            _engine._referencePool.Return(referenceRecord);
+            engine._referencePool.Return(referenceRecord);
             return result;
         }
 
@@ -217,7 +222,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return false;
         }
 
-        private JsValue[] ArgumentListEvaluation()
+        private JsValue[] ArgumentListEvaluation(EvaluationContext context)
         {
             var cachedArguments = _cachedArguments;
             var arguments = System.Array.Empty<JsValue>();
@@ -231,12 +236,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     if (_hasSpreads)
                     {
-                        arguments = BuildArgumentsWithSpreads(cachedArguments.JintArguments);
+                        arguments = BuildArgumentsWithSpreads(context, cachedArguments.JintArguments);
                     }
                     else
                     {
-                        arguments = _engine._jsValueArrayPool.RentArray(cachedArguments.JintArguments.Length);
-                        BuildArguments(cachedArguments.JintArguments, arguments);
+                        arguments = context.Engine._jsValueArrayPool.RentArray(cachedArguments.JintArguments.Length);
+                        BuildArguments(context, cachedArguments.JintArguments, arguments);
                     }
                 }
             }

@@ -21,7 +21,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _argument;
         private readonly UnaryOperator _operator;
 
-        private JintUnaryExpression(Engine engine, UnaryExpression expression) : base(engine, expression)
+        private JintUnaryExpression(Engine engine, UnaryExpression expression) : base(expression)
         {
             _argument = Build(engine, expression.Argument);
             _operator = expression.Operator;
@@ -36,30 +36,36 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (!(value is null))
                 {
                     // valid for caching
-                    return new JintConstantExpression(engine, expression, EvaluateMinus(value));
+                    return new JintConstantExpression(expression, EvaluateMinus(value));
                 }
             }
 
             return new JintUnaryExpression(engine, expression);
         }
 
-        public override JsValue GetValue()
+        public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
-            _engine._lastSyntaxNode = _expression;
+            context.LastSyntaxNode = _expression;
 
-            return (JsValue) EvaluateInternal();
+            return Completion.Normal(EvaluateJsValue(context), _expression.Location);
         }
 
-        protected override object EvaluateInternal()
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
+            return NormalCompletion(EvaluateJsValue(context));
+        }
+
+        private JsValue EvaluateJsValue(EvaluationContext context)
+        {
+            var engine = context.Engine;
             switch (_operator)
             {
                 case UnaryOperator.Plus:
                 {
-                    var v = _argument.GetValue();
-                    if (_engine.Options.Interop.OperatorOverloadingAllowed &&
-                        TryOperatorOverloading(_engine, v, "op_UnaryPlus", out var result))
+                    var v = _argument.GetValue(context).Value;
+                    if (context.OperatorOverloadingAllowed &&
+                        TryOperatorOverloading(context, v, "op_UnaryPlus", out var result))
                     {
                         return result;
                     }
@@ -70,9 +76,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 case UnaryOperator.Minus:
                 {
-                    var v = _argument.GetValue();
-                    if (_engine.Options.Interop.OperatorOverloadingAllowed &&
-                        TryOperatorOverloading(_engine, v, "op_UnaryNegation", out var result))
+                    var v = _argument.GetValue(context).Value;
+                    if (context.OperatorOverloadingAllowed &&
+                        TryOperatorOverloading(context, v, "op_UnaryNegation", out var result))
                     {
                         return result;
                     }
@@ -81,9 +87,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 case UnaryOperator.BitwiseNot:
                 {
-                    var v = _argument.GetValue();
-                    if (_engine.Options.Interop.OperatorOverloadingAllowed &&
-                        TryOperatorOverloading(_engine, v, "op_OnesComplement", out var result))
+                    var v = _argument.GetValue(context).Value;
+                    if (context.OperatorOverloadingAllowed &&
+                        TryOperatorOverloading(context, v, "op_OnesComplement", out var result))
                     {
                         return result;
                     }
@@ -92,9 +98,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 case UnaryOperator.LogicalNot:
                 {
-                    var v = _argument.GetValue();
-                    if (_engine.Options.Interop.OperatorOverloadingAllowed &&
-                        TryOperatorOverloading(_engine, v, "op_LogicalNot", out var result))
+                    var v = _argument.GetValue(context).Value;
+                    if (context.OperatorOverloadingAllowed &&
+                        TryOperatorOverloading(context, v, "op_LogicalNot", out var result))
                     {
                         return result;
                     }
@@ -103,7 +109,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
 
                 case UnaryOperator.Delete:
-                    var r = _argument.Evaluate() as Reference;
+                    var r = _argument.Evaluate(context).Value as Reference;
                     if (r == null)
                     {
                         return JsBoolean.True;
@@ -113,10 +119,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         if (r.IsStrictReference())
                         {
-                            ExceptionHelper.ThrowSyntaxError(_engine.Realm);
+                            ExceptionHelper.ThrowSyntaxError(engine.Realm);
                         }
 
-                        _engine._referencePool.Return(r);
+                        engine._referencePool.Return(r);
                         return JsBoolean.True;
                     }
 
@@ -124,50 +130,50 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         if (r.IsSuperReference())
                         {
-                            ExceptionHelper.ThrowReferenceError(_engine.Realm, r);
+                            ExceptionHelper.ThrowReferenceError(engine.Realm, r);
                         }
 
-                        var o = TypeConverter.ToObject(_engine.Realm, r.GetBase());
+                        var o = TypeConverter.ToObject(engine.Realm, r.GetBase());
                         var deleteStatus = o.Delete(r.GetReferencedName());
                         if (!deleteStatus && r.IsStrictReference())
                         {
-                            ExceptionHelper.ThrowTypeError(_engine.Realm);
+                            ExceptionHelper.ThrowTypeError(engine.Realm);
                         }
 
-                        _engine._referencePool.Return(r);
+                        engine._referencePool.Return(r);
                         return deleteStatus ? JsBoolean.True : JsBoolean.False;
                     }
 
                     if (r.IsStrictReference())
                     {
-                        ExceptionHelper.ThrowSyntaxError(_engine.Realm);
+                        ExceptionHelper.ThrowSyntaxError(engine.Realm);
                     }
 
                     var bindings = r.GetBase().TryCast<EnvironmentRecord>();
                     var property = r.GetReferencedName();
-                    _engine._referencePool.Return(r);
+                    engine._referencePool.Return(r);
 
                     return bindings.DeleteBinding(property.ToString()) ? JsBoolean.True : JsBoolean.False;
 
                 case UnaryOperator.Void:
-                    _argument.GetValue();
+                    _argument.GetValue(context);
                     return Undefined.Instance;
 
                 case UnaryOperator.TypeOf:
                 {
-                    var value = _argument.Evaluate();
+                    var value = _argument.Evaluate(context).Value;
                     r = value as Reference;
                     if (r != null)
                     {
                         if (r.IsUnresolvableReference())
                         {
-                            _engine._referencePool.Return(r);
+                            engine._referencePool.Return(r);
                             return JsString.UndefinedString;
                         }
                     }
 
                     // TODO: double evaluation problem
-                    var v = _argument.GetValue();
+                    var v = _argument.GetValue(context).Value;
                     if (v.IsUndefined())
                     {
                         return JsString.UndefinedString;
@@ -215,7 +221,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return JsNumber.Create(double.IsNaN(n) ? double.NaN : n * -1);
         }
 
-        internal static bool TryOperatorOverloading(Engine _engine, JsValue value, string clrName, out JsValue result)
+        internal static bool TryOperatorOverloading(EvaluationContext context, JsValue value, string clrName, out JsValue result)
         {
             var operand = value.ToObject();
 
@@ -243,7 +249,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (method != null)
                 {
-                    result = method.Call(_engine, null, arguments);
+                    result = method.Call(context.Engine, null, arguments);
                     return true;
                 }
             }

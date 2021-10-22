@@ -6,6 +6,7 @@ using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
+using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Environments
@@ -33,7 +34,7 @@ namespace Jint.Runtime.Environments
         {
             _functionObject = functionObject;
             NewTarget = newTarget;
-            if (functionObject._functionDefinition.Function is ArrowFunctionExpression)
+            if (functionObject._functionDefinition?.Function is ArrowFunctionExpression)
             {
                 _thisBindingStatus = ThisBindingStatus.Lexical;
             }
@@ -104,19 +105,20 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        internal void AddFunctionParameters(IFunction functionDeclaration, JsValue[] arguments)
+        internal void AddFunctionParameters(EvaluationContext context, IFunction functionDeclaration, JsValue[] arguments)
         {
             bool empty = _dictionary.Count == 0;
             ref readonly var parameters = ref functionDeclaration.Params;
             var count = parameters.Count;
             for (var i = 0; i < count; i++)
             {
-                SetFunctionParameter(parameters[i], arguments, i, empty);
+                SetFunctionParameter(context, parameters[i], arguments, i, empty);
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetFunctionParameter(
+            EvaluationContext context,
             Node parameter,
             JsValue[] arguments,
             int index,
@@ -129,11 +131,12 @@ namespace Jint.Runtime.Environments
             }
             else
             {
-                SetFunctionParameterUnlikely(parameter, arguments, index, initiallyEmpty);
+                SetFunctionParameterUnlikely(context, parameter, arguments, index, initiallyEmpty);
             }
         }
 
         private void SetFunctionParameterUnlikely(
+            EvaluationContext context,
             Node parameter,
             JsValue[] arguments,
             int index,
@@ -143,27 +146,27 @@ namespace Jint.Runtime.Environments
 
             if (parameter is RestElement restElement)
             {
-                HandleRestElementArray(restElement, arguments, index, initiallyEmpty);
+                HandleRestElementArray(context, restElement, arguments, index, initiallyEmpty);
             }
             else if (parameter is ArrayPattern arrayPattern)
             {
-                HandleArrayPattern(initiallyEmpty, argument, arrayPattern);
+                HandleArrayPattern(context, initiallyEmpty, argument, arrayPattern);
             }
             else if (parameter is ObjectPattern objectPattern)
             {
-                HandleObjectPattern(initiallyEmpty, argument, objectPattern);
+                HandleObjectPattern(context, initiallyEmpty, argument, objectPattern);
             }
             else if (parameter is AssignmentPattern assignmentPattern)
             {
-                HandleAssignmentPatternOrExpression(assignmentPattern.Left, assignmentPattern.Right, argument, initiallyEmpty);
+                HandleAssignmentPatternOrExpression(context, assignmentPattern.Left, assignmentPattern.Right, argument, initiallyEmpty);
             }
             else if (parameter is AssignmentExpression assignmentExpression)
             {
-                HandleAssignmentPatternOrExpression(assignmentExpression.Left, assignmentExpression.Right, argument, initiallyEmpty);
+                HandleAssignmentPatternOrExpression(context, assignmentExpression.Left, assignmentExpression.Right, argument, initiallyEmpty);
             }
         }
 
-        private void HandleObjectPattern(bool initiallyEmpty, JsValue argument, ObjectPattern objectPattern)
+        private void HandleObjectPattern(EvaluationContext context, bool initiallyEmpty, JsValue argument, ObjectPattern objectPattern)
         {
             if (argument.IsNullOrUndefined())
             {
@@ -205,8 +208,8 @@ namespace Jint.Runtime.Environments
                         }
                         else if (p.Key is CallExpression callExpression)
                         {
-                            var jintCallExpression = new JintCallExpression(_engine, callExpression);
-                            var jsValue = jintCallExpression.GetValue();
+                            var jintCallExpression = new JintCallExpression(callExpression);
+                            var jsValue = jintCallExpression.GetValue(context).Value;
                             propertyName = TypeConverter.ToJsString(jsValue);
                         }
                         else
@@ -216,7 +219,7 @@ namespace Jint.Runtime.Environments
 
                         processedProperties?.Add(propertyName.ToString());
                         jsValues[0] = argumentObject.Get(propertyName);
-                        SetFunctionParameter(p.Value, jsValues, 0, initiallyEmpty);
+                        SetFunctionParameter(context, p.Value, jsValues, 0, initiallyEmpty);
                     }
                     else
                     {
@@ -241,7 +244,7 @@ namespace Jint.Runtime.Environments
             _engine._jsValueArrayPool.ReturnArray(jsValues);
         }
 
-        private void HandleArrayPattern(bool initiallyEmpty, JsValue argument, ArrayPattern arrayPattern)
+        private void HandleArrayPattern(EvaluationContext context, bool initiallyEmpty, JsValue argument, ArrayPattern arrayPattern)
         {
             if (argument.IsNull())
             {
@@ -257,7 +260,13 @@ namespace Jint.Runtime.Environments
             else if (argument.IsObject() && argument.TryGetIterator(_functionObject._realm, out var iterator))
             {
                 array = _engine.Realm.Intrinsics.Array.ConstructFast(0);
-                var protocol = new ArrayPatternProtocol(_engine, array, iterator, arrayPattern.Elements.Count);
+                var max = arrayPattern.Elements.Count;
+                if (max > 0 && arrayPattern.Elements[max - 1]?.Type == Nodes.RestElement)
+                {
+                    // need to consume all
+                    max = int.MaxValue;
+                }
+                var protocol = new ArrayPatternProtocol(_engine, array, iterator, max);
                 protocol.Execute();
             }
 
@@ -271,13 +280,14 @@ namespace Jint.Runtime.Environments
                 }
             }
 
-            for (uint arrayIndex = 0; arrayIndex < arrayPattern.Elements.Count; arrayIndex++)
+            for (var i = 0; i < arrayPattern.Elements.Count; i++)
             {
-                SetFunctionParameter(arrayPattern.Elements[(int) arrayIndex], arrayContents, (int) arrayIndex, initiallyEmpty);
+                SetFunctionParameter(context, arrayPattern.Elements[i], arrayContents, i, initiallyEmpty);
             }
         }
 
         private void HandleRestElementArray(
+            EvaluationContext context,
             RestElement restElement,
             JsValue[] arguments,
             int index,
@@ -301,7 +311,7 @@ namespace Jint.Runtime.Environments
             }
             else if (restElement.Argument is BindingPattern bindingPattern)
             {
-                SetFunctionParameter(bindingPattern, new JsValue[]
+                SetFunctionParameter(context, bindingPattern, new JsValue[]
                 {
                     rest
                 }, index, initiallyEmpty);
@@ -313,6 +323,7 @@ namespace Jint.Runtime.Environments
         }
 
         private void HandleAssignmentPatternOrExpression(
+            EvaluationContext context,
             Node left,
             Node right,
             JsValue argument,
@@ -337,7 +348,7 @@ namespace Jint.Runtime.Environments
                 _engine.EnterExecutionContext(new ExecutionContext(paramVarEnv, paramVarEnv, null, _engine.Realm, null));
                 try
                 {
-                    argument = jintExpression.GetValue();
+                    argument = jintExpression.GetValue(context).Value;
                 }
                 finally
                 {
@@ -350,7 +361,7 @@ namespace Jint.Runtime.Environments
                 }
             }
 
-            SetFunctionParameter(left, new[]
+            SetFunctionParameter(context, left, new[]
             {
                 argument
             }, 0, initiallyEmpty);
@@ -392,7 +403,7 @@ namespace Jint.Runtime.Environments
         {
             private readonly ArrayInstance _instance;
             private readonly int _max;
-            private long _index = -1;
+            private long _index = 0;
 
             public ArrayPatternProtocol(
                 Engine engine,
@@ -414,7 +425,7 @@ namespace Jint.Runtime.Environments
 
             protected override void IterationEnd()
             {
-                if (_index >= 0)
+                if (_index > 0)
                 {
                     _instance.SetLength((uint) _index);
                     IteratorClose(CompletionType.Normal);

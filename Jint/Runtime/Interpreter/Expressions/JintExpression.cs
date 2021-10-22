@@ -1,25 +1,58 @@
 #nullable enable
 
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
+using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
+    /// <summary>
+    /// Adapter to get different types of results, including Reference which is not a JsValue.
+    /// </summary>
+    internal readonly struct ExpressionResult
+    {
+        public readonly ExpressionCompletionType Type;
+        public readonly Location Location;
+        public readonly object Value;
+
+        public ExpressionResult(ExpressionCompletionType type, object value, in Location location)
+        {
+            Type = type;
+            Value = value;
+            Location = location;
+        }
+
+        public bool IsAbrupt() => Type != ExpressionCompletionType.Normal && Type != ExpressionCompletionType.Reference;
+
+        public static implicit operator ExpressionResult(in Completion result)
+        {
+            return new ExpressionResult((ExpressionCompletionType) result.Type, result.Value!, result.Location);
+        }
+    }
+
+    internal enum ExpressionCompletionType : byte
+    {
+        Normal = 0,
+        Return = 1,
+        Throw = 2,
+        Reference
+    }
+
     internal abstract class JintExpression
     {
         // require sub-classes to set to false explicitly to skip virtual call
         protected bool _initialized = true;
 
-        protected readonly Engine _engine;
         protected internal readonly Expression _expression;
 
-        protected JintExpression(Engine engine, Expression expression)
+        protected JintExpression(Expression expression)
         {
-            _engine = engine;
             _expression = expression;
         }
 
@@ -27,32 +60,72 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// Resolves the underlying value for this expression.
         /// By default uses the Engine for resolving.
         /// </summary>
+        /// <param name="context"></param>
         /// <seealso cref="JintLiteralExpression"/>
-        public virtual JsValue GetValue()
+        public virtual Completion GetValue(EvaluationContext context)
         {
-            return _engine.GetValue(Evaluate(), true);
+            var result = Evaluate(context);
+            if (result.Type != ExpressionCompletionType.Reference)
+            {
+                return new Completion((CompletionType) result.Type, (JsValue) result.Value, result.Location);
+            }
+
+            var jsValue = context.Engine.GetValue((Reference) result.Value, true);
+            return new Completion(CompletionType.Normal, jsValue, null, _expression.Location);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public object Evaluate()
+        public ExpressionResult Evaluate(EvaluationContext context)
         {
-            _engine._lastSyntaxNode = _expression;
+            context.LastSyntaxNode = _expression;
             if (!_initialized)
             {
-                Initialize();
+                Initialize(context);
                 _initialized = true;
             }
-            return EvaluateInternal();
+            return EvaluateInternal(context);
         }
 
         /// <summary>
         /// Opportunity to build one-time structures and caching based on lexical context.
         /// </summary>
-        protected virtual void Initialize()
+        /// <param name="context"></param>
+        protected virtual void Initialize(EvaluationContext context)
         {
         }
 
-        protected abstract object EvaluateInternal();
+        protected abstract ExpressionResult EvaluateInternal(EvaluationContext context);
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-normalcompletion
+        /// </summary>
+        /// <remarks>
+        /// We use custom type that is translated to Completion later on.
+        /// </remarks>
+        [DebuggerStepThrough]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected ExpressionResult NormalCompletion(JsValue value)
+        {
+            return new ExpressionResult(ExpressionCompletionType.Normal, value, _expression.Location);
+        }
+
+        protected ExpressionResult NormalCompletion(Reference value)
+        {
+            return new ExpressionResult(ExpressionCompletionType.Reference, value, _expression.Location);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-throwcompletion
+        /// </summary>
+        /// <remarks>
+        /// We use custom type that is translated to Completion later on.
+        /// </remarks>
+        [DebuggerStepThrough]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected ExpressionResult ThrowCompletion(JsValue value)
+        {
+            return new ExpressionResult(ExpressionCompletionType.Throw, value, _expression.Location);
+        }
 
         /// <summary>
         /// If we'd get Esprima source, we would just refer to it, but this makes error messages easier to decipher.
@@ -93,37 +166,37 @@ namespace Jint.Runtime.Interpreter.Expressions
             var result = expression.Type switch
             {
                 Nodes.AssignmentExpression => JintAssignmentExpression.Build(engine, (AssignmentExpression) expression),
-                Nodes.ArrayExpression => new JintArrayExpression(engine, (ArrayExpression) expression),
-                Nodes.ArrowFunctionExpression => new JintArrowFunctionExpression(engine, (IFunction) expression),
+                Nodes.ArrayExpression => new JintArrayExpression((ArrayExpression) expression),
+                Nodes.ArrowFunctionExpression => new JintArrowFunctionExpression(engine, (ArrowFunctionExpression) expression),
                 Nodes.BinaryExpression => JintBinaryExpression.Build(engine, (BinaryExpression) expression),
-                Nodes.CallExpression => new JintCallExpression(engine, (CallExpression) expression),
+                Nodes.CallExpression => new JintCallExpression((CallExpression) expression),
                 Nodes.ConditionalExpression => new JintConditionalExpression(engine, (ConditionalExpression) expression),
-                Nodes.FunctionExpression => new JintFunctionExpression(engine, (IFunction) expression),
-                Nodes.Identifier => new JintIdentifierExpression(engine, (Identifier) expression),
-                Nodes.Literal => JintLiteralExpression.Build(engine, (Literal) expression),
+                Nodes.FunctionExpression => new JintFunctionExpression(engine, (FunctionExpression) expression),
+                Nodes.Identifier => new JintIdentifierExpression((Identifier) expression),
+                Nodes.Literal => JintLiteralExpression.Build((Literal) expression),
                 Nodes.LogicalExpression => ((BinaryExpression) expression).Operator switch
                 {
-                    BinaryOperator.LogicalAnd => new JintLogicalAndExpression(engine, (BinaryExpression) expression),
+                    BinaryOperator.LogicalAnd => new JintLogicalAndExpression((BinaryExpression) expression),
                     BinaryOperator.LogicalOr => new JintLogicalOrExpression(engine, (BinaryExpression) expression),
                     BinaryOperator.NullishCoalescing => new NullishCoalescingExpression(engine, (BinaryExpression) expression),
                     _ => null
                 },
-                Nodes.MemberExpression => new JintMemberExpression(engine, (MemberExpression) expression),
-                Nodes.NewExpression => new JintNewExpression(engine, (NewExpression) expression),
-                Nodes.ObjectExpression => new JintObjectExpression(engine, (ObjectExpression) expression),
-                Nodes.SequenceExpression => new JintSequenceExpression(engine, (SequenceExpression) expression),
-                Nodes.ThisExpression => new JintThisExpression(engine, (ThisExpression) expression),
-                Nodes.UpdateExpression => new JintUpdateExpression(engine, (UpdateExpression) expression),
+                Nodes.MemberExpression => new JintMemberExpression((MemberExpression) expression),
+                Nodes.NewExpression => new JintNewExpression((NewExpression) expression),
+                Nodes.ObjectExpression => new JintObjectExpression((ObjectExpression) expression),
+                Nodes.SequenceExpression => new JintSequenceExpression((SequenceExpression) expression),
+                Nodes.ThisExpression => new JintThisExpression((ThisExpression) expression),
+                Nodes.UpdateExpression => new JintUpdateExpression((UpdateExpression) expression),
                 Nodes.UnaryExpression => JintUnaryExpression.Build(engine, (UnaryExpression) expression),
                 Nodes.SpreadElement => new JintSpreadExpression(engine, (SpreadElement) expression),
-                Nodes.TemplateLiteral => new JintTemplateLiteralExpression(engine, (TemplateLiteral) expression),
-                Nodes.TaggedTemplateExpression => new JintTaggedTemplateExpression(engine, (TaggedTemplateExpression) expression),
-                Nodes.ClassExpression => new JintClassExpression(engine, (ClassExpression) expression),
-                Nodes.Super => new JintSuperExpression(engine, (Super) expression),
-                Nodes.MetaProperty => new JintMetaPropertyExpression(engine, (MetaProperty) expression),
+                Nodes.TemplateLiteral => new JintTemplateLiteralExpression((TemplateLiteral) expression),
+                Nodes.TaggedTemplateExpression => new JintTaggedTemplateExpression((TaggedTemplateExpression) expression),
+                Nodes.ClassExpression => new JintClassExpression((ClassExpression) expression),
+                Nodes.Super => new JintSuperExpression((Super) expression),
+                Nodes.MetaProperty => new JintMetaPropertyExpression((MetaProperty) expression),
                 Nodes.ChainExpression => ((ChainExpression) expression).Expression.Type == Nodes.CallExpression
-                    ? new JintCallExpression(engine, (CallExpression) ((ChainExpression) expression).Expression)
-                    : new JintMemberExpression(engine, (MemberExpression) ((ChainExpression) expression).Expression),
+                    ? new JintCallExpression((CallExpression) ((ChainExpression) expression).Expression)
+                    : new JintMemberExpression((MemberExpression) ((ChainExpression) expression).Expression),
                 _ =>  null
             };
 
@@ -353,15 +426,16 @@ namespace Jint.Runtime.Interpreter.Expressions
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static void BuildArguments(JintExpression[] jintExpressions, JsValue[] targetArray)
+        protected static void BuildArguments(EvaluationContext context, JintExpression[] jintExpressions, JsValue[] targetArray)
         {
             for (var i = 0; i < jintExpressions.Length; i++)
             {
-                targetArray[i] = jintExpressions[i].GetValue().Clone();
+                var completion = jintExpressions[i].GetValue(context);
+                targetArray[i] = completion.Value!.Clone();
             }
         }
 
-        protected JsValue[] BuildArgumentsWithSpreads(JintExpression[] jintExpressions)
+        protected JsValue[] BuildArgumentsWithSpreads(EvaluationContext context, JintExpression[] jintExpressions)
         {
             var args = new System.Collections.Generic.List<JsValue>(jintExpressions.Length);
             for (var i = 0; i < jintExpressions.Length; i++)
@@ -369,7 +443,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var jintExpression = jintExpressions[i];
                 if (jintExpression is JintSpreadExpression jse)
                 {
-                    jse.GetValueAndCheckIterator(out var objectInstance, out var iterator);
+                    jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
                     // optimize for array unless someone has touched the iterator
                     if (objectInstance is ArrayInstance ai && ai.HasOriginalIterator)
                     {
@@ -384,13 +458,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else
                     {
-                        var protocol = new ArraySpreadProtocol(_engine, args, iterator);
+                        var protocol = new ArraySpreadProtocol(context.Engine, args, iterator);
                         protocol.Execute();
                     }
                 }
                 else
                 {
-                    args.Add(jintExpression.GetValue().Clone());
+                    var completion = jintExpression.GetValue(context);
+                    args.Add(completion.Value!.Clone());
                 }
             }
 

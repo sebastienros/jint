@@ -149,10 +149,10 @@ namespace Jint.Runtime.Environments
             var desc = _bindingObject.GetProperty(name);
             if (strict && desc == PropertyDescriptor.Undefined)
             {
-                ExceptionHelper.ThrowReferenceError(_engine.Realm, name.ToString());
+                ExceptionHelper.ThrowReferenceError(_engine.Realm, name);
             }
 
-            return ObjectInstance.UnwrapJsValue(desc, this);
+            return ObjectInstance.UnwrapJsValue(desc, _bindingObject);
         }
 
         public override bool DeleteBinding(string name)

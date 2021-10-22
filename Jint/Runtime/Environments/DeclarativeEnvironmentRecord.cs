@@ -10,7 +10,7 @@ namespace Jint.Runtime.Environments
     /// </summary>
     internal class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
-        internal readonly HybridDictionary<Binding> _dictionary = new HybridDictionary<Binding>();
+        internal readonly HybridDictionary<Binding> _dictionary = new();
         internal bool _hasBindings;
         internal readonly bool _catchEnvironment;
 
@@ -32,7 +32,7 @@ namespace Jint.Runtime.Environments
         {
             binding = default;
             var success = _dictionary.TryGetValue(name.Key, out binding);
-            value = success && binding.IsInitialized() ? UnwrapBindingValue(strict, binding) : default;
+            value = success && binding.IsInitialized() ? binding.Value : default;
             return success;
         }
 
@@ -113,28 +113,19 @@ namespace Jint.Runtime.Environments
         public sealed override JsValue GetBindingValue(string name, bool strict)
         {
             _dictionary.TryGetValue(name, out var binding);
-            return UnwrapBindingValue(strict, binding);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private JsValue UnwrapBindingValue(bool strict, in Binding binding)
-        {
-            if (!binding.Mutable && !binding.IsInitialized())
+            if (binding.IsInitialized())
             {
-                if (strict)
-                {
-                    ThrowUninitializedBindingException();
-                }
-
-                return Undefined;
+                return binding.Value;
             }
 
-            return binding.Value;
+            ThrowUninitializedBindingError(name);
+            return null;
         }
 
-        private void ThrowUninitializedBindingException()
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void ThrowUninitializedBindingError(string name)
         {
-            throw new JavaScriptException(_engine.Realm.Intrinsics.ReferenceError, "Can't access an uninitialized immutable binding.");
+            throw new JavaScriptException(_engine.Realm.Intrinsics.ReferenceError, $"Cannot access '{name}' before initialization");
         }
 
         public sealed override bool DeleteBinding(string name)

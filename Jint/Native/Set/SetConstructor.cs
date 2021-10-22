@@ -83,7 +83,7 @@ namespace Jint.Native.Set
                             return set;
                         }
 
-                        next.TryGetValue(CommonProperties.Value, out var nextValue);
+                        var nextValue = next.Get(CommonProperties.Value);
                         args[0] = nextValue;
                         adder.Call(set, args);
                     } while (true);

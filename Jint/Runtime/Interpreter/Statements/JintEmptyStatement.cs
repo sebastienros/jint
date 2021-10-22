@@ -4,11 +4,11 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintEmptyStatement : JintStatement<EmptyStatement>
     {
-        public JintEmptyStatement(Engine engine, EmptyStatement statement) : base(engine, statement)
+        public JintEmptyStatement(EmptyStatement statement) : base(statement)
         {
         }
 
-        protected override Completion ExecuteInternal()
+        protected override Completion ExecuteInternal(EvaluationContext context)
         {
             return new Completion(CompletionType.Normal, null, null, Location);
         }

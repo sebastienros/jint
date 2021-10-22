@@ -10,24 +10,19 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly JsValue _value;
 
-        public JintConstantExpression(Engine engine, Expression expression, JsValue value) : base(engine, expression)
+        public JintConstantExpression(Expression expression, JsValue value) : base(expression)
         {
             _value = value;
         }
 
-        /// <summary>
-        /// Resolves the underlying value for this expression.
-        /// By default uses the Engine for resolving.
-        /// </summary>
-        /// <seealso cref="JintLiteralExpression"/>
-        public override JsValue GetValue()
+        public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
-            _engine._lastSyntaxNode = _expression;
+            context.LastSyntaxNode = _expression;
 
-            return _value;
+            return Completion.Normal(_value, _expression.Location);
         }
 
-        protected override object EvaluateInternal() => _value;
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context) => NormalCompletion(_value);
     }
 }

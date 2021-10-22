@@ -6,7 +6,7 @@ using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Runtime.Interpreter
 {
-    internal class JintStatementList
+    internal sealed class JintStatementList
     {
         private class Pair
         {
@@ -14,21 +14,29 @@ namespace Jint.Runtime.Interpreter
             internal Completion? Value;
         }
 
-        private readonly Engine _engine;
         private readonly Statement _statement;
         private readonly NodeList<Statement> _statements;
 
         private Pair[] _jintStatements;
         private bool _initialized;
 
-        public JintStatementList(Engine engine, Statement statement, NodeList<Statement> statements)
+        public JintStatementList(BlockStatement blockStatement)
+            : this(blockStatement, blockStatement.Body)
         {
-            _engine = engine;
+        }
+
+        public JintStatementList(Program program)
+            : this(null, program.Body)
+        {
+        }
+
+        public JintStatementList(Statement statement, in NodeList<Statement> statements)
+        {
             _statement = statement;
             _statements = statements;
         }
 
-        private void Initialize()
+        private void Initialize(EvaluationContext context)
         {
             var jintStatements = new Pair[_statements.Count];
             for (var i = 0; i < jintStatements.Length; i++)
@@ -36,30 +44,31 @@ namespace Jint.Runtime.Interpreter
                 var esprimaStatement = _statements[i];
                 jintStatements[i] = new Pair
                 {
-                    Statement = JintStatement.Build(_engine, esprimaStatement),
+                    Statement = JintStatement.Build(esprimaStatement),
                     // When in debug mode, don't do FastResolve: Stepping requires each statement to be actually executed.
-                    Value = _engine._isDebugMode ? null : JintStatement.FastResolve(esprimaStatement)
+                    Value = context.DebugMode ? null : JintStatement.FastResolve(esprimaStatement)
                 };
             }
             _jintStatements = jintStatements;
         }
 
-        public Completion Execute()
+        public Completion Execute(EvaluationContext context)
         {
             if (!_initialized)
             {
-                Initialize();
+                Initialize(context);
                 _initialized = true;
             }
 
+            var engine = context.Engine;
             if (_statement != null)
             {
-                _engine._lastSyntaxNode = _statement;
-                _engine.RunBeforeExecuteStatementChecks(_statement);
+                context.LastSyntaxNode = _statement;
+                engine.RunBeforeExecuteStatementChecks(_statement);
             }
 
             JintStatement s = null;
-            var c = new Completion(CompletionType.Normal, null, null, _engine._lastSyntaxNode?.Location ?? default);
+            var c = new Completion(CompletionType.Normal, null, null, context.LastSyntaxNode?.Location ?? default);
             Completion sl = c;
 
             // The value of a StatementList is the value of the last value-producing item in the StatementList
@@ -69,14 +78,14 @@ namespace Jint.Runtime.Interpreter
                 foreach (var pair in _jintStatements)
                 {
                     s = pair.Statement;
-                    c = pair.Value ?? s.Execute();
+                    c = pair.Value ?? s.Execute(context);
 
                     if (c.Type != CompletionType.Normal)
                     {
                         return new Completion(
                             c.Type,
                             c.Value ?? sl.Value,
-                            c.Identifier,
+                            c.Target,
                             c.Location);
                     }
                     sl = c;
@@ -91,7 +100,7 @@ namespace Jint.Runtime.Interpreter
             }
             catch (TypeErrorException e)
             {
-                var error = _engine.Realm.Intrinsics.TypeError.Construct(new JsValue[]
+                var error = engine.Realm.Intrinsics.TypeError.Construct(new JsValue[]
                 {
                     e.Message
                 });
@@ -99,13 +108,13 @@ namespace Jint.Runtime.Interpreter
             }
             catch (RangeErrorException e)
             {
-                var error = _engine.Realm.Intrinsics.RangeError.Construct(new JsValue[]
+                var error = engine.Realm.Intrinsics.RangeError.Construct(new JsValue[]
                 {
                     e.Message
                 });
                 c = new Completion(CompletionType.Throw, error, null, s.Location);
             }
-            return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Identifier, c.Location);
+            return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Target, c.Location);
         }
 
         /// <summary>

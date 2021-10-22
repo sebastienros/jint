@@ -5,21 +5,21 @@ using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal class JintLiteralExpression : JintExpression
+    internal sealed class JintLiteralExpression : JintExpression
     {
-        private JintLiteralExpression(Engine engine, Literal expression) : base(engine, expression)
+        private JintLiteralExpression(Literal expression) : base(expression)
         {
         }
 
-        internal static JintExpression Build(Engine engine, Literal expression)
+        internal static JintExpression Build(Literal expression)
         {
             var constantValue = ConvertToJsValue(expression);
-            if (!(constantValue is null))
+            if (constantValue is not null)
             {
-                return new JintConstantExpression(engine, expression, constantValue);
+                return new JintConstantExpression(expression, constantValue);
             }
-            
-            return new JintLiteralExpression(engine, expression);
+
+            return new JintLiteralExpression(expression);
         }
 
         internal static JsValue ConvertToJsValue(Literal literal)
@@ -51,25 +51,25 @@ namespace Jint.Runtime.Interpreter.Expressions
             return null;
         }
 
-        public override JsValue GetValue()
+        public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
-            _engine._lastSyntaxNode = _expression;
-            
-            return ResolveValue();
+            context.LastSyntaxNode = _expression;
+
+            return Completion.Normal(ResolveValue(context), _expression.Location);
         }
 
-        protected override object EvaluateInternal() => ResolveValue();
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context) => NormalCompletion(ResolveValue(context));
 
-        private JsValue ResolveValue()
+        private JsValue ResolveValue(EvaluationContext context)
         {
             var expression = (Literal) _expression;
             if (expression.TokenType == TokenType.RegularExpression)
             {
-                return _engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex) expression.Value, expression.Regex.Flags);
+                return context.Engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex) expression.Value, expression.Regex.Flags);
             }
 
-            return JsValue.FromObject(_engine, expression.Value);
+            return JsValue.FromObject(context.Engine, expression.Value);
         }
     }
 }

@@ -55,7 +55,7 @@ namespace Jint.Runtime.Interop
                 ReferenceType,
                 t => MethodDescriptor.Build(t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)));
 
-            foreach (var tuple in TypeConverter.FindBestMatch(_engine, constructors, _ => arguments))
+            foreach (var tuple in TypeConverter.FindBestMatch(constructors, _ => arguments))
             {
                 var method = tuple.Item1;
                 var retVal = method.Call(Engine, null, arguments);

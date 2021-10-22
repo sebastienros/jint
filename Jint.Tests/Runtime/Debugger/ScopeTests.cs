@@ -194,14 +194,13 @@ namespace Jint.Tests.Runtime.Debugger
             string script = @"
             'dummy statement';
             {
-                debugger; // const is initialized (as undefined) at beginning of block
                 const blockConst = 'block';
+                debugger; // const isn't initialized until declaration
             }";
 
             TestHelpers.TestAtBreak(script, info =>
             {
-                var value = AssertOnlyScopeContains(info.CurrentScopeChain, "blockConst", DebugScopeType.Block);
-                Assert.Equal(JsUndefined.Undefined, value);
+                AssertOnlyScopeContains(info.CurrentScopeChain, "blockConst", DebugScopeType.Block);
             });
         }
 

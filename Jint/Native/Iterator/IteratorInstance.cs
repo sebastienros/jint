@@ -51,12 +51,12 @@ namespace Jint.Native.Iterator
         {
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-createiterresultobject
+        /// </summary>
         private ObjectInstance CreateIterResultObject(JsValue value, bool done)
         {
-            var obj = _engine.Realm.Intrinsics.Object.Construct(2);
-            obj.SetDataProperty("value", value);
-            obj.SetDataProperty("done", done);
-            return obj;
+            return new IteratorResult(_engine, value, done ? JsBoolean.True :  JsBoolean.False);
         }
 
         internal sealed class KeyValueIteratorPosition : ObjectInstance
@@ -187,7 +187,7 @@ namespace Jint.Native.Iterator
                 }
                 if (completion != CompletionType.Throw && !innerResult.IsObject())
                 {
-                    ExceptionHelper.ThrowTypeError(_target.Engine.Realm);
+                    ExceptionHelper.ThrowTypeError(_target.Engine.Realm, "Iterator returned non-object");
                 }
             }
         }

@@ -10,7 +10,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         internal readonly EnvironmentRecord.BindingName _expressionName;
         private readonly JsValue _calculatedValue;
 
-        public JintIdentifierExpression(Engine engine, Identifier expression) : base(engine, expression)
+        public JintIdentifierExpression(Identifier expression) : base(expression)
         {
             _expressionName = new EnvironmentRecord.BindingName(expression.Name);
             if (expression.Name == "undefined")
@@ -22,48 +22,49 @@ namespace Jint.Runtime.Interpreter.Expressions
         public bool HasEvalOrArguments
             => _expressionName.Key == KnownKeys.Eval || _expressionName.Key == KnownKeys.Arguments;
 
-        protected override object EvaluateInternal()
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
-            var env = _engine.ExecutionContext.LexicalEnvironment;
+            var engine = context.Engine;
+            var env = engine.ExecutionContext.LexicalEnvironment;
             var strict = StrictModeScope.IsStrictModeCode;
-            var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(_engine, env, _expressionName, strict, out var temp, out _)
+            var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(engine, env, _expressionName, strict, out var temp, out _)
                 ? temp
                 : JsValue.Undefined;
 
-            return _engine._referencePool.Rent(identifierEnvironment, _expressionName.StringValue, strict, thisValue: null);
+            return NormalCompletion(engine._referencePool.Rent(identifierEnvironment, _expressionName.StringValue, strict, thisValue: null));
         }
 
-        public override JsValue GetValue()
+        public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
-            _engine._lastSyntaxNode = _expression;
+            context.LastSyntaxNode = _expression;
 
             if (_calculatedValue is not null)
             {
-                return _calculatedValue;
+                return Completion.Normal(_calculatedValue, _expression.Location);
             }
 
             var strict = StrictModeScope.IsStrictModeCode;
-            var env = _engine.ExecutionContext.LexicalEnvironment;
+            var engine = context.Engine;
+            var env = engine.ExecutionContext.LexicalEnvironment;
 
-            JsValue value;
             if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
-                _engine,
+                engine,
                 env,
                 _expressionName,
                 strict,
                 out _,
-                out value))
+                out var value))
             {
                 if (value is null)
                 {
-                    ExceptionHelper.ThrowReferenceError(_engine.Realm, _expressionName.Key.Name + " has not been initialized");
+                    ExceptionHelper.ThrowReferenceError(engine.Realm, _expressionName.Key.Name + " has not been initialized");
                 }
             }
             else
             {
-                var reference = _engine._referencePool.Rent(JsValue.Undefined, _expressionName.StringValue, strict, thisValue: null);
-                value = _engine.GetValue(reference, true);
+                var reference = engine._referencePool.Rent(JsValue.Undefined, _expressionName.StringValue, strict, thisValue: null);
+                value = engine.GetValue(reference, true);
             }
 
             // make sure arguments access freezes state
@@ -72,7 +73,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 argumentsInstance.Materialize();
             }
 
-            return value;
+            return Completion.Normal(value, _expression.Location);
         }
     }
 }
