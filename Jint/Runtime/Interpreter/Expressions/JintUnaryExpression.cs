@@ -161,19 +161,24 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 case UnaryOperator.TypeOf:
                 {
-                    var value = _argument.Evaluate(context).Value;
-                    r = value as Reference;
-                    if (r != null)
+                    var result = _argument.Evaluate(context);
+                    JsValue v;
+
+                    if (result.Value is Reference rf)
                     {
-                        if (r.IsUnresolvableReference())
+                        if (rf.IsUnresolvableReference())
                         {
-                            engine._referencePool.Return(r);
+                            engine._referencePool.Return(rf);
                             return JsString.UndefinedString;
                         }
+
+                        v = engine.GetValue(rf, true);
+                    }
+                    else
+                    { 
+                        v = (JsValue) result.Value;
                     }
 
-                    // TODO: double evaluation problem
-                    var v = _argument.GetValue(context).Value;
                     if (v.IsUndefined())
                     {
                         return JsString.UndefinedString;
