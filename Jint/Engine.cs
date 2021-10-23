@@ -266,62 +266,45 @@ namespace Jint
 
         public Engine Execute(Script script)
         {
-            var ownsContext = _activeEvaluationContext is null;
-            _activeEvaluationContext ??= new EvaluationContext(this);
-
-            ResetConstraints();
-
-            using (new StrictModeScope(_isStrict || script.Strict))
+            Engine DoInvoke()
             {
-                GlobalDeclarationInstantiation(
-                    script,
-                    Realm.GlobalEnv);
-
-                var list = new JintStatementList(null, script.Body);
-
-                Completion result;
-                try
+                using (new StrictModeScope(_isStrict || script.Strict))
                 {
-                    result = list.Execute(_activeEvaluationContext);
-                }
-                catch
-                {
-                    // unhandled exception
-                    ResetCallStack();
+                    GlobalDeclarationInstantiation(
+                        script,
+                        Realm.GlobalEnv);
 
-                    if (ownsContext)
+                    var list = new JintStatementList(null, script.Body);
+
+                    Completion result;
+                    try
                     {
-                        _activeEvaluationContext = null;
+                        result = list.Execute(_activeEvaluationContext);
+                    }
+                    catch
+                    {
+                        // unhandled exception
+                        ResetCallStack();
+                        throw;
                     }
 
-                    throw;
-                }
-
-                if (result.Type == CompletionType.Throw)
-                {
-                    var ex = new JavaScriptException(result.GetValueOrDefault())
-                        .SetCallstack(this, result.Location);
-                    ResetCallStack();
-
-                    if (ownsContext)
+                    if (result.Type == CompletionType.Throw)
                     {
-                        _activeEvaluationContext = null;
+                        var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
+                        ResetCallStack();
+                        throw ex;
                     }
 
-                    throw ex;
+                    // TODO what about callstack and thrown exceptions?
+                    RunAvailableContinuations(_eventLoop);
+
+                    _completionValue = result.GetValueOrDefault();
+
+                    return this;
                 }
-
-                // TODO what about callstack and thrown exceptions?
-                RunAvailableContinuations(_eventLoop);
-
-                _completionValue = result.GetValueOrDefault();
-
-                if (ownsContext)
-                {
-                    _activeEvaluationContext = null;
-                }
-
             }
+
+            ExecuteWithConstraints(DoInvoke);
 
             return this;
         }
@@ -634,10 +617,7 @@ namespace Jint
                 ExceptionHelper.ThrowTypeError(Realm, "Can only invoke functions");
             }
 
-            var ownsContext = _activeEvaluationContext is null;
-            _activeEvaluationContext ??= new EvaluationContext(this);
-
-            try
+            JsValue DoInvoke()
             {
                 var items = _jsValueArrayPool.RentArray(arguments.Length);
                 for (var i = 0; i < arguments.Length; ++i)
@@ -649,12 +629,28 @@ namespace Jint
                 _jsValueArrayPool.ReturnArray(items);
                 return result;
             }
+
+            return ExecuteWithConstraints(DoInvoke);
+        }
+
+        private T ExecuteWithConstraints<T>(Func<T> callback)
+        {
+            ResetConstraints();
+
+            var ownsContext = _activeEvaluationContext is null;
+            _activeEvaluationContext ??= new EvaluationContext(this);
+
+            try
+            {
+                return callback();
+            }
             finally
             {
                 if (ownsContext)
                 {
                     _activeEvaluationContext = null;
                 }
+                ResetConstraints();
             }
         }
 

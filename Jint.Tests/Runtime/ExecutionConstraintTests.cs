@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
+using Jint.Native.Function;
 using Jint.Runtime;
 using Xunit;
 
@@ -278,6 +281,42 @@ myarr[0](0);
         {
             var engine = new Engine(o => o.MaxStatements(1_000).MaxArraySize(1_000_000));
             Assert.Throws<MemoryLimitExceededException>(() => engine.Evaluate("new Array(2147483647).join('*')"));
+        }
+
+        [Fact]
+        public void ShouldConsiderConstraintsWhenCallingInvoke()
+        {
+            var engine = new Engine(options =>
+            {
+                options.TimeoutInterval(TimeSpan.FromMilliseconds(100));
+            });
+            var myApi = new MyApi();
+
+            engine.SetValue("myApi", myApi);
+            engine.Execute("myApi.addEventListener('DataReceived', (data) => { myApi.log(data) })");
+
+            var dataReceivedCallbacks = myApi.Callbacks.Where(kvp => kvp.Key == "DataReceived");
+            foreach (var callback in dataReceivedCallbacks)
+            {
+                engine.Invoke(callback.Value, "Data Received #1");
+                Thread.Sleep(101);
+                engine.Invoke(callback.Value, "Data Received #2");
+            }
+        }
+
+        private class MyApi
+        {
+            public readonly Dictionary<string, ScriptFunctionInstance> Callbacks = new Dictionary<string, ScriptFunctionInstance>();
+
+            public void AddEventListener(string eventName, ScriptFunctionInstance callback)
+            {
+                Callbacks.Add(eventName, callback);
+            }
+
+            public void Log(string logMessage)
+            {
+                Console.WriteLine(logMessage);
+            }
         }
     }
 }
