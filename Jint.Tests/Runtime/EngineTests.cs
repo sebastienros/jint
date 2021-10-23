@@ -2761,6 +2761,21 @@ x.test = {
             Assert.Equal("White", result.white);
         }
 
+        [Fact]
+        public void TypeofShouldEvaluateOnce()
+        {
+            var engine = new Engine();
+            var result = engine.Evaluate(@"
+                let res = 0;
+                const fn = () => res++;
+                typeof fn();
+                res;
+                ")
+                .AsNumber();
+
+            Assert.Equal(1, result);
+        }
+
         private class Wrapper
         {
             public Testificate Test { get; set; }
