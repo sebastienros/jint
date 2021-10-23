@@ -44,6 +44,7 @@ namespace Jint.Native.Array
                 _prototype = null
             };
 
+            unscopables.SetDataProperty("at", JsBoolean.True);
             unscopables.SetDataProperty("copyWithin", JsBoolean.True);
             unscopables.SetDataProperty("entries", JsBoolean.True);
             unscopables.SetDataProperty("fill", JsBoolean.True);
@@ -90,6 +91,7 @@ namespace Jint.Native.Array
                 ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
                 ["flat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flat", Flat, 0, PropertyFlag.Configurable), propertyFlags),
                 ["flatMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flatMap", FlatMap, 1, PropertyFlag.Configurable), propertyFlags),
+                ["at"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "at", At, 1, PropertyFlag.Configurable), propertyFlags),
             };
             SetProperties(properties);
 
@@ -746,6 +748,33 @@ namespace Jint.Native.Array
                 return index;
             }
             return -1;
+        }
+
+        /// <summary>
+        /// https://tc39.es/proposal-relative-indexing-method/#sec-array-prototype-additions
+        /// </summary>
+        private JsValue At(JsValue thisObj, JsValue[] arguments)
+        {
+            var target = TypeConverter.ToObject(_realm, thisObj);
+            var len = target.Length;
+            var relativeIndex = TypeConverter.ToInteger(arguments.At(0));
+
+            ulong actualIndex;
+            if (relativeIndex < 0)
+            {
+                actualIndex = (ulong) (len + relativeIndex);
+            }
+            else
+            {
+                actualIndex = (ulong) relativeIndex;
+            }
+
+            if (actualIndex < 0 || actualIndex >= len)
+            {
+                return Undefined;
+            }
+
+            return target.Get(actualIndex);
         }
 
         private JsValue Splice(JsValue thisObj, JsValue[] arguments)

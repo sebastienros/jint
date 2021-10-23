@@ -71,7 +71,8 @@ namespace Jint.Native.TypedArray
                 ["subarray"] = new(new ClrFunctionInstance(Engine, "subarray", Subarray, 2, PropertyFlag.Configurable), propertyFlags),
                 ["toLocaleString"] = new(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), propertyFlags),
                 ["toString"] = new(new ClrFunctionInstance(Engine, "toLocaleString", _realm.Intrinsics.Array.PrototypeObject.ToString, 0, PropertyFlag.Configurable), propertyFlags),
-                ["values"] = new(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags)
+                ["values"] = new(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
+                ["at"] = new(new ClrFunctionInstance(Engine, "at", At, 1, PropertyFlag.Configurable), propertyFlags),
             };
             SetProperties(properties);
 
@@ -977,6 +978,36 @@ namespace Jint.Native.TypedArray
                 k++;
                 targetByteIndex += targetElementSize;
             }
+        }
+
+        /// <summary>
+        /// https://tc39.es/proposal-relative-indexing-method/#sec-%typedarray.prototype%-additions
+        /// </summary>
+        private JsValue At(JsValue thisObj, JsValue[] arguments)
+        {
+            var start = arguments.At(0);
+
+            var o = thisObj.ValidateTypedArray(_realm);
+            long len = o.Length;
+
+            var relativeStart = TypeConverter.ToInteger(start);
+            int k;
+
+            if (relativeStart < 0)
+            {
+                k = (int) (len + relativeStart);
+            }
+            else
+            {
+                k = (int) relativeStart;
+            }
+
+            if(k < 0 || k >= len)
+            {
+                return Undefined;
+            }
+
+            return o.Get(k);
         }
 
         /// <summary>
