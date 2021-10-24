@@ -2865,5 +2865,13 @@ namespace Jint.Tests.Runtime
             Assert.Equal((int) CustomNamedEnum.HeadersReceived, engine.Evaluate("o.jsEnumProperty").AsNumber());
         }
 
+        [Fact]
+        public void ShouldBeAbleToHandleInvalidClrConversionViaCatchClrExceptions()
+        {
+            var engine = new Engine(cfg => cfg.CatchClrExceptions());
+            engine.SetValue("a", new Person());
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("a.age = \"It won't work, but it's normal\""));
+            Assert.Equal("Input string was not in a correct format.", ex.Message);
+        }
     }
 }

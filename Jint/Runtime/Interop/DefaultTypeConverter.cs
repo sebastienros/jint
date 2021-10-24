@@ -232,7 +232,20 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            return System.Convert.ChangeType(value, type, formatProvider);
+            try
+            {
+                return System.Convert.ChangeType(value, type, formatProvider);
+            }
+            catch (Exception e)
+            {
+                if (!_engine.Options.Interop.ExceptionHandler(e))
+                {
+                    throw;
+                }
+
+                ExceptionHelper.ThrowError(_engine, e.Message);
+                return null;
+            }
         }
 
         public virtual bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)

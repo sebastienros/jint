@@ -146,7 +146,7 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        private static void ThrowError(Engine engine, string message)
+        internal static void ThrowError(Engine engine, string message)
         {
             throw new JavaScriptException(engine.Realm.Intrinsics.Error, message);
         }
