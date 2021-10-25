@@ -10,7 +10,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _right;
         private readonly JsValue _constant;
 
-        public NullishCoalescingExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
+        public NullishCoalescingExpression(Engine engine, BinaryExpression expression) : base(expression)
         {
             _left = Build(engine, expression.Left);
 
@@ -25,26 +25,26 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        public override JsValue GetValue()
+        public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
-            _engine._lastSyntaxNode = _expression;
-            return EvaluateConstantOrExpression();
+            context.LastSyntaxNode = _expression;
+            return Completion.Normal(EvaluateConstantOrExpression(context), _expression.Location);
         }
 
-        protected override object EvaluateInternal()
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
-            return EvaluateConstantOrExpression();
+            return NormalCompletion(EvaluateConstantOrExpression(context));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private JsValue EvaluateConstantOrExpression()
+        private JsValue EvaluateConstantOrExpression(EvaluationContext context)
         {
-            var left = _left.GetValue();
+            var left = _left.GetValue(context).Value;
 
             return !left.IsNullOrUndefined()
                 ? left
-                : _constant ?? _right.GetValue();
+                : _constant ?? _right.GetValue(context).Value;
         }
     }
 }

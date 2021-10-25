@@ -295,10 +295,6 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "resizable-arraybuffer not implemented";
                                 break;
-                            case "TypedArray.prototype.at":
-                                skip = true;
-                                reason = "TypedArray.prototype.at not implemented";
-                                break;
                         }
                     }
                 }

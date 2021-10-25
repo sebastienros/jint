@@ -10,15 +10,17 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JintExpression[] _jintArguments = Array.Empty<JintExpression>();
         private bool _hasSpreads;
 
-        public JintNewExpression(Engine engine, NewExpression expression) : base(engine, expression)
+        public JintNewExpression(NewExpression expression) : base(expression)
         {
             _initialized = false;
         }
 
-        protected override void Initialize()
+        protected override void Initialize(EvaluationContext context)
         {
+            var engine = context.Engine;
+
             var expression = (NewExpression) _expression;
-            _calleeExpression = Build(_engine, expression.Callee);
+            _calleeExpression = Build(engine, expression.Callee);
 
             if (expression.Arguments.Count <= 0)
             {
@@ -29,15 +31,17 @@ namespace Jint.Runtime.Interpreter.Expressions
             for (var i = 0; i < _jintArguments.Length; i++)
             {
                 var argument = expression.Arguments[i];
-                _jintArguments[i] = Build(_engine, argument);
+                _jintArguments[i] = Build(engine, argument);
                 _hasSpreads |= argument.Type == Nodes.SpreadElement;
             }
         }
 
-        protected override object EvaluateInternal()
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
+            var engine = context.Engine;
+
             // todo: optimize by defining a common abstract class or interface
-            var jsValue = _calleeExpression.GetValue();
+            var jsValue = _calleeExpression.GetValue(context).Value;
 
             JsValue[] arguments;
             if (_jintArguments.Length == 0)
@@ -46,25 +50,25 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else if (_hasSpreads)
             {
-                arguments = BuildArgumentsWithSpreads(_jintArguments);
+                arguments = BuildArgumentsWithSpreads(context, _jintArguments);
             }
             else
             {
-                arguments = _engine._jsValueArrayPool.RentArray(_jintArguments.Length);
-                BuildArguments(_jintArguments, arguments);
+                arguments = engine._jsValueArrayPool.RentArray(_jintArguments.Length);
+                BuildArguments(context, _jintArguments, arguments);
             }
 
             if (!jsValue.IsConstructor)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm,  _calleeExpression.SourceText + " is not a constructor");
+                ExceptionHelper.ThrowTypeError(engine.Realm,  _calleeExpression.SourceText + " is not a constructor");
             }
 
             // construct the new instance using the Function's constructor method
-            var instance = _engine.Construct((IConstructor) jsValue, arguments, jsValue, _calleeExpression);
+            var instance = engine.Construct((IConstructor) jsValue, arguments, jsValue, _calleeExpression);
 
-            _engine._jsValueArrayPool.ReturnArray(arguments);
+            engine._jsValueArrayPool.ReturnArray(arguments);
 
-            return instance;
+            return NormalCompletion(instance);
         }
     }
 }

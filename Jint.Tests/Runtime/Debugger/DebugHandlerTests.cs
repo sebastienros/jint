@@ -2,6 +2,8 @@
 using Jint.Runtime.Debugger;
 using Xunit;
 
+#pragma warning disable 618
+
 namespace Jint.Tests.Runtime.Debugger
 {
     public class DebugHandlerTests
@@ -33,7 +35,7 @@ namespace Jint.Tests.Runtime.Debugger
                     var obj = info.CurrentScopeChain.Global.GetBindingValue("obj") as ObjectInstance;
                     var prop = obj.GetOwnProperty("name");
                     // This is where reentrance would occur:
-                    var value = prop.Get.Invoke();
+                    var value = prop.Get.Invoke(engine);
                     didPropertyAccess = true;
                 }
                 return StepMode.Into;

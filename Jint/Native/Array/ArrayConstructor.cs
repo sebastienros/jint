@@ -281,7 +281,7 @@ namespace Jint.Native.Array
                 newTarget = this;
             }
 
-            var proto = GetPrototypeFromConstructor(
+            var proto = _realm.Intrinsics.Function.GetPrototypeFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Array.PrototypeObject);
 

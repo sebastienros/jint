@@ -40,6 +40,8 @@ namespace Jint.Native.Object
         {
             _engine = engine;
             _class = objectClass;
+            // if engine is ready, we can take default prototype for object
+            _prototype = engine.Realm.Intrinsics?.Object?.PrototypeObject;
             Extensible = true;
         }
 
@@ -329,8 +331,7 @@ namespace Jint.Native.Object
                 : desc._value;
 
             // IsDataDescriptor inlined
-            if ((desc._flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0
-                || !ReferenceEquals(value, null))
+            if ((desc._flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0 || value is not null)
             {
                 return value ?? Undefined;
             }

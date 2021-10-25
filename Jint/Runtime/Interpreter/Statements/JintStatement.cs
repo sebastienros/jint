@@ -1,6 +1,8 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter.Statements
@@ -9,7 +11,7 @@ namespace Jint.Runtime.Interpreter.Statements
     {
         internal readonly T _statement;
 
-        protected JintStatement(Engine engine, T statement) : base(engine, statement)
+        protected JintStatement(T statement) : base(statement)
         {
             _statement = statement;
         }
@@ -17,48 +19,52 @@ namespace Jint.Runtime.Interpreter.Statements
 
     internal abstract class JintStatement
     {
-        protected readonly Engine _engine;
         private readonly Statement _statement;
+        private bool _initialized;
 
-        // require sub-classes to set to false explicitly to skip virtual call
-        protected bool _initialized = true;
-
-        protected JintStatement(Engine engine, Statement statement)
+        protected JintStatement(Statement statement)
         {
-            _engine = engine;
             _statement = statement;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Completion Execute()
+        public Completion Execute(EvaluationContext context)
         {
             if (_statement.Type != Nodes.BlockStatement)
             {
-                _engine._lastSyntaxNode = _statement;
-                _engine.RunBeforeExecuteStatementChecks(_statement);
+                context.LastSyntaxNode = _statement;
+                context.Engine.RunBeforeExecuteStatementChecks(_statement);
             }
 
             if (!_initialized)
             {
-                Initialize();
+                Initialize(context);
                 _initialized = true;
             }
 
-            return ExecuteInternal();
+            if (context.ResumedCompletion.IsAbrupt() && !SupportsResume)
+            {
+                return NormalCompletion(JsValue.Undefined);
+            }
+
+            return ExecuteInternal(context);
         }
 
-        protected abstract Completion ExecuteInternal();
+        protected virtual bool SupportsResume => false;
+
+        protected abstract Completion ExecuteInternal(EvaluationContext context);
 
         public Location Location => _statement.Location;
 
         /// <summary>
         /// Opportunity to build one-time structures and caching based on lexical context.
         /// </summary>
-        protected virtual void Initialize()
+        /// <param name="context"></param>
+        protected virtual void Initialize(EvaluationContext context)
         {
         }
 
-        protected internal static JintStatement Build(Engine engine, Statement statement)
+        protected internal static JintStatement Build(Statement statement)
         {
             JintStatement result = statement.Type switch
             {
@@ -111,6 +117,19 @@ namespace Jint.Runtime.Interpreter.Statements
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-normalcompletion
+        /// </summary>
+        /// <remarks>
+        /// We use custom type that is translated to Completion later on.
+        /// </remarks>
+        [DebuggerStepThrough]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected Completion NormalCompletion(JsValue value)
+        {
+            return new Completion(CompletionType.Normal, value, _statement.Location);
         }
     }
 }

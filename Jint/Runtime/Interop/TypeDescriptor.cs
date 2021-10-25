@@ -6,7 +6,7 @@ using System.Reflection;
 
 namespace Jint.Runtime.Interop
 {
-    internal class TypeDescriptor
+    internal sealed class TypeDescriptor
     {
         private static readonly ConcurrentDictionary<Type, TypeDescriptor> _cache = new();
 

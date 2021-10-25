@@ -1,25 +1,24 @@
 using Esprima.Ast;
-using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintThisExpression : JintExpression
     {
-        public JintThisExpression(Engine engine, ThisExpression expression) : base(engine, expression)
+        public JintThisExpression(ThisExpression expression) : base(expression)
         {
         }
 
-        protected override object EvaluateInternal()
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
-            return _engine.ResolveThisBinding();
+            return NormalCompletion(context.Engine.ResolveThisBinding());
         }
 
-        public override JsValue GetValue()
+        public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
-            _engine._lastSyntaxNode = _expression;
+            context.LastSyntaxNode = _expression;
 
-            return _engine.ResolveThisBinding();
+            return Completion.Normal(context.Engine.ResolveThisBinding(), _expression.Location);
         }
     }
 }

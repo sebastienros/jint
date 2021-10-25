@@ -10,13 +10,14 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JintExpression[] _expressions;
         private bool _hasSpreads;
 
-        public JintArrayExpression(Engine engine, ArrayExpression expression) : base(engine, expression)
+        public JintArrayExpression(ArrayExpression expression) : base(expression)
         {
             _initialized = false;
         }
 
-        protected override void Initialize()
+        protected override void Initialize(EvaluationContext context)
         {
+            var engine = context.Engine;
             var node = (ArrayExpression) _expression;
             _expressions = new JintExpression[node.Elements.Count];
             for (var n = 0; n < _expressions.Length; n++)
@@ -24,7 +25,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var expr = node.Elements[n];
                 if (expr != null)
                 {
-                    var expression = Build(_engine, expr);
+                    var expression = Build(engine, expr);
                     _expressions[n] = expression;
                     _hasSpreads |= expr.Type == Nodes.SpreadElement;
                 }
@@ -34,9 +35,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             _initialized = true;
         }
 
-        protected override object EvaluateInternal()
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
-            var a = _engine.Realm.Intrinsics.Array.ConstructFast(_hasSpreads ? 0 : (uint) _expressions.Length);
+            var engine = context.Engine;
+            var a = engine.Realm.Intrinsics.Array.ConstructFast(_hasSpreads ? 0 : (uint) _expressions.Length);
 
             uint arrayIndexCounter = 0;
             foreach (var expr in _expressions)
@@ -49,7 +51,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (_hasSpreads && expr is JintSpreadExpression jse)
                 {
-                    jse.GetValueAndCheckIterator(out var objectInstance, out var iterator);
+                    jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
                     // optimize for array
                     if (objectInstance is ArrayInstance ai)
                     {
@@ -62,14 +64,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else
                     {
-                        var protocol = new ArraySpreadProtocol(_engine, a, iterator, arrayIndexCounter);
+                        var protocol = new ArraySpreadProtocol(engine, a, iterator, arrayIndexCounter);
                         protocol.Execute();
                         arrayIndexCounter += protocol._addedCount;
                     }
                 }
                 else
                 {
-                    var value = expr.GetValue();
+                    var value = expr.GetValue(context).Value;
                     a.SetIndexValue(arrayIndexCounter++, value, updateLength: false);
                 }
             }
@@ -79,7 +81,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 a.SetLength(arrayIndexCounter);
             }
 
-            return a;
+            return NormalCompletion(a);
         }
 
         private sealed class ArraySpreadProtocol : IteratorProtocol

@@ -1,5 +1,6 @@
 ﻿#nullable enable
 
+using System.Diagnostics;
 using Jint.Native;
 
 namespace Jint.Runtime.Environments
@@ -108,6 +109,7 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// Helper to cache JsString/Key when environments use different lookups.
         /// </summary>
+        [DebuggerDisplay("\"{Key.Name}\"")]
         internal readonly struct BindingName
         {
             public readonly Key Key;

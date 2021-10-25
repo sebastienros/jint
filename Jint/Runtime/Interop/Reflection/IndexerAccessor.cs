@@ -40,7 +40,21 @@ namespace Jint.Runtime.Interop.Reflection
 
             IndexerAccessor ComposeIndexerFactory(PropertyInfo candidate, Type paramType)
             {
-                if (engine.ClrTypeConverter.TryConvert(propertyName, paramType, CultureInfo.InvariantCulture, out var key))
+                object key = null;
+                // int key is quite common case
+                if (paramType == typeof(int))
+                {
+                    if (int.TryParse(propertyName, out var intValue))
+                    {
+                        key = intValue;
+                    }
+                }
+                else
+                {
+                    engine.ClrTypeConverter.TryConvert(propertyName, paramType, CultureInfo.InvariantCulture, out key);
+                }
+
+                if (key is not null)
                 {
                     // the key can be converted for this indexer
                     var indexerProperty = candidate;

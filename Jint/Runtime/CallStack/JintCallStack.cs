@@ -10,7 +10,7 @@ using Jint.Pooling;
 
 namespace Jint.Runtime.CallStack
 {
-    internal class JintCallStack
+    internal sealed class JintCallStack
     {
         private readonly RefStack<CallStackElement> _stack = new();
         private readonly Dictionary<CallStackElement, int>? _statistics;

@@ -6,7 +6,7 @@ namespace Jint.Native.String
     /// <summary>
     /// Helper to cache common data structures when manipulating strings.
     /// </summary>
-    internal class StringExecutionContext
+    internal sealed class StringExecutionContext
     {
         private static readonly ThreadLocal<StringExecutionContext> _executionContext = new ThreadLocal<StringExecutionContext>(() => new StringExecutionContext());
 

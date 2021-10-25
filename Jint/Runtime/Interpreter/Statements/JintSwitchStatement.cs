@@ -11,24 +11,24 @@ namespace Jint.Runtime.Interpreter.Statements
         private JintSwitchBlock _switchBlock;
         private JintExpression _discriminant;
 
-        public JintSwitchStatement(Engine engine, SwitchStatement statement) : base(engine, statement)
+        public JintSwitchStatement(SwitchStatement statement) : base(statement)
         {
-            _initialized = false;
         }
 
-        protected override void Initialize()
+        protected override void Initialize(EvaluationContext context)
         {
-            _switchBlock = new JintSwitchBlock(_engine, _statement.Cases);
-            _discriminant = JintExpression.Build(_engine, _statement.Discriminant);
+            var engine = context.Engine;
+            _switchBlock = new JintSwitchBlock(_statement.Cases);
+            _discriminant = JintExpression.Build(engine, _statement.Discriminant);
         }
 
-        protected override Completion ExecuteInternal()
+        protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            var jsValue = _discriminant.GetValue();
-            var r = _switchBlock.Execute(jsValue);
-            if (r.Type == CompletionType.Break && r.Identifier == _statement.LabelSet?.Name)
+            var value = _discriminant.GetValue(context).Value;
+            var r = _switchBlock.Execute(context, value);
+            if (r.Type == CompletionType.Break && r.Target == _statement.LabelSet?.Name)
             {
-                return new Completion(CompletionType.Normal, r.Value, null, Location);
+                return NormalCompletion(r.Value);
             }
 
             return r;
