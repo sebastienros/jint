@@ -11,7 +11,7 @@ namespace Jint.Native.TypedArray
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%-intrinsic-object
     /// </summary>
-    internal class IntrinsicTypedArrayConstructor : FunctionInstance, IConstructor
+    internal sealed class IntrinsicTypedArrayConstructor : FunctionInstance, IConstructor
     {
         internal IntrinsicTypedArrayConstructor(
             Engine engine,

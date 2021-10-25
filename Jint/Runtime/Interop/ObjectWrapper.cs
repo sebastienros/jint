@@ -320,7 +320,7 @@ namespace Jint.Runtime.Interop
                     return true;
                 }
 
-                nextItem = KeyValueIteratorPosition.Done;
+                nextItem = KeyValueIteratorPosition.Done(_engine);
                 return false;
             }
         }
@@ -343,7 +343,7 @@ namespace Jint.Runtime.Interop
                     return true;
                 }
 
-                nextItem = KeyValueIteratorPosition.Done;
+                nextItem = KeyValueIteratorPosition.Done(_engine);
                 return false;
             }
         }

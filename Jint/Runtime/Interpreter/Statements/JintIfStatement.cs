@@ -5,31 +5,35 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintIfStatement : JintStatement<IfStatement>
     {
-        private readonly JintStatement _statementConsequent;
-        private readonly JintExpression _test;
-        private readonly JintStatement _alternate;
+        private JintStatement _statementConsequent;
+        private JintExpression _test;
+        private JintStatement _alternate;
 
-        public JintIfStatement(Engine engine, IfStatement statement) : base(engine, statement)
+        public JintIfStatement(IfStatement statement) : base(statement)
         {
-            _statementConsequent = Build(engine, _statement.Consequent);
-            _test = JintExpression.Build(engine, _statement.Test);
-            _alternate = _statement.Alternate != null ? Build(engine, _statement.Alternate) : null;
         }
 
-        protected override Completion ExecuteInternal()
+        protected override void Initialize(EvaluationContext context)
+        {
+            _statementConsequent = Build(_statement.Consequent);
+            _test = JintExpression.Build(context.Engine, _statement.Test);
+            _alternate = _statement.Alternate != null ? Build(_statement.Alternate) : null;
+        }
+
+        protected override Completion ExecuteInternal(EvaluationContext context)
         {
             Completion result;
-            if (TypeConverter.ToBoolean(_test.GetValue()))
+            if (TypeConverter.ToBoolean(_test.GetValue(context).Value))
             {
-                result = _statementConsequent.Execute();
+                result = _statementConsequent.Execute(context);
             }
             else if (_alternate != null)
             {
-                result = _alternate.Execute();
+                result = _alternate.Execute(context);
             }
             else
             {
-                return new Completion(CompletionType.Normal, null, null, Location);
+                return new Completion(CompletionType.Normal, null, Location);
             }
 
             return result;

@@ -1,35 +1,63 @@
-﻿using System.Runtime.CompilerServices;
+﻿#nullable enable
+
+using System.Runtime.CompilerServices;
 using Esprima;
 using Jint.Native;
+using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime
 {
     public enum CompletionType
     {
-        Normal,
+        Normal = 0,
+        Return = 1,
+        Throw = 2,
         Break,
-        Continue,
-        Return,
-        Throw
+        Continue
     }
 
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.9
+    /// https://tc39.es/ecma262/#sec-completion-record-specification-type
     /// </summary>
     public readonly struct Completion
     {
-        public Completion(CompletionType type, JsValue value, string identifier, Location location)
+        internal Completion(CompletionType type, JsValue value, string? target, in Location location)
         {
             Type = type;
             Value = value;
-            Identifier = identifier;
+            Target = target;
             Location = location;
+        }
+
+        public Completion(CompletionType type, JsValue value, in Location location)
+            : this(type, value, null, location)
+        {
+        }
+
+        public Completion(CompletionType type, string target, in Location location)
+            : this(type, null!, target, location)
+        {
+        }
+
+        internal Completion(in ExpressionResult result)
+        {
+            Type = (CompletionType) result.Type;
+            // this cast protects us from getting from type
+            Value = (JsValue) result.Value;
+            Target = null;
+            Location = result.Location;
         }
 
         public readonly CompletionType Type;
         public readonly JsValue Value;
-        public readonly string Identifier;
+        public readonly string? Target;
         public readonly Location Location;
+
+        public static Completion Normal(JsValue value, in Location location)
+            => new Completion(CompletionType.Normal, value, location);
+
+        public static Completion Empty()
+            => new Completion(CompletionType.Normal, null!, default);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue GetValueOrDefault()
@@ -53,7 +81,7 @@ namespace Jint.Runtime
                 return this;
             }
 
-            return new Completion(Type, value, Identifier, Location);
+            return new Completion(Type, value, Target, Location);
         }
     }
 }

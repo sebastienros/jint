@@ -6,11 +6,12 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.Function
 {
-    internal class ClassDefinition
+    internal sealed class ClassDefinition
     {
         private static readonly MethodDefinition _superConstructor;
         private static readonly MethodDefinition _emptyConstructor;
@@ -47,11 +48,13 @@ namespace Jint.Native.Function
         /// https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation
         /// </summary>
         public ScriptFunctionInstance BuildConstructor(
-            Engine engine,
+            EvaluationContext context,
             EnvironmentRecord env)
         {
             // A class definition is always strict mode code.
-            using var _ = (new StrictModeScope(true, true));
+            using var _ = new StrictModeScope(true, true);
+
+            var engine = context.Engine;
 
             var classScope = JintEnvironment.NewDeclarativeEnvironment(engine, env);
 
@@ -70,7 +73,7 @@ namespace Jint.Native.Function
             else
             {
                 engine.UpdateLexicalEnvironment(classScope);
-                var superclass = JintExpression.Build(engine, _superClass).GetValue();
+                var superclass = JintExpression.Build(engine, _superClass).GetValue(context).Value;
                 engine.UpdateLexicalEnvironment(env);
 
                 if (superclass.IsNull())
@@ -78,7 +81,7 @@ namespace Jint.Native.Function
                     protoParent = null;
                     constructorParent = engine.Realm.Intrinsics.Function.PrototypeObject;
                 }
-                else if (!superclass.IsConstructor)
+                else if (!superclass!.IsConstructor)
                 {
                     ExceptionHelper.ThrowTypeError(engine.Realm, "super class is not a constructor");
                 }

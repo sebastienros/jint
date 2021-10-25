@@ -1,16 +1,17 @@
 using Esprima.Ast;
+using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintFunctionDeclarationStatement : JintStatement<FunctionDeclaration>
     {
-        public JintFunctionDeclarationStatement(Engine engine, FunctionDeclaration statement) : base(engine, statement)
+        public JintFunctionDeclarationStatement(FunctionDeclaration statement) : base(statement)
         {
         }
 
-        protected override Completion ExecuteInternal()
+        protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            return new Completion(CompletionType.Normal, null, null, Location);
+            return NormalCompletion(JsValue.Undefined);
         }
     }
 }

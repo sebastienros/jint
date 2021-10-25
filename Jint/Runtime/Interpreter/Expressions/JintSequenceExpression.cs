@@ -7,33 +7,34 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private JintExpression[] _expressions;
 
-        public JintSequenceExpression(Engine engine, SequenceExpression expression) : base(engine, expression)
+        public JintSequenceExpression(SequenceExpression expression) : base(expression)
         {
             _initialized = false;
         }
 
-        protected override void Initialize()
+        protected override void Initialize(EvaluationContext context)
         {
+            var engine = context.Engine;
             var expression = (SequenceExpression) _expression;
             ref readonly var expressions = ref expression.Expressions;
             var temp = new JintExpression[expressions.Count];
             for (var i = 0; i < (uint) temp.Length; i++)
             {
-                temp[i] = Build(_engine, expressions[i]);
+                temp[i] = Build(engine, expressions[i]);
             }
 
             _expressions = temp;
         }
 
-        protected override object EvaluateInternal()
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
             var result = Undefined.Instance;
             foreach (var expression in _expressions)
             {
-                result = expression.GetValue();
+                result = expression.GetValue(context).Value;
             }
 
-            return result;
+            return NormalCompletion(result);
         }
     }
 }

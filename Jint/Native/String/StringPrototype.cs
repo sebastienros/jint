@@ -77,7 +77,8 @@ namespace Jint.Native.String
                 ["padEnd"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "padEnd", PadEnd, 1, lengthFlags), propertyFlags),
                 ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, lengthFlags), propertyFlags),
                 ["normalize"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "normalize", Normalize, 0, lengthFlags), propertyFlags),
-                ["repeat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "repeat", Repeat, 1, lengthFlags), propertyFlags)
+                ["repeat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "repeat", Repeat, 1, lengthFlags), propertyFlags),
+                ["at"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "at", At, 1, lengthFlags), propertyFlags),
             };
             SetProperties(properties);
 
@@ -402,6 +403,37 @@ namespace Jint.Native.String
 
             a.SetLength(length);
             return a;
+        }
+
+        /// <summary>
+        /// https://tc39.es/proposal-relative-indexing-method/#sec-string-prototype-additions
+        /// </summary>
+        private JsValue At(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(_engine, thisObj);
+            var start = arguments.At(0);
+
+            var o = thisObj.ToString();
+            long len = o.Length;
+
+            var relativeIndex = TypeConverter.ToInteger(start);
+            int k;
+
+            if (relativeIndex < 0)
+            {
+                k = (int) (len + relativeIndex);
+            }
+            else
+            {
+                k = (int) relativeIndex;
+            }
+
+            if (k < 0 || k >= len)
+            {
+                return Undefined;
+            }
+
+            return o[k];
         }
 
         private JsValue Slice(JsValue thisObj, JsValue[] arguments)

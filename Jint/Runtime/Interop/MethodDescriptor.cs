@@ -7,7 +7,7 @@ using Jint.Extensions;
 
 namespace Jint.Runtime.Interop
 {
-    internal class MethodDescriptor
+    internal sealed class MethodDescriptor
     {
         internal MethodDescriptor(MethodBase method)
         {

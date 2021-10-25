@@ -171,23 +171,13 @@ namespace Jint.Native.Object
             }
 
 
-            var obj = new ObjectInstance(_engine)
-            {
-                _prototype = _engine.ExecutionContext.Realm.Intrinsics.Object.PrototypeObject
-            };
-
-            return obj;
+            return new ObjectInstance(_engine);
         }
 
         internal ObjectInstance Construct(int propertyCount)
         {
-            var obj = new ObjectInstance(_engine)
-            {
-                _prototype = Engine.Realm.Intrinsics.Object.PrototypeObject,
-            };
-
+            var obj = new ObjectInstance(_engine);
             obj.SetProperties(propertyCount > 0  ? new PropertyDictionary(propertyCount, checkExistingKeys: true) : null);
-
             return obj;
         }
 

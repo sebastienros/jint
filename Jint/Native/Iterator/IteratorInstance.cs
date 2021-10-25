@@ -43,7 +43,7 @@ namespace Jint.Native.Iterator
                 return true;
             }
 
-            nextItem = ValueIteratorPosition.Done;
+            nextItem = ValueIteratorPosition.Done(_engine);
             return false;
         }
 
@@ -51,17 +51,17 @@ namespace Jint.Native.Iterator
         {
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-createiterresultobject
+        /// </summary>
         private ObjectInstance CreateIterResultObject(JsValue value, bool done)
         {
-            var obj = _engine.Realm.Intrinsics.Object.Construct(2);
-            obj.SetDataProperty("value", value);
-            obj.SetDataProperty("done", done);
-            return obj;
+            return new IteratorResult(_engine, value, done ? JsBoolean.True :  JsBoolean.False);
         }
 
         internal sealed class KeyValueIteratorPosition : ObjectInstance
         {
-            internal static readonly ObjectInstance Done = new KeyValueIteratorPosition(null, null, null);
+            internal static ObjectInstance Done(Engine engine) => new KeyValueIteratorPosition(engine, null, null);
 
             public KeyValueIteratorPosition(Engine engine, JsValue key, JsValue value) : base(engine)
             {
@@ -79,16 +79,15 @@ namespace Jint.Native.Iterator
 
         internal sealed class ValueIteratorPosition : ObjectInstance
         {
-            internal static readonly ObjectInstance Done = new KeyValueIteratorPosition(null, null, null);
+            internal static ObjectInstance Done(Engine engine) => new ValueIteratorPosition(engine, Undefined, true);
 
-            public ValueIteratorPosition(Engine engine, JsValue value) : base(engine)
+            public ValueIteratorPosition(Engine engine, JsValue value, bool? done = null) : base(engine)
             {
-                var done = ReferenceEquals(null, value);
-                if (!done)
+                if (value is not null)
                 {
                     SetProperty("value", new PropertyDescriptor(value, PropertyFlag.AllForbidden));
                 }
-                SetProperty("done", new PropertyDescriptor(done, PropertyFlag.AllForbidden));
+                SetProperty("done", new PropertyDescriptor(done ?? value is null, PropertyFlag.AllForbidden));
             }
         }
 
@@ -115,7 +114,7 @@ namespace Jint.Native.Iterator
                 }
 
                 _closed = true;
-                nextItem = KeyValueIteratorPosition.Done;
+                nextItem = KeyValueIteratorPosition.Done(_engine);
                 return false;
             }
         }
@@ -188,7 +187,7 @@ namespace Jint.Native.Iterator
                 }
                 if (completion != CompletionType.Throw && !innerResult.IsObject())
                 {
-                    ExceptionHelper.ThrowTypeError(_target.Engine.Realm);
+                    ExceptionHelper.ThrowTypeError(_target.Engine.Realm, "Iterator returned non-object");
                 }
             }
         }
@@ -210,7 +209,7 @@ namespace Jint.Native.Iterator
                     return true;
                 }
 
-                nextItem = KeyValueIteratorPosition.Done;
+                nextItem = KeyValueIteratorPosition.Done(_engine);
                 return false;
             }
         }

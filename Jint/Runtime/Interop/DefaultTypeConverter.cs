@@ -8,7 +8,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Extensions;
 using Jint.Native;
-using Jint.Runtime.Interop.Reflection;
 
 namespace Jint.Runtime.Interop
 {
@@ -233,7 +232,20 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            return System.Convert.ChangeType(value, type, formatProvider);
+            try
+            {
+                return System.Convert.ChangeType(value, type, formatProvider);
+            }
+            catch (Exception e)
+            {
+                if (!_engine.Options.Interop.ExceptionHandler(e))
+                {
+                    throw;
+                }
+
+                ExceptionHelper.ThrowError(_engine, e.Message);
+                return null;
+            }
         }
 
         public virtual bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)

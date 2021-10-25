@@ -28,7 +28,7 @@ namespace Jint.Native.Iterator
             var done = false;
             try
             {
-                do
+                while (ShouldContinue)
                 {
                     if (!_iterator.TryIteratorStep(out var item))
                     {
@@ -39,7 +39,7 @@ namespace Jint.Native.Iterator
                     var currentValue = item.Get(CommonProperties.Value);
 
                     ProcessItem(args, currentValue);
-                } while (ShouldContinue);
+                }
             }
             catch
             {

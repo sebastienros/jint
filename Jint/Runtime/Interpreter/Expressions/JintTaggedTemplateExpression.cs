@@ -13,53 +13,55 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JintExpression _tagIdentifier;
         private JintTemplateLiteralExpression _quasi;
 
-        public JintTaggedTemplateExpression(Engine engine, TaggedTemplateExpression expression) : base(engine, expression)
+        public JintTaggedTemplateExpression(TaggedTemplateExpression expression) : base(expression)
         {
             _taggedTemplateExpression = expression;
             _initialized = false;
         }
 
-        protected override void Initialize()
+        protected override void Initialize(EvaluationContext context)
         {
-            _tagIdentifier = Build(_engine, _taggedTemplateExpression.Tag);
-            _quasi = (JintTemplateLiteralExpression) Build(_engine, _taggedTemplateExpression.Quasi);
-            _quasi.DoInitialize();
+            var engine = context.Engine;
+            _tagIdentifier = Build(engine, _taggedTemplateExpression.Tag);
+            _quasi = new JintTemplateLiteralExpression(_taggedTemplateExpression.Quasi);
+            _quasi.DoInitialize(context);
         }
 
-        protected override object EvaluateInternal()
+        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
-            var tagger = _engine.GetValue(_tagIdentifier.GetValue()) as ICallable;
+            var engine = context.Engine;
+            var tagger = engine.GetValue(_tagIdentifier.GetValue(context)) as ICallable;
             if (tagger is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Argument must be callable");
+                ExceptionHelper.ThrowTypeError(engine.Realm, "Argument must be callable");
             }
 
             var expressions = _quasi._expressions;
 
-            var args = _engine._jsValueArrayPool.RentArray(expressions.Length + 1);
+            var args = engine._jsValueArrayPool.RentArray(expressions.Length + 1);
 
-            var template = GetTemplateObject();
+            var template = GetTemplateObject(context);
             args[0] = template;
 
             for (int i = 0; i < expressions.Length; ++i)
             {
-                args[i + 1] = expressions[i].GetValue();
+                args[i + 1] = expressions[i].GetValue(context).Value;
             }
 
             var result = tagger.Call(JsValue.Undefined, args);
-            _engine._jsValueArrayPool.ReturnArray(args);
+            engine._jsValueArrayPool.ReturnArray(args);
 
-            return result;
+            return NormalCompletion(result);
         }
 
         /// <summary>
         /// https://www.ecma-international.org/ecma-262/6.0/#sec-gettemplateobject
         /// </summary>
-        private ArrayInstance GetTemplateObject()
+        private ArrayInstance GetTemplateObject(EvaluationContext context)
         {
             var count = (uint) _quasi._templateLiteralExpression.Quasis.Count;
-            var template = _engine.Realm.Intrinsics.Array.ConstructFast(count);
-            var rawObj = _engine.Realm.Intrinsics.Array.ConstructFast(count);
+            var template = context.Engine.Realm.Intrinsics.Array.ConstructFast(count);
+            var rawObj = context.Engine.Realm.Intrinsics.Array.ConstructFast(count);
             for (uint i = 0; i < _quasi._templateLiteralExpression.Quasis.Count; ++i)
             {
                 var templateElementValue = _quasi._templateLiteralExpression.Quasis[(int) i].Value;

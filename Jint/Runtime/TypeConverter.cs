@@ -819,7 +819,6 @@ namespace Jint.Runtime
         }
 
         internal static IEnumerable<Tuple<MethodDescriptor, JsValue[]>> FindBestMatch(
-            Engine engine,
             MethodDescriptor[] methods,
             Func<MethodDescriptor, JsValue[]> argumentProvider)
         {

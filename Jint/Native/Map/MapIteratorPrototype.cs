@@ -70,7 +70,7 @@ namespace Jint.Native.Map
                     return true;
                 }
 
-                nextItem = KeyValueIteratorPosition.Done;
+                nextItem = KeyValueIteratorPosition.Done(_engine);
                 return false;
             }
         }

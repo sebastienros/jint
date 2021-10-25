@@ -5,13 +5,14 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintDebuggerStatement : JintStatement<DebuggerStatement>
     {
-        public JintDebuggerStatement(Engine engine, DebuggerStatement statement) : base(engine, statement)
+        public JintDebuggerStatement(DebuggerStatement statement) : base(statement)
         {
         }
 
-        protected override Completion ExecuteInternal()
+        protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            switch (_engine.Options.Debugger.StatementHandling)
+            var engine = context.Engine;
+            switch (engine.Options.Debugger.StatementHandling)
             {
                 case DebuggerStatementHandling.Clr:
                     if (!System.Diagnostics.Debugger.IsAttached)
@@ -22,7 +23,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     System.Diagnostics.Debugger.Break();
                     break;
                 case DebuggerStatementHandling.Script:
-                    _engine.DebugHandler?.OnBreak(_statement);
+                    engine.DebugHandler?.OnBreak(_statement);
                     break;
                 case DebuggerStatementHandling.Ignore:
                     break;

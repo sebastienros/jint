@@ -233,7 +233,7 @@ namespace Jint.Collections
             object IEnumerator.Current => _current;
         }
 
-        internal class DictionaryNode
+        internal sealed class DictionaryNode
         {
             public Key Key;
             public TValue Value;

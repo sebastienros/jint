@@ -35,7 +35,7 @@ namespace Jint.Native.Number.Dtoa
     /// <summary>
     /// Helper functions for doubles.
     /// </summary>
-    internal class DoubleHelper
+    internal sealed class DoubleHelper
     {
         internal const ulong KExponentMask = 0x7FF0000000000000L;
         internal const ulong KSignificandMask = 0x000FFFFFFFFFFFFFL;

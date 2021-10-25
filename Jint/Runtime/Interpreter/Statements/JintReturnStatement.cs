@@ -9,18 +9,22 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintReturnStatement : JintStatement<ReturnStatement>
     {
-        private readonly JintExpression _argument;
+        private JintExpression _argument;
 
-        public JintReturnStatement(Engine engine, ReturnStatement statement) : base(engine, statement)
+        public JintReturnStatement(ReturnStatement statement) : base(statement)
+        {
+        }
+
+        protected override void Initialize(EvaluationContext context)
         {
             _argument = _statement.Argument != null
-                ? JintExpression.Build(engine, _statement.Argument)
+                ? JintExpression.Build(context.Engine, _statement.Argument)
                 : null;
         }
 
-        protected override Completion ExecuteInternal()
+        protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            var jsValue = _argument?.GetValue() ?? Undefined.Instance;
+            var jsValue = _argument?.GetValue(context).Value ?? Undefined.Instance;
             return new Completion(CompletionType.Return, jsValue, null, Location);
         }
     }

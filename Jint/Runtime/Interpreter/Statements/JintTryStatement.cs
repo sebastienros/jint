@@ -6,34 +6,43 @@ using Jint.Runtime.Environments;
 namespace Jint.Runtime.Interpreter.Statements
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-12.14
+    /// https://tc39.es/ecma262/#sec-try-statement
     /// </summary>
     internal sealed class JintTryStatement : JintStatement<TryStatement>
     {
-        private readonly JintStatement _block;
+        private JintStatement _block;
         private JintStatement _catch;
-        private readonly JintStatement _finalizer;
+        private JintStatement _finalizer;
 
-        public JintTryStatement(Engine engine, TryStatement statement) : base(engine, statement)
+        public JintTryStatement(TryStatement statement) : base(statement)
         {
-            _block = Build(engine, statement.Block);
-            if (statement.Finalizer != null)
+
+        }
+
+        protected override void Initialize(EvaluationContext context)
+        {
+            _block = Build(_statement.Block);
+            if (_statement.Finalizer != null)
             {
-                _finalizer = Build(engine, _statement.Finalizer);
+                _finalizer = Build(_statement.Finalizer);
             }
         }
 
-        protected override Completion ExecuteInternal()
-        {
-            int callStackSizeBeforeExecution = _engine.CallStack.Count;
+        protected override bool SupportsResume => true;
 
-            var b = _block.Execute();
+        protected override Completion ExecuteInternal(EvaluationContext context)
+        {
+            var engine = context.Engine;
+            int callStackSizeBeforeExecution = engine.CallStack.Count;
+
+            var b = _block.Execute(context);
+
             if (b.Type == CompletionType.Throw)
             {
                 // initialize lazily
                 if (_statement.Handler is not null && _catch is null)
                 {
-                    _catch = Build(_engine, _statement.Handler.Body);
+                    _catch = Build(_statement.Handler.Body);
                 }
 
                 // execute catch
@@ -44,16 +53,16 @@ namespace Jint.Runtime.Interpreter.Statements
                     // from a call, regardless of whether it throws (i.e. CallStack.Pop() in finally clause
                     // in Engine.Call/Engine.Construct - however, that method currently breaks stack traces
                     // in error messages.
-                    while (callStackSizeBeforeExecution < _engine.CallStack.Count)
+                    while (callStackSizeBeforeExecution < engine.CallStack.Count)
                     {
-                        _engine.CallStack.Pop();
+                        engine.CallStack.Pop();
                     }
 
                     // https://tc39.es/ecma262/#sec-runtime-semantics-catchclauseevaluation
 
                     var thrownValue = b.Value;
-                    var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
-                    var catchEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv, catchEnvironment: true);
+                    var oldEnv = engine.ExecutionContext.LexicalEnvironment;
+                    var catchEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv, catchEnvironment: true);
 
                     var boundNames = new List<string>();
                     _statement.Handler.Param.GetBoundNames(boundNames);
@@ -63,20 +72,20 @@ namespace Jint.Runtime.Interpreter.Statements
                         catchEnv.CreateMutableBinding(argName, false);
                     }
 
-                    _engine.UpdateLexicalEnvironment(catchEnv);
+                    engine.UpdateLexicalEnvironment(catchEnv);
 
                     var catchParam = _statement.Handler?.Param;
-                    catchParam.BindingInitialization(_engine, thrownValue, catchEnv);
+                    catchParam.BindingInitialization(context, thrownValue, catchEnv);
 
-                    b = _catch.Execute();
+                    b = _catch.Execute(context);
 
-                    _engine.UpdateLexicalEnvironment(oldEnv);
+                    engine.UpdateLexicalEnvironment(oldEnv);
                 }
             }
 
             if (_finalizer != null)
             {
-                var f = _finalizer.Execute();
+                var f = _finalizer.Execute(context);
                 if (f.Type == CompletionType.Normal)
                 {
                     return b;
