@@ -677,8 +677,8 @@ namespace Jint.Runtime.Modules
                 using (new StrictModeScope(strict: true))
                 {
                     _engine.EnterExecutionContext(moduleContext);
-                    var statementList = new JintStatementList(_engine, null, _source.Body);
-                    var result = statementList.Execute();
+                    var statementList = new JintStatementList(null, _source.Body);
+                    var result = statementList.Execute(_engine._activeEvaluationContext ?? new EvaluationContext(_engine)); //Create new evaluation context when called from e.g. module tests
                     _engine.LeaveExecutionContext();
                     return result;
                 }
