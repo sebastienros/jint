@@ -27,5 +27,10 @@ namespace Jint.Tests.Test262.Language
         {
             RunTestInternal(sourceFile);
         }
+
+        private void RunModuleTest(SourceFile sourceFile)
+        {
+
+        }
     }
 }

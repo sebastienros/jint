@@ -107,6 +107,18 @@ namespace Jint
             {
                 engine.ModuleLoader = Modules.CustomModuleLoader ?? new ModuleLoader();
                 engine.ModuleLoader.AddModuleSource(Modules.CustomModuleSources.ToArray());
+
+                //Node js like loading of modules
+                engine.Realm.GlobalObject.SetProperty("require", new PropertyDescriptor(new ClrFunctionInstance(
+                    engine,
+                    "require",
+                    (thisObj, arguments) =>
+                    {
+                        var specifier = TypeConverter.ToString(arguments.At(0));
+                        var module = engine.LoadModule(specifier);
+                        return JsModule.GetModuleNamespace(module);
+                    }), 
+                    PropertyFlag.AllForbidden));
             }
             else
             {

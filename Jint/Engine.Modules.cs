@@ -20,7 +20,7 @@ namespace Jint
 
         internal JsModule LoadModule(string referencingModuleLocation, string specifier)
         {
-            var key = new ModuleCacheKey(referencingModuleLocation, specifier);
+            var key = new ModuleCacheKey(referencingModuleLocation ?? string.Empty, specifier);
 
             if(_modules.TryGetValue(key, out var module))
             {

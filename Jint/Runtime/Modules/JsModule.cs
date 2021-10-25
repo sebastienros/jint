@@ -1,5 +1,4 @@
 ﻿using Esprima.Ast;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Jint.Native;
@@ -60,6 +59,7 @@ namespace Jint.Runtime.Modules
         internal List<ExportEntry> _indirectExportEntries = new();
         internal List<ExportEntry> _starExportEntries = new();
         internal readonly string _location;
+        internal JsValue _evalResult;
         
 
         public JsModule(Engine engine, Realm realm, Module source, string location, bool async) : base(InternalTypes.Module)
@@ -88,12 +88,32 @@ namespace Jint.Runtime.Modules
 
         public static ObjectInstance GetModuleNamespace(JsModule module)
         {
-            return null;
+            var ns = module._namespace;
+            if(ns is null)
+            {
+                var exportedNames = module.GetExportedNames();
+                var unambiguousNames = new List<string>();
+                for (var i = 0; i < exportedNames.Count; i++)
+                {
+                    var name = exportedNames[i];
+                    var resolution = module.ResolveExport(name);
+                    if(resolution is not null)
+                    {
+                        unambiguousNames.Add(name);
+                    }
+                }
+
+                ns = CreateModuleNamespace(module, unambiguousNames);
+            }
+
+            return ns;
         }
 
-        private static ObjectInstance CreateModuleNamespace(JsModule module)
+        private static ObjectInstance CreateModuleNamespace(JsModule module, List<string> unambiguousNames)
         {
-            return null;
+            var m = new ModuleNamespace(module._engine, module, unambiguousNames);
+            module._namespace = m;
+            return m;
         }
 
         public List<string> GetExportedNames(List<JsModule> exportStarSet = null)
