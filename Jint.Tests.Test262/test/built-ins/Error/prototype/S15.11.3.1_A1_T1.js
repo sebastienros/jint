@@ -13,11 +13,11 @@ var proto = Error.prototype;
 //CHECK#1
 verifyNotConfigurable(Error, "prototype");
 try {
-  if ((delete Error.prototype) !== false) {
-    $ERROR('#1: Error.prototype has the attribute DontDelete');
-  }
+  assert.sameValue(delete Error.prototype, false);
 } catch (e) {
-  if (e instanceof Test262Error) throw e;
+  if (e instanceof Test262Error) {
+    throw e;
+  }
   assert(e instanceof TypeError);
 }
 //
@@ -26,7 +26,9 @@ try {
 //////////////////////////////////////////////////////////////////////////////
 //CHECK#2
 if (Error.prototype !== proto) {
-  $ERROR('#2: var proto=Error.prototype; delete Error.prototype; Error.prototype===proto. Actual: ' + Error.prototype);
+  throw new Test262Error('#2: var proto=Error.prototype; delete Error.prototype; Error.prototype===proto. Actual: ' + Error.prototype);
 }
 //
 //////////////////////////////////////////////////////////////////////////////
+
+// TODO: Convert to verifyProperty() format.
