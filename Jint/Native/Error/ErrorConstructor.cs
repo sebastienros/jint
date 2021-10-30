@@ -56,6 +56,15 @@ namespace Jint.Native.Error
             var stackDesc = new PropertyDescriptor(stackString, PropertyFlag.NonEnumerable);
             o.DefinePropertyOrThrow(CommonProperties.Stack, stackDesc);
 
+            var options = arguments.At(1);
+
+            if (options is ObjectInstance oi && oi.HasProperty("cause"))
+            {
+                var cause = oi.Get("cause");
+                var causeDesc = new PropertyDescriptor(cause, PropertyFlag.NonEnumerable);
+                o.DefinePropertyOrThrow("cause", causeDesc);
+            }
+
             return o;
         }
     }
