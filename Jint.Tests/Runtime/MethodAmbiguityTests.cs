@@ -33,6 +33,8 @@ namespace Jint.Tests.Runtime
 
         public class TestClass
         {
+            public string this[int index] => "int";
+            public string this[string index] => "string";
             public int TestMethod(double a, string b, double c) => 0;
             public int TestMethod(double a, double b, double c) => 1;
             public int TestMethod(TestClass a, string b, double c) => 2;
@@ -69,6 +71,16 @@ namespace Jint.Tests.Runtime
                 equal(6, tc.TestMethod(cc, cc, ''));
                 equal(6, tc.TestMethod(cc, 0, tc));
                 equal(7, tc.TestMethod(cc, '', {}));
+            ");
+        }
+
+        [Fact]
+        public void IndexerCachesMethodsCorrectly()
+        {
+            RunTest(@"
+                var tc = new TestClass();
+                equal('string:int', tc['Whistler'] + ':' + tc[10]);
+                equal('int:string', tc[10] + ':' + tc['Whistler']);
             ");
         }
     }
