@@ -8,7 +8,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Iterator
 {
-    internal class IteratorInstance : ObjectInstance, IIterator
+    internal class IteratorInstance : ObjectInstance
     {
         private readonly IEnumerator<JsValue> _enumerable;
 
@@ -47,7 +47,7 @@ namespace Jint.Native.Iterator
             return false;
         }
 
-        public void Close(CompletionType completion)
+        public virtual void Close(CompletionType completion)
         {
         }
 
@@ -119,12 +119,12 @@ namespace Jint.Native.Iterator
             }
         }
 
-        internal sealed class ObjectIterator : IIterator
+        internal sealed class ObjectIterator : IteratorInstance
         {
             private readonly ObjectInstance _target;
             private readonly ICallable _nextMethod;
 
-            public ObjectIterator(ObjectInstance target)
+            public ObjectIterator(ObjectInstance target) : base(target.Engine)
             {
                 _target = target;
                 _nextMethod = target.Get(CommonProperties.Next, target) as ICallable;
@@ -134,7 +134,7 @@ namespace Jint.Native.Iterator
                 }
             }
 
-            public bool TryIteratorStep(out ObjectInstance result)
+            public override bool TryIteratorStep(out ObjectInstance result)
             {
                 result = IteratorNext();
 
@@ -159,7 +159,7 @@ namespace Jint.Native.Iterator
                 return instance;
             }
 
-            public void Close(CompletionType completion)
+            public override void Close(CompletionType completion)
             {
                 if (!_target.TryGetValue(CommonProperties.Return, out var func)
                     || func.IsNullOrUndefined())

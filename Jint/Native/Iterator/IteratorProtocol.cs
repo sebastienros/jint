@@ -9,12 +9,12 @@ namespace Jint.Native.Iterator
     internal abstract class IteratorProtocol
     {
         private readonly Engine _engine;
-        private readonly IIterator _iterator;
+        private readonly IteratorInstance _iterator;
         private readonly int _argCount;
 
         protected IteratorProtocol(
             Engine engine,
-            IIterator iterator,
+            IteratorInstance iterator,
             int argCount)
         {
             _engine = engine;
@@ -68,7 +68,7 @@ namespace Jint.Native.Iterator
 
         protected abstract void ProcessItem(JsValue[] args, JsValue currentValue);
 
-        internal static void AddEntriesFromIterable(ObjectInstance target, IIterator iterable, object adder)
+        internal static void AddEntriesFromIterable(ObjectInstance target, IteratorInstance iterable, object adder)
         {
             var callable = adder as ICallable;
             if (callable is null)

@@ -64,7 +64,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return default;
         }
 
-        private static bool ConsumeFromIterator(IIterator it, out JsValue value, out bool done)
+        private static bool ConsumeFromIterator(IteratorInstance it, out JsValue value, out bool done)
         {
             value = JsValue.Undefined;
             done = false;
@@ -89,7 +89,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var realm = engine.Realm;
             var obj = TypeConverter.ToObject(realm, argument);
             ArrayOperations arrayOperations = null;
-            IIterator iterator = null;
+            IteratorInstance iterator = null;
 
             // optimize for array unless someone has touched the iterator
             if (obj.IsArrayLike && obj.HasOriginalIterator)
