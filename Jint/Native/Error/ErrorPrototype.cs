@@ -11,6 +11,7 @@ namespace Jint.Native.Error
     /// </summary>
     public sealed class ErrorPrototype : ErrorInstance
     {
+        private readonly JsString _name;
         private readonly Realm _realm;
         private readonly ErrorConstructor _constructor;
 
@@ -21,9 +22,10 @@ namespace Jint.Native.Error
             ObjectInstance prototype,
             JsString name,
             ObjectClass objectClass)
-            : base(engine, name, objectClass)
+            : base(engine, objectClass)
         {
             _realm = realm;
+            _name = name;
             _constructor = constructor;
             _prototype = prototype;
         }
@@ -34,6 +36,7 @@ namespace Jint.Native.Error
             {
                 ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
                 ["message"] = new PropertyDescriptor("", PropertyFlag.Configurable | PropertyFlag.Writable),
+                ["name"] = new PropertyDescriptor(_name, PropertyFlag.Configurable | PropertyFlag.Writable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), PropertyFlag.Configurable | PropertyFlag.Writable)
             };
             SetProperties(properties);
@@ -47,18 +50,12 @@ namespace Jint.Native.Error
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var name = TypeConverter.ToString(o.Get("name", this));
+            var nameProp = o.Get("name", this);
+            var name = nameProp.IsUndefined() ? "Error" : TypeConverter.ToString(nameProp);
 
             var msgProp = o.Get("message", this);
-            string msg;
-            if (msgProp.IsUndefined())
-            {
-                msg = "";
-            }
-            else
-            {
-                msg = TypeConverter.ToString(msgProp);
-            }
+            string msg = msgProp.IsUndefined() ? "" : TypeConverter.ToString(msgProp);
+
             if (name == "")
             {
                 return msg;
