@@ -12,14 +12,27 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public sealed class TypeResolver
     {
-        public static readonly TypeResolver Default = new TypeResolver();
+        public static readonly TypeResolver Default = new();
 
         private Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> _reflectionAccessors = new();
 
         /// <summary>
-        /// Registers a filter that determines whether given member is wrapped to interop or returned as undefined.
+        /// Whether to expose <see cref="object.GetType"></see> which can allow bypassing allow lists.
+        /// Defaults to false.
         /// </summary>
+        public bool ExposeGetType { get; set; }
+
+        /// <summary>
+        /// Registers a filter that determines whether given member is wrapped to interop or returned as undefined.
+        /// By default allows all but will also by limited by <see cref="ExposeGetType"/> configuration.
+        /// </summary>
+        /// <seealso cref="ExposeGetType"/>
         public Predicate<MemberInfo> MemberFilter { get; set; } = _ => true;
+
+        internal bool Filter(MemberInfo m)
+        {
+            return (ExposeGetType || m.Name != nameof(GetType)) && MemberFilter(m);
+        }
 
         /// <summary>
         /// Gives the exposed names for a member. Allows to expose C# convention following member like IsSelected
@@ -97,7 +110,7 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var iprop in iface.GetProperties())
                 {
-                    if (!MemberFilter(iprop))
+                    if (!Filter(iprop))
                     {
                         continue;
                     }
@@ -130,7 +143,7 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var imethod in iface.GetMethods())
                 {
-                    if (!MemberFilter(imethod))
+                    if (!Filter(imethod))
                     {
                         continue;
                     }
@@ -165,7 +178,7 @@ namespace Jint.Runtime.Interop
                 var matches = new List<MethodInfo>();
                 foreach (var method in extensionMethods)
                 {
-                    if (!MemberFilter(method))
+                    if (!Filter(method))
                     {
                         continue;
                     }
@@ -201,7 +214,7 @@ namespace Jint.Runtime.Interop
             var typeResolverMemberNameCreator = MemberNameCreator;
             foreach (var p in type.GetProperties(bindingFlags))
             {
-                if (!MemberFilter(p))
+                if (!Filter(p))
                 {
                     continue;
                 }
@@ -231,7 +244,7 @@ namespace Jint.Runtime.Interop
             FieldInfo field = null;
             foreach (var f in type.GetFields(bindingFlags))
             {
-                if (!MemberFilter(f))
+                if (!Filter(f))
                 {
                     continue;
                 }
@@ -256,7 +269,7 @@ namespace Jint.Runtime.Interop
             List<MethodInfo> methods = null;
             foreach (var m in type.GetMethods(bindingFlags))
             {
-                if (!MemberFilter(m))
+                if (!Filter(m))
                 {
                     continue;
                 }

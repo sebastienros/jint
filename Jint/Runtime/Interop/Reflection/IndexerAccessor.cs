@@ -74,7 +74,7 @@ namespace Jint.Runtime.Interop.Reflection
                 return null;
             }
 
-            var filter = engine.Options.Interop.TypeResolver.MemberFilter;
+            var filter = new Func<MemberInfo, bool>(engine.Options.Interop.TypeResolver.Filter);
 
             // default indexer wins
             if (typeof(IList).IsAssignableFrom(targetType) && filter(_iListIndexer))

@@ -70,33 +70,26 @@ namespace Jint.Tests.Runtime
             Assert.True(engine.Evaluate("m.Field2").IsString());
             Assert.True(engine.Evaluate("m.Member2").IsString());
             Assert.True(engine.Evaluate("m.Method2()").IsString());
+
+            // we forbid GetType by default
+            Assert.True(engine.Evaluate("m.GetType").IsUndefined());
         }
 
         [Fact]
-        public void ShouldBeAbleToHideGetType()
+        public void ShouldBeAbleToExposeGetType()
         {
             var engine = new Engine(options => options
                 .SetTypeResolver(new TypeResolver
                 {
-                    MemberFilter = member => !Attribute.IsDefined(member, typeof(ObsoleteAttribute))
+                    // allow unsafe access to GetType
+                    ExposeGetType = true
                 })
             );
             engine.SetValue("m", new HiddenMembers());
-
-            Assert.True(engine.Evaluate("m.Method1").IsUndefined());
+            Assert.True(engine.Evaluate("m.GetType").IsCallable());
 
             // reflection could bypass some safeguards
             Assert.Equal("Method1", engine.Evaluate("m.GetType().GetMethod('Method1').Invoke(m, [])").AsString());
-
-            // but not when we forbid GetType
-            var hiddenGetTypeEngine = new Engine(options => options
-                .SetTypeResolver(new TypeResolver
-                {
-                    MemberFilter = member => member.Name != nameof(GetType)
-                })
-            );
-            hiddenGetTypeEngine.SetValue("m", new HiddenMembers());
-            Assert.True(hiddenGetTypeEngine.Evaluate("m.GetType").IsUndefined());
         }
 
         [Fact]
