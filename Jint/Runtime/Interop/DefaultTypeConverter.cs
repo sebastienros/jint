@@ -212,7 +212,7 @@ namespace Jint.Runtime.Interop
                 return obj;
             }
 
-            if (_engine.Options.Interop.OperatorOverloadingAllowed)
+            if (_engine.Options.Interop.AllowOperatorOverloading)
             {
 #if NETSTANDARD
                 var key = (valueType, type);

@@ -152,7 +152,7 @@ namespace Jint
 
         public static Options AllowOperatorOverloading(this Options options, bool allow = true)
         {
-            options.Interop.OperatorOverloadingAllowed = allow;
+            options.Interop.AllowOperatorOverloading = allow;
             return options;
         }
 

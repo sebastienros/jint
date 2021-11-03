@@ -18,5 +18,7 @@ namespace Jint.Tests.Runtime.Domain
         public string Method1() => "Method1";
 
         public string Method2() => "Method2";
+
+        public Type Type => GetType();
     }
 }
