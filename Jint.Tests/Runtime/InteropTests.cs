@@ -82,16 +82,23 @@ namespace Jint.Tests.Runtime
             // https://github.com/sebastienros/jint/issues/995
             var engine = new Engine();
 
-            //var obj = new Dictionary<string, object> { ["a"] = 1, ["b"] = "c" };
-            //engine.SetValue("obj", obj);
-
-            //Assert.Equal("{\"a\":1,\"b\":\"c\"}", engine.Evaluate($"JSON.stringify(obj)").AsString());
-
             dynamic expando = new ExpandoObject();
             expando.Values = 1;
             engine.SetValue("expando", expando);
 
             Assert.Equal("{\"Values\":1}", engine.Evaluate($"JSON.stringify(expando)").AsString());
+        }
+
+        [Fact]
+        public void EngineShouldStringifyADictionary()
+        {
+            var engine = new Engine();
+
+            var d = new Hashtable();
+            d["Values"] = 1;
+            engine.SetValue("d", d);
+
+            Assert.Equal("{\"Values\":1}", engine.Evaluate($"JSON.stringify(d)").AsString());
         }
 
         [Fact]

@@ -98,19 +98,19 @@ namespace Jint.Runtime.Interop
                 return Undefined;
             }
 
-            if (Target is IDictionary<string, object> stringKeyedDictionary && property is JsString dicKey) // expando object for instance
-            {
-                var member = dicKey.ToString();
-
-                if (stringKeyedDictionary.TryGetValue(member, out var value))
-                {
-                    return FromObject(_engine, value);
-                }
-            }
-
             if (property is JsString stringKey)
             {
                 var member = stringKey.ToString();
+
+                // expando object for instance
+                if (Target is IDictionary<string, object> stringKeyedDictionary)
+                {
+                    if (stringKeyedDictionary.TryGetValue(member, out var value))
+                    {
+                        return FromObject(_engine, value);
+                    }
+                }
+
                 var result = Engine.Options.Interop.MemberAccessor?.Invoke(Engine, Target, member);
                 if (result is not null)
                 {
