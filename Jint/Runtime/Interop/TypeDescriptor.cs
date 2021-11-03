@@ -38,7 +38,7 @@ namespace Jint.Runtime.Interop
 
         private static bool DetermineIfObjectIsArrayLikeClrCollection(Type type)
         {
-            if (typeof(IDictionary).IsAssignableFrom(type))
+            if (typeof(IDictionary).IsAssignableFrom(type) || typeof(IDictionary<string, object>).IsAssignableFrom(type))
             {
                 // dictionaries are considered normal-object-like
                 return false;
