@@ -67,6 +67,14 @@ namespace Jint
                     else
                     {
                         var t = value.GetType();
+
+                        if (!engine.Options.Interop.AllowSystemReflection
+                            && t.Namespace?.StartsWith("System.Reflection") == true)
+                        {
+                            const string message = "Cannot access System.Reflection namespace, check Engine's interop options";
+                            ExceptionHelper.ThrowInvalidOperationException(message);
+                        }
+
                         if (t.IsEnum)
                         {
                             var ut = Enum.GetUnderlyingType(t);

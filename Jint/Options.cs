@@ -188,6 +188,18 @@ namespace Jint
         public bool Enabled { get; set; }
 
         /// <summary>
+        /// Whether to expose <see cref="object.GetType"></see> which can allow bypassing allow lists and open a way to reflection.
+        /// Defaults to false.
+        /// </summary>
+        public bool AllowGetType { get; set; }
+
+        /// <summary>
+        /// Whether Jint should allow wrapping objects from System.Reflection namespace.
+        /// Defaults to false.
+        /// </summary>
+        public bool AllowSystemReflection { get; set; }
+
+        /// <summary>
         /// Whether writing to CLR objects is allowed (set properties), defaults to true.
         /// </summary>
         public bool AllowWrite { get; set; } = true;
@@ -195,7 +207,7 @@ namespace Jint
         /// <summary>
         /// Whether operator overloading resolution is allowed, defaults to false.
         /// </summary>
-        public bool OperatorOverloadingAllowed { get; set; }
+        public bool AllowOperatorOverloading { get; set; }
 
         /// <summary>
         /// Types holding extension methods that should be considered when resolving methods.

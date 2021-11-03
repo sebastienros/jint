@@ -17,21 +17,15 @@ namespace Jint.Runtime.Interop
         private Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> _reflectionAccessors = new();
 
         /// <summary>
-        /// Whether to expose <see cref="object.GetType"></see> which can allow bypassing allow lists.
-        /// Defaults to false.
-        /// </summary>
-        public bool ExposeGetType { get; set; }
-
-        /// <summary>
         /// Registers a filter that determines whether given member is wrapped to interop or returned as undefined.
-        /// By default allows all but will also by limited by <see cref="ExposeGetType"/> configuration.
+        /// By default allows all but will also by limited by <see cref="AllowGetType"/> configuration.
         /// </summary>
-        /// <seealso cref="ExposeGetType"/>
+        /// <seealso cref="AllowGetType"/>
         public Predicate<MemberInfo> MemberFilter { get; set; } = _ => true;
 
-        internal bool Filter(MemberInfo m)
+        internal bool Filter(Engine engine, MemberInfo m)
         {
-            return (ExposeGetType || m.Name != nameof(GetType)) && MemberFilter(m);
+            return (engine.Options.Interop.AllowGetType || m.Name != nameof(GetType)) && MemberFilter(m);
         }
 
         /// <summary>
@@ -86,7 +80,7 @@ namespace Jint.Runtime.Interop
             const BindingFlags bindingFlags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public;
 
             // properties and fields cannot be numbers
-            if (!isNumber && TryFindMemberAccessor(type, memberName, bindingFlags, indexer, out var temp))
+            if (!isNumber && TryFindMemberAccessor(engine, type, memberName, bindingFlags, indexer, out var temp))
             {
                 return temp;
             }
@@ -110,7 +104,7 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var iprop in iface.GetProperties())
                 {
-                    if (!Filter(iprop))
+                    if (!Filter(engine, iprop))
                     {
                         continue;
                     }
@@ -143,7 +137,7 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var imethod in iface.GetMethods())
                 {
-                    if (!Filter(imethod))
+                    if (!Filter(engine, imethod))
                     {
                         continue;
                     }
@@ -178,7 +172,7 @@ namespace Jint.Runtime.Interop
                 var matches = new List<MethodInfo>();
                 foreach (var method in extensionMethods)
                 {
-                    if (!Filter(method))
+                    if (!Filter(engine, method))
                     {
                         continue;
                     }
@@ -202,6 +196,7 @@ namespace Jint.Runtime.Interop
         }
 
         internal bool TryFindMemberAccessor(
+            Engine engine,
             Type type,
             string memberName,
             BindingFlags bindingFlags,
@@ -214,7 +209,7 @@ namespace Jint.Runtime.Interop
             var typeResolverMemberNameCreator = MemberNameCreator;
             foreach (var p in type.GetProperties(bindingFlags))
             {
-                if (!Filter(p))
+                if (!Filter(engine, p))
                 {
                     continue;
                 }
@@ -244,7 +239,7 @@ namespace Jint.Runtime.Interop
             FieldInfo field = null;
             foreach (var f in type.GetFields(bindingFlags))
             {
-                if (!Filter(f))
+                if (!Filter(engine, f))
                 {
                     continue;
                 }
@@ -269,7 +264,7 @@ namespace Jint.Runtime.Interop
             List<MethodInfo> methods = null;
             foreach (var m in type.GetMethods(bindingFlags))
             {
-                if (!Filter(m))
+                if (!Filter(engine, m))
                 {
                     continue;
                 }

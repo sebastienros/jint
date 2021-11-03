@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interpreter
             Engine = engine;
             DebugMode = engine._isDebugMode;
             ResumedCompletion = resumedCompletion ?? default; // TODO later
-            OperatorOverloadingAllowed = engine.Options.Interop.OperatorOverloadingAllowed;
+            OperatorOverloadingAllowed = engine.Options.Interop.AllowOperatorOverloading;
         }
 
         public Engine Engine { get; }
