@@ -77,6 +77,24 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void EngineShouldStringifyAnExpandoObjectWithValuesCorrectly()
+        {
+            // https://github.com/sebastienros/jint/issues/995
+            var engine = new Engine();
+
+            //var obj = new Dictionary<string, object> { ["a"] = 1, ["b"] = "c" };
+            //engine.SetValue("obj", obj);
+
+            //Assert.Equal("{\"a\":1,\"b\":\"c\"}", engine.Evaluate($"JSON.stringify(obj)").AsString());
+
+            dynamic expando = new ExpandoObject();
+            expando.Values = 1;
+            engine.SetValue("expando", expando);
+
+            Assert.Equal("{\"Values\":1}", engine.Evaluate($"JSON.stringify(expando)").AsString());
+        }
+
+        [Fact]
         public void EngineShouldStringifyADictionaryOfStringAndObjectCorrectly()
         {
             var engine = new Engine();
