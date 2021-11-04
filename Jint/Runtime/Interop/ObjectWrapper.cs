@@ -103,9 +103,9 @@ namespace Jint.Runtime.Interop
                 var member = stringKey.ToString();
 
                 // expando object for instance
-                if (Target is IDictionary<string, object> stringKeyedDictionary)
+                if (_typeDescriptor.IsStringKeyedGenericDictionary)
                 {
-                    if (stringKeyedDictionary.TryGetValue(member, out var value))
+                    if (_typeDescriptor.TryGetValue(Target, member, out var value))
                     {
                         return FromObject(_engine, value);
                     }

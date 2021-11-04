@@ -2898,5 +2898,28 @@ namespace Jint.Tests.Runtime
             var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("a.age = \"It won't work, but it's normal\""));
             Assert.Equal("Input string was not in a correct format.", ex.Message);
         }
+
+        [Fact]
+        public void ShouldBeAbleToIndexJObjectWithStrings()
+        {
+            var engine = new Engine();
+
+            const string json = @"
+            {
+                'Properties': {
+                    'expirationDate': {
+                        'Value': '2021-10-09T00:00:00Z'
+                    }
+                }
+            }";
+
+            var obj = JObject.Parse(json);
+            engine.SetValue("o", obj);
+            var value = engine.Evaluate("o.Properties.expirationDate.Value");
+            var wrapper = Assert.IsAssignableFrom<ObjectWrapper>(value);
+            var token = wrapper.Target as JToken;
+            var localDateTimeString = DateTime.Parse("2021-10-09T00:00:00Z").ToUniversalTime();
+            Assert.Equal(localDateTimeString.ToString(), token.ToString());
+        }
     }
 }
