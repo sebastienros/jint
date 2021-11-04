@@ -104,7 +104,7 @@ namespace Jint.Runtime.Interpreter.Statements
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofheadevaluation-tdznames-expr-iterationkind
         /// </summary>
-        private bool HeadEvaluation(EvaluationContext context, out IIterator result)
+        private bool HeadEvaluation(EvaluationContext context, out IteratorInstance result)
         {
             var engine = context.Engine;
             var oldEnv = engine.ExecutionContext.LexicalEnvironment;
@@ -135,7 +135,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
             else
             {
-                result = exprValue as IIterator ?? exprValue.GetIterator(engine.Realm);
+                result = exprValue as IteratorInstance ?? exprValue.GetIterator(engine.Realm);
             }
 
             return true;
@@ -148,7 +148,7 @@ namespace Jint.Runtime.Interpreter.Statements
             EvaluationContext context,
             JintExpression lhs,
             JintStatement stmt,
-            IIterator iteratorRecord,
+            IteratorInstance iteratorRecord,
             IterationKind iterationKind,
             LhsKind lhsKind,
             IteratorKind iteratorKind = IteratorKind.Sync)

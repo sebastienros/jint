@@ -479,7 +479,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             public ArraySpreadProtocol(
                 Engine engine,
                 System.Collections.Generic.List<JsValue> instance,
-                IIterator iterator) : base(engine, iterator, 0)
+                IteratorInstance iterator) : base(engine, iterator, 0)
             {
                 _instance = instance;
             }

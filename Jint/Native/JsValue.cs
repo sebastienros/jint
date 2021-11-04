@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
+using Jint.Native.Generator;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -36,9 +37,9 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal IIterator GetIterator(Realm realm)
+        internal IteratorInstance GetIterator(Realm realm, GeneratorKind hint = GeneratorKind.Sync, ICallable method = null)
         {
-            if (!TryGetIterator(realm, out var iterator))
+            if (!TryGetIterator(realm, out var iterator, hint, method))
             {
                 ExceptionHelper.ThrowTypeError(realm, "The value is not iterable");
             }
@@ -48,30 +49,48 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool TryGetIterator(Realm realm, out IIterator iterator)
+        internal bool TryGetIterator(Realm realm, out IteratorInstance iterator, GeneratorKind hint = GeneratorKind.Sync, ICallable method = null)
         {
-            var objectInstance = TypeConverter.ToObject(realm, this);
+            var obj = TypeConverter.ToObject(realm, this);
 
-            if (!objectInstance.TryGetValue(GlobalSymbolRegistry.Iterator, out var value)
-                || value is not ICallable callable)
+            if (method is null)
+            {
+                if (hint == GeneratorKind.Async)
+                {
+                    method = obj.GetMethod(GlobalSymbolRegistry.AsyncIterator);
+                    if (method is null)
+                    {
+                        var syncMethod = obj.GetMethod(GlobalSymbolRegistry.Iterator);
+                        var syncIteratorRecord = obj.GetIterator(realm, GeneratorKind.Sync, syncMethod);
+                        // TODO async CreateAsyncFromSyncIterator(syncIteratorRecord);
+                        ExceptionHelper.ThrowNotImplementedException("async");
+                    }
+                }
+                else
+                {
+                    method = obj.GetMethod(GlobalSymbolRegistry.Iterator);
+                }
+            }
+
+            if (method is null)
             {
                 iterator = null;
                 return false;
             }
 
-            var obj = callable.Call(this, Arguments.Empty) as ObjectInstance;
-            if (obj is null)
+            var iteratorResult = method.Call(obj, Arguments.Empty) as ObjectInstance;
+            if (iteratorResult is null)
             {
                 ExceptionHelper.ThrowTypeError(realm, "Result of the Symbol.iterator method is not an object");
             }
 
-            if (obj is IIterator i)
+            if (iteratorResult is IteratorInstance i)
             {
                 iterator = i;
             }
             else
             {
-                iterator = new IteratorInstance.ObjectIterator(obj);
+                iterator = new IteratorInstance.ObjectIterator(iteratorResult);
             }
 
             return true;

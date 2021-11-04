@@ -194,7 +194,7 @@ namespace Jint.Native.Promise
             }
 
 
-            IIterator iterator;
+            IteratorInstance iterator;
             // 5. Let iteratorRecord be GetIterator(iterable).
             // 6. IfAbruptRejectPromise(iteratorRecord, promiseCapability).
 
@@ -336,7 +336,7 @@ namespace Jint.Native.Promise
             }
 
 
-            IIterator iterator;
+            IteratorInstance iterator;
             // 5. Let iteratorRecord be GetIterator(iterable).
             // 6. IfAbruptRejectPromise(iteratorRecord, promiseCapability).
 

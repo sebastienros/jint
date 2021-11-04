@@ -408,7 +408,7 @@ namespace Jint.Runtime.Environments
             public ArrayPatternProtocol(
                 Engine engine,
                 ArrayInstance instance,
-                IIterator iterator,
+                IteratorInstance iterator,
                 int max) : base(engine, iterator, 0)
             {
                 _instance = instance;
