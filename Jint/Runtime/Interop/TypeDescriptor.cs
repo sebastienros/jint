@@ -9,11 +9,30 @@ namespace Jint.Runtime.Interop
     internal sealed class TypeDescriptor
     {
         private static readonly ConcurrentDictionary<Type, TypeDescriptor> _cache = new();
+        private static readonly Type _genericDictionaryType = typeof(IDictionary<,>);
+        private static readonly Type _stringType = typeof(string);
+
+        private readonly PropertyInfo _stringIndexer;
 
         private TypeDescriptor(Type type)
         {
-            IsArrayLike = DetermineIfObjectIsArrayLikeClrCollection(type);
-            IsDictionary = typeof(IDictionary).IsAssignableFrom(type) || typeof(IDictionary<string, object>).IsAssignableFrom(type);
+            // check if object has any generic dictionary signature that accepts string as key
+            foreach (var i in type.GetInterfaces())
+            {
+                if (i.IsGenericType
+                    && i.GetGenericTypeDefinition() == _genericDictionaryType
+                    && i.GenericTypeArguments[0] == _stringType)
+                {
+                    _stringIndexer = i.GetProperty("Item");
+                    break;
+                }
+            }
+
+            IsDictionary = _stringIndexer is not null || typeof(IDictionary).IsAssignableFrom(type);
+
+            // dictionaries are considered normal-object-like
+            IsArrayLike = !IsDictionary && DetermineIfObjectIsArrayLikeClrCollection(type);
+
             IsEnumerable = typeof(IEnumerable).IsAssignableFrom(type);
 
             if (IsArrayLike)
@@ -26,6 +45,7 @@ namespace Jint.Runtime.Interop
         public bool IsArrayLike { get; }
         public bool IsIntegerIndexedArray { get; }
         public bool IsDictionary { get; }
+        public bool IsStringKeyedGenericDictionary => _stringIndexer is not null;
         public bool IsEnumerable { get; }
         public PropertyInfo LengthProperty { get; }
 
@@ -38,12 +58,6 @@ namespace Jint.Runtime.Interop
 
         private static bool DetermineIfObjectIsArrayLikeClrCollection(Type type)
         {
-            if (typeof(IDictionary).IsAssignableFrom(type) || typeof(IDictionary<string, object>).IsAssignableFrom(type))
-            {
-                // dictionaries are considered normal-object-like
-                return false;
-            }
-
             if (typeof(ICollection).IsAssignableFrom(type))
             {
                 return true;
@@ -64,6 +78,26 @@ namespace Jint.Runtime.Interop
             }
 
             return false;
+        }
+
+        public bool TryGetValue(object target, string member, out object o)
+        {
+            if (!IsStringKeyedGenericDictionary)
+            {
+                ExceptionHelper.ThrowInvalidOperationException("Not a string-keyed dictionary");
+            }
+
+            // we could throw when indexing with an invalid key
+            try
+            {
+                o = _stringIndexer.GetValue(target, new [] { member });
+                return true;
+            }
+            catch (TargetInvocationException tie) when (tie.InnerException is KeyNotFoundException)
+            {
+                o = null;
+                return false;
+            }
         }
     }
 }
