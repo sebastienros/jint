@@ -310,6 +310,10 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "top-level-await not implemented";
                                 break;
+                            case "import-assertions":
+                                skip = true;
+                                reason = "import-assertions not implemented";
+                                break;
                         }
                     }
                 }
