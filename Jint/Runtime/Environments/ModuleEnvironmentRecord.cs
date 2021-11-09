@@ -4,6 +4,10 @@ using Jint.Runtime.Modules;
 
 namespace Jint.Runtime.Environments
 {
+    /// <summary>
+    /// Represents a module environment record
+    /// https://tc39.es/ecma262/#sec-module-environment-records
+    /// </summary>
     internal sealed class ModuleEnvironmentRecord : DeclarativeEnvironmentRecord
     {
         private readonly HybridDictionary<IndirectBinding> _importBindings = new();
@@ -50,7 +54,7 @@ namespace Jint.Runtime.Environments
         private readonly struct IndirectBinding
         {
             internal readonly JsModule Module;
-            internal readonly Key BindingName;
+            internal readonly string BindingName;
 
             internal IndirectBinding(JsModule module, string bindingName)
             {

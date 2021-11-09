@@ -4,19 +4,11 @@ using System.Collections.Generic;
 
 namespace Jint.Runtime.Modules
 {
-    public sealed class ModuleLoader : IModuleLoader
+    public class ModuleLoader : IModuleLoader
     {
-        private readonly List<IModuleSource> _moduleSources;
+        private readonly List<IModuleSource> _moduleSources = new();
 
-        private readonly IModuleSource _fileModuleSource;
-        private readonly IModuleSource _httpModuleSource;
-
-        public ModuleLoader()
-        {
-            _moduleSources = new List<IModuleSource>();
-            _fileModuleSource = new FileModuleSource();
-            _httpModuleSource = new HttpModuleSource();
-        }
+        private readonly IModuleSource _fileModuleSource = new FileModuleSource();
 
         public void AddModuleSource(params IModuleSource[] moduleSources)
         {
@@ -62,10 +54,6 @@ namespace Jint.Runtime.Modules
             if (locationUri.Scheme == Uri.UriSchemeFile)
             {
                 loaded = _fileModuleSource.TryLoadModuleSource(locationUri, out moduleSource);
-            }
-            else if (locationUri.Scheme == Uri.UriSchemeHttp || locationUri.Scheme == Uri.UriSchemeHttps)
-            {
-                loaded = _httpModuleSource.TryLoadModuleSource(locationUri, out moduleSource);
             }
 
             if (loaded)

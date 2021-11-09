@@ -1,11 +1,8 @@
-﻿using Esprima;
-using Esprima.Ast;
+﻿using System;
 using System.Collections.Generic;
-using Jint.Native;
-using Jint.Native.Promise;
+using Esprima;
+using Esprima.Ast;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
 
 namespace Jint
@@ -57,64 +54,10 @@ namespace Jint
 
         }
 
-        //https://tc39.es/ecma262/#sec-hostresolveimportedmodule
-        internal JsModule ResolveImportedModule(JsModule referencingModule, string specifier)
+        internal readonly struct ModuleCacheKey : IEquatable<ModuleCacheKey>
         {
-            return LoadModule(referencingModule._location, specifier);
-        }
-
-        //https://tc39.es/ecma262/#sec-hostimportmoduledynamically
-        internal void ImportModuleDynamically(JsModule referencingModule, string specifier, PromiseCapability promiseCapability)
-        {
-
-            var promise = RegisterPromise();
-
-            try
-            {
-                LoadModule(referencingModule._location, specifier);
-                promise.Resolve(JsValue.Undefined);
-                
-            }
-            catch (JavaScriptException ex)
-            {
-                promise.Reject(ex.Error);
-            }
-
-            FinishDynamicImport(referencingModule, specifier, promiseCapability, (PromiseInstance)promise.Promise);
-        }
-
-        //https://tc39.es/ecma262/#sec-finishdynamicimport
-        internal void FinishDynamicImport(JsModule referencingModule, string specifier, PromiseCapability promiseCapability, PromiseInstance innerPromise)
-        {
-            var onFulfilled = new ClrFunctionInstance(this, "", (thisObj, args) =>
-            {
-                var moduleRecord = ResolveImportedModule(referencingModule, specifier);
-                try
-                {
-                    var ns = JsModule.GetModuleNamespace(moduleRecord);
-                    promiseCapability.Resolve.Call(ns);
-                }
-                catch (JavaScriptException ex)
-                {
-                    promiseCapability.Reject.Call(ex.Error);
-                }
-                return JsValue.Undefined;
-            }, 0, PropertyFlag.Configurable);
-
-            var onRejected = new ClrFunctionInstance(this, "", (thisObj, args) =>
-            {
-                var error = args.At(0);
-                promiseCapability.Reject.Call(error);
-                return JsValue.Undefined;
-            }, 0, PropertyFlag.Configurable);
-
-            PromiseOperations.PerformPromiseThen(this, innerPromise, onFulfilled, onRejected, null);
-        }
-
-        internal readonly struct ModuleCacheKey
-        {
-            internal readonly Key ReferencingModuleLocation;
-            internal readonly Key Specifier;
+            internal readonly string ReferencingModuleLocation;
+            internal readonly string Specifier;
             private readonly int _hashCode;
 
             internal ModuleCacheKey(string referencingModuleLocation, string specifier)
@@ -123,13 +66,18 @@ namespace Jint
                 Specifier = specifier;
                 unchecked
                 {
-                    _hashCode = 31 * ReferencingModuleLocation.HashCode + Specifier.HashCode;
+                    _hashCode = 31 * ReferencingModuleLocation.GetHashCode() + Specifier.GetHashCode();
                 }
             }
 
             public override bool Equals(object obj)
             {
-                return (obj is ModuleCacheKey other) && (ReferencingModuleLocation.Equals(other.ReferencingModuleLocation) && Specifier.Equals(other.Specifier));
+                return (obj is ModuleCacheKey other) && Equals(other);
+            }
+
+            public bool Equals(ModuleCacheKey obj)
+            {
+                return ReferencingModuleLocation.Equals(obj.ReferencingModuleLocation) && Specifier.Equals(obj.Specifier);
             }
 
             public override int GetHashCode()

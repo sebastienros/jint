@@ -12,27 +12,35 @@ using Jint.Runtime.Interpreter;
 
 namespace Jint.Runtime.Modules
 {
-    public sealed record ResolvedBinding(JsModule Module, string BindingName)
+    internal sealed record ResolvedBinding(JsModule Module, string BindingName)
     {
-        public static ResolvedBinding Ambiguous => new(null, "ambiguous");
+        internal static ResolvedBinding Ambiguous => new(null, "ambiguous");
     }
 
-    public sealed record ImportEntry(string ModuleRequest, string ImportName, string LocalName)
-    {
-    }
+    internal sealed record ImportEntry(
+        string ModuleRequest, 
+        string ImportName, 
+        string LocalName
+    );
 
-    public sealed record ExportEntry(string ExportName, string ModuleRequest, string ImportName, string LocalName)
-    {
-    }
+    internal sealed record ExportEntry(
+        string ExportName, 
+        string ModuleRequest, 
+        string ImportName, 
+        string LocalName
+    );
 
-    public sealed record ExportResolveSetItem(JsModule Module, string ExportName)
-    {
-    }
+    internal sealed record ExportResolveSetItem(
+        JsModule Module, 
+        string ExportName
+    );
 
-    // I made the decsion to include the following record descriptions from the spec into a single type:
-    // https://tc39.es/ecma262/#sec-abstract-module-records
-    // https://tc39.es/ecma262/#sec-cyclic-module-records
-    // https://tc39.es/ecma262/#sec-source-text-module-records
+    /// <summary>
+    /// Represents a module record
+    /// https://tc39.es/ecma262/#sec-abstract-module-records
+    /// https://tc39.es/ecma262/#sec-cyclic-module-records
+    /// https://tc39.es/ecma262/#sec-source-text-module-records
+    /// </summary>
     public sealed class JsModule : JsValue
     {
         private readonly Engine _engine;
@@ -42,7 +50,7 @@ namespace Jint.Runtime.Modules
         internal Completion? _evalError;
         internal int _dfsIndex;
         internal int _dfsAncestorIndex;
-        internal readonly List<string> _requestedModules = new();
+        internal readonly HashSet<string> _requestedModules = new();
         internal JsModule _cycleRoot;
         internal bool _hasTLA;
         internal bool _asyncEvaluation;
@@ -62,7 +70,7 @@ namespace Jint.Runtime.Modules
         internal JsValue _evalResult;
         
 
-        public JsModule(Engine engine, Realm realm, Module source, string location, bool async) : base(InternalTypes.Module)
+        internal JsModule(Engine engine, Realm realm, Module source, string location, bool async) : base(InternalTypes.Module)
         {
             _engine = engine;
             _realm = realm;
@@ -84,8 +92,11 @@ namespace Jint.Runtime.Modules
 
         }
 
-        public ModuleStatus Status { get; private set; }
+        internal ModuleStatus Status { get; private set; }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getmodulenamespace
+        /// </summary>
         public static ObjectInstance GetModuleNamespace(JsModule module)
         {
             var ns = module._namespace;
@@ -109,6 +120,9 @@ namespace Jint.Runtime.Modules
             return ns;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-modulenamespacecreate
+        /// </summary>
         private static ObjectInstance CreateModuleNamespace(JsModule module, List<string> unambiguousNames)
         {
             var m = new ModuleNamespace(module._engine, module, unambiguousNames);
@@ -116,6 +130,9 @@ namespace Jint.Runtime.Modules
             return m;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getexportednames
+        /// </summary>
         public List<string> GetExportedNames(List<JsModule> exportStarSet = null)
         {
             exportStarSet ??= new();
@@ -142,7 +159,7 @@ namespace Jint.Runtime.Modules
             for(var i = 0; i < _starExportEntries.Count; i++)
             {
                 var e = _starExportEntries[i];
-                var requestedModule = _engine.ResolveImportedModule(this, e.ModuleRequest);
+                var requestedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
                 var starNames = requestedModule.GetExportedNames(exportStarSet);
 
                 for (var j = 0; j < starNames.Count; j++)
@@ -158,7 +175,10 @@ namespace Jint.Runtime.Modules
             return exportedNames;
         }
 
-        public ResolvedBinding ResolveExport(string exportName, List<ExportResolveSetItem> resolveSet = null)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-resolveexport
+        /// </summary>
+        internal ResolvedBinding ResolveExport(string exportName, List<ExportResolveSetItem> resolveSet = null)
         {
             resolveSet ??= new();
 
@@ -188,7 +208,7 @@ namespace Jint.Runtime.Modules
                 var e = _localExportEntries[i];
                 if (exportName.Equals(e.ExportName))
                 {
-                    var importedModule = _engine.ResolveImportedModule(this, e.ModuleRequest);
+                    var importedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
                     if(e.ImportName == "*")
                     {
                         return new ResolvedBinding(importedModule, "*namespace*");
@@ -210,7 +230,7 @@ namespace Jint.Runtime.Modules
             for(var i = 0; i < _starExportEntries.Count; i++)
             {
                 var e = _starExportEntries[i];
-                var importedModule = _engine.ResolveImportedModule(this, e.ModuleRequest);
+                var importedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
                 var resolution = importedModule.ResolveExport(exportName, resolveSet);
                 if(resolution == ResolvedBinding.Ambiguous)
                 {
@@ -236,6 +256,9 @@ namespace Jint.Runtime.Modules
             return starResolution;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-moduledeclarationlinking
+        /// </summary>
         public void Link()
         {
             if (Status == ModuleStatus.Linking || Status == ModuleStatus.Evaluating)
@@ -273,6 +296,9 @@ namespace Jint.Runtime.Modules
             }
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-moduleevaluation
+        /// </summary>
         public JsValue Evaluate()
         {
             var module = this;
@@ -342,6 +368,9 @@ namespace Jint.Runtime.Modules
 
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-InnerModuleLinking
+        /// </summary>
         private int Link(JsModule module, Stack<JsModule> stack, int index)
         {
             if(module.Status is ModuleStatus.Linking or 
@@ -365,10 +394,9 @@ namespace Jint.Runtime.Modules
 
             var requestedModules = module._requestedModules;
 
-            for(var i = 0; i < requestedModules.Count; i++)
+            foreach (var moduleSpecifier in requestedModules)
             {
-                var moduleSpecifier = requestedModules[i];
-                var requiredModule = _engine.ResolveImportedModule(module, moduleSpecifier);
+                var requiredModule = _engine._host.ResolveImportedModule(module, moduleSpecifier);
 
                 if (requiredModule.Status != ModuleStatus.Linking && 
                     requiredModule.Status != ModuleStatus.Linked &&
@@ -417,6 +445,9 @@ namespace Jint.Runtime.Modules
 
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-innermoduleevaluation
+        /// </summary>
         private Completion Evaluate(JsModule module, Stack<JsModule> stack, int index, ref int asyncEvalOrder)
         {
             if(module.Status == ModuleStatus.EvaluatingAsync || module.Status == ModuleStatus.Evaluated)
@@ -448,10 +479,10 @@ namespace Jint.Runtime.Modules
             stack.Push(module);
 
             var requestedModules = module._requestedModules;
-            for(int i = 0; i < requestedModules.Count; i++)
+
+            foreach (var moduleSpecifier in requestedModules)
             {
-                var moduleSpecifier = requestedModules[i];
-                var requiredModule = _engine.ResolveImportedModule(module, moduleSpecifier);
+                var requiredModule = _engine._host.ResolveImportedModule(module, moduleSpecifier);
                 var result = Evaluate(module, stack, index, ref asyncEvalOrder);
                 if(result.Type != CompletionType.Normal)
                 {
@@ -549,6 +580,9 @@ namespace Jint.Runtime.Modules
 
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-source-text-module-record-initialize-environment
+        /// </summary>
         private void InitializeEnvironment()
         {
             for(var i = 0; i < _indirectExportEntries.Count; i++)
@@ -557,7 +591,7 @@ namespace Jint.Runtime.Modules
                 var resolution = ResolveExport(e.ExportName);
                 if (resolution is null || resolution == ResolvedBinding.Ambiguous)
                 {
-                    ExceptionHelper.ThrowSyntaxError(_realm, "Ambigous import statement for identifier: " + e.ExportName);
+                    ExceptionHelper.ThrowSyntaxError(_realm, "Ambiguous import statement for identifier: " + e.ExportName);
                 }
             }
 
@@ -568,7 +602,7 @@ namespace Jint.Runtime.Modules
             for (var i = 0; i < _importEntries.Count; i++)
             {
                 var ie = _importEntries[i];
-                var importedModule = _engine.ResolveImportedModule(this, ie.ModuleRequest);
+                var importedModule = _engine._host.ResolveImportedModule(this, ie.ModuleRequest);
                 if(ie.ImportName == "*")
                 {
                     var ns = GetModuleNamespace(importedModule);
@@ -669,6 +703,9 @@ namespace Jint.Runtime.Modules
             _engine.LeaveExecutionContext();
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-source-text-module-record-execute-module
+        /// </summary>
         private Completion Execute(PromiseCapability capability = null)
         {
             var moduleContext = new ExecutionContext(_environment, _environment, null, _realm);
@@ -690,6 +727,9 @@ namespace Jint.Runtime.Modules
             }
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-execute-async-module
+        /// </summary>
         private Completion ExecuteAsync()
         {
             if((Status != ModuleStatus.Evaluating && Status != ModuleStatus.EvaluatingAsync) || !_hasTLA)
@@ -708,6 +748,9 @@ namespace Jint.Runtime.Modules
 
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-gather-available-ancestors
+        /// </summary>
         private void GatherAvailableAncestors(List<JsModule> execList)
         {
             foreach(var m in _asyncParentModules)
@@ -734,6 +777,9 @@ namespace Jint.Runtime.Modules
             }
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-async-module-execution-fulfilled
+        /// </summary>
         private JsValue AsyncModuleExecutionFulfilled(JsValue thisObj, JsValue[] arguments)
         {
             var module = (JsModule)arguments.At(0);
@@ -805,6 +851,9 @@ namespace Jint.Runtime.Modules
             return Undefined;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-async-module-execution-rejected
+        /// </summary>
         private JsValue AsyncModuleExecutionRejected(JsValue thisObj, JsValue[] arguments)
         {
             JsModule module = (JsModule)arguments.At(0);

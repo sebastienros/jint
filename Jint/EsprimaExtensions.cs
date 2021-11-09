@@ -257,10 +257,11 @@ namespace Jint
             return new Record(property, closure);
         }
 
-        internal static void GetImportEntries(this ImportDeclaration import, List<ImportEntry> importEntries)
+        internal static void GetImportEntries(this ImportDeclaration import, List<ImportEntry> importEntries, HashSet<string> requestedModules)
         {
             var source = import.Source.StringValue;
             var specifiers = import.Specifiers;
+            requestedModules.Add(source!);
 
             foreach (var specifier in specifiers)
             {
@@ -279,7 +280,7 @@ namespace Jint
             }
         }
 
-        internal static void GetExportEntries(this ExportDeclaration export, List<ExportEntry> exportEntries)
+        internal static void GetExportEntries(this ExportDeclaration export, List<ExportEntry> exportEntries, HashSet<string> requestedModules)
         {
             switch (export)
             {
@@ -288,6 +289,7 @@ namespace Jint
                     break;
                 case ExportAllDeclaration allDeclaration:
                     //Note: there is a pending PR for Esprima to support exporting an imported modules content as a namespace i.e. 'export * as ns from "mod"'
+                    requestedModules.Add(allDeclaration.Source.StringValue!);
                     exportEntries.Add(new(null, allDeclaration.Source.StringValue, "*", null));
                     break;
                 case ExportNamedDeclaration namedDeclaration:
@@ -295,6 +297,11 @@ namespace Jint
                     if (specifiers.Count == 0)
                     {
                         GetExportEntries(false, namedDeclaration.Declaration!, exportEntries, namedDeclaration.Source?.StringValue);
+
+                        if (namedDeclaration.Source is not null)
+                        {
+                            requestedModules.Add(namedDeclaration.Source.StringValue!);
+                        }
                     }
                     else
                     {
@@ -313,12 +320,11 @@ namespace Jint
 
             if(names.Count == 0)
             {
-                if (!defaultExport)
+                if (defaultExport)
                 {
-                    ExceptionHelper.ThrowTypeErrorNoEngine("export declaration requires an identifier");
+                    exportEntries.Add(new("default", null, null, "*default*"));
                 }
-
-                exportEntries.Add(new("default", null, null, "*default*"));
+                
             }
             else
             {

@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Jint.Runtime.Modules
+﻿namespace Jint.Runtime.Modules
 {
     public interface IModuleLoader
     {

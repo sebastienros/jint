@@ -103,10 +103,10 @@ namespace Jint
                 AttachExtensionMethodsToPrototypes(engine);
             }
 
-            if (Modules.Allowed)
+            if (Modules.Enabled)
             {
-                engine.ModuleLoader = Modules.CustomModuleLoader ?? new ModuleLoader();
-                engine.ModuleLoader.AddModuleSource(Modules.CustomModuleSources.ToArray());
+                engine.ModuleLoader = Modules.ModuleLoader ?? new ModuleLoader();
+                engine.ModuleLoader.AddModuleSource(Modules.ModuleSources.Distinct().ToArray());
 
                 //Node js like loading of modules
                 engine.Realm.GlobalObject.SetProperty("require", new PropertyDescriptor(new ClrFunctionInstance(
@@ -346,18 +346,18 @@ namespace Jint
     public class ModuleOptions
     {
         /// <summary>
-        /// Indicates if modules are allowed in the current engine context
+        /// Indicates if modules are enabled in the current engine context
         /// </summary>
-        public bool Allowed { get; set; } = false;
+        public bool Enabled { get; set; } = false;
 
         /// <summary>
-        /// Custom module loader implementation
+        /// Module loader implementation
         /// </summary>
-        public IModuleLoader? CustomModuleLoader { get; set; }
+        public IModuleLoader ModuleLoader { get; set; } = new ModuleLoader();
 
         /// <summary>
-        /// Custom module sources used if no custom module loader is set
+        /// Module sources for the module loader implementation
         /// </summary>
-        public List<IModuleSource> CustomModuleSources { get; } = new();
+        public List<IModuleSource> ModuleSources { get; } = new();
     }
 }

@@ -1,6 +1,6 @@
 ﻿namespace Jint.Runtime.Modules
 {
-    public enum ModuleStatus
+    internal enum ModuleStatus
     {
         Unlinked,
         Linking,

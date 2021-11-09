@@ -243,21 +243,30 @@ namespace Jint
             options.Host.Factory = factory;
         }
 
-        public static Options AllowModules(this Options options, bool allow = true)
+        /// <summary>
+        /// Enables module loading in the engine via the 'require' function
+        /// </summary>
+        public static Options EnableModules(this Options options, bool enable = true)
         {
-            options.Modules.Allowed = allow;
+            options.Modules.Enabled = enable;
             return options;
         }
 
-        public static Options CustomModuleLoader(this Options options, IModuleLoader moduleLoader)
+        /// <summary>
+        /// Allows to configure how modules are loaded
+        /// </summary>
+        public static Options WithModuleLoader(this Options options, IModuleLoader moduleLoader)
         {
-            options.Modules.CustomModuleLoader = moduleLoader;
+            options.Modules.ModuleLoader = moduleLoader;
             return options;
         }
 
-        public static Options CustomModuleSource(this Options options, params IModuleSource[] sources)
+        /// <summary>
+        /// Allows to configure where modules are loaded from
+        /// </summary>
+        public static Options WithModuleSource(this Options options, params IModuleSource[] sources)
         {
-            options.Modules.CustomModuleSources.AddRange(sources);
+            options.Modules.ModuleSources.AddRange(sources);
             return options;
         }
     }

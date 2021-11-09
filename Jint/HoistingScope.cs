@@ -8,7 +8,7 @@ namespace Jint
     internal readonly struct HoistingScope
     {
         internal readonly List<FunctionDeclaration> _functionDeclarations;
-        
+
         internal readonly List<VariableDeclaration> _variablesDeclarations;
         internal readonly List<Key> _varNames;
 
@@ -31,7 +31,7 @@ namespace Jint
 
         public static HoistingScope GetProgramLevelDeclarations(
             Script script,
-            bool collectVarNames = false, 
+            bool collectVarNames = false,
             bool collectLexicalNames = false)
         {
             var treeWalker = new ScriptWalker(StrictModeScope.IsStrictModeCode, collectVarNames, collectLexicalNames);
@@ -43,7 +43,7 @@ namespace Jint
                 treeWalker._lexicalDeclarations,
                 treeWalker._lexicalNames);
         }
-        
+
         public static HoistingScope GetFunctionLevelDeclarations(
             IFunction node,
             bool collectVarNames = false,
@@ -51,7 +51,7 @@ namespace Jint
         {
             var treeWalker = new ScriptWalker(StrictModeScope.IsStrictModeCode, collectVarNames, collectLexicalNames);
             treeWalker.Visit(node.Body, null);
-            
+
             return new HoistingScope(
                 treeWalker._functions,
                 treeWalker._varNames,
@@ -78,7 +78,7 @@ namespace Jint
 
         public static List<Declaration> GetLexicalDeclarations(BlockStatement statement)
         {
-            List<Declaration> lexicalDeclarations = null ;
+            List<Declaration> lexicalDeclarations = null;
             ref readonly var statementListItems = ref statement.Body;
             for (var i = 0; i < statementListItems.Count; i++)
             {
@@ -94,15 +94,15 @@ namespace Jint
                 }
 
                 lexicalDeclarations ??= new List<Declaration>();
-                lexicalDeclarations.Add((Declaration) node);
+                lexicalDeclarations.Add((Declaration)node);
             }
-            
+
             return lexicalDeclarations;
         }
 
         public static List<Declaration> GetLexicalDeclarations(SwitchCase statement)
         {
-            List<Declaration> lexicalDeclarations = null ;
+            List<Declaration> lexicalDeclarations = null;
             ref readonly var statementListItems = ref statement.Consequent;
             for (var i = 0; i < statementListItems.Count; i++)
             {
@@ -111,8 +111,8 @@ namespace Jint
                 {
                     continue;
                 }
-                
-                var rootVariable = (VariableDeclaration) node;
+
+                var rootVariable = (VariableDeclaration)node;
                 if (rootVariable.Kind == VariableDeclarationKind.Var)
                 {
                     continue;
@@ -126,8 +126,8 @@ namespace Jint
         }
 
         public static void GetImportsAndExports(
-            Module module, 
-            out List<string> requestedModules,
+            Module module,
+            out HashSet<string> requestedModules,
             out List<ImportEntry> importEntries,
             out List<ExportEntry> localExportEntries,
             out List<ExportEntry> indirectExportEntries,
@@ -137,49 +137,68 @@ namespace Jint
             treeWalker.Visit(module);
 
             importEntries = treeWalker._importEntries;
-            requestedModules = treeWalker.RequestedModules;
-            var importedBoundNames = new HashSet<string>(importEntries?.Select(x => x.LocalName));
+            requestedModules = treeWalker._requestedModules ?? new();
+            var importedBoundNames = new HashSet<string>();
 
-            var exportEntries = treeWalker._exportEntries;
-            localExportEntries = null;
-            indirectExportEntries = null;
-            starExportEntries = null;
-
-            for(int i = 0; i < exportEntries.Count; i++)
+            if (importEntries != null)
             {
-                var ee = exportEntries[i];
-
-                if (ee.ModuleRequest is null)
+                for (var i = 0; i < importEntries.Count; i++)
                 {
-                    if (!importedBoundNames.Contains(ee.LocalName))
+                    var ie = importEntries[i];
+
+                    if (ie.LocalName == null)
                     {
-                        localExportEntries ??= new();
-                        localExportEntries.Add(ee);
+                        if (System.Diagnostics.Debugger.IsAttached)
+                        {
+                            System.Diagnostics.Debugger.Break();
+                        }
                     }
                     else
                     {
-                        var ie = importEntries.First(x => x.LocalName == ee.LocalName);
-                        if (ie.ImportName == "*")
+                        importedBoundNames.Add(ie.LocalName);
+                    }
+
+                }
+            }
+
+            var exportEntries = treeWalker._exportEntries;
+            localExportEntries = new();
+            indirectExportEntries = new();
+            starExportEntries = new();
+
+            if (exportEntries != null)
+            {
+                for (var i = 0; i < exportEntries.Count; i++)
+                {
+                    var ee = exportEntries[i];
+
+                    if (ee.ModuleRequest is null)
+                    {
+                        if (!importedBoundNames.Contains(ee.LocalName))
                         {
-                            localExportEntries ??= new();
                             localExportEntries.Add(ee);
                         }
                         else
                         {
-                            indirectExportEntries ??= new();
-                            indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, ie.ImportName, null));
+                            var ie = importEntries.First(x => x.LocalName == ee.LocalName);
+                            if (ie.ImportName == "*")
+                            {
+                                localExportEntries.Add(ee);
+                            }
+                            else
+                            {
+                                indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, ie.ImportName, null));
+                            }
                         }
                     }
-                }
-                else if (ee.ImportName == "*"  && ee.ExportName is null)
-                {
-                    starExportEntries ??= new();
-                    starExportEntries.Add(ee);
-                }
-                else
-                {
-                    indirectExportEntries ??= new();
-                    indirectExportEntries.Add(ee);
+                    else if (ee.ImportName == "*" && ee.ExportName is null)
+                    {
+                        starExportEntries.Add(ee);
+                    }
+                    else
+                    {
+                        indirectExportEntries.Add(ee);
+                    }
                 }
             }
         }
@@ -216,7 +235,7 @@ namespace Jint
 
                     if (childNode.Type == Nodes.VariableDeclaration)
                     {
-                        var variableDeclaration = (VariableDeclaration) childNode;
+                        var variableDeclaration = (VariableDeclaration)childNode;
                         if (variableDeclaration.Kind == VariableDeclarationKind.Var)
                         {
                             _variableDeclarations ??= new List<VariableDeclaration>();
@@ -253,12 +272,12 @@ namespace Jint
                             }
                         }
                     }
-                    else if (childNode.Type == Nodes.FunctionDeclaration 
+                    else if (childNode.Type == Nodes.FunctionDeclaration
                              // in strict mode cannot include function declarations directly under block or case clauses
                              && (!_strict || parent is null || (node.Type != Nodes.BlockStatement && node.Type != Nodes.SwitchCase)))
                     {
                         _functions ??= new List<FunctionDeclaration>();
-                        _functions.Add((FunctionDeclaration) childNode);
+                        _functions.Add((FunctionDeclaration)childNode);
                     }
 
                     if (childNode.Type != Nodes.FunctionDeclaration
@@ -275,22 +294,13 @@ namespace Jint
 
         private sealed class ModuleWalker
         {
-            internal List<string> RequestedModules
-            {
-                get
-                {
-                    var requestedModules = new List<string>();
-                    requestedModules.AddRange(_importEntries.Where(x => x.ModuleRequest is not null).Select(x => x.ModuleRequest));
-                    requestedModules.AddRange(_exportEntries.Where(x => x.ModuleRequest is not null).Select(x => x.ModuleRequest));
-                    return requestedModules.Distinct().ToList();
-                }
-            }
             internal List<ImportEntry> _importEntries;
             internal List<ExportEntry> _exportEntries;
+            internal HashSet<string> _requestedModules;
 
             internal void Visit(Node node)
             {
-                foreach(var childNode in node.ChildNodes)
+                foreach (var childNode in node.ChildNodes)
                 {
                     if (childNode is null)
                     {
@@ -300,19 +310,21 @@ namespace Jint
                     if (childNode.Type == Nodes.ImportDeclaration)
                     {
                         _importEntries ??= new();
+                        _requestedModules ??= new();
                         var import = childNode as ImportDeclaration;
-                        import.GetImportEntries(_importEntries);
+                        import.GetImportEntries(_importEntries, _requestedModules);
                     }
                     else if (childNode.Type == Nodes.ExportAllDeclaration ||
                              childNode.Type == Nodes.ExportDefaultDeclaration ||
                              childNode.Type == Nodes.ExportNamedDeclaration)
                     {
                         _exportEntries ??= new();
+                        _requestedModules ??= new();
                         var export = childNode as ExportDeclaration;
-                        export.GetExportEntries(_exportEntries);
+                        export.GetExportEntries(_exportEntries, _requestedModules);
                     }
 
-                    if(childNode.ChildNodes.Count > 0)
+                    if (childNode.ChildNodes.Count > 0)
                     {
                         Visit(childNode);
                     }
