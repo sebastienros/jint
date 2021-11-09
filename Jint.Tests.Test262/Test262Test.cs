@@ -211,7 +211,7 @@ namespace Jint.Tests.Test262
 
             foreach (var file in files)
             {
-                if(file.IndexOf("_FIXTURE", StringComparison.OrdinalIgnoreCase) != -1)
+                if (file.IndexOf("_FIXTURE", StringComparison.OrdinalIgnoreCase) != -1)
                 {
                     // Files bearing a name which includes the sequence _FIXTURE MUST NOT be interpreted
                     // as standalone tests; they are intended to be referenced by test files.
@@ -314,7 +314,6 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "import-assertions not implemented";
                                 break;
-
                         }
                     }
                 }
