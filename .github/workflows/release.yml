@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: 
+    tags:
       - 'v*.*.*'
 
 jobs:
@@ -17,10 +17,10 @@ jobs:
     - name: Checkout source code
       uses: actions/checkout@v2
 
-    - name: Setup dotnet 5.0
+    - name: Setup .NET 6.0
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 5.0.*
+        dotnet-version: 6.0.*
 
     - name: Test
       run: dotnet test --configuration Release
