@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Newtonsoft.Json.Linq;
@@ -89,6 +90,69 @@ namespace Jint.Tests.Runtime
             // Assert.Equal("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]", result);
 
             Assert.Equal("{\"Current\":null}", result);
+        }
+
+        [Fact]
+        public void EngineShouldStringifyJObjectFromObjectListWithValuesCorrectly()
+        {
+            var engine = new Engine(options =>
+            {
+                options.AddObjectConverter(JTokenConverter.Instance);
+            });
+
+            var source = new dynamic[]
+            {
+                new { Text = "Text1", Value = 1 },
+                new { Text = "Text2", Value = 2 }
+            };
+
+            engine.SetValue("testSubject", source.Select(x => JObject.FromObject(x)).ToList());
+            var fromEngine = engine.Evaluate("return JSON.stringify(testSubject);");
+            var result = fromEngine.ToString();
+
+            Assert.Equal("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]", result);
+        }
+
+        private sealed class JTokenConverter : IObjectConverter
+        {
+            public static readonly IObjectConverter Instance = new JTokenConverter();
+
+            public bool TryConvert(Engine engine, object value, out JsValue result)
+            {
+                result = null;
+
+                if (!(value is JToken token))
+                {
+                    return false;
+                }
+
+                switch (token.Type)
+                {
+                    case JTokenType.Integer:
+                        result = JsNumber.Create(token.Value<int>());
+                        break;
+                    case JTokenType.Float:
+                        result = JsNumber.Create(token.Value<double>());
+                        break;
+                    case JTokenType.String:
+                        result = JsString.Create(token.Value<string>());
+                        break;
+                    case JTokenType.Boolean:
+                        result = token.Value<bool>() ? JsBoolean.True : JsBoolean.False;
+                        break;
+                    case JTokenType.Null:
+                        result = JsValue.Null;
+                        break;
+                    case JTokenType.Undefined:
+                        result = JsValue.Undefined;
+                        break;
+                    case JTokenType.Date:
+                        result = engine.Realm.Intrinsics.Date.Construct(token.Value<DateTime>());
+                        break;
+                }
+
+                return !(result is null);
+            }
         }
     }
 }
