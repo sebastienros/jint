@@ -13,6 +13,7 @@ namespace Jint.Runtime.Interop
         private static readonly Type _stringType = typeof(string);
 
         private readonly PropertyInfo _stringIndexer;
+        private readonly PropertyInfo _keysAccessor;
 
         private TypeDescriptor(Type type)
         {
@@ -24,6 +25,7 @@ namespace Jint.Runtime.Interop
                     && i.GenericTypeArguments[0] == _stringType)
                 {
                     _stringIndexer = i.GetProperty("Item");
+                    _keysAccessor = i.GetProperty("Keys");
                     break;
                 }
             }
@@ -98,6 +100,16 @@ namespace Jint.Runtime.Interop
                 o = null;
                 return false;
             }
+        }
+
+        public ICollection<string> GetKeys(object target)
+        {
+            if (!IsStringKeyedGenericDictionary)
+            {
+                ExceptionHelper.ThrowInvalidOperationException("Not a string-keyed dictionary");
+            }
+
+            return (ICollection<string>)_keysAccessor.GetValue(target);
         }
     }
 }

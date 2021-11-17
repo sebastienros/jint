@@ -37,6 +37,7 @@ namespace Jint
 
         public static bool TryConvert(Engine engine, object value, out JsValue result)
         {
+            result = null;
             var valueType = value.GetType();
 
             var typeMappers = _typeMappers;
@@ -57,55 +58,112 @@ namespace Jint
                         }, typeMappers);
 
                     result = ConvertArray(engine, a);
+                    return result is not null;
+                }
+
+                if (value is IConvertible convertible)
+                {
+                    result = ConvertConvertible(engine, convertible);
+                    if (result is not null)
+                    {
+                        return true;
+                    }
+                }
+
+                if (value is Delegate d)
+                {
+                    result = new DelegateWrapper(engine, d);
                 }
                 else
                 {
-                    if (value is Delegate d)
+                    var t = value.GetType();
+
+                    if (!engine.Options.Interop.AllowSystemReflection
+                        && t.Namespace?.StartsWith("System.Reflection") == true)
                     {
-                        result = new DelegateWrapper(engine, d);
+                        const string message = "Cannot access System.Reflection namespace, check Engine's interop options";
+                        ExceptionHelper.ThrowInvalidOperationException(message);
                     }
-                    else
+
+                    if (t.IsEnum)
                     {
-                        var t = value.GetType();
+                        var ut = Enum.GetUnderlyingType(t);
 
-                        if (!engine.Options.Interop.AllowSystemReflection
-                            && t.Namespace?.StartsWith("System.Reflection") == true)
+                        if (ut == typeof(ulong))
                         {
-                            const string message = "Cannot access System.Reflection namespace, check Engine's interop options";
-                            ExceptionHelper.ThrowInvalidOperationException(message);
-                        }
-
-                        if (t.IsEnum)
-                        {
-                            var ut = Enum.GetUnderlyingType(t);
-
-                            if (ut == typeof(ulong))
-                            {
-                                result = JsNumber.Create(Convert.ToDouble(value));
-                            }
-                            else
-                            {
-                                if (ut == typeof(uint) || ut == typeof(long))
-                                {
-                                    result = JsNumber.Create(Convert.ToInt64(value));
-                                }
-                                else
-                                {
-                                    result = JsNumber.Create(Convert.ToInt32(value));
-                                }
-                            }
+                            result = JsNumber.Create(Convert.ToDouble(value));
                         }
                         else
                         {
-                            result = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value);
+                            if (ut == typeof(uint) || ut == typeof(long))
+                            {
+                                result = JsNumber.Create(Convert.ToInt64(value));
+                            }
+                            else
+                            {
+                                result = JsNumber.Create(Convert.ToInt32(value));
+                            }
                         }
-
-                        // if no known type could be guessed, use the default of wrapping using using ObjectWrapper.
                     }
+                    else
+                    {
+                        result = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value);
+                    }
+
+                    // if no known type could be guessed, use the default of wrapping using using ObjectWrapper.
                 }
             }
 
             return result is not null;
+        }
+
+        private static JsValue ConvertConvertible(Engine engine, IConvertible convertible)
+        {
+            JsValue result = null;
+            switch (convertible.GetTypeCode())
+            {
+                case TypeCode.Boolean:
+                    result = convertible.ToBoolean(engine.Options.Culture) ? JsBoolean.True : JsBoolean.False;
+                    break;
+                case TypeCode.Byte:
+                    result = JsNumber.Create(convertible.ToByte(engine.Options.Culture));
+                    break;
+                case TypeCode.Char:
+                    result = JsString.Create(convertible.ToChar(engine.Options.Culture));
+                    break;
+                case TypeCode.Double:
+                    result = JsNumber.Create(convertible.ToDouble(engine.Options.Culture));
+                    break;
+                case TypeCode.SByte:
+                    result = JsNumber.Create(convertible.ToSByte(engine.Options.Culture));
+                    break;
+                case TypeCode.Int16:
+                    result = JsNumber.Create(convertible.ToInt16(engine.Options.Culture));
+                    break;
+                case TypeCode.Int32:
+                    result = JsNumber.Create(convertible.ToInt32(engine.Options.Culture));
+                    break;
+                case TypeCode.UInt16:
+                    result = JsNumber.Create(convertible.ToUInt16(engine.Options.Culture));
+                    break;
+                case TypeCode.Int64:
+                    result = JsNumber.Create(convertible.ToInt64(engine.Options.Culture));
+                    break;
+                case TypeCode.Single:
+                    result = JsNumber.Create(convertible.ToSingle(engine.Options.Culture));
+                    break;
+                case TypeCode.String:
+                    result = JsString.Create(convertible.ToString(engine.Options.Culture));
+                    break;
+                case TypeCode.UInt32:
+                    result = JsNumber.Create(convertible.ToUInt32(engine.Options.Culture));
+                    break;
+                case TypeCode.UInt64:
+                    result = JsNumber.Create(convertible.ToUInt64(engine.Options.Culture));
+                    break;
+            }
+
+            return result;
         }
 
         private static JsValue ConvertArray(Engine e, object v)

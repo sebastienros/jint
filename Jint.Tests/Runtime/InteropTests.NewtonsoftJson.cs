@@ -90,5 +90,23 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal("{\"Current\":null}", result);
         }
+
+        [Fact]
+        public void EngineShouldStringifyJObjectFromObjectListWithValuesCorrectly()
+        {
+            var engine = new Engine();
+
+            var source = new dynamic[]
+            {
+                new { Text = "Text1", Value = 1 },
+                new { Text = "Text2", Value = 2 }
+            };
+
+            engine.SetValue("testSubject", source.Select(x => JObject.FromObject(x)).ToList());
+            var fromEngine = engine.Evaluate("return JSON.stringify(testSubject);");
+            var result = fromEngine.ToString();
+
+            Assert.Equal("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]", result);
+        }
     }
 }
