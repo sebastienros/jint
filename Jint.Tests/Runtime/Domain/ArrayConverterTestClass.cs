@@ -54,7 +54,7 @@ namespace Jint.Tests.Runtime.Domain
         #region NotImplemented
         public TypeCode GetTypeCode()
         {
-            throw new NotImplementedException();
+            return TypeCode.Object;
         }
 
         public bool ToBoolean(IFormatProvider provider)
