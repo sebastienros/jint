@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Jint.Native.Date;
 using Jint.Runtime;
-using Jint.Runtime.Interop;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
@@ -64,10 +64,8 @@ namespace Jint.Tests.Runtime
             var obj = JObject.Parse(json);
             engine.SetValue("o", obj);
             var value = engine.Evaluate("o.Properties.expirationDate.Value");
-            var wrapper = Assert.IsAssignableFrom<ObjectWrapper>(value);
-            var token = wrapper.Target as JToken;
-            var localDateTimeString = DateTime.Parse("2021-10-09T00:00:00Z").ToUniversalTime();
-            Assert.Equal(localDateTimeString.ToString(), token.ToString());
+            var dateInstance = Assert.IsAssignableFrom<DateInstance>(value);
+            Assert.Equal(DateTime.Parse("2021-10-09T00:00:00Z").ToUniversalTime(), dateInstance.ToDateTime());
         }
 
         // https://github.com/OrchardCMS/OrchardCore/issues/10648
@@ -99,14 +97,14 @@ namespace Jint.Tests.Runtime
             var source = new dynamic[]
             {
                 new { Text = "Text1", Value = 1 },
-                new { Text = "Text2", Value = 2 }
+                new { Text = "Text2", Value = 2, Null = (object) null, Date = new DateTime(2015, 6, 25, 0, 0, 0, DateTimeKind.Utc) }
             };
 
             engine.SetValue("testSubject", source.Select(x => JObject.FromObject(x)).ToList());
             var fromEngine = engine.Evaluate("return JSON.stringify(testSubject);");
             var result = fromEngine.ToString();
 
-            Assert.Equal("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]", result);
+            Assert.Equal("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2,\"Null\":null,\"Date\":\"2015-06-25T00:00:00.000Z\"}]", result);
         }
     }
 }
