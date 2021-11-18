@@ -61,13 +61,9 @@ namespace Jint
                     return result is not null;
                 }
 
-                if (value is IConvertible convertible)
+                if (value is IConvertible convertible && TryConvertConvertible(engine, convertible, out result))
                 {
-                    result = ConvertConvertible(engine, convertible);
-                    if (result is not null)
-                    {
-                        return true;
-                    }
+                    return true;
                 }
 
                 if (value is Delegate d)
@@ -117,53 +113,31 @@ namespace Jint
             return result is not null;
         }
 
-        private static JsValue ConvertConvertible(Engine engine, IConvertible convertible)
+        private static bool TryConvertConvertible(Engine engine, IConvertible convertible, out JsValue result)
         {
-            JsValue result = null;
-            switch (convertible.GetTypeCode())
+            result = convertible.GetTypeCode() switch
             {
-                case TypeCode.Boolean:
-                    result = convertible.ToBoolean(engine.Options.Culture) ? JsBoolean.True : JsBoolean.False;
-                    break;
-                case TypeCode.Byte:
-                    result = JsNumber.Create(convertible.ToByte(engine.Options.Culture));
-                    break;
-                case TypeCode.Char:
-                    result = JsString.Create(convertible.ToChar(engine.Options.Culture));
-                    break;
-                case TypeCode.Double:
-                    result = JsNumber.Create(convertible.ToDouble(engine.Options.Culture));
-                    break;
-                case TypeCode.SByte:
-                    result = JsNumber.Create(convertible.ToSByte(engine.Options.Culture));
-                    break;
-                case TypeCode.Int16:
-                    result = JsNumber.Create(convertible.ToInt16(engine.Options.Culture));
-                    break;
-                case TypeCode.Int32:
-                    result = JsNumber.Create(convertible.ToInt32(engine.Options.Culture));
-                    break;
-                case TypeCode.UInt16:
-                    result = JsNumber.Create(convertible.ToUInt16(engine.Options.Culture));
-                    break;
-                case TypeCode.Int64:
-                    result = JsNumber.Create(convertible.ToInt64(engine.Options.Culture));
-                    break;
-                case TypeCode.Single:
-                    result = JsNumber.Create(convertible.ToSingle(engine.Options.Culture));
-                    break;
-                case TypeCode.String:
-                    result = JsString.Create(convertible.ToString(engine.Options.Culture));
-                    break;
-                case TypeCode.UInt32:
-                    result = JsNumber.Create(convertible.ToUInt32(engine.Options.Culture));
-                    break;
-                case TypeCode.UInt64:
-                    result = JsNumber.Create(convertible.ToUInt64(engine.Options.Culture));
-                    break;
-            }
+                TypeCode.Boolean => convertible.ToBoolean(engine.Options.Culture) ? JsBoolean.True : JsBoolean.False,
+                TypeCode.Byte => JsNumber.Create(convertible.ToByte(engine.Options.Culture)),
+                TypeCode.Char => JsString.Create(convertible.ToChar(engine.Options.Culture)),
+                TypeCode.Double => JsNumber.Create(convertible.ToDouble(engine.Options.Culture)),
+                TypeCode.SByte => JsNumber.Create(convertible.ToSByte(engine.Options.Culture)),
+                TypeCode.Int16 => JsNumber.Create(convertible.ToInt16(engine.Options.Culture)),
+                TypeCode.Int32 => JsNumber.Create(convertible.ToInt32(engine.Options.Culture)),
+                TypeCode.UInt16 => JsNumber.Create(convertible.ToUInt16(engine.Options.Culture)),
+                TypeCode.Int64 => JsNumber.Create(convertible.ToInt64(engine.Options.Culture)),
+                TypeCode.Single => JsNumber.Create(convertible.ToSingle(engine.Options.Culture)),
+                TypeCode.String => JsString.Create(convertible.ToString(engine.Options.Culture)),
+                TypeCode.UInt32 => JsNumber.Create(convertible.ToUInt32(engine.Options.Culture)),
+                TypeCode.UInt64 => JsNumber.Create(convertible.ToUInt64(engine.Options.Culture)),
+                TypeCode.DateTime => engine.Realm.Intrinsics.Date.Construct(convertible.ToDateTime(engine.Options.Culture)),
+                TypeCode.Decimal => JsNumber.Create(convertible.ToDecimal(engine.Options.Culture)),
+                TypeCode.DBNull => JsValue.Null,
+                TypeCode.Empty => JsValue.Null,
+                _ => null
+            };
 
-            return result;
+            return result is not null;
         }
 
         private static JsValue ConvertArray(Engine e, object v)
