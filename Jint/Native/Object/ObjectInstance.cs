@@ -885,11 +885,6 @@ namespace Jint.Native.Object
         {
         }
 
-        public override string ToString()
-        {
-            return TypeConverter.ToString(this);
-        }
-
         public override object ToObject()
         {
             return ToObject(new ObjectTraverseStack(_engine));
@@ -897,37 +892,30 @@ namespace Jint.Native.Object
 
         private object ToObject(ObjectTraverseStack stack)
         {
-            stack.Enter(this);
             if (this is IObjectWrapper wrapper)
             {
-                stack.Exit();
                 return wrapper.Target;
             }
 
+            stack.Enter(this);
             object converted = null;
             switch (Class)
             {
                 case ObjectClass.Array:
                     if (this is ArrayInstance arrayInstance)
                     {
-                        var len = arrayInstance.Length;
-                        var result = new object[len];
-                        for (uint k = 0; k < len; k++)
+                        var result = new object[arrayInstance.Length];
+                        for (uint i = 0; i < result.Length; i++)
                         {
-                            var pk = TypeConverter.ToJsString(k);
-                            var kpresent = arrayInstance.HasProperty(pk);
-                            if (kpresent)
+                            var value = arrayInstance[i];
+                            object valueToSet = null;
+                            if (!value.IsUndefined())
                             {
-                                var kvalue = arrayInstance.Get(k);
-                                var value = kvalue is ObjectInstance oi
+                                valueToSet = value is ObjectInstance oi
                                     ? oi.ToObject(stack)
-                                    : kvalue.ToObject();
-                                result[k] = value;
+                                    : value.ToObject();
                             }
-                            else
-                            {
-                                result[k] = null;
-                            }
+                            result[i] = valueToSet;
                         }
                         converted = result;
                     }
@@ -1355,6 +1343,11 @@ namespace Jint.Native.Object
             }
 
             return false;
+        }
+
+        public override string ToString()
+        {
+            return TypeConverter.ToString(this);
         }
     }
 }

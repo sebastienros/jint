@@ -1,5 +1,7 @@
 ﻿using Jint.Native;
 using System;
+using System.Dynamic;
+using Jint.Runtime.Interop;
 using Xunit;
 
 namespace Jint.Tests.Runtime
@@ -82,6 +84,36 @@ namespace Jint.Tests.Runtime
                 equal('string:int', tc['Whistler'] + ':' + tc[10]);
                 equal('int:string', tc[10] + ':' + tc['Whistler']);
             ");
+        }
+
+        [Fact]
+        public void ShouldFavorOtherOverloadsOverObjectParameter()
+        {
+            var engine = new Engine(cfg => cfg.AllowOperatorOverloading());
+            engine.SetValue("Class1", TypeReference.CreateTypeReference<Class1>(engine));
+            engine.SetValue("Class2", TypeReference.CreateTypeReference<Class2>(engine));
+
+            Assert.Equal("Class1.Double[]", engine.Evaluate("Class1.Print([ 1, 2 ]);"));
+            Assert.Equal("Class1.ExpandoObject", engine.Evaluate("Class1.Print({ x: 1, y: 2 });"));
+            Assert.Equal("Class1.Int32", engine.Evaluate("Class1.Print(5);"));
+            Assert.Equal("Class2.Double[]", engine.Evaluate("Class2.Print([ 1, 2 ]); "));
+            Assert.Equal("Class2.ExpandoObject", engine.Evaluate("Class2.Print({ x: 1, y: 2 });"));
+            Assert.Equal("Class2.Int32", engine.Evaluate("Class2.Print(5);"));
+        }
+
+        private struct Class1
+        {
+            public static string Print(ExpandoObject eo) => nameof(Class1) + "." + nameof(ExpandoObject);
+            public static string Print(double[] a) => nameof(Class1) + "." + nameof(Double) + "[]";
+            public static string Print(int i) => nameof(Class1) + "." + nameof(Int32);
+        }
+
+        private struct Class2
+        {
+            public static string Print(ExpandoObject eo) => nameof(Class2) + "." + nameof(ExpandoObject);
+            public static string Print(double[] a) => nameof(Class2) + "." + nameof(Double) + "[]";
+            public static string Print(int i) => nameof(Class2) + "." + nameof(Int32);
+            public static string Print(object o) => nameof(Class2) + "." + nameof(Object);
         }
     }
 }

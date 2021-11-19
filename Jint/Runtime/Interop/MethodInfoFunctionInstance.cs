@@ -48,10 +48,8 @@ namespace Jint.Runtime.Interop
             var converter = Engine.ClrTypeConverter;
 
             object[] parameters = null;
-            foreach (var tuple in TypeConverter.FindBestMatch(_methods, ArgumentProvider))
+            foreach (var (method, arguments, _) in TypeConverter.FindBestMatch(_engine, _methods, ArgumentProvider))
             {
-                var method = tuple.Item1;
-                var arguments = tuple.Item2;
                 var methodParameters = method.Parameters;
 
                 if (parameters == null || parameters.Length != methodParameters.Length)

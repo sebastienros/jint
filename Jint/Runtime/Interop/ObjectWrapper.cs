@@ -84,6 +84,11 @@ namespace Jint.Runtime.Interop
             return true;
         }
 
+        public override object ToObject()
+        {
+            return Target;
+        }
+
         public override JsValue Get(JsValue property, JsValue receiver)
         {
             if (property.IsInteger() && Target is IList list)

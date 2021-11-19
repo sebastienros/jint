@@ -11,12 +11,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal abstract class JintBinaryExpression : JintExpression
     {
-#if NETSTANDARD
-        private static readonly ConcurrentDictionary<(string OperatorName, System.Type Left, System.Type Right), MethodDescriptor> _knownOperators =
-            new ConcurrentDictionary<(string OperatorName, System.Type Left, System.Type Right), MethodDescriptor>();
-#else
-        private static readonly ConcurrentDictionary<string, MethodDescriptor> _knownOperators = new ConcurrentDictionary<string, MethodDescriptor>();
-#endif
+        private readonly record struct OperatorKey(string OperatorName, Type Left, Type Right);
+        private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor> _knownOperators = new();
 
         private readonly JintExpression _left;
         private readonly JintExpression _right;
@@ -27,7 +23,12 @@ namespace Jint.Runtime.Interpreter.Expressions
             _right = Build(engine, expression.Right);
         }
 
-        internal static bool TryOperatorOverloading(EvaluationContext context, JsValue leftValue, JsValue rightValue, string clrName, out object result)
+        internal static bool TryOperatorOverloading(
+            EvaluationContext context,
+            JsValue leftValue,
+            JsValue rightValue,
+            string clrName,
+            out object result)
         {
             var left = leftValue.ToObject();
             var right = rightValue.ToObject();
@@ -38,11 +39,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var rightType = right.GetType();
                 var arguments = new[] { leftValue, rightValue };
 
-#if NETSTANDARD
-                var key = (clrName, leftType, rightType);
-#else
-                var key = $"{clrName}->{leftType}->{rightType}";
-#endif
+                var key = new OperatorKey(clrName, leftType, rightType);
                 var method = _knownOperators.GetOrAdd(key, _ =>
                 {
                     var leftMethods = leftType.GetOperatorOverloadMethods();
@@ -51,13 +48,21 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var methods = leftMethods.Concat(rightMethods).Where(x => x.Name == clrName && x.GetParameters().Length == 2);
                     var _methods = MethodDescriptor.Build(methods.ToArray());
 
-                    return TypeConverter.FindBestMatch(_methods, _ => arguments).FirstOrDefault()?.Item1;
+                    return TypeConverter.FindBestMatch(context.Engine, _methods, _ => arguments).FirstOrDefault().Method;
                 });
 
                 if (method != null)
                 {
-                    result = method.Call(context.Engine, null, arguments);
-                    return true;
+                    try
+                    {
+                        result = method.Call(context.Engine, null, arguments);
+                        return true;
+                    }
+                    catch
+                    {
+                        result = null;
+                        return false;
+                    }
                 }
             }
 

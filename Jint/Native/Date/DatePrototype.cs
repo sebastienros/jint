@@ -1177,26 +1177,8 @@ namespace Jint.Native.Date
         {
             return IsFinite(value1) && IsFinite(value2) &&  IsFinite(value3) && IsFinite(value4);
         }
-        private readonly struct Date
-        {
-            public Date(int year, int month, int day)
-            {
-                Year = year;
-                Month = month;
-                Day = day;
-            }
 
-            public readonly int Year;
-            public readonly int Month;
-            public readonly int Day;
-
-            public void Deconstruct(out int year, out int month, out int day)
-            {
-                year = Year;
-                month = Month;
-                day = Day;
-            }
-        }
+        private readonly record struct Date(int Year, int Month, int Day);
 
         private static readonly int[] kDaysInMonths = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 

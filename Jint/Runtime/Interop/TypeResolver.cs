@@ -14,6 +14,7 @@ namespace Jint.Runtime.Interop
     {
         public static readonly TypeResolver Default = new();
 
+        private readonly record struct ClrPropertyDescriptorFactoriesKey(Type Type, Key PropertyName);
         private Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> _reflectionAccessors = new();
 
         /// <summary>

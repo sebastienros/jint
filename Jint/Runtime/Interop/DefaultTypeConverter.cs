@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -15,13 +13,10 @@ namespace Jint.Runtime.Interop
     {
         private readonly Engine _engine;
 
-#if NETSTANDARD
-        private static readonly ConcurrentDictionary<(Type Source, Type Target), bool> _knownConversions = new ConcurrentDictionary<(Type Source, Type Target), bool>();
-        private static readonly ConcurrentDictionary<(Type Source, Type Target), MethodInfo> _knownCastOperators = new ConcurrentDictionary<(Type Source, Type Target), MethodInfo>();
-#else
-        private static readonly ConcurrentDictionary<string, bool> _knownConversions = new ConcurrentDictionary<string, bool>();
-        private static readonly ConcurrentDictionary<string, MethodInfo> _knownCastOperators = new ConcurrentDictionary<string, MethodInfo>();
-#endif
+        private readonly record struct TypeConversionKey(Type Source, Type Target);
+
+        private static readonly ConcurrentDictionary<TypeConversionKey, bool> _knownConversions = new();
+        private static readonly ConcurrentDictionary<TypeConversionKey, MethodInfo> _knownCastOperators = new();
 
         private static readonly Type intType = typeof(int);
         private static readonly Type iCallableType = typeof(Func<JsValue, JsValue[], JsValue>);
@@ -150,7 +145,7 @@ namespace Jint.Runtime.Interop
 
                 var targetElementType = type.GetElementType();
                 var itemsConverted = new object[source.Length];
-                for (int i = 0; i < source.Length; i++)
+                for (var i = 0; i < source.Length; i++)
                 {
                     itemsConverted[i] = Convert(source[i], targetElementType, formatProvider);
                 }
@@ -159,7 +154,8 @@ namespace Jint.Runtime.Interop
                 return result;
             }
 
-            if (value is ExpandoObject eObj)
+            var typeDescriptor = TypeDescriptor.Get(valueType);
+            if (typeDescriptor.IsStringKeyedGenericDictionary)
             {
                 // public empty constructor required
                 var constructors = type.GetConstructors();
@@ -188,7 +184,6 @@ namespace Jint.Runtime.Interop
                     }
                 }
 
-                var dict = (IDictionary<string, object>) eObj;
                 var obj = Activator.CreateInstance(type, System.Array.Empty<object>());
 
                 var members = type.GetMembers();
@@ -202,7 +197,7 @@ namespace Jint.Runtime.Interop
                     }
 
                     var name = member.Name.UpperToLowerCamelCase();
-                    if (dict.TryGetValue(name, out var val))
+                    if (typeDescriptor.TryGetValue(value, name, out var val))
                     {
                         var output = Convert(val, member.GetDefinedType(), formatProvider);
                         member.SetValue(obj, output);
@@ -214,17 +209,12 @@ namespace Jint.Runtime.Interop
 
             if (_engine.Options.Interop.AllowOperatorOverloading)
             {
-#if NETSTANDARD
-                var key = (valueType, type);
-#else
-                var key = $"{valueType}->{type}";
-#endif
+                var key = new TypeConversionKey(valueType, type);
 
                 var castOperator = _knownCastOperators.GetOrAdd(key, _ =>
                     valueType.GetOperatorOverloadMethods()
                     .Concat(type.GetOperatorOverloadMethods())
-                    .FirstOrDefault(m => type.IsAssignableFrom(m.ReturnType)
-                        && (m.Name == "op_Implicit" || m.Name == "op_Explicit")));
+                    .FirstOrDefault(m => type.IsAssignableFrom(m.ReturnType) && m.Name is "op_Implicit" or "op_Explicit"));
 
                 if (castOperator != null)
                 {
@@ -250,11 +240,7 @@ namespace Jint.Runtime.Interop
 
         public virtual bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)
         {
-#if NETSTANDARD
-            var key = value == null ? (null, type) : (value.GetType(), type);
-#else
-            var key = value == null ? $"Null->{type}" : $"{value.GetType()}->{type}";
-#endif
+            var key = new TypeConversionKey(value?.GetType(), type);
 
             // string conversion is not stable, "filter" -> int is invalid, "0" -> int is valid
             var canConvert = value is string || _knownConversions.GetOrAdd(key, _ =>
