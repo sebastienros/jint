@@ -26,22 +26,12 @@ namespace Jint.Native
                 return true;
             }
 
-            if (!(obj is JsNull s))
-            {
-                return false;
-            }
-
-            return Equals(s);
+            return obj is JsNull s && Equals(s);
         }
 
         public bool Equals(JsNull other)
         {
-            if (ReferenceEquals(null, other))
-            {
-                return false;
-            }
-
-            return true;
+            return !ReferenceEquals(null, other);
         }
     }
 }

@@ -1,9 +1,11 @@
 ﻿using System;
+using Jint.Native.String;
+using Jint.Runtime.Interop;
 using Xunit;
 
 namespace Jint.Tests.Runtime
 {
-    public class OperatorOverloadingTests : IDisposable
+    public class OperatorOverloadingTests
     {
         private readonly Engine _engine;
 
@@ -17,12 +19,7 @@ namespace Jint.Tests.Runtime
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
                 .SetValue("Vector2", typeof(Vector2))
                 .SetValue("Vector3", typeof(Vector3))
-                .SetValue("Vector2Child", typeof(Vector2Child))
-            ;
-        }
-
-        void IDisposable.Dispose()
-        {
+                .SetValue("Vector2Child", typeof(Vector2Child));
         }
 
         private void RunTest(string source)
@@ -97,6 +94,29 @@ namespace Jint.Tests.Runtime
             public static Vector3 operator +(Vector3 left, double right) => new Vector3(left.X + right, left.Y + right, left.Z + right);
             public static Vector3 operator +(double left, Vector3 right) => new Vector3(right.X + left, right.Y + left, right.Z + left);
             public static Vector3 operator +(Vector3 left, Vector3 right) => new Vector3(left.X + right.X, left.Y + right.Y, left.Z + right.Z);
+        }
+
+        private struct Vector2D
+        {
+            public double X { get; set; }
+            public double Y { get; set; }
+
+            public Vector2D(double x, double y)
+            {
+                X = x;
+                Y = y;
+            }
+
+
+            public static Vector2D operator +(Vector2D lhs, Vector2D rhs)
+            {
+                return new Vector2D(lhs.X + rhs.X, lhs.Y + rhs.Y);
+            }
+
+            public override string ToString()
+            {
+                return $"({X}, {Y})";
+            }
         }
 
         [Fact]
@@ -339,5 +359,16 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void ShouldAllowStringConcatenateForOverloaded()
+        {
+            var engine = new Engine(cfg => cfg.AllowOperatorOverloading());
+            engine.SetValue("Vector2D", TypeReference.CreateTypeReference<Vector2D>(engine));
+            engine.SetValue("log", new Action<object>(Console.WriteLine));
+
+            engine.Evaluate("let v1 = new Vector2D(1, 2);");
+            Assert.Equal("(1, 2)", engine.Evaluate("new String(v1)").As<StringInstance>().PrimitiveValue.ToString());
+            Assert.Equal("### (1, 2) ###", engine.Evaluate("'### ' + v1 + ' ###'"));
+        }
     }
 }

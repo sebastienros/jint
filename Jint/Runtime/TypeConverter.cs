@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Extensions;
@@ -817,26 +816,40 @@ namespace Jint.Runtime
             }
         }
 
-        internal static IEnumerable<Tuple<MethodDescriptor, JsValue[]>> FindBestMatch(
+        internal readonly record struct MethodMatch(MethodDescriptor Method, JsValue[] Arguments, int Score = 0) : IComparable<MethodMatch>
+        {
+            public int CompareTo(MethodMatch other) => Score.CompareTo(other.Score);
+        }
+
+        internal static IEnumerable<MethodMatch> FindBestMatch(
+            Engine engine,
             MethodDescriptor[] methods,
             Func<MethodDescriptor, JsValue[]> argumentProvider)
         {
-            List<Tuple<MethodDescriptor, JsValue[]>> matchingByParameterCount = null;
-            foreach (var m in methods)
+            List<MethodMatch> matchingByParameterCount = null;
+            foreach (var method in methods)
             {
-                var parameterInfos = m.Parameters;
-                var arguments = argumentProvider(m);
+                var parameterInfos = method.Parameters;
+                var arguments = argumentProvider(method);
                 if (arguments.Length <= parameterInfos.Length
-                    && arguments.Length >= parameterInfos.Length - m.ParameterDefaultValuesCount)
+                    && arguments.Length >= parameterInfos.Length - method.ParameterDefaultValuesCount)
                 {
-                    if (methods.Length == 0 && arguments.Length == 0)
+                    var score = CalculateMethodScore(engine, method, arguments);
+                    if (score == 0)
                     {
-                        yield return new Tuple<MethodDescriptor, JsValue[]>(m, arguments);
+                        // perfect match
+                        yield return new MethodMatch(method, arguments);
                         yield break;
                     }
 
-                    matchingByParameterCount ??= new List<Tuple<MethodDescriptor, JsValue[]>>();
-                    matchingByParameterCount.Add(new Tuple<MethodDescriptor, JsValue[]>(m, arguments));
+                    if (score < 0)
+                    {
+                        // discard
+                        continue;
+                    }
+
+                    matchingByParameterCount ??= new List<MethodMatch>();
+                    matchingByParameterCount.Add(new MethodMatch(method, arguments, score));
                 }
             }
 
@@ -845,83 +858,155 @@ namespace Jint.Runtime
                 yield break;
             }
 
-            List<Tuple<int, Tuple<MethodDescriptor, JsValue[]>>> scoredList = null;
-
-            foreach (var tuple in matchingByParameterCount)
+            if (matchingByParameterCount.Count > 1)
             {
-                var score = 0;
-                var parameters = tuple.Item1.Parameters;
-                var arguments = tuple.Item2;
-                for (var i = 0; i < arguments.Length; i++)
+                matchingByParameterCount.Sort();
+            }
+
+            foreach (var match in matchingByParameterCount)
+            {
+                yield return match;
+            }
+        }
+
+        /// <summary>
+        /// Method's match score tells how far away it's from ideal candidate. 0 = ideal, bigger the the number,
+        /// the farther away the candidate is from ideal match. Negative signals impossible match.
+        /// </summary>
+        private static int CalculateMethodScore(Engine engine, MethodDescriptor method, JsValue[] arguments)
+        {
+            if (method.Parameters.Length == 0 && arguments.Length == 0)
+            {
+                // perfect
+                return 0;
+            }
+
+            var score = 0;
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                var jsValue = arguments[i];
+                var paramType = method.Parameters[i].ParameterType;
+
+                var parameterScore = CalculateMethodParameterScore(engine, jsValue, paramType);
+                if (parameterScore < 0)
                 {
-                    var jsValue = arguments[i];
-                    var arg = jsValue.ToObject();
-                    var argType = arg?.GetType();
-                    var paramType = parameters[i].ParameterType;
-                    if (arg == null)
-                    {
-                        if (!TypeIsNullable(paramType))
-                        {
-                            score -= 10000;
-                        }
-                    }
-                    else if (paramType == typeof(JsValue))
-                    {
-                        // JsValue is convertible to. But it is still not a perfect match
-                        score -= 1;
-                    }
-                    else if (argType != paramType)
-                    {
-                        // check if we can do conversion from int value to enum
-                        if (paramType.IsEnum &&
-                            jsValue is JsNumber jsNumber
-                            && jsNumber.IsInteger()
-                            && Enum.IsDefined(paramType, jsNumber.AsInteger()))
-                        {
-                            // OK
-                        }
-                        else
-                        {
-                            if (paramType.IsAssignableFrom(argType))
-                            {
-                                score -= 10;
-                            }
-                            else
-                            {
-                                if (argType.GetOperatorOverloadMethods()
-                                    .Any(m => paramType.IsAssignableFrom(m.ReturnType) &&
-                                              (m.Name == "op_Implicit" ||
-                                               m.Name == "op_Explicit")))
-                                {
-                                    score -= 100;
-                                }
-                                else
-                                {
-                                    score -= 1000;
-                                }
-                            }
-                        }
-                    }
+                    return parameterScore;
+                }
+                score += parameterScore;
+            }
+
+            return score;
+        }
+
+        /// <summary>
+        /// Determines how well parameter type matches target method's type.
+        /// </summary>
+        private static int CalculateMethodParameterScore(
+            Engine engine,
+            JsValue jsValue,
+            Type paramType)
+        {
+            var objectValue = jsValue.ToObject();
+            var objectValueType = objectValue?.GetType();
+
+            if (objectValueType == paramType)
+            {
+                return 0;
+            }
+
+            if (objectValue == null)
+            {
+                if (!TypeIsNullable(paramType))
+                {
+                    // this is bad
+                    return -1;
                 }
 
-                if (score == 0)
+                return 0;
+            }
+
+            if (paramType == typeof(JsValue))
+            {
+                // JsValue is convertible to. But it is still not a perfect match
+                return 1;
+            }
+
+            if (paramType == typeof(object))
+            {
+                // a catch-all, prefer others over it
+                return 5;
+            }
+
+            if (paramType.IsEnum &&
+                jsValue is JsNumber jsNumber
+                && jsNumber.IsInteger()
+                && Enum.IsDefined(paramType, jsNumber.AsInteger()))
+            {
+                // we can do conversion from int value to enum
+                return 0;
+            }
+
+            if (paramType.IsAssignableFrom(objectValueType))
+            {
+                // is-a-relation
+                return 1;
+            }
+
+            if (jsValue.IsArray() && objectValueType.IsArray)
+            {
+                // we have potential, TODO if we'd know JS array's internal type we could have exact match
+                return 2;
+            }
+
+            if (CanChangeType(objectValue, paramType))
+            {
+                // forcing conversion isn't ideal not ideal, but works, especially for int -> double for example
+                return 1;
+            }
+
+            if (engine.Options.Interop.AllowOperatorOverloading)
+            {
+                foreach (var m in objectValueType.GetOperatorOverloadMethods())
                 {
-                    yield return Tuple.Create(tuple.Item1, arguments);
-                    yield break;
-                }
-                else
-                {
-                    scoredList ??= new List<Tuple<int, Tuple<MethodDescriptor, JsValue[]>>>();
-                    scoredList.Add(Tuple.Create(score, tuple));
+                    if (paramType.IsAssignableFrom(m.ReturnType) && m.Name is "op_Implicit" or "op_Explicit")
+                    {
+                        // implicit/explicit operator conversion is OK, but not ideal
+                        return 1;
+                    }
                 }
             }
 
-            if (scoredList != null)
+            if (ReflectionExtensions.TryConvertViaTypeCoercion(paramType, engine.Options.Interop.ValueCoercion, jsValue, out _))
             {
-                foreach (var item in scoredList.OrderByDescending(x => x.Item1))
-                {
-                    yield return item.Item2;
-                }
+                // gray JS zone where we start to do odd things
+                return 10;
+            }
+
+            // will rarely succeed
+            return 100;
+        }
+
+        private static bool CanChangeType(object value, Type targetType)
+        {
+            if (value is null && !targetType.IsValueType)
+            {
+                return true;
+            }
+
+            if (value is not IConvertible)
+            {
+                return false;
+            }
+
+            try
+            {
+                Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);
+                return true;
+            }
+            catch
+            {
+                // nope
+                return false;
             }
         }
 

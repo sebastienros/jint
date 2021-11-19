@@ -1,3 +1,4 @@
+using System;
 using Esprima.Ast;
 using Jint.Extensions;
 using Jint.Native;
@@ -5,18 +6,14 @@ using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.References;
 using System.Collections.Concurrent;
-using System.Linq;
+using System.Reflection;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintUnaryExpression : JintExpression
     {
-#if NETSTANDARD
-        private static readonly ConcurrentDictionary<(string OperatorName, System.Type Operand), MethodDescriptor> _knownOperators =
-            new ConcurrentDictionary<(string OperatorName, System.Type Operand), MethodDescriptor>();
-#else
-        private static readonly ConcurrentDictionary<string, MethodDescriptor> _knownOperators = new ConcurrentDictionary<string, MethodDescriptor>();
-#endif
+        private readonly record struct OperatorKey(string OperatorName, Type Operand);
+        private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor> _knownOperators = new();
 
         private readonly JintExpression _argument;
         private readonly UnaryOperator _operator;
@@ -175,7 +172,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         v = engine.GetValue(rf, true);
                     }
                     else
-                    { 
+                    {
                         v = (JsValue) result.Value;
                     }
 
@@ -235,15 +232,18 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var operandType = operand.GetType();
                 var arguments = new[] { value };
 
-#if NETSTANDARD
-                var key = (clrName, operandType);
-#else
-                var key = $"{clrName}->{operandType}";
-#endif
+                var key = new OperatorKey(clrName, operandType);
                 var method = _knownOperators.GetOrAdd(key, _ =>
                 {
-                    var foundMethod = operandType.GetOperatorOverloadMethods()
-                        .FirstOrDefault(x => x.Name == clrName && x.GetParameters().Length == 1);
+                    MethodInfo foundMethod = null;
+                    foreach (var x in operandType.GetOperatorOverloadMethods())
+                    {
+                        if (x.Name == clrName && x.GetParameters().Length == 1)
+                        {
+                            foundMethod = x;
+                            break;
+                        }
+                    }
 
                     if (foundMethod != null)
                     {
