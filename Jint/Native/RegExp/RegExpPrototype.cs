@@ -896,7 +896,7 @@ namespace Jint.Native.RegExp
 
         private static ArrayInstance CreateReturnValueArray(Engine engine, Match match, string inputValue, bool fullUnicode)
         {
-            var array = engine.Realm.Intrinsics.Array.ArrayCreate((uint) match.Groups.Count);
+            var array = engine.Realm.Intrinsics.Array.ArrayCreate((ulong) match.Groups.Count);
             array.CreateDataProperty(PropertyIndex, match.Index);
             array.CreateDataProperty(PropertyInput, inputValue);
 

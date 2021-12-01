@@ -75,9 +75,9 @@ namespace Jint.Native.Global
                 ["SyntaxError"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state)._realm.Intrinsics.SyntaxError, propertyFlags),
                 ["TypeError"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state)._realm.Intrinsics.TypeError, propertyFlags),
                 ["URIError"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state)._realm.Intrinsics.UriError, propertyFlags),
-                ["NaN"] = new PropertyDescriptor(double.NaN, PropertyFlag.None),
-                ["Infinity"] = new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.None),
-                ["undefined"] = new PropertyDescriptor(Undefined, PropertyFlag.None),
+                ["NaN"] = new PropertyDescriptor(double.NaN, PropertyFlag.AllForbidden),
+                ["Infinity"] = new PropertyDescriptor(double.PositiveInfinity, PropertyFlag.AllForbidden),
+                ["undefined"] = new PropertyDescriptor(Undefined, PropertyFlag.AllForbidden),
                 ["parseInt"] = new LazyPropertyDescriptor(this, static state => new ClrFunctionInstance(((GlobalObject) state)._engine, "parseInt", ParseInt, 2, lengthFlags), propertyFlags),
                 ["parseFloat"] = new LazyPropertyDescriptor(this, static state => new ClrFunctionInstance(((GlobalObject) state)._engine, "parseFloat", ParseFloat, 1, lengthFlags), propertyFlags),
                 ["isNaN"] = new LazyPropertyDescriptor(this, static state => new ClrFunctionInstance(((GlobalObject) state)._engine, "isNaN", IsNaN, 1, lengthFlags), propertyFlags),
@@ -827,7 +827,7 @@ namespace Jint.Native.Global
                 return DefineOwnProperty(property, new PropertyDescriptor(value, PropertyFlag.None));
             }
 
-            if (!(existingDescriptor.Set is ICallable setter))
+            if (existingDescriptor.Set is not ICallable setter)
             {
                 return false;
             }

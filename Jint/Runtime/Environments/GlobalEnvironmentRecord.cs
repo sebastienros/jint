@@ -271,6 +271,9 @@ namespace Jint.Runtime.Environments
             _varNames.Add(name);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-createglobalfunctionbinding
+        /// </summary>
         public void CreateGlobalFunctionBinding(string name, JsValue value, bool canBeDeleted)
         {
             var existingProp = _global.GetOwnProperty(name);

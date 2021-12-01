@@ -9,7 +9,7 @@ using Jint.Runtime.Interop;
 namespace Jint.Native.Function
 {
     /// <summary>
-    ///     http://www.ecma-international.org/ecma-262/5.1/#sec-15.3.4
+    /// https://tc39.es/ecma262/#sec-properties-of-the-function-prototype-object
     /// </summary>
     public sealed class FunctionPrototype : FunctionInstance
     {
@@ -46,11 +46,17 @@ namespace Jint.Native.Function
             SetSymbols(symbols);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-function.prototype-@@hasinstance
+        /// </summary>
         private static JsValue HasInstance(JsValue thisObj, JsValue[] arguments)
         {
             return thisObj.OrdinaryHasInstance(arguments.At(0));
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-function.prototype.bind
+        /// </summary>
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)
         {
             if (thisObj is not ICallable)
@@ -66,16 +72,27 @@ namespace Jint.Native.Function
             if (targetHasLength)
             {
                 var targetLen = thisObj.Get(CommonProperties.Length);
-                if (!targetLen.IsNumber())
+                if (targetLen is not JsNumber number)
                 {
                     l = JsNumber.PositiveZero;
                 }
                 else
                 {
-                    targetLen = TypeConverter.ToInteger(targetLen);
-                    // first argument is target
-                    var argumentsLength = System.Math.Max(0, arguments.Length - 1);
-                    l = JsNumber.Create((uint) System.Math.Max(((JsNumber) targetLen)._value - argumentsLength, 0));
+                    if (number.IsPositiveInfinity())
+                    {
+                        l = number;
+                    }
+                    else if (number.IsNegativeInfinity())
+                    {
+                        l = JsNumber.PositiveZero;
+                    }
+                    else
+                    {
+                        var targetLenAsInt = (long) TypeConverter.ToIntegerOrInfinity(targetLen);
+                        // first argument is target
+                        var argumentsLength = System.Math.Max(0, arguments.Length - 1);
+                        l = JsNumber.Create((ulong) System.Math.Max(targetLenAsInt - argumentsLength, 0));
+                    }
                 }
             }
             else
@@ -106,6 +123,9 @@ namespace Jint.Native.Function
             return obj;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-function.prototype.tostring
+        /// </summary>
         private JsValue ToString(JsValue thisObj, JsValue[] arguments)
         {
             if (thisObj.IsObject() && thisObj.IsCallable)
@@ -117,7 +137,10 @@ namespace Jint.Native.Function
             return null;
         }
 
-        internal JsValue Apply(JsValue thisObject, JsValue[] arguments)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-function.prototype.apply
+        /// </summary>
+        private JsValue Apply(JsValue thisObject, JsValue[] arguments)
         {
             var func = thisObject as ICallable;
             if (func is null)
@@ -157,6 +180,9 @@ namespace Jint.Native.Function
             return argList;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-function.prototype.call
+        /// </summary>
         private JsValue CallImpl(JsValue thisObject, JsValue[] arguments)
         {
             var func = thisObject as ICallable;

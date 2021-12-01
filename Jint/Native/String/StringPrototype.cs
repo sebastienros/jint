@@ -14,7 +14,7 @@ using Jint.Runtime.Interop;
 namespace Jint.Native.String
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.5.4
+    /// https://tc39.es/ecma262/#sec-properties-of-the-string-prototype-object
     /// </summary>
     public sealed class StringPrototype : StringInstance
     {
@@ -117,13 +117,13 @@ namespace Jint.Native.String
         const char BOM_CHAR = '\uFEFF';
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool IsWhiteSpaceEx(char c)
+        private static bool IsWhiteSpaceEx(char c)
         {
             return char.IsWhiteSpace(c) || c == BOM_CHAR;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string TrimEndEx(string s)
+        private static string TrimEndEx(string s)
         {
             if (s.Length == 0)
                 return string.Empty;
@@ -293,7 +293,7 @@ namespace Jint.Native.String
             return new JsString(s.Substring(from, length));
         }
 
-        private JsValue Substr(JsValue thisObj, JsValue[] arguments)
+        private static JsValue Substr(JsValue thisObj, JsValue[] arguments)
         {
             var s = TypeConverter.ToString(thisObj);
             var start = TypeConverter.ToInteger(arguments.At(0));
@@ -317,10 +317,12 @@ namespace Jint.Native.String
             return s.Substring(startIndex, l);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-string.prototype.split
+        /// </summary>
         private JsValue Split(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
-            var s = TypeConverter.ToString(thisObj);
 
             var separator = arguments.At(0);
             var limit = arguments.At(1);
@@ -340,30 +342,33 @@ namespace Jint.Native.String
                 }
             }
 
+            var s = TypeConverter.ToString(thisObj);
+
             // Coerce into a number, true will become 1
             var lim = limit.IsUndefined() ? uint.MaxValue : TypeConverter.ToUint32(limit);
-
-            if (lim == 0)
-            {
-                return _realm.Intrinsics.Array.Construct(Arguments.Empty);
-            }
 
             if (separator.IsNull())
             {
                 separator = Native.Null.Text;
             }
-            else if (separator.IsUndefined())
-            {
-                var arrayInstance = _realm.Intrinsics.Array.ConstructFast(1);
-                arrayInstance.SetIndexValue(0, s, updateLength: false);
-                return arrayInstance;
-            }
-            else
+            else if (!separator.IsUndefined())
             {
                 if (!separator.IsRegExp())
                 {
                     separator = TypeConverter.ToJsString(separator); // Coerce into a string, for an object call toString()
                 }
+            }
+
+            if (lim == 0)
+            {
+                return _realm.Intrinsics.Array.ArrayCreate(0);
+            }
+
+            if (separator.IsUndefined())
+            {
+                var arrayInstance = _realm.Intrinsics.Array.ArrayCreate(1);
+                arrayInstance.SetIndexValue(0, s, updateLength: false);
+                return arrayInstance;
             }
 
             return SplitWithStringSeparator(_realm, separator, s, lim);
@@ -395,7 +400,7 @@ namespace Jint.Native.String
             }
 
             var length = (uint) System.Math.Min(segments.Count, lim);
-            var a = realm.Intrinsics.Array.ConstructFast(length);
+            var a = realm.Intrinsics.Array.ArrayCreate(length);
             for (int i = 0; i < length; i++)
             {
                 a.SetIndexValue((uint) i, segments[i], updateLength: false);
@@ -1019,16 +1024,14 @@ namespace Jint.Native.String
                 return new string(str[0], n);
             }
 
-            using (var sb = StringBuilderPool.Rent())
+            using var sb = StringBuilderPool.Rent();
+            sb.Builder.EnsureCapacity(n * str.Length);
+            for (var i = 0; i < n; ++i)
             {
-                sb.Builder.EnsureCapacity(n * str.Length);
-                for (var i = 0; i < n; ++i)
-                {
-                    sb.Builder.Append(str);
-                }
-
-                return sb.ToString();
+                sb.Builder.Append(str);
             }
+
+            return sb.ToString();
         }
     }
 }

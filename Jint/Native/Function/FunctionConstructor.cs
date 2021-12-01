@@ -8,6 +8,9 @@ using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Function
 {
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-function-constructor
+    /// </summary>
     public sealed class FunctionConstructor : FunctionInstance, IConstructor
     {
         private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };

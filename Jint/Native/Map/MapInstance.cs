@@ -5,13 +5,12 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Map
 {
-    public class MapInstance : ObjectInstance
+    public sealed class MapInstance : ObjectInstance
     {
         private readonly Realm _realm;
         internal readonly OrderedDictionary<JsValue, JsValue> _map;
 
-        public MapInstance(Engine engine, Realm realm)
-            : base(engine, objectClass: ObjectClass.Map)
+        public MapInstance(Engine engine, Realm realm) : base(engine)
         {
             _realm = realm;
             _map = new OrderedDictionary<JsValue, JsValue>(SameValueZeroComparer.Instance);
@@ -21,7 +20,7 @@ namespace Jint.Native.Map
         {
             if (property == CommonProperties.Size)
             {
-                return new PropertyDescriptor(_map.Count, PropertyFlag.None);
+                return new PropertyDescriptor(_map.Count, PropertyFlag.AllForbidden);
             }
 
             return base.GetOwnProperty(property);
@@ -31,7 +30,7 @@ namespace Jint.Native.Map
         {
             if (property == CommonProperties.Size)
             {
-                descriptor = new PropertyDescriptor(_map.Count, PropertyFlag.None);
+                descriptor = new PropertyDescriptor(_map.Count, PropertyFlag.AllForbidden);
                 return true;
             }
 

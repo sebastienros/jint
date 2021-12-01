@@ -22,6 +22,8 @@ namespace Jint.Native.Object
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
+        public ObjectPrototype PrototypeObject { get; }
+
         protected override void Initialize()
         {
             _prototype = _realm.Intrinsics.Function.PrototypeObject;
@@ -42,7 +44,7 @@ namespace Jint.Native.Object
                 ["defineProperty"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "defineProperty", DefineProperty, 3), propertyFlags),
                 ["defineProperties"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "defineProperties", DefineProperties, 2), propertyFlags),
                 ["is"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "is", Is, 2, lengthFlags), propertyFlags),
-                ["seal"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "seal", Seal, 1), propertyFlags),
+                ["seal"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "seal", Seal, 1, lengthFlags), propertyFlags),
                 ["freeze"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "freeze", Freeze, 1), propertyFlags),
                 ["preventExtensions"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "preventExtensions", PreventExtensions, 1), propertyFlags),
                 ["isSealed"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isSealed", IsSealed, 1), propertyFlags),
@@ -56,6 +58,9 @@ namespace Jint.Native.Object
             SetProperties(properties);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.assign
+        /// </summary>
         private JsValue Assign(JsValue thisObject, JsValue[] arguments)
         {
             var to = TypeConverter.ToObject(_realm, arguments.At(0));
@@ -87,6 +92,9 @@ namespace Jint.Native.Object
             return to;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.entries
+        /// </summary>
         private JsValue Entries(JsValue thisObject, JsValue[] arguments)
         {
             var obj = TypeConverter.ToObject(_realm, arguments.At(0));
@@ -94,6 +102,9 @@ namespace Jint.Native.Object
             return nameList;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.fromentries
+        /// </summary>
         private JsValue FromEntries(JsValue thisObject, JsValue[] arguments)
         {
             var iterable = arguments.At(0);
@@ -109,12 +120,13 @@ namespace Jint.Native.Object
             return obj;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.is
+        /// </summary>
         private static JsValue Is(JsValue thisObject, JsValue[] arguments)
         {
             return SameValue(arguments.At(0), arguments.At(1));
         }
-
-        public ObjectPrototype PrototypeObject { get; private set; }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-object-value
@@ -180,12 +192,18 @@ namespace Jint.Native.Object
             return obj;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.getprototypeof
+        /// </summary>
         public JsValue GetPrototypeOf(JsValue thisObject, JsValue[] arguments)
         {
             var obj = TypeConverter.ToObject(_realm, arguments.At(0));
             return obj.Prototype ?? Null;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.setprototypeof
+        /// </summary>
         private JsValue SetPrototypeOf(JsValue thisObject, JsValue[] arguments)
         {
             var oArg = arguments.At(0);
@@ -209,6 +227,9 @@ namespace Jint.Native.Object
             return o;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.hasown
+        /// </summary>
         private JsValue HasOwn(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_realm, arguments.At(0));
@@ -216,6 +237,9 @@ namespace Jint.Native.Object
             return o.HasOwnProperty(property) ? JsBoolean.True : JsBoolean.False;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.getownpropertydescriptor
+        /// </summary>
         internal JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_realm, arguments.At(0));
@@ -227,6 +251,9 @@ namespace Jint.Native.Object
             return PropertyDescriptor.FromPropertyDescriptor(Engine, desc);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.getownpropertydescriptors
+        /// </summary>
         private JsValue GetOwnPropertyDescriptors(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_realm, arguments.At(0));
@@ -244,13 +271,19 @@ namespace Jint.Native.Object
             return descriptors;
         }
 
-        public JsValue GetOwnPropertyNames(JsValue thisObject, JsValue[] arguments)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.getownpropertynames
+        /// </summary>
+        private JsValue GetOwnPropertyNames(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_realm, arguments.At(0));
             var names = o.GetOwnPropertyKeys(Types.String);
             return _realm.Intrinsics.Array.ConstructFast(names);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.getownpropertysymbols
+        /// </summary>
         private JsValue GetOwnPropertySymbols(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_realm, arguments.At(0));
@@ -258,6 +291,9 @@ namespace Jint.Native.Object
             return _realm.Intrinsics.Array.ConstructFast(keys);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.create
+        /// </summary>
         private JsValue Create(JsValue thisObject, JsValue[] arguments)
         {
             var prototype = arguments.At(0);
@@ -272,16 +308,15 @@ namespace Jint.Native.Object
             var properties = arguments.At(1);
             if (!properties.IsUndefined())
             {
-                var jsValues = _engine._jsValueArrayPool.RentArray(2);
-                jsValues[0] = obj;
-                jsValues[1] = properties;
-                DefineProperties(thisObject, jsValues);
-                _engine._jsValueArrayPool.ReturnArray(jsValues);
+                ObjectDefineProperties(obj, properties);
             }
 
             return obj;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.defineproperty
+        /// </summary>
         private JsValue DefineProperty(JsValue thisObject, JsValue[] arguments)
         {
             var o = arguments.At(0) as ObjectInstance;
@@ -300,6 +335,9 @@ namespace Jint.Native.Object
             return arguments.At(0);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.defineproperties
+        /// </summary>
         private JsValue DefineProperties(JsValue thisObject, JsValue[] arguments)
         {
             var o = arguments.At(0) as ObjectInstance;
@@ -309,19 +347,31 @@ namespace Jint.Native.Object
             }
 
             var properties = arguments.At(1);
+            return ObjectDefineProperties(o, properties);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-objectdefineproperties
+        /// </summary>
+        private JsValue ObjectDefineProperties(ObjectInstance o, JsValue properties)
+        {
             var props = TypeConverter.ToObject(_realm, properties);
+            var keys = props.GetOwnPropertyKeys();
             var descriptors = new List<KeyValuePair<JsValue, PropertyDescriptor>>();
-            foreach (var p in props.GetOwnProperties())
+            for (var i = 0; i < keys.Count; i++)
             {
-                if (!p.Value.Enumerable)
+                var nextKey = keys[i];
+                var propDesc = props.GetOwnProperty(nextKey);
+                if (propDesc == PropertyDescriptor.Undefined || !propDesc.Enumerable)
                 {
                     continue;
                 }
 
-                var descObj = props.Get(p.Key, props);
+                var descObj = props.UnwrapJsValue(propDesc);
                 var desc = PropertyDescriptor.ToPropertyDescriptor(_realm, descObj);
-                descriptors.Add(new KeyValuePair<JsValue, PropertyDescriptor>(p.Key, desc));
+                descriptors.Add(new KeyValuePair<JsValue, PropertyDescriptor>(nextKey, desc));
             }
+
             foreach (var pair in descriptors)
             {
                 o.DefinePropertyOrThrow(pair.Key, pair.Value);
@@ -330,132 +380,181 @@ namespace Jint.Native.Object
             return o;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.seal
+        /// </summary>
         private JsValue Seal(JsValue thisObject, JsValue[] arguments)
         {
-            if (!(arguments.At(0) is ObjectInstance o))
+            if (arguments.At(0) is not ObjectInstance o)
             {
                 return arguments.At(0);
             }
 
-            var properties = new List<KeyValuePair<JsValue, PropertyDescriptor>>(o.GetOwnProperties());
-            foreach (var prop in properties)
+            var status = SetIntegrityLevel(o, IntegrityLevel.Sealed);
+
+            if (!status)
             {
-                var propertyDescriptor = prop.Value;
-                if (propertyDescriptor.Configurable)
-                {
-                    propertyDescriptor.Configurable = false;
-                    FastSetProperty(prop.Key, propertyDescriptor);
-                }
-
-                o.DefinePropertyOrThrow(prop.Key, propertyDescriptor);
+                ExceptionHelper.ThrowTypeError(_realm);
             }
-
-            o.PreventExtensions();
 
             return o;
         }
 
-        private static JsValue Freeze(JsValue thisObject, JsValue[] arguments)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.freeze
+        /// </summary>
+        private JsValue Freeze(JsValue thisObject, JsValue[] arguments)
         {
-            if (!(arguments.At(0) is ObjectInstance o))
+            if (arguments.At(0) is not ObjectInstance o)
             {
                 return arguments.At(0);
             }
 
-            foreach (var p in o.GetOwnProperties())
+            var status = SetIntegrityLevel(o, IntegrityLevel.Frozen);
+
+            if (!status)
             {
-                var desc = o.GetOwnProperty(p.Key);
-                if (desc.IsDataDescriptor())
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
+
+            return o;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-setintegritylevel
+        /// </summary>
+        private static bool SetIntegrityLevel(ObjectInstance o, IntegrityLevel level)
+        {
+            var status = o.PreventExtensions();
+            if (!status)
+            {
+                return false;
+            }
+
+            var keys = o.GetOwnPropertyKeys();
+            if (level == IntegrityLevel.Sealed)
+            {
+                for (var i = 0; i < keys.Count; i++)
                 {
-                    if (desc.Writable)
+                    var k = keys[i];
+                    o.DefinePropertyOrThrow(k, new PropertyDescriptor { Configurable = false });
+                }
+            }
+            else
+            {
+                for (var i = 0; i < keys.Count; i++)
+                {
+                    var k = keys[i];
+                    var currentDesc = o.GetOwnProperty(k);
+                    if (currentDesc != PropertyDescriptor.Undefined)
                     {
-                        var mutable = desc;
-                        mutable.Writable = false;
-                        desc = mutable;
+                        PropertyDescriptor desc;
+                        if (currentDesc.IsAccessorDescriptor())
+                        {
+                            desc = new PropertyDescriptor { Configurable = false };
+                        }
+                        else
+                        {
+                            desc = new PropertyDescriptor { Configurable = false, Writable = false };
+                        }
+
+                        o.DefinePropertyOrThrow(k, desc);
                     }
                 }
-                if (desc.Configurable)
-                {
-                    var mutable = desc;
-                    mutable.Configurable = false;
-                    desc = mutable;
-                }
-                o.DefinePropertyOrThrow(p.Key, desc);
             }
 
-            o.PreventExtensions();
-
-            return o;
+            return true;
         }
 
-        private static JsValue PreventExtensions(JsValue thisObject, JsValue[] arguments)
+        private enum IntegrityLevel
+        {
+            Sealed,
+            Frozen
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.preventextensions
+        /// </summary>
+        private JsValue PreventExtensions(JsValue thisObject, JsValue[] arguments)
         {
             if (!(arguments.At(0) is ObjectInstance o))
             {
                 return arguments.At(0);
             }
 
-            o.PreventExtensions();
+            if (!o.PreventExtensions())
+            {
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
+
             return o;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.issealed
+        /// </summary>
         private static JsValue IsSealed(JsValue thisObject, JsValue[] arguments)
         {
-            if (!(arguments.At(0) is ObjectInstance o))
+            if (arguments.At(0) is not ObjectInstance o)
             {
                 return arguments.At(0);
             }
 
-            foreach (var prop in o.GetOwnProperties())
-            {
-                if (prop.Value.Configurable)
-                {
-                    return false;
-                }
-            }
-
-            if (o.Extensible == false)
-            {
-                return true;
-            }
-
-            return false;
+            return TestIntegrityLevel(o, IntegrityLevel.Sealed);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.isfrozen
+        /// </summary>
         private static JsValue IsFrozen(JsValue thisObject, JsValue[] arguments)
         {
-            if (!(arguments.At(0) is ObjectInstance o))
+            if (arguments.At(0) is not ObjectInstance o)
             {
                 return arguments.At(0);
             }
 
-            foreach (var pair in o.GetOwnProperties())
-            {
-                var desc = pair.Value;
-                if (desc.IsDataDescriptor())
-                {
-                    if (desc.Writable)
-                    {
-                        return false;
-                    }
-                }
-                if (desc.Configurable)
-                {
-                    return false;
-                }
-            }
-
-            if (o.Extensible == false)
-            {
-                return true;
-            }
-
-            return false;
+            return TestIntegrityLevel(o, IntegrityLevel.Frozen);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-testintegritylevel
+        /// </summary>
+        private static JsValue TestIntegrityLevel(ObjectInstance o, IntegrityLevel level)
+        {
+            if (o.Extensible)
+            {
+                return JsBoolean.False;
+            }
+
+            foreach (var k in o.GetOwnPropertyKeys())
+            {
+                var currentDesc = o.GetOwnProperty(k);
+                if (currentDesc != PropertyDescriptor.Undefined)
+                {
+                    if (currentDesc.Configurable)
+                    {
+                        return JsBoolean.False;
+                    }
+
+                    if (level == IntegrityLevel.Frozen && currentDesc.IsDataDescriptor())
+                    {
+                        if (currentDesc.Writable)
+                        {
+                            return JsBoolean.False;
+                        }
+                    }
+                }
+            }
+
+            return JsBoolean.True;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.isextensible
+        /// </summary>
         private static JsValue IsExtensible(JsValue thisObject, JsValue[] arguments)
         {
-            if (!(arguments.At(0) is ObjectInstance o))
+            if (arguments.At(0) is not ObjectInstance o)
             {
                 return arguments.At(0);
             }
@@ -463,12 +562,18 @@ namespace Jint.Native.Object
             return o.Extensible;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.keys
+        /// </summary>
         private JsValue Keys(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_realm, arguments.At(0));
             return o.EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind.Key);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.values
+        /// </summary>
         private JsValue Values(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_realm, arguments.At(0));
@@ -477,7 +582,7 @@ namespace Jint.Native.Object
 
         private sealed class CreateDataPropertyOnObject : ICallable
         {
-            internal static readonly CreateDataPropertyOnObject Instance = new CreateDataPropertyOnObject();
+            internal static readonly CreateDataPropertyOnObject Instance = new();
 
             private CreateDataPropertyOnObject()
             {

@@ -186,7 +186,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         if (arrayOperations != null)
                         {
                             var length = arrayOperations.GetLength();
-                            array = engine.Realm.Intrinsics.Array.ConstructFast(length - i);
+                            array = engine.Realm.Intrinsics.Array.ArrayCreate(length - i);
                             for (uint j = i; j < length; ++j)
                             {
                                 arrayOperations.TryGetValue(j, out var indexValue);
@@ -195,7 +195,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else
                         {
-                            array = engine.Realm.Intrinsics.Array.ConstructFast(0);
+                            array = engine.Realm.Intrinsics.Array.ArrayCreate(0);
                             uint index = 0;
                             done = true;
                             do
