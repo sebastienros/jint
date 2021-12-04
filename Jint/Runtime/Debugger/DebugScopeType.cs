@@ -18,9 +18,11 @@
         /// <summary>
         /// Block scope bindings (let/const) defined at top level.
         /// </summary>
-        /// <remarks>Not currently implemented by Jint. These bindings are instead included in <see cref="Global" />.</remarks>
+        /// <remarks>
+        /// A scope chain will only include one scope of this type.
+        /// </remarks>
         Script,
-        
+
         /// <summary>
         /// Function local bindings.
         /// </summary>

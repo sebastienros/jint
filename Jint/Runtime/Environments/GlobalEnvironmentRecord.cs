@@ -14,8 +14,9 @@ namespace Jint.Runtime.Environments
     public sealed class GlobalEnvironmentRecord : EnvironmentRecord
     {
         private readonly ObjectInstance _global;
-        private readonly DeclarativeEnvironmentRecord _declarativeRecord;
-        private readonly ObjectEnvironmentRecord _objectRecord;
+        // Environment records are needed by debugger
+        internal readonly DeclarativeEnvironmentRecord _declarativeRecord;
+        internal readonly ObjectEnvironmentRecord _objectRecord;
         private readonly HashSet<string> _varNames = new HashSet<string>();
 
         public GlobalEnvironmentRecord(Engine engine, ObjectInstance global) : base(engine)
