@@ -13,12 +13,12 @@ namespace Jint.Runtime.Debugger
         private readonly EnvironmentRecord _record;
         private readonly List<string> _bindingNames;
 
-        internal DebugScope(DebugScopeType type, EnvironmentRecord record, List<string> bindingNames, ObjectInstance bindingObject, bool isTopLevel)
+        internal DebugScope(DebugScopeType type, EnvironmentRecord record, List<string> bindingNames, bool isTopLevel)
         {
             ScopeType = type;
             _record = record;
             _bindingNames = bindingNames;
-            BindingObject = bindingObject;
+            BindingObject = record is ObjectEnvironmentRecord objEnv ? objEnv._bindingObject : null;
             IsTopLevel = isTopLevel;
         }
 
