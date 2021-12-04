@@ -147,6 +147,8 @@ namespace Jint
             private set;
         }
 
+		public event EventHandler<SourceParsedEventArgs> Parsed;
+		
         public DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this);
 
 
@@ -252,7 +254,13 @@ namespace Jint
             => Execute(source, DefaultParserOptions);
 
         public Engine Execute(string source, ParserOptions parserOptions)
-            => Execute(new JavaScriptParser(source, parserOptions).ParseScript());
+        {
+            var parser = new JavaScriptParser(source, parserOptions);
+            var script = parser.ParseScript();
+            Parsed?.Invoke(this, new SourceParsedEventArgs(source, script));
+
+            return Execute(script);
+        }
 
         public Engine Execute(Script script)
         {
