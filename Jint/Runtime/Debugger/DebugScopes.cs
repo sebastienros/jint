@@ -15,14 +15,20 @@ namespace Jint.Runtime.Debugger
         }
 
         /// <summary>
-        /// Shortcut to Global scope
+        /// Shortcut to Global scope.
         /// </summary>
+        /// <remarks>
+        /// Note that this only includes the object environment record of the Global scope - i.e. it doesn't
+        /// include block scope bindings (let/const).
+        /// </remarks>
         public DebugScope Global { get; private set; }
 
         /// <summary>
-        /// Shortcut to Local scope. Note that this is only present inside functions, and only includes
-        /// function scope bindings.
+        /// Shortcut to Local scope.
         /// </summary>
+        /// <remarks>
+        /// Note that this is only present inside functions, and doesn't include block scope bindings (let/const)
+        /// </remarks>
         public DebugScope Local { get; private set; }
 
         public DebugScope this[int index] => _scopes[index];
@@ -36,8 +42,10 @@ namespace Jint.Runtime.Debugger
                 EnvironmentRecord record = environment;
                 switch (record)
                 {
-                    case GlobalEnvironmentRecord:
-                        AddScope(DebugScopeType.Global, record);
+                    case GlobalEnvironmentRecord global:
+                        // Similarly to Chromium, we split the Global environment into Global and Script scopes
+                        AddScope(DebugScopeType.Script, global._declarativeRecord);
+                        AddScope(DebugScopeType.Global, global._objectRecord);
                         break;
                     case FunctionEnvironmentRecord:
                         AddScope(inLocalScope ? DebugScopeType.Local : DebugScopeType.Closure, record);
@@ -56,7 +64,7 @@ namespace Jint.Runtime.Debugger
                         else
                         {
                             bool isTopLevel = environment._outerEnv is FunctionEnvironmentRecord;
-                            AddScope(DebugScopeType.Block, record, isTopLevel);
+                            AddScope(DebugScopeType.Block, record, isTopLevel: isTopLevel);
                         }
                         break;
                 }
@@ -72,7 +80,8 @@ namespace Jint.Runtime.Debugger
 
             if (bindings.Count > 0)
             {
-                var scope = new DebugScope(type, record, bindings, isTopLevel);
+                var bindingObject = record is ObjectEnvironmentRecord objEnv ? objEnv._bindingObject : null;
+                var scope = new DebugScope(type, record, bindings, bindingObject, isTopLevel);
                 _scopes.Add(scope);
                 switch (type)
                 {
