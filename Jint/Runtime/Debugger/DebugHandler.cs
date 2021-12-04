@@ -39,8 +39,7 @@ namespace Jint.Runtime.Debugger
                 return;
             }
 
-            Location location = statement.Location;
-            BreakPoint breakpoint = BreakPoints.FindMatch(_engine, location);
+            BreakPoint breakpoint = BreakPoints.FindMatch(_engine, new BreakLocation(statement.Location.Source, statement.Location.Start));
 
             if (breakpoint != null)
             {
@@ -64,7 +63,7 @@ namespace Jint.Runtime.Debugger
             var functionBodyEnd = bodyLocation.End;
             var location = new Location(functionBodyEnd, functionBodyEnd, bodyLocation.Source);
 
-            BreakPoint breakpoint = BreakPoints.FindMatch(_engine, location);
+            BreakPoint breakpoint = BreakPoints.FindMatch(_engine, new BreakLocation(bodyLocation.Source, bodyLocation.End));
 
             if (breakpoint != null)
             {
