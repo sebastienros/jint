@@ -1452,7 +1452,7 @@ var prep = function (fn) { fn(); };
 
             engine.DebugHandler.Break += EngineStep;
 
-            engine.DebugHandler.BreakPoints.Add(new BreakPoint(1, 1));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(1, 0));
 
             engine.Evaluate(@"var local = true;
                 if (local === true)
@@ -1489,7 +1489,7 @@ var prep = function (fn) { fn(); };
             stepMode = StepMode.Into;
 
             var engine = new Engine(options => options.DebugMode());
-            engine.DebugHandler.BreakPoints.Add(new BreakPoint(1, 1));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(1, 1));
             engine.DebugHandler.Step += EngineStep;
             engine.DebugHandler.Break += EngineStep;
 
@@ -1518,7 +1518,7 @@ var prep = function (fn) { fn(); };
             stepMode = StepMode.None;
 
             var engine = new Engine(options => options.DebugMode());
-            engine.DebugHandler.BreakPoints.Add(new BreakPoint(5, 0));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(5, 0));
             engine.DebugHandler.Break += EngineStepVerifyDebugInfo;
 
             engine.Evaluate(@"var global = true;
@@ -1569,8 +1569,8 @@ var prep = function (fn) { fn(); };
 
             engine.DebugHandler.Break += EngineStep;
 
-            engine.DebugHandler.BreakPoints.Add(new BreakPoint(5, 16, "condition === true"));
-            engine.DebugHandler.BreakPoints.Add(new BreakPoint(6, 16, "condition === false"));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(5, 16, "condition === true"));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(6, 16, "condition === false"));
 
             engine.Evaluate(@"var local = true;
                 var condition = true;
@@ -1650,7 +1650,7 @@ var prep = function (fn) { fn(); };
             stepMode = StepMode.None;
 
             var engine = new Engine(options => options.DebugMode());
-            engine.DebugHandler.BreakPoints.Add(new BreakPoint(4, 33));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(4, 32));
             engine.DebugHandler.Break += EngineStep;
 
             engine.Evaluate(@"var global = true;
