@@ -80,8 +80,7 @@ namespace Jint.Runtime.Debugger
 
             if (bindings.Count > 0)
             {
-                var bindingObject = record is ObjectEnvironmentRecord objEnv ? objEnv._bindingObject : null;
-                var scope = new DebugScope(type, record, bindings, bindingObject, isTopLevel);
+                var scope = new DebugScope(type, record, bindings, isTopLevel);
                 _scopes.Add(scope);
                 switch (type)
                 {
