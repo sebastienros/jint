@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Jint.Native;
+using Jint.Native.Object;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Debugger
@@ -12,11 +13,12 @@ namespace Jint.Runtime.Debugger
         private readonly EnvironmentRecord _record;
         private readonly List<string> _bindingNames;
 
-        internal DebugScope(DebugScopeType type, EnvironmentRecord record, List<string> bindingNames, bool isTopLevel)
+        internal DebugScope(DebugScopeType type, EnvironmentRecord record, List<string> bindingNames, ObjectInstance bindingObject, bool isTopLevel)
         {
             ScopeType = type;
             _record = record;
             _bindingNames = bindingNames;
+            BindingObject = bindingObject;
             IsTopLevel = isTopLevel;
         }
 
@@ -29,7 +31,7 @@ namespace Jint.Runtime.Debugger
         /// For <see cref="DebugScopeType.Block">block</see> scopes, indicates whether this scope is at the top level of a containing function.
         /// </summary>
         /// <remarks>
-        /// Block scopes at the top level of a function are combined with Local scope in Chromium and devtools protocol.
+        /// Block scopes at the top level of a function are combined with Local scope in Chromium.
         /// This property facilitates implementing the same "flattening" in e.g. a UI. Because empty scopes are excluded in the scope chain,
         /// top level cannot be determined from the scope chain order alone.
         /// </remarks>
@@ -39,6 +41,15 @@ namespace Jint.Runtime.Debugger
         /// Names of all non-shadowed bindings in the scope.
         /// </summary>
         public IReadOnlyList<string> BindingNames => _bindingNames;
+
+        /// <summary>
+        /// Binding object for ObjectEnvironmentRecords - that is, Global scope and With scope. Null for other scopes.
+        /// </summary>
+        /// <remarks>
+        /// This is mainly useful as an optimization for devtools, allowing the BindingObject to be serialized directly rather than
+        /// building a new transient object in response to e.g. Runtime.getProperties.
+        /// </remarks>
+        public ObjectInstance BindingObject { get; }
 
         /// <summary>
         /// Retrieves the value of a specific binding. Note that some bindings (e.g. uninitialized let) may return null.
