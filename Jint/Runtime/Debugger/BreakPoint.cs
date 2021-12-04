@@ -1,22 +1,14 @@
-﻿namespace Jint.Runtime.Debugger
+﻿using System;
+
+namespace Jint.Runtime.Debugger
 {
-    public sealed class BreakPoint
+    // BreakPoint is not sealed. It's useful to be able to add additional properties on a derived BreakPoint class (e.g. a breakpoint ID
+    // or breakpoint type) but still let it be managed by Jint's breakpoint collection.
+    public class BreakPoint
     {
-        public BreakPoint(int line, int column)
+        public BreakPoint(string source, int line, int column)
         {
-            Line = line;
-            Column = column;
-        }
-
-        public BreakPoint(int line, int column, string condition)
-            : this(line, column)
-        {
-            Condition = condition;
-        }
-
-        public BreakPoint(string source, int line, int column) : this(line, column)
-        {
-            Source = source;
+            Location = new BreakLocation(source, line, column);
         }
 
         public BreakPoint(string source, int line, int column, string condition) : this(source, line, column)
@@ -24,9 +16,15 @@
             Condition = condition;
         }
 
-        public string Source { get; }
-        public int Line { get; }
-        public int Column { get; }
+        public BreakPoint(int line, int column) : this(null, line, column)
+        {
+        }
+
+        public BreakPoint(int line, int column, string condition) : this(null, line, column, condition)
+        {
+        }
+
+        public BreakLocation Location { get; }
         public string Condition { get; }
     }
 }

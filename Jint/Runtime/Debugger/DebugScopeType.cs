@@ -10,7 +10,6 @@
         /// Global scope bindings.
         /// </summary>
         /// <remarks>
-        /// In Jint, this scope also includes bindings that would normally be part of <see cref="Script"/>.
         /// A scope chain will only include one scope of this type.
         /// </remarks>
         Global,
