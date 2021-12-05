@@ -7,7 +7,7 @@ namespace Jint.Runtime.Debugger
     /// BreakLocation is a combination of an Esprima position (line and column) and a source (path or identifier of script).
     /// Like Esprima, first column is 0 and first line is 1.
     /// </summary>
-    public sealed class BreakLocation : IEquatable<BreakLocation>
+    public sealed record BreakLocation
     {
         public BreakLocation(string source, int line, int column)
         {
@@ -28,46 +28,6 @@ namespace Jint.Runtime.Debugger
         public string Source { get; }
         public int Line { get; }
         public int Column { get; }
-
-        public bool Equals(BreakLocation other)
-        {
-            if (other is null)
-            {
-                return false;
-            }
-
-            return other.Line == Line &&
-                other.Column == Column &&
-                other.Source == Source;
-        }
-
-        public override bool Equals(object obj)
-        {
-            return Equals(obj as BreakLocation);
-        }
-
-        public override int GetHashCode()
-        {
-            // Keeping this rather than HashCode.Combine, which isn't in 4.6.1 or netstandard 2.0
-            unchecked
-            {
-                int hash = 17;
-                hash = hash * 33 + Line.GetHashCode();
-                hash = hash * 33 + Column.GetHashCode();
-                hash = hash * 33 + Source.GetHashCode();
-                return hash;
-            }
-        }
-
-        public static bool operator ==(BreakLocation a, BreakLocation b)
-        {
-            return Equals(a, b);
-        }
-
-        public static bool operator !=(BreakLocation a, BreakLocation b)
-        {
-            return !Equals(a, b);
-        }
     }
 
     /// <summary>
@@ -103,7 +63,7 @@ namespace Jint.Runtime.Debugger
             {
                 return 0;
             }
-            // Keeping this rather than HashCode.Combine, which isn't in 4.6.1 or netstandard 2.0
+            // Keeping this rather than HashCode.Combine, which isn't in net461 or netstandard2.0
             unchecked
             {
                 int hash = 17;
