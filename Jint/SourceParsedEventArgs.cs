@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Jint
 {
-    public class SourceParsedEventArgs
+    public sealed class SourceParsedEventArgs
     {
         public string SourceId { get; }
         public string Source { get; }
