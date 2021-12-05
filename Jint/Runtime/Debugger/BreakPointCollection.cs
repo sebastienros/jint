@@ -11,7 +11,7 @@ namespace Jint.Runtime.Debugger
     /// Adding a new breakpoint at the same location <i>replaces</i> the old one - this allows replacing e.g. a 
     /// conditional breakpoint with a new condition (or remove the condition).
     /// </remarks>
-    public class BreakPointCollection : IEnumerable<BreakPoint>
+    public sealed class BreakPointCollection : IEnumerable<BreakPoint>
     {
         private readonly Dictionary<BreakLocation, BreakPoint> _breakPoints = new Dictionary<BreakLocation, BreakPoint>(new OptionalSourceBreakLocationEqualityComparer());
 
