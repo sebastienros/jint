@@ -1,9 +1,12 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace Jint.Runtime.Debugger
 {
+    /// <summary>
+    /// BreakLocation is a combination of an Esprima position (line and column) and a source (path or identifier of script).
+    /// Like Esprima, first column is 0 and first line is 1.
+    /// </summary>
     public sealed class BreakLocation : IEquatable<BreakLocation>
     {
         public BreakLocation(string source, int line, int column)
@@ -45,6 +48,7 @@ namespace Jint.Runtime.Debugger
 
         public override int GetHashCode()
         {
+            // Keeping this rather than HashCode.Combine, which isn't in 4.6.1 or netstandard 2.0
             unchecked
             {
                 int hash = 17;
@@ -99,6 +103,7 @@ namespace Jint.Runtime.Debugger
             {
                 return 0;
             }
+            // Keeping this rather than HashCode.Combine, which isn't in 4.6.1 or netstandard 2.0
             unchecked
             {
                 int hash = 17;
