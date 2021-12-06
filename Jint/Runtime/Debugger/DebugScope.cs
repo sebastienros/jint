@@ -52,13 +52,14 @@ namespace Jint.Runtime.Debugger
         public ObjectInstance BindingObject { get; }
 
         /// <summary>
-        /// Retrieves the value of a specific binding. Note that some bindings (e.g. uninitialized let) may return null.
+        /// Retrieves the value of a specific binding. Note that some bindings (e.g. uninitialized let/const) may return null.
         /// </summary>
         /// <param name="name">Binding name</param>
         /// <returns>Value of the binding</returns>
         public JsValue GetBindingValue(string name)
         {
-            return _record.GetBindingValue(name, strict: false);
+            _record.TryGetBindingValue(name, strict: true, out var result);
+            return result;
         }
     }
 }

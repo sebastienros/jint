@@ -30,6 +30,44 @@ namespace Jint.Tests.Runtime.Debugger
         }
 
         [Fact]
+        public void AllowsInspectionOfUninitializedGlobalBindings()
+        {
+            string script = @"
+                debugger;
+                const globalConstant = 'test';
+                let globalLet = 'test';
+            ";
+
+            TestHelpers.TestAtBreak(script, info =>
+            {
+                // Uninitialized global block scoped ("script scoped") bindings return null (and, just as importantly, don't throw):
+                Assert.Null(info.CurrentScopeChain[0].GetBindingValue("globalConstant"));
+                Assert.Null(info.CurrentScopeChain[0].GetBindingValue("globalLet"));
+            });
+        }
+
+        [Fact]
+        public void AllowsInspectionOfUninitializedBlockBindings()
+        {
+            string script = @"
+                function test()
+                {
+                    debugger;
+                    const globalConstant = 'test';
+                    let globalLet = 'test';
+                }
+                test();
+            ";
+
+            TestHelpers.TestAtBreak(script, info =>
+            {
+                // Uninitialized block scoped bindings return null (and, just as importantly, don't throw):
+                Assert.Null(info.CurrentScopeChain[0].GetBindingValue("globalConstant"));
+                Assert.Null(info.CurrentScopeChain[0].GetBindingValue("globalLet"));
+            });
+        }
+
+        [Fact]
         public void ScriptScopeIncludesGlobalConst()
         {
             string script = @"

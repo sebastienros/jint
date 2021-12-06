@@ -157,6 +157,19 @@ namespace Jint.Runtime.Environments
             return ObjectInstance.UnwrapJsValue(desc, _bindingObject);
         }
 
+        internal override bool TryGetBindingValue(string name, bool strict, out JsValue value)
+        {
+            var desc = _bindingObject.GetProperty(name);
+            if (strict && desc == PropertyDescriptor.Undefined)
+            {
+                value = null;
+                return false;
+            }
+
+            value = ObjectInstance.UnwrapJsValue(desc, _bindingObject);
+            return true;
+        }
+
         public override bool DeleteBinding(string name)
         {
             return _bindingObject.Delete(name);
