@@ -168,6 +168,13 @@ namespace Jint.Runtime.Environments
                 : _objectRecord.GetBindingValue(name, strict);
         }
 
+        internal override bool TryGetBindingValue(string name, bool strict, out JsValue value)
+        {
+            return _declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name)
+                ? _declarativeRecord.TryGetBindingValue(name, strict, out value)
+                : _objectRecord.TryGetBindingValue(name, strict, out value);
+        }
+
         public override bool DeleteBinding(string name)
         {
             if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
