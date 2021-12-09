@@ -9,15 +9,15 @@ namespace Jint
 {
     public sealed class SourceParsedEventArgs
     {
-        public string SourceId { get; }
-        public string Source { get; }
-        public Script Ast { get; }
-
         public SourceParsedEventArgs(string source, Script ast)
         {
             SourceId = ast.Location.Source ?? Guid.NewGuid().ToString();
             Source = source;
             Ast = ast;
         }
+
+        public string SourceId { get; }
+        public string Source { get; }
+        public Script Ast { get; }
     }
 }
