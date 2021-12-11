@@ -2733,5 +2733,18 @@ namespace Jint.Tests.Runtime
             var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("a.age = \"It won't work, but it's normal\""));
             Assert.Equal("Input string was not in a correct format.", ex.Message);
         }
+
+        [Fact]
+        public void ShouldLetNotSupportedExceptionBubble()
+        {
+            _engine.SetValue("profile", new Profile());
+            var ex = Assert.Throws<NotSupportedException>(() => _engine.Evaluate("profile.AnyProperty"));
+            Assert.Equal("NOT SUPPORTED", ex.Message);
+        }
+
+        private class Profile
+        {
+            public int AnyProperty => throw new NotSupportedException("NOT SUPPORTED");
+        }
     }
 }
