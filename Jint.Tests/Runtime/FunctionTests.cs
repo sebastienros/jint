@@ -94,5 +94,12 @@ assertEqual(booleanCount, 1);
                 .SetValue("assertEqual", new Action<object, object>((a, b) => Assert.Equal(b, a)))
                 .Execute(script);
         }
+
+        [Fact]
+        public void AnonymousLambdaShouldHaveNameDefined()
+        {
+            var engine = new Engine();
+            Assert.True(engine.Evaluate("(()=>{}).hasOwnProperty('name')").AsBoolean());
+        }
     }
 }

@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Native.Function;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -24,6 +25,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                 scope,
                 FunctionThisMode.Lexical,
                 proto: engine.Realm.Intrinsics.Function.PrototypeObject);
+
+            if (_function.Name is null)
+            {
+                closure.SetFunctionName(JsString.Empty);
+            }
 
             return NormalCompletion(closure);
         }
