@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text.RegularExpressions;
+using Jint.Native;
 using Jint.Native.Array;
 using Xunit;
 
@@ -80,6 +81,13 @@ namespace Jint.Tests.Runtime
 
             Assert.NotNull(engine.Evaluate("/[]/"));
             Assert.NotNull(engine.Evaluate("new RegExp('[]')"));
+        }
+
+        [Fact]
+        public void ShouldNotThrowErrorOnRegExNumericNegation()
+        {
+            var engine = new Engine();
+            Assert.Equal(JsNumber.DoubleNaN, engine.Evaluate("-/[]/"));
         }
     }
 }
