@@ -95,6 +95,9 @@ namespace Jint.Native.RegExp
             SetSymbols(symbols);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-get-regexp.prototype.source
+        /// </summary>
         private JsValue Source(JsValue thisObj, JsValue[] arguments)
         {
             if (ReferenceEquals(thisObj, this))
@@ -106,6 +109,11 @@ namespace Jint.Native.RegExp
             if (r is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
+            }
+
+            if (r.Source is null)
+            {
+                return JsString.Empty;
             }
 
             return r.Source.Replace("/", "\\/");
