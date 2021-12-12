@@ -32,8 +32,8 @@ namespace Jint.Native.TypedArray
                 TypedArrayElementType.Uint16 => 2,
                 TypedArrayElementType.Int32 => 4,
                 TypedArrayElementType.Uint32 => 4,
-                TypedArrayElementType.BigInt64 => 8,
-                TypedArrayElementType.BigUint64 => 8,
+                TypedArrayElementType.BigInt64 => 16,
+                TypedArrayElementType.BigUint64 => 16,
                 TypedArrayElementType.Float32 => 4,
                 TypedArrayElementType.Float64 => 8,
                 _ => 0

@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 using Jint.Native.Object;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
@@ -11,7 +12,7 @@ namespace Jint.Native.ArrayBuffer
     public sealed class ArrayBufferInstance : ObjectInstance
     {
         // so that we don't need to allocate while or reading setting values
-        private readonly byte[] _workBuffer = new byte[8];
+        private readonly byte[] _workBuffer = new byte[16];
 
         private byte[] _arrayBufferData;
         private readonly JsValue _arrayBufferDetachKey = Undefined;
@@ -80,7 +81,7 @@ namespace Jint.Native.ArrayBuffer
         /// <summary>
         /// https://tc39.es/ecma262/#sec-getvaluefrombuffer
         /// </summary>
-        internal double GetValueFromBuffer(
+        internal TypedArrayValue GetValueFromBuffer(
             int byteIndex,
             TypedArrayElementType type,
             bool isTypedArray,
@@ -104,13 +105,13 @@ namespace Jint.Native.ArrayBuffer
                 h. Append Chosen Value EsprimaExtensions.Record { [[Event]]: readEvent, [[ChosenValue]]: rawValue } to execution.[[ChosenValues]].
             */
             ExceptionHelper.ThrowNotImplementedException("SharedArrayBuffer not implemented");
-            return 0;
+            return default;
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-rawbytestonumeric
         /// </summary>
-        internal double RawBytesToNumeric(TypedArrayElementType type, int byteIndex, bool isLittleEndian)
+        internal TypedArrayValue RawBytesToNumeric(TypedArrayElementType type, int byteIndex, bool isLittleEndian)
         {
             var elementSize = type.GetElementSize();
             var rawBytes = _arrayBufferData;
@@ -149,7 +150,11 @@ namespace Jint.Native.ArrayBuffer
             if (type.IsBigIntElementType())
             {
                 // return the BigInt value that corresponds to intValue
-                ExceptionHelper.ThrowNotImplementedException("BigInt not implemented");
+#if NETSTANDARD2_1
+                return new BigInteger(rawBytes.AsSpan().Slice(byteIndex, 16));
+#else
+                ExceptionHelper.ThrowNotImplementedException();
+#endif
             }
 
             long? intValue = type switch
@@ -190,7 +195,7 @@ namespace Jint.Native.ArrayBuffer
         internal void SetValueInBuffer(
             int byteIndex,
             TypedArrayElementType type,
-            double value,
+            TypedArrayValue value,
             bool isTypedArray,
             ArrayBufferOrder order,
             bool? isLittleEndian = null)
@@ -214,23 +219,23 @@ namespace Jint.Native.ArrayBuffer
             }
         }
 
-        private byte[] NumericToRawBytes(TypedArrayElementType type, double value, bool isLittleEndian)
+        private byte[] NumericToRawBytes(TypedArrayElementType type, TypedArrayValue value, bool isLittleEndian)
         {
             byte[] rawBytes;
             if (type == TypedArrayElementType.Float32)
             {
                 // Let rawBytes be a List whose elements are the 4 bytes that are the result of converting value to IEEE 754-2019 binary32 format using roundTiesToEven mode. If isLittleEndian is false, the bytes are arranged in big endian order. Otherwise, the bytes are arranged in little endian order. If value is NaN, rawBytes may be set to any implementation chosen IEEE 754-2019 binary32 format Not-a-Number encoding. An implementation must always choose the same encoding for each implementation distinguishable NaN value.
-                rawBytes = BitConverter.GetBytes((float) value);
+                rawBytes = BitConverter.GetBytes((float) value.DoubleValue);
             }
             else if (type == TypedArrayElementType.Float64)
             {
                 // Let rawBytes be a List whose elements are the 8 bytes that are the IEEE 754-2019 binary64 format encoding of value. If isLittleEndian is false, the bytes are arranged in big endian order. Otherwise, the bytes are arranged in little endian order. If value is NaN, rawBytes may be set to any implementation chosen IEEE 754-2019 binary64 format Not-a-Number encoding. An implementation must always choose the same encoding for each implementation distinguishable NaN value.
-                rawBytes = BitConverter.GetBytes(value);
+                rawBytes = BitConverter.GetBytes(value.DoubleValue);
             }
             else
             {
                 // inlined conversion for faster speed instead of getting the method in spec
-                var intValue = (long) value;
+                var intValue = (long) value.DoubleValue;
                 rawBytes = _workBuffer;
                 switch (type)
                 {
@@ -241,7 +246,7 @@ namespace Jint.Native.ArrayBuffer
                         rawBytes[0] = (byte) intValue;
                         break;
                     case TypedArrayElementType.Uint8C:
-                        rawBytes[0] = (byte) TypeConverter.ToUint8Clamp(value);
+                        rawBytes[0] = (byte) TypeConverter.ToUint8Clamp(value.DoubleValue);
                         break;
                     case TypedArrayElementType.Int16:
 #if !NETSTANDARD2_1
@@ -269,6 +274,15 @@ namespace Jint.Native.ArrayBuffer
                         rawBytes = BitConverter.GetBytes((uint) intValue);
 #else
                         BitConverter.TryWriteBytes(rawBytes, (uint) intValue);
+#endif
+                        break;
+                    case TypedArrayElementType.BigInt64:
+                    case TypedArrayElementType.BigUint64:
+#if !NETSTANDARD2_1
+                        rawBytes = value.BigInteger.ToByteArray();
+#else
+                        rawBytes = _workBuffer;
+                        value.BigInteger.TryWriteBytes(rawBytes.AsSpan(), out var bytesWritten);
 #endif
                         break;
                     default:

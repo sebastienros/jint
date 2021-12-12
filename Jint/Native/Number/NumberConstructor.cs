@@ -8,6 +8,9 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Number
 {
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-number-constructor
+    /// </summary>
     public sealed class NumberConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new JsString("Number");

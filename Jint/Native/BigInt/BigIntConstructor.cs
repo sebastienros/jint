@@ -1,0 +1,126 @@
+﻿using Jint.Collections;
+using Jint.Native.Function;
+using Jint.Native.Object;
+using Jint.Runtime;
+using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
+
+namespace Jint.Native.BigInt;
+
+/// <summary>
+/// https://tc39.es/ecma262/#sec-properties-of-the-bigint-constructor
+/// </summary>
+public sealed class BigIntConstructor : FunctionInstance, IConstructor
+{
+    private static readonly JsString _functionName = new("BigInt");
+
+    public BigIntConstructor(
+        Engine engine,
+        Realm realm,
+        FunctionPrototype functionPrototype,
+        ObjectPrototype objectPrototype)
+        : base(engine, realm, _functionName)
+    {
+        _prototype = functionPrototype;
+        PrototypeObject = new BigIntPrototype(engine, realm, this, objectPrototype);
+        _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
+        _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
+    }
+
+    protected override void Initialize()
+    {
+        var properties = new PropertyDictionary(2, checkExistingKeys: false)
+        {
+            ["asIntN"] = new(new ClrFunctionInstance(Engine, "asIntN", AsIntN, 1, PropertyFlag.Configurable), true, false, true),
+            ["asUintN"] = new(new ClrFunctionInstance(Engine, "asUintN", AsUintN, 1, PropertyFlag.Configurable), true, false, true),
+        };
+        SetProperties(properties);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-bigint.asintn
+    /// </summary>
+    private JsValue AsIntN(JsValue thisObj, JsValue[] arguments)
+    {
+        var bits = TypeConverter.ToIndex(_realm, arguments.At(0));
+        var bigint = TypeConverter.ToBigInt(arguments.At(1));
+        // Let mod be ℝ(bigint) modulo 2bits.
+        // 4. If mod ≥ 2bits - 1, return ℤ(mod - 2bits); otherwise, return ℤ(mod).
+        return JsBigInt.Create(bits * bigint);
+
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-bigint.asuintn
+    /// </summary>
+    private JsValue AsUintN(JsValue thisObj, JsValue[] arguments)
+    {
+        var bits = TypeConverter.ToIndex(_realm, arguments.At(0));
+        var bigint = TypeConverter.ToBigInt(arguments.At(1));
+
+        return JsBigInt.Create(bits * bigint);
+    }
+
+    public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    {
+        if (arguments.Length == 0)
+        {
+            return JsBigInt.Zero;
+        }
+
+        var value = arguments.At(0);
+        if (value.IsNumber())
+        {
+            return NumberToBigInt((JsNumber) value);
+        }
+
+        return JsBigInt.Create(value);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-numbertobigint
+    /// </summary>
+    private JsBigInt NumberToBigInt(JsNumber value)
+    {
+        if (!TypeConverter.IsIntegralNumber(value._value))
+        {
+            ExceptionHelper.ThrowRangeError(_realm);
+        }
+
+        return JsBigInt.Create((long) value._value);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-bigint-constructor-number-value
+    /// </summary>
+    public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    {
+        var value = arguments.Length > 0
+            ? JsBigInt.Create(arguments[0])
+            : JsBigInt.Zero;
+
+        if (newTarget.IsUndefined())
+        {
+            return Construct(value);
+        }
+
+        var o = OrdinaryCreateFromConstructor(
+            newTarget,
+            static intrinsics => intrinsics.BigInt.PrototypeObject,
+            static (engine, realm, state) => new BigIntInstance(engine, (JsBigInt) state), value);
+        return o;
+    }
+
+    public BigIntPrototype PrototypeObject { get; }
+
+    public BigIntInstance Construct(JsBigInt value)
+    {
+        var instance = new BigIntInstance(Engine)
+        {
+            _prototype = PrototypeObject,
+            BigIntData = value
+        };
+
+        return instance;
+    }
+}

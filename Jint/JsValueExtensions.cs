@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics.Contracts;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Array;
@@ -87,6 +88,13 @@ namespace Jint
         public static bool IsNumber(this JsValue value)
         {
             return (value._type & (InternalTypes.Number | InternalTypes.Integer)) != 0;
+        }
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsBigInt(this JsValue value)
+        {
+            return (value._type & InternalTypes.BigInt) != 0;
         }
 
         [Pure]
@@ -202,6 +210,12 @@ namespace Jint
         internal static int AsInteger(this JsValue value)
         {
             return (int) ((JsNumber) value)._value;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static BigInteger AsBigInt(this JsValue value)
+        {
+            return ((JsBigInt) value)._value;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -341,7 +355,7 @@ namespace Jint
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long[] AsBigInt64Array(this JsValue value)
+        public static BigInteger[] AsBigInt64Array(this JsValue value)
         {
             if (!value.IsUint32Array())
             {
@@ -359,7 +373,7 @@ namespace Jint
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ulong[] AsBigUint64Array(this JsValue value)
+        public static BigInteger[] AsBigUint64Array(this JsValue value)
         {
             if (!value.IsBigUint64Array())
             {

@@ -320,9 +320,19 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 var lprim = TypeConverter.ToPrimitive(left);
                 var rprim = TypeConverter.ToPrimitive(right);
-                JsValue result = lprim.IsString() || rprim.IsString()
-                    ? JsString.Create(TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim))
-                    : JsNumber.Create(TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim));
+                JsValue result;
+                if (lprim.IsString() || rprim.IsString())
+                {
+                    result = JsString.Create(TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim));
+                }
+                else if (!lprim.IsBigInt() && !rprim.IsBigInt())
+                {
+                    result = JsNumber.Create(TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim));
+                }
+                else
+                {
+                    result = JsBigInt.Create(TypeConverter.ToBigInt(lprim) + TypeConverter.ToBigInt(rprim));
+                }
 
                 return NormalCompletion(result);
             }

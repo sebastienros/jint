@@ -246,7 +246,7 @@ namespace Jint.Native.DataView
             }
 
             var bufferIndex = (int) (getIndex + viewOffset);
-            return buffer.GetValueFromBuffer(bufferIndex, type, false, ArrayBufferOrder.Unordered, isLittleEndianBoolean);
+            return buffer.GetValueFromBuffer(bufferIndex, type, false, ArrayBufferOrder.Unordered, isLittleEndianBoolean).ToJsValue();
         }
 
         /// <summary>

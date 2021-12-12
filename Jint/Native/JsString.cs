@@ -20,6 +20,7 @@ namespace Jint.Native
         internal static readonly JsString BooleanString = new JsString("boolean");
         internal static readonly JsString StringString = new JsString("string");
         internal static readonly JsString NumberString = new JsString("number");
+        internal static readonly JsString BigIntString = new JsString("bigint");
         internal static readonly JsString SymbolString = new JsString("symbol");
         internal static readonly JsString DefaultString = new JsString("default");
         internal static readonly JsString NumberZeroString = new JsString("0");

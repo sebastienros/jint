@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Extensions;
@@ -25,7 +26,8 @@ namespace Jint.Runtime
         String = 8,
         Number = 16,
         Symbol = 64,
-        Object = 128
+        BigInt = 128,
+        Object = 256
     }
 
     [Flags]
@@ -43,15 +45,16 @@ namespace Jint.Runtime
         Number = 16,
         Integer = 32,
         Symbol = 64,
+        BigInt = 128,
 
         // primitive  types range end
-        Object = 128,
+        Object = 256,
 
         // internal usage
         ObjectEnvironmentRecord = 512,
         RequiresCloning = 1024,
 
-        Primitive = Boolean | String | Number | Integer | Symbol,
+        Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
         InternalFlags = ObjectEnvironmentRecord | RequiresCloning
     }
 
@@ -181,6 +184,8 @@ namespace Jint.Runtime
                     return n != 0 && !double.IsNaN(n);
                 case InternalTypes.String:
                     return !((JsString) o).IsNullOrEmpty();
+                case InternalTypes.BigInt:
+                    return ((JsBigInt) o)._value != 0;
                 default:
                     return true;
             }
@@ -214,8 +219,9 @@ namespace Jint.Runtime
                 case InternalTypes.String:
                     return ToNumber(o.ToString());
                 case InternalTypes.Symbol:
+                case InternalTypes.BigInt:
                     // TODO proper TypeError would require Engine instance and a lot of API changes
-                    ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a Symbol value to a number");
+                    ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a " + type + " value to a number");
                     return 0;
                 default:
                     return ToNumber(ToPrimitive(o, Types.Number));
@@ -546,10 +552,31 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-tobigint
         /// </summary>
-        public static double ToBigInt(JsValue value)
+        public static BigInteger ToBigInt(JsValue value)
         {
-            ExceptionHelper.ThrowNotImplementedException("BigInt not implemented");
-            return 0;
+            return value is JsBigInt bigInt
+                ? bigInt._value
+                : ToBigIntUnlikely(value);
+        }
+
+        private static BigInteger ToBigIntUnlikely(JsValue value)
+        {
+            var prim = ToPrimitive(value);
+            switch (prim.Type)
+            {
+                case Types.Boolean:
+                    return ((JsBoolean) prim)._value ? BigInteger.One : BigInteger.Zero;
+                case Types.String:
+                    return StringToBigInt(value.ToString());
+                default:
+                    ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a " + prim.Type + " to a BigInt");
+                    return BigInteger.One;
+            }
+        }
+
+        private static BigInteger StringToBigInt(string str)
+        {
+            return BigInteger.Parse(str);
         }
 
         /// <summary>
@@ -679,6 +706,12 @@ namespace Jint.Runtime
             return NumberPrototype.NumberToString(d, new DtoaBuilder(17), stringBuilder.Builder);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string ToString(BigInteger bigInteger)
+        {
+            return bigInteger.ToString();
+        }
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/#sec-topropertykey
         /// </summary>
@@ -732,6 +765,8 @@ namespace Jint.Runtime
                     return ToString((int) ((JsNumber) o)._value);
                 case InternalTypes.Number:
                     return ToString(((JsNumber) o)._value);
+                case InternalTypes.BigInt:
+                    return ToString(((JsBigInt) o)._value);
                 case InternalTypes.Symbol:
                     ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a Symbol value to a string");
                     return null;
@@ -759,6 +794,17 @@ namespace Jint.Runtime
             return ToObjectNonObject(realm, value);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-isintegralnumber
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool IsIntegralNumber(double value)
+        {
+            return !double.IsNaN(value)
+                   && !double.IsInfinity(value)
+                   && Math.Floor(Math.Abs(value)) == Math.Abs(value);
+        }
+
         private static ObjectInstance ToObjectNonObject(Realm realm, JsValue value)
         {
             var type = value._type & ~InternalTypes.InternalFlags;
@@ -769,6 +815,8 @@ namespace Jint.Runtime
                 case InternalTypes.Number:
                 case InternalTypes.Integer:
                     return realm.Intrinsics.Number.Construct((JsNumber) value);
+                case InternalTypes.BigInt:
+                    return realm.Intrinsics.BigInt.Construct((JsBigInt) value);
                 case InternalTypes.String:
                     return realm.Intrinsics.String.Construct(value.ToString());
                 case InternalTypes.Symbol:

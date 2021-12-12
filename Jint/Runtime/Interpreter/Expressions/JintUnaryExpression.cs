@@ -6,6 +6,7 @@ using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.References;
 using System.Collections.Concurrent;
+using System.Numerics;
 using System.Reflection;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -190,6 +191,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         case Types.Boolean: return JsString.BooleanString;
                         case Types.Number: return JsString.NumberString;
+                        case Types.BigInt: return JsString.BigIntString;
                         case Types.String: return JsString.StringString;
                         case Types.Symbol: return JsString.SymbolString;
                     }
@@ -207,7 +209,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        private static JsNumber EvaluateMinus(JsValue value)
+        private static JsValue EvaluateMinus(JsValue value)
         {
             var minusValue = value;
             if (minusValue.IsInteger())
@@ -216,6 +218,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (asInteger != 0)
                 {
                     return JsNumber.Create(asInteger * -1);
+                }
+            }
+            else if (minusValue.IsBigInt())
+            {
+                var asInteger = minusValue.AsBigInt();
+                if (asInteger != 0)
+                {
+                    return JsBigInt.Create(BigInteger.Negate(asInteger));
                 }
             }
 

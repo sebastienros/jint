@@ -198,6 +198,16 @@ namespace Jint.Native
             return new JsNumber(value);
         }
 
+        public static JsNumber Create(JsValue jsValue)
+        {
+            if (jsValue is JsNumber number)
+            {
+                return number;
+            }
+
+            return Create(TypeConverter.ToNumber(jsValue));
+        }
+
         public override string ToString()
         {
             return TypeConverter.ToString(_value);
@@ -205,17 +215,7 @@ namespace Jint.Native
 
         public override bool Equals(JsValue obj)
         {
-            if (ReferenceEquals(null, obj))
-            {
-                return false;
-            }
-
-            if (!(obj is JsNumber number))
-            {
-                return false;
-            }
-
-            return Equals(number);
+            return Equals(obj as JsNumber);
         }
 
         public bool Equals(JsNumber other)

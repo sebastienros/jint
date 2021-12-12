@@ -1,3 +1,4 @@
+using System.Numerics;
 using Jint.Runtime;
 
 namespace Jint.Native.TypedArray
@@ -174,7 +175,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(long[] values)
+        public TypedArrayInstance Construct(BigInteger[] values)
         {
             var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
@@ -192,7 +193,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(ulong[] values)
+        public TypedArrayInstance Construct(BigInteger[] values)
         {
             var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Native.Generator;
 using Jint.Native.Iterator;
@@ -271,6 +272,11 @@ namespace Jint.Native
             return JsNumber.Create(value);
         }
 
+        public static implicit operator JsValue(BigInteger value)
+        {
+            return JsBigInt.Create(value);
+        }
+
         public static implicit operator JsValue(bool value)
         {
             return value ? JsBoolean.True : JsBoolean.False;
@@ -334,6 +340,9 @@ namespace Jint.Native
                         break;
                     case Types.Number:
                         Value = ((JsNumber) value)._value + " (number)";
+                        break;
+                    case Types.BigInt:
+                        Value = ((JsBigInt) value)._value + " (bigint)";
                         break;
                     case Types.Object:
                         Value = value.AsObject().GetType().Name;

@@ -1,3 +1,4 @@
+using System.Numerics;
 using Xunit;
 
 namespace Jint.Tests.Runtime
@@ -100,7 +101,7 @@ namespace Jint.Tests.Runtime
         public void CanInteropWithBigInt64()
         {
             var engine = new Engine();
-            var source = new long[] { 42, 12 };
+            var source = new BigInteger[] { 42, 12 };
             engine.SetValue("testSubject", engine.Realm.Intrinsics.BigInt64Array.Construct(source));
             ValidateCreatedTypeArray(engine, "BigInt64Array");
 
@@ -113,7 +114,7 @@ namespace Jint.Tests.Runtime
         public void CanInteropWithBigUint64()
         {
             var engine = new Engine();
-            var source = new ulong[] { 42, 12 };
+            var source = new BigInteger[] { 42, 12 };
             engine.SetValue("testSubject", engine.Realm.Intrinsics.BigUint64Array.Construct(source));
             ValidateCreatedTypeArray(engine, "BigUint64Array");
 

@@ -310,12 +310,13 @@ namespace Jint.Native.TypedArray
         {
             var o = thisObj.ValidateTypedArray(_realm);
 
+            var jsValue = arguments.At(0);
             var start = arguments.At(1);
             var end = arguments.At(2);
 
-            var value = o._contentType == TypedArrayContentType.BigInt
-                ? TypeConverter.ToBigInt(arguments.At(0))
-                : TypeConverter.ToNumber(arguments.At(0));
+            JsValue value = o._contentType == TypedArrayContentType.BigInt
+                ? JsBigInt.Create(jsValue)
+                : JsNumber.Create(jsValue);
 
             var len = o.Length;
 
@@ -963,18 +964,19 @@ namespace Jint.Native.TypedArray
 
             while (targetByteIndex < limit)
             {
-                double value;
                 if (target._contentType == TypedArrayContentType.BigInt)
                 {
-                    value = TypeConverter.ToBigInt(src.Get(k));
+                    var value = TypeConverter.ToBigInt(src.Get(k));
+                    targetBuffer.AssertNotDetached();
+                    targetBuffer.SetValueInBuffer((int) targetByteIndex, targetType, value, true, ArrayBufferOrder.Unordered);
                 }
                 else
                 {
-                    value = TypeConverter.ToNumber(src.Get(k));
+                    var value = TypeConverter.ToNumber(src.Get(k));
+                    targetBuffer.AssertNotDetached();
+                    targetBuffer.SetValueInBuffer((int) targetByteIndex, targetType, value, true, ArrayBufferOrder.Unordered);
                 }
 
-                targetBuffer.AssertNotDetached();
-                targetBuffer.SetValueInBuffer((int) targetByteIndex, targetType, value, true, ArrayBufferOrder.Unordered);
                 k++;
                 targetByteIndex += targetElementSize;
             }
@@ -1084,8 +1086,8 @@ namespace Jint.Native.TypedArray
                     var limit = targetByteIndex + count * elementSize;
                     while (targetByteIndex < limit)
                     {
-                        var value = (JsNumber) srcBuffer.GetValueFromBuffer(srcByteIndex, TypedArrayElementType.Uint8, true, ArrayBufferOrder.Unordered);
-                        targetBuffer.SetValueInBuffer(targetByteIndex, TypedArrayElementType.Uint8, value._value, true, ArrayBufferOrder.Unordered);
+                        var value = srcBuffer.GetValueFromBuffer(srcByteIndex, TypedArrayElementType.Uint8, true, ArrayBufferOrder.Unordered);
+                        targetBuffer.SetValueInBuffer(targetByteIndex, TypedArrayElementType.Uint8, value, true, ArrayBufferOrder.Unordered);
                         srcByteIndex++;
                         targetByteIndex++;
                     }

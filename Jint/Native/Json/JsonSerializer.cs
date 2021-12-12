@@ -189,6 +189,11 @@ namespace Jint.Native.Json
                 return JsString.NullString;
             }
 
+            if (value is JsBigInt bigInt)
+            {
+                return "\"" + bigInt._value.ToString("R") + "\"";
+            }
+
             var isCallable = value.IsObject() && value.AsObject() is ICallable;
 
             if (value.IsObject() && isCallable == false)
