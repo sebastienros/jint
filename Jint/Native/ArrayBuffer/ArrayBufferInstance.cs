@@ -1,5 +1,4 @@
 using System;
-using System.Numerics;
 using Jint.Native.Object;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
@@ -151,7 +150,7 @@ namespace Jint.Native.ArrayBuffer
             {
                 // return the BigInt value that corresponds to intValue
 #if NETSTANDARD2_1
-                return new BigInteger(rawBytes.AsSpan().Slice(byteIndex, 16));
+                return new System.Numerics.BigInteger(rawBytes.AsSpan().Slice(byteIndex, 8));
 #else
                 ExceptionHelper.ThrowNotImplementedException();
 #endif

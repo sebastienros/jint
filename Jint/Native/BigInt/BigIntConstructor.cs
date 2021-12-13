@@ -1,4 +1,6 @@
-﻿using Jint.Collections;
+﻿using System;
+using System.Numerics;
+using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -31,8 +33,8 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
     {
         var properties = new PropertyDictionary(2, checkExistingKeys: false)
         {
-            ["asIntN"] = new(new ClrFunctionInstance(Engine, "asIntN", AsIntN, 1, PropertyFlag.Configurable), true, false, true),
-            ["asUintN"] = new(new ClrFunctionInstance(Engine, "asUintN", AsUintN, 1, PropertyFlag.Configurable), true, false, true),
+            ["asIntN"] = new(new ClrFunctionInstance(Engine, "asIntN", AsIntN, 2, PropertyFlag.Configurable), true, false, true),
+            ["asUintN"] = new(new ClrFunctionInstance(Engine, "asUintN", AsUintN, 2, PropertyFlag.Configurable), true, false, true),
         };
         SetProperties(properties);
     }
@@ -43,11 +45,21 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
     private JsValue AsIntN(JsValue thisObj, JsValue[] arguments)
     {
         var bits = TypeConverter.ToIndex(_realm, arguments.At(0));
-        var bigint = TypeConverter.ToBigInt(arguments.At(1));
-        // Let mod be ℝ(bigint) modulo 2bits.
-        // 4. If mod ≥ 2bits - 1, return ℤ(mod - 2bits); otherwise, return ℤ(mod).
-        return JsBigInt.Create(bits * bigint);
 
+        if (bits == 0)
+        {
+            return JsBigInt.Zero;
+        }
+
+        var bigint = TypeConverter.ToBigInt(arguments.At(1));
+        var bitsPow = (int) System.Math.Pow(2, bits);
+        var mod = bigint % bitsPow;
+        if (mod >= bitsPow - 1)
+        {
+            return mod - bitsPow;
+        }
+
+        return mod;
     }
 
     /// <summary>
@@ -58,7 +70,7 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
         var bits = TypeConverter.ToIndex(_realm, arguments.At(0));
         var bigint = TypeConverter.ToBigInt(arguments.At(1));
 
-        return JsBigInt.Create(bits * bigint);
+        return JsBigInt.Create(bigint % (BigInteger) System.Math.Pow(2, bits));
     }
 
     public override JsValue Call(JsValue thisObject, JsValue[] arguments)

@@ -386,6 +386,11 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (typea != Types.String || typeb != Types.String)
             {
+                if (typea == Types.BigInt || typeb == Types.BigInt)
+                {
+                    return TypeConverter.ToBigInt(px) < TypeConverter.ToBigInt(py);
+                }
+
                 var nx = TypeConverter.ToNumber(px);
                 var ny = TypeConverter.ToNumber(py);
 

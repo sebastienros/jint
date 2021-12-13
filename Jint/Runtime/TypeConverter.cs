@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using Esprima;
 using Esprima.Ast;
 using Jint.Extensions;
 using Jint.Native;
@@ -189,6 +190,20 @@ namespace Jint.Runtime
                 default:
                     return true;
             }
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-tonumeric
+        /// </summary>
+        public static JsValue ToNumeric(JsValue value)
+        {
+            var primValue = ToPrimitive(value, Types.Number);
+            if (primValue.Type == Types.BigInt)
+            {
+                return primValue;
+            }
+
+            return ToNumber(primValue);
         }
 
         /// <summary>
@@ -564,6 +579,8 @@ namespace Jint.Runtime
             var prim = ToPrimitive(value);
             switch (prim.Type)
             {
+                case Types.BigInt:
+                    return ((JsBigInt) prim)._value;
                 case Types.Boolean:
                     return ((JsBoolean) prim)._value ? BigInteger.One : BigInteger.Zero;
                 case Types.String:
@@ -576,7 +593,20 @@ namespace Jint.Runtime
 
         private static BigInteger StringToBigInt(string str)
         {
-            return BigInteger.Parse(str);
+            if (string.IsNullOrWhiteSpace(str))
+            {
+                return BigInteger.Zero;
+            }
+
+            var parser = new JavaScriptParser(str);
+            var script = parser.ParseScript();
+            var numericLiteral = (Literal) script.Body[0].ChildNodes[0];
+            if (numericLiteral.TokenType != TokenType.NumericLiteral || !long.TryParse(numericLiteral.Raw, out _))
+            {
+                ExceptionHelper.ThrowTypeErrorNoEngine();
+            }
+
+            return new BigInteger(numericLiteral.NumericValue);
         }
 
         /// <summary>

@@ -331,6 +331,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else
                 {
+                    if (lprim.Type != rprim.Type)
+                    {
+                        ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Cannot mix BigInt and other types, use explicit conversions");
+                    }
                     result = JsBigInt.Create(TypeConverter.ToBigInt(lprim) + TypeConverter.ToBigInt(rprim));
                 }
 
@@ -355,9 +359,19 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
-                var number = AreIntegerOperands(left, right)
-                    ? JsNumber.Create(left.AsInteger() - right.AsInteger())
-                    : JsNumber.Create(TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right));
+                JsValue number;
+                if (AreIntegerOperands(left, right))
+                {
+                    number = JsNumber.Create(left.AsInteger() - right.AsInteger());
+                }
+                else if (left.Type != Types.BigInt && right.Type != Types.BigInt)
+                {
+                    number = JsNumber.Create(TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right));
+                }
+                else
+                {
+                    number = JsBigInt.Create(TypeConverter.ToBigInt(left) - TypeConverter.ToBigInt(right));
+                }
 
                 return NormalCompletion(number);
             }
@@ -388,6 +402,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (left.IsUndefined() || right.IsUndefined())
                 {
                     return NormalCompletion(Undefined.Instance);
+                }
+
+                if (left.IsBigInt() || right.IsBigInt())
+                {
+                    return NormalCompletion(JsBigInt.Create(TypeConverter.ToBigInt(left) * TypeConverter.ToBigInt(right)));
                 }
 
                 return NormalCompletion(JsNumber.Create(TypeConverter.ToNumber(left) * TypeConverter.ToNumber(right)));

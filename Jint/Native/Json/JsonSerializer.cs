@@ -123,9 +123,9 @@ namespace Jint.Native.Json
         private JsValue Str(JsValue key, JsValue holder)
         {
             var value = holder.Get(key, holder);
-            if (value.IsObject())
+            if (value.IsObject() || value.IsBigInt())
             {
-                var toJson = value.AsObject().Get("toJSON", value);
+                var toJson = value.Get("toJSON", value);
                 if (toJson.IsObject())
                 {
                     if (toJson.AsObject() is ICallable callableToJson)
@@ -189,9 +189,9 @@ namespace Jint.Native.Json
                 return JsString.NullString;
             }
 
-            if (value is JsBigInt bigInt)
+            if (value.Type == Types.BigInt)
             {
-                return "\"" + bigInt._value.ToString("R") + "\"";
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Do not know how to serialize a BigInt");
             }
 
             var isCallable = value.IsObject() && value.AsObject() is ICallable;

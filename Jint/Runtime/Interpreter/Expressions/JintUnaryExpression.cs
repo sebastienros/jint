@@ -223,10 +223,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             else if (minusValue.IsBigInt())
             {
                 var asInteger = minusValue.AsBigInt();
-                if (asInteger != 0)
-                {
-                    return JsBigInt.Create(BigInteger.Negate(asInteger));
-                }
+                return JsBigInt.Create(BigInteger.Negate(asInteger));
             }
 
             var n = TypeConverter.ToNumber(minusValue);

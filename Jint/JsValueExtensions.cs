@@ -357,13 +357,12 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static BigInteger[] AsBigInt64Array(this JsValue value)
         {
-            if (!value.IsUint32Array())
+            if (!value.IsBigInt64Array())
             {
                 ThrowWrongTypeException(value, "BigInt64Array");
             }
 
-            ExceptionHelper.ThrowNotImplementedException();
-            return null;
+            return ((TypedArrayInstance) value).ToNativeArray<BigInteger>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -380,8 +379,7 @@ namespace Jint
                 ThrowWrongTypeException(value, "BigUint64Array");
             }
 
-            ExceptionHelper.ThrowNotImplementedException();
-            return null;
+            return ((TypedArrayInstance) value).ToNativeArray<BigInteger>();
         }
 
         [Pure]

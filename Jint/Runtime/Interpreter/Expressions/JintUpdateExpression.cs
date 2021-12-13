@@ -126,15 +126,32 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (!operatorOverloaded)
                 {
-                    newValue = isInteger
-                    ? JsNumber.Create(value.AsInteger() + _change)
-                    : JsNumber.Create(TypeConverter.ToNumber(value) + _change);
+                    if (isInteger)
+                    {
+                        newValue = JsNumber.Create(value.AsInteger() + _change);
+                    }
+                    else if (value._type != InternalTypes.BigInt)
+                    {
+                        newValue = JsNumber.Create(TypeConverter.ToNumber(value) + _change);
+                    }
+                    else
+                    {
+                        newValue = JsBigInt.Create(TypeConverter.ToBigInt(value) + _change);
+                    }
                 }
 
                 environmentRecord.SetMutableBinding(name.Key.Name, newValue, strict);
-                return _prefix
-                    ? newValue
-                    : (isInteger || operatorOverloaded ? value : JsNumber.Create(TypeConverter.ToNumber(value)));
+                if (_prefix)
+                {
+                    return newValue;
+                }
+
+                if (!value.IsBigInt() && !value.IsNumber() && !operatorOverloaded)
+                {
+                    return JsNumber.Create(TypeConverter.ToNumber(value));
+                }
+
+                return value;
             }
 
             return null;

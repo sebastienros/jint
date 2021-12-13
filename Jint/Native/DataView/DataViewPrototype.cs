@@ -267,12 +267,10 @@ namespace Jint.Native.DataView
 
             var getIndex = TypeConverter.ToIndex(_realm, requestIndex);
 
-            double numberValue;
+            TypedArrayValue numberValue;
             if (type.IsBigIntElementType())
             {
-                // let numberValue be ? ToBigInt(value).
-                ExceptionHelper.ThrowNotImplementedException("BigInt not implemented");
-                return Undefined;
+                numberValue = TypeConverter.ToBigInt(value);
             }
             else
             {

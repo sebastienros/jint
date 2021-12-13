@@ -114,12 +114,8 @@ namespace Jint.Native.Number
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
-            if (arguments.Length == 0)
-            {
-                return 0d;
-            }
-
-            return TypeConverter.ToNumber(arguments[0]);
+            var n = ProcessFirstParameter(arguments);
+            return n;
         }
 
         /// <summary>
@@ -127,20 +123,37 @@ namespace Jint.Native.Number
         /// </summary>
         public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var value = arguments.Length > 0
-                ? JsNumber.Create(TypeConverter.ToNumber(arguments[0]))
-                : JsNumber.PositiveZero;
+            var n = ProcessFirstParameter(arguments);
 
             if (newTarget.IsUndefined())
             {
-                return Construct(value);
+                return Construct(n);
             }
 
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Number.PrototypeObject,
-                static (engine, realm, state) => new NumberInstance(engine, (JsNumber) state), value);
+                static (engine, realm, state) => new NumberInstance(engine, (JsNumber) state), n);
             return o;
+        }
+
+        private static JsNumber ProcessFirstParameter(JsValue[] arguments)
+        {
+            var n = JsNumber.PositiveZero;
+            if (arguments.Length > 0)
+            {
+                var prim = TypeConverter.ToNumeric(arguments[0]);
+                if (prim.IsBigInt())
+                {
+                    n = JsNumber.Create((long) ((JsBigInt) prim)._value);
+                }
+                else
+                {
+                    n = (JsNumber) prim;
+                }
+            }
+
+            return n;
         }
 
         public NumberPrototype PrototypeObject { get; private set; }
