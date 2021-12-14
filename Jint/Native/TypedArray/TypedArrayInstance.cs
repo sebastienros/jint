@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Esprima;
 using Jint.Native.ArrayBuffer;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -286,7 +287,7 @@ namespace Jint.Native.TypedArray
             }
             else
             {
-                var numValue = TypeConverter.ToBigInt(value);
+                var numValue = value.ToBigInteger(_engine);
                 if (IsValidIntegerIndex(index))
                 {
                     DoIntegerIndexedElementSet(index, numValue);
@@ -310,10 +311,17 @@ namespace Jint.Native.TypedArray
             }
             else
             {
-                var numValue = TypeConverter.ToBigInt(value);
-                if (IsValidIntegerIndex(index))
+                try
                 {
-                    DoIntegerIndexedElementSet((int) index, numValue);
+                    var numValue = TypeConverter.ToBigInt(value);
+                    if (IsValidIntegerIndex(index))
+                    {
+                        DoIntegerIndexedElementSet((int) index, numValue);
+                    }
+                }
+                catch (ParserException ex)
+                {
+                    ExceptionHelper.ThrowSyntaxError(_engine.Realm, ex.Message);
                 }
             }
         }

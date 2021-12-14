@@ -2,6 +2,7 @@
 using System.Diagnostics.Contracts;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using Esprima;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Date;
@@ -478,6 +479,19 @@ namespace Jint
         private static void ThrowWrongTypeException(JsValue value, string expectedType)
         {
             ExceptionHelper.ThrowArgumentException($"Expected {expectedType} but got {value._type}");
+        }
+
+        internal static BigInteger ToBigInteger(this JsValue value, Engine engine)
+        {
+            try
+            {
+                return TypeConverter.ToBigInt(value);
+            }
+            catch (ParserException ex)
+            {
+                ExceptionHelper.ThrowSyntaxError(engine.Realm, ex.Message);
+                return default;
+            }
         }
     }
 }

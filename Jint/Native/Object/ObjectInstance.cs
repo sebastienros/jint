@@ -923,7 +923,7 @@ namespace Jint.Native.Object
                 case ObjectClass.String:
                     if (this is StringInstance stringInstance)
                     {
-                        converted = stringInstance.PrimitiveValue.ToString();
+                        converted = stringInstance.StringData.ToString();
                     }
                     break;
 
@@ -937,7 +937,7 @@ namespace Jint.Native.Object
                 case ObjectClass.Boolean:
                     if (this is BooleanInstance booleanInstance)
                     {
-                        converted = ((JsBoolean) booleanInstance.PrimitiveValue)._value
+                        converted = ((JsBoolean) booleanInstance.BooleanData)._value
                             ? JsBoolean.BoxedTrue
                             : JsBoolean.BoxedFalse;
                     }

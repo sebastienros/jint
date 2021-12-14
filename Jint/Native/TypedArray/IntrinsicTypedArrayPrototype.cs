@@ -12,7 +12,6 @@ using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
-using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.TypedArray
 {
@@ -314,9 +313,15 @@ namespace Jint.Native.TypedArray
             var start = arguments.At(1);
             var end = arguments.At(2);
 
-            JsValue value = o._contentType == TypedArrayContentType.BigInt
-                ? JsBigInt.Create(jsValue)
-                : JsNumber.Create(jsValue);
+            JsValue value;
+            if (o._contentType == TypedArrayContentType.BigInt)
+            {
+                value = JsBigInt.Create(jsValue.ToBigInteger(_engine));
+            }
+            else
+            {
+                value = JsNumber.Create(jsValue);
+            }
 
             var len = o.Length;
 
@@ -964,7 +969,7 @@ namespace Jint.Native.TypedArray
             {
                 if (target._contentType == TypedArrayContentType.BigInt)
                 {
-                    var value = TypeConverter.ToBigInt(src.Get(k));
+                    var value = src.Get(k).ToBigInteger(_engine);
                     targetBuffer.AssertNotDetached();
                     targetBuffer.SetValueInBuffer((int) targetByteIndex, targetType, value, true, ArrayBufferOrder.Unordered);
                 }

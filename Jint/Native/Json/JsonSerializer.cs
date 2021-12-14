@@ -1,8 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Jint.Collections;
+using Jint.Native.BigInt;
+using Jint.Native.Boolean;
 using Jint.Native.Global;
+using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.String;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -117,13 +121,23 @@ namespace Jint.Native.Json
             var wrapper = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
             wrapper.DefineOwnProperty(JsString.Empty, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
 
-            return Str(JsString.Empty, wrapper);
+            return SerializeJSONProperty(JsString.Empty, wrapper);
         }
 
-        private JsValue Str(JsValue key, JsValue holder)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-serializejsonproperty
+        /// </summary>
+        private JsValue SerializeJSONProperty(JsValue key, JsValue holder)
         {
             var value = holder.Get(key, holder);
-            if (value.IsObject() || value.IsBigInt())
+
+            // spec isn't quite clear on this, workaround for injecting toJSON via prototype
+            if (value is JsBigInt bigInt)
+            {
+                value = _engine.Realm.Intrinsics.BigInt.Construct(bigInt);
+            }
+
+            if (value.IsObject() || value is BigIntInstance)
             {
                 var toJson = value.Get("toJSON", value);
                 if (toJson.IsObject())
@@ -144,16 +158,19 @@ namespace Jint.Native.Json
             if (value.IsObject())
             {
                 var valueObj = value.AsObject();
-                switch (valueObj.Class)
+                switch (valueObj)
                 {
-                    case ObjectClass.Number:
-                        value = TypeConverter.ToNumber(value);
+                    case NumberInstance numberInstance:
+                        value = numberInstance.NumberData;
                         break;
-                    case ObjectClass.String:
-                        value = TypeConverter.ToString(value);
+                    case StringInstance stringInstance:
+                        value = stringInstance.StringData;
                         break;
-                    case ObjectClass.Boolean:
-                        value = TypeConverter.ToPrimitive(value);
+                    case BooleanInstance booleanInstance:
+                        value = booleanInstance.BooleanData;
+                        break;
+                    case BigIntInstance bigIntInstance:
+                        value = bigIntInstance.BigIntData;
                         break;
                     default:
                         value = SerializesAsArray(value)
@@ -189,7 +206,7 @@ namespace Jint.Native.Json
                 return JsString.NullString;
             }
 
-            if (value.Type == Types.BigInt)
+            if (value.IsBigInt())
             {
                 ExceptionHelper.ThrowTypeError(_engine.Realm, "Do not know how to serialize a BigInt");
             }
@@ -267,7 +284,7 @@ namespace Jint.Native.Json
             var len = TypeConverter.ToUint32(value.Get(CommonProperties.Length, value));
             for (int i = 0; i < len; i++)
             {
-                var strP = Str(i, value);
+                var strP = SerializeJSONProperty(i, value);
                 if (strP.IsUndefined())
                 {
                     strP = JsString.NullString;
@@ -315,7 +332,7 @@ namespace Jint.Native.Json
             var partial = new List<string>();
             foreach (var p in k)
             {
-                var strP = Str(p, value);
+                var strP = SerializeJSONProperty(p, value);
                 if (!strP.IsUndefined())
                 {
                     var member = Quote(p.ToString()) + ":";

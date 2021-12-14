@@ -49,39 +49,13 @@ public sealed class BigIntPrototype : ObjectInstance
 
     private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
     {
-        if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<BigIntInstance>(), null))
+        if (!thisObject.IsBigInt() && thisObject is not BigIntInstance)
         {
             ExceptionHelper.ThrowTypeError(_realm);
         }
 
-        var m = TypeConverter.ToNumber(thisObject);
-
-        if (double.IsNaN(m))
-        {
-            return "NaN";
-        }
-
-        if (m == 0)
-        {
-            return JsString.NumberZeroString;
-        }
-
-        if (m < 0)
-        {
-            return "-" + ToLocaleString(-m, arguments);
-        }
-
-        if (double.IsPositiveInfinity(m) || m >= double.MaxValue)
-        {
-            return "Infinity";
-        }
-
-        if (double.IsNegativeInfinity(m) || m <= -double.MaxValue)
-        {
-            return "-Infinity";
-        }
-
-        return m.ToString("n", Engine.Options.Culture);
+        var m = TypeConverter.ToBigInt(thisObject);
+        return m.ToString("R");
     }
 
     private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
@@ -115,13 +89,38 @@ public sealed class BigIntPrototype : ObjectInstance
             ExceptionHelper.ThrowRangeError(_realm, "radix must be between 2 and 36");
         }
 
-        if (radixMV == 10)
+        var value = x._value;
+        if (value == BigInteger.Zero)
         {
-            return BigIntToString(x._value);
+            return JsString.NumberZeroString;
         }
 
-        ExceptionHelper.ThrowNotImplementedException();
-        return "";
+        if (radixMV == 10)
+        {
+            return BigIntToString(value);
+        }
+
+        var negative = value < 0;
+
+        if (negative)
+        {
+            value = -value;
+        }
+
+        using var builder = StringBuilderPool.Rent();
+        var sb = builder.Builder;
+
+        for (; value > 0; value /= radixMV)
+        {
+            var d = (int) (value % radixMV);
+            sb.Append((char) (d < 10 ? '0' + d : 'A' - 10 + d));
+        }
+
+        var charArray = new char[sb.Length];
+        sb.CopyTo(0, charArray, 0, charArray.Length);
+        System.Array.Reverse(charArray);
+
+        return (negative ? "-" : "") + new string(charArray);
     }
 
     private JsBigInt ThisBigIntValue(JsValue value)

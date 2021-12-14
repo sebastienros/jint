@@ -1,5 +1,4 @@
-﻿using System;
-using System.Numerics;
+﻿using System.Numerics;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -45,13 +44,7 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
     private JsValue AsIntN(JsValue thisObj, JsValue[] arguments)
     {
         var bits = TypeConverter.ToIndex(_realm, arguments.At(0));
-
-        if (bits == 0)
-        {
-            return JsBigInt.Zero;
-        }
-
-        var bigint = TypeConverter.ToBigInt(arguments.At(1));
+        var bigint = arguments.At(1).ToBigInteger(_engine);
         var bitsPow = (ulong) System.Math.Pow(2, bits);
         var mod = bigint % bitsPow;
         if (mod >= bitsPow - 1)
@@ -68,8 +61,7 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
     private JsValue AsUintN(JsValue thisObj, JsValue[] arguments)
     {
         var bits = TypeConverter.ToIndex(_realm, arguments.At(0));
-        var bigint = TypeConverter.ToBigInt(arguments.At(1));
-
+        var bigint = arguments.At(1).ToBigInteger(_engine);
         return JsBigInt.Create(bigint % (BigInteger) System.Math.Pow(2, bits));
     }
 
@@ -86,7 +78,7 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
             return NumberToBigInt((JsNumber) prim);
         }
 
-        return JsBigInt.Create(prim);
+        return prim.ToBigInteger(_engine);
     }
 
     /// <summary>
@@ -109,7 +101,7 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
     public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
         var value = arguments.Length > 0
-            ? JsBigInt.Create(arguments[0])
+            ? JsBigInt.Create(arguments[0].ToBigInteger(_engine))
             : JsBigInt.Zero;
 
         if (newTarget.IsUndefined())

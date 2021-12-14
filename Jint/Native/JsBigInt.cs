@@ -21,16 +21,6 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
         return new JsBigInt(bigInt);
     }
 
-    public static JsBigInt Create(JsValue jsValue)
-    {
-        if (jsValue is JsBigInt bigInt)
-        {
-            return bigInt;
-        }
-
-        return Create(TypeConverter.ToBigInt(jsValue));
-    }
-
     public override object ToObject()
     {
         return _value;

@@ -60,7 +60,7 @@ namespace Jint.Native.Boolean
             var instance = new BooleanInstance(Engine)
             {
                 _prototype = PrototypeObject,
-                PrimitiveValue = value,
+                BooleanData = value,
             };
 
             return instance;

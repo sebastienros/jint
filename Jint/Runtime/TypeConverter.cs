@@ -593,27 +593,44 @@ namespace Jint.Runtime
 
         private static BigInteger StringToBigInt(string str)
         {
+            void ThrowInvalidBigIntParserException()
+            {
+                throw new ParserException(" Cannot convert " + str + " to a BigInt");
+            }
+
             if (string.IsNullOrWhiteSpace(str))
             {
                 return BigInteger.Zero;
             }
 
-            Literal numericLiteral;
-            try
+            str = str.Trim();
+            if (str.EndsWith("n"))
             {
-                var parser = new JavaScriptParser(str);
-                var script = parser.ParseScript();
-                numericLiteral = (Literal) script.Body[0].ChildNodes[0];
-            }
-            catch (ParserException e)
-            {
-                ExceptionHelper.ThrowSyntaxError(null, e.Message);
-                return default;
+                ThrowInvalidBigIntParserException();
             }
 
-            if (numericLiteral.TokenType != TokenType.NumericLiteral || !long.TryParse(numericLiteral.Raw, out _))
+            // check if we can get by using plain parsing
+            if (BigInteger.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
             {
-                ExceptionHelper.ThrowTypeErrorNoEngine();
+                return parsed;
+            }
+
+            var parser = new JavaScriptParser(str);
+            var script = parser.ParseScript();
+            var numericLiteral = script.Body[0].ChildNodes[0] as Literal;
+
+            if (numericLiteral?.BigIntValue is not null)
+            {
+                // success
+                return numericLiteral.BigIntValue.Value;
+            }
+
+            if (numericLiteral is null
+                || numericLiteral.TokenType != TokenType.NumericLiteral && numericLiteral.TokenType != TokenType.BigIntLiteral
+                || JsNumber.HasFractionalPart(numericLiteral.NumericValue))
+            {
+                ThrowInvalidBigIntParserException();
+                return default;
             }
 
             return new BigInteger(numericLiteral.NumericValue);
