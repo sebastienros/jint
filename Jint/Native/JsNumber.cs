@@ -1,4 +1,6 @@
-﻿using System;
+﻿#nullable enable
+
+using System;
 using System.Runtime.CompilerServices;
 using Jint.Runtime;
 
@@ -217,14 +219,24 @@ namespace Jint.Native
             return TypeConverter.ToString(_value);
         }
 
+        public override bool NonStrictEquals(JsValue value)
+        {
+            return Equals(value) || !value.IsNumber() && base.NonStrictEquals(value);
+        }
+
         public override bool Equals(JsValue obj)
         {
             return Equals(obj as JsNumber);
         }
 
-        public bool Equals(JsNumber other)
+        public bool Equals(JsNumber? other)
         {
-            if (ReferenceEquals(null, other))
+            if (other is null)
+            {
+                return false;
+            }
+
+            if (double.IsNaN(_value) || double.IsNaN(other._value))
             {
                 return false;
             }

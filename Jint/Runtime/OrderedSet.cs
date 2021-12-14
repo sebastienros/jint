@@ -7,10 +7,10 @@ namespace Jint.Runtime
         internal readonly List<T> _list;
         private readonly HashSet<T> _set;
 
-        public OrderedSet()
+        public OrderedSet(IEqualityComparer<T> comparer)
         {
             _list = new List<T>();
-            _set = new HashSet<T>();
+            _set = new HashSet<T>(comparer);
         }
 
         public T this[int index]

@@ -51,6 +51,11 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
         return TypeConverter.ToString(_value);
     }
 
+    public override bool NonStrictEquals(JsValue value)
+    {
+        return Equals(value) || value.IsNumber() && this == TypeConverter.ToNumber(value);
+    }
+
     public override bool Equals(object other)
     {
         return Equals(other as JsBigInt);

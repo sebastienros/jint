@@ -14,7 +14,7 @@ namespace Jint.Native.Map
             : base(engine, objectClass: ObjectClass.Map)
         {
             _realm = realm;
-            _map = new OrderedDictionary<JsValue, JsValue>();
+            _map = new OrderedDictionary<JsValue, JsValue>(SameValueZeroComparer.Instance);
         }
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)

@@ -510,7 +510,7 @@ namespace Jint.Native.TypedArray
             while (k < len)
             {
                 var value = o[(int) k];
-                if (JintBinaryExpression.SameValueZero(value, searchElement))
+                if (SameValueZeroComparer.Equals(value, searchElement))
                 {
                     return JsBoolean.True;
                 }
@@ -566,8 +566,7 @@ namespace Jint.Native.TypedArray
                 if (kPresent)
                 {
                     var elementK = o[(int) k];
-                    var same = JintBinaryExpression.StrictlyEqual(elementK, searchElement);
-                    if (same)
+                    if (elementK == searchElement)
                     {
                         return k;
                     }
@@ -665,8 +664,7 @@ namespace Jint.Native.TypedArray
                 if (kPresent)
                 {
                     var elementK = o[(int) k];
-                    var same = JintBinaryExpression.StrictlyEqual(elementK, searchElement);
-                    if (same)
+                    if (elementK == searchElement)
                     {
                         return k;
                     }

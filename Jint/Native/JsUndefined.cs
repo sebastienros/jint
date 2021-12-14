@@ -19,14 +19,14 @@ namespace Jint.Native
             return "undefined";
         }
 
+        public override bool NonStrictEquals(JsValue value)
+        {
+            return ReferenceEquals(Undefined, value) || ReferenceEquals(Null, value);
+        }
+
         public override bool Equals(JsValue obj)
         {
-            if (ReferenceEquals(this, obj))
-            {
-                return true;
-            }
-
-            return obj is JsUndefined s && Equals(s);
+            return Equals(obj as JsUndefined);
         }
 
         public bool Equals(JsUndefined other)

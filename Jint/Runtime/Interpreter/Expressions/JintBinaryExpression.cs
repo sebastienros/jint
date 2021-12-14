@@ -157,73 +157,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             return result;
         }
 
-        public static bool SameValueZero(JsValue x, JsValue y)
-        {
-            return x == y || (x is JsNumber xNum && y is JsNumber yNum && double.IsNaN(xNum._value) && double.IsNaN(yNum._value));
-        }
-
-        public static bool StrictlyEqual(JsValue x, JsValue y)
-        {
-            var typeX = x._type & ~InternalTypes.InternalFlags;
-            var typeY = y._type & ~InternalTypes.InternalFlags;
-
-            if (typeX != typeY)
-            {
-                if (typeX == InternalTypes.Integer)
-                {
-                    typeX = InternalTypes.Number;
-                }
-
-                if (typeY == InternalTypes.Integer)
-                {
-                    typeY = InternalTypes.Number;
-                }
-
-                if (typeX != typeY)
-                {
-                    return false;
-                }
-            }
-
-            if (typeX == InternalTypes.Undefined || typeX == InternalTypes.Null)
-            {
-                return true;
-            }
-
-            if (typeX == InternalTypes.Integer)
-            {
-                return x.AsInteger() == y.AsInteger();
-            }
-
-            if (typeX == InternalTypes.Number)
-            {
-                var nx = ((JsNumber) x)._value;
-                var ny = ((JsNumber) y)._value;
-                return !double.IsNaN(nx) && !double.IsNaN(ny) && nx == ny;
-            }
-
-            if ((typeX & InternalTypes.String) != 0)
-            {
-                return x.ToString() == y.ToString();
-            }
-
-            if (typeX == InternalTypes.Boolean)
-            {
-                return ((JsBoolean) x)._value == ((JsBoolean) y)._value;
-            }
-
-            if ((typeX & InternalTypes.Object) != 0 && x.AsObject() is IObjectWrapper xw)
-            {
-                var yw = y.AsObject() as IObjectWrapper;
-                if (yw == null)
-                    return false;
-                return Equals(xw.Target, yw.Target);
-            }
-
-            return x == y;
-        }
-
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool AreNonBigIntOperands(JsValue left, JsValue right)
         {
@@ -248,7 +181,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var left = _left.GetValue(context).Value;
                 var right = _right.GetValue(context).Value;
-                var equal = StrictlyEqual(left, right);
+                var equal = left == right;
                 return NormalCompletion(equal ? JsBoolean.True : JsBoolean.False);
             }
         }
@@ -263,7 +196,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var left = _left.GetValue(context).Value;
                 var right = _right.GetValue(context).Value;
-                return NormalCompletion(StrictlyEqual(left, right) ? JsBoolean.False : JsBoolean.True);
+                return NormalCompletion(left == right ? JsBoolean.False : JsBoolean.True);
             }
         }
 
@@ -471,7 +404,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
-                return NormalCompletion(Equal(left, right) == !_invert ? JsBoolean.True : JsBoolean.False);
+                // if types match, we can take faster strict equality
+                var equality = left.Type == right.Type
+                    ? left.Equals(right)
+                    : left.NonStrictEquals(right);
+
+                return NormalCompletion(equality == !_invert ? JsBoolean.True : JsBoolean.False);
             }
         }
 

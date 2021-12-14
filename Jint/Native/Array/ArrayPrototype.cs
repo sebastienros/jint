@@ -299,8 +299,7 @@ namespace Jint.Native.Array
                 if (kPresent)
                 {
                     var elementK = o.Get(i);
-                    var same = JintBinaryExpression.StrictlyEqual(elementK, searchElement);
-                    if (same)
+                    if (elementK == searchElement)
                     {
                         return i;
                     }
@@ -620,7 +619,7 @@ namespace Jint.Native.Array
             while (k < len)
             {
                 var value = o.Get(k);
-                if (JintBinaryExpression.SameValueZero(value, searchElement))
+                if (SameValueZeroComparer.Equals(value, searchElement))
                 {
                     return true;
                 }
@@ -722,8 +721,7 @@ namespace Jint.Native.Array
                 if (kPresent)
                 {
                     var elementK = o.Get(k);
-                    var same = JintBinaryExpression.StrictlyEqual(elementK, searchElement);
-                    if (same)
+                    if (elementK == searchElement)
                     {
                         return k;
                     }

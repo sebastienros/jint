@@ -214,32 +214,17 @@ namespace Jint.Native
 
         public static bool operator ==(JsValue a, JsValue b)
         {
-            if ((object) a == null)
+            if (a is null)
             {
-                return (object) b == null;
+                return b is null;
             }
 
-            return (object) b != null && a.Equals(b);
+            return b is not null && a.Equals(b);
         }
 
         public static bool operator !=(JsValue a, JsValue b)
         {
-            if ((object) a == null)
-            {
-                if ((object) b == null)
-                {
-                    return false;
-                }
-
-                return true;
-            }
-
-            if ((object) b == null)
-            {
-                return true;
-            }
-
-            return !a.Equals(b);
+            return !(a == b);
         }
 
         public static implicit operator JsValue(char value)
@@ -293,22 +278,69 @@ namespace Jint.Native
             return JsString.Create(value);
         }
 
-        public override bool Equals(object obj)
+        /// <summary>
+        /// Non-strict equality.
+        /// </summary>
+        public virtual bool NonStrictEquals(JsValue value)
         {
-            if (ReferenceEquals(null, obj))
-            {
-                return false;
-            }
-
-            if (ReferenceEquals(this, obj))
+            if (ReferenceEquals(this, value))
             {
                 return true;
             }
 
-            return obj is JsValue value && Equals(value);
+            var x = this;
+            var y = value;
+
+            if (x.IsNumber() && y.IsString())
+            {
+                return x.NonStrictEquals(TypeConverter.ToNumber(y));
+            }
+
+            if (x.IsString() && y.IsNumber())
+            {
+                return y.NonStrictEquals(TypeConverter.ToNumber(x));
+            }
+
+            if (x.IsBoolean())
+            {
+                return y.NonStrictEquals(TypeConverter.ToNumber(x));
+            }
+
+            if (y.IsBoolean())
+            {
+                return x.NonStrictEquals(TypeConverter.ToNumber(y));
+            }
+
+            const InternalTypes stringOrNumber = InternalTypes.String | InternalTypes.Integer | InternalTypes.Number;
+
+            if (y.IsObject() && (x._type & stringOrNumber) != 0)
+            {
+                return x.NonStrictEquals(TypeConverter.ToPrimitive(y));
+            }
+
+            if (x.IsObject() && (y._type & stringOrNumber) != 0)
+            {
+                return y.NonStrictEquals(TypeConverter.ToPrimitive(x));
+            }
+
+            return false;
         }
 
-        public abstract bool Equals(JsValue other);
+        /// <summary>
+        /// Strict equality.
+        /// </summary>
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as JsValue);
+        }
+
+        /// <summary>
+        /// Strict equality.
+        /// </summary>
+        public virtual bool Equals(JsValue other)
+        {
+            return ReferenceEquals(this, other);
+        }
 
         public override int GetHashCode()
         {
