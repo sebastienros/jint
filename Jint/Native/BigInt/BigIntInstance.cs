@@ -3,7 +3,7 @@ using Jint.Runtime;
 
 namespace Jint.Native.BigInt;
 
-public class BigIntInstance : ObjectInstance, IPrimitiveInstance
+public sealed class BigIntInstance : ObjectInstance, IPrimitiveInstance
 {
     public BigIntInstance(Engine engine)
         : base(engine, ObjectClass.Object)

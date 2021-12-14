@@ -14,7 +14,42 @@ internal readonly record struct TypedArrayValue(Types Type, double DoubleValue, 
         return new TypedArrayValue(Types.Number, value, default);
     }
 
+    public static implicit operator TypedArrayValue(byte value)
+    {
+        return new TypedArrayValue(Types.Number, value, default);
+    }
+
+    public static implicit operator TypedArrayValue(int value)
+    {
+        return new TypedArrayValue(Types.Number, value, default);
+    }
+
+    public static implicit operator TypedArrayValue(ushort value)
+    {
+        return new TypedArrayValue(Types.Number, value, default);
+    }
+
+    public static implicit operator TypedArrayValue(short value)
+    {
+        return new TypedArrayValue(Types.Number, value, default);
+    }
+
+    public static implicit operator TypedArrayValue(uint value)
+    {
+        return new TypedArrayValue(Types.Number, value, default);
+    }
+
     public static implicit operator TypedArrayValue(BigInteger value)
+    {
+        return new TypedArrayValue(Types.BigInt, default, value);
+    }
+
+    public static implicit operator TypedArrayValue(ulong value)
+    {
+        return new TypedArrayValue(Types.BigInt, default, value);
+    }
+
+    public static implicit operator TypedArrayValue(long value)
     {
         return new TypedArrayValue(Types.BigInt, default, value);
     }

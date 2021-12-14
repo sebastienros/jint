@@ -116,7 +116,7 @@ namespace Jint.Native.ArrayBuffer
             var rawBytes = _arrayBufferData;
 
             // floats require a little more at the moment
-            var needsReverse = !isLittleEndian && elementSize > 1 && (type == TypedArrayElementType.Float32 || type == TypedArrayElementType.Float64);
+            var needsReverse = !isLittleEndian && elementSize > 1 && type is TypedArrayElementType.Float32 or TypedArrayElementType.Float64;
             if (needsReverse)
             {
                 System.Array.Copy(rawBytes, byteIndex, _workBuffer, 0, elementSize);
@@ -146,17 +146,19 @@ namespace Jint.Native.ArrayBuffer
                 return value;
             }
 
-            if (type.IsBigIntElementType())
+            if (type == TypedArrayElementType.BigUint64)
             {
-                // return the BigInt value that corresponds to intValue
-#if NETSTANDARD2_1
-                return new System.Numerics.BigInteger(rawBytes.AsSpan().Slice(byteIndex, 8));
-#else
-                ExceptionHelper.ThrowNotImplementedException();
-#endif
+                var value = BitConverter.ToUInt64(rawBytes, byteIndex);
+                return value;
             }
 
-            long? intValue = type switch
+            if (type == TypedArrayElementType.BigInt64)
+            {
+                var value = BitConverter.ToInt64(rawBytes, byteIndex);
+                return value;
+            }
+
+            TypedArrayValue? arrayValue = type switch
             {
                 TypedArrayElementType.Int8 => ((sbyte) rawBytes[byteIndex]),
                 TypedArrayElementType.Uint8 => (rawBytes[byteIndex]),
@@ -180,12 +182,12 @@ namespace Jint.Native.ArrayBuffer
                 _ => null
             };
 
-            if (intValue is null)
+            if (arrayValue is null)
             {
                 ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(type), type.ToString());
             }
 
-            return (double) intValue;
+            return arrayValue.Value;
         }
 
         /// <summary>
@@ -263,9 +265,9 @@ namespace Jint.Native.ArrayBuffer
                         break;
                     case TypedArrayElementType.Int32:
 #if !NETSTANDARD2_1
-                        rawBytes = BitConverter.GetBytes((int) intValue);
+                        rawBytes = BitConverter.GetBytes((uint) intValue);
 #else
-                        BitConverter.TryWriteBytes(rawBytes, (int) intValue);
+                        BitConverter.TryWriteBytes(rawBytes, (uint) intValue);
 #endif
                         break;
                     case TypedArrayElementType.Uint32:
@@ -276,15 +278,17 @@ namespace Jint.Native.ArrayBuffer
 #endif
                         break;
                     case TypedArrayElementType.BigInt64:
-                    case TypedArrayElementType.BigUint64:
-                        rawBytes = _workBuffer;
-                        System.Array.Clear(rawBytes, 0, rawBytes.Length);
 #if !NETSTANDARD2_1
-                        // array returned is variable length
-                        var bigIntBytes = value.BigInteger.ToByteArray();
-                        System.Array.Copy(bigIntBytes, 0, rawBytes, 0, bigIntBytes.Length);
+                        rawBytes = BitConverter.GetBytes((long) value.BigInteger);
 #else
-                        value.BigInteger.TryWriteBytes(rawBytes.AsSpan(), out _);
+                        BitConverter.TryWriteBytes(rawBytes, (long) value.BigInteger);
+#endif
+                        break;
+                    case TypedArrayElementType.BigUint64:
+#if !NETSTANDARD2_1
+                        rawBytes = BitConverter.GetBytes((ulong) value.BigInteger);
+#else
+                        BitConverter.TryWriteBytes(rawBytes, (ulong) value.BigInteger);
 #endif
                         break;
                     default:

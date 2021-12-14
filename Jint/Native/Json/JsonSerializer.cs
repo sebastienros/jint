@@ -151,7 +151,7 @@ namespace Jint.Native.Json
 
             if (!ReferenceEquals(_replacerFunction, Undefined.Instance))
             {
-                var replacerFunctionCallable = (ICallable)_replacerFunction.AsObject();
+                var replacerFunctionCallable = (ICallable) _replacerFunction.AsObject();
                 value = replacerFunctionCallable.Call(holder, Arguments.From(key, value));
             }
 
