@@ -175,6 +175,14 @@
   },
 
   {
+    "source": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/as-generator-iterable-returns.js",
+    "reason": "yield not implemented"
+  },
+  {
+    "source": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/iterating-throws.js",
+    "reason": "yield not implemented"
+  },
+  {
     "source": "language/expressions/object/accessor-name-computed-yield-id.js",
     "reason": "accessor / yield not implemented"
   },
@@ -363,5 +371,5 @@
   {
     "source": "language/statements/for-of/dstr-obj-id-identifier-yield-ident-valid.js",
     "reason": "Esprima problem"
-  },
+  }
 ]

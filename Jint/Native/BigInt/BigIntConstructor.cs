@@ -52,7 +52,7 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
         }
 
         var bigint = TypeConverter.ToBigInt(arguments.At(1));
-        var bitsPow = (int) System.Math.Pow(2, bits);
+        var bitsPow = (ulong) System.Math.Pow(2, bits);
         var mod = bigint % bitsPow;
         if (mod >= bitsPow - 1)
         {
@@ -80,13 +80,13 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
             return JsBigInt.Zero;
         }
 
-        var value = arguments.At(0);
-        if (value.IsNumber())
+        var prim = TypeConverter.ToPrimitive(arguments.At(0), Types.Number);
+        if (prim.IsNumber())
         {
-            return NumberToBigInt((JsNumber) value);
+            return NumberToBigInt((JsNumber) prim);
         }
 
-        return JsBigInt.Create(value);
+        return JsBigInt.Create(prim);
     }
 
     /// <summary>
@@ -94,12 +94,13 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
     /// </summary>
     private JsBigInt NumberToBigInt(JsNumber value)
     {
-        if (!TypeConverter.IsIntegralNumber(value._value))
+        if (TypeConverter.IsIntegralNumber(value._value))
         {
-            ExceptionHelper.ThrowRangeError(_realm);
+            return JsBigInt.Create((long) value._value);
         }
 
-        return JsBigInt.Create((long) value._value);
+        ExceptionHelper.ThrowRangeError(_realm, "The number " + value + " cannot be converted to a BigInt because it is not an integer");
+        return null;
     }
 
     /// <summary>

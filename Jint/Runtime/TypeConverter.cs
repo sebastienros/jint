@@ -584,7 +584,7 @@ namespace Jint.Runtime
                 case Types.Boolean:
                     return ((JsBoolean) prim)._value ? BigInteger.One : BigInteger.Zero;
                 case Types.String:
-                    return StringToBigInt(value.ToString());
+                    return StringToBigInt(prim.ToString());
                 default:
                     ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a " + prim.Type + " to a BigInt");
                     return BigInteger.One;
@@ -598,9 +598,19 @@ namespace Jint.Runtime
                 return BigInteger.Zero;
             }
 
-            var parser = new JavaScriptParser(str);
-            var script = parser.ParseScript();
-            var numericLiteral = (Literal) script.Body[0].ChildNodes[0];
+            Literal numericLiteral;
+            try
+            {
+                var parser = new JavaScriptParser(str);
+                var script = parser.ParseScript();
+                numericLiteral = (Literal) script.Body[0].ChildNodes[0];
+            }
+            catch (ParserException e)
+            {
+                ExceptionHelper.ThrowSyntaxError(null, e.Message);
+                return default;
+            }
+
             if (numericLiteral.TokenType != TokenType.NumericLiteral || !long.TryParse(numericLiteral.Raw, out _))
             {
                 ExceptionHelper.ThrowTypeErrorNoEngine();

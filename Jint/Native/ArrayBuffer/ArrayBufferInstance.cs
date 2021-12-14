@@ -277,11 +277,14 @@ namespace Jint.Native.ArrayBuffer
                         break;
                     case TypedArrayElementType.BigInt64:
                     case TypedArrayElementType.BigUint64:
-#if !NETSTANDARD2_1
-                        rawBytes = value.BigInteger.ToByteArray();
-#else
                         rawBytes = _workBuffer;
-                        value.BigInteger.TryWriteBytes(rawBytes.AsSpan(), out var bytesWritten);
+                        System.Array.Clear(rawBytes, 0, rawBytes.Length);
+#if !NETSTANDARD2_1
+                        // array returned is variable length
+                        var bigIntBytes = value.BigInteger.ToByteArray();
+                        System.Array.Copy(bigIntBytes, 0, rawBytes, 0, bigIntBytes.Length);
+#else
+                        value.BigInteger.TryWriteBytes(rawBytes.AsSpan(), out _);
 #endif
                         break;
                     default:
