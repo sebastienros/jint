@@ -96,8 +96,7 @@ namespace Jint.Native
         {
             // we expect zero to be on the fast path of integer mostly
             var temp = _intToJsValue;
-            if (value >= 1 && value < temp.Length
-                && System.Math.Abs(value % 1) <= DoubleIsIntegerTolerance)
+            if (value >= 1 && value < temp.Length && !HasFractionalPart(value))
             {
                 return temp[(uint) value];
             }
@@ -108,6 +107,11 @@ namespace Jint.Native
             }
 
             return CreateNumberUnlikely(value);
+        }
+
+        internal static bool HasFractionalPart(double value)
+        {
+            return System.Math.Abs(value % 1) > DoubleIsIntegerTolerance;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]

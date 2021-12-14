@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Extensions;
 using Jint.Native;
@@ -221,6 +223,21 @@ namespace Jint.Runtime.Interpreter.Expressions
             return x == y;
         }
 
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool AreNonBigIntOperands(JsValue left, JsValue right)
+        {
+            return left._type != InternalTypes.BigInt && right._type != InternalTypes.BigInt;
+        }
+
+        internal static void AssertValidBigIntArithmeticOperands(EvaluationContext context, JsValue left, JsValue right)
+        {
+            if (left.Type != right.Type)
+            {
+                ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Cannot mix BigInt and other types, use explicit conversions");
+            }
+        }
+
         private sealed class StrictlyEqualBinaryExpression : JintBinaryExpression
         {
             public StrictlyEqualBinaryExpression(Engine engine, BinaryExpression expression) : base(engine, expression)
@@ -325,16 +342,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     result = JsString.Create(TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim));
                 }
-                else if (!lprim.IsBigInt() && !rprim.IsBigInt())
+                else if (AreNonBigIntOperands(left,right))
                 {
                     result = JsNumber.Create(TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim));
                 }
                 else
                 {
-                    if (lprim.Type != rprim.Type)
-                    {
-                        ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Cannot mix BigInt and other types, use explicit conversions");
-                    }
+                    AssertValidBigIntArithmeticOperands(context, lprim, rprim);
                     result = JsBigInt.Create(TypeConverter.ToBigInt(lprim) + TypeConverter.ToBigInt(rprim));
                 }
 
@@ -388,28 +402,31 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue(context).Value;
                 var right = _right.GetValue(context).Value;
 
+                JsValue result;
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_Multiply", out var opResult))
                 {
-                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
+                    result = JsValue.FromObject(context.Engine, opResult);
                 }
-
-                if (AreIntegerOperands(left, right))
+                else if (AreIntegerOperands(left, right))
                 {
-                    return NormalCompletion(JsNumber.Create((long) left.AsInteger() * right.AsInteger()));
+                    result = JsNumber.Create((long) left.AsInteger() * right.AsInteger());
                 }
-
-                if (left.IsUndefined() || right.IsUndefined())
+                else if (left.IsUndefined() || right.IsUndefined())
                 {
-                    return NormalCompletion(Undefined.Instance);
+                    result = Undefined.Instance;
                 }
-
-                if (left.IsBigInt() || right.IsBigInt())
+                else if (AreNonBigIntOperands(left, right))
                 {
-                    return NormalCompletion(JsBigInt.Create(TypeConverter.ToBigInt(left) * TypeConverter.ToBigInt(right)));
+                    result = JsNumber.Create(TypeConverter.ToNumber(left) * TypeConverter.ToNumber(right));
+                }
+                else
+                {
+                    AssertValidBigIntArithmeticOperands(context, left, right);
+                    result = JsBigInt.Create(TypeConverter.ToBigInt(left) * TypeConverter.ToBigInt(right));
                 }
 
-                return NormalCompletion(JsNumber.Create(TypeConverter.ToNumber(left) * TypeConverter.ToNumber(right)));
+                return NormalCompletion(result);
             }
         }
 
@@ -430,7 +447,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
-                return NormalCompletion(Divide(left, right));
+                return NormalCompletion(Divide(context, left, right));
             }
         }
 
@@ -511,7 +528,24 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue(context).Value;
                 var right = _right.GetValue(context).Value;
 
-                return NormalCompletion(JsNumber.Create(Math.Pow(TypeConverter.ToNumber(left), TypeConverter.ToNumber(right))));
+                JsValue result;
+                if (AreNonBigIntOperands(left,right))
+                {
+                    result = JsNumber.Create(Math.Pow(TypeConverter.ToNumber(left), TypeConverter.ToNumber(right)));
+                }
+                else
+                {
+                    AssertValidBigIntArithmeticOperands(context, left, right);
+
+                    var exponent = TypeConverter.ToBigInt(right);
+                    if (exponent > int.MaxValue || exponent < int.MinValue)
+                    {
+                        ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Cannot do exponentation with exponent not fitting int32");
+                    }
+                    result = JsBigInt.Create(BigInteger.Pow(TypeConverter.ToBigInt(left), (int) exponent));
+                }
+
+                return NormalCompletion(result);
             }
         }
 
@@ -547,28 +581,49 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue(context).Value;
                 var right = _right.GetValue(context).Value;
 
+                var result = Undefined.Instance;
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_Modulus", out var opResult))
                 {
-                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
+                    result = JsValue.FromObject(context.Engine, opResult);
                 }
-
-                if (AreIntegerOperands(left, right))
+                else if (AreIntegerOperands(left, right))
                 {
                     var leftInteger = left.AsInteger();
                     var rightInteger = right.AsInteger();
-                    if (leftInteger > 0 && rightInteger != 0)
+
+                    if (rightInteger == 0)
                     {
-                        return NormalCompletion(JsNumber.Create(leftInteger % rightInteger));
+                        result = JsNumber.DoubleNaN;
+                    }
+                    else
+                    {
+                        var modulo = leftInteger % rightInteger;
+                        if (modulo == 0 && leftInteger < 0)
+                        {
+                            result = JsNumber.NegativeZero;
+                        }
+                        else
+                        {
+                            result = JsNumber.Create(modulo);
+                        }
                     }
                 }
-
-                if (left.IsUndefined() || right.IsUndefined())
+                else if (left.IsUndefined() || right.IsUndefined())
                 {
-                    return NormalCompletion(Undefined.Instance);
+                    result = Undefined.Instance;
+                }
+                else if (AreNonBigIntOperands(left, right))
+                {
+                    result = JsNumber.Create(TypeConverter.ToNumber(left) % TypeConverter.ToNumber(right));
+                }
+                else
+                {
+                    AssertValidBigIntArithmeticOperands(context, left, right);
+                    result = JsBigInt.Create(TypeConverter.ToBigInt(left) % TypeConverter.ToBigInt(right));
                 }
 
-                return NormalCompletion(JsNumber.Create(TypeConverter.ToNumber(left) % TypeConverter.ToNumber(right)));
+                return NormalCompletion(result);
             }
         }
 

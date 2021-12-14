@@ -36,9 +36,24 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
         return _value;
     }
 
+    public static bool operator ==(JsBigInt a, double b)
+    {
+        return a is not null && !JsNumber.HasFractionalPart(b) && a._value == (long) b;
+    }
+
+    public static bool operator !=(JsBigInt a, double b)
+    {
+        return !(a == b);
+    }
+
     public override string ToString()
     {
         return TypeConverter.ToString(_value);
+    }
+
+    public override bool Equals(object other)
+    {
+        return Equals(other as JsBigInt);
     }
 
     public override bool Equals(JsValue other)

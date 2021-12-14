@@ -166,7 +166,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     case AssignmentOperator.DivideAssign:
                     {
                         var rval = _right.GetValue(context).Value;
-                        lval = Divide(lval, rval);
+                        lval = Divide(context, lval, rval);
                         break;
                     }
 

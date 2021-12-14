@@ -209,11 +209,24 @@ namespace Jint.Runtime.Interpreter.Expressions
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static JsValue Divide(JsValue lval, JsValue rval)
+        protected static JsValue Divide(EvaluationContext context, JsValue left, JsValue right)
         {
-            return AreIntegerOperands(lval, rval)
-                ? DivideInteger(lval, rval)
-                : DivideComplex(lval, rval);
+            JsValue result;
+            if (AreIntegerOperands(left, right))
+            {
+                result = DivideInteger(left, right);
+            }
+            else if (JintBinaryExpression.AreNonBigIntOperands(left, right))
+            {
+                result = DivideComplex(left, right);
+            }
+            else
+            {
+                JintBinaryExpression.AssertValidBigIntArithmeticOperands(context, left, right);
+                result = JsBigInt.Create(TypeConverter.ToBigInt(left) / TypeConverter.ToBigInt(right));
+            }
+
+            return result;
         }
 
         private static JsValue DivideInteger(JsValue lval, JsValue rval)
@@ -329,6 +342,19 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return Equal(x, TypeConverter.ToNumber(y));
             }
 
+            if (x.IsBigInt() || y.IsBigInt())
+            {
+                if (x.IsBigInt() && y.IsNumber())
+                {
+                    return (JsBigInt) x == TypeConverter.ToNumber(y);
+                }
+
+                if (x.IsNumber() && y.IsBigInt())
+                {
+                    return (JsBigInt) y == TypeConverter.ToNumber(x);
+                }
+            }
+
             const InternalTypes stringOrNumber = InternalTypes.String | InternalTypes.Integer | InternalTypes.Number;
 
             if (y.IsObject() && (x._type & stringOrNumber) != 0)
@@ -388,7 +414,17 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 if (typea == Types.BigInt || typeb == Types.BigInt)
                 {
-                    return TypeConverter.ToBigInt(px) < TypeConverter.ToBigInt(py);
+                    if (typea == typeb)
+                    {
+                        return TypeConverter.ToBigInt(px) < TypeConverter.ToBigInt(py);
+                    }
+
+                    if (typea == Types.BigInt)
+                    {
+                        return TypeConverter.ToBigInt(px) < (long) TypeConverter.ToNumber(y);
+                    }
+
+                    return (long) TypeConverter.ToNumber(px) < TypeConverter.ToBigInt(y);
                 }
 
                 var nx = TypeConverter.ToNumber(px);
@@ -440,7 +476,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        protected JsValue[] BuildArgumentsWithSpreads(EvaluationContext context, JintExpression[] jintExpressions)
+        protected static JsValue[] BuildArgumentsWithSpreads(EvaluationContext context, JintExpression[] jintExpressions)
         {
             var args = new System.Collections.Generic.List<JsValue>(jintExpressions.Length);
             for (var i = 0; i < jintExpressions.Length; i++)
