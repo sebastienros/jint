@@ -677,10 +677,10 @@ namespace Jint.Runtime
         /// </summary>
         internal static long ToBigInt64(BigInteger value)
         {
-            BigInteger.DivRem(value, BigInteger.Pow(2, 64), out var int64bit);
-            if (BigInteger.Abs(int64bit) >= BigInteger.Pow(2, 63))
+            var int64bit = BigIntegerModulo(value, BigInteger.Pow(2, 64));
+            if (int64bit >= BigInteger.Pow(2, 63))
             {
-                return (long) (int64bit - BigInteger.Pow(2, 64) * int64bit.Sign);
+                return (long) (int64bit - BigInteger.Pow(2, 64));
             }
             return (long) int64bit;
         }
@@ -690,14 +690,16 @@ namespace Jint.Runtime
         /// </summary>
         internal static ulong ToBigUint64(BigInteger value)
         {
-            BigInteger.DivRem(value, BigInteger.Pow(2, 64), out var int64bit);
-            if (int64bit < 0)
-            {
-                return (ulong) (ulong.MaxValue + int64bit + 1);
-            }
-            return (ulong) int64bit;
+            return (ulong) BigIntegerModulo(value, BigInteger.Pow(2, 64));
         }
 
+        /// <summary>
+        /// Implements the JS spec modulo operation as expected.
+        /// </summary>
+        internal static BigInteger BigIntegerModulo(BigInteger a, BigInteger n)
+        {
+            return (a %= n) < 0 && n > 0 || a > 0 && n < 0 ? a + n : a;
+        }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-canonicalnumericindexstring
