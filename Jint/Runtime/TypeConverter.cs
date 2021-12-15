@@ -614,25 +614,40 @@ namespace Jint.Runtime
                 return parsed;
             }
 
-            if (str.Length > 2 && str.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            if (str.Length > 2)
             {
-                // we get better precision if we don't hit floating point parsing that is performed by Esprima
+                if (str.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                {
+                    // we get better precision if we don't hit floating point parsing that is performed by Esprima
 #if NETSTANDARD2_1_OR_GREATER
-                var source = str.AsSpan(2);
+                    var source = str.AsSpan(2);
 #else
-                var source = str.Substring(2);
+                    var source = str.Substring(2);
 #endif
 
-                var c = source[0];
-                if (c > 7 && Character.IsHexDigit(c))
-                {
-                    // ensure we get positive number
-                    source = "0" + source.ToString();
-                }
+                    var c = source[0];
+                    if (c > 7 && Character.IsHexDigit(c))
+                    {
+                        // ensure we get positive number
+                        source = "0" + source.ToString();
+                    }
 
-                if (BigInteger.TryParse(source, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out parsed))
+                    if (BigInteger.TryParse(source, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out parsed))
+                    {
+                        return parsed;
+                    }
+                }
+                else if (str.StartsWith("0o") && Character.IsOctalDigit(str[2]))
                 {
-                    return parsed;
+                    // try parse large octal
+                    var bigInteger = new BigInteger();
+                    for (var i = 2; i < str.Length; i++)
+                    {
+                        var c1 = str[i];
+                        bigInteger = bigInteger * 8 + c1 - '0';
+                    }
+
+                    return bigInteger;
                 }
             }
 
