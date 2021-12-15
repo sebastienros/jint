@@ -46,10 +46,10 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
         var bits = (int) TypeConverter.ToIndex(_realm, arguments.At(0));
         var bigint = arguments.At(1).ToBigInteger(_engine);
 
-        BigInteger.DivRem(bigint, BigInteger.Pow(2, bits), out var mod);
-        if (mod >= BigInteger.Pow(2, bits - 1))
+        var mod = Modulo(bigint, BigInteger.Pow(2, bits));
+        if (bits > 0 && mod >= BigInteger.Pow(2, bits - 1))
         {
-            return mod - BigInteger.Pow(2, bits);
+            return (mod - BigInteger.Pow(2, bits));
         }
 
         return mod;
@@ -63,9 +63,17 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
         var bits = (int) TypeConverter.ToIndex(_realm, arguments.At(0));
         var bigint = arguments.At(1).ToBigInteger(_engine);
 
-        BigInteger.DivRem(bigint, BigInteger.Pow(2, bits), out var result);
+        var result = Modulo(bigint, BigInteger.Pow(2, bits));
 
         return result;
+    }
+
+    /// <summary>
+    /// Implements the JS spec modulo operation as expected.
+    /// </summary>
+    private static BigInteger Modulo(BigInteger a, BigInteger n)
+    {
+        return (a %= n) < 0 && n > 0 || a > 0 && n < 0 ? a + n : a;
     }
 
     public override JsValue Call(JsValue thisObject, JsValue[] arguments)
