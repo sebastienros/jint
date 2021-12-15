@@ -111,12 +111,12 @@ internal readonly record struct TypedArrayValue(Types Type, double DoubleValue, 
 
     public long ToInt64(IFormatProvider provider)
     {
-        return (long) DoubleValue;
+        return (long) BigInteger;
     }
 
     public ulong ToUInt64(IFormatProvider provider)
     {
-        return (ulong) DoubleValue;
+        return (ulong) BigInteger;
     }
 
     public float ToSingle(IFormatProvider provider)

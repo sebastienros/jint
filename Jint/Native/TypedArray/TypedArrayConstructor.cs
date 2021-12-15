@@ -288,7 +288,15 @@ namespace Jint.Native.TypedArray
             }
         }
 
-        internal static void FillTypedArrayInstance(TypedArrayInstance target, BigInteger[] values)
+        internal static void FillTypedArrayInstance(TypedArrayInstance target, ulong[] values)
+        {
+            for (var i = 0; i < values.Length; ++i)
+            {
+                target.DoIntegerIndexedElementSet(i, values[i]);
+            }
+        }
+
+        internal static void FillTypedArrayInstance(TypedArrayInstance target, long[] values)
         {
             for (var i = 0; i < values.Length; ++i)
             {

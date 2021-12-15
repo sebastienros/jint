@@ -175,7 +175,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(BigInteger[] values)
+        public TypedArrayInstance Construct(long[] values)
         {
             var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
@@ -193,7 +193,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(BigInteger[] values)
+        public TypedArrayInstance Construct(ulong[] values)
         {
             var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
