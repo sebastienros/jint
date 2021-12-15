@@ -68,9 +68,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return result;
                     }
 
-                    return v.IsInteger() && v.AsInteger() != 0
-                        ? v
-                        : JsNumber.Create(TypeConverter.ToNumber(v));
+                    return TypeConverter.ToNumber(v);
                 }
                 case UnaryOperator.Minus:
                 {
@@ -92,7 +90,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return result;
                     }
 
-                    return JsNumber.Create(~TypeConverter.ToInt32(v));
+                    var value = TypeConverter.ToNumeric(v);
+                    if (value.IsNumber())
+                    {
+                        return JsNumber.Create(~TypeConverter.ToInt32(value));
+                    }
+
+                    return JsBigInt.Create(~value.AsBigInt());
                 }
                 case UnaryOperator.LogicalNot:
                 {
@@ -211,23 +215,24 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private static JsValue EvaluateMinus(JsValue value)
         {
-            var minusValue = value;
-            if (minusValue.IsInteger())
+            if (value.IsInteger())
             {
-                var asInteger = minusValue.AsInteger();
+                var asInteger = value.AsInteger();
                 if (asInteger != 0)
                 {
                     return JsNumber.Create(asInteger * -1);
                 }
             }
-            else if (minusValue.IsBigInt())
+
+            value = TypeConverter.ToNumeric(value);
+            if (value.IsNumber())
             {
-                var asInteger = minusValue.AsBigInt();
-                return JsBigInt.Create(BigInteger.Negate(asInteger));
+                var n = ((JsNumber) value)._value;
+                return double.IsNaN(n) ? JsNumber.DoubleNaN : JsNumber.Create(n * -1);
             }
 
-            var n = TypeConverter.ToNumber(minusValue);
-            return JsNumber.Create(double.IsNaN(n) ? double.NaN : n * -1);
+            var bigInt = value.AsBigInt();
+            return JsBigInt.Create(BigInteger.Negate(bigInt));
         }
 
         internal static bool TryOperatorOverloading(EvaluationContext context, JsValue value, string clrName, out JsValue result)

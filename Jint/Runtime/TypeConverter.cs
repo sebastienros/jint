@@ -94,16 +94,16 @@ namespace Jint.Runtime
 
         private static JsValue ToPrimitiveObjectInstance(ObjectInstance oi, Types preferredType)
         {
-            var hint = preferredType switch
-            {
-                Types.String => JsString.StringString,
-                Types.Number => JsString.NumberString,
-                _ => JsString.DefaultString
-            };
-
             var exoticToPrim = oi.GetMethod(GlobalSymbolRegistry.ToPrimitive);
-            if (exoticToPrim is object)
+            if (exoticToPrim is not null)
             {
+                var hint = preferredType switch
+                {
+                    Types.String => JsString.StringString,
+                    Types.Number => JsString.NumberString,
+                    _ => JsString.DefaultString
+                };
+
                 var str = exoticToPrim.Call(oi, new JsValue[] { hint });
                 if (str.IsPrimitive())
                 {
@@ -198,7 +198,7 @@ namespace Jint.Runtime
         public static JsValue ToNumeric(JsValue value)
         {
             var primValue = ToPrimitive(value, Types.Number);
-            if (primValue.Type == Types.BigInt)
+            if (primValue.IsBigInt())
             {
                 return primValue;
             }
@@ -227,8 +227,6 @@ namespace Jint.Runtime
                     return double.NaN;
                 case InternalTypes.Null:
                     return 0;
-                case InternalTypes.Object when o is IPrimitiveInstance p:
-                    return ToNumber(ToPrimitive(p.PrimitiveValue, Types.Number));
                 case InternalTypes.Boolean:
                     return ((JsBoolean) o)._value ? 1 : 0;
                 case InternalTypes.String:
@@ -576,7 +574,7 @@ namespace Jint.Runtime
 
         private static BigInteger ToBigIntUnlikely(JsValue value)
         {
-            var prim = ToPrimitive(value);
+            var prim = ToPrimitive(value, Types.Number);
             switch (prim.Type)
             {
                 case Types.BigInt:
@@ -604,7 +602,8 @@ namespace Jint.Runtime
             }
 
             str = str.Trim();
-            if (str.EndsWith("n"))
+
+            if (str.EndsWith("n") || str.StartsWith("1e") || str.IndexOf("Infinity", StringComparison.Ordinal) != -1)
             {
                 ThrowInvalidBigIntParserException();
             }
@@ -613,6 +612,28 @@ namespace Jint.Runtime
             if (BigInteger.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
             {
                 return parsed;
+            }
+
+            if (str.Length > 2 && str.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            {
+                // we get better precision if we don't hit floating point parsing that is performed by Esprima
+#if NETSTANDARD2_1_OR_GREATER
+                var source = str.AsSpan(2);
+#else
+                var source = str.Substring(2);
+#endif
+
+                var c = source[0];
+                if (c > 7 && Character.IsHexDigit(c))
+                {
+                    // ensure we get positive number
+                    source = "0" + source.ToString();
+                }
+
+                if (BigInteger.TryParse(source, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out parsed))
+                {
+                    return parsed;
+                }
             }
 
             var parser = new JavaScriptParser(str);
@@ -831,8 +852,6 @@ namespace Jint.Runtime
                     return Undefined.Text;
                 case InternalTypes.Null:
                     return Null.Text;
-                case InternalTypes.Object when o is IPrimitiveInstance p:
-                    return ToString(ToPrimitive(p.PrimitiveValue, Types.String));
                 case InternalTypes.Object when o is IObjectWrapper p:
                     return p.Target?.ToString();
                 default:

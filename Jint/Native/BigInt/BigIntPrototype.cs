@@ -107,13 +107,16 @@ public sealed class BigIntPrototype : ObjectInstance
             value = -value;
         }
 
+
+        const string digits = "0123456789abcdefghijklmnopqrstuvwxyz";
+
         using var builder = StringBuilderPool.Rent();
         var sb = builder.Builder;
 
         for (; value > 0; value /= radixMV)
         {
             var d = (int) (value % radixMV);
-            sb.Append((char) (d < 10 ? '0' + d : 'A' - 10 + d));
+            sb.Append(digits[d]);
         }
 
         var charArray = new char[sb.Length];
@@ -145,51 +148,18 @@ public sealed class BigIntPrototype : ObjectInstance
             return "0";
         }
 
-        using (var result = StringBuilderPool.Rent())
+        using var result = StringBuilderPool.Rent();
+        while (n > 0)
         {
-            while (n > 0)
-            {
-                var digit = (int) (n % radix);
-                n = n / radix;
-                result.Builder.Insert(0, digits[digit]);
-            }
-
-            return result.ToString();
-        }
-    }
-
-    public string ToFractionBase(double n, int radix)
-    {
-        // based on the repeated multiplication method
-        // http://www.mathpath.org/concepts/Num/frac.htm
-
-        const string digits = "0123456789abcdefghijklmnopqrstuvwxyz";
-        if (n == 0)
-        {
-            return "0";
+            var digit = (int) (n % radix);
+            n /= radix;
+            result.Builder.Insert(0, digits[digit]);
         }
 
-        using (var result = StringBuilderPool.Rent())
-        {
-            while (n > 0 && result.Length < 50) // arbitrary limit
-            {
-                var c = n*radix;
-                var d = (int) c;
-                n = c - d;
-
-                result.Builder.Append(digits[d]);
-            }
-
-            return result.ToString();
-        }
+        return result.ToString();
     }
 
-    private string ToBigIntString(BigInteger m)
-    {
-        return BigIntToString(m);
-    }
-
-    internal static string BigIntToString(BigInteger m)
+    private static string BigIntToString(BigInteger m)
     {
         return m.ToString("R");
     }

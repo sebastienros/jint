@@ -11,13 +11,31 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
     public static readonly JsBigInt Zero = new(0);
     public static readonly JsBigInt One = new(1);
 
+    private static readonly JsBigInt[] _bigIntegerToJsValue;
+
+    static JsBigInt()
+    {
+        var bigIntegers = new JsBigInt[1024];
+        for (uint i = 0; i < bigIntegers.Length; i++)
+        {
+            bigIntegers[i] = new JsBigInt(i);
+        }
+        _bigIntegerToJsValue = bigIntegers;
+    }
+
     public JsBigInt(BigInteger value) : base(Types.BigInt)
     {
         _value = value;
     }
 
-    public static JsBigInt Create(BigInteger bigInt)
+    internal static JsBigInt Create(BigInteger bigInt)
     {
+        var temp = _bigIntegerToJsValue;
+        if (bigInt >= 0 && bigInt < (uint) temp.Length)
+        {
+            return temp[(int) bigInt];
+        }
+
         return new JsBigInt(bigInt);
     }
 
@@ -41,7 +59,7 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
         return TypeConverter.ToString(_value);
     }
 
-    public override bool NonStrictEquals(JsValue value)
+    public override bool IsLooselyEqual(JsValue value)
     {
         return Equals(value) || value.IsNumber() && this == TypeConverter.ToNumber(value);
     }
@@ -63,12 +81,7 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
             return false;
         }
 
-        if (ReferenceEquals(this, other))
-        {
-            return true;
-        }
-
-        return _value.Equals(other._value);
+        return ReferenceEquals(this, other) || _value.Equals(other._value);
     }
 
     public override int GetHashCode()

@@ -279,9 +279,9 @@ namespace Jint.Native
         }
 
         /// <summary>
-        /// Non-strict equality.
+        /// https://tc39.es/ecma262/#sec-islooselyequal
         /// </summary>
-        public virtual bool NonStrictEquals(JsValue value)
+        public virtual bool IsLooselyEqual(JsValue value)
         {
             if (ReferenceEquals(this, value))
             {
@@ -293,34 +293,34 @@ namespace Jint.Native
 
             if (x.IsNumber() && y.IsString())
             {
-                return x.NonStrictEquals(TypeConverter.ToNumber(y));
+                return x.IsLooselyEqual(TypeConverter.ToNumber(y));
             }
 
             if (x.IsString() && y.IsNumber())
             {
-                return y.NonStrictEquals(TypeConverter.ToNumber(x));
+                return y.IsLooselyEqual(TypeConverter.ToNumber(x));
             }
 
             if (x.IsBoolean())
             {
-                return y.NonStrictEquals(TypeConverter.ToNumber(x));
+                return y.IsLooselyEqual(TypeConverter.ToNumber(x));
             }
 
             if (y.IsBoolean())
             {
-                return x.NonStrictEquals(TypeConverter.ToNumber(y));
+                return x.IsLooselyEqual(TypeConverter.ToNumber(y));
             }
 
-            const InternalTypes stringOrNumber = InternalTypes.String | InternalTypes.Integer | InternalTypes.Number;
+            const InternalTypes stringOrNumber = InternalTypes.String | InternalTypes.Integer | InternalTypes.Number | InternalTypes.BigInt;
 
             if (y.IsObject() && (x._type & stringOrNumber) != 0)
             {
-                return x.NonStrictEquals(TypeConverter.ToPrimitive(y));
+                return x.IsLooselyEqual(TypeConverter.ToPrimitive(y));
             }
 
             if (x.IsObject() && (y._type & stringOrNumber) != 0)
             {
-                return y.NonStrictEquals(TypeConverter.ToPrimitive(x));
+                return y.IsLooselyEqual(TypeConverter.ToPrimitive(x));
             }
 
             return false;

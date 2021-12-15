@@ -246,9 +246,9 @@ namespace Jint.Native
             return _value == other.ToString();
         }
 
-        public override bool NonStrictEquals(JsValue value)
+        public override bool IsLooselyEqual(JsValue value)
         {
-            return Equals(value) || !value.IsString() && base.NonStrictEquals(value);
+            return Equals(value) || !value.IsString() && base.IsLooselyEqual(value);
         }
 
         public override bool Equals(object obj)

@@ -21,7 +21,7 @@ namespace Jint.Native
             return "null";
         }
 
-        public override bool NonStrictEquals(JsValue value)
+        public override bool IsLooselyEqual(JsValue value)
         {
             return ReferenceEquals(Null, value) || ReferenceEquals(Undefined, value);
         }

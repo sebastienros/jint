@@ -30,9 +30,9 @@ namespace Jint.Native
             return _value ? "true" : "false";
         }
 
-        public override bool NonStrictEquals(JsValue value)
+        public override bool IsLooselyEqual(JsValue value)
         {
-            return Equals(value) || !value.IsNullOrUndefined() && !value.IsBoolean() && base.NonStrictEquals(value);
+            return Equals(value) || !value.IsNullOrUndefined() && !value.IsBoolean() && base.IsLooselyEqual(value);
         }
 
         public override bool Equals(JsValue obj)

@@ -21,6 +21,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private JintBinaryExpression(Engine engine, BinaryExpression expression) : base(expression)
         {
+            // TODO check https://tc39.es/ecma262/#sec-applystringornumericbinaryoperator
+
             _left = Build(engine, expression.Left);
             _right = Build(engine, expression.Right);
         }
@@ -349,14 +351,20 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     result = Undefined.Instance;
                 }
-                else if (AreNonBigIntOperands(left, right))
-                {
-                    result = JsNumber.Create(TypeConverter.ToNumber(left) * TypeConverter.ToNumber(right));
-                }
                 else
                 {
-                    AssertValidBigIntArithmeticOperands(context, left, right);
-                    result = JsBigInt.Create(TypeConverter.ToBigInt(left) * TypeConverter.ToBigInt(right));
+                    var leftNumeric = TypeConverter.ToNumeric(left);
+                    var rightNumeric = TypeConverter.ToNumeric(right);
+
+                    if (leftNumeric.IsNumber())
+                    {
+                        result = JsNumber.Create(TypeConverter.ToNumber(left) * TypeConverter.ToNumber(right));
+                    }
+                    else
+                    {
+                        AssertValidBigIntArithmeticOperands(context, leftNumeric, rightNumeric);
+                        result = JsBigInt.Create(leftNumeric.AsBigInt() * rightNumeric.AsBigInt());
+                    }
                 }
 
                 return NormalCompletion(result);
@@ -407,7 +415,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 // if types match, we can take faster strict equality
                 var equality = left.Type == right.Type
                     ? left.Equals(right)
-                    : left.NonStrictEquals(right);
+                    : left.IsLooselyEqual(right);
 
                 return NormalCompletion(equality == !_invert ? JsBoolean.True : JsBoolean.False);
             }

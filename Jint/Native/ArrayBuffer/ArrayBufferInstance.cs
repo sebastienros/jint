@@ -115,8 +115,11 @@ namespace Jint.Native.ArrayBuffer
             var elementSize = type.GetElementSize();
             var rawBytes = _arrayBufferData;
 
-            // floats require a little more at the moment
-            var needsReverse = !isLittleEndian && elementSize > 1 && type is TypedArrayElementType.Float32 or TypedArrayElementType.Float64;
+            // 8 byte values require a little more at the moment
+            var needsReverse = !isLittleEndian
+                               && elementSize > 1
+                               && type is TypedArrayElementType.Float32 or TypedArrayElementType.Float64 or TypedArrayElementType.BigInt64 or TypedArrayElementType.BigUint64;
+
             if (needsReverse)
             {
                 System.Array.Copy(rawBytes, byteIndex, _workBuffer, 0, elementSize);
@@ -233,6 +236,16 @@ namespace Jint.Native.ArrayBuffer
                 // Let rawBytes be a List whose elements are the 8 bytes that are the IEEE 754-2019 binary64 format encoding of value. If isLittleEndian is false, the bytes are arranged in big endian order. Otherwise, the bytes are arranged in little endian order. If value is NaN, rawBytes may be set to any implementation chosen IEEE 754-2019 binary64 format Not-a-Number encoding. An implementation must always choose the same encoding for each implementation distinguishable NaN value.
                 rawBytes = BitConverter.GetBytes(value.DoubleValue);
             }
+            else if (type == TypedArrayElementType.BigInt64)
+            {
+                // Let rawBytes be a List whose elements are the 4 bytes that are the result of converting value to IEEE 754-2019 binary32 format using roundTiesToEven mode. If isLittleEndian is false, the bytes are arranged in big endian order. Otherwise, the bytes are arranged in little endian order. If value is NaN, rawBytes may be set to any implementation chosen IEEE 754-2019 binary32 format Not-a-Number encoding. An implementation must always choose the same encoding for each implementation distinguishable NaN value.
+                rawBytes = BitConverter.GetBytes((long) value.BigInteger);
+            }
+            else if (type == TypedArrayElementType.BigUint64)
+            {
+                // Let rawBytes be a List whose elements are the 8 bytes that are the IEEE 754-2019 binary64 format encoding of value. If isLittleEndian is false, the bytes are arranged in big endian order. Otherwise, the bytes are arranged in little endian order. If value is NaN, rawBytes may be set to any implementation chosen IEEE 754-2019 binary64 format Not-a-Number encoding. An implementation must always choose the same encoding for each implementation distinguishable NaN value.
+                rawBytes = BitConverter.GetBytes((ulong) value.BigInteger);
+            }
             else
             {
                 // inlined conversion for faster speed instead of getting the method in spec
@@ -275,20 +288,6 @@ namespace Jint.Native.ArrayBuffer
                         rawBytes = BitConverter.GetBytes((uint) intValue);
 #else
                         BitConverter.TryWriteBytes(rawBytes, (uint) intValue);
-#endif
-                        break;
-                    case TypedArrayElementType.BigInt64:
-#if !NETSTANDARD2_1
-                        rawBytes = BitConverter.GetBytes((long) value.BigInteger);
-#else
-                        BitConverter.TryWriteBytes(rawBytes, (long) value.BigInteger);
-#endif
-                        break;
-                    case TypedArrayElementType.BigUint64:
-#if !NETSTANDARD2_1
-                        rawBytes = BitConverter.GetBytes((ulong) value.BigInteger);
-#else
-                        BitConverter.TryWriteBytes(rawBytes, (ulong) value.BigInteger);
 #endif
                         break;
                     default:
