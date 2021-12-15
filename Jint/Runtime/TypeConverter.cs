@@ -660,19 +660,27 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-tobigint64
         /// </summary>
-        internal static double ToBigInt64(JsValue value)
+        internal static long ToBigInt64(BigInteger value)
         {
-            ExceptionHelper.ThrowNotImplementedException("BigInt not implemented");
-            return 0;
+            BigInteger.DivRem(value, BigInteger.Pow(2, 64), out var int64bit);
+            if (BigInteger.Abs(int64bit) >= BigInteger.Pow(2, 63))
+            {
+                return (long) (int64bit - BigInteger.Pow(2, 64) * int64bit.Sign);
+            }
+            return (long) int64bit;
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-tobiguint64
         /// </summary>
-        internal static double ToBigUint64(JsValue value)
+        internal static ulong ToBigUint64(BigInteger value)
         {
-            ExceptionHelper.ThrowNotImplementedException("BigInt not implemented");
-            return 0;
+            BigInteger.DivRem(value, BigInteger.Pow(2, 64), out var int64bit);
+            if (int64bit < 0)
+            {
+                return (ulong) (ulong.MaxValue + int64bit + 1);
+            }
+            return (ulong) int64bit;
         }
 
 

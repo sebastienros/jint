@@ -43,13 +43,13 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
     /// </summary>
     private JsValue AsIntN(JsValue thisObj, JsValue[] arguments)
     {
-        var bits = TypeConverter.ToIndex(_realm, arguments.At(0));
+        var bits = (int) TypeConverter.ToIndex(_realm, arguments.At(0));
         var bigint = arguments.At(1).ToBigInteger(_engine);
-        var bitsPow = (ulong) System.Math.Pow(2, bits);
-        var mod = bigint % bitsPow;
-        if (mod >= bitsPow - 1)
+
+        BigInteger.DivRem(bigint, BigInteger.Pow(2, bits), out var mod);
+        if (mod >= BigInteger.Pow(2, bits - 1))
         {
-            return mod - bitsPow;
+            return mod - BigInteger.Pow(2, bits);
         }
 
         return mod;
@@ -60,9 +60,12 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
     /// </summary>
     private JsValue AsUintN(JsValue thisObj, JsValue[] arguments)
     {
-        var bits = TypeConverter.ToIndex(_realm, arguments.At(0));
+        var bits = (int) TypeConverter.ToIndex(_realm, arguments.At(0));
         var bigint = arguments.At(1).ToBigInteger(_engine);
-        return JsBigInt.Create(bigint % (BigInteger) System.Math.Pow(2, bits));
+
+        BigInteger.DivRem(bigint, BigInteger.Pow(2, bits), out var result);
+
+        return result;
     }
 
     public override JsValue Call(JsValue thisObject, JsValue[] arguments)

@@ -238,13 +238,11 @@ namespace Jint.Native.ArrayBuffer
             }
             else if (type == TypedArrayElementType.BigInt64)
             {
-                // Let rawBytes be a List whose elements are the 4 bytes that are the result of converting value to IEEE 754-2019 binary32 format using roundTiesToEven mode. If isLittleEndian is false, the bytes are arranged in big endian order. Otherwise, the bytes are arranged in little endian order. If value is NaN, rawBytes may be set to any implementation chosen IEEE 754-2019 binary32 format Not-a-Number encoding. An implementation must always choose the same encoding for each implementation distinguishable NaN value.
-                rawBytes = BitConverter.GetBytes((long) value.BigInteger);
+                rawBytes = BitConverter.GetBytes(TypeConverter.ToBigInt64(value.BigInteger));
             }
             else if (type == TypedArrayElementType.BigUint64)
             {
-                // Let rawBytes be a List whose elements are the 8 bytes that are the IEEE 754-2019 binary64 format encoding of value. If isLittleEndian is false, the bytes are arranged in big endian order. Otherwise, the bytes are arranged in little endian order. If value is NaN, rawBytes may be set to any implementation chosen IEEE 754-2019 binary64 format Not-a-Number encoding. An implementation must always choose the same encoding for each implementation distinguishable NaN value.
-                rawBytes = BitConverter.GetBytes((ulong) value.BigInteger);
+                rawBytes = BitConverter.GetBytes(TypeConverter.ToBigUint64(value.BigInteger));
             }
             else
             {
