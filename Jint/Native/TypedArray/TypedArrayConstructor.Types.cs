@@ -1,4 +1,3 @@
-using System.Numerics;
 using Jint.Runtime;
 
 namespace Jint.Native.TypedArray

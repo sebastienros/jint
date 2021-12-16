@@ -11,7 +11,7 @@ namespace Jint.Native.ArrayBuffer
     public sealed class ArrayBufferInstance : ObjectInstance
     {
         // so that we don't need to allocate while or reading setting values
-        private readonly byte[] _workBuffer = new byte[16];
+        private readonly byte[] _workBuffer = new byte[8];
 
         private byte[] _arrayBufferData;
         private readonly JsValue _arrayBufferDetachKey = Undefined;

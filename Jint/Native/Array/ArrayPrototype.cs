@@ -10,9 +10,6 @@ using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
-using Jint.Runtime.Interpreter.Expressions;
-
-using static System.String;
 
 namespace Jint.Native.Array
 {
@@ -1482,8 +1479,7 @@ namespace Jint.Native.Array
                 var xString = TypeConverter.ToString(x);
                 var yString = TypeConverter.ToString(y);
 
-                var r = CompareOrdinal(xString, yString);
-                return r;
+                return string.CompareOrdinal(xString, yString);
             }
         }
     }

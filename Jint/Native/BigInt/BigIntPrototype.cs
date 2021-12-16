@@ -47,6 +47,9 @@ public sealed class BigIntPrototype : ObjectInstance
         SetSymbols(symbols);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-bigint.prototype.tolocalestring
+    /// </summary>
     private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
     {
         if (!thisObject.IsBigInt() && thisObject is not BigIntInstance)
@@ -58,6 +61,9 @@ public sealed class BigIntPrototype : ObjectInstance
         return m.ToString("R");
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-bigint.prototype.valueof
+    /// </summary>
     private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
     {
         if (thisObj is BigIntInstance ni)
@@ -74,6 +80,9 @@ public sealed class BigIntPrototype : ObjectInstance
         return null;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-bigint.prototype.tostring
+    /// </summary>
     private JsValue ToBigIntString(JsValue thisObject, JsValue[] arguments)
     {
         var x = ThisBigIntValue(thisObject);
@@ -97,7 +106,7 @@ public sealed class BigIntPrototype : ObjectInstance
 
         if (radixMV == 10)
         {
-            return BigIntToString(value);
+            return value.ToString("R");
         }
 
         var negative = value < 0;
@@ -106,7 +115,6 @@ public sealed class BigIntPrototype : ObjectInstance
         {
             value = -value;
         }
-
 
         const string digits = "0123456789abcdefghijklmnopqrstuvwxyz";
 
@@ -126,6 +134,9 @@ public sealed class BigIntPrototype : ObjectInstance
         return (negative ? "-" : "") + new string(charArray);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#thisbigintvalue
+    /// </summary>
     private JsBigInt ThisBigIntValue(JsValue value)
     {
         switch (value)
@@ -138,29 +149,5 @@ public sealed class BigIntPrototype : ObjectInstance
                 ExceptionHelper.ThrowTypeError(_realm);
                 return JsBigInt.One;
         }
-    }
-
-    public string ToBase(long n, int radix)
-    {
-        const string digits = "0123456789abcdefghijklmnopqrstuvwxyz";
-        if (n == 0)
-        {
-            return "0";
-        }
-
-        using var result = StringBuilderPool.Rent();
-        while (n > 0)
-        {
-            var digit = (int) (n % radix);
-            n /= radix;
-            result.Builder.Insert(0, digits[digit]);
-        }
-
-        return result.ToString();
-    }
-
-    private static string BigIntToString(BigInteger m)
-    {
-        return m.ToString("R");
     }
 }

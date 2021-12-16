@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Numerics;
 using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.ArrayBuffer;
