@@ -326,9 +326,21 @@ namespace Jint.Native
             {
                 if (other is ConcatenatedString cs)
                 {
-                    if (_stringBuilder != null && cs._stringBuilder != null)
+                    var stringBuilder = _stringBuilder;
+                    var csStringBuilder = cs._stringBuilder;
+
+                    // we cannot use StringBuilder.Equals as it also checks Capacity on full framework / pre .NET Core 3
+                    if (stringBuilder != null && csStringBuilder != null && stringBuilder.Length == csStringBuilder.Length)
                     {
-                        return _stringBuilder.Equals(cs._stringBuilder);
+                        for (var i = 0; i < stringBuilder.Length; ++i)
+                        {
+                            if (stringBuilder[i] != csStringBuilder[i])
+                            {
+                                return false;
+                            }
+                        }
+
+                        return true;
                     }
 
                     return ToString() == cs.ToString();
