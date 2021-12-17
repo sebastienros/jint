@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
@@ -354,10 +355,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (typea == Types.BigInt)
                     {
-                        return TypeConverter.ToBigInt(px) < (long) TypeConverter.ToNumber(y);
+                        return TypeConverter.ToBigInt(px) < new BigInteger(TypeConverter.ToNumber(y));
                     }
 
-                    return (long) TypeConverter.ToNumber(px) < TypeConverter.ToBigInt(y);
+                    return new BigInteger(TypeConverter.ToNumber(px)) < TypeConverter.ToBigInt(y);
                 }
 
                 var nx = TypeConverter.ToNumber(px);

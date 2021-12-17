@@ -221,7 +221,10 @@ namespace Jint.Native
 
         public override bool IsLooselyEqual(JsValue value)
         {
-            return Equals(value) || !value.IsNumber() && base.IsLooselyEqual(value);
+            var jsNumber = value as JsNumber;
+            return Equals(jsNumber)
+                   || jsNumber is null && value.IsBigInt() && TypeConverter.IsIntegralNumber(_value) && (long) _value == value.AsBigInt()
+                   || jsNumber is null && base.IsLooselyEqual(value);
         }
 
         public override bool Equals(JsValue obj)

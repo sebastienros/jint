@@ -39,6 +39,14 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
         return new JsBigInt(bigInt);
     }
 
+    internal static JsBigInt Create(JsValue value)
+    {
+        return value is JsBigInt jsBigInt
+            ? jsBigInt
+            : Create(TypeConverter.ToBigInt(value));
+    }
+
+
     public override object ToObject()
     {
         return _value;
@@ -61,7 +69,9 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
 
     public override bool IsLooselyEqual(JsValue value)
     {
-        return Equals(value) || value.IsNumber() && this == TypeConverter.ToNumber(value);
+        return Equals(value)
+               || value is JsNumber jsNumber && TypeConverter.IsIntegralNumber(jsNumber._value) && _value == (long) jsNumber._value
+               || base.IsLooselyEqual(value);
     }
 
     public override bool Equals(object other)

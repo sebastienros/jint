@@ -309,11 +309,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
 
                 JsValue number;
+                left = TypeConverter.ToNumeric(left);
+                right = TypeConverter.ToNumeric(right);
+
                 if (AreIntegerOperands(left, right))
                 {
                     number = JsNumber.Create(left.AsInteger() - right.AsInteger());
                 }
-                else if (left.Type != Types.BigInt && right.Type != Types.BigInt)
+                else if (AreNonBigIntOperands(left, right))
                 {
                     number = JsNumber.Create(TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right));
                 }
@@ -346,10 +349,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                 else if (AreIntegerOperands(left, right))
                 {
                     result = JsNumber.Create((long) left.AsInteger() * right.AsInteger());
-                }
-                else if (left.IsUndefined() || right.IsUndefined())
-                {
-                    result = Undefined.Instance;
                 }
                 else
                 {
@@ -388,6 +387,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
+                left = TypeConverter.ToNumeric(left);
+                right = TypeConverter.ToNumeric(right);
                 return NormalCompletion(Divide(context, left, right));
             }
         }
@@ -471,8 +472,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context).Value;
-                var right = _right.GetValue(context).Value;
+                var left = TypeConverter.ToNumeric(_left.GetValue(context).Value);
+                var right = TypeConverter.ToNumeric(_right.GetValue(context).Value);
 
                 JsValue result;
                 if (AreNonBigIntOperands(left,right))
@@ -527,13 +528,17 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var left = _left.GetValue(context).Value;
                 var right = _right.GetValue(context).Value;
 
-                var result = Undefined.Instance;
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_Modulus", out var opResult))
                 {
-                    result = JsValue.FromObject(context.Engine, opResult);
+                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
-                else if (AreIntegerOperands(left, right))
+
+                var result = Undefined.Instance;
+                left = TypeConverter.ToNumeric(left);
+                right = TypeConverter.ToNumeric(right);
+
+                if (AreIntegerOperands(left, right))
                 {
                     var leftInteger = left.AsInteger();
                     var rightInteger = right.AsInteger();
@@ -601,21 +606,29 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context).Value;
-                var right = _right.GetValue(context).Value;
+                var lval = _left.GetValue(context).Value;
+                var rval = _right.GetValue(context).Value;
 
                 if (context.OperatorOverloadingAllowed
-                    && TryOperatorOverloading(context, left, right, OperatorClrName, out var opResult))
+                    && TryOperatorOverloading(context, lval, rval, OperatorClrName, out var opResult))
                 {
                     return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
                 }
 
-                if (AreIntegerOperands(left, right))
-                {
-                    int leftValue = left.AsInteger();
-                    int rightValue = right.AsInteger();
+                var lnum = TypeConverter.ToNumeric(lval);
+                var rnum = TypeConverter.ToNumeric(rval);
 
-                    JsValue result;
+                if (lnum.Type != rnum.Type)
+                {
+                    ExceptionHelper.ThrowTypeError(context.Engine.Realm);
+                }
+
+                if (AreIntegerOperands(lnum, rnum))
+                {
+                    int leftValue = lnum.AsInteger();
+                    int rightValue = rnum.AsInteger();
+
+                    JsValue result = null;
                     switch (_operator)
                     {
                         case BinaryOperator.BitwiseAnd:
@@ -638,40 +651,80 @@ namespace Jint.Runtime.Interpreter.Expressions
                             break;
                         default:
                             ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(_operator), "unknown shift operator");
-                            result = null;
                             break;
                     }
 
                     return NormalCompletion(result);
                 }
 
-                return NormalCompletion(EvaluateNonInteger(left, right));
+                return NormalCompletion(EvaluateNonInteger(context.Engine.Realm, lnum, rnum));
             }
 
-            private JsNumber EvaluateNonInteger(JsValue left, JsValue right)
+            private JsValue EvaluateNonInteger(Realm realm, JsValue left, JsValue right)
             {
                 switch (_operator)
                 {
                     case BinaryOperator.BitwiseAnd:
-                        return JsNumber.Create(TypeConverter.ToInt32(left) & TypeConverter.ToInt32(right));
+                    {
+                        if (!left.IsBigInt())
+                        {
+                            return JsNumber.Create(TypeConverter.ToInt32(left) & TypeConverter.ToInt32(right));
+                        }
+
+                        return JsBigInt.Create(TypeConverter.ToBigInt(left) & TypeConverter.ToBigInt(right));
+                    }
 
                     case BinaryOperator.BitwiseOr:
-                        return JsNumber.Create(TypeConverter.ToInt32(left) | TypeConverter.ToInt32(right));
+                    {
+                        if (!left.IsBigInt())
+                        {
+                            return JsNumber.Create(TypeConverter.ToInt32(left) | TypeConverter.ToInt32(right));
+                        }
+                        return JsBigInt.Create(TypeConverter.ToBigInt(left) | TypeConverter.ToBigInt(right));
+                    }
 
                     case BinaryOperator.BitwiseXOr:
-                        return JsNumber.Create(TypeConverter.ToInt32(left) ^ TypeConverter.ToInt32(right));
+                    {
+                        if (!left.IsBigInt())
+                        {
+                            return JsNumber.Create(TypeConverter.ToInt32(left) ^ TypeConverter.ToInt32(right));
+                        }
+                        return JsBigInt.Create(TypeConverter.ToBigInt(left) ^ TypeConverter.ToBigInt(right));
+                    }
 
                     case BinaryOperator.LeftShift:
-                        return JsNumber.Create(TypeConverter.ToInt32(left) << (int) (TypeConverter.ToUint32(right) & 0x1F));
+                    {
+                        if (!left.IsBigInt())
+                        {
+                            return JsNumber.Create(TypeConverter.ToInt32(left) << (int) (TypeConverter.ToUint32(right) & 0x1F));
+                        }
+                        return JsBigInt.Create(TypeConverter.ToBigInt(left) << (int) TypeConverter.ToBigInt(right));
+                    }
 
                     case BinaryOperator.RightShift:
-                        return JsNumber.Create(TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
+                    {
+                        if (!left.IsBigInt())
+                        {
+                            return JsNumber.Create(TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
+                        }
+                        return JsBigInt.Create(TypeConverter.ToBigInt(left) >> (int) TypeConverter.ToBigInt(right));
+                    }
 
                     case BinaryOperator.UnsignedRightShift:
-                        return JsNumber.Create((uint) TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
+                    {
+                        if (!left.IsBigInt())
+                        {
+                            return JsNumber.Create((uint) TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
+                        }
+                        ExceptionHelper.ThrowTypeError(realm);
+                        return null;
+                    }
+
                     default:
+                    {
                         ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(_operator), "unknown shift operator");
                         return null;
+                    }
                 }
             }
         }

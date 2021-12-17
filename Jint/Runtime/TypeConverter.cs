@@ -197,6 +197,11 @@ namespace Jint.Runtime
         /// </summary>
         public static JsValue ToNumeric(JsValue value)
         {
+            if (value.IsNumber() || value.IsBigInt())
+            {
+                return value;
+            }
+
             var primValue = ToPrimitive(value, Types.Number);
             if (primValue.IsBigInt())
             {
