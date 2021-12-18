@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Extensions;
 using Jint.Native;
+using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Runtime.Interop;
 
@@ -472,24 +473,117 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override ExpressionResult EvaluateInternal(EvaluationContext context)
             {
-                var left = TypeConverter.ToNumeric(_left.GetValue(context).Value);
-                var right = TypeConverter.ToNumeric(_right.GetValue(context).Value);
+                var leftReference = _left.GetValue(context).Value;
+                var rightReference = _right.GetValue(context).Value;
+
+                var left = TypeConverter.ToNumeric(leftReference);
+                var right = TypeConverter.ToNumeric(rightReference);
 
                 JsValue result;
                 if (AreNonBigIntOperands(left,right))
                 {
-                    result = JsNumber.Create(Math.Pow(TypeConverter.ToNumber(left), TypeConverter.ToNumber(right)));
+                    // validation
+                    var baseNumber = (JsNumber) left;
+                    var exponentNumber = (JsNumber) right;
+
+                    if (exponentNumber.IsNaN())
+                    {
+                        return NormalCompletion(JsNumber.DoubleNaN);
+                    }
+
+                    if (exponentNumber.IsZero())
+                    {
+                        return NormalCompletion(JsNumber.PositiveOne);
+                    }
+
+                    if (baseNumber.IsNaN())
+                    {
+                        return NormalCompletion(JsNumber.DoubleNaN);
+                    }
+
+                    var exponentValue = exponentNumber._value;
+                    if (baseNumber.IsPositiveInfinity())
+                    {
+                        return NormalCompletion(exponentValue > 0 ? JsNumber.DoublePositiveInfinity : JsNumber.PositiveZero);
+                    }
+
+                    static bool IsOddIntegral(double value) => TypeConverter.IsIntegralNumber(value) && value % 2 != 0;
+
+                    if (baseNumber.IsNegativeInfinity())
+                    {
+                        if (exponentValue > 0)
+                        {
+                            return NormalCompletion(IsOddIntegral(exponentValue) ? JsNumber.DoubleNegativeInfinity : JsNumber.DoublePositiveInfinity);
+                        }
+
+                        return NormalCompletion(IsOddIntegral(exponentValue) ? JsNumber.NegativeZero : JsNumber.PositiveZero);
+                    }
+
+                    if (baseNumber.IsPositiveZero())
+                    {
+                        return NormalCompletion(exponentValue > 0 ? JsNumber.PositiveZero : JsNumber.DoublePositiveInfinity);
+                    }
+
+                    if (baseNumber.IsNegativeZero())
+                    {
+                        if (exponentValue > 0)
+                        {
+                            return NormalCompletion(IsOddIntegral(exponentValue) ? JsNumber.NegativeZero : JsNumber.PositiveZero);
+                        }
+                        return NormalCompletion(IsOddIntegral(exponentValue) ? JsNumber.DoubleNegativeInfinity : JsNumber.DoublePositiveInfinity);
+                    }
+
+                    var baseValue = baseNumber._value;
+                    if (exponentNumber.IsPositiveInfinity())
+                    {
+                        if (Math.Abs(baseValue) > 1)
+                        {
+                            return NormalCompletion(JsNumber.DoublePositiveInfinity);
+                        }
+                        if (Math.Abs(baseValue) == 1)
+                        {
+                            return NormalCompletion(JsNumber.DoubleNaN);
+                        }
+
+                        return NormalCompletion(JsNumber.PositiveZero);
+                    }
+
+                    if (exponentNumber.IsNegativeInfinity())
+                    {
+                        if (Math.Abs(baseValue) > 1)
+                        {
+                            return NormalCompletion(JsNumber.PositiveZero);
+                        }
+                        if (Math.Abs(baseValue) == 1)
+                        {
+                            return NormalCompletion(JsNumber.DoubleNaN);
+                        }
+
+                        return NormalCompletion(JsNumber.DoublePositiveInfinity);
+                    }
+
+                    if (baseValue < 0 && !TypeConverter.IsIntegralNumber(exponentValue))
+                    {
+                        return NormalCompletion(JsNumber.DoubleNaN);
+                    }
+
+                    result = JsNumber.Create(Math.Pow(baseNumber._value, exponentValue));
                 }
                 else
                 {
                     AssertValidBigIntArithmeticOperands(context, left, right);
 
-                    var exponent = TypeConverter.ToBigInt(right);
+                    var exponent = right.AsBigInt();
+                    if (exponent < 0)
+                    {
+                        ExceptionHelper.ThrowRangeError(context.Engine.Realm, "Exponent must be positive");
+                    }
+
                     if (exponent > int.MaxValue || exponent < int.MinValue)
                     {
-                        ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Cannot do exponentation with exponent not fitting int32");
+                        ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Exponent does not fit 32bit range");
                     }
-                    result = JsBigInt.Create(BigInteger.Pow(TypeConverter.ToBigInt(left), (int) exponent));
+                    result = JsBigInt.Create(BigInteger.Pow(left.AsBigInt(), (int) exponent));
                 }
 
                 return NormalCompletion(result);
@@ -560,18 +654,51 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                     }
                 }
-                else if (left.IsUndefined() || right.IsUndefined())
-                {
-                    result = Undefined.Instance;
-                }
                 else if (AreNonBigIntOperands(left, right))
                 {
-                    result = JsNumber.Create(TypeConverter.ToNumber(left) % TypeConverter.ToNumber(right));
+                    var n = TypeConverter.ToNumber(left);
+                    var d = TypeConverter.ToNumber(right);
+
+                    if (double.IsNaN(n) || double.IsNaN(d) || double.IsInfinity(n))
+                    {
+                        result = JsNumber.DoubleNaN;
+                    }
+                    else if (double.IsInfinity(d))
+                    {
+                        result = n;
+                    }
+                    else if (NumberInstance.IsPositiveZero(d) || NumberInstance.IsNegativeZero(d))
+                    {
+                        result = JsNumber.DoubleNaN;
+                    }
+                    else if (NumberInstance.IsPositiveZero(n) || NumberInstance.IsNegativeZero(n))
+                    {
+                        result = n;
+                    }
+                    else
+                    {
+                        result = JsNumber.Create(n % d);
+                    }
                 }
                 else
                 {
                     AssertValidBigIntArithmeticOperands(context, left, right);
-                    result = JsBigInt.Create(TypeConverter.ToBigInt(left) % TypeConverter.ToBigInt(right));
+
+                    var n = TypeConverter.ToBigInt(left);
+                    var d = TypeConverter.ToBigInt(right);
+
+                    if (d == 0)
+                    {
+                        ExceptionHelper.ThrowRangeError(context.Engine.Realm, "Division by zero");
+                    }
+                    else if (n == 0)
+                    {
+                        result = JsBigInt.Zero;
+                    }
+                    else
+                    {
+                        result = JsBigInt.Create(n % d);
+                    }
                 }
 
                 return NormalCompletion(result);

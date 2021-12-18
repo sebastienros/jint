@@ -594,29 +594,58 @@ namespace Jint.Runtime
             }
         }
 
-        private static BigInteger StringToBigInt(string str)
+        internal static BigInteger StringToBigInt(string str)
         {
-            void ThrowInvalidBigIntParserException()
+            if (!TryStringToBigInt(str, out var result))
             {
                 throw new ParserException(" Cannot convert " + str + " to a BigInt");
             }
 
+            return result;
+        }
+
+        internal static bool TryStringToBigInt(string str, out BigInteger result)
+        {
             if (string.IsNullOrWhiteSpace(str))
             {
-                return BigInteger.Zero;
+                result = BigInteger.Zero;
+                return true;
             }
 
             str = str.Trim();
 
-            if (str.EndsWith("n") || str.StartsWith("1e") || str.IndexOf("Infinity", StringComparison.Ordinal) != -1)
+            for (var i = 0; i < str.Length; i++)
             {
-                ThrowInvalidBigIntParserException();
+                var c = str[i];
+                if (!char.IsDigit(c))
+                {
+                    if (i == 0 && (c == '-' || Character.IsDecimalDigit(c)))
+                    {
+                        // ok
+                        continue;
+                    }
+
+                    if (i != 1 && Character.IsHexDigit(c))
+                    {
+                        // ok
+                        continue;
+                    }
+
+                    if (i == 1 && (Character.IsDecimalDigit(c) || c is 'x' or 'X' or 'b' or 'B' or 'o' or 'O'))
+                    {
+                        // allowed, can be probably parsed
+                        continue;
+                    }
+
+                    result = default;
+                    return false;
+                }
             }
 
             // check if we can get by using plain parsing
-            if (BigInteger.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+            if (BigInteger.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out result))
             {
-                return parsed;
+                return true;
             }
 
             if (str.Length > 2)
@@ -637,44 +666,81 @@ namespace Jint.Runtime
                         source = "0" + source.ToString();
                     }
 
-                    if (BigInteger.TryParse(source, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out parsed))
+                    if (BigInteger.TryParse(source, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out result))
                     {
-                        return parsed;
+                        return true;
                     }
                 }
-                else if (str.StartsWith("0o") && Character.IsOctalDigit(str[2]))
+                else if (str.StartsWith("0o", StringComparison.OrdinalIgnoreCase) && Character.IsOctalDigit(str[2]))
                 {
                     // try parse large octal
                     var bigInteger = new BigInteger();
                     for (var i = 2; i < str.Length; i++)
                     {
-                        var c1 = str[i];
-                        bigInteger = bigInteger * 8 + c1 - '0';
+                        var c = str[i];
+                        if (!Character.IsHexDigit(c))
+                        {
+                            return false;
+                        }
+                        bigInteger = bigInteger * 8 + c - '0';
                     }
 
-                    return bigInteger;
+                    result = bigInteger;
+                    return true;
+                }
+                else if (str.StartsWith("0b", StringComparison.OrdinalIgnoreCase) && Character.IsDecimalDigit(str[2]))
+                {
+                    // try parse large binary
+                    var bigInteger = new BigInteger();
+                    for (var i = 2; i < str.Length; i++)
+                    {
+                        var c = str[i];
+
+                        if (c != '0' && c != '1')
+                        {
+                            // not good
+                            return false;
+                        }
+
+                        bigInteger <<= 1;
+                        bigInteger += c == '1' ? 1 : 0;
+                    }
+
+                    result = bigInteger;
+                    return true;
                 }
             }
 
-            var parser = new JavaScriptParser(str);
-            var script = parser.ParseScript();
-            var numericLiteral = script.Body[0].ChildNodes[0] as Literal;
+            Literal numericLiteral;
+            try
+            {
+                var parser = new JavaScriptParser(str);
+                var script = parser.ParseScript();
+                numericLiteral = script.Body[0].ChildNodes[0] as Literal;
+            }
+            catch (Exception)
+            {
+                result = default;
+                return false;
+            }
 
             if (numericLiteral?.BigIntValue is not null)
             {
                 // success
-                return numericLiteral.BigIntValue.Value;
+                result = numericLiteral.BigIntValue.Value;
+                return true;
             }
 
             if (numericLiteral is null
                 || numericLiteral.TokenType != TokenType.NumericLiteral && numericLiteral.TokenType != TokenType.BigIntLiteral
                 || JsNumber.HasFractionalPart(numericLiteral.NumericValue))
             {
-                ThrowInvalidBigIntParserException();
-                return default;
+                result = default;
+                return false;
             }
 
-            return new BigInteger(numericLiteral.NumericValue);
+            result = new BigInteger(numericLiteral.NumericValue);
+            return true;
         }
 
         /// <summary>

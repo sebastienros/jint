@@ -32,7 +32,12 @@ namespace Jint.Native
 
         public override bool IsLooselyEqual(JsValue value)
         {
-            return Equals(value) || !value.IsNullOrUndefined() && !value.IsBoolean() && base.IsLooselyEqual(value);
+            if (value is JsBoolean jsBoolean)
+            {
+                return Equals(jsBoolean);
+            }
+
+            return !value.IsNullOrUndefined() && base.IsLooselyEqual(value);
         }
 
         public override bool Equals(JsValue obj)

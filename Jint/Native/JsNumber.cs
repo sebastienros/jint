@@ -1,7 +1,9 @@
 ﻿#nullable enable
 
 using System;
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using Jint.Native.Number;
 using Jint.Runtime;
 
 namespace Jint.Native
@@ -219,15 +221,56 @@ namespace Jint.Native
             return TypeConverter.ToString(_value);
         }
 
+        internal bool IsNaN()
+        {
+            return double.IsNaN(_value);
+        }
+
+        /// <summary>
+        /// Either positive or negative zero.
+        /// </summary>
+        internal bool IsZero()
+        {
+            return IsNegativeZero() || IsPositiveZero();
+        }
+
+        internal bool IsNegativeZero()
+        {
+            return NumberInstance.IsNegativeZero(_value);
+        }
+
+        internal bool IsPositiveZero()
+        {
+            return NumberInstance.IsPositiveZero(_value);
+        }
+
+        internal bool IsPositiveInfinity()
+        {
+            return double.IsPositiveInfinity(_value);
+        }
+
+        internal bool IsNegativeInfinity()
+        {
+            return double.IsNegativeInfinity(_value);
+        }
+
         public override bool IsLooselyEqual(JsValue value)
         {
-            var jsNumber = value as JsNumber;
-            return Equals(jsNumber)
-                   || jsNumber is null && value.IsBigInt() && TypeConverter.IsIntegralNumber(_value) && (long) _value == value.AsBigInt()
-                   || jsNumber is null && base.IsLooselyEqual(value);
+            if (value is JsNumber jsNumber)
+            {
+                return Equals(jsNumber);
+            }
+
+            return value.IsBigInt() && TypeConverter.IsIntegralNumber(_value) && new BigInteger(_value) == value.AsBigInt()
+                   || base.IsLooselyEqual(value);
         }
 
         public override bool Equals(JsValue obj)
+        {
+            return Equals(obj as JsNumber);
+        }
+
+        public override bool Equals(object? obj)
         {
             return Equals(obj as JsNumber);
         }

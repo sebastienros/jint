@@ -175,7 +175,7 @@ namespace Jint.Tests.Test262
 
             if (!negative && !string.IsNullOrWhiteSpace(lastError))
             {
-                throw new XunitException(lastError);
+                throw new XunitException($"{Environment.NewLine}{fileName}{Environment.NewLine}{Environment.NewLine}{lastError}");
             }
         }
 

@@ -224,7 +224,15 @@ namespace Jint.Runtime.Interpreter.Expressions
             else
             {
                 JintBinaryExpression.AssertValidBigIntArithmeticOperands(context, left, right);
-                result = JsBigInt.Create(TypeConverter.ToBigInt(left) / TypeConverter.ToBigInt(right));
+                var x = TypeConverter.ToBigInt(left);
+                var y = TypeConverter.ToBigInt(right);
+
+                if (y == 0)
+                {
+                    ExceptionHelper.ThrowRangeError(context.Engine.Realm, "Division by zero");
+                }
+
+                result = JsBigInt.Create(x / y);
             }
 
             return result;
@@ -355,10 +363,62 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (typea == Types.BigInt)
                     {
-                        return TypeConverter.ToBigInt(px) < new BigInteger(TypeConverter.ToNumber(y));
+                        if (py is JsString jsStringY)
+                        {
+                            if (!TypeConverter.TryStringToBigInt(jsStringY.ToString(), out var temp))
+                            {
+                                return JsValue.Undefined;
+                            }
+                            return TypeConverter.ToBigInt(px) < temp;
+                        }
+
+                        var numberB = TypeConverter.ToNumber(py);
+                        if (double.IsNaN(numberB))
+                        {
+                            return JsValue.Undefined;
+                        }
+
+                        if (double.IsPositiveInfinity(numberB))
+                        {
+                            return true;
+                        }
+
+                        if (double.IsNegativeInfinity(numberB))
+                        {
+                            return false;
+                        }
+
+                        var normalized = new BigInteger(System.Math.Ceiling(numberB));
+                        return TypeConverter.ToBigInt(px) < normalized;
                     }
 
-                    return new BigInteger(TypeConverter.ToNumber(px)) < TypeConverter.ToBigInt(y);
+                    if (px is JsString jsStringX)
+                    {
+                        if (!TypeConverter.TryStringToBigInt(jsStringX.ToString(), out var temp))
+                        {
+                            return JsValue.Undefined;
+                        }
+                        return temp < TypeConverter.ToBigInt(py);
+                    }
+
+                    var numberA = TypeConverter.ToNumber(px);
+                    if (double.IsNaN(numberA))
+                    {
+                        return JsValue.Undefined;
+                    }
+
+                    if (double.IsPositiveInfinity(numberA))
+                    {
+                        return false;
+                    }
+
+                    if (double.IsNegativeInfinity(numberA))
+                    {
+                        return true;
+                    }
+
+                    var normalizedA = new BigInteger(System.Math.Floor(numberA));
+                    return normalizedA < TypeConverter.ToBigInt(py);
                 }
 
                 var nx = TypeConverter.ToNumber(px);

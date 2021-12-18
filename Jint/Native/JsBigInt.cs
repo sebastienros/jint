@@ -69,8 +69,13 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
 
     public override bool IsLooselyEqual(JsValue value)
     {
-        return Equals(value)
-               || value is JsNumber jsNumber && TypeConverter.IsIntegralNumber(jsNumber._value) && _value == (long) jsNumber._value
+        if (value is JsBigInt bigInt)
+        {
+            return Equals(bigInt);
+        }
+
+        return value is JsNumber jsNumber && TypeConverter.IsIntegralNumber(jsNumber._value) && _value == new BigInteger(jsNumber._value)
+               || value is JsString jsString && TypeConverter.TryStringToBigInt(jsString.ToString(), out var temp) && temp == _value
                || base.IsLooselyEqual(value);
     }
 
