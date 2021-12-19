@@ -711,36 +711,7 @@ namespace Jint.Runtime
                 }
             }
 
-            Literal numericLiteral;
-            try
-            {
-                var parser = new JavaScriptParser(str);
-                var script = parser.ParseScript();
-                numericLiteral = script.Body[0].ChildNodes[0] as Literal;
-            }
-            catch (Exception)
-            {
-                result = default;
-                return false;
-            }
-
-            if (numericLiteral?.BigIntValue is not null)
-            {
-                // success
-                result = numericLiteral.BigIntValue.Value;
-                return true;
-            }
-
-            if (numericLiteral is null
-                || numericLiteral.TokenType != TokenType.NumericLiteral && numericLiteral.TokenType != TokenType.BigIntLiteral
-                || JsNumber.HasFractionalPart(numericLiteral.NumericValue))
-            {
-                result = default;
-                return false;
-            }
-
-            result = new BigInteger(numericLiteral.NumericValue);
-            return true;
+            return false;
         }
 
         /// <summary>
