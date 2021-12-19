@@ -66,7 +66,7 @@ namespace Jint.Repl
                 try
                 {
                     var result = engine.Evaluate(input, parserOptions);
-                    if (!result.IsPrimitive())
+                    if (!result.IsPrimitive() && result is not IPrimitiveInstance)
                     {
                         var serializer = new JsonSerializer(engine);
                         var str = serializer.Serialize(result, Undefined.Instance, "  ");
