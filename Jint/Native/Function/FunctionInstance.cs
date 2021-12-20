@@ -213,7 +213,7 @@ namespace Jint.Native.Function
 
         internal void SetFunctionName(JsValue name, string prefix = null, bool force = false)
         {
-            if (!force && _nameDescriptor != null && !UnwrapJsValue(_nameDescriptor).IsUndefined())
+            if (!force && _nameDescriptor != null && UnwrapJsValue(_nameDescriptor) != JsString.Empty)
             {
                 return;
             }

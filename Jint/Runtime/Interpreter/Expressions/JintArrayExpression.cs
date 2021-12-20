@@ -93,7 +93,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             public ArraySpreadProtocol(
                 Engine engine,
                 ArrayInstance instance,
-                IIterator iterator,
+                IteratorInstance iterator,
                 long startIndex) : base(engine, iterator, 0)
             {
                 _instance = instance;

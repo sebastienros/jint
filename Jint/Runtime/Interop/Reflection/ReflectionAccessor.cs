@@ -52,15 +52,6 @@ namespace Jint.Runtime.Interop.Reflection
                 }
                 catch (TargetInvocationException tie)
                 {
-                    switch (tie.InnerException)
-                    {
-                        case ArgumentOutOfRangeException _:
-                        case IndexOutOfRangeException _:
-                        case InvalidOperationException _:
-                        case NotSupportedException _:
-                            return JsValue.Undefined;
-                    }
-
                     ExceptionHelper.ThrowMeaningfulException(engine, tie);
                 }
             }

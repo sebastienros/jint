@@ -30,6 +30,11 @@ namespace Jint.Runtime.Interop
 
         public Type ReferenceType { get; }
 
+        public static TypeReference CreateTypeReference<T>(Engine engine)
+        {
+            return CreateTypeReference(engine, typeof(T));
+        }
+
         public static TypeReference CreateTypeReference(Engine engine, Type type)
         {
             return new TypeReference(engine, type);
@@ -55,9 +60,8 @@ namespace Jint.Runtime.Interop
                 ReferenceType,
                 t => MethodDescriptor.Build(t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)));
 
-            foreach (var tuple in TypeConverter.FindBestMatch(constructors, _ => arguments))
+            foreach (var (method, _, _) in TypeConverter.FindBestMatch(_engine, constructors, _ => arguments))
             {
-                var method = tuple.Item1;
                 var retVal = method.Call(Engine, null, arguments);
                 var result = TypeConverter.ToObject(_realm, retVal);
 
@@ -165,7 +169,7 @@ namespace Jint.Runtime.Interop
             }
 
             const BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Static;
-            return typeResolver.TryFindMemberAccessor(type, name, bindingFlags, indexerToTry: null, out var accessor)
+            return typeResolver.TryFindMemberAccessor(_engine, type, name, bindingFlags, indexerToTry: null, out var accessor)
                 ? accessor
                 : ConstantValueAccessor.NullAccessor;
         }

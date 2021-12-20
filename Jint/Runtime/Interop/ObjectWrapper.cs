@@ -84,6 +84,11 @@ namespace Jint.Runtime.Interop
             return true;
         }
 
+        public override object ToObject()
+        {
+            return Target;
+        }
+
         public override JsValue Get(JsValue property, JsValue receiver)
         {
             if (property.IsInteger() && Target is IList list)
@@ -96,27 +101,6 @@ namespace Jint.Runtime.Interop
             {
                 // wrapped objects cannot have symbol properties
                 return Undefined;
-            }
-
-            if (property is JsString stringKey)
-            {
-                var member = stringKey.ToString();
-                var result = Engine.Options.Interop.MemberAccessor?.Invoke(Engine, Target, member);
-                if (result is not null)
-                {
-                    return result;
-                }
-
-                if (_properties is null || !_properties.ContainsKey(member))
-                {
-                    // can try utilize fast path
-                    var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, Target.GetType(), member);
-                    var value = accessor.GetValue(_engine, Target);
-                    if (value is not null)
-                    {
-                        return FromObject(_engine, value);
-                    }
-                }
             }
 
             return base.Get(property, receiver);
@@ -142,9 +126,10 @@ namespace Jint.Runtime.Interop
             var processed = basePropertyKeys.Count > 0 ? new HashSet<JsValue>() : null;
 
             var includeStrings = (types & Types.String) != 0;
-            if (includeStrings && Target is IDictionary<string, object> stringKeyedDictionary) // expando object for instance
+            if (includeStrings && _typeDescriptor.IsStringKeyedGenericDictionary) // expando object for instance
             {
-                foreach (var key in stringKeyedDictionary.Keys)
+                var keys = _typeDescriptor.GetKeys(Target);
+                foreach (var key in keys)
                 {
                     var jsString = JsString.Create(key);
                     processed?.Add(jsString);
@@ -156,7 +141,9 @@ namespace Jint.Runtime.Interop
                 // we take values exposed as dictionary keys only
                 foreach (var key in dictionary.Keys)
                 {
-                    if (_engine.ClrTypeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out var stringKey))
+                    object stringKey = key as string;
+                    if (stringKey is not null
+                        || _engine.ClrTypeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out stringKey))
                     {
                         var jsString = JsString.Create((string) stringKey);
                         processed?.Add(jsString);
@@ -224,6 +211,15 @@ namespace Jint.Runtime.Interop
             }
 
             var member = property.ToString();
+
+            if (_typeDescriptor.IsStringKeyedGenericDictionary)
+            {
+                if (_typeDescriptor.TryGetValue(Target, member, out var value))
+                {
+                    return new PropertyDescriptor(FromObject(_engine, value), PropertyFlag.OnlyEnumerable);
+                }
+            }
+
             var result = Engine.Options.Interop.MemberAccessor(Engine, Target, member);
             if (result is not null)
             {

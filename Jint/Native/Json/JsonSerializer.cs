@@ -3,24 +3,25 @@ using System.Linq;
 using Jint.Collections;
 using Jint.Native.Global;
 using Jint.Native.Object;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Json
 {
     public class JsonSerializer
     {
         private readonly Engine _engine;
+        private ObjectTraverseStack _stack;
+        private string _indent, _gap;
+        private List<JsValue> _propertyList;
+        private JsValue _replacerFunction = Undefined.Instance;
 
         public JsonSerializer(Engine engine)
         {
             _engine = engine;
         }
-
-        private ObjectTraverseStack _stack;
-        private string _indent, _gap;
-        private List<JsValue> _propertyList;
-        private JsValue _replacerFunction = Undefined.Instance;
 
         public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
         {
@@ -154,23 +155,22 @@ namespace Jint.Native.Json
                     case ObjectClass.Boolean:
                         value = TypeConverter.ToPrimitive(value);
                         break;
-                    case ObjectClass.Array:
-                        value = SerializeArray(value);
-                        return value;
-                    case ObjectClass.Object:
-                        value = SerializeObject(value.AsObject());
+                    default:
+                        value = SerializesAsArray(value)
+                            ? SerializeArray(value)
+                            : SerializeObject(value.AsObject());
                         return value;
                 }
             }
 
             if (ReferenceEquals(value, Null.Instance))
             {
-                return "null";
+                return JsString.NullString;
             }
 
             if (value.IsBoolean())
             {
-                return ((JsBoolean) value)._value ? "true" : "false";
+                return ((JsBoolean) value)._value ? JsString.TrueString : JsString.FalseString;
             }
 
             if (value.IsString())
@@ -186,14 +186,14 @@ namespace Jint.Native.Json
                     return TypeConverter.ToJsString(value);
                 }
 
-                return "null";
+                return JsString.NullString;
             }
 
             var isCallable = value.IsObject() && value.AsObject() is ICallable;
 
             if (value.IsObject() && isCallable == false)
             {
-                return value.AsObject().Class == ObjectClass.Array
+                return SerializesAsArray(value)
                     ? SerializeArray(value)
                     : SerializeObject(value.AsObject());
             }
@@ -201,11 +201,18 @@ namespace Jint.Native.Json
             return JsValue.Undefined;
         }
 
+        private static bool SerializesAsArray(JsValue value)
+        {
+            return value.AsObject().Class == ObjectClass.Array || value is ObjectWrapper { IsArrayLike: true };
+        }
+
         private static string Quote(string value)
         {
-            var sb = new System.Text.StringBuilder("\"");
+            using var stringBuilder = StringBuilderPool.Rent();
+            var sb = stringBuilder.Builder;
+            sb.Append("\"");
 
-            foreach (char c in value)
+            foreach (var c in value)
             {
                 switch (c)
                 {
@@ -255,11 +262,14 @@ namespace Jint.Native.Json
             var len = TypeConverter.ToUint32(value.Get(CommonProperties.Length, value));
             for (int i = 0; i < len; i++)
             {
-                var strP = Str(TypeConverter.ToString(i), value);
+                var strP = Str(i, value);
                 if (strP.IsUndefined())
-                    strP = "null";
+                {
+                    strP = JsString.NullString;
+                }
                 partial.Add(strP.ToString());
             }
+
             if (partial.Count == 0)
             {
                 _stack.Exit();
@@ -269,14 +279,14 @@ namespace Jint.Native.Json
             string final;
             if (_gap == "")
             {
-                var separator = ",";
-                var properties = System.String.Join(separator, partial.ToArray());
+                const string separator = ",";
+                var properties = string.Join(separator, partial);
                 final = "[" + properties + "]";
             }
             else
             {
                 var separator = ",\n" + _indent;
-                var properties = System.String.Join(separator, partial.ToArray());
+                var properties = string.Join(separator, partial);
                 final = "[\n" + _indent + properties + "\n" + stepback + "]";
             }
 
@@ -295,8 +305,7 @@ namespace Jint.Native.Json
 
             var k = _propertyList ?? value.GetOwnProperties()
                 .Where(x => x.Value.Enumerable)
-                .Select(x => x.Key)
-                .ToList();
+                .Select(x => x.Key);
 
             var partial = new List<string>();
             foreach (var p in k)
@@ -321,14 +330,14 @@ namespace Jint.Native.Json
             {
                 if (_gap == "")
                 {
-                    var separator = ",";
-                    var properties = System.String.Join(separator, partial.ToArray());
+                    const string separator = ",";
+                    var properties = string.Join(separator, partial);
                     final = "{" + properties + "}";
                 }
                 else
                 {
                     var separator = ",\n" + _indent;
-                    var properties = System.String.Join(separator, partial.ToArray());
+                    var properties = string.Join(separator, partial);
                     final = "{\n" + _indent + properties + "\n" + stepback + "}";
                 }
             }

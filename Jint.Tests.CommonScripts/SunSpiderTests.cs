@@ -39,7 +39,9 @@ namespace Jint.Tests.CommonScripts
         [InlineData("bitops-bits-in-byte.js")]
         [InlineData("bitops-bitwise-and.js")]
         [InlineData("bitops-nsieve-bits.js")]
+#if !DEBUG // should only be ran in release mode when inlining happens
         [InlineData("controlflow-recursive.js")]
+#endif
         [InlineData("crypto-aes.js")]
         [InlineData("crypto-md5.js")]
         [InlineData("crypto-sha1.js")]

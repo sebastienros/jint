@@ -41,8 +41,7 @@ namespace Jint.Native.Error
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Error.PrototypeObject,
-                static (engine, realm, state) => new ErrorInstance(engine, (JsString) state),
-                _name);
+                static (engine, realm, state) => new ErrorInstance(engine));
 
             var jsValue = arguments.At(0);
             if (!jsValue.IsUndefined())
@@ -56,6 +55,15 @@ namespace Jint.Native.Error
             var stackString = lastSyntaxNode == null ? Undefined : _engine.CallStack.BuildCallStackString(lastSyntaxNode.Location);
             var stackDesc = new PropertyDescriptor(stackString, PropertyFlag.NonEnumerable);
             o.DefinePropertyOrThrow(CommonProperties.Stack, stackDesc);
+
+            var options = arguments.At(1);
+
+            if (options is ObjectInstance oi && oi.HasProperty("cause"))
+            {
+                var cause = oi.Get("cause");
+                var causeDesc = new PropertyDescriptor(cause, PropertyFlag.NonEnumerable);
+                o.DefinePropertyOrThrow("cause", causeDesc);
+            }
 
             return o;
         }

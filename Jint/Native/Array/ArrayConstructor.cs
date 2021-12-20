@@ -175,7 +175,7 @@ namespace Jint.Native.Array
                 Engine engine,
                 JsValue thisArg,
                 ObjectInstance instance,
-                IIterator iterator,
+                IteratorInstance iterator,
                 ICallable callable) : base(engine, iterator, 2)
             {
                 _thisArg = thisArg;

@@ -1,19 +1,16 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Dynamic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Jint.Native;
-using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
 using MongoDB.Bson;
-using Newtonsoft.Json.Linq;
 using Shapes;
 using Xunit;
 
@@ -26,12 +23,12 @@ namespace Jint.Tests.Runtime
         public InteropTests()
         {
             _engine = new Engine(cfg => cfg.AllowClr(
-                typeof(Shape).GetTypeInfo().Assembly,
-                typeof(Console).GetTypeInfo().Assembly,
-                typeof(System.IO.File).GetTypeInfo().Assembly))
-                .SetValue("log", new Action<object>(Console.WriteLine))
-                .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                        typeof(Shape).GetTypeInfo().Assembly,
+                        typeof(Console).GetTypeInfo().Assembly,
+                        typeof(System.IO.File).GetTypeInfo().Assembly))
+                    .SetValue("log", new Action<object>(Console.WriteLine))
+                    .SetValue("assert", new Action<bool>(Assert.True))
+                    .SetValue("equal", new Action<object, object>(Assert.Equal))
                 ;
         }
 
@@ -46,7 +43,10 @@ namespace Jint.Tests.Runtime
 
         public class Foo
         {
-            public static Bar GetBar() => new Bar();
+            public static Bar GetBar()
+            {
+                return new Bar();
+            }
         }
 
         public class Bar
@@ -62,18 +62,17 @@ namespace Jint.Tests.Runtime
             Assert.Equal("{\"Test\":\"123\"}", json);
         }
 
+
         [Fact]
-        public void EngineShouldStringifyAnExpandoObjectCorrectly()
+        public void EngineShouldStringifyADictionary()
         {
             var engine = new Engine();
 
-            dynamic expando = new ExpandoObject();
-            expando.foo = 5;
-            expando.bar = "A string";
-            engine.SetValue(nameof(expando), expando);
+            var d = new Hashtable();
+            d["Values"] = 1;
+            engine.SetValue("d", d);
 
-            var result = engine.Evaluate($"JSON.stringify({nameof(expando)})").AsString();
-            Assert.Equal("{\"foo\":5,\"bar\":\"A string\"}", result);
+            Assert.Equal("{\"Values\":1}", engine.Evaluate($"JSON.stringify(d)").AsString());
         }
 
         [Fact]
@@ -81,9 +80,10 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            var dictionary = new Dictionary<string, object> {
+            var dictionary = new Dictionary<string, object>
+            {
                 { "foo", 5 },
-                { "bar", "A string"},
+                { "bar", "A string" }
             };
             engine.SetValue(nameof(dictionary), dictionary);
 
@@ -148,9 +148,9 @@ namespace Jint.Tests.Runtime
 
             var argument = new Dictionary<string, object>
             {
-                {"item2", "item2 value"},
-                {"item", "item value"},
-                {"Item", "Item value"}
+                { "item2", "item2 value" },
+                { "item", "item value" },
+                { "Item", "Item value" }
             };
 
             Assert.Equal("item2 value", _engine.Invoke("item2", argument));
@@ -265,6 +265,7 @@ namespace Jint.Tests.Runtime
         }
 
         private delegate string callParams(params object[] values);
+
         private delegate string callArgumentAndParams(string firstParam, params object[] values);
 
         [Fact]
@@ -438,15 +439,9 @@ namespace Jint.Tests.Runtime
 
         private class DoubleIndexedClass
         {
-            public int this[int index]
-            {
-                get { return index; }
-            }
+            public int this[int index] => index;
 
-            public string this[string index]
-            {
-                get { return index; }
-            }
+            public string this[string index] => index;
         }
 
         [Fact]
@@ -483,7 +478,6 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void CanUseMultiGenericTypes()
         {
-
             RunTest(@"
                 var type = System.Collections.Generic.Dictionary(System.Int32, System.String);
                 var dictionary = new type();
@@ -552,23 +546,9 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldForOfOnDictionaries()
         {
-            _engine.SetValue("dict", new Dictionary<string, string> { {"a", "1"}, {"b", "2"} });
+            _engine.SetValue("dict", new Dictionary<string, string> { { "a", "1" }, { "b", "2" } });
 
             var result = _engine.Evaluate("var l = ''; for (var x of dict) l += x; return l;").AsString();
-
-            Assert.Equal("a,1b,2", result);
-        }
-
-        [Fact]
-        public void ShouldForOfOnExpandoObject()
-        {
-            dynamic o = new ExpandoObject();
-            o.a = 1;
-            o.b = 2;
-
-            _engine.SetValue("dynamic", o);
-
-            var result = _engine.Evaluate("var l = ''; for (var x of dynamic) l += x; return l;").AsString();
 
             Assert.Equal("a,1b,2", result);
         }
@@ -599,7 +579,7 @@ namespace Jint.Tests.Runtime
         {
             var p = new
             {
-                Name = "Mickey Mouse",
+                Name = "Mickey Mouse"
             };
 
             _engine.SetValue("p", p);
@@ -633,7 +613,7 @@ namespace Jint.Tests.Runtime
             var o = new
             {
                 x = new JsNumber(1),
-                y = new JsString("string"),
+                y = new JsString("string")
             };
 
             _engine.SetValue("o", o);
@@ -697,7 +677,7 @@ namespace Jint.Tests.Runtime
         {
             var p = new Person
             {
-                Name = "foo",
+                Name = "foo"
             };
 
             _engine.SetValue("p", p);
@@ -718,7 +698,7 @@ namespace Jint.Tests.Runtime
         {
             var p = new Person
             {
-                Name = "foo",
+                Name = "foo"
             };
 
             _engine.SetValue("p", p);
@@ -828,9 +808,20 @@ namespace Jint.Tests.Runtime
             public TestEnumInt32? NullableEnum { get; set; }
             public TestStruct? NullableStruct { get; set; }
 
-            public void SetBool(bool value) => Bool = value;
-            public void SetInt(int value) => Int = value;
-            public void SetString(string value) => String = value;
+            public void SetBool(bool value)
+            {
+                Bool = value;
+            }
+
+            public void SetInt(int value)
+            {
+                Int = value;
+            }
+
+            public void SetString(string value)
+            {
+                String = value;
+            }
         }
 
         [Fact]
@@ -891,6 +882,7 @@ namespace Jint.Tests.Runtime
                     {
                         instance.SetPrototypeOf(engine.Realm.Intrinsics.Array.PrototypeObject);
                     }
+
                     return instance;
                 })
             );
@@ -910,16 +902,6 @@ namespace Jint.Tests.Runtime
 
             var name = e.Evaluate("o.values.filter(x => x.age == 12)[0].name").ToString();
             Assert.Equal("John", name);
-        }
-
-        [Fact]
-        public void CanAccessExpandoObject()
-        {
-            var engine = new Engine();
-            dynamic expando = new ExpandoObject();
-            expando.Name = "test";
-            engine.SetValue("expando", expando);
-            Assert.Equal("test", engine.Evaluate("expando.Name").ToString());
         }
 
         [Fact]
@@ -970,7 +952,7 @@ namespace Jint.Tests.Runtime
         {
             JsValue adder(JsValue argValue)
             {
-                ArrayInstance args = argValue.AsArray();
+                var args = argValue.AsArray();
                 double sum = 0;
                 foreach (var item in args)
                 {
@@ -979,8 +961,10 @@ namespace Jint.Tests.Runtime
                         sum += item.AsNumber();
                     }
                 }
+
                 return sum;
             }
+
             var result = _engine.SetValue("getSum", new Func<JsValue, JsValue>(adder))
                 .Evaluate("getSum([1,2,3]);");
 
@@ -999,10 +983,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldAllowBooleanCoercion()
         {
-            var engine = new Engine(options =>
-            {
-                options.Interop.ValueCoercion = ValueCoercionType.Boolean;
-            });
+            var engine = new Engine(options => { options.Interop.ValueCoercion = ValueCoercionType.Boolean; });
 
             engine.SetValue("o", new TestClass());
             Assert.True(engine.Evaluate("o.Bool = 1; return o.Bool;").AsBoolean());
@@ -1032,10 +1013,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldAllowNumberCoercion()
         {
-            var engine = new Engine(options =>
-            {
-                options.Interop.ValueCoercion = ValueCoercionType.Number;
-            });
+            var engine = new Engine(options => { options.Interop.ValueCoercion = ValueCoercionType.Number; });
 
             engine.SetValue("o", new TestClass());
             Assert.Equal(1, engine.Evaluate("o.Int = true; return o.Int;").AsNumber());
@@ -1064,10 +1042,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldAllowStringCoercion()
         {
-            var engine = new Engine(options =>
-            {
-                options.Interop.ValueCoercion = ValueCoercionType.String;
-            });
+            var engine = new Engine(options => { options.Interop.ValueCoercion = ValueCoercionType.String; });
 
             // basic premise, booleans in JS are lower-case, so should the the toString under interop
             Assert.Equal("true", engine.Evaluate("'' + true").AsString());
@@ -1134,24 +1109,6 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal(typeof(string), value.GetType());
             Assert.Equal("foo", value);
-        }
-
-        [Fact]
-        public void ShouldConvertObjectInstanceToExpando()
-        {
-            _engine.Evaluate("var o = {a: 1, b: 'foo'}");
-            var result = _engine.GetValue("o");
-
-            dynamic value = result.ToObject();
-
-            Assert.Equal(1, value.a);
-            Assert.Equal("foo", value.b);
-
-            var dic = (IDictionary<string, object>) result.ToObject();
-
-            Assert.Equal(1d, dic["a"]);
-            Assert.Equal("foo", dic["b"]);
-
         }
 
         [Fact]
@@ -1457,7 +1414,6 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void CanSetCustomConverters()
         {
-
             var engine1 = new Engine();
             engine1.SetValue("p", new { Test = true });
             engine1.Execute("var result = p.Test;");
@@ -1467,7 +1423,6 @@ namespace Jint.Tests.Runtime
             engine2.SetValue("p", new { Test = true });
             engine2.Execute("var result = p.Test;");
             Assert.False((bool) engine2.GetValue("result").ToObject());
-
         }
 
         [Fact]
@@ -1486,7 +1441,7 @@ namespace Jint.Tests.Runtime
         {
             var p = new Person
             {
-                Age = 1,
+                Age = 1
             };
 
             _engine.SetValue("p", p);
@@ -1550,7 +1505,7 @@ namespace Jint.Tests.Runtime
         {
             var s = new Circle
             {
-                Color = Colors.Red,
+                Color = Colors.Red
             };
 
             _engine.SetValue("s", s);
@@ -1573,42 +1528,42 @@ namespace Jint.Tests.Runtime
             Assert.Equal(Colors.Blue | Colors.Green, s.Color);
         }
 
-        enum TestEnumInt32 : int
+        private enum TestEnumInt32 : int
         {
             None,
             One = 1,
             Min = int.MaxValue,
-            Max = int.MaxValue,
+            Max = int.MaxValue
         }
 
-        enum TestEnumUInt32 : uint
+        private enum TestEnumUInt32 : uint
         {
             None,
             One = 1,
             Min = uint.MaxValue,
-            Max = uint.MaxValue,
+            Max = uint.MaxValue
         }
 
-        enum TestEnumInt64 : long
+        private enum TestEnumInt64 : long
         {
             None,
             One = 1,
             Min = long.MaxValue,
-            Max = long.MaxValue,
+            Max = long.MaxValue
         }
 
-        enum TestEnumUInt64 : ulong
+        private enum TestEnumUInt64 : ulong
         {
             None,
             One = 1,
             Min = ulong.MaxValue,
-            Max = ulong.MaxValue,
+            Max = ulong.MaxValue
         }
 
-        void TestEnum<T>(T enumValue)
+        private void TestEnum<T>(T enumValue)
         {
-            object i = Convert.ChangeType(enumValue, Enum.GetUnderlyingType(typeof(T)));
-            string s = Convert.ToString(i, CultureInfo.InvariantCulture);
+            var i = Convert.ChangeType(enumValue, Enum.GetUnderlyingType(typeof(T)));
+            var s = Convert.ToString(i, CultureInfo.InvariantCulture);
             var o = new Tuple<T>(enumValue);
             _engine.SetValue("o", o);
             RunTest("assert(o.Item1 === " + s + ");");
@@ -1674,7 +1629,7 @@ namespace Jint.Tests.Runtime
         {
             var s = new Circle
             {
-                Color = Colors.Red,
+                Color = Colors.Red
             };
 
             _engine.SetValue("s", s);
@@ -2042,7 +1997,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldCatchAllClrExceptions()
         {
-            string exceptionMessage = "myExceptionMessage";
+            var exceptionMessage = "myExceptionMessage";
 
             var engine = new Engine(o => o.CatchClrExceptions())
                 .SetValue("throwMyException", new Action(() => { throw new Exception(exceptionMessage); }))
@@ -2073,24 +2028,26 @@ namespace Jint.Tests.Runtime
             Assert.Equal(engine.Invoke("throwException2").AsString(), exceptionMessage);
         }
 
-        class MemberExceptionTest
+        private class MemberExceptionTest
         {
             public MemberExceptionTest(bool throwOnCreate)
             {
                 if (throwOnCreate)
+                {
                     throw new InvalidOperationException("thrown as requested");
+                }
             }
 
             public JsValue ThrowingProperty1
             {
-                get { throw new InvalidOperationException(); }
-                set { throw new InvalidOperationException(); }
+                get => throw new InvalidOperationException();
+                set => throw new InvalidOperationException();
             }
 
             public object ThrowingProperty2
             {
-                get { throw new InvalidOperationException(); }
-                set { throw new InvalidOperationException(); }
+                get => throw new InvalidOperationException();
+                set => throw new InvalidOperationException();
             }
 
             public void ThrowingFunction()
@@ -2111,7 +2068,7 @@ namespace Jint.Tests.Runtime
             engine.SetValue("assert", new Action<bool>(Assert.True));
             engine.SetValue("log", new Action<object>(Console.WriteLine));
             engine.SetValue("create", typeof(MemberExceptionTest));
-            engine.SetValue("instance", new MemberExceptionTest(throwOnCreate: false));
+            engine.SetValue("instance", new MemberExceptionTest(false));
 
             // Test calling a constructor that throws an exception
             engine.Execute(@"
@@ -2179,7 +2136,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldCatchSomeExceptions()
         {
-            string exceptionMessage = "myExceptionMessage";
+            var exceptionMessage = "myExceptionMessage";
 
             var engine = new Engine(o => o.CatchClrExceptions(e => e is NotSupportedException))
                 .SetValue("throwMyException1", new Action(() => { throw new NotSupportedException(exceptionMessage); }))
@@ -2238,8 +2195,8 @@ namespace Jint.Tests.Runtime
         {
             var list = new List<Person>
             {
-                new Person {Name = "Mike"},
-                new Person {Name = "Mika"}
+                new Person { Name = "Mike" },
+                new Person { Name = "Mika" }
             };
             _engine.SetValue("a", list);
 
@@ -2263,8 +2220,8 @@ namespace Jint.Tests.Runtime
         {
             var list = new[]
             {
-                new Person {Name = "Mike"},
-                new Person {Name = "Mika"}
+                new Person { Name = "Mike" },
+                new Person { Name = "Mika" }
             };
             _engine.SetValue("a", list);
 
@@ -2288,8 +2245,8 @@ namespace Jint.Tests.Runtime
         {
             var enumerable = new[]
             {
-                new Person {Name = "Mike"},
-                new Person {Name = "Mika"}
+                new Person { Name = "Mike" },
+                new Person { Name = "Mika" }
             }.Select(x => x);
 
             _engine.SetValue("a", enumerable);
@@ -2334,12 +2291,12 @@ namespace Jint.Tests.Runtime
             Assert.Equal((uint) 0, c.As<ObjectInstance>().Length);
         }
 
-        class DictionaryWrapper
+        private class DictionaryWrapper
         {
             public IDictionary<string, object> Values { get; set; }
         }
 
-        class DictionaryTest
+        private class DictionaryTest
         {
             public void Test1(IDictionary<string, object> values)
             {
@@ -2374,7 +2331,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
             var state = new Dictionary<string, object>
             {
-                {"invoice", new Dictionary<string, object> {["number"] = "42"}}
+                { "invoice", new Dictionary<string, object> { ["number"] = "42" } }
             };
             engine.SetValue("state", state);
 
@@ -2392,7 +2349,7 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
             var state = new Dictionary<string, object>
             {
-                {"invoice", new Dictionary<string, object> {["number"] = "42"}}
+                { "invoice", new Dictionary<string, object> { ["number"] = "42" } }
             };
             engine.SetValue("state", state);
 
@@ -2434,8 +2391,8 @@ namespace Jint.Tests.Runtime
 
             engine.SetValue("netObj", new Dictionary<string, object>
             {
-                {"key1", "value1"},
-                {"key2", "value2"},
+                { "key1", "value1" },
+                { "key2", "value2" }
             });
 
             var jsValue = engine.Evaluate("jsObj['key1']").AsString();
@@ -2478,43 +2435,6 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void AccessingJObjectShouldWork()
-        {
-            var o = new JObject
-            {
-                new JProperty("name", "test-name")
-            };
-            _engine.SetValue("o", o);
-            Assert.True(_engine.Evaluate("return o.name == 'test-name'").AsBoolean());
-        }
-
-        [Fact]
-        public void AccessingJArrayViaIntegerIndexShouldWork()
-        {
-            var o = new JArray("item1", "item2");
-            _engine.SetValue("o", o);
-            Assert.True(_engine.Evaluate("return o[0] == 'item1'").AsBoolean());
-            Assert.True(_engine.Evaluate("return o[1] == 'item2'").AsBoolean());
-        }
-
-        [Fact]
-        public void DictionaryLikeShouldCheckIndexerAndFallBackToProperty()
-        {
-            const string json = @"{ ""Type"": ""Cat"" }";
-            var jObjectWithTypeProperty = JObject.Parse(json);
-
-            _engine.SetValue("o", jObjectWithTypeProperty);
-
-            var typeResult = _engine.Evaluate("o.Type");
-
-            // JToken requires conversion
-            Assert.Equal("Cat", TypeConverter.ToString(typeResult));
-
-            // weak equality does conversions from native types
-            Assert.True(_engine.Evaluate("o.Type == 'Cat'").AsBoolean());
-        }
-
-        [Fact]
         public void IndexingBsonProperties()
         {
             const string jsonAnimals = @" { ""Animals"": [ { ""Id"": 1, ""Type"": ""Cat"" } ] }";
@@ -2525,70 +2445,6 @@ namespace Jint.Tests.Runtime
             // weak equality does conversions from native types
             Assert.True(_engine.Evaluate("animals[0].Type == 'Cat'").AsBoolean());
             Assert.True(_engine.Evaluate("animals[0].Id == 1").AsBoolean());
-        }
-
-        [Fact]
-        public void CanAccessDynamicObject()
-        {
-            var test = new DynamicClass();
-            var engine = new Engine();
-
-            engine.SetValue("test", test);
-
-            Assert.Equal("a", engine.Evaluate("test.a").AsString());
-            Assert.Equal("b", engine.Evaluate("test.b").AsString());
-
-            engine.Evaluate("test.a = 5; test.b = 10; test.Name = 'Jint'");
-
-            Assert.Equal(5, engine.Evaluate("test.a").AsNumber());
-            Assert.Equal(10, engine.Evaluate("test.b").AsNumber());
-
-            Assert.Equal("Jint", engine.Evaluate("test.Name").AsString());
-            Assert.True(engine.Evaluate("test.ContainsKey('a')").AsBoolean());
-            Assert.True(engine.Evaluate("test.ContainsKey('b')").AsBoolean());
-            Assert.False(engine.Evaluate("test.ContainsKey('c')").AsBoolean());
-        }
-
-        [Fact]
-        public void CanAccessMemberNamedItemThroughExpando()
-        {
-            var parent = (IDictionary<string, object>) new ExpandoObject();
-            var child = (IDictionary<string, object>) new ExpandoObject();
-            var values = (IDictionary<string, object>) new ExpandoObject();
-
-            parent["child"] = child;
-            child["item"] = values;
-            values["title"] = "abc";
-
-            _engine.SetValue("parent", parent);
-            Assert.Equal("abc", _engine.Evaluate("parent.child.item.title"));
-        }
-
-        private class DynamicClass : DynamicObject
-        {
-            private readonly Dictionary<string, object> _properties = new Dictionary<string, object>();
-
-            public override bool TryGetMember(GetMemberBinder binder, out object result)
-            {
-                result = binder.Name;
-                if (_properties.TryGetValue(binder.Name, out var value))
-                {
-                    result = value;
-                }
-                return true;
-            }
-
-            public override bool TrySetMember(SetMemberBinder binder, object value)
-            {
-                _properties[binder.Name] = value;
-                return true;
-            }
-
-            public string Name { get; set; }
-            public bool ContainsKey(string key)
-            {
-                return _properties.ContainsKey(key);
-            }
         }
 
         [Fact]
@@ -2709,7 +2565,10 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            static void Test(string message, object value) { Console.WriteLine(message); }
+            static void Test(string message, object value)
+            {
+                Console.WriteLine(message);
+            }
 
             engine.Realm.GlobalObject.FastAddProperty("global", engine.Realm.GlobalObject, true, true, true);
             engine.Realm.GlobalObject.FastAddProperty("test", new DelegateWrapper(engine, (Action<string, object>) Test), true, true, true);
@@ -2772,9 +2631,10 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            var dictionary = new Dictionary<string, object> {
+            var dictionary = new Dictionary<string, object>
+            {
                 { "foo", 5 },
-                { "bar", "A string"},
+                { "bar", "A string" }
             };
             engine.SetValue("dictionary", dictionary);
 
@@ -2825,7 +2685,7 @@ namespace Jint.Tests.Runtime
         {
             static IEnumerable<string> MemberNameCreator(MemberInfo prop)
             {
-                var attributes = prop.GetCustomAttributes(typeof(CustomNameAttribute), inherit: true);
+                var attributes = prop.GetCustomAttributes(typeof(CustomNameAttribute), true);
                 if (attributes.Length > 0)
                 {
                     foreach (CustomNameAttribute attribute in attributes)
@@ -2872,6 +2732,19 @@ namespace Jint.Tests.Runtime
             engine.SetValue("a", new Person());
             var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("a.age = \"It won't work, but it's normal\""));
             Assert.Equal("Input string was not in a correct format.", ex.Message);
+        }
+
+        [Fact]
+        public void ShouldLetNotSupportedExceptionBubble()
+        {
+            _engine.SetValue("profile", new Profile());
+            var ex = Assert.Throws<NotSupportedException>(() => _engine.Evaluate("profile.AnyProperty"));
+            Assert.Equal("NOT SUPPORTED", ex.Message);
+        }
+
+        private class Profile
+        {
+            public int AnyProperty => throw new NotSupportedException("NOT SUPPORTED");
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 using Jint.Native.Object;
@@ -8,7 +9,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Array
 {
-    public class ArrayInstance : ObjectInstance
+    public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     {
         internal PropertyDescriptor _length;
 
@@ -684,11 +685,14 @@ namespace Jint.Native.Array
             var length = GetLength();
             for (uint i = 0; i < length; i++)
             {
-                if (TryGetValue(i, out JsValue outValue))
-                {
-                    yield return outValue;
-                }
-            };
+                TryGetValue(i, out var outValue);
+                yield return outValue;
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
 
         internal uint Push(JsValue[] arguments)
@@ -851,20 +855,6 @@ namespace Jint.Native.Array
                 TryGetValue(index, out var kValue);
                 return kValue;
             }
-        }
-
-        internal ArrayInstance ToArray(Engine engine)
-        {
-            var length = GetLength();
-            var array = _engine.Realm.Intrinsics.Array.ConstructFast(length);
-            for (uint i = 0; i < length; i++)
-            {
-                if (TryGetValue(i, out var kValue))
-                {
-                    array.SetIndexValue(i, kValue, updateLength: false);
-                }
-            }
-            return array;
         }
 
         /// <summary>

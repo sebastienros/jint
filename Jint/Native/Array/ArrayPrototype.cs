@@ -959,7 +959,7 @@ namespace Jint.Native.Array
             // don't eat inner exceptions
             try
             {
-                var array = obj.OrderBy(x => x, ArrayComparer.WithFunction(compareFn)).ToArray();
+                var array = obj.OrderBy(x => x, ArrayComparer.WithFunction(_engine, compareFn)).ToArray();
 
                 for (uint i = 0; i < (uint) array.Length; ++i)
                 {
@@ -1399,22 +1399,25 @@ namespace Jint.Native.Array
             /// <summary>
             /// Default instance without any compare function.
             /// </summary>
-            public static ArrayComparer Default = new ArrayComparer(null);
-            public static ArrayComparer WithFunction(ICallable compare)
+            public static readonly ArrayComparer Default = new(null, null);
+
+            public static ArrayComparer WithFunction(Engine engine, ICallable compare)
             {
                 if (compare == null)
                 {
                     return Default;
                 }
 
-                return new ArrayComparer(compare);
+                return new ArrayComparer(engine, compare);
             }
 
+            private readonly Engine _engine;
             private readonly ICallable _compare;
             private readonly JsValue[] _comparableArray = new JsValue[2];
 
-            private ArrayComparer(ICallable compare)
+            private ArrayComparer(Engine engine, ICallable compare)
             {
+                _engine = engine;
                 _compare = compare;
             }
 
@@ -1459,6 +1462,8 @@ namespace Jint.Native.Array
 
                 if (_compare != null)
                 {
+                    _engine.RunBeforeExecuteStatementChecks(null);
+
                     _comparableArray[0] = x;
                     _comparableArray[1] = y;
 

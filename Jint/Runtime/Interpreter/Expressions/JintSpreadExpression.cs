@@ -30,7 +30,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return Completion.Normal(objectInstance, _expression.Location);
         }
 
-        internal void GetValueAndCheckIterator(EvaluationContext context, out JsValue instance, out IIterator iterator)
+        internal void GetValueAndCheckIterator(EvaluationContext context, out JsValue instance, out IteratorInstance iterator)
         {
             instance = _argument.GetValue(context).Value;
             if (instance is null || !instance.TryGetIterator(context.Engine.Realm, out iterator))

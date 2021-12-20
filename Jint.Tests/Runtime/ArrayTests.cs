@@ -115,6 +115,22 @@ namespace Jint.Tests.Runtime
             _engine.Execute(code);
         }
 
+#if !NETCOREAPP
+        // this test case only triggers on older full framework where the is no checks for infinite comparisons
+        [Fact]
+        public void ArraySortShouldObeyExecutionConstraints()
+        {
+            const string script = @"
+                let cases = [5,5];
+                let latestCase = cases.sort((c1, c2) => c1 > c2 ? -1: 1);";
+
+            var engine = new Engine(options => options
+                .TimeoutInterval(TimeSpan.FromSeconds(1))
+            );
+            Assert.Throws<TimeoutException>(() => engine.Evaluate(script));
+        }
+#endif
+
         [Fact]
         public void ExtendingArrayAndInstanceOf()
         {

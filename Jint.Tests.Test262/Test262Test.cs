@@ -59,6 +59,7 @@ namespace Jint.Tests.Test262
                 "propertyHelper.js",
                 "compareArray.js",
                 "decimalToHexString.js",
+                "deepEqual.js",
                 "proxyTrapsHelper.js",
                 "dateConstants.js",
                 "assertRelativeDateMs.js",
@@ -70,7 +71,8 @@ namespace Jint.Tests.Test262
                 "fnGlobalObject.js",
                 "testTypedArray.js",
                 "detachArrayBuffer.js",
-                "byteConversionValues.js"
+                "byteConversionValues.js",
+                "hidden-constructors.js",
             };
 
             Sources = new Dictionary<string, Script>(files.Length);
@@ -145,12 +147,6 @@ namespace Jint.Tests.Test262
                 var files = includes.Groups[1].Captures[0].Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
                 foreach (var file in files)
                 {
-                    if (file == "hidden-constructors.js")
-                    {
-                        // suite refers to non-existent file
-                        continue;
-                    }
-
                     engine.Execute(Sources[file.Trim()]);
                 }
             }

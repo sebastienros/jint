@@ -374,16 +374,6 @@ namespace Jint
             return result;
         }
 
-        internal readonly struct Record
-        {
-            public Record(JsValue key, ScriptFunctionInstance closure)
-            {
-                Key = key;
-                Closure = closure;
-            }
-
-            public readonly JsValue Key;
-            public readonly ScriptFunctionInstance Closure;
-        }
+        internal readonly record struct Record(JsValue Key, ScriptFunctionInstance Closure);
     }
 }

@@ -37,6 +37,7 @@ namespace Jint
 
         public static bool TryConvert(Engine engine, object value, out JsValue result)
         {
+            result = null;
             var valueType = value.GetType();
 
             var typeMappers = _typeMappers;
@@ -57,45 +58,84 @@ namespace Jint
                         }, typeMappers);
 
                     result = ConvertArray(engine, a);
+                    return result is not null;
+                }
+
+                if (value is IConvertible convertible && TryConvertConvertible(engine, convertible, out result))
+                {
+                    return true;
+                }
+
+                if (value is Delegate d)
+                {
+                    result = new DelegateWrapper(engine, d);
                 }
                 else
                 {
-                    if (value is Delegate d)
-                    {
-                        result = new DelegateWrapper(engine, d);
-                    }
-                    else
-                    {
-                        var t = value.GetType();
-                        if (t.IsEnum)
-                        {
-                            var ut = Enum.GetUnderlyingType(t);
+                    var t = value.GetType();
 
-                            if (ut == typeof(ulong))
-                            {
-                                result = JsNumber.Create(Convert.ToDouble(value));
-                            }
-                            else
-                            {
-                                if (ut == typeof(uint) || ut == typeof(long))
-                                {
-                                    result = JsNumber.Create(Convert.ToInt64(value));
-                                }
-                                else
-                                {
-                                    result = JsNumber.Create(Convert.ToInt32(value));
-                                }
-                            }
+                    if (!engine.Options.Interop.AllowSystemReflection
+                        && t.Namespace?.StartsWith("System.Reflection") == true)
+                    {
+                        const string message = "Cannot access System.Reflection namespace, check Engine's interop options";
+                        ExceptionHelper.ThrowInvalidOperationException(message);
+                    }
+
+                    if (t.IsEnum)
+                    {
+                        var ut = Enum.GetUnderlyingType(t);
+
+                        if (ut == typeof(ulong))
+                        {
+                            result = JsNumber.Create(Convert.ToDouble(value));
                         }
                         else
                         {
-                            result = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value);
+                            if (ut == typeof(uint) || ut == typeof(long))
+                            {
+                                result = JsNumber.Create(Convert.ToInt64(value));
+                            }
+                            else
+                            {
+                                result = JsNumber.Create(Convert.ToInt32(value));
+                            }
                         }
-
-                        // if no known type could be guessed, use the default of wrapping using using ObjectWrapper.
                     }
+                    else
+                    {
+                        result = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value);
+                    }
+
+                    // if no known type could be guessed, use the default of wrapping using using ObjectWrapper.
                 }
             }
+
+            return result is not null;
+        }
+
+        private static bool TryConvertConvertible(Engine engine, IConvertible convertible, out JsValue result)
+        {
+            result = convertible.GetTypeCode() switch
+            {
+                TypeCode.Boolean => convertible.ToBoolean(engine.Options.Culture) ? JsBoolean.True : JsBoolean.False,
+                TypeCode.Byte => JsNumber.Create(convertible.ToByte(engine.Options.Culture)),
+                TypeCode.Char => JsString.Create(convertible.ToChar(engine.Options.Culture)),
+                TypeCode.Double => JsNumber.Create(convertible.ToDouble(engine.Options.Culture)),
+                TypeCode.SByte => JsNumber.Create(convertible.ToSByte(engine.Options.Culture)),
+                TypeCode.Int16 => JsNumber.Create(convertible.ToInt16(engine.Options.Culture)),
+                TypeCode.Int32 => JsNumber.Create(convertible.ToInt32(engine.Options.Culture)),
+                TypeCode.UInt16 => JsNumber.Create(convertible.ToUInt16(engine.Options.Culture)),
+                TypeCode.Int64 => JsNumber.Create(convertible.ToInt64(engine.Options.Culture)),
+                TypeCode.Single => JsNumber.Create(convertible.ToSingle(engine.Options.Culture)),
+                TypeCode.String => JsString.Create(convertible.ToString(engine.Options.Culture)),
+                TypeCode.UInt32 => JsNumber.Create(convertible.ToUInt32(engine.Options.Culture)),
+                TypeCode.UInt64 => JsNumber.Create(convertible.ToUInt64(engine.Options.Culture)),
+                TypeCode.DateTime => engine.Realm.Intrinsics.Date.Construct(convertible.ToDateTime(engine.Options.Culture)),
+                TypeCode.Decimal => JsNumber.Create(convertible.ToDecimal(engine.Options.Culture)),
+                TypeCode.DBNull => JsValue.Null,
+                TypeCode.Empty => JsValue.Null,
+                _ => null
+            };
 
             return result is not null;
         }
