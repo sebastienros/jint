@@ -244,7 +244,8 @@ namespace Jint
         }
 
         /// <summary>
-        /// Enables module loading in the engine via the 'require' function
+        /// Enables module loading in the engine via the 'require' function. By default there's no sand-boxing and
+        /// you need to trust the script loading the modules not doing bad things.
         /// </summary>
         public static Options EnableModules(this Options options, bool enable = true)
         {
@@ -253,7 +254,15 @@ namespace Jint
         }
 
         /// <summary>
-        /// Allows to configure how modules are loaded
+        /// Allows to configure module loader implementation.
+        /// </summary>
+        public static Options WithModuleLoader<T>(this Options options) where T : IModuleLoader, new()
+        {
+            return WithModuleLoader(options, new T());
+        }
+
+        /// <summary>
+        /// Allows to configure module loader implementation.
         /// </summary>
         public static Options WithModuleLoader(this Options options, IModuleLoader moduleLoader)
         {
@@ -262,7 +271,7 @@ namespace Jint
         }
 
         /// <summary>
-        /// Allows to configure where modules are loaded from
+        /// Allows to configure where modules are loaded from.
         /// </summary>
         public static Options WithModuleSource(this Options options, params IModuleSource[] sources)
         {

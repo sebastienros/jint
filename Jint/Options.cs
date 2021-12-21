@@ -105,7 +105,7 @@ namespace Jint
 
             if (Modules.Enabled)
             {
-                engine.ModuleLoader = Modules.ModuleLoader ?? new ModuleLoader();
+                engine.ModuleLoader = Modules.ModuleLoader;
                 engine.ModuleLoader.AddModuleSource(Modules.ModuleSources.Distinct().ToArray());
 
                 //Node js like loading of modules
@@ -117,12 +117,12 @@ namespace Jint
                         var specifier = TypeConverter.ToString(arguments.At(0));
                         var module = engine.LoadModule(specifier);
                         return JsModule.GetModuleNamespace(module);
-                    }), 
+                    }),
                     PropertyFlag.AllForbidden));
             }
             else
             {
-                engine.ModuleLoader = new ModuleLoader();
+                engine.ModuleLoader = FailFastModuleLoader.Instance;
             }
 
             // ensure defaults
@@ -358,17 +358,17 @@ namespace Jint
     public class ModuleOptions
     {
         /// <summary>
-        /// Indicates if modules are enabled in the current engine context
+        /// Indicates if modules are enabled in the current engine context, defaults to false.
         /// </summary>
-        public bool Enabled { get; set; } = false;
+        public bool Enabled { get; set; }
 
         /// <summary>
-        /// Module loader implementation
+        /// Module loader implementation.
         /// </summary>
-        public IModuleLoader ModuleLoader { get; set; } = new ModuleLoader();
+        public IModuleLoader ModuleLoader { get; set; } = new DefaultModuleLoader();
 
         /// <summary>
-        /// Module sources for the module loader implementation
+        /// Module sources for the module loader implementation.
         /// </summary>
         public List<IModuleSource> ModuleSources { get; } = new();
     }

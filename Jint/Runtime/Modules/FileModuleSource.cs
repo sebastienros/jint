@@ -1,22 +1,23 @@
 ﻿using System;
 using System.IO;
 
-namespace Jint.Runtime.Modules
+namespace Jint.Runtime.Modules;
+
+internal sealed class FileModuleSource : IModuleSource
 {
-    internal sealed class FileModuleSource : IModuleSource
+    internal static readonly FileModuleSource Instance = new();
+
+    public bool TryLoadModuleSource(Uri location, out string moduleSourceCode)
     {
-        public bool TryLoadModuleSource(Uri location, out string moduleSourceCode)
+        try
         {
-            try
-            {
-                moduleSourceCode = File.ReadAllText(location.AbsolutePath);
-                return true;
-            }
-            catch
-            {
-                moduleSourceCode = null;
-                return false;
-            }
+            moduleSourceCode = File.ReadAllText(location.AbsolutePath);
+            return true;
+        }
+        catch
+        {
+            moduleSourceCode = null;
+            return false;
         }
     }
 }

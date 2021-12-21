@@ -146,18 +146,10 @@ namespace Jint
                 {
                     var ie = importEntries[i];
 
-                    if (ie.LocalName == null)
-                    {
-                        if (System.Diagnostics.Debugger.IsAttached)
-                        {
-                            System.Diagnostics.Debugger.Break();
-                        }
-                    }
-                    else
+                    if (ie.LocalName is not null)
                     {
                         importedBoundNames.Add(ie.LocalName);
                     }
-
                 }
             }
 
@@ -320,7 +312,7 @@ namespace Jint
                     {
                         _exportEntries ??= new();
                         _requestedModules ??= new();
-                        var export = childNode as ExportDeclaration;
+                        var export = (ExportDeclaration) childNode;
                         export.GetExportEntries(_exportEntries, _requestedModules);
                     }
 

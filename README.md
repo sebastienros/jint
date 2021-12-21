@@ -36,7 +36,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ✔ Template strings
 - ✔ Lexical scoping of variables (let and const)
 - ✔ Map and Set
-- ❌ Modules and module loaders
+- ✔ Modules and module loaders
 - ✔ Promises (Experimental, API is unstable)
 - ✔ Reflect
 - ✔ Proxies
