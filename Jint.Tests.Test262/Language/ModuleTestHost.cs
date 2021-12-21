@@ -9,7 +9,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Test262.Language
 {
-    //Hacky way to get objects from assert.js and sta.js into the module context
+    // Hacky way to get objects from assert.js and sta.js into the module context
     internal sealed class ModuleTestHost : Host
     {
         private readonly static Dictionary<string, JsValue> _staticValues = new();
