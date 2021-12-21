@@ -149,7 +149,7 @@ namespace Jint.Native.Promise
             //      a. Return undefined
             //14. Else
             //      a. Return resultCapability.[[Promise]]
-            if(resultCapability is null)
+            if (resultCapability is null)
             {
                 return JsValue.Undefined;
             }
