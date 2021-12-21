@@ -129,6 +129,7 @@ namespace Jint
             {
                 return TypeConverter.ToString(d);
             }
+
             return literal.Value as string ?? Convert.ToString(literal.Value, provider: null);
         }
 
@@ -205,6 +206,7 @@ namespace Jint
                     parameter = assignmentPattern.Left;
                     continue;
                 }
+
                 break;
             }
         }
@@ -268,13 +270,13 @@ namespace Jint
                 switch (specifier)
                 {
                     case ImportNamespaceSpecifier namespaceSpecifier:
-                        importEntries.Add(new ImportEntry(source, "*", namespaceSpecifier.Local.Name));
+                        importEntries.Add(new ImportEntry(source, "*", namespaceSpecifier.Local.GetModuleKey()));
                         break;
                     case ImportSpecifier importSpecifier:
-                        importEntries.Add(new ImportEntry(source, importSpecifier.Imported.Name, importSpecifier.Local.Name));
+                        importEntries.Add(new ImportEntry(source, importSpecifier.Imported.GetModuleKey(), importSpecifier.Local.GetModuleKey()));
                         break;
                     case ImportDefaultSpecifier defaultSpecifier:
-                        importEntries.Add(new ImportEntry(source, "default", defaultSpecifier.Local.Name));
+                        importEntries.Add(new ImportEntry(source, "default", defaultSpecifier.Local.GetModuleKey()));
                         break;
                 }
             }
@@ -305,11 +307,12 @@ namespace Jint
                     }
                     else
                     {
-                        foreach(var specifier in specifiers)
+                        foreach (var specifier in specifiers)
                         {
-                            exportEntries.Add(new(specifier.Local.Name, namedDeclaration.Source?.StringValue, specifier.Exported.Name, null));
+                            exportEntries.Add(new(specifier.Local.GetModuleKey(), namedDeclaration.Source?.StringValue, specifier.Exported.GetModuleKey(), null));
                         }
                     }
+
                     break;
             }
         }
@@ -318,24 +321,22 @@ namespace Jint
         {
             var names = GetExportNames(declaration);
 
-            if(names.Count == 0)
+            if (names.Count == 0)
             {
                 if (defaultExport)
                 {
                     exportEntries.Add(new("default", null, null, "*default*"));
                 }
-                
             }
             else
             {
-                for(var i = 0; i < names.Count; i++)
+                for (var i = 0; i < names.Count; i++)
                 {
                     var name = names[i];
                     var exportName = defaultExport ? "default" : name;
                     exportEntries.Add(new(exportName, moduleRequest, null, name));
                 }
             }
-            
         }
 
         private static List<string> GetExportNames(StatementListItem declaration)
@@ -346,32 +347,40 @@ namespace Jint
             {
                 case FunctionDeclaration functionDeclaration:
                     var funcName = functionDeclaration.Id?.Name;
-                    if(funcName is not null)
+                    if (funcName is not null)
                     {
                         result.Add(funcName);
                     }
+
                     break;
                 case ClassDeclaration classDeclaration:
                     var className = classDeclaration.Id?.Name;
-                    if(className is not null)
+                    if (className is not null)
                     {
                         result.Add(className);
                     }
+
                     break;
                 case VariableDeclaration variableDeclaration:
                     var declarators = variableDeclaration.Declarations;
-                    foreach(var declarator in declarators)
+                    foreach (var declarator in declarators)
                     {
                         var varName = declarator.Id.As<Identifier>()?.Name;
-                        if(varName is not null)
+                        if (varName is not null)
                         {
                             result.Add(varName);
                         }
                     }
+
                     break;
             }
 
             return result;
+        }
+
+        private static string? GetModuleKey(this Expression expression)
+        {
+            return (expression as Identifier)?.Name ?? (expression as Literal)?.StringValue;
         }
 
         internal readonly record struct Record(JsValue Key, ScriptFunctionInstance Closure);
