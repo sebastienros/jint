@@ -279,11 +279,27 @@ namespace Jint.Native.TypedArray
             return obj;
         }
 
-        internal static void FillTypedArrayInstance(TypedArrayInstance target, System.Array values)
+        internal static void FillTypedArrayInstance<T>(TypedArrayInstance target, T[] values)
         {
             for (var i = 0; i < values.Length; ++i)
             {
-                target.DoIntegerIndexedElementSet(i, Convert.ToDouble(values.GetValue(i)));
+                target.DoIntegerIndexedElementSet(i, Convert.ToDouble(values[i]));
+            }
+        }
+
+        internal static void FillTypedArrayInstance(TypedArrayInstance target, ulong[] values)
+        {
+            for (var i = 0; i < values.Length; ++i)
+            {
+                target.DoIntegerIndexedElementSet(i, values[i]);
+            }
+        }
+
+        internal static void FillTypedArrayInstance(TypedArrayInstance target, long[] values)
+        {
+            for (var i = 0; i < values.Length; ++i)
+            {
+                target.DoIntegerIndexedElementSet(i, values[i]);
             }
         }
     }

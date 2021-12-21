@@ -29,7 +29,7 @@ namespace Jint.Native.String
             : base(engine)
         {
             _prototype = objectPrototype;
-            PrimitiveValue = JsString.Empty;
+            StringData = JsString.Empty;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
             _realm = realm;
             _constructor = constructor;
@@ -109,7 +109,7 @@ namespace Jint.Native.String
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            return s.PrimitiveValue;
+            return s.StringData;
         }
 
         // http://msdn.microsoft.com/en-us/library/system.char.iswhitespace(v=vs.110).aspx
@@ -765,7 +765,7 @@ namespace Jint.Native.String
         {
             if (thisObj is StringInstance si)
             {
-                return si.PrimitiveValue;
+                return si.StringData;
             }
 
             if (thisObj is JsString)

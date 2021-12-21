@@ -21,7 +21,7 @@ namespace Jint.Native.Boolean
             ObjectPrototype objectPrototype) : base(engine)
         {
             _prototype = objectPrototype;
-            PrimitiveValue = JsBoolean.False;
+            BooleanData = JsBoolean.False;
             _realm = realm;
             _constructor = constructor;
         }
@@ -46,7 +46,7 @@ namespace Jint.Native.Boolean
 
             if (thisObj is BooleanInstance bi)
             {
-                return bi.PrimitiveValue;
+                return bi.BooleanData;
             }
 
             ExceptionHelper.ThrowTypeError(_realm);

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics.Contracts;
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using Esprima;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Date;
@@ -87,6 +89,13 @@ namespace Jint
         public static bool IsNumber(this JsValue value)
         {
             return (value._type & (InternalTypes.Number | InternalTypes.Integer)) != 0;
+        }
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsBigInt(this JsValue value)
+        {
+            return (value._type & InternalTypes.BigInt) != 0;
         }
 
         [Pure]
@@ -202,6 +211,12 @@ namespace Jint
         internal static int AsInteger(this JsValue value)
         {
             return (int) ((JsNumber) value)._value;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static BigInteger AsBigInt(this JsValue value)
+        {
+            return ((JsBigInt) value)._value;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -343,13 +358,12 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static long[] AsBigInt64Array(this JsValue value)
         {
-            if (!value.IsUint32Array())
+            if (!value.IsBigInt64Array())
             {
                 ThrowWrongTypeException(value, "BigInt64Array");
             }
 
-            ExceptionHelper.ThrowNotImplementedException();
-            return null;
+            return ((TypedArrayInstance) value).ToNativeArray<long>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -366,8 +380,7 @@ namespace Jint
                 ThrowWrongTypeException(value, "BigUint64Array");
             }
 
-            ExceptionHelper.ThrowNotImplementedException();
-            return null;
+            return ((TypedArrayInstance) value).ToNativeArray<ulong>();
         }
 
         [Pure]
@@ -466,6 +479,19 @@ namespace Jint
         private static void ThrowWrongTypeException(JsValue value, string expectedType)
         {
             ExceptionHelper.ThrowArgumentException($"Expected {expectedType} but got {value._type}");
+        }
+
+        internal static BigInteger ToBigInteger(this JsValue value, Engine engine)
+        {
+            try
+            {
+                return TypeConverter.ToBigInt(value);
+            }
+            catch (ParserException ex)
+            {
+                ExceptionHelper.ThrowSyntaxError(engine.Realm, ex.Message);
+                return default;
+            }
         }
     }
 }

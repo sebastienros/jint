@@ -73,7 +73,7 @@ namespace Jint.Tests.Runtime
         public void CanInteropWithInt32()
         {
             var engine = new Engine();
-            var source = new int[] { 42, 12 };
+            var source = new[] { 42, 12 };
             engine.SetValue("testSubject", engine.Realm.Intrinsics.Int32Array.Construct(source));
             ValidateCreatedTypeArray(engine, "Int32Array");
 
@@ -96,26 +96,26 @@ namespace Jint.Tests.Runtime
             Assert.Equal(source, fromEngine.AsUint32Array());
         }
 
-        [Fact(Skip = "BigInt not implemented")]
+        [Fact]
         public void CanInteropWithBigInt64()
         {
             var engine = new Engine();
             var source = new long[] { 42, 12 };
             engine.SetValue("testSubject", engine.Realm.Intrinsics.BigInt64Array.Construct(source));
-            ValidateCreatedTypeArray(engine, "BigInt64Array");
+            ValidateCreatedBigIntegerTypeArray(engine, "BigInt64Array");
 
             var fromEngine = engine.GetValue("testSubject");
             Assert.True(fromEngine.IsBigInt64Array());
             Assert.Equal(source, fromEngine.AsBigInt64Array());
         }
 
-        [Fact(Skip = "BigInt not implemented")]
+        [Fact]
         public void CanInteropWithBigUint64()
         {
             var engine = new Engine();
             var source = new ulong[] { 42, 12 };
             engine.SetValue("testSubject", engine.Realm.Intrinsics.BigUint64Array.Construct(source));
-            ValidateCreatedTypeArray(engine, "BigUint64Array");
+            ValidateCreatedBigIntegerTypeArray(engine, "BigUint64Array");
 
             var fromEngine = engine.GetValue("testSubject");
             Assert.True(fromEngine.IsBigUint64Array());
@@ -128,6 +128,14 @@ namespace Jint.Tests.Runtime
             Assert.Equal(2, engine.Evaluate("testSubject.length").AsNumber());
             Assert.Equal(42, engine.Evaluate("testSubject[0]").AsNumber());
             Assert.Equal(12, engine.Evaluate("testSubject[1]").AsNumber());
+        }
+
+        private static void ValidateCreatedBigIntegerTypeArray(Engine engine, string arrayName)
+        {
+            Assert.Equal(arrayName, engine.Evaluate("testSubject.constructor.name").AsString());
+            Assert.Equal(2, engine.Evaluate("testSubject.length").AsNumber());
+            Assert.Equal(42, engine.Evaluate("testSubject[0]").AsBigInt());
+            Assert.Equal(12, engine.Evaluate("testSubject[1]").AsBigInt());
         }
     }
 }

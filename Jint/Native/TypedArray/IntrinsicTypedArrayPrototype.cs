@@ -12,7 +12,6 @@ using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
-using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.TypedArray
 {
@@ -310,12 +309,19 @@ namespace Jint.Native.TypedArray
         {
             var o = thisObj.ValidateTypedArray(_realm);
 
+            var jsValue = arguments.At(0);
             var start = arguments.At(1);
             var end = arguments.At(2);
 
-            var value = o._contentType == TypedArrayContentType.BigInt
-                ? TypeConverter.ToBigInt(arguments.At(0))
-                : TypeConverter.ToNumber(arguments.At(0));
+            JsValue value;
+            if (o._contentType == TypedArrayContentType.BigInt)
+            {
+                value = JsBigInt.Create(jsValue.ToBigInteger(_engine));
+            }
+            else
+            {
+                value = JsNumber.Create(jsValue);
+            }
 
             var len = o.Length;
 
@@ -509,7 +515,7 @@ namespace Jint.Native.TypedArray
             while (k < len)
             {
                 var value = o[(int) k];
-                if (JintBinaryExpression.SameValueZero(value, searchElement))
+                if (SameValueZeroComparer.Equals(value, searchElement))
                 {
                     return JsBoolean.True;
                 }
@@ -565,8 +571,7 @@ namespace Jint.Native.TypedArray
                 if (kPresent)
                 {
                     var elementK = o[(int) k];
-                    var same = JintBinaryExpression.StrictlyEqual(elementK, searchElement);
-                    if (same)
+                    if (elementK == searchElement)
                     {
                         return k;
                     }
@@ -664,8 +669,7 @@ namespace Jint.Native.TypedArray
                 if (kPresent)
                 {
                     var elementK = o[(int) k];
-                    var same = JintBinaryExpression.StrictlyEqual(elementK, searchElement);
-                    if (same)
+                    if (elementK == searchElement)
                     {
                         return k;
                     }
@@ -963,18 +967,19 @@ namespace Jint.Native.TypedArray
 
             while (targetByteIndex < limit)
             {
-                double value;
                 if (target._contentType == TypedArrayContentType.BigInt)
                 {
-                    value = TypeConverter.ToBigInt(src.Get(k));
+                    var value = src.Get(k).ToBigInteger(_engine);
+                    targetBuffer.AssertNotDetached();
+                    targetBuffer.SetValueInBuffer((int) targetByteIndex, targetType, value, true, ArrayBufferOrder.Unordered);
                 }
                 else
                 {
-                    value = TypeConverter.ToNumber(src.Get(k));
+                    var value = TypeConverter.ToNumber(src.Get(k));
+                    targetBuffer.AssertNotDetached();
+                    targetBuffer.SetValueInBuffer((int) targetByteIndex, targetType, value, true, ArrayBufferOrder.Unordered);
                 }
 
-                targetBuffer.AssertNotDetached();
-                targetBuffer.SetValueInBuffer((int) targetByteIndex, targetType, value, true, ArrayBufferOrder.Unordered);
                 k++;
                 targetByteIndex += targetElementSize;
             }
@@ -1084,8 +1089,8 @@ namespace Jint.Native.TypedArray
                     var limit = targetByteIndex + count * elementSize;
                     while (targetByteIndex < limit)
                     {
-                        var value = (JsNumber) srcBuffer.GetValueFromBuffer(srcByteIndex, TypedArrayElementType.Uint8, true, ArrayBufferOrder.Unordered);
-                        targetBuffer.SetValueInBuffer(targetByteIndex, TypedArrayElementType.Uint8, value._value, true, ArrayBufferOrder.Unordered);
+                        var value = srcBuffer.GetValueFromBuffer(srcByteIndex, TypedArrayElementType.Uint8, true, ArrayBufferOrder.Unordered);
+                        targetBuffer.SetValueInBuffer(targetByteIndex, TypedArrayElementType.Uint8, value, true, ArrayBufferOrder.Unordered);
                         srcByteIndex++;
                         targetByteIndex++;
                     }
@@ -1346,6 +1351,13 @@ namespace Jint.Native.TypedArray
                     }
 
                     return (int) v;
+                }
+
+                if (x.Type == Types.BigInt || y.Type == Types.BigInt)
+                {
+                    var xBigInt = TypeConverter.ToBigInt(x);
+                    var yBigInt = TypeConverter.ToBigInt(y);
+                    return xBigInt.CompareTo(yBigInt);
                 }
 
                 var xValue = x.AsNumber();

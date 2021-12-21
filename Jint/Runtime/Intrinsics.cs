@@ -1,6 +1,7 @@
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.ArrayBuffer;
+using Jint.Native.BigInt;
 using Jint.Native.Boolean;
 using Jint.Native.DataView;
 using Jint.Native.Date;
@@ -60,6 +61,7 @@ namespace Jint.Runtime
         private RegExpConstructor _regExp;
         private RegExpStringIteratorPrototype _regExpStringIteratorPrototype;
         private NumberConstructor _number;
+        private BigIntConstructor _bigInt;
         private StringConstructor _string;
         private StringIteratorPrototype _stringIteratorPrototype;
         private MapConstructor _map;
@@ -193,6 +195,9 @@ namespace Jint.Runtime
 
         public NumberConstructor Number =>
             _number ??= new NumberConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public BigIntConstructor BigInt =>
+            _bigInt ??= new BigIntConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
         public DateConstructor Date =>
             _date ??= new DateConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);

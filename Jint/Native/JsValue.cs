@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Native.Generator;
 using Jint.Native.Iterator;
@@ -213,32 +214,17 @@ namespace Jint.Native
 
         public static bool operator ==(JsValue a, JsValue b)
         {
-            if ((object) a == null)
+            if (a is null)
             {
-                return (object) b == null;
+                return b is null;
             }
 
-            return (object) b != null && a.Equals(b);
+            return b is not null && a.Equals(b);
         }
 
         public static bool operator !=(JsValue a, JsValue b)
         {
-            if ((object) a == null)
-            {
-                if ((object) b == null)
-                {
-                    return false;
-                }
-
-                return true;
-            }
-
-            if ((object) b == null)
-            {
-                return true;
-            }
-
-            return !a.Equals(b);
+            return !(a == b);
         }
 
         public static implicit operator JsValue(char value)
@@ -271,6 +257,11 @@ namespace Jint.Native
             return JsNumber.Create(value);
         }
 
+        public static implicit operator JsValue(BigInteger value)
+        {
+            return JsBigInt.Create(value);
+        }
+
         public static implicit operator JsValue(bool value)
         {
             return value ? JsBoolean.True : JsBoolean.False;
@@ -287,22 +278,69 @@ namespace Jint.Native
             return JsString.Create(value);
         }
 
-        public override bool Equals(object obj)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-islooselyequal
+        /// </summary>
+        public virtual bool IsLooselyEqual(JsValue value)
         {
-            if (ReferenceEquals(null, obj))
-            {
-                return false;
-            }
-
-            if (ReferenceEquals(this, obj))
+            if (ReferenceEquals(this, value))
             {
                 return true;
             }
 
-            return obj is JsValue value && Equals(value);
+            var x = this;
+            var y = value;
+
+            if (x.IsNumber() && y.IsString())
+            {
+                return x.IsLooselyEqual(TypeConverter.ToNumber(y));
+            }
+
+            if (x.IsString() && y.IsNumber())
+            {
+                return y.IsLooselyEqual(TypeConverter.ToNumber(x));
+            }
+
+            if (x.IsBoolean())
+            {
+                return y.IsLooselyEqual(TypeConverter.ToNumber(x));
+            }
+
+            if (y.IsBoolean())
+            {
+                return x.IsLooselyEqual(TypeConverter.ToNumber(y));
+            }
+
+            const InternalTypes stringOrNumber = InternalTypes.String | InternalTypes.Integer | InternalTypes.Number | InternalTypes.BigInt;
+
+            if (y.IsObject() && (x._type & stringOrNumber) != 0)
+            {
+                return x.IsLooselyEqual(TypeConverter.ToPrimitive(y));
+            }
+
+            if (x.IsObject() && (y._type & stringOrNumber) != 0)
+            {
+                return y.IsLooselyEqual(TypeConverter.ToPrimitive(x));
+            }
+
+            return false;
         }
 
-        public abstract bool Equals(JsValue other);
+        /// <summary>
+        /// Strict equality.
+        /// </summary>
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as JsValue);
+        }
+
+        /// <summary>
+        /// Strict equality.
+        /// </summary>
+        public virtual bool Equals(JsValue other)
+        {
+            return ReferenceEquals(this, other);
+        }
 
         public override int GetHashCode()
         {
@@ -334,6 +372,9 @@ namespace Jint.Native
                         break;
                     case Types.Number:
                         Value = ((JsNumber) value)._value + " (number)";
+                        break;
+                    case Types.BigInt:
+                        Value = ((JsBigInt) value)._value + " (bigint)";
                         break;
                     case Types.Object:
                         Value = value.AsObject().GetType().Name;

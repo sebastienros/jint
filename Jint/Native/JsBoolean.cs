@@ -1,4 +1,6 @@
-﻿using System;
+﻿#nullable enable
+
+using System;
 using Jint.Runtime;
 
 namespace Jint.Native
@@ -28,31 +30,31 @@ namespace Jint.Native
             return _value ? "true" : "false";
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool IsLooselyEqual(JsValue value)
         {
-            if (ReferenceEquals(null, obj))
+            if (value is JsBoolean jsBoolean)
             {
-                return false;
+                return Equals(jsBoolean);
             }
 
-            if (!(obj is JsBoolean number))
-            {
-                return false;
-            }
-
-            return Equals(number);
+            return !value.IsNullOrUndefined() && base.IsLooselyEqual(value);
         }
 
-        public bool Equals(JsBoolean other)
+        public override bool Equals(JsValue obj)
         {
-            if (ReferenceEquals(null, other))
-            {
-                return false;
-            }
+            return Equals(obj as JsBoolean);
+        }
 
+        public bool Equals(JsBoolean? other)
+        {
             if (ReferenceEquals(this, other))
             {
                 return true;
+            }
+
+            if (other is null)
+            {
+                return false;
             }
 
             return _value == other._value;

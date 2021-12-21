@@ -1,3 +1,4 @@
+using System.Numerics;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
@@ -126,9 +127,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                                 lval = jsString.Append(rprim);
                             }
-                            else
+                            else if (!AreIntegerOperands(lval, rval))
                             {
                                 lval = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
+                            }
+                            else
+                            {
+                                lval = TypeConverter.ToBigInt(lprim) + TypeConverter.ToBigInt(rprim);
                             }
                         }
 
@@ -138,9 +143,19 @@ namespace Jint.Runtime.Interpreter.Expressions
                     case AssignmentOperator.MinusAssign:
                     {
                         var rval = _right.GetValue(context).Value;
-                        lval = AreIntegerOperands(lval, rval)
-                            ? JsNumber.Create(lval.AsInteger() - rval.AsInteger())
-                            : JsNumber.Create(TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval));
+                        if (AreIntegerOperands(lval, rval))
+                        {
+                            lval = JsNumber.Create(lval.AsInteger() - rval.AsInteger());
+                        }
+                        else if (!AreIntegerOperands(lval, rval))
+                        {
+                            lval = JsNumber.Create(TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval));
+                        }
+                        else
+                        {
+                            lval = JsNumber.Create(TypeConverter.ToBigInt(lval) - TypeConverter.ToBigInt(rval));
+                        }
+
                         break;
                     }
 
@@ -155,9 +170,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             lval = Undefined.Instance;
                         }
-                        else
+                        else if (!AreIntegerOperands(lval, rval))
                         {
                             lval = TypeConverter.ToNumber(lval) * TypeConverter.ToNumber(rval);
+                        }
+                        else
+                        {
+                            lval = TypeConverter.ToBigInt(lval) * TypeConverter.ToBigInt(rval);
                         }
 
                         break;
@@ -166,7 +185,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     case AssignmentOperator.DivideAssign:
                     {
                         var rval = _right.GetValue(context).Value;
-                        lval = Divide(lval, rval);
+                        lval = Divide(context, lval, rval);
                         break;
                     }
 
@@ -176,6 +195,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                         if (lval.IsUndefined() || rval.IsUndefined())
                         {
                             lval = Undefined.Instance;
+                        }
+                        else if (!AreIntegerOperands(lval, rval))
+                        {
+                            lval = TypeConverter.ToNumber(lval) % TypeConverter.ToNumber(rval);
                         }
                         else
                         {
@@ -260,6 +283,26 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         var rval = NamedEvaluation(context, _right);
                         lval = rval;
+                        break;
+                    }
+
+                    case AssignmentOperator.ExponentiationAssign:
+                    {
+                        var rval = _right.GetValue(context).Value;
+                        if (!lval.IsBigInt() && !rval.IsBigInt())
+                        {
+                            lval = JsNumber.Create(System.Math.Pow(TypeConverter.ToNumber(lval), TypeConverter.ToNumber(rval)));
+                        }
+                        else
+                        {
+                            var exponent = TypeConverter.ToBigInt(rval);
+                            if (exponent > int.MaxValue || exponent < int.MinValue)
+                            {
+                                ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Cannot do exponentation with exponent not fitting int32");
+                            }
+                            lval = JsBigInt.Create(BigInteger.Pow(TypeConverter.ToBigInt(lval), (int) exponent));
+                        }
+
                         break;
                     }
 

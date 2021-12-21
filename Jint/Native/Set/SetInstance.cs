@@ -11,7 +11,7 @@ namespace Jint.Native.Set
         public SetInstance(Engine engine)
             : base(engine, ObjectClass.Map)
         {
-            _set = new OrderedSet<JsValue>();
+            _set = new OrderedSet<JsValue>(SameValueZeroComparer.Instance);
         }
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)

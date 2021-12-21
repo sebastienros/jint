@@ -187,7 +187,7 @@ namespace Jint.Native.String
             var instance = new StringInstance(Engine)
             {
                 _prototype = prototype,
-                PrimitiveValue = value,
+                StringData = value,
                 _length = PropertyDescriptor.AllForbiddenDescriptor.ForNumber(value.Length)
             };
 
