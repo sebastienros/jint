@@ -1,4 +1,6 @@
-﻿using System;
+﻿#nullable enable
+
+using System;
 using System.Text;
 using Jint.Native.Array;
 using Jint.Runtime;
@@ -20,6 +22,7 @@ namespace Jint.Native
         internal static readonly JsString BooleanString = new JsString("boolean");
         internal static readonly JsString StringString = new JsString("string");
         internal static readonly JsString NumberString = new JsString("number");
+        internal static readonly JsString BigIntString = new JsString("bigint");
         internal static readonly JsString SymbolString = new JsString("symbol");
         internal static readonly JsString DefaultString = new JsString("default");
         internal static readonly JsString NumberZeroString = new JsString("0");
@@ -68,34 +71,34 @@ namespace Jint.Native
             _value = value.ToString();
         }
 
-        public static bool operator ==(JsValue a, JsString b)
+        public static bool operator ==(JsValue? a, JsString? b)
         {
-            if (a is JsString s && b is object)
+            if (a is JsString s && b is not null)
             {
                 return s.ToString() == b.ToString();
             }
 
-            if ((object) a == null)
+            if (a is null)
             {
-                return (object) b == null;
+                return b is null;
             }
 
-            return (object) b != null && a.Equals(b);
+            return b is not null && a.Equals(b);
         }
 
-        public static bool operator ==(JsString a, JsValue b)
+        public static bool operator ==(JsString? a, JsValue? b)
         {
-            if (a is object && b is JsString s)
+            if (a is not null && b is JsString s)
             {
                 return s.ToString() == b.ToString();
             }
 
-            if ((object) a == null)
+            if (a is null)
             {
-                return (object) b == null;
+                return b is null;
             }
 
-            return (object) b != null && a.Equals(b);
+            return b is not null && a.Equals(b);
         }
 
         public static bool operator !=(JsString a, JsValue b)
@@ -225,22 +228,12 @@ namespace Jint.Native
 
         public override bool Equals(JsValue obj)
         {
-            if (ReferenceEquals(null, obj))
-            {
-                return false;
-            }
-
-            if (!(obj is JsString s))
-            {
-                return false;
-            }
-
-            return Equals(s);
+            return Equals(obj as JsString);
         }
 
-        public bool Equals(JsString other)
+        public bool Equals(JsString? other)
         {
-            if (ReferenceEquals(null, other))
+            if (other is null)
             {
                 return false;
             }
@@ -253,9 +246,24 @@ namespace Jint.Native
             return _value == other.ToString();
         }
 
+        public override bool IsLooselyEqual(JsValue value)
+        {
+            if (value is JsString jsString)
+            {
+                return Equals(jsString);
+            }
+
+            if (value.IsBigInt())
+            {
+                return value.IsBigInt() && TypeConverter.TryStringToBigInt(ToString(), out var temp) && temp == value.AsBigInt();
+            }
+
+            return base.IsLooselyEqual(value);
+        }
+
         public override bool Equals(object obj)
         {
-            return ReferenceEquals(this, obj) || obj is JsString other && Equals(other);
+            return Equals(obj as JsString);
         }
 
         public override int GetHashCode()
@@ -265,7 +273,7 @@ namespace Jint.Native
 
         internal sealed class ConcatenatedString : JsString
         {
-            private StringBuilder _stringBuilder;
+            private StringBuilder? _stringBuilder;
             private bool _dirty;
 
             internal ConcatenatedString(string value, int capacity = 0)
@@ -285,7 +293,7 @@ namespace Jint.Native
             {
                 if (_dirty)
                 {
-                    _value = _stringBuilder.ToString();
+                    _value = _stringBuilder!.ToString();
                     _dirty = false;
                 }
 
@@ -310,7 +318,7 @@ namespace Jint.Native
 
             internal override JsString EnsureCapacity(int capacity)
             {
-                _stringBuilder.EnsureCapacity(capacity);
+                _stringBuilder!.EnsureCapacity(capacity);
                 return this;
             }
 
@@ -328,9 +336,21 @@ namespace Jint.Native
             {
                 if (other is ConcatenatedString cs)
                 {
-                    if (_stringBuilder != null && cs._stringBuilder != null)
+                    var stringBuilder = _stringBuilder;
+                    var csStringBuilder = cs._stringBuilder;
+
+                    // we cannot use StringBuilder.Equals as it also checks Capacity on full framework / pre .NET Core 3
+                    if (stringBuilder != null && csStringBuilder != null && stringBuilder.Length == csStringBuilder.Length)
                     {
-                        return _stringBuilder.Equals(cs._stringBuilder);
+                        for (var i = 0; i < stringBuilder.Length; ++i)
+                        {
+                            if (stringBuilder[i] != csStringBuilder[i])
+                            {
+                                return false;
+                            }
+                        }
+
+                        return true;
                     }
 
                     return ToString() == cs.ToString();

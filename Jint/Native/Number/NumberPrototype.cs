@@ -12,7 +12,7 @@ using Jint.Runtime.Interop;
 namespace Jint.Native.Number
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.7.4
+    /// https://tc39.es/ecma262/#sec-properties-of-the-number-prototype-object
     /// </summary>
     public sealed class NumberPrototype : NumberInstance
     {

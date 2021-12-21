@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -46,6 +47,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (literal.TokenType == TokenType.StringLiteral)
             {
                 return JsString.Create((string) literal.Value);
+            }
+
+            if (literal.TokenType == TokenType.BigIntLiteral)
+            {
+                return JsBigInt.Create((BigInteger) literal.Value);
             }
 
             return null;

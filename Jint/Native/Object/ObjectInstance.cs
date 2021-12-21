@@ -16,7 +16,6 @@ using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
-using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.Object
 {
@@ -724,7 +723,7 @@ namespace Jint.Native.Object
                 current.Enumerable == desc.Enumerable && current.EnumerableSet == desc.EnumerableSet &&
                 ((ReferenceEquals(currentGet, null) && ReferenceEquals(descGet, null)) || (!ReferenceEquals(currentGet, null) && !ReferenceEquals(descGet, null) && SameValue(currentGet, descGet))) &&
                 ((ReferenceEquals(currentSet, null) && ReferenceEquals(descSet, null)) || (!ReferenceEquals(currentSet, null) && !ReferenceEquals(descSet, null) && SameValue(currentSet, descSet))) &&
-                ((ReferenceEquals(currentValue, null) && ReferenceEquals(descValue, null)) || (!ReferenceEquals(currentValue, null) && !ReferenceEquals(descValue, null) && JintBinaryExpression.StrictlyEqual(currentValue, descValue)))
+                ((ReferenceEquals(currentValue, null) && ReferenceEquals(descValue, null)) || (!ReferenceEquals(currentValue, null) && !ReferenceEquals(descValue, null) && currentValue == descValue))
             )
             {
                 return true;
@@ -924,7 +923,7 @@ namespace Jint.Native.Object
                 case ObjectClass.String:
                     if (this is StringInstance stringInstance)
                     {
-                        converted = stringInstance.PrimitiveValue.ToString();
+                        converted = stringInstance.StringData.ToString();
                     }
                     break;
 
@@ -938,7 +937,7 @@ namespace Jint.Native.Object
                 case ObjectClass.Boolean:
                     if (this is BooleanInstance booleanInstance)
                     {
-                        converted = ((JsBoolean) booleanInstance.PrimitiveValue)._value
+                        converted = ((JsBoolean) booleanInstance.BooleanData)._value
                             ? JsBoolean.BoxedTrue
                             : JsBoolean.BoxedFalse;
                     }
@@ -1317,22 +1316,12 @@ namespace Jint.Native.Object
 
         public override bool Equals(JsValue obj)
         {
-            if (ReferenceEquals(null, obj))
-            {
-                return false;
-            }
-
-            if (!(obj is ObjectInstance s))
-            {
-                return false;
-            }
-
-            return Equals(s);
+            return Equals(obj as ObjectInstance);
         }
 
         public bool Equals(ObjectInstance other)
         {
-            if (ReferenceEquals(null, other))
+            if (other is null)
             {
                 return false;
             }

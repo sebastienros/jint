@@ -33,7 +33,7 @@ namespace Jint.Native.Global
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
 
-            var properties = new PropertyDictionary(54, checkExistingKeys: false)
+            var properties = new PropertyDictionary(55, checkExistingKeys: false)
             {
                 ["Object"] = new PropertyDescriptor(_realm.Intrinsics.Object, propertyFlags),
                 ["Function"] = new PropertyDescriptor(_realm.Intrinsics.Function, propertyFlags),
@@ -61,6 +61,7 @@ namespace Jint.Native.Global
                 ["String"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state)._realm.Intrinsics.String, propertyFlags),
                 ["RegExp"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state)._realm.Intrinsics.RegExp, propertyFlags),
                 ["Number"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state)._realm.Intrinsics.Number, propertyFlags),
+                ["BigInt"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state)._realm.Intrinsics.BigInt, propertyFlags),
                 ["Boolean"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state)._realm.Intrinsics.Boolean, propertyFlags),
                 ["Date"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state)._realm.Intrinsics.Date, propertyFlags),
                 ["Math"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state)._realm.Intrinsics.Math, propertyFlags),

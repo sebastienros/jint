@@ -367,7 +367,7 @@ namespace Jint.Tests.Runtime
             engine.SetValue("log", new Action<object>(Console.WriteLine));
 
             engine.Evaluate("let v1 = new Vector2D(1, 2);");
-            Assert.Equal("(1, 2)", engine.Evaluate("new String(v1)").As<StringInstance>().PrimitiveValue.ToString());
+            Assert.Equal("(1, 2)", engine.Evaluate("new String(v1)").As<StringInstance>().StringData.ToString());
             Assert.Equal("### (1, 2) ###", engine.Evaluate("'### ' + v1 + ' ###'"));
         }
     }

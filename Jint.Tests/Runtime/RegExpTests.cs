@@ -87,7 +87,7 @@ namespace Jint.Tests.Runtime
         public void ShouldNotThrowErrorOnRegExNumericNegation()
         {
             var engine = new Engine();
-            Assert.Equal(JsNumber.DoubleNaN, engine.Evaluate("-/[]/"));
+            Assert.True(ReferenceEquals(JsNumber.DoubleNaN, engine.Evaluate("-/[]/")));
         }
     }
 }

@@ -9,17 +9,17 @@ namespace Jint.Native.Boolean
             : base(engine, ObjectClass.Boolean)
         {
         }
-        
+
         public BooleanInstance(Engine engine, JsBoolean value)
             : base(engine, ObjectClass.Boolean)
         {
-            PrimitiveValue = value;
+            BooleanData = value;
         }
 
         Types IPrimitiveInstance.Type => Types.Boolean;
 
-        JsValue IPrimitiveInstance.PrimitiveValue => PrimitiveValue;
+        JsValue IPrimitiveInstance.PrimitiveValue => BooleanData;
 
-        public JsValue PrimitiveValue { get; set; }
+        public JsValue BooleanData { get; internal init; }
     }
 }

@@ -16,9 +16,9 @@ namespace Jint.Native.String
 
         Types IPrimitiveInstance.Type => Types.String;
 
-        JsValue IPrimitiveInstance.PrimitiveValue => PrimitiveValue;
+        JsValue IPrimitiveInstance.PrimitiveValue => StringData;
 
-        public JsString PrimitiveValue { get; set; }
+        public JsString StringData { get; internal init; }
 
         private static bool IsInt32(double d, out int intValue)
         {
@@ -55,7 +55,7 @@ namespace Jint.Native.String
                 return PropertyDescriptor.Undefined;
             }
 
-            var str = PrimitiveValue.ToString();
+            var str = StringData.ToString();
             var number = TypeConverter.ToNumber(property);
             if (!IsInt32(number, out var index) || index < 0 || index >= str.Length)
             {
@@ -80,8 +80,8 @@ namespace Jint.Native.String
 
         public override List<JsValue> GetOwnPropertyKeys(Types types)
         {
-            var keys = new List<JsValue>(PrimitiveValue.Length + 1);
-            for (uint i = 0; i < PrimitiveValue.Length; ++i)
+            var keys = new List<JsValue>(StringData.Length + 1);
+            for (uint i = 0; i < StringData.Length; ++i)
             {
                 keys.Add(JsString.Create(i));
             }

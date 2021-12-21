@@ -154,48 +154,5 @@ namespace Jint.Native.ArrayBuffer
             System.Array.Copy(fromBuf, first, toBuf, 0, newLen);
             return bufferInstance;
         }
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-copydatablockbytes
-        /// </summary>
-        /// <remarks>
-        /// Here only to support algorithm of shared view buffer.
-        /// </remarks>
-        private void CopyDataBlockBytes(byte[] toBlock, int toIndex, byte[] fromBlock, int fromIndex, int count)
-        {
-            var fromSize = Length;
-            var toSize = Length;
-
-            bool isSharedDataBlock = false;
-
-            while (count > 0)
-            {
-                if (isSharedDataBlock)
-                {
-                    /*
-                    i. Let execution be the [[CandidateExecution]] field of the surrounding agent's Agent Record.
-                        ii. Let eventList be the [[EventList]] field of the element in execution.[[EventsRecords]] whose [[AgentSignifier]] is AgentSignifier().
-                        iii. Let bytes be a List whose sole element is a nondeterministically chosen byte value.
-                        iv. NOTE: In implementations, bytes is the result of a non-atomic read instruction on the underlying hardware. The nondeterminism is a semantic prescription of the memory model to describe observable behaviour of hardware with weak consistency.
-                        v. Let readEvent be ReadSharedMemory { [[Order]]: Unordered, [[NoTear]]: true, [[Block]]: fromBlock, [[ByteIndex]]: fromIndex, [[ElementSize]]: 1 }.
-                    vi. Append readEvent to eventList.
-                        vii. Append Chosen Value Record { [[Event]]: readEvent, [[ChosenValue]]: bytes } to execution.[[ChosenValues]].
-                    viii. If toBlock is a Shared Data Block, then
-                    1. Append WriteSharedMemory { [[Order]]: Unordered, [[NoTear]]: true, [[Block]]: toBlock, [[ByteIndex]]: toIndex, [[ElementSize]]: 1, [[Payload]]: bytes } to eventList.
-                        ix. Else,
-                    1. Set toBlock[toIndex] to bytes[0].
-                    */
-                    ExceptionHelper.ThrowNotImplementedException();
-                }
-                else
-                {
-                    toBlock[toIndex] = fromBlock[fromIndex];
-                }
-
-                toIndex++;
-                fromIndex++;
-                count--;
-            }
-        }
     }
 }
