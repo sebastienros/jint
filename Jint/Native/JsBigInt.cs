@@ -54,7 +54,7 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
 
     public static bool operator ==(JsBigInt a, double b)
     {
-        return a is not null && !JsNumber.HasFractionalPart(b) && a._value == (long) b;
+        return a is not null && TypeConverter.IsIntegralNumber(b) && a._value == (long) b;
     }
 
     public static bool operator !=(JsBigInt a, double b)
@@ -75,8 +75,7 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
         }
 
         return value is JsNumber jsNumber && TypeConverter.IsIntegralNumber(jsNumber._value) && _value == new BigInteger(jsNumber._value)
-               || value is JsString jsString && TypeConverter.TryStringToBigInt(jsString.ToString(), out var temp) && temp == _value
-               || base.IsLooselyEqual(value);
+               || value is JsString jsString && TypeConverter.TryStringToBigInt(jsString.ToString(), out var temp) && temp == _value;
     }
 
     public override bool Equals(object other)

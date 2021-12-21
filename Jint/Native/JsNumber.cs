@@ -100,7 +100,7 @@ namespace Jint.Native
         {
             // we expect zero to be on the fast path of integer mostly
             var temp = _intToJsValue;
-            if (value >= 1 && value < temp.Length && !HasFractionalPart(value))
+            if (value >= 1 && value < temp.Length && TypeConverter.IsIntegralNumber(value))
             {
                 return temp[(uint) value];
             }
@@ -111,11 +111,6 @@ namespace Jint.Native
             }
 
             return CreateNumberUnlikely(value);
-        }
-
-        internal static bool HasFractionalPart(double value)
-        {
-            return System.Math.Abs(value % 1) > DoubleIsIntegerTolerance;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -261,8 +256,12 @@ namespace Jint.Native
                 return Equals(jsNumber);
             }
 
-            return value.IsBigInt() && TypeConverter.IsIntegralNumber(_value) && new BigInteger(_value) == value.AsBigInt()
-                   || base.IsLooselyEqual(value);
+            if (value.IsBigInt())
+            {
+                return TypeConverter.IsIntegralNumber(_value) && new BigInteger(_value) == value.AsBigInt();
+            }
+
+            return base.IsLooselyEqual(value);
         }
 
         public override bool Equals(JsValue obj)

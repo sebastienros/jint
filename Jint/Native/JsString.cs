@@ -248,14 +248,22 @@ namespace Jint.Native
 
         public override bool IsLooselyEqual(JsValue value)
         {
-            return Equals(value)
-                || value.IsBigInt() && TypeConverter.TryStringToBigInt(ToString(), out var temp) && temp == value.AsBigInt()
-                || !value.IsString() && base.IsLooselyEqual(value);
+            if (value is JsString jsString)
+            {
+                return Equals(jsString);
+            }
+
+            if (value.IsBigInt())
+            {
+                return value.IsBigInt() && TypeConverter.TryStringToBigInt(ToString(), out var temp) && temp == value.AsBigInt();
+            }
+
+            return base.IsLooselyEqual(value);
         }
 
         public override bool Equals(object obj)
         {
-            return ReferenceEquals(this, obj) || obj is JsString other && Equals(other);
+            return Equals(obj as JsString);
         }
 
         public override int GetHashCode()
