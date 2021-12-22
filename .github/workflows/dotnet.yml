@@ -18,10 +18,10 @@ jobs:
         dotnet-version: 3.1.301
 
     - name: Install dependencies
-      run: dotnet restore Jint.sln
+      run: dotnet restore ./Jint.sln
 
     - name: Build
-      run: dotnet Jint.sln --configuration Release --no-restore
+      run: dotnet ./Jint.sln --configuration Release --no-restore
 
     - name: Test
-      run: sudo dotnet test Jint.sln --no-restore --verbosity normal
+      run: sudo dotnet test ./Jint.sln --no-restore --verbosity normal
