@@ -1,14 +1,11 @@
 ﻿using System.Collections.Generic;
-using Esprima;
-using Esprima.Ast;
-using Jint.Runtime;
 using Jint.Runtime.Modules;
 
 namespace Jint
 {
     public partial class Engine
     {
-        public IModuleLoader ModuleLoader { get; internal set; }
+        internal IModuleLoader ModuleLoader { get; set; }
 
         private readonly Dictionary<ModuleCacheKey, JsModule> _modules = new();
 
@@ -23,29 +20,8 @@ namespace Jint
                 return module;
             }
 
-            if (!ModuleLoader.TryLoadModule(specifier, referencingModuleLocation, out var moduleSourceCode, out var moduleLocation))
-            {
-                ExceptionHelper.ThrowSyntaxError(Realm, "Error while loading module: module with specifier '" + specifier + "' could not be located");
-            }
-
-            Module moduleSource;
-            try
-            {
-                var parserOptions = new ParserOptions(moduleLocation)
-                {
-                    AdaptRegexp = true,
-                    Tolerant = true
-                };
-
-                moduleSource = new JavaScriptParser(moduleSourceCode, parserOptions).ParseModule();
-            }
-            catch (ParserException ex)
-            {
-                ExceptionHelper.ThrowSyntaxError(Realm, "Error while loading module: error in module '" + specifier + "': " + ex.Error?.ToString() ?? ex.Message);
-                moduleSource = null;
-            }
-
-            module = new JsModule(this, _host.CreateRealm(), moduleSource, moduleLocation, false);
+            var (loadedModule, location) = ModuleLoader.LoadModule(this, specifier, referencingModuleLocation);
+            module = new JsModule(this, _host.CreateRealm(), loadedModule, location.AbsoluteUri, false);
 
             _modules[key] = module;
 

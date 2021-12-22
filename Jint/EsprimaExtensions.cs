@@ -261,7 +261,7 @@ namespace Jint
 
         internal static void GetImportEntries(this ImportDeclaration import, List<ImportEntry> importEntries, HashSet<string> requestedModules)
         {
-            var source = import.Source.StringValue;
+            var source = import.Source.StringValue!;
             var specifiers = import.Specifiers;
             requestedModules.Add(source!);
 

@@ -1,4 +1,14 @@
-﻿namespace Jint.Runtime.Modules;
+﻿#nullable enable
+
+using System;
+using Esprima.Ast;
+
+namespace Jint.Runtime.Modules;
+
+/// <summary>
+/// Module loading result.
+/// </summary>
+public readonly record struct ModuleLoaderResult(Module Module, Uri Location);
 
 /// <summary>
 /// Module loader interface that allows defining how module loadings requests are handled.
@@ -6,17 +16,7 @@
 public interface IModuleLoader
 {
     /// <summary>
-    /// Tries to load amoudle.
+    /// Loads a module from given location.
     /// </summary>
-    /// <param name="location"></param>
-    /// <param name="referencingLocation"></param>
-    /// <param name="moduleSource"></param>
-    /// <param name="moduleLocation"></param>
-    /// <returns></returns>
-    public bool TryLoadModule(string location, string referencingLocation, out string moduleSource, out string moduleLocation);
-
-    /// <summary>
-    /// Add module loader sources to use. By default Jint only tries to load from local files.
-    /// </summary>
-    public void AddModuleSource(params IModuleSource[] moduleSources);
+    public ModuleLoaderResult LoadModule(Engine engine, string location, string? referencingLocation);
 }

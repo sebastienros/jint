@@ -269,14 +269,5 @@ namespace Jint
             options.Modules.ModuleLoader = moduleLoader;
             return options;
         }
-
-        /// <summary>
-        /// Allows to configure where modules are loaded from.
-        /// </summary>
-        public static Options WithModuleSource(this Options options, params IModuleSource[] sources)
-        {
-            options.Modules.ModuleSources.AddRange(sources);
-            return options;
-        }
     }
 }
