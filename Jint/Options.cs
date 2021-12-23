@@ -12,6 +12,7 @@ using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Modules;
 
 namespace Jint
 {
@@ -44,6 +45,11 @@ namespace Jint
         /// Host options.
         /// </summary>
         internal HostOptions Host { get; } = new();
+
+        /// <summary>
+        /// Module options
+        /// </summary>
+        public ModuleOptions Modules { get; } = new();
 
         /// <summary>
         /// Whether the code should be always considered to be in strict mode. Can improve performance.
@@ -96,6 +102,32 @@ namespace Jint
             {
                 AttachExtensionMethodsToPrototypes(engine);
             }
+
+            var moduleLoader = Modules.ModuleLoader;
+            if (Modules.Enabled)
+            {
+                if (ReferenceEquals(moduleLoader, FailFastModuleLoader.Instance))
+                {
+                    moduleLoader = new DefaultModuleLoader(new System.IO.FileInfo(Assembly.GetEntryAssembly().CodeBase).DirectoryName);
+                }
+
+                if (Modules.RegisterRequire)
+                {
+                    // Node js like loading of modules
+                    engine.Realm.GlobalObject.SetProperty("require", new PropertyDescriptor(new ClrFunctionInstance(
+                            engine,
+                            "require",
+                            (thisObj, arguments) =>
+                            {
+                                var specifier = TypeConverter.ToString(arguments.At(0));
+                                var module = engine.LoadModule(specifier);
+                                return JsModule.GetModuleNamespace(module);
+                            }),
+                        PropertyFlag.AllForbidden));
+                }
+            }
+
+            engine.ModuleLoader = moduleLoader;
 
             // ensure defaults
             engine.ClrTypeConverter ??= new DefaultTypeConverter(engine);
@@ -322,5 +354,26 @@ namespace Jint
     public class HostOptions
     {
         internal Func<Engine, Host> Factory { get; set; } = _ => new Host();
+    }
+
+    /// <summary>
+    /// Module related customization, work in progress
+    /// </summary>
+    public class ModuleOptions
+    {
+        /// <summary>
+        /// Indicates if modules are enabled in the current engine context, defaults to false.
+        /// </summary>
+        public bool Enabled { get; set; }
+
+        /// <summary>
+        /// Whether to register require function to engine which will delegate to module loader, defaults to false.
+        /// </summary>
+        public bool RegisterRequire { get; set; }
+
+        /// <summary>
+        /// Module loader implementation, by default exception will be thrown if module loading is not enabled.
+        /// </summary>
+        public IModuleLoader? ModuleLoader { get; set; } = FailFastModuleLoader.Instance;
     }
 }

@@ -208,6 +208,13 @@ namespace Jint.Tests.Test262
 
             foreach (var file in files)
             {
+                if (file.IndexOf("_FIXTURE", StringComparison.OrdinalIgnoreCase) != -1)
+                {
+                    // Files bearing a name which includes the sequence _FIXTURE MUST NOT be interpreted
+                    // as standalone tests; they are intended to be referenced by test files.
+                    continue;
+                }
+
                 var name = file.Substring(fixturesPath.Length + 1).Replace("\\", "/");
                 bool skip = _skipReasons.TryGetValue(name, out var reason);
 
@@ -287,6 +294,18 @@ namespace Jint.Tests.Test262
                             case "resizable-arraybuffer":
                                 skip = true;
                                 reason = "resizable-arraybuffer not implemented";
+                                break;
+                            case "json-modules":
+                                skip = true;
+                                reason = "json-modules not implemented";
+                                break;
+                            case "top-level-await":
+                                skip = true;
+                                reason = "top-level-await not implemented";
+                                break;
+                            case "import-assertions":
+                                skip = true;
+                                reason = "import-assertions not implemented";
                                 break;
                         }
                     }

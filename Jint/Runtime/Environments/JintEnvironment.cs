@@ -95,5 +95,16 @@ namespace Jint.Runtime.Environments
         {
             return new PrivateEnvironmentRecord(outerPriv);
         }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-newmoduleenvironment
+        /// </summary>
+        internal static ModuleEnvironmentRecord NewModuleEnvironment(Engine engine, EnvironmentRecord outer)
+        {
+            return new ModuleEnvironmentRecord(engine)
+            {
+                _outerEnv = outer
+            };
+        }
     }
 }

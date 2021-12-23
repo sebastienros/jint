@@ -1,31 +1,72 @@
+using Jint.Runtime;
+using Jint.Runtime.Modules;
+using System;
 using Xunit;
+using Xunit.Sdk;
 
-namespace Jint.Tests.Test262.Language
+namespace Jint.Tests.Test262.Language;
+
+public class ModuleTests : Test262Test
 {
-    public class ModuleTests : Test262Test
+    [Theory(DisplayName = "language\\module-code")]
+    [MemberData(nameof(SourceFiles), "language\\module-code", false)]
+    [MemberData(nameof(SourceFiles), "language\\module-code", true, Skip = "Skipped")]
+    protected void ModuleCode(SourceFile sourceFile)
     {
-        [Theory(DisplayName = "language\\module-code", Skip = "TODO")]
-        [MemberData(nameof(SourceFiles), "language\\module-code", false)]
-        [MemberData(nameof(SourceFiles), "language\\module-code", true, Skip = "Skipped")]
-        protected void ModuleCode(SourceFile sourceFile)
+        RunModuleTest(sourceFile);
+    }
+
+    [Theory(DisplayName = "language\\export")]
+    [MemberData(nameof(SourceFiles), "language\\export", false)]
+    [MemberData(nameof(SourceFiles), "language\\export", true, Skip = "Skipped")]
+    protected void Export(SourceFile sourceFile)
+    {
+        RunModuleTest(sourceFile);
+    }
+
+    [Theory(DisplayName = "language\\import")]
+    [MemberData(nameof(SourceFiles), "language\\import", false)]
+    [MemberData(nameof(SourceFiles), "language\\import", true, Skip = "Skipped")]
+    protected void Import(SourceFile sourceFile)
+    {
+        RunModuleTest(sourceFile);
+    }
+
+    private static void RunModuleTest(SourceFile sourceFile)
+    {
+        if (sourceFile.Skip)
         {
-            RunTestInternal(sourceFile);
+            return;
         }
 
-        [Theory(DisplayName = "language\\export")]
-        [MemberData(nameof(SourceFiles), "language\\export", false)]
-        [MemberData(nameof(SourceFiles), "language\\export", true, Skip = "Skipped")]
-        protected void Export(SourceFile sourceFile)
+        var code = sourceFile.Code;
+
+        var options = new Options();
+        options.Host.Factory = _ => new ModuleTestHost();
+        options.Modules.Enabled = true;
+        options.WithModuleLoader(new DefaultModuleLoader(null));
+
+        var engine = new Engine(options);
+
+        var negative = code.IndexOf("negative:", StringComparison.OrdinalIgnoreCase) != -1;
+        string lastError = null;
+
+        try
         {
-            RunTestInternal(sourceFile);
+            engine.LoadModule(sourceFile.FullPath);
+        }
+        catch (JavaScriptException ex)
+        {
+            lastError = ex.ToString();
+        }
+        catch (Exception ex)
+        {
+            lastError = ex.ToString();
         }
 
-        [Theory(DisplayName = "language\\import", Skip = "TODO")]
-        [MemberData(nameof(SourceFiles), "language\\import", false)]
-        [MemberData(nameof(SourceFiles), "language\\import", true, Skip = "Skipped")]
-        protected void Import(SourceFile sourceFile)
+        if (!negative && !string.IsNullOrWhiteSpace(lastError))
         {
-            RunTestInternal(sourceFile);
+            throw new XunitException(lastError);
         }
     }
 }

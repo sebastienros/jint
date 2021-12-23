@@ -8,6 +8,7 @@ using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Modules;
 
 namespace Jint
 {
@@ -240,6 +241,33 @@ namespace Jint
         public static void UseHostFactory<T>(this Options options, Func<Engine, T> factory) where T : Host
         {
             options.Host.Factory = factory;
+        }
+
+        /// <summary>
+        /// Enables module loading in the engine via the 'require' function. By default there's no sand-boxing and
+        /// you need to trust the script loading the modules not doing bad things.
+        /// </summary>
+        public static Options EnableModules(this Options options, bool enable = true)
+        {
+            options.Modules.Enabled = enable;
+            return options;
+        }
+
+        /// <summary>
+        /// Allows to configure module loader implementation.
+        /// </summary>
+        public static Options WithModuleLoader<T>(this Options options) where T : IModuleLoader, new()
+        {
+            return WithModuleLoader(options, new T());
+        }
+
+        /// <summary>
+        /// Allows to configure module loader implementation.
+        /// </summary>
+        public static Options WithModuleLoader(this Options options, IModuleLoader moduleLoader)
+        {
+            options.Modules.ModuleLoader = moduleLoader;
+            return options;
         }
     }
 }

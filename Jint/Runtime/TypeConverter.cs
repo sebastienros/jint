@@ -54,6 +54,7 @@ namespace Jint.Runtime
         // internal usage
         ObjectEnvironmentRecord = 512,
         RequiresCloning = 1024,
+        Module = 2048,
 
         Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
         InternalFlags = ObjectEnvironmentRecord | RequiresCloning
