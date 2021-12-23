@@ -1,4 +1,5 @@
 using Jint.Runtime;
+using Jint.Runtime.Modules;
 using System;
 using Xunit;
 using Xunit.Sdk;
@@ -43,6 +44,7 @@ public class ModuleTests : Test262Test
         var options = new Options();
         options.Host.Factory = _ => new ModuleTestHost();
         options.Modules.Enabled = true;
+        options.WithModuleLoader(new DefaultModuleLoader(null));
 
         var engine = new Engine(options);
 

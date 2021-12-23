@@ -108,7 +108,7 @@ namespace Jint
             {
                 if (ReferenceEquals(moduleLoader, FailFastModuleLoader.Instance))
                 {
-                    moduleLoader = new ModuleLoader(Assembly.GetEntryAssembly().CodeBase);
+                    moduleLoader = new DefaultModuleLoader(new System.IO.FileInfo(Assembly.GetEntryAssembly().CodeBase).DirectoryName);
                 }
 
                 if (Modules.RegisterRequire)

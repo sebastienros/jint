@@ -7,22 +7,30 @@ using Esprima.Ast;
 
 namespace Jint.Runtime.Modules;
 
-public class ModuleLoader : IModuleLoader
+public class DefaultModuleLoader : IModuleLoader
 {
-    private readonly Uri _defaultReferencingLocation;
+    private readonly string _basePath;
 
-    public ModuleLoader(string defaultBasePath)
+    public DefaultModuleLoader(string basePath)
     {
-        _defaultReferencingLocation = new Uri(defaultBasePath);
+        _basePath = basePath;
     }
 
     public virtual ModuleLoaderResult LoadModule(Engine engine, string location, string? referencingLocation)
     {
-        var referencingUri = referencingLocation != null
-            ? new Uri(referencingLocation)
-            : _defaultReferencingLocation;
+        // If no referencing location is provided, ensure location is absolute
 
-        var locationUri = CalculateAbsolutePath(referencingUri, location);
+        var locationUri = referencingLocation == null 
+            ? new Uri(location, UriKind.Absolute) 
+            : new Uri(new Uri(referencingLocation, UriKind.Absolute), location)
+            ;
+
+        // Ensure the resulting resource is under the base path if it is provided
+
+        if (!String.IsNullOrEmpty(_basePath) && !locationUri.AbsolutePath.StartsWith(_basePath, StringComparison.Ordinal))
+        {
+            ExceptionHelper.ThrowArgumentException("Invalid file location.");
+        }
 
         return LoadModule(engine, locationUri);
     }
@@ -55,21 +63,9 @@ public class ModuleLoader : IModuleLoader
     {
         if (!location.IsFile)
         {
-            ExceptionHelper.ThrowNotImplementedException("Only file loading is supported");
+            ExceptionHelper.ThrowArgumentException("Only file loading is supported");
         }
 
         return File.ReadAllText(location.AbsolutePath);
-    }
-
-    protected virtual Uri CalculateAbsolutePath(Uri referencingUri, string location)
-    {
-        // Check whether we have a network url or a file url
-        var locationUri = new Uri(location, UriKind.RelativeOrAbsolute);
-        if (locationUri.IsAbsoluteUri)
-        {
-            return locationUri;
-        }
-
-        return new Uri(referencingUri, locationUri);
     }
 }
