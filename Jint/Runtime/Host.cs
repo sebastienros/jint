@@ -112,9 +112,6 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostimportmoduledynamically
         /// </summary>
-        /// <param name="referencingModule"></param>
-        /// <param name="specifier"></param>
-        /// <param name="promiseCapability"></param>
         internal virtual void ImportModuleDynamically(JsModule referencingModule, string specifier, PromiseCapability promiseCapability)
         {
             var promise = Engine.RegisterPromise();

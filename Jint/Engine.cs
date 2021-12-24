@@ -19,6 +19,7 @@ using Jint.Runtime.Interop;
 using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
+using Jint.Runtime.Modules;
 using Jint.Runtime.References;
 
 namespace Jint
@@ -758,6 +759,15 @@ namespace Jint
             var envRec = ExecutionContext.GetThisEnvironment();
             return envRec.GetThisBinding();
         }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getactivescriptormodule
+        /// </summary>
+        public JsModule GetActiveScriptOrModule()
+        {
+            throw new NotImplementedException();
+        }
+
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-globaldeclarationinstantiation
