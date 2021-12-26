@@ -271,10 +271,10 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "not in spec yet";
                                 break;
-                            case "u180e":
-                                skip = true;
-                                reason = "unicode/regexp not implemented";
-                                break;
+                            //case "u180e":
+                            //    skip = true;
+                            //    reason = "unicode/regexp not implemented";
+                            //    break;
                             case "regexp-match-indices":
                                 skip = true;
                                 reason = "regexp-match-indices not implemented";
@@ -323,18 +323,86 @@ namespace Jint.Tests.Test262
                     reason = "Esprima problem, Unexpected token *";
                 }
 
+                if (name.StartsWith("language/white-space/mongolian-vowel-separator-eval.js"))
+                {
+                    skip = true;
+                    reason = "Esprima problem";
+                }
+
+                // Unicode regular expressions
+
                 if (name.StartsWith("built-ins/RegExp/property-escapes/generated/"))
                 {
                     skip = true;
-                    reason = "Esprima problem, Invalid regular expression";
+                    reason = "Esprima problem";
                 }
 
-                if (name.StartsWith("built-ins/RegExp/unicode_"))
+                if (name.StartsWith("built-ins/RegExp/dotall/with-dotall-unicode.js"))
                 {
                     skip = true;
-                    reason = "Unicode support and its special cases need more work";
+                    reason = "Esprima problem";
                 }
 
+                if (name.StartsWith("built-ins/RegExp/dotall/without-dotall.js"))
+                {
+                    skip = true;
+                    reason = "Esprima problem";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/dotall/without-dotall-unicode.js"))
+                {
+                    skip = true;
+                    reason = "Esprima problem";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/unicode_restricted_brackets.js"))
+                {
+                    skip = true;
+                    reason = "Esprima problem";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/unicode_restricted_character_class_escape.js"))
+                {
+                    skip = true;
+                    reason = "Esprima problem";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/unicode_restricted_identity_escape.js"))
+                {
+                    skip = true;
+                    reason = "Esprima problem";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/unicode_restricted_identity_escape_alpha.js"))
+                {
+                    skip = true;
+                    reason = "Esprima problem";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/unicode_restricted_identity_escape_c.js"))
+                {
+                    skip = true;
+                    reason = "Esprima problem";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/unicode_restricted_identity_escape_u.js"))
+                {
+                    skip = true;
+                    reason = "Esprima problem";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/unicode_restricted_incomple_quantifier.js"))
+                {
+                    skip = true;
+                    reason = "Esprima problem";
+                }
+
+                if (name.StartsWith("built-ins/RegExp/unicode_restricted_quantifiable_assertion.js"))
+                {
+                    skip = true;
+                    reason = "Esprima problem";
+                }
+                
                 // Promises
                 if (name.StartsWith("built-ins/Promise/allSettled") ||
                     name.StartsWith("built-ins/Promise/any"))

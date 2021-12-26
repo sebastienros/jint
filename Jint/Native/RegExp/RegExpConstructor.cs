@@ -106,7 +106,7 @@ namespace Jint.Native.RegExp
                 var scanner = new Scanner("/" + p + "/" + flags , new ParserOptions { AdaptRegexp = true });
 
                 // seems valid
-                r.Value = scanner.TestRegExp(p, f);
+                r.Value = scanner.ParseRegex(p, f);
 
                 var timeout = _engine.Options.Constraints.RegexTimeout;
                 if (timeout.Ticks > 0)
