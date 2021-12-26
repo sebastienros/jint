@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿#nullable enable
+
+using System.Collections.Generic;
 using Jint.Runtime.Modules;
 
 namespace Jint
@@ -9,9 +11,9 @@ namespace Jint
 
         private readonly Dictionary<ModuleCacheKey, JsModule> _modules = new();
 
-        public JsModule LoadModule(string specifier) => LoadModule(null, specifier);
+        internal JsModule LoadModule(string specifier) => LoadModule(null, specifier);
 
-        internal JsModule LoadModule(string referencingModuleLocation, string specifier)
+        internal JsModule LoadModule(string? referencingModuleLocation, string specifier)
         {
             var key = new ModuleCacheKey(referencingModuleLocation ?? string.Empty, specifier);
 
@@ -22,6 +24,8 @@ namespace Jint
 
             var (loadedModule, location) = ModuleLoader.LoadModule(this, specifier, referencingModuleLocation);
             module = new JsModule(this, _host.CreateRealm(), loadedModule, location.AbsoluteUri, false);
+            module.Link();
+            module.Evaluate();
 
             _modules[key] = module;
 

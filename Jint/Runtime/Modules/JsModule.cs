@@ -43,7 +43,7 @@ internal sealed record ExportResolveSetItem(
 /// https://tc39.es/ecma262/#sec-cyclic-module-records
 /// https://tc39.es/ecma262/#sec-source-text-module-records
 /// </summary>
-public sealed class JsModule : JsValue
+internal sealed class JsModule : JsValue, IScriptOrModule
 {
     private readonly Engine _engine;
     private readonly Realm _realm;
@@ -68,7 +68,6 @@ public sealed class JsModule : JsValue
     private readonly List<ExportEntry> _localExportEntries;
     private readonly List<ExportEntry> _indirectExportEntries;
     private readonly List<ExportEntry> _starExportEntries;
-    internal readonly string _location;
     internal JsValue _evalResult;
 
     internal JsModule(Engine engine, Realm realm, Module source, string location, bool async) : base(InternalTypes.Module)
@@ -76,7 +75,7 @@ public sealed class JsModule : JsValue
         _engine = engine;
         _realm = realm;
         _source = source;
-        _location = location;
+        Location = location;
 
         _importMeta = _realm.Intrinsics.Object.Construct(1);
         _importMeta.DefineOwnProperty("url", new PropertyDescriptor(location, PropertyFlag.ConfigurableEnumerableWritable));
@@ -90,8 +89,9 @@ public sealed class JsModule : JsValue
             out _starExportEntries);
 
         //ToDo async modules
-
     }
+
+    public string Location { get; }
 
     internal ModuleStatus Status { get; private set; }
 
@@ -101,7 +101,7 @@ public sealed class JsModule : JsValue
     public static ObjectInstance GetModuleNamespace(JsModule module)
     {
         var ns = module._namespace;
-        if(ns is null)
+        if (ns is null)
         {
             var exportedNames = module.GetExportedNames();
             var unambiguousNames = new List<string>();
@@ -109,7 +109,7 @@ public sealed class JsModule : JsValue
             {
                 var name = exportedNames[i];
                 var resolution = module.ResolveExport(name);
-                if(resolution is not null)
+                if (resolution is not null)
                 {
                     unambiguousNames.Add(name);
                 }
@@ -157,7 +157,7 @@ public sealed class JsModule : JsValue
             exportedNames.Add(e.ExportName);
         }
 
-        for(var i = 0; i < _starExportEntries.Count; i++)
+        for (var i = 0; i < _starExportEntries.Count; i++)
         {
             var e = _starExportEntries[i];
             var requestedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
@@ -183,10 +183,10 @@ public sealed class JsModule : JsValue
     {
         resolveSet ??= new();
 
-        for(var i = 0; i < resolveSet.Count; i++)
+        for (var i = 0; i < resolveSet.Count; i++)
         {
             var r = resolveSet[i];
-            if(this == r.Module && exportName == r.ExportName)
+            if (this == r.Module && exportName == r.ExportName)
             {
                 //circular import request
                 return null;
@@ -194,7 +194,7 @@ public sealed class JsModule : JsValue
         }
 
         resolveSet.Add(new(this, exportName));
-        for(var i = 0; i < _localExportEntries.Count; i++)
+        for (var i = 0; i < _localExportEntries.Count; i++)
         {
             var e = _localExportEntries[i];
 
@@ -204,13 +204,13 @@ public sealed class JsModule : JsValue
             }
         }
 
-        for(var i = 0; i < _indirectExportEntries.Count; i++)
+        for (var i = 0; i < _indirectExportEntries.Count; i++)
         {
             var e = _localExportEntries[i];
             if (exportName.Equals(e.ExportName))
             {
                 var importedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
-                if(e.ImportName == "*")
+                if (e.ImportName == "*")
                 {
                     return new ResolvedBinding(importedModule, "*namespace*");
                 }
@@ -228,25 +228,25 @@ public sealed class JsModule : JsValue
 
         ResolvedBinding starResolution = null;
 
-        for(var i = 0; i < _starExportEntries.Count; i++)
+        for (var i = 0; i < _starExportEntries.Count; i++)
         {
             var e = _starExportEntries[i];
             var importedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
             var resolution = importedModule.ResolveExport(exportName, resolveSet);
-            if(resolution == ResolvedBinding.Ambiguous)
+            if (resolution == ResolvedBinding.Ambiguous)
             {
                 return resolution;
             }
 
-            if(resolution is not null)
+            if (resolution is not null)
             {
-                if(starResolution is null)
+                if (starResolution is null)
                 {
                     starResolution = resolution;
                 }
                 else
                 {
-                    if(resolution.Module != starResolution.Module || resolution.BindingName != starResolution.BindingName)
+                    if (resolution.Module != starResolution.Module || resolution.BindingName != starResolution.BindingName)
                     {
                         return ResolvedBinding.Ambiguous;
                     }
@@ -262,7 +262,7 @@ public sealed class JsModule : JsValue
     /// </summary>
     public void Link()
     {
-        if (Status == ModuleStatus.Linking || Status == ModuleStatus.Evaluating)
+        if (Status is ModuleStatus.Linking or ModuleStatus.Evaluating)
         {
             ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module is already either linking or evaluating");
         }
@@ -282,6 +282,7 @@ public sealed class JsModule : JsValue
                 m._dfsIndex = -1;
                 m._dfsAncestorIndex = -1;
             }
+
             Status = ModuleStatus.Unlinked;
             throw;
         }
@@ -291,7 +292,7 @@ public sealed class JsModule : JsValue
             ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module is neither linked or unlinked");
         }
 
-        if(stack.Any())
+        if (stack.Any())
         {
             ExceptionHelper.ThrowInvalidOperationException("Error while linking module: One or more modules were not linked");
         }
@@ -308,7 +309,7 @@ public sealed class JsModule : JsValue
             module.Status != ModuleStatus.EvaluatingAsync &&
             module.Status != ModuleStatus.Evaluated)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state " + module.Status);
         }
 
         if (module.Status == ModuleStatus.EvaluatingAsync || module.Status == ModuleStatus.Evaluated)
@@ -328,13 +329,14 @@ public sealed class JsModule : JsValue
 
         var result = Evaluate(module, stack, 0, ref asyncEvalOrder);
 
-        if(result.Type != CompletionType.Normal)
+        if (result.Type != CompletionType.Normal)
         {
-            foreach(var m in stack)
+            foreach (var m in stack)
             {
                 m.Status = ModuleStatus.Evaluated;
                 m._evalError = result;
             }
+
             capability.Reject.Call(Undefined, new [] { result.Value });
         }
         else
@@ -351,7 +353,7 @@ public sealed class JsModule : JsValue
 
             if (!module._asyncEvaluation)
             {
-                if(module.Status != ModuleStatus.Evaluated)
+                if (module.Status != ModuleStatus.Evaluated)
                 {
                     ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
                 }
@@ -366,7 +368,6 @@ public sealed class JsModule : JsValue
         }
 
         return capability.PromiseInstance;
-
     }
 
     /// <summary>
@@ -374,17 +375,18 @@ public sealed class JsModule : JsValue
     /// </summary>
     private int Link(JsModule module, Stack<JsModule> stack, int index)
     {
-        if(module.Status is ModuleStatus.Linking or
-           ModuleStatus.Linked or
-           ModuleStatus.EvaluatingAsync or
-           ModuleStatus.Evaluating)
+        if (module.Status is
+            ModuleStatus.Linking or
+            ModuleStatus.Linked or
+            ModuleStatus.EvaluatingAsync or
+            ModuleStatus.Evaluating)
         {
             return index;
         }
 
-        if(module.Status != ModuleStatus.Unlinked)
+        if (module.Status != ModuleStatus.Unlinked)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module in an invalid state");
+            ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module in an invalid state " + module.Status);
         }
 
         module.Status = ModuleStatus.Linking;
@@ -403,12 +405,12 @@ public sealed class JsModule : JsValue
                 requiredModule.Status != ModuleStatus.Linked &&
                 requiredModule.Status != ModuleStatus.Evaluated)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Required module is in an invalid state");
+                ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Required module is in an invalid state " + requiredModule.Status);
             }
 
-            if(requiredModule.Status == ModuleStatus.Linking && !stack.Contains(requiredModule))
+            if (requiredModule.Status == ModuleStatus.Linking && !stack.Contains(requiredModule))
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Required module is in an invalid state");
+                ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Required module is in an invalid state" + requiredModule.Status);
             }
 
             if (requiredModule.Status == ModuleStatus.Linking)
@@ -443,7 +445,6 @@ public sealed class JsModule : JsValue
         }
 
         return index;
-
     }
 
     /// <summary>
@@ -451,9 +452,9 @@ public sealed class JsModule : JsValue
     /// </summary>
     private Completion Evaluate(JsModule module, Stack<JsModule> stack, int index, ref int asyncEvalOrder)
     {
-        if(module.Status == ModuleStatus.EvaluatingAsync || module.Status == ModuleStatus.Evaluated)
+        if (module.Status == ModuleStatus.EvaluatingAsync || module.Status == ModuleStatus.Evaluated)
         {
-            if(module._evalError is null)
+            if (module._evalError is null)
             {
                 return new Completion(CompletionType.Normal, index, null, default);
             }
@@ -461,7 +462,7 @@ public sealed class JsModule : JsValue
             return module._evalError.Value;
         }
 
-        if(module.Status == ModuleStatus.Evaluating)
+        if (module.Status == ModuleStatus.Evaluating)
         {
             return new Completion(CompletionType.Normal, index, null, default);
         }
@@ -485,7 +486,7 @@ public sealed class JsModule : JsValue
         {
             var requiredModule = _engine._host.ResolveImportedModule(module, moduleSpecifier);
             var result = Evaluate(module, stack, index, ref asyncEvalOrder);
-            if(result.Type != CompletionType.Normal)
+            if (result.Type != CompletionType.Normal)
             {
                 return result;
             }
@@ -504,14 +505,14 @@ public sealed class JsModule : JsValue
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
-            if(requiredModule.Status == ModuleStatus.Evaluating)
+            if (requiredModule.Status == ModuleStatus.Evaluating)
             {
                 module._dfsAncestorIndex = System.Math.Min(module._dfsAncestorIndex, requiredModule._dfsAncestorIndex);
             }
             else
             {
                 requiredModule = requiredModule._cycleRoot;
-                if(requiredModule.Status != ModuleStatus.EvaluatingAsync && requiredModule.Status != ModuleStatus.Evaluated)
+                if (requiredModule.Status != ModuleStatus.EvaluatingAsync && requiredModule.Status != ModuleStatus.Evaluated)
                 {
                     ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
                 }
@@ -524,7 +525,7 @@ public sealed class JsModule : JsValue
             }
         }
 
-        if(module._pendingAsyncDependencies > 0 || module._hasTLA)
+        if (module._pendingAsyncDependencies > 0 || module._hasTLA)
         {
             if (module._asyncEvaluation)
             {
@@ -547,7 +548,7 @@ public sealed class JsModule : JsValue
             module.Execute();
         }
 
-        if(stack.Count(x => x == module) != 1)
+        if (stack.Count(x => x == module) != 1)
         {
             ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
@@ -557,7 +558,7 @@ public sealed class JsModule : JsValue
             ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
 
-        if(module._dfsIndex == module._dfsAncestorIndex)
+        if (module._dfsIndex == module._dfsAncestorIndex)
         {
             bool done = false;
             while (!done)
@@ -578,7 +579,6 @@ public sealed class JsModule : JsValue
         }
 
         return new Completion(CompletionType.Normal, index, null, default);
-
     }
 
     /// <summary>
@@ -586,7 +586,7 @@ public sealed class JsModule : JsValue
     /// </summary>
     private void InitializeEnvironment()
     {
-        for(var i = 0; i < _indirectExportEntries.Count; i++)
+        for (var i = 0; i < _indirectExportEntries.Count; i++)
         {
             var e = _indirectExportEntries[i];
             var resolution = ResolveExport(e.ExportName);
@@ -604,7 +604,7 @@ public sealed class JsModule : JsValue
         {
             var ie = _importEntries[i];
             var importedModule = _engine._host.ResolveImportedModule(this, ie.ModuleRequest);
-            if(ie.ImportName == "*")
+            if (ie.ImportName == "*")
             {
                 var ns = GetModuleNamespace(importedModule);
                 env.CreateImmutableBinding(ie.LocalName, true);
@@ -613,7 +613,7 @@ public sealed class JsModule : JsValue
             else
             {
                 var resolution = importedModule.ResolveExport(ie.ImportName);
-                if(resolution is null || resolution == ResolvedBinding.Ambiguous)
+                if (resolution is null || resolution == ResolvedBinding.Ambiguous)
                 {
                     ExceptionHelper.ThrowSyntaxError(_realm, "Ambigous import statement for identifier " + ie.ImportName);
                 }
@@ -631,7 +631,7 @@ public sealed class JsModule : JsValue
             }
         }
 
-        var moduleContext = new ExecutionContext(_environment, _environment, null, realm, null);
+        var moduleContext = new ExecutionContext(this, _environment, _environment, null, realm, null);
         _context = moduleContext;
 
         _engine.EnterExecutionContext(_context);
@@ -640,15 +640,15 @@ public sealed class JsModule : JsValue
 
         var varDeclarations = hoistingScope._variablesDeclarations;
         var declaredVarNames = new List<string>();
-        if(varDeclarations != null)
+        if (varDeclarations != null)
         {
             var boundNames = new List<string>();
-            for(var i = 0; i < varDeclarations.Count; i++)
+            for (var i = 0; i < varDeclarations.Count; i++)
             {
                 var d = varDeclarations[i];
                 boundNames.Clear();
                 d.GetBoundNames(boundNames);
-                for(var j = 0; j < boundNames.Count; j++)
+                for (var j = 0; j < boundNames.Count; j++)
                 {
                     var dn = boundNames[j];
                     if (!declaredVarNames.Contains(dn))
@@ -663,10 +663,10 @@ public sealed class JsModule : JsValue
 
         var lexDeclarations = hoistingScope._lexicalDeclarations;
 
-        if(lexDeclarations != null)
+        if (lexDeclarations != null)
         {
             var boundNames = new List<string>();
-            for(var i = 0; i < lexDeclarations.Count; i++)
+            for (var i = 0; i < lexDeclarations.Count; i++)
             {
                 var d = lexDeclarations[i];
                 boundNames.Clear();
@@ -674,7 +674,7 @@ public sealed class JsModule : JsValue
                 for (var j = 0; j < boundNames.Count; j++)
                 {
                     var dn = boundNames[j];
-                    if(d.Kind == VariableDeclarationKind.Const)
+                    if (d.Kind == VariableDeclarationKind.Const)
                     {
                         env.CreateImmutableBinding(dn, true);
                     }
@@ -688,9 +688,9 @@ public sealed class JsModule : JsValue
 
         var functionDeclarations = hoistingScope._functionDeclarations;
 
-        if(functionDeclarations != null)
+        if (functionDeclarations != null)
         {
-            for(var i = 0; i < functionDeclarations.Count; i++)
+            for (var i = 0; i < functionDeclarations.Count; i++)
             {
                 var d = functionDeclarations[i];
                 var fn = d.Id.Name;
@@ -709,7 +709,7 @@ public sealed class JsModule : JsValue
     /// </summary>
     private Completion Execute(PromiseCapability capability = null)
     {
-        var moduleContext = new ExecutionContext(_environment, _environment, null, _realm);
+        var moduleContext = new ExecutionContext(this, _environment, _environment, null, _realm);
         if (!_hasTLA)
         {
             using (new StrictModeScope(strict: true))
@@ -733,7 +733,7 @@ public sealed class JsModule : JsValue
     /// </summary>
     private Completion ExecuteAsync()
     {
-        if((Status != ModuleStatus.Evaluating && Status != ModuleStatus.EvaluatingAsync) || !_hasTLA)
+        if ((Status != ModuleStatus.Evaluating && Status != ModuleStatus.EvaluatingAsync) || !_hasTLA)
         {
             ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
@@ -743,10 +743,9 @@ public sealed class JsModule : JsValue
         var onFullfilled = new ClrFunctionInstance(_engine, "fulfilled", AsyncModuleExecutionFulfilled, 1, PropertyFlag.Configurable);
         var onRejected = new ClrFunctionInstance(_engine, "rejected", AsyncModuleExecutionRejected, 1, PropertyFlag.Configurable);
 
-        PromiseOperations.PerformPromiseThen(_engine, (PromiseInstance)capability.PromiseInstance, onFullfilled, onRejected, null);
+        PromiseOperations.PerformPromiseThen(_engine, (PromiseInstance) capability.PromiseInstance, onFullfilled, onRejected);
 
         return Execute(capability);
-
     }
 
     /// <summary>
@@ -754,19 +753,19 @@ public sealed class JsModule : JsValue
     /// </summary>
     private void GatherAvailableAncestors(List<JsModule> execList)
     {
-        foreach(var m in _asyncParentModules)
+        foreach (var m in _asyncParentModules)
         {
-            if(!execList.Contains(m) && m._cycleRoot._evalError is null)
+            if (!execList.Contains(m) && m._cycleRoot._evalError is null)
             {
-                if(m.Status != ModuleStatus.EvaluatingAsync ||
-                   m._evalError is not null ||
-                   !m._asyncEvaluation ||
-                   m._pendingAsyncDependencies <= 0)
+                if (m.Status != ModuleStatus.EvaluatingAsync ||
+                    m._evalError is not null ||
+                    !m._asyncEvaluation ||
+                    m._pendingAsyncDependencies <= 0)
                 {
                     ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
                 }
 
-                if(--m._pendingAsyncDependencies == 0)
+                if (--m._pendingAsyncDependencies == 0)
                 {
                     execList.Add(m);
                     if (!m._hasTLA)
@@ -783,10 +782,10 @@ public sealed class JsModule : JsValue
     /// </summary>
     private JsValue AsyncModuleExecutionFulfilled(JsValue thisObj, JsValue[] arguments)
     {
-        var module = (JsModule)arguments.At(0);
+        var module = (JsModule) arguments.At(0);
         if (module.Status == ModuleStatus.Evaluated)
         {
-            if(module._evalError is not null)
+            if (module._evalError is not null)
             {
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
@@ -803,7 +802,7 @@ public sealed class JsModule : JsValue
 
         if (module._topLevelCapability is not null)
         {
-            if(module._cycleRoot is null)
+            if (module._cycleRoot is null)
             {
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
@@ -815,7 +814,7 @@ public sealed class JsModule : JsValue
         module.GatherAvailableAncestors(execList);
         execList.Sort((x, y) => x._asyncEvalOrder - y._asyncEvalOrder);
 
-        for(var i = 0; i < execList.Count; i++)
+        for (var i = 0; i < execList.Count; i++)
         {
             var m = execList[i];
             if (m.Status == ModuleStatus.Evaluated && m._evalError is null)
@@ -829,14 +828,14 @@ public sealed class JsModule : JsValue
             else
             {
                 var result = m.Execute();
-                if(result.Type != CompletionType.Normal)
+                if (result.Type != CompletionType.Normal)
                 {
                     AsyncModuleExecutionRejected(Undefined, new[] { m, result.Value });
                 }
                 else
                 {
                     m.Status = ModuleStatus.Evaluated;
-                    if(m._topLevelCapability is not null)
+                    if (m._topLevelCapability is not null)
                     {
                         if (m._cycleRoot is null)
                         {
@@ -857,12 +856,12 @@ public sealed class JsModule : JsValue
     /// </summary>
     private JsValue AsyncModuleExecutionRejected(JsValue thisObj, JsValue[] arguments)
     {
-        JsModule module = (JsModule)arguments.At(0);
+        JsModule module = (JsModule) arguments.At(0);
         JsValue error = arguments.At(1);
 
         if (module.Status == ModuleStatus.Evaluated)
         {
-            if(module._evalError is null)
+            if (module._evalError is null)
             {
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
@@ -899,11 +898,6 @@ public sealed class JsModule : JsValue
 
 
         return Undefined;
-    }
-
-    public override bool Equals(JsValue other)
-    {
-        return false;
     }
 
     public override object ToObject()

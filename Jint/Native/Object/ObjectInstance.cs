@@ -83,6 +83,11 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
+        /// Returns a named property from object.
+        /// </summary>
+        public JsValue this[JsValue property] => Get(property);
+
+        /// <summary>
         /// https://tc39.es/ecma262/#sec-construct
         /// </summary>
         internal static ObjectInstance Construct(IConstructor f, JsValue[] argumentsList = null, IConstructor newTarget = null)

@@ -7,12 +7,14 @@ namespace Jint.Runtime.Environments
     internal readonly struct ExecutionContext
     {
         internal ExecutionContext(
+            IScriptOrModule? scriptOrModule,
             EnvironmentRecord lexicalEnvironment,
             EnvironmentRecord variableEnvironment,
             PrivateEnvironmentRecord? privateEnvironment,
             Realm realm,
             FunctionInstance? function = null)
         {
+            ScriptOrModule = scriptOrModule;
             LexicalEnvironment = lexicalEnvironment;
             VariableEnvironment = variableEnvironment;
             PrivateEnvironment = privateEnvironment;
@@ -20,8 +22,8 @@ namespace Jint.Runtime.Environments
             Function = function;
         }
 
+        public readonly IScriptOrModule? ScriptOrModule;
         public readonly EnvironmentRecord LexicalEnvironment;
-
         public readonly EnvironmentRecord VariableEnvironment;
         public readonly PrivateEnvironmentRecord? PrivateEnvironment;
         public readonly Realm Realm;
@@ -29,12 +31,12 @@ namespace Jint.Runtime.Environments
 
         public ExecutionContext UpdateLexicalEnvironment(EnvironmentRecord lexicalEnvironment)
         {
-            return new ExecutionContext(lexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, Function);
+            return new ExecutionContext(ScriptOrModule, lexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, Function);
         }
 
         public ExecutionContext UpdateVariableEnvironment(EnvironmentRecord variableEnvironment)
         {
-            return new ExecutionContext(LexicalEnvironment, variableEnvironment, PrivateEnvironment, Realm, Function);
+            return new ExecutionContext(ScriptOrModule, LexicalEnvironment, variableEnvironment, PrivateEnvironment, Realm, Function);
         }
 
         /// <summary>
@@ -52,7 +54,7 @@ namespace Jint.Runtime.Environments
                     if (lex.HasThisBinding())
                     {
                         return lex;
-                        
+
                     }
 
                     lex = lex._outerEnv;

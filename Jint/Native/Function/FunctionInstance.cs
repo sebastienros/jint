@@ -364,6 +364,7 @@ namespace Jint.Native.Function
             var calleeRealm = _realm;
 
             var calleeContext = new ExecutionContext(
+                null,
                 localEnv,
                 localEnv,
                 _privateEnvironment,

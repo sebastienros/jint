@@ -1,3 +1,5 @@
+#nullable enable
+
 using System;
 using System.Collections.Generic;
 using Jint.Native.Object;
@@ -29,34 +31,37 @@ namespace Jint.Native.Promise
         //      j. Else,
         //          i. Let status be Call(promiseCapability.[[Resolve]], undefined, « handlerResult.[[Value]] »).
         //      k. Return Completion(status).
-        internal static Action NewPromiseReactionJob(PromiseReaction reaction, JsValue value)
+        private static Action NewPromiseReactionJob(PromiseReaction reaction, JsValue value)
         {
             return () =>
             {
+                var promiseCapability = reaction.Capability;
+                var type = reaction.Type;
+
                 if (reaction.Handler is ICallable handler)
                 {
                     try
                     {
-                        var result = handler.Call(JsValue.Undefined, new[] {value});
-                        reaction.Capability.Resolve.Call(JsValue.Undefined, new[] {result});
+                        var result = handler.Call(JsValue.Undefined, new[] { value });
+                        promiseCapability?.Resolve.Call(JsValue.Undefined, new[] { result });
                     }
                     catch (JavaScriptException e)
                     {
-                        reaction.Capability.Reject.Call(JsValue.Undefined, new[] {e.Error});
+                        promiseCapability?.Reject.Call(JsValue.Undefined, new[] { e.Error });
                     }
                 }
                 else
                 {
-                    switch (reaction.Type)
+                    switch (type)
                     {
                         case ReactionType.Fulfill:
-                            reaction.Capability.Resolve.Call(JsValue.Undefined, new[] {value});
+                            promiseCapability?.Resolve.Call(JsValue.Undefined, new[] { value });
                             break;
 
                         case ReactionType.Reject:
-                            reaction.Capability.Reject.Call(JsValue.Undefined, new[] {value});
-
+                            promiseCapability?.Reject.Call(JsValue.Undefined, new[] { value });
                             break;
+
                         default:
                             throw new ArgumentOutOfRangeException();
                     }
@@ -118,7 +123,7 @@ namespace Jint.Native.Promise
             PromiseInstance promise,
             JsValue onFulfilled,
             JsValue onRejected,
-            PromiseCapability resultCapability)
+            PromiseCapability? resultCapability = null)
         {
             var fulfilReaction = new PromiseReaction(ReactionType.Fulfill, resultCapability, onFulfilled);
             var rejectReaction = new PromiseReaction(ReactionType.Reject, resultCapability, onRejected);

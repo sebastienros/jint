@@ -247,9 +247,13 @@ namespace Jint
         /// Enables module loading in the engine via the 'require' function. By default there's no sand-boxing and
         /// you need to trust the script loading the modules not doing bad things.
         /// </summary>
-        public static Options EnableModules(this Options options, bool enable = true)
+        public static Options EnableModules(this Options options, bool enable = true, string? basePath = null)
         {
             options.Modules.Enabled = enable;
+            if (!string.IsNullOrWhiteSpace(basePath))
+            {
+                //options.Modules.ModuleLoader
+            }
             return options;
         }
 

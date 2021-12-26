@@ -1,3 +1,5 @@
+#nullable enable
+
 using Jint.Native;
 using Jint.Native.Global;
 using Jint.Native.Object;
@@ -11,7 +13,7 @@ namespace Jint.Runtime
 {
     public class Host
     {
-        protected Engine Engine { get; private set; }
+        protected Engine Engine { get; private set; } = null!;
 
         /// <summary>
         /// Initializes the host.
@@ -35,6 +37,7 @@ namespace Jint.Runtime
             var realm = CreateRealm();
 
             var newContext = new ExecutionContext(
+                scriptOrModule: null,
                 lexicalEnvironment: realm.GlobalEnv,
                 variableEnvironment: realm.GlobalEnv,
                 privateEnvironment: null,
@@ -101,24 +104,21 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostresolveimportedmodule
         /// </summary>
-        /// <param name="referencingModule"></param>
-        /// <param name="specifier"></param>
-        /// <returns></returns>
-        protected internal virtual JsModule ResolveImportedModule(JsModule referencingModule, string specifier)
+        internal virtual JsModule ResolveImportedModule(IScriptOrModule? referencingScriptOrModule, string specifier)
         {
-            return Engine.LoadModule(referencingModule._location, specifier);
+            return Engine.LoadModule(referencingScriptOrModule?.Location, specifier);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostimportmoduledynamically
         /// </summary>
-        internal virtual void ImportModuleDynamically(JsModule referencingModule, string specifier, PromiseCapability promiseCapability)
+        internal virtual void ImportModuleDynamically(IScriptOrModule? referencingScriptOrModule, string specifier, PromiseCapability promiseCapability)
         {
             var promise = Engine.RegisterPromise();
 
             try
             {
-                Engine.LoadModule(referencingModule._location, specifier);
+                Engine.LoadModule(referencingScriptOrModule?.Location, specifier);
                 promise.Resolve(JsValue.Undefined);
 
             }
@@ -127,21 +127,17 @@ namespace Jint.Runtime
                 promise.Reject(ex.Error);
             }
 
-            FinishDynamicImport(referencingModule, specifier, promiseCapability, (PromiseInstance)promise.Promise);
+            FinishDynamicImport(referencingScriptOrModule, specifier, promiseCapability, (PromiseInstance)promise.Promise);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-finishdynamicimport
         /// </summary>
-        /// <param name="referencingModule"></param>
-        /// <param name="specifier"></param>
-        /// <param name="promiseCapability"></param>
-        /// <param name="innerPromise"></param>
-        internal virtual void FinishDynamicImport(JsModule referencingModule, string specifier, PromiseCapability promiseCapability, PromiseInstance innerPromise)
+        internal virtual void FinishDynamicImport(IScriptOrModule? referencingScriptOrModule, string specifier, PromiseCapability promiseCapability, PromiseInstance innerPromise)
         {
             var onFulfilled = new ClrFunctionInstance(Engine, "", (thisObj, args) =>
             {
-                var moduleRecord = ResolveImportedModule(referencingModule, specifier);
+                var moduleRecord = ResolveImportedModule(referencingScriptOrModule, specifier);
                 try
                 {
                     var ns = JsModule.GetModuleNamespace(moduleRecord);
@@ -161,7 +157,7 @@ namespace Jint.Runtime
                 return JsValue.Undefined;
             }, 0, PropertyFlag.Configurable);
 
-            PromiseOperations.PerformPromiseThen(Engine, innerPromise, onFulfilled, onRejected, null);
+            PromiseOperations.PerformPromiseThen(Engine, innerPromise, onFulfilled, onRejected);
         }
     }
 }

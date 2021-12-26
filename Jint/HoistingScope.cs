@@ -286,9 +286,9 @@ namespace Jint
 
         private sealed class ModuleWalker
         {
-            internal List<ImportEntry> _importEntries;
-            internal List<ExportEntry> _exportEntries;
-            internal HashSet<string> _requestedModules;
+            internal readonly List<ImportEntry> _importEntries = new();
+            internal readonly List<ExportEntry> _exportEntries = new();
+            internal readonly HashSet<string> _requestedModules = new();
 
             internal void Visit(Node node)
             {
@@ -301,8 +301,6 @@ namespace Jint
 
                     if (childNode.Type == Nodes.ImportDeclaration)
                     {
-                        _importEntries ??= new();
-                        _requestedModules ??= new();
                         var import = childNode as ImportDeclaration;
                         import.GetImportEntries(_importEntries, _requestedModules);
                     }
@@ -310,8 +308,6 @@ namespace Jint
                              childNode.Type == Nodes.ExportDefaultDeclaration ||
                              childNode.Type == Nodes.ExportNamedDeclaration)
                     {
-                        _exportEntries ??= new();
-                        _requestedModules ??= new();
                         var export = (ExportDeclaration) childNode;
                         export.GetExportEntries(_exportEntries, _requestedModules);
                     }

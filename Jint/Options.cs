@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Jint.Native;
@@ -108,7 +109,7 @@ namespace Jint
             {
                 if (ReferenceEquals(moduleLoader, FailFastModuleLoader.Instance))
                 {
-                    moduleLoader = new DefaultModuleLoader(new System.IO.FileInfo(Assembly.GetEntryAssembly().CodeBase).DirectoryName);
+                    moduleLoader = new DefaultModuleLoader(Modules.BasePath);
                 }
 
                 if (Modules.RegisterRequire)
@@ -374,6 +375,11 @@ namespace Jint
         /// <summary>
         /// Module loader implementation, by default exception will be thrown if module loading is not enabled.
         /// </summary>
-        public IModuleLoader? ModuleLoader { get; set; } = FailFastModuleLoader.Instance;
+        public IModuleLoader ModuleLoader { get; set; } = FailFastModuleLoader.Instance;
+
+        /// <summary>
+        /// The base path for module loader, defaults to <see cref="Directory.GetCurrentDirectory()"/>.
+        /// </summary>
+        public string BasePath { get; set; } = Directory.GetCurrentDirectory();
     }
 }

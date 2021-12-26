@@ -19,7 +19,6 @@ using Jint.Runtime.Interop;
 using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
-using Jint.Runtime.Modules;
 using Jint.Runtime.References;
 
 namespace Jint
@@ -169,6 +168,7 @@ namespace Jint
             PrivateEnvironmentRecord privateEnvironment)
         {
             var context = new ExecutionContext(
+                null,
                 lexicalEnvironment,
                 variableEnvironment,
                 privateEnvironment,
@@ -763,11 +763,10 @@ namespace Jint
         /// <summary>
         /// https://tc39.es/ecma262/#sec-getactivescriptormodule
         /// </summary>
-        public JsModule GetActiveScriptOrModule()
+        internal IScriptOrModule GetActiveScriptOrModule()
         {
-            throw new NotImplementedException();
+            return _executionContexts.GetActiveScriptOrModule();
         }
-
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-globaldeclarationinstantiation
