@@ -1129,9 +1129,20 @@ namespace Jint.Runtime
                 return 5;
             }
 
+            if (paramType == typeof(int) && jsValue.IsInteger())
+            {
+                return 0;
+            }
+
+            if (paramType == typeof(float) && objectValueType == typeof(Double))
+            {
+                return jsValue.IsInteger() ? 1 : 0;
+            }
+
             if (paramType.IsEnum &&
                 jsValue is JsNumber jsNumber
                 && jsNumber.IsInteger()
+                && paramType.GetEnumUnderlyingType() == typeof(int)
                 && Enum.IsDefined(paramType, jsNumber.AsInteger()))
             {
                 // we can do conversion from int value to enum
