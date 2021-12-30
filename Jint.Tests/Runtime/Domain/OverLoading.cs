@@ -16,5 +16,15 @@ namespace Jint.Tests.Runtime.Domain
         {
             return "uint-enum";
         }
+
+        public string TestFunc(float f)
+        {
+            return "float-val";
+        }
+
+        public string TestFunc(int i)
+        {
+            return "int-val";
+        }
     }
 }
