@@ -445,7 +445,7 @@ namespace Jint.Native.Proxy
             return true;
         }
 
-        internal override bool IsCallable => _target is ICallable;
+        internal override bool IsCallable => _target is not null && _target.IsCallable;
 
         private bool TryCallHandler(JsValue propertyName, JsValue[] arguments, out JsValue result)
         {
