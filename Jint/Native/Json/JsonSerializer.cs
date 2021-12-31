@@ -172,11 +172,6 @@ namespace Jint.Native.Json
                     case BigIntInstance bigIntInstance:
                         value = bigIntInstance.BigIntData;
                         break;
-                    default:
-                        value = SerializesAsArray(value)
-                            ? SerializeJSONArray(value)
-                            : SerializeJSONObject(value.AsObject());
-                        return value;
                 }
             }
 
@@ -211,7 +206,7 @@ namespace Jint.Native.Json
                 ExceptionHelper.ThrowTypeError(_engine.Realm, "Do not know how to serialize a BigInt");
             }
 
-            var isCallable = value.IsObject() && value.AsObject() is ICallable;
+            var isCallable = value.IsObject() && value.IsCallable;
 
             if (value.IsObject() && isCallable == false)
             {

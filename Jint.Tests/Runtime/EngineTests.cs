@@ -2059,6 +2059,20 @@ var prep = function (fn) { fn(); };
             Assert.True(res == "Cyclic reference detected.");
         }
 
+        [Fact]
+        public void ShouldNotStringifyFunctionValuedProperties()
+        {
+            var engine = new Engine();
+            var res = engine.Evaluate(@"
+                var obj = {
+                    f: function() { }
+                };
+                return JSON.stringify(obj);
+            ");
+
+            Assert.Equal("{}", res.AsString());
+        }
+
         [Theory]
         [InlineData("", "escape('')")]
         [InlineData("%u0100%u0101%u0102", "escape('\u0100\u0101\u0102')")]
