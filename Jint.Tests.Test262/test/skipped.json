@@ -1,375 +1,410 @@
 [
-  {
-    "source": "language/expressions/assignment/fn-name-lhs-cover.js",
-    "reason": "Currently quite impossible to detect if assignment target is CoverParenthesizedExpression"
-  },
-  {
-    "source": "built-ins/RegExp/character-class-escape-non-whitespace.js",
-    "reason": "Unicode support not built-in to .NET the same way, requires more work"
-  },
-  {
-    "source": "built-ins/RegExp/property-escapes/character-class.js",
-    "reason": "Unicode support not built-in to .NET the same way, requires more work"
-  },
-  {
-    "source": "built-ins/RegExp/prototype/Symbol.match/builtin-infer-unicode.js",
-    "reason": "Unicode support not built-in to .NET the same way, requires more work"
-  },
-  {
-    "source": "built-ins/RegExp/prototype/Symbol.match/builtin-success-u-return-val-groups.js",
-    "reason": "Unicode support not built-in to .NET the same way, requires more work"
-  },
-  {
-    "source": "built-ins/RegExp/prototype/Symbol.match/u-advance-after-empty.js",
-    "reason": "Unicode support not built-in to .NET the same way, requires more work"
-  },
-  {
-    "source": "built-ins/RegExp/prototype/Symbol.replace/u-advance-after-empty.js",
-    "reason": "Unicode support not built-in to .NET the same way, requires more work"
-  },
-  {
-    "source": "built-ins/RegExp/prototype/Symbol.search/u-lastindex-advance.js",
-    "reason": "Unicode support not built-in to .NET the same way, requires more work"
-  },
+    {
+        "source": "language/expressions/assignment/fn-name-lhs-cover.js",
+        "reason": "Currently quite impossible to detect if assignment target is CoverParenthesizedExpression"
+    },
+    {
+        "source": "built-ins/RegExp/character-class-escape-non-whitespace.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+    {
+        "source": "built-ins/RegExp/property-escapes/character-class.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+    {
+        "source": "built-ins/RegExp/prototype/Symbol.match/builtin-infer-unicode.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+    {
+        "source": "built-ins/RegExp/prototype/Symbol.match/builtin-success-u-return-val-groups.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+    {
+        "source": "built-ins/RegExp/prototype/Symbol.match/u-advance-after-empty.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+    {
+        "source": "built-ins/RegExp/prototype/Symbol.replace/u-advance-after-empty.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+    {
+        "source": "built-ins/RegExp/prototype/Symbol.search/u-lastindex-advance.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+    {
+        "source": "built-ins/RegExp/unicode_restricted_quantifiable_assertion.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+    {
+        "source": "built-ins/RegExp/dotall/without-dotall.js",
+        "reason": "Issue with \\r in source string"
+    },
+    {
+        "source": "built-ins/RegExp/dotall/without-dotall-unicode.js",
+        "reason": "Issue with \\r in source string"
+    },
+    {
+        "source": "built-ins/RegExp/prototype/exec/u-lastindex-value.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+    {
+        "source": "built-ins/RegExp/unicode_restricted_character_class_escape.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+    {
+        "source": "built-ins/RegExp/unicode_restricted_identity_escape.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+    {
+        "source": "built-ins/RegExp/unicode_restricted_identity_escape_alpha.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+    {
+        "source": "built-ins/RegExp/unicode_restricted_identity_escape_c.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+    {
+        "source": "built-ins/RegExp/unicode_restricted_identity_escape_u.js",
+        "reason": "Unicode support not built-in to .NET the same way, requires more work"
+    },
+
+    {
+        "source": "built-ins/Function/prototype/toString/method-computed-property-name.js",
+        "reason": "requires investigation how to process complex function name evaluation for property"
+    },
 
 
-  {
-    "source": "built-ins/Function/prototype/toString/method-computed-property-name.js",
-    "reason": "requires investigation how to process complex function name evaluation for property"
-  },
+    // http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics
+    {
+        "source": "language/statements/let/block-local-closure-set-before-initialization.js",
+        "reason": "not implemented (block level functions)"
+    },
+    {
+        "source": "language/block-scope/shadowing/dynamic-lookup-from-closure.js",
+        "reason": "not implemented (block level functions)"
+    },
+    {
+        "source": "language/block-scope/shadowing/lookup-from-closure.js",
+        "reason": "not implemented (block level functions)"
+    },
+
+    {
+        "source": "language/statements/let/block-local-closure-set-before-initialization.js",
+        "reason": "http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics not implemented (block level functions)"
+    },
+
+    {
+        "source": "built-ins/RegExp/S15.10.2.11_A1_T5.js",
+        "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
+    },
+    {
+        "source": "built-ins/RegExp/S15.10.2.11_A1_T7.js",
+        "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
+    },
+    {
+        "source": "built-ins/RegExp/S15.10.4.1_A8_T2.js",
+        "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
+    },
+    {
+        "source": "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
+        "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
+    },
+    {
+        "source": "built-ins/RegExp/S15.10.2.5_A1_T4.js",
+        "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
+    },
+    {
+        "source": "built-ins/RegExp/prototype/exec/u-lastindex-adv.js",
+        "reason": "Esprima strips unicode sequence and match logic does not work"
+    },
+    {
+        "source": "built-ins/String/raw/special-characters.js",
+        "reason": "Windows line ending differences"
+    },
+    {
+        "source": "language/expressions/object/method-definition/object-method-returns-promise.js",
+        "reason": "Promise not implemented"
+    },
+    {
+        "source": "language/statements/class/definition/class-method-returns-promise.js",
+        "reason": "Promise not implemented"
+    },
+    {
+        "source": "built-ins/Promise/race/resolve-element-function-name.js",
+        "reason": "there is bug in suite and bug in Jint, refer to https://github.com/sebastienros/jint/issues/888 and https://github.com/tc39/test262/issues/2985"
+    },
+    {
+        "source": "built-ins/Symbol/species/subclassing.js",
+        "reason": "subclassing not implemented"
+    },
+    {
+        "source": "built-ins/Date/subclassing.js",
+        "reason": "subclassing not implemented"
+    },
+    {
+        "source": "built-ins/Date/parse/time-value-maximum-range.js",
+        "reason": "parsing of large/small years not implemented in .NET (-271821, +271821)"
+    },
+    {
+        "source": "built-ins/Proxy/enumerate/removed-does-not-trigger.js",
+        "reason": "for-of not implemented"
+    },
+    {
+        "source": "built-ins/Map/prototype/forEach/iterates-values-deleted-then-readded.js",
+        "reason": "delete/add detection not implemented for map iterator during iteration"
+    },
+    {
+        "source": "built-ins/MapIteratorPrototype/next/iteration-mutable.js",
+        "reason": "delete/add detection not implemented for map iterator during iteration"
+    },
+    {
+        "source": "built-ins/Set/prototype/forEach/iterates-values-revisits-after-delete-re-add.js",
+        "reason": "delete/add detection not implemented for set iterator during iteration"
+    },
+    {
+        "source": "built-ins/Array/prototype/toLocaleString/primitive_this_value.js",
+        "reason": "requires toLocaleString changes"
+    },
+    {
+        "source": "built-ins/Array/prototype/toLocaleString/primitive_this_value_getter.js",
+        "reason": "requires toLocaleString changes"
+    },
+    {
+        "source": "built-ins/Object/prototype/toLocaleString/primitive_this_value_getter.js",
+        "reason": "requires toLocaleString changes"
+    },
+
+    {
+        "source": "built-ins/String/prototype/padEnd/observable-operations.js",
+        "reason": "observables not implemented"
+    },
+    {
+        "source": "built-ins/String/prototype/padStart/observable-operations.js",
+        "reason": "observables not implemented"
+    },
+    {
+        "source": "built-ins/StringIteratorPrototype/next/next-iteration-surrogate-pairs.js",
+        "reason": "code point iteration not implemented"
+    },
+    {
+        "source": "language/expressions/template-literal/tv-line-terminator-sequence.js",
+        "reason": "Line feed problems (git, windows, linux)"
+    },
+    {
+        "source": "built-ins/Number/prototype/toFixed/range.js",
+        "reason": "100 fraction digits is not supported due to .NET format specifier limitation"
+    },
+    {
+        "source": "language/types/number/8.5.1.js",
+        "reason": "C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308"
+    },
+
+    // function behaviour to be implemented
+    {
+        "source": "language/expressions/function/scope-name-var-open-non-strict.js",
+        "reason": "inner binding is immutable (from parameters) Expected SameValue(«null», «function() {{ ... }}») to be true"
+    },
+    {
+        "source": "language/expressions/function/scope-name-var-open-strict.js",
+        "reason": "inner binding rejects modification (from parameters) Expected a Error to be thrown but no exception was thrown at all"
+    },
+
+    {
+        "source": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/as-generator-iterable-returns.js",
+        "reason": "yield not implemented"
+    },
+    {
+        "source": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/iterating-throws.js",
+        "reason": "yield not implemented"
+    },
+    {
+        "source": "language/expressions/object/accessor-name-computed-yield-id.js",
+        "reason": "accessor / yield not implemented"
+    },
+    {
+        "source": "language/expressions/object/accessor-name-computed.js",
+        "reason": "yield not implemented"
+    },
+    {
+        "source": "built-ins/TypedArrayConstructors/ctors/object-arg/as-generator-iterable-returns.js",
+        "reason": "yield not implemented"
+    },
+    {
+        "source": "language/expressions/object/prop-dup-set-get-set.js",
+        "reason": "accessor not implemented"
+    },
+    {
+        "source": "language/expressions/object/accessor-name-computed-err-to-prop-key.js",
+        "reason": "accessor not implemented"
+    },
+    {
+        "source": "language/expressions/object/accessor-name-computed-err-unresolvable.js",
+        "reason": "accessor not implemented"
+    },
+    {
+        "source": "language/expressions/object/accessor-name-computed-in.js",
+        "reason": "accessor not implemented"
+    },
+    {
+        "source": "language/expressions/object/accessor-name-literal-numeric-leading-decimal.js",
+        "reason": "accessor not implemented"
+    },
+    {
+        "source": "language/expressions/object/accessor-name-literal-numeric-non-canonical.js",
+        "reason": "accessor not implemented"
+    },
+    {
+        "source": "language/expressions/object/fn-name-accessor-get.js",
+        "reason": "accessor not implemented"
+    },
+    {
+        "source": "language/expressions/object/fn-name-accessor-set.js",
+        "reason": "accessor not implemented"
+    },
+    {
+        "source": "language/expressions/object/method-definition/name-prop-name-yield-id.js",
+        "reason": "yield not implemented"
+    },
 
 
-  // http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics
-  {
-    "source": "language/statements/let/block-local-closure-set-before-initialization.js",
-    "reason": "not implemented (block level functions)"
-  },
-  {
-    "source": "language/block-scope/shadowing/dynamic-lookup-from-closure.js",
-    "reason": "not implemented (block level functions)"
-  },
-  {
-    "source": "language/block-scope/shadowing/lookup-from-closure.js",
-    "reason": "not implemented (block level functions)"
-  },
-
-  {
-    "source": "language/statements/let/block-local-closure-set-before-initialization.js",
-    "reason": "http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics not implemented (block level functions)"
-  },
-
-  {
-    "source": "built-ins/RegExp/S15.10.2.11_A1_T5.js",
-    "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
-  },
-  {
-    "source": "built-ins/RegExp/S15.10.2.11_A1_T7.js",
-    "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
-  },
-  {
-    "source": "built-ins/RegExp/S15.10.4.1_A8_T2.js",
-    "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
-  },
-  {
-    "source": "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
-    "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
-  },
-  {
-    "source": "built-ins/RegExp/S15.10.2.5_A1_T4.js",
-    "reason": "Logic difference in .NET RegExp / skipped in ECMA tests too"
-  },
-  {
-    "source": "built-ins/RegExp/prototype/exec/u-lastindex-adv.js",
-    "reason": "Esprima strips unicode sequence and match logic does not work"
-  },
-  {
-    "source": "built-ins/String/raw/special-characters.js",
-    "reason": "Windows line ending differences"
-  },
-  {
-    "source": "language/expressions/object/method-definition/object-method-returns-promise.js",
-    "reason": "Promise not implemented"
-  },
-  {
-    "source": "language/statements/class/definition/class-method-returns-promise.js",
-    "reason": "Promise not implemented"
-  },
-  {
-    "source": "built-ins/Promise/race/resolve-element-function-name.js",
-    "reason": "there is bug in suite and bug in Jint, refer to https://github.com/sebastienros/jint/issues/888 and https://github.com/tc39/test262/issues/2985"
-  },
-  {
-    "source": "built-ins/Symbol/species/subclassing.js",
-    "reason": "subclassing not implemented"
-  },
-  {
-    "source": "built-ins/Date/subclassing.js",
-    "reason": "subclassing not implemented"
-  },
-  {
-    "source": "built-ins/Date/parse/time-value-maximum-range.js",
-    "reason": "parsing of large/small years not implemented in .NET (-271821, +271821)"
-  },
-  {
-    "source": "built-ins/Proxy/enumerate/removed-does-not-trigger.js",
-    "reason": "for-of not implemented"
-  },
-  {
-    "source": "built-ins/Map/prototype/forEach/iterates-values-deleted-then-readded.js",
-    "reason": "delete/add detection not implemented for map iterator during iteration"
-  },
-  {
-    "source": "built-ins/MapIteratorPrototype/next/iteration-mutable.js",
-    "reason": "delete/add detection not implemented for map iterator during iteration"
-  },
-  {
-    "source": "built-ins/Set/prototype/forEach/iterates-values-revisits-after-delete-re-add.js",
-    "reason": "delete/add detection not implemented for set iterator during iteration"
-  },
-  {
-    "source": "built-ins/Array/prototype/toLocaleString/primitive_this_value.js",
-    "reason": "requires toLocaleString changes"
-  },
-  {
-    "source": "built-ins/Array/prototype/toLocaleString/primitive_this_value_getter.js",
-    "reason": "requires toLocaleString changes"
-  },
-  {
-    "source": "built-ins/Object/prototype/toLocaleString/primitive_this_value_getter.js",
-    "reason": "requires toLocaleString changes"
-  },
-
-  {
-    "source": "built-ins/String/prototype/padEnd/observable-operations.js",
-    "reason": "observables not implemented"
-  },
-  {
-    "source": "built-ins/String/prototype/padStart/observable-operations.js",
-    "reason": "observables not implemented"
-  },
-  {
-    "source": "built-ins/StringIteratorPrototype/next/next-iteration-surrogate-pairs.js",
-    "reason": "code point iteration not implemented"
-  },
-  {
-    "source": "language/expressions/template-literal/tv-line-terminator-sequence.js",
-    "reason": "Line feed problems (git, windows, linux)"
-  },
-  {
-    "source": "built-ins/Number/prototype/toFixed/range.js",
-    "reason": "100 fraction digits is not supported due to .NET format specifier limitation"
-  },
-  {
-    "source": "language/types/number/8.5.1.js",
-    "reason": "C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308"
-  },
-
-  // function behaviour to be implemented
-  {
-    "source": "language/expressions/function/scope-name-var-open-non-strict.js",
-    "reason": "inner binding is immutable (from parameters) Expected SameValue(«null», «function() {{ ... }}») to be true"
-  },
-  {
-    "source": "language/expressions/function/scope-name-var-open-strict.js",
-    "reason": "inner binding rejects modification (from parameters) Expected a Error to be thrown but no exception was thrown at all"
-  },
-
-  {
-    "source": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/as-generator-iterable-returns.js",
-    "reason": "yield not implemented"
-  },
-  {
-    "source": "built-ins/TypedArrayConstructors/ctors-bigint/object-arg/iterating-throws.js",
-    "reason": "yield not implemented"
-  },
-  {
-    "source": "language/expressions/object/accessor-name-computed-yield-id.js",
-    "reason": "accessor / yield not implemented"
-  },
-  {
-    "source": "language/expressions/object/accessor-name-computed.js",
-    "reason": "yield not implemented"
-  },
-  {
-    "source": "built-ins/TypedArrayConstructors/ctors/object-arg/as-generator-iterable-returns.js",
-    "reason": "yield not implemented"
-  },
-  {
-    "source": "language/expressions/object/prop-dup-set-get-set.js",
-    "reason": "accessor not implemented"
-  },
-  {
-    "source": "language/expressions/object/accessor-name-computed-err-to-prop-key.js",
-    "reason": "accessor not implemented"
-  },
-  {
-    "source": "language/expressions/object/accessor-name-computed-err-unresolvable.js",
-    "reason": "accessor not implemented"
-  },
-  {
-    "source": "language/expressions/object/accessor-name-computed-in.js",
-    "reason": "accessor not implemented"
-  },
-  {
-    "source": "language/expressions/object/accessor-name-literal-numeric-leading-decimal.js",
-    "reason": "accessor not implemented"
-  },
-  {
-    "source": "language/expressions/object/accessor-name-literal-numeric-non-canonical.js",
-    "reason": "accessor not implemented"
-  },
-  {
-    "source": "language/expressions/object/fn-name-accessor-get.js",
-    "reason": "accessor not implemented"
-  },
-  {
-    "source": "language/expressions/object/fn-name-accessor-set.js",
-    "reason": "accessor not implemented"
-  },
-  {
-    "source": "language/expressions/object/method-definition/name-prop-name-yield-id.js",
-    "reason": "yield not implemented"
-  },
+    {
+        "source": "language/expressions/object/method.js",
+        "reason": "super not implemented"
+    },
+    {
+        "source": "language/expressions/object/setter-super-prop.js",
+        "reason": "super not implemented"
+    },
+    {
+        "source": "language/expressions/object/getter-super-prop.js",
+        "reason": "super not implemented"
+    },
 
 
-  {
-    "source": "language/expressions/object/method.js",
-    "reason": "super not implemented"
-  },
-  {
-    "source": "language/expressions/object/setter-super-prop.js",
-    "reason": "super not implemented"
-  },
-  {
-    "source": "language/expressions/object/getter-super-prop.js",
-    "reason": "super not implemented"
-  },
+    {
+        "source": "language/expressions/arrow-function/scope-paramsbody-var-open.js",
+        "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
+    },
+    {
+        "source": "language/expressions/function/scope-paramsbody-var-open.js",
+        "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
+    },
+    {
+        "source": "language/expressions/object/scope-meth-paramsbody-var-open.js",
+        "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
+    },
+    {
+        "source": "language/expressions/object/scope-setter-paramsbody-var-open.js",
+        "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
+    },
 
+    {
+        "source": "built-ins/Object/prototype/toString/proxy-function.js",
+        "reason": "generators not implemented"
+    },
+    {
+        "source": "language/statements/class/subclass/builtin-objects/GeneratorFunction/instance-prototype.js",
+        "reason": "generators not implemented"
+    },
+    {
+        "source": "language/statements/class/subclass/builtin-objects/GeneratorFunction/regular-subclassing.js",
+        "reason": "generators not implemented"
+    },
 
-  {
-    "source": "language/expressions/arrow-function/scope-paramsbody-var-open.js",
-    "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
-  },
-  {
-    "source": "language/expressions/function/scope-paramsbody-var-open.js",
-    "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
-  },
-  {
-    "source": "language/expressions/object/scope-meth-paramsbody-var-open.js",
-    "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
-  },
-  {
-    "source": "language/expressions/object/scope-setter-paramsbody-var-open.js",
-    "reason": "not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)"
-  },
+    // Eval problems
 
-  {
-    "source": "built-ins/Object/prototype/toString/proxy-function.js",
-    "reason": "generators not implemented"
-  },
-  {
-    "source": "language/statements/class/subclass/builtin-objects/GeneratorFunction/instance-prototype.js",
-    "reason": "generators not implemented"
-  },
-  {
-    "source": "language/statements/class/subclass/builtin-objects/GeneratorFunction/regular-subclassing.js",
-    "reason": "generators not implemented"
-  },
+    {
+        "source": "language/expressions/super/prop-dot-cls-val-from-eval.js",
+        "reason": "JavaScriptParser cannot handle direct 'super.property' script code"
+    },
 
-  // Eval problems
+    {
+        "source": "language/expressions/super/prop-dot-obj-val-from-eval.js",
+        "reason": "JavaScriptParser cannot handle direct 'super.property' script code"
+    },
 
-  {
-    "source": "language/expressions/super/prop-dot-cls-val-from-eval.js",
-    "reason": "JavaScriptParser cannot handle direct 'super.property' script code"
-  },
+    {
+        "source": "language/expressions/super/prop-expr-cls-val-from-eval.js",
+        "reason": "JavaScriptParser cannot handle direct 'super.property' script code"
+    },
 
-  {
-    "source": "language/expressions/super/prop-dot-obj-val-from-eval.js",
-    "reason": "JavaScriptParser cannot handle direct 'super.property' script code"
-  },
+    {
+        "source": "language/expressions/super/prop-expr-obj-val-from-eval.js",
+        "reason": "JavaScriptParser cannot handle direct 'super.property' script code"
+    },
 
-  {
-    "source": "language/expressions/super/prop-expr-cls-val-from-eval.js",
-    "reason": "JavaScriptParser cannot handle direct 'super.property' script code"
-  },
+    // Esprima problems
 
-  {
-    "source": "language/expressions/super/prop-expr-obj-val-from-eval.js",
-    "reason": "JavaScriptParser cannot handle direct 'super.property' script code"
-  },
-
-  // Esprima problems
-
-  {
-    "source": "language/expressions/object/method-definition/name-super-prop-param.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/optional-chaining/member-expression.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/statements/for-of/dstr-obj-id-init-let.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/statements/for/head-lhs-let.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/yield-non-strict-access.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/yield-non-strict-syntax.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "built-ins/RegExp/prototype/source/value-u.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "built-ins/RegExp/prototype/source/value-line-terminator.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "built-ins/RegExp/S15.10.2.13_A1_T1.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "built-ins/RegExp/S15.10.2.13_A1_T17.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "built-ins/RegExp/S15.10.2.13_A1_T2.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "built-ins/RegExp/S15.10.2.13_A2_T1.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "built-ins/RegExp/S15.10.2.13_A2_T2.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "built-ins/RegExp/S15.10.2.13_A2_T8.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/let-non-strict-access.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/object/let-non-strict-syntax.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/expressions/assignment/dstr-obj-id-identifier-yield-ident-valid.js",
-    "reason": "Esprima problem"
-  },
-  {
-    "source": "language/statements/for-of/dstr-obj-id-identifier-yield-ident-valid.js",
-    "reason": "Esprima problem"
-  }
+    {
+        "source": "language/expressions/object/method-definition/name-super-prop-param.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "language/expressions/optional-chaining/member-expression.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "language/statements/for-of/dstr-obj-id-init-let.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "language/statements/for/head-lhs-let.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "language/expressions/object/yield-non-strict-access.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "language/expressions/object/yield-non-strict-syntax.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "built-ins/RegExp/prototype/source/value-u.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "built-ins/RegExp/prototype/source/value-line-terminator.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "built-ins/RegExp/S15.10.2.13_A1_T1.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "built-ins/RegExp/S15.10.2.13_A1_T17.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "built-ins/RegExp/S15.10.2.13_A1_T2.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "built-ins/RegExp/S15.10.2.13_A2_T1.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "built-ins/RegExp/S15.10.2.13_A2_T2.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "built-ins/RegExp/S15.10.2.13_A2_T8.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "language/expressions/object/let-non-strict-access.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "language/expressions/object/let-non-strict-syntax.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "language/expressions/assignment/dstr-obj-id-identifier-yield-ident-valid.js",
+        "reason": "Esprima problem"
+    },
+    {
+        "source": "language/statements/for-of/dstr-obj-id-identifier-yield-ident-valid.js",
+        "reason": "Esprima problem"
+    }
 ]
