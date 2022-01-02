@@ -42,7 +42,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ✔ Proxies
 - ✔ Reflect
 - ✔ Symbols
-- ✔ Tail calls (_deprecated_)
+- ❌ Tail calls
 - ✔ Typed arrays
 - ✔ Unicode
 - ✔ Weakmap and Weakset
