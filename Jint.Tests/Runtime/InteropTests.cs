@@ -2464,6 +2464,15 @@ namespace Jint.Tests.Runtime
             Assert.Equal(1, engine.Evaluate("E.b;").AsNumber());
         }
 
+        [Fact]
+        public void IntegerAndFloatInFunctionOverloads()
+        {
+            var engine = new Engine(options => options.AllowClr(GetType().Assembly));
+            engine.SetValue("a", new OverLoading());
+            Assert.Equal("int-val", engine.Evaluate("a.testFunc(123);").AsString());
+            Assert.Equal("float-val", engine.Evaluate("a.testFunc(12.3);").AsString());
+        }
+
         public class TestItem
         {
             public double Cost { get; set; }
