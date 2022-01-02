@@ -319,12 +319,6 @@ namespace Jint.Tests.Test262
                     reason = "Esprima problem, Unexpected token *";
                 }
 
-                if (name.StartsWith("language/white-space/mongolian-vowel-separator-eval.js"))
-                {
-                    skip = true;
-                    reason = "Esprima problem";
-                }
-
                 // Unicode regular expressions
 
                 if (name.StartsWith("built-ins/RegExp/property-escapes/generated/"))

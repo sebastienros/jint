@@ -406,5 +406,9 @@
     {
         "source": "language/statements/for-of/dstr-obj-id-identifier-yield-ident-valid.js",
         "reason": "Esprima problem"
+    },
+    {
+        "source": "language/white-space/mongolian-vowel-separator-eval.js",
+        "reason": "Esprima problem"
     }
 ]
