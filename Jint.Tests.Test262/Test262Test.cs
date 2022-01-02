@@ -271,10 +271,6 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "not in spec yet";
                                 break;
-                            //case "u180e":
-                            //    skip = true;
-                            //    reason = "unicode/regexp not implemented";
-                            //    break;
                             case "regexp-match-indices":
                                 skip = true;
                                 reason = "regexp-match-indices not implemented";
