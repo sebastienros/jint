@@ -136,13 +136,13 @@ namespace Jint.Native.RegExp
             return r;
         }
 
-        public RegExpInstance Construct(Regex regExp, string flags)
+        public RegExpInstance Construct(Regex regExp, string source, string flags)
         {
             var r = new RegExpInstance(Engine);
             r._prototype = PrototypeObject;
 
             r.Flags = flags;
-            r.Source = regExp?.ToString();
+            r.Source = source;
 
             var timeout = _engine.Options.Constraints.RegexTimeout;
             if (timeout.Ticks > 0)

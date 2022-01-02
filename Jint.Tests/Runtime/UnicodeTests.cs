@@ -55,5 +55,13 @@ namespace Jint.Tests.Runtime
             var value = _engine.Evaluate(@"return /^\u{3}$/u.test('uuu')").AsBoolean();
             Assert.False(value);
         }
+
+        [Fact]
+        public void RegexParseUnicodeDoesntChangeSource()
+        {
+            var value = _engine.Evaluate(@"return /a\u0041/.source").AsString();
+            Assert.Equal("a\\u0041", value);
+        }
+        
     }
 }
