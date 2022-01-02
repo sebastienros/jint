@@ -72,7 +72,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var expression = (Literal) _expression;
             if (expression.TokenType == TokenType.RegularExpression)
             {
-                return context.Engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex) expression.Value, expression.Regex.Flags);
+                return context.Engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex) expression.Value, expression.Regex.Pattern, expression.Regex.Flags);
             }
 
             return JsValue.FromObject(context.Engine, expression.Value);

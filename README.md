@@ -44,7 +44,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ✔ Symbols
 - ❌ Tail calls
 - ✔ Typed arrays
-- ❌ Unicode
+- ✔ Unicode
 - ✔ Weakmap and Weakset
 
 #### ECMAScript 2016

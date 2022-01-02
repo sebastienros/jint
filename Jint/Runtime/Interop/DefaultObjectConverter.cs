@@ -31,7 +31,7 @@ namespace Jint
             { typeof(ulong), (engine, v) => JsNumber.Create((ulong)v) },
             {
                 typeof(System.Text.RegularExpressions.Regex),
-                (engine, v) => engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex)v, "")
+                (engine, v) => engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex)v, ((System.Text.RegularExpressions.Regex)v).ToString(), "")
             }
         };
 

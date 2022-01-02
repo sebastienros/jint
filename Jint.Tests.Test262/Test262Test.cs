@@ -271,10 +271,6 @@ namespace Jint.Tests.Test262
                                 skip = true;
                                 reason = "not in spec yet";
                                 break;
-                            case "u180e":
-                                skip = true;
-                                reason = "unicode/regexp not implemented";
-                                break;
                             case "regexp-match-indices":
                                 skip = true;
                                 reason = "regexp-match-indices not implemented";
@@ -323,16 +319,12 @@ namespace Jint.Tests.Test262
                     reason = "Esprima problem, Unexpected token *";
                 }
 
+                // Unicode regular expressions
+
                 if (name.StartsWith("built-ins/RegExp/property-escapes/generated/"))
                 {
                     skip = true;
-                    reason = "Esprima problem, Invalid regular expression";
-                }
-
-                if (name.StartsWith("built-ins/RegExp/unicode_"))
-                {
-                    skip = true;
-                    reason = "Unicode support and its special cases need more work";
+                    reason = "Esprima problem";
                 }
 
                 // Promises
