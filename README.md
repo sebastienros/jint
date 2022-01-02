@@ -42,9 +42,9 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ✔ Proxies
 - ✔ Reflect
 - ✔ Symbols
-- ❌ Tail calls
+- ✔ Tail calls (_deprecated_)
 - ✔ Typed arrays
-- ❌ Unicode
+- ✔ Unicode
 - ✔ Weakmap and Weakset
 
 #### ECMAScript 2016
