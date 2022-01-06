@@ -1006,8 +1006,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void JsonParserShouldHandleEmptyString()
         {
-            var ex = Assert.Throws<ParserException>(() => _engine.Evaluate("JSON.parse('');"));
-            Assert.Equal("Line 1: Unexpected end of input", ex.Message);
+            var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("JSON.parse('');"));
+            Assert.Equal("Unexpected end of JSON input at position 0", ex.Message);
         }
 
         [Fact]
@@ -2661,7 +2661,7 @@ function output(x) {
         {
             var engine = new Engine();
             var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("JSON.parse('[01]')"));
-            Assert.Equal("Unexpected token '1'", ex.Message);
+            Assert.Equal("Unexpected token '1' in JSON at position 2", ex.Message);
 
             var voidCompletion = engine.Evaluate("try { JSON.parse('01') } catch (e) {}");
             Assert.Equal(JsValue.Undefined, voidCompletion);
