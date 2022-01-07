@@ -1,5 +1,7 @@
 ﻿using Jint.Collections;
+using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -41,15 +43,30 @@ namespace Jint.Native.Reflect
                 ["setPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setPrototypeOf", SetPrototypeOf, 2, PropertyFlag.Configurable), true, false, true),
             };
             SetProperties(properties);
+
+            var symbols = new SymbolDictionary(1)
+            {
+                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Reflect", false, false, true)
+            };
+            SetSymbols(symbols);
         }
 
         private JsValue Apply(JsValue thisObject, JsValue[] arguments)
         {
-            return _realm.Intrinsics.Function.PrototypeObject.Apply(arguments.At(0), new[]
+            var target = arguments.At(0);
+            var thisArgument = arguments.At(1);
+            var argumentsList = arguments.At(2);
+
+            if (!target.IsCallable)
             {
-                arguments.At(1),
-                arguments.At(2)
-            });
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
+
+            var args = FunctionPrototype.CreateListFromArrayLike(_realm, argumentsList);
+
+            // 3. Perform PrepareForTailCall().
+
+            return target.AsCallable().Call(thisArgument, args);
         }
 
         private JsValue Construct(JsValue thisObject, JsValue[] arguments)
@@ -60,7 +77,7 @@ namespace Jint.Native.Reflect
             var newTargetArgument = arguments.At(2, arguments[0]);
             AssertConstructor(_engine, newTargetArgument);
 
-            var args = _realm.Intrinsics.Function.PrototypeObject.CreateListFromArrayLike(arguments.At(1));
+            var args = FunctionPrototype.CreateListFromArrayLike(_realm, arguments.At(1));
 
             return target.Construct(args, newTargetArgument);
         }

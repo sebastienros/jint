@@ -232,7 +232,7 @@ namespace Jint.Native.Object
             {
                 foreach (var pair in _properties)
                 {
-                    var isArrayIndex = ulong.TryParse(pair.Key, out var index);
+                    var isArrayIndex = ulong.TryParse(pair.Key, out var index) && index < ArrayOperations.MaxArrayLength;
                     if (isArrayIndex)
                     {
                         keys.Add(JsString.Create(index));
@@ -754,7 +754,7 @@ namespace Jint.Native.Object
 
                     if (o is object)
                     {
-                        var flags = current.Flags & ~(PropertyFlag.Writable | PropertyFlag.WritableSet);
+                        var flags = current.Flags & ~(PropertyFlag.Writable | PropertyFlag.WritableSet | PropertyFlag.CustomJsValue);
                         if (current.IsDataDescriptor())
                         {
                             o.SetOwnProperty(property, current = new GetSetPropertyDescriptor(

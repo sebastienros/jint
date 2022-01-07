@@ -99,6 +99,9 @@ namespace Jint.Native.Date
             SetSymbols(symbols);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-date.prototype-@@toprimitive
+        /// </summary>
         private JsValue ToPrimitive(JsValue thisObject, JsValue[] arguments)
         {
             var oi = thisObject as ObjectInstance;

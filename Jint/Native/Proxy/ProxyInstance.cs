@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -122,7 +122,7 @@ namespace Jint.Native.Proxy
                 return _target.GetOwnPropertyKeys(types);
             }
 
-            var trapResult = new List<JsValue>(_engine.Realm.Intrinsics.Function.PrototypeObject.CreateListFromArrayLike(result, Types.String | Types.Symbol));
+            var trapResult = new List<JsValue>(FunctionPrototype.CreateListFromArrayLike(_engine.Realm, result, Types.String | Types.Symbol));
 
             if (trapResult.Count != new HashSet<JsValue>(trapResult).Count)
             {

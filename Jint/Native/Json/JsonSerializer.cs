@@ -49,14 +49,11 @@ namespace Jint.Native.Json
                 else
                 {
                     var replacerObj = replacer.AsObject();
-                    if (replacerObj.Class == ObjectClass.Array)
-                    {
-                        _propertyList = new List<JsValue>();
-                    }
+                    _propertyList = new List<JsValue>();
 
-                    foreach (var property in replacerObj.GetOwnProperties().Select(x => x.Value))
+                    foreach (var pair in replacerObj.GetOwnProperties())
                     {
-                        JsValue v = _engine.GetValue(property, false);
+                        var v = replacerObj.UnwrapJsValue(pair.Value);
                         string item = null;
                         if (v.IsString())
                         {
@@ -330,7 +327,7 @@ namespace Jint.Native.Json
             _indent += _gap;
 
             var k = _propertyList ?? value.GetOwnProperties()
-                .Where(x => x.Value.Enumerable)
+                .Where(x => !x.Key.IsSymbol() && x.Value.Enumerable)
                 .Select(x => x.Key);
 
             var partial = new List<string>();
