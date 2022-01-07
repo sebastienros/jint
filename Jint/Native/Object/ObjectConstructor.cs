@@ -117,11 +117,8 @@ namespace Jint.Native.Object
         public ObjectPrototype PrototypeObject { get; private set; }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.2.1.1
+        /// https://tc39.es/ecma262/#sec-object-value
         /// </summary>
-        /// <param name="thisObject"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             if (arguments.Length == 0)
@@ -138,7 +135,7 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.2.2.1
+        /// https://tc39.es/ecma262/#sec-object-value
         /// </summary>
         public ObjectInstance Construct(JsValue[] arguments)
         {

@@ -1281,13 +1281,18 @@ namespace Jint.Native.Array
         {
             var array = TypeConverter.ToObject(_realm, thisObj);
 
-            ICallable func = array.Get("join", array) as ICallable;
-            if (func is null)
+            Func<JsValue, JsValue[], JsValue> func;
+            var joinFunc = array.Get("join") as ICallable;
+            if (joinFunc is not null)
             {
-                func = _realm.Intrinsics.Object.PrototypeObject.Get("toString", array) as ICallable;
+                func = joinFunc.Call;
+            }
+            else
+            {
+                func = _realm.Intrinsics.Object.PrototypeObject.ToObjectString;
             }
 
-            return func.Call(array, Arguments.Empty);
+            return func(array, Arguments.Empty);
         }
 
         private JsValue ReduceRight(JsValue thisObj, JsValue[] arguments)

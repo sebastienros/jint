@@ -20,7 +20,7 @@ namespace Jint.Native.Function
             : base(engine, realm, JsString.Empty)
         {
             _prototype = objectPrototype;
-            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
+            _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Configurable);
         }
 
         protected override void Initialize()
@@ -33,7 +33,7 @@ namespace Jint.Native.Function
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, lengthFlags), propertyFlags),
                 ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "apply", Apply, 2, lengthFlags), propertyFlags),
                 ["call"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "call", CallImpl, 1, lengthFlags), propertyFlags),
-                ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "bind", Bind, 1, PropertyFlag.AllForbidden), propertyFlags),
+                ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "bind", Bind, 1, lengthFlags), propertyFlags),
                 ["arguments"] = _engine._callerCalleeArgumentsThrowerConfigurable,
                 ["caller"] = _engine._callerCalleeArgumentsThrowerConfigurable
             };
@@ -143,19 +143,22 @@ namespace Jint.Native.Function
                 return func.Call(thisArg, Arguments.Empty);
             }
 
-            var argList = CreateListFromArrayLike(argArray);
+            var argList = CreateListFromArrayLike(_realm, argArray);
 
             var result = func.Call(thisArg, argList);
 
             return result;
         }
 
-        internal JsValue[] CreateListFromArrayLike(JsValue argArray, Types? elementTypes = null)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-createlistfromarraylike
+        /// </summary>
+        internal static JsValue[] CreateListFromArrayLike(Realm realm, JsValue argArray, Types? elementTypes = null)
         {
             var argArrayObj = argArray as ObjectInstance;
             if (argArrayObj is null)
             {
-                ExceptionHelper.ThrowTypeError(_realm);
+                ExceptionHelper.ThrowTypeError(realm);
             }
             var operations = ArrayOperations.For(argArrayObj);
             var allowedTypes = elementTypes ??
