@@ -67,14 +67,14 @@ namespace Jint.Native.String
 
         public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
         {
-            if (_length != null)
-            {
-                yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Length, _length);
-            }
-
             foreach (var entry in base.GetOwnProperties())
             {
                 yield return entry;
+            }
+
+            if (_length != null)
+            {
+                yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Length, _length);
             }
         }
 
@@ -86,9 +86,9 @@ namespace Jint.Native.String
                 keys.Add(JsString.Create(i));
             }
 
-            keys.Add(JsString.LengthString);
             keys.AddRange(base.GetOwnPropertyKeys(Types.String));
             keys.AddRange(base.GetOwnPropertyKeys(Types.Symbol));
+            keys.Add(JsString.LengthString);
 
             return keys;
         }
