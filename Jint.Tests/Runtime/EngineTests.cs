@@ -2790,6 +2790,19 @@ x.test = {
             Assert.Equal(1, result);
         }
 
+        [Fact]
+        public void ShouldObeyScriptLevelStrictModeInFunctions()
+        {
+            var engine = new Engine();
+            const string source = "'use strict'; var x = () => { delete Boolean.prototype; }; x();";
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(source));
+            Assert.Equal("Cannot delete property 'prototype' of function Boolean() { [native code] }", ex.Message);
+
+            const string source2 = "'use strict'; delete foobar;";
+            ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(source2));
+            Assert.Equal("Delete of an unqualified identifier in strict mode.", ex.Message);
+        }
+
         private class Wrapper
         {
             public Testificate Test { get; set; }
