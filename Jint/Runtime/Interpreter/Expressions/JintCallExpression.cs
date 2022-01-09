@@ -167,11 +167,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (baseValue.IsNullOrUndefined()
                         && engine._referenceResolver.TryUnresolvableReference(engine, referenceRecord, out var value))
                     {
-                        return value;
+                        thisValue = value;
                     }
-
-                    var refEnv = (EnvironmentRecord) baseValue;
-                    thisValue = refEnv.WithBaseObject();
+                    else
+                    {
+                        var refEnv = (EnvironmentRecord) baseValue;
+                        thisValue = refEnv.WithBaseObject();   
+                    }
                 }
             }
             else
