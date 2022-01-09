@@ -48,12 +48,7 @@ namespace Jint.Native.Function
 
         private static JsValue HasInstance(JsValue thisObj, JsValue[] arguments)
         {
-            if (thisObj is not FunctionInstance f)
-            {
-                return false;
-            }
-
-            return f.OrdinaryHasInstance(arguments.At(0));
+            return thisObj.OrdinaryHasInstance(arguments.At(0));
         }
 
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)
@@ -88,7 +83,7 @@ namespace Jint.Native.Function
                 l = JsNumber.PositiveZero;
             }
 
-            f._length = new PropertyDescriptor(l, PropertyFlag.Configurable);
+            f.DefinePropertyOrThrow(CommonProperties.Length, new PropertyDescriptor(l, PropertyFlag.Configurable));
 
             var targetName = thisObj.Get(CommonProperties.Name);
             if (!targetName.IsString())
@@ -104,16 +99,10 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-boundfunctioncreate
         /// </summary>
-        private FunctionInstance BoundFunctionCreate(ObjectInstance targetFunction, JsValue boundThis, JsValue[] boundArgs)
+        private BindFunctionInstance BoundFunctionCreate(ObjectInstance targetFunction, JsValue boundThis, JsValue[] boundArgs)
         {
             var proto = targetFunction.GetPrototypeOf();
-            var obj = new BindFunctionInstance(_engine, _realm)
-            {
-                _prototype = proto,
-                TargetFunction = targetFunction,
-                BoundThis = boundThis,
-                BoundArgs = boundArgs
-            };
+            var obj = new BindFunctionInstance(_engine, _realm, proto, targetFunction, boundThis, boundArgs);
             return obj;
         }
 

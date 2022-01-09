@@ -280,7 +280,7 @@ namespace Jint.Native.Function
 
             if (obj is BindFunctionInstance bindFunctionInstance)
             {
-                return GetFunctionRealm(bindFunctionInstance.TargetFunction);
+                return GetFunctionRealm(bindFunctionInstance.BoundTargetFunction);
             }
 
             if (obj is ProxyInstance proxyInstance)
