@@ -207,7 +207,7 @@ namespace Jint.Native.RegExp
                 var matchStr = TypeConverter.ToString(result.Get(0));
                 if (matchStr == "")
                 {
-                    var thisIndex = (int) TypeConverter.ToLength(rx.Get(RegExpInstance.PropertyLastIndex));
+                    var thisIndex = TypeConverter.ToLength(rx.Get(RegExpInstance.PropertyLastIndex));
                     var nextIndex = AdvanceStringIndex(s, thisIndex, fullUnicode);
                     rx.Set(RegExpInstance.PropertyLastIndex, nextIndex);
                 }
@@ -406,12 +406,12 @@ namespace Jint.Native.RegExp
 
             if (lim == 0)
             {
-                return _realm.Intrinsics.Array.ConstructFast(0);
+                return _realm.Intrinsics.Array.ArrayCreate(0);
             }
 
             if (s.Length == 0)
             {
-                var a = _realm.Intrinsics.Array.ConstructFast(0);
+                var a = _realm.Intrinsics.Array.ArrayCreate(0);
                 var z = RegExpExec(splitter, s);
                 if (!z.IsNull())
                 {
@@ -492,10 +492,10 @@ namespace Jint.Native.RegExp
 
         private JsValue SplitSlow(string s, ObjectInstance splitter, bool unicodeMatching, uint lengthA, long lim)
         {
-            var a = _realm.Intrinsics.Array.ConstructFast(0);
-            var previousStringIndex = 0;
-            var currentIndex = 0;
-            while (currentIndex < s.Length)
+            var a = _realm.Intrinsics.Array.ArrayCreate(0);
+            ulong previousStringIndex = 0;
+            ulong currentIndex = 0;
+            while (currentIndex < (ulong) s.Length)
             {
                 splitter.Set(RegExpInstance.PropertyLastIndex, currentIndex, true);
                 var z = RegExpExec(splitter, s);
@@ -505,15 +505,15 @@ namespace Jint.Native.RegExp
                     continue;
                 }
 
-                var endIndex = (int) TypeConverter.ToLength(splitter.Get(RegExpInstance.PropertyLastIndex));
-                endIndex = System.Math.Min(endIndex, s.Length);
+                var endIndex = TypeConverter.ToLength(splitter.Get(RegExpInstance.PropertyLastIndex));
+                endIndex = System.Math.Min(endIndex, (ulong) s.Length);
                 if (endIndex == previousStringIndex)
                 {
                     currentIndex = AdvanceStringIndex(s, currentIndex, unicodeMatching);
                     continue;
                 }
 
-                var t = s.Substring(previousStringIndex, currentIndex - previousStringIndex);
+                var t = s.Substring((int) previousStringIndex, (int) (currentIndex - previousStringIndex));
                 a.SetIndexValue(lengthA, t, updateLength: true);
                 lengthA++;
                 if (lengthA == lim)
@@ -540,7 +540,7 @@ namespace Jint.Native.RegExp
                 currentIndex = previousStringIndex;
             }
 
-            a.SetIndexValue(lengthA, s.Substring(previousStringIndex, s.Length - previousStringIndex), updateLength: true);
+            a.SetIndexValue(lengthA, s.Substring((int) previousStringIndex, s.Length - (int) previousStringIndex), updateLength: true);
             return a;
         }
 
@@ -652,7 +652,7 @@ namespace Jint.Native.RegExp
                 && rei.TryGetDefaultRegExpExec(out _))
             {
                 // fast path
-                var a = _realm.Intrinsics.Array.ConstructFast(0);
+                var a = _realm.Intrinsics.Array.ArrayCreate(0);
 
                 if (rei.Sticky)
                 {
@@ -697,7 +697,7 @@ namespace Jint.Native.RegExp
 
         private JsValue MatchSlow(ObjectInstance rx, string s, bool fullUnicode)
         {
-            var a = _realm.Intrinsics.Array.ConstructFast(0);
+            var a = _realm.Intrinsics.Array.ArrayCreate(0);
             uint n = 0;
             while (true)
             {
@@ -712,7 +712,7 @@ namespace Jint.Native.RegExp
                 a.SetIndexValue(n, matchStr, updateLength: false);
                 if (matchStr == "")
                 {
-                    var thisIndex = (int) TypeConverter.ToLength(rx.Get(RegExpInstance.PropertyLastIndex));
+                    var thisIndex = TypeConverter.ToLength(rx.Get(RegExpInstance.PropertyLastIndex));
                     var nextIndex = AdvanceStringIndex(s, thisIndex, fullUnicode);
                     rx.Set(RegExpInstance.PropertyLastIndex, nextIndex, true);
                 }
@@ -747,20 +747,20 @@ namespace Jint.Native.RegExp
             return _realm.Intrinsics.RegExpStringIteratorPrototype.Construct(matcher, s, global, fullUnicode);
         }
 
-        private static int AdvanceStringIndex(string s, int index, bool unicode)
+        private static ulong AdvanceStringIndex(string s, ulong index, bool unicode)
         {
-            if (!unicode || index + 1 >= s.Length)
+            if (!unicode || index + 1 >= (ulong) s.Length)
             {
                 return index + 1;
             }
 
-            var first = s[index];
+            var first = s[(int) index];
             if (first < 0xD800 || first > 0xDBFF)
             {
                 return index + 1;
             }
 
-            var second = s[index + 1];
+            var second = s[(int) (index + 1)];
             if (second < 0xDC00 || second > 0xDFFF)
             {
                 return index + 1;
@@ -806,8 +806,8 @@ namespace Jint.Native.RegExp
 
         private static JsValue RegExpBuiltinExec(RegExpInstance R, string s)
         {
-            var length = s.Length;
-            var lastIndex = (int) TypeConverter.ToLength(R.Get(RegExpInstance.PropertyLastIndex));
+            var length = (ulong) s.Length;
+            var lastIndex = TypeConverter.ToLength(R.Get(RegExpInstance.PropertyLastIndex));
 
             var global = R.Global;
             var sticky = R.Sticky;
@@ -818,13 +818,13 @@ namespace Jint.Native.RegExp
 
             if (R.Source == RegExpInstance.regExpForMatchingAllCharacters)  // Reg Exp is really ""
             {
-                if (lastIndex > s.Length)
+                if (lastIndex > (ulong) s.Length)
                 {
                     return Null;
                 }
 
                 // "aaa".match() => [ '', index: 0, input: 'aaa' ]
-                var array = R.Engine.Realm.Intrinsics.Array.ConstructFast(1);
+                var array = R.Engine.Realm.Intrinsics.Array.ArrayCreate(1);
                 array.FastAddProperty(PropertyIndex, lastIndex, true, true, true);
                 array.FastAddProperty(PropertyInput, s, true, true, true);
                 array.SetIndexValue(0, JsString.Empty, updateLength: false);
@@ -837,7 +837,7 @@ namespace Jint.Native.RegExp
             if (!global & !sticky && !fullUnicode)
             {
                 // we can the non-stateful fast path which is the common case
-                var m = matcher.Match(s, lastIndex);
+                var m = matcher.Match(s, (int) lastIndex);
                 if (!m.Success)
                 {
                     return Null;
@@ -856,8 +856,8 @@ namespace Jint.Native.RegExp
                     return Null;
                 }
 
-                match = R.Value.Match(s, lastIndex);
-                var success = match.Success && (!sticky || match.Index == lastIndex);
+                match = R.Value.Match(s, (int) lastIndex);
+                var success = match.Success && (!sticky || match.Index == (int) lastIndex);
                 if (!success)
                 {
                     if (sticky)
@@ -896,7 +896,7 @@ namespace Jint.Native.RegExp
 
         private static ArrayInstance CreateReturnValueArray(Engine engine, Match match, string inputValue, bool fullUnicode)
         {
-            var array = engine.Realm.Intrinsics.Array.ConstructFast((ulong) match.Groups.Count);
+            var array = engine.Realm.Intrinsics.Array.ArrayCreate((uint) match.Groups.Count);
             array.CreateDataProperty(PropertyIndex, match.Index);
             array.CreateDataProperty(PropertyInput, inputValue);
 

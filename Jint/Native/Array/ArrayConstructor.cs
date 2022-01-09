@@ -348,12 +348,13 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-arraycreate
         /// </summary>
-        private ArrayInstance ArrayCreate(uint capacity, ObjectInstance proto)
+        internal ArrayInstance ArrayCreate(uint length, ObjectInstance proto = null)
         {
             proto ??= PrototypeObject;
-            var instance = new ArrayInstance(Engine, capacity)
+            var instance = new ArrayInstance(Engine, length)
             {
-                _prototype = proto
+                _prototype = proto,
+                _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable)
             };
             return instance;
         }

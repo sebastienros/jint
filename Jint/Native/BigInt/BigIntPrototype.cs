@@ -22,7 +22,7 @@ public sealed class BigIntPrototype : ObjectInstance
         Realm realm,
         BigIntConstructor constructor,
         ObjectPrototype objectPrototype)
-        : base(engine)
+        : base(engine, ObjectClass.Object, InternalTypes.BigInt)
     {
         _prototype = objectPrototype;
         _realm = realm;
