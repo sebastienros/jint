@@ -301,7 +301,7 @@ namespace Jint
                 return this;
             }
 
-            var strict = _isStrict | script.Strict;
+            var strict = _isStrict || script.Strict;
             ExecuteWithConstraints(strict, DoInvoke);
 
             return this;

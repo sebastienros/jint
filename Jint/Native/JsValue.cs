@@ -288,6 +288,8 @@ namespace Jint.Native
                 return true;
             }
 
+            // TODO move to type specific IsLooselyEqual
+
             var x = this;
             var y = value;
 
@@ -311,14 +313,12 @@ namespace Jint.Native
                 return x.IsLooselyEqual(TypeConverter.ToNumber(y));
             }
 
-            const InternalTypes stringOrNumber = InternalTypes.String | InternalTypes.Integer | InternalTypes.Number | InternalTypes.BigInt;
-
-            if (y.IsObject() && (x._type & stringOrNumber) != 0)
+            if (y.IsObject() && (x._type & InternalTypes.Primitive) != 0)
             {
                 return x.IsLooselyEqual(TypeConverter.ToPrimitive(y));
             }
 
-            if (x.IsObject() && (y._type & stringOrNumber) != 0)
+            if (x.IsObject() && (y._type & InternalTypes.Primitive) != 0)
             {
                 return y.IsLooselyEqual(TypeConverter.ToPrimitive(x));
             }
@@ -500,13 +500,12 @@ namespace Jint.Native
 
         internal static IConstructor AssertConstructor(Engine engine, JsValue c)
         {
-            var constructor = c as IConstructor;
-            if (constructor is null)
+            if (!c.IsConstructor)
             {
                 ExceptionHelper.ThrowTypeError(engine.Realm, c + " is not a constructor");
             }
 
-            return constructor;
+            return (IConstructor) c;
         }
     }
 }

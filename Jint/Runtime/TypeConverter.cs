@@ -392,7 +392,18 @@ namespace Jint.Runtime
                 return number;
             }
 
-            return (long) number;
+            if (number is >= long.MinValue and <= long.MaxValue)
+            {
+                return (long) number;
+            }
+
+            var integer = Math.Floor(Math.Abs(number));
+            if (number < 0)
+            {
+                integer *= -1;
+            }
+
+            return integer;
         }
 
         internal static double ToInteger(string o)
