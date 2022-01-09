@@ -1173,6 +1173,25 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
+        /// https://tc39.es/ecma262/#sec-setfunctionname
+        /// </summary>
+        internal void SetFunctionName(JsValue name, string prefix = null)
+        {
+            if (name is JsSymbol symbol)
+            {
+                name = symbol._value.IsUndefined()
+                    ? JsString.Empty
+                    : new JsString("[" + symbol._value + "]");
+            }
+            if (!string.IsNullOrWhiteSpace(prefix))
+            {
+                name = prefix + " " + name;
+            }
+
+            DefinePropertyOrThrow(CommonProperties.Name, new PropertyDescriptor(name, PropertyFlag.Configurable));
+        }
+
+        /// <summary>
         /// https://tc39.es/ecma262/#sec-createmethodproperty
         /// </summary>
         internal virtual bool CreateMethodProperty(JsValue p, JsValue v)
