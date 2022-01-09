@@ -44,7 +44,7 @@ namespace Jint
         internal readonly IObjectConverter[] _objectConverters;
         private readonly IConstraint[] _constraints;
         internal readonly bool _isDebugMode;
-        internal readonly bool _isStrict;
+        internal bool _isStrict;
         internal readonly IReferenceResolver _referenceResolver;
         internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
@@ -268,43 +268,41 @@ namespace Jint
         {
             Engine DoInvoke()
             {
-                using (new StrictModeScope(_isStrict || script.Strict))
+                GlobalDeclarationInstantiation(
+                    script,
+                    Realm.GlobalEnv);
+
+                var list = new JintStatementList(null, script.Body);
+
+                Completion result;
+                try
                 {
-                    GlobalDeclarationInstantiation(
-                        script,
-                        Realm.GlobalEnv);
-
-                    var list = new JintStatementList(null, script.Body);
-
-                    Completion result;
-                    try
-                    {
-                        result = list.Execute(_activeEvaluationContext);
-                    }
-                    catch
-                    {
-                        // unhandled exception
-                        ResetCallStack();
-                        throw;
-                    }
-
-                    if (result.Type == CompletionType.Throw)
-                    {
-                        var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
-                        ResetCallStack();
-                        throw ex;
-                    }
-
-                    // TODO what about callstack and thrown exceptions?
-                    RunAvailableContinuations(_eventLoop);
-
-                    _completionValue = result.GetValueOrDefault();
-
-                    return this;
+                    result = list.Execute(_activeEvaluationContext);
                 }
+                catch
+                {
+                    // unhandled exception
+                    ResetCallStack();
+                    throw;
+                }
+
+                if (result.Type == CompletionType.Throw)
+                {
+                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
+                    ResetCallStack();
+                    throw ex;
+                }
+
+                // TODO what about callstack and thrown exceptions?
+                RunAvailableContinuations(_eventLoop);
+
+                _completionValue = result.GetValueOrDefault();
+
+                return this;
             }
 
-            ExecuteWithConstraints(DoInvoke);
+            var strict = _isStrict | script.Strict;
+            ExecuteWithConstraints(strict, DoInvoke);
 
             return this;
         }
@@ -630,19 +628,24 @@ namespace Jint
                 return result;
             }
 
-            return ExecuteWithConstraints(DoInvoke);
+            return ExecuteWithConstraints(Options.Strict, DoInvoke);
         }
 
-        private T ExecuteWithConstraints<T>(Func<T> callback)
+        private T ExecuteWithConstraints<T>(bool strict, Func<T> callback)
         {
             ResetConstraints();
 
             var ownsContext = _activeEvaluationContext is null;
             _activeEvaluationContext ??= new EvaluationContext(this);
 
+            var oldStrict = _isStrict;
             try
             {
-                return callback();
+                _isStrict = strict;
+                using (new StrictModeScope(_isStrict))
+                {
+                    return callback();
+                }
             }
             finally
             {
@@ -650,6 +653,7 @@ namespace Jint
                 {
                     _activeEvaluationContext = null;
                 }
+                _isStrict = oldStrict;
                 ResetConstraints();
             }
         }
