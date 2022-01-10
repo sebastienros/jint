@@ -1,4 +1,5 @@
-﻿using Esprima;
+﻿using System;
+using Esprima;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
@@ -22,8 +23,18 @@ namespace Jint.Tests.Runtime
                 return value.IsNull() || value.IsUndefined();
             }
 
-            public bool TryGetCallable(Engine engine, object reference, out JsValue value)
+            public bool TryGetCallable(Engine engine, object callee, out JsValue value)
             {
+                if (callee is Reference reference)
+                {
+                    var name = reference.GetReferencedName().AsString();
+                    if (name == "filter")
+                    {
+                        value = new ClrFunctionInstance(engine, "map", (thisObj, values) => engine.Realm.Intrinsics.Array.ConstructFast(0));
+                        return true;
+                    }
+                }
+
                 value = new ClrFunctionInstance(engine, "anonymous", (thisObj, values) => thisObj);
                 return true;
             }
@@ -32,6 +43,24 @@ namespace Jint.Tests.Runtime
             {
                 return true;
             }
+        }
+
+        [Fact]
+        public void CanCallFilterOnNull()
+        {
+            var engine = new Engine(cfg => cfg.SetReferencesResolver(new NullPropagationReferenceResolver()));
+
+            const string Script = @"
+var input = {};
+
+var output = { Tags : input.Tags.filter(x=>x!=null) };
+";
+
+            engine.Execute(Script);
+
+            var output = engine.GetValue("output").AsObject();
+
+            Assert.True(output.Get("Tags").IsArray());
         }
 
         [Fact]
