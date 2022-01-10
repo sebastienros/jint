@@ -30,7 +30,7 @@ namespace Jint.Tests.Runtime
                     var name = reference.GetReferencedName().AsString();
                     if (name == "filter")
                     {
-                        value = new ClrFunctionInstance(engine, "map", (thisObj, values) => engine.Array.Construct(Array.Empty<JsValue>()));
+                        value = new ClrFunctionInstance(engine, "map", (thisObj, values) => engine.Realm.Intrinsics.Array.ConstructFast(0));
                         return true;
                     }
                 }
