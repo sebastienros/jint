@@ -6,7 +6,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Proxy
 {
-    public class ProxyInstance : ObjectInstance, IConstructor, ICallable
+    public sealed class ProxyInstance : ObjectInstance, IConstructor, ICallable
     {
         internal ObjectInstance _target;
         internal ObjectInstance _handler;
@@ -61,7 +61,7 @@ namespace Jint.Native.Proxy
         /// <summary>
         /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-construct-argumentslist-newtarget
         /// </summary>
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
         {
             var argArray = _engine.Realm.Intrinsics.Array.Construct(arguments, _engine.Realm.Intrinsics.Array);
 

@@ -1235,15 +1235,26 @@ namespace Jint
         /// <returns>The value returned by the constructor call.</returns>
         public ObjectInstance Construct(string constructorName, params JsValue[] arguments)
         {
+            var constructor = Evaluate(constructorName);
+            return Construct(constructor, arguments);
+        }
+
+        /// <summary>
+        /// Calls the constructor and returns the resulting object.
+        /// </summary>
+        /// <param name="constructor">The name of the constructor to call.</param>
+        /// <param name="arguments">The arguments of the constructor call.</param>
+        /// <returns>The value returned by the constructor call.</returns>
+        public ObjectInstance Construct(JsValue constructor, params JsValue[] arguments)
+        {
             ObjectInstance Callback()
             {
-                var func = Evaluate(constructorName);
-                if (!func.IsConstructor)
+                if (!constructor.IsConstructor)
                 {
-                    ExceptionHelper.ThrowArgumentException(func + " is not a constructor");
+                    ExceptionHelper.ThrowArgumentException(constructor + " is not a constructor");
                 }
 
-                return Construct(func, arguments, func, null);
+                return Construct(constructor, arguments, constructor, null);
             }
 
             return ExecuteWithConstraints(Options.Strict, Callback);

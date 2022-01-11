@@ -47,10 +47,12 @@ namespace Jint.Native.RegExp
             return Construct(arguments, this);
         }
 
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-regexp-pattern-flags
         /// </summary>
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var pattern = arguments.At(0);
             var flags = arguments.At(1);

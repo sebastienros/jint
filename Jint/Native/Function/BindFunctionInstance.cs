@@ -55,7 +55,7 @@ namespace Jint.Native.Function
             return value;
         }
 
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
         {
             var target = BoundTargetFunction as IConstructor;
             if (target is null)

@@ -50,7 +50,9 @@ namespace Jint.Native.TypedArray
             return Undefined;
         }
 
-        public ObjectInstance Construct(JsValue[] args, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] args, JsValue newTarget) => Construct(args, newTarget);
+
+        internal ObjectInstance Construct(JsValue[] args, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {

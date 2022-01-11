@@ -33,10 +33,12 @@ namespace Jint.Native.Function
             return Construct(arguments, thisObject);
         }
 
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-createdynamicfunction
         /// </summary>
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var argCount = arguments.Length;
             string p = "";
