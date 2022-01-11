@@ -40,7 +40,7 @@ namespace Jint.Native.Function
         /// </summary>
         public JsValue[] BoundArguments { get; }
 
-        public JsValue Call(JsValue thisObject, JsValue[] arguments)
+        JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments)
         {
             var f = BoundTargetFunction as FunctionInstance;
             if (f is null)

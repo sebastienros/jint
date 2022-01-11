@@ -66,7 +66,7 @@ namespace Jint.Native.Reflect
 
             // 3. Perform PrepareForTailCall().
 
-            return target.AsCallable().Call(thisArgument, args);
+            return ((ICallable) target).Call(thisArgument, args);
         }
 
         private JsValue Construct(JsValue thisObject, JsValue[] arguments)

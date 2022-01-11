@@ -41,7 +41,7 @@ namespace Jint.Native.Proxy
         /// <summary>
         /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-call-thisargument-argumentslist
         /// </summary>
-        public JsValue Call(JsValue thisObject, JsValue[] arguments)
+        JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments)
         {
             var jsValues = new[] { _target, thisObject, _engine.Realm.Intrinsics.Array.ConstructFast(arguments) };
             if (TryCallHandler(TrapApply, jsValues, out var result))

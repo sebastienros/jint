@@ -2681,12 +2681,10 @@ namespace Jint.Tests.Runtime
             engine.Evaluate("var f = () => true;");
 
             var result = engine.GetValue("f");
-            Assert.True(result.IsCallable());
+            Assert.True(result.IsCallable);
 
-            var callable = result.AsCallable();
-            Assert.True(callable.Call(JsValue.Undefined, Array.Empty<JsValue>()).AsBoolean());
-
-            Assert.True(callable.Call().AsBoolean());
+            Assert.True(result.Call(Array.Empty<JsValue>()).AsBoolean());
+            Assert.True(result.Call().AsBoolean());
         }
 
         [Fact]
