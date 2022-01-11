@@ -64,7 +64,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             // construct the new instance using the Function's constructor method
-            var instance = engine.Construct((IConstructor) jsValue, arguments, jsValue, _calleeExpression);
+            var instance = engine.Construct(jsValue, arguments, jsValue, _calleeExpression);
 
             engine._jsValueArrayPool.ReturnArray(arguments);
 

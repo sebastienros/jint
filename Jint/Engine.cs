@@ -556,15 +556,6 @@ namespace Jint
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/6.0/#sec-initializereferencedbinding
-        /// </summary>
-        public void InitializeReferenceBinding(Reference reference, JsValue value)
-        {
-            var baseValue = (EnvironmentRecord) reference.GetBase();
-            baseValue.InitializeBinding(TypeConverter.ToString(reference.GetReferencedName()), value);
-        }
-
-        /// <summary>
         /// Invoke the current value as function.
         /// </summary>
         /// <param name="propertyName">The name of the function to call.</param>
@@ -1236,7 +1227,32 @@ namespace Jint
             return callable.Call(thisObject, arguments);
         }
 
-        internal JsValue Construct(IConstructor constructor, JsValue[] arguments, JsValue newTarget,
+        /// <summary>
+        /// Calls the named constructor and returns the resulting object.
+        /// </summary>
+        /// <param name="constructorName">The name of the constructor to call.</param>
+        /// <param name="arguments">The arguments of the constructor call.</param>
+        /// <returns>The value returned by the constructor call.</returns>
+        public ObjectInstance Construct(string constructorName, params JsValue[] arguments)
+        {
+            ObjectInstance Callback()
+            {
+                var func = Evaluate(constructorName);
+                if (!func.IsConstructor)
+                {
+                    ExceptionHelper.ThrowArgumentException(func + " is not a constructor");
+                }
+
+                return Construct(func, arguments, func, null);
+            }
+
+            return ExecuteWithConstraints(Options.Strict, Callback);
+        }
+
+        internal ObjectInstance Construct(
+            JsValue constructor,
+            JsValue[] arguments,
+            JsValue newTarget,
             JintExpression expression)
         {
             if (constructor is FunctionInstance functionInstance)
@@ -1244,7 +1260,7 @@ namespace Jint
                 return Construct(functionInstance, arguments, newTarget, expression);
             }
 
-            return constructor.Construct(arguments, newTarget);
+            return ((IConstructor) constructor).Construct(arguments, newTarget);
         }
 
         internal JsValue Call(
@@ -1270,7 +1286,7 @@ namespace Jint
             return result;
         }
 
-        internal JsValue Construct(
+        private ObjectInstance Construct(
             FunctionInstance functionInstance,
             JsValue[] arguments,
             JsValue newTarget,

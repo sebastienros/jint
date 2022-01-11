@@ -1,5 +1,6 @@
 using System;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Xunit;
@@ -100,6 +101,28 @@ assertEqual(booleanCount, 1);
         {
             var engine = new Engine();
             Assert.True(engine.Evaluate("(()=>{}).hasOwnProperty('name')").AsBoolean());
+        }
+
+        [Fact]
+        public void CanInvokeConstructorsFromEngine()
+        {
+            var engine = new Engine();
+
+            engine.Evaluate("class TestClass { constructor(a, b) { this.a = a; this.b = b; }}");
+            engine.Evaluate("function TestFunction(a, b) { this.a = a; this.b = b; }");
+
+            var instanceFromClass = engine.Construct("TestClass", "abc", 123).AsObject();
+            Assert.Equal("abc", instanceFromClass.Get("a"));
+            Assert.Equal(123, instanceFromClass.Get("b"));
+
+            var instanceFromFunction = engine.Construct("TestFunction", "abc", 123).AsObject();
+            Assert.Equal("abc", instanceFromFunction.Get("a"));
+            Assert.Equal(123, instanceFromFunction.Get("b"));
+
+            var arrayInstance = (ArrayInstance) engine.Construct("Array", "abc", 123).AsObject();
+            Assert.Equal((uint) 2, arrayInstance.Length);
+            Assert.Equal("abc", arrayInstance[0]);
+            Assert.Equal(123, arrayInstance[1]);
         }
     }
 }
