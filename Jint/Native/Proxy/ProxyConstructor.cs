@@ -7,6 +7,9 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Proxy
 {
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-proxy-constructor
+    /// </summary>
     public sealed class ProxyConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _name = new JsString("Proxy");
@@ -21,16 +24,27 @@ namespace Jint.Native.Proxy
             _length = new PropertyDescriptor(2, PropertyFlag.Configurable);
         }
 
+        protected override void Initialize()
+        {
+            var properties = new PropertyDictionary(1, checkExistingKeys: false)
+            {
+                ["revocable"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "revocable", Revocable, 2, PropertyFlag.Configurable), true, true, true)
+            };
+            SetProperties(properties);
+        }
+
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Constructor Proxy requires 'new'");
             return null;
         }
 
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments);
+
         /// <summary>
         /// https://www.ecma-international.org/ecma-262/6.0/index.html#sec-proxy-object-internal-methods-and-internal-slots-construct-argumentslist-newtarget
         /// </summary>
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        private ObjectInstance Construct(JsValue[] arguments)
         {
             var target = arguments.At(0);
             var handler = arguments.At(1);
@@ -42,20 +56,14 @@ namespace Jint.Native.Proxy
             return Construct(target.AsObject(), handler.AsObject());
         }
 
-        protected override void Initialize()
-        {
-            var properties = new PropertyDictionary(1, checkExistingKeys: false)
-            {
-                ["revocable"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "revocable", Revocable, 2, PropertyFlag.Configurable), true, true, true)
-            };
-            SetProperties(properties);
-        }
-
         protected internal override ObjectInstance GetPrototypeOf()
         {
             return _realm.Intrinsics.Function.Prototype;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-proxy-target-handler
+        /// </summary>
         public ProxyInstance Construct(ObjectInstance target, ObjectInstance handler)
         {
             if (target is ProxyInstance targetProxy && targetProxy._handler is null)
@@ -72,9 +80,9 @@ namespace Jint.Native.Proxy
 
         private JsValue Revocable(JsValue thisObject, JsValue[] arguments)
         {
-            var p = Construct(arguments, thisObject);
+            var p = Construct(arguments);
 
-            System.Func<JsValue, JsValue[], JsValue> revoke = (JsValue thisObject, JsValue[] arguments) =>
+            System.Func<JsValue, JsValue[], JsValue> revoke = (thisObject, arguments) =>
             {
                 var proxy = (ProxyInstance) p;
                 proxy._handler = null;

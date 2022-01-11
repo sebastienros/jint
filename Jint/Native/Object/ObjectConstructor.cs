@@ -142,7 +142,9 @@ namespace Jint.Native.Object
             return Construct(arguments, this);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
+
+        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (!ReferenceEquals(this, newTarget) && !newTarget.IsUndefined())
             {

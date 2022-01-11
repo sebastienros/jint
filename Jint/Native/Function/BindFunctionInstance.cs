@@ -40,7 +40,7 @@ namespace Jint.Native.Function
         /// </summary>
         public JsValue[] BoundArguments { get; }
 
-        public JsValue Call(JsValue thisObject, JsValue[] arguments)
+        JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments)
         {
             var f = BoundTargetFunction as FunctionInstance;
             if (f is null)
@@ -55,7 +55,7 @@ namespace Jint.Native.Function
             return value;
         }
 
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
         {
             var target = BoundTargetFunction as IConstructor;
             if (target is null)

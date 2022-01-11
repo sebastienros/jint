@@ -43,10 +43,12 @@ namespace Jint.Runtime.Interop
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             // direct calls on a TypeReference constructor object is equivalent to the new operator
-            return Construct(arguments, thisObject);
+            return Construct(arguments);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments);
+
+        private ObjectInstance Construct(JsValue[] arguments)
         {
             if (arguments.Length == 0 && ReferenceType.IsValueType)
             {

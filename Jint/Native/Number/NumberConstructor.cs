@@ -121,7 +121,7 @@ namespace Jint.Native.Number
         /// <summary>
         /// https://tc39.es/ecma262/#sec-number-constructor-number-value
         /// </summary>
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
         {
             var n = ProcessFirstParameter(arguments);
 

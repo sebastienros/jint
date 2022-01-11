@@ -1076,7 +1076,7 @@ namespace Jint.Native.Object
             return false;
         }
 
-        protected ICallable GetCallable(JsValue source)
+        internal ICallable GetCallable(JsValue source)
         {
             if (source is ICallable callable)
             {

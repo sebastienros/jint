@@ -37,7 +37,7 @@ namespace Jint.Native.Boolean
         /// <summary>
         /// https://tc39.es/ecma262/#sec-boolean-constructor-boolean-value
         /// </summary>
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
         {
             var b = TypeConverter.ToBoolean(arguments.At(0))
                 ? JsBoolean.True

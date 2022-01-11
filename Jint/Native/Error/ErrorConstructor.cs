@@ -36,7 +36,9 @@ namespace Jint.Native.Error
             return Construct(arguments, this);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
+
+        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var o = OrdinaryCreateFromConstructor(
                 newTarget,

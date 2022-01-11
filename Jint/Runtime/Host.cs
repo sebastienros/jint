@@ -148,11 +148,11 @@ namespace Jint.Runtime
                 try
                 {
                     var ns = JsModule.GetModuleNamespace(moduleRecord);
-                    promiseCapability.Resolve.Call(ns);
+                    promiseCapability.Resolve.Call(JsValue.Undefined, new[] { ns });
                 }
                 catch (JavaScriptException ex)
                 {
-                    promiseCapability.Reject.Call(ex.Error);
+                    promiseCapability.Reject.Call(JsValue.Undefined, new [] { ex.Error });
                 }
                 return JsValue.Undefined;
             }, 0, PropertyFlag.Configurable);
@@ -160,7 +160,7 @@ namespace Jint.Runtime
             var onRejected = new ClrFunctionInstance(Engine, "", (thisObj, args) =>
             {
                 var error = args.At(0);
-                promiseCapability.Reject.Call(error);
+                promiseCapability.Reject.Call(JsValue.Undefined, new [] { error });
                 return JsValue.Undefined;
             }, 0, PropertyFlag.Configurable);
 

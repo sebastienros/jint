@@ -99,7 +99,7 @@ namespace Jint.Native.Symbol
             return Undefined;
         }
 
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
         {
             ExceptionHelper.ThrowTypeError(_realm);
             return null;
