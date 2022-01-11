@@ -463,7 +463,7 @@ namespace Jint.Native.Object
             if (ownDesc == PropertyDescriptor.Undefined)
             {
                 var parent = GetPrototypeOf();
-                if (!(parent is null))
+                if (parent is not null)
                 {
                     return parent.Set(property, value, receiver);
                 }
@@ -504,13 +504,12 @@ namespace Jint.Native.Object
                 }
             }
 
-            if (!(ownDesc.Set is ICallable setter))
+            if (ownDesc.Set is not FunctionInstance setter)
             {
                 return false;
             }
 
-            var functionInstance = (FunctionInstance) setter;
-            _engine.Call(functionInstance, receiver, new[] { value }, expression: null);
+            _engine.Call(setter, receiver, new[] { value }, expression: null);
 
             return true;
         }

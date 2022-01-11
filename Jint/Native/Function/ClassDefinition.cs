@@ -81,7 +81,7 @@ namespace Jint.Native.Function
                     protoParent = null;
                     constructorParent = engine.Realm.Intrinsics.Function.PrototypeObject;
                 }
-                else if (!superclass!.IsConstructor)
+                else if (!superclass.IsConstructor)
                 {
                     ExceptionHelper.ThrowTypeError(engine.Realm, "super class is not a constructor");
                 }
@@ -92,13 +92,13 @@ namespace Jint.Native.Function
                     {
                         protoParent = protoParentObject;
                     }
-                    else if (temp._type == InternalTypes.Null)
+                    else if (temp.IsNull())
                     {
                         // OK
                     }
                     else
                     {
-                        ExceptionHelper.ThrowTypeError(engine.Realm);
+                        ExceptionHelper.ThrowTypeError(engine.Realm, "cannot resolve super class prototype chain");
                         return null!;
                     }
 
@@ -138,7 +138,7 @@ namespace Jint.Native.Function
                     F.SetFunctionName(_className);
                 }
 
-                F.MakeConstructor(false, proto);
+                F.MakeConstructor(writableProperty: false, proto);
                 F._constructorKind = _superClass is null ? ConstructorKind.Base : ConstructorKind.Derived;
                 F.MakeClassConstructor();
                 proto.CreateMethodProperty(CommonProperties.Constructor, F);
