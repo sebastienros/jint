@@ -67,12 +67,31 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 #### ECMAScript 2019
 
 - ✔ `Array.prototype.flat`, `Array.prototype.flatMap`
+- ✔ `String.prototype.trimStart`, `String.prototype.trimEnd`
+- ✔ `Object.fromEntries`
+- ✔ `Symbol.description`
+- ✔ Optional catch binding
 
 #### ECMAScript 2020
 
-- ✔ BigInt
+- ✔ `BigInt`
+- ❌ `export * as ns from`
+- ✔ `for-in` enhancements
 - ✔ `globalThis` object
+- ❌ `import`
+- ❌ `import.meta`
 - ✔ Nullish coalescing operator (`??`)
+- ✔ Optional chaining
+- ❌ `Promise.allSettled`
+- ✔ `String.prototype.matchAll`
+
+#### ECMAScript 2021
+
+- ✔ Logical Assignment Operators (`&&=` `||=` `??=`)
+- ✔ Numeric Separators (`1_000`)
+- ❌ `Promise.any` and `AggregateError`
+- ❌ `String.prototype.replaceAll`
+- ❌ `WeakRef` and `FinalizationRegistry`
 
 #### Other
 
