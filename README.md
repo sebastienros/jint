@@ -74,21 +74,21 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 
 #### ECMAScript 2020
 
-- ✔ BigInt
+- ✔ `BigInt`
 - ❌ `export * as ns from`
 - ✔ `for-in` enhancements
 - ✔ `globalThis` object
-- ❌ import
-- ❌ import.meta
+- ❌ `import`
+- ❌ `import.meta`
 - ✔ Nullish coalescing operator (`??`)
 - ✔ Optional chaining
-- ❌ Promise.allSettled
+- ❌ `Promise.allSettled`
 - ✔ `String.prototype.matchAll`
 
 #### ECMAScript 2021
 
-- ✔ Logical Assignment Operators (&&= ||= ??=)
-- ✔ Numeric Separators (1_000)
+- ✔ Logical Assignment Operators (`&&=` `||=` `??=`)
+- ✔ Numeric Separators (`1_000`)
 - ❌ `Promise.any` and `AggregateError`
 - ❌ `String.prototype.replaceAll`
 - ❌ `WeakRef` and `FinalizationRegistry`
