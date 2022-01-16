@@ -14,6 +14,10 @@ namespace Jint.Runtime.Descriptors
         internal PropertyFlag _flags;
         internal JsValue _value;
 
+        public PropertyDescriptor() : this(PropertyFlag.None)
+        {
+        }
+
         protected PropertyDescriptor(PropertyFlag flags)
         {
             _flags = flags;
@@ -215,15 +219,18 @@ namespace Jint.Runtime.Descriptors
         internal PropertyFlag Flags
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return _flags; }
+            get => _flags;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-topropertydescriptor
+        /// </summary>
         public static PropertyDescriptor ToPropertyDescriptor(Realm realm, JsValue o)
         {
-            var obj = o.TryCast<ObjectInstance>();
-            if (ReferenceEquals(obj, null))
+            if (o is not ObjectInstance obj)
             {
                 ExceptionHelper.ThrowTypeError(realm);
+                return null;
             }
 
             var getProperty = obj.GetProperty(CommonProperties.Get);
@@ -301,6 +308,9 @@ namespace Jint.Runtime.Descriptors
             return desc;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-frompropertydescriptor
+        /// </summary>
         public static JsValue FromPropertyDescriptor(Engine engine, PropertyDescriptor desc)
         {
             if (ReferenceEquals(desc, Undefined))
@@ -311,10 +321,17 @@ namespace Jint.Runtime.Descriptors
             var obj = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
             var properties = new PropertyDictionary(4, checkExistingKeys: false);
 
+            // TODO should not check for PropertyFlag.None, but needs a bigger cleanup
+            // we should have possibility to leave out the properties in property descriptors as newer tests
+            // also assert properties to be undefined
+
             if (desc.IsDataDescriptor())
             {
                 properties["value"] =  new PropertyDescriptor(desc.Value ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
-                properties["writable"] = new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable);
+                if (desc._flags != PropertyFlag.None || desc.WritableSet)
+                {
+                    properties["writable"] = new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable);
+                }
             }
             else
             {
@@ -322,8 +339,15 @@ namespace Jint.Runtime.Descriptors
                 properties["set"] = new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
-            properties["enumerable"] = new PropertyDescriptor(desc.Enumerable, PropertyFlag.ConfigurableEnumerableWritable);
-            properties["configurable"] = new PropertyDescriptor(desc.Configurable, PropertyFlag.ConfigurableEnumerableWritable);
+            if (desc._flags != PropertyFlag.None || desc.EnumerableSet)
+            {
+                properties["enumerable"] = new PropertyDescriptor(desc.Enumerable, PropertyFlag.ConfigurableEnumerableWritable);
+            }
+
+            if (desc._flags != PropertyFlag.None || desc.ConfigurableSet)
+            {
+                properties["configurable"] = new PropertyDescriptor(desc.Configurable, PropertyFlag.ConfigurableEnumerableWritable);
+            }
 
             obj.SetProperties(properties);
             return obj;

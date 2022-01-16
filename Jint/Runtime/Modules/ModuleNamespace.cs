@@ -32,7 +32,7 @@ internal sealed class ModuleNamespace : ObjectInstance
 
     public override bool Extensible => false;
 
-    public override JsValue PreventExtensions() => JsBoolean.True;
+    public override bool PreventExtensions() => true;
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {

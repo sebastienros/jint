@@ -1,5 +1,4 @@
-﻿using System;
-using Esprima;
+﻿using Esprima;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
@@ -30,7 +29,7 @@ namespace Jint.Tests.Runtime
                     var name = reference.GetReferencedName().AsString();
                     if (name == "filter")
                     {
-                        value = new ClrFunctionInstance(engine, "map", (thisObj, values) => engine.Realm.Intrinsics.Array.ConstructFast(0));
+                        value = new ClrFunctionInstance(engine, "map", (thisObj, values) => engine.Realm.Intrinsics.Array.ArrayCreate(0));
                         return true;
                     }
                 }

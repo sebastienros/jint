@@ -22,7 +22,7 @@ namespace Jint.Native.Boolean
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public BooleanPrototype PrototypeObject { get; private set; }
+        public BooleanPrototype PrototypeObject { get; }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {

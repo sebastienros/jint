@@ -72,7 +72,7 @@ namespace Jint.Native.Array
 
         public abstract void CreateDataPropertyOrThrow(ulong index, JsValue value);
 
-        public abstract void Set(ulong index, JsValue value, bool updateLength, bool throwOnError);
+        public abstract void Set(ulong index, JsValue value, bool throwOnError);
 
         public abstract void DeletePropertyOrThrow(ulong index);
 
@@ -226,7 +226,7 @@ namespace Jint.Native.Array
             public override void CreateDataPropertyOrThrow(ulong index, JsValue value)
                 => _target.CreateDataPropertyOrThrow(JsString.Create(index), value);
 
-            public override void Set(ulong index, JsValue value, bool updateLength, bool throwOnError)
+            public override void Set(ulong index, JsValue value, bool throwOnError)
                 => _target.Set(JsString.Create(index), value, throwOnError);
 
             public override void DeletePropertyOrThrow(ulong index)
@@ -297,8 +297,8 @@ namespace Jint.Native.Array
             public override void CreateDataPropertyOrThrow(ulong index, JsValue value)
                 => _target.SetIndexValue((uint) index, value, updateLength: false);
 
-            public override void Set(ulong index, JsValue value, bool updateLength, bool throwOnError)
-                => _target.SetIndexValue((uint) index, value, updateLength);
+            public override void Set(ulong index, JsValue value, bool throwOnError)
+                => _target.Set((uint) index, value, throwOnError);
         }
 
         private sealed class TypedArrayInstanceOperations : ArrayOperations
@@ -357,7 +357,7 @@ namespace Jint.Native.Array
             public override void CreateDataPropertyOrThrow(ulong index, JsValue value)
                 => _target.CreateDataPropertyOrThrow(index, value);
 
-            public override void Set(ulong index, JsValue value, bool updateLength, bool throwOnError)
+            public override void Set(ulong index, JsValue value, bool throwOnError)
                 => _target[(int) index] = value;
 
             public override void DeletePropertyOrThrow(ulong index)

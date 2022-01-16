@@ -36,6 +36,7 @@ namespace Jint.Native.Proxy
         {
             _target = target;
             _handler = handler;
+            IsCallable = target.IsCallable;
         }
 
         /// <summary>
@@ -154,7 +155,7 @@ namespace Jint.Native.Proxy
             }
 
             var extensibleTarget = _target.Extensible;
-            var targetKeys = _target.GetOwnPropertyKeys(types);
+            var targetKeys = _target.GetOwnPropertyKeys();
             var targetConfigurableKeys = new List<JsValue>();
             var targetNonconfigurableKeys = new List<JsValue>();
 
@@ -169,7 +170,6 @@ namespace Jint.Native.Proxy
                 {
                     targetConfigurableKeys.Add(property);
                 }
-
             }
 
             var uncheckedResultKeys = new HashSet<JsValue>(trapResult);
@@ -209,19 +209,19 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
-            if (!TryCallHandler(TrapGetOwnPropertyDescriptor, new[] { _target, TypeConverter.ToPropertyKey(property) }, out var result))
+            if (!TryCallHandler(TrapGetOwnPropertyDescriptor, new[] { _target, TypeConverter.ToPropertyKey(property) }, out var trapResultObj))
             {
                 return _target.GetOwnProperty(property);
             }
 
-            if (!result.IsObject() && !result.IsUndefined())
+            if (!trapResultObj.IsObject() && !trapResultObj.IsUndefined())
             {
                 ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
             var targetDesc = _target.GetOwnProperty(property);
 
-            if (result.IsUndefined())
+            if (trapResultObj.IsUndefined())
             {
                 if (targetDesc == PropertyDescriptor.Undefined)
                 {
@@ -237,7 +237,8 @@ namespace Jint.Native.Proxy
             }
 
             var extensibleTarget = _target.Extensible;
-            var resultDesc = PropertyDescriptor.ToPropertyDescriptor(_engine.Realm, result);
+            var resultDesc = PropertyDescriptor.ToPropertyDescriptor(_engine.Realm, trapResultObj);
+            CompletePropertyDescriptor(resultDesc);
 
             var valid = IsCompatiblePropertyDescriptor(extensibleTarget, resultDesc, targetDesc);
             if (!valid)
@@ -245,12 +246,53 @@ namespace Jint.Native.Proxy
                 ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
 
-            if (!resultDesc.Configurable && (targetDesc == PropertyDescriptor.Undefined || targetDesc.Configurable))
+            if (!resultDesc.Configurable)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                if (targetDesc == PropertyDescriptor.Undefined || targetDesc.Configurable)
+                {
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
+                }
+
+                if (resultDesc.WritableSet && !resultDesc.Writable)
+                {
+                    if (targetDesc.Writable)
+                    {
+                        ExceptionHelper.ThrowTypeError(_engine.Realm);
+                    }
+                }
             }
 
             return resultDesc;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-completepropertydescriptor
+        /// </summary>
+        private void CompletePropertyDescriptor(PropertyDescriptor desc)
+        {
+            if (desc.IsGenericDescriptor() || desc.IsDataDescriptor())
+            {
+                desc.Value ??= Undefined;
+                if (!desc.WritableSet)
+                {
+                    desc.Writable = false;
+                }
+            }
+            else
+            {
+                var getSet = (GetSetPropertyDescriptor) desc;
+                getSet.SetGet(getSet.Get ?? Undefined);
+                getSet.SetSet(getSet.Set ?? Undefined);
+            }
+
+            if (!desc.EnumerableSet)
+            {
+                desc.Enumerable = false;
+            }
+            if (!desc.ConfigurableSet)
+            {
+                desc.Configurable = false;
+            }
         }
 
         /// <summary>
@@ -293,7 +335,7 @@ namespace Jint.Native.Proxy
         }
 
         /// <summary>
-        /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-getownproperty-p
+        /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-defineownproperty-p-desc
         /// </summary>
         public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
@@ -311,7 +353,7 @@ namespace Jint.Native.Proxy
 
             var targetDesc = _target.GetOwnProperty(property);
             var extensibleTarget = _target.Extensible;
-            var settingConfigFalse = !desc.Configurable;
+            var settingConfigFalse = desc.ConfigurableSet && !desc.Configurable;
 
             if (targetDesc == PropertyDescriptor.Undefined)
             {
@@ -329,6 +371,14 @@ namespace Jint.Native.Proxy
                 if (targetDesc.Configurable && settingConfigFalse)
                 {
                     ExceptionHelper.ThrowTypeError(_engine.Realm);
+                }
+
+                if (targetDesc.IsDataDescriptor() && !targetDesc.Configurable && targetDesc.Writable)
+                {
+                    if (desc.WritableSet && !desc.Writable)
+                    {
+                        ExceptionHelper.ThrowTypeError(_engine.Realm);
+                    }
                 }
             }
 
@@ -382,24 +432,37 @@ namespace Jint.Native.Proxy
                 return _target.Delete(property);
             }
 
-            var success = TypeConverter.ToBoolean(result);
+            var booleanTrapResult = TypeConverter.ToBoolean(result);
 
-            if (success)
+            if (!booleanTrapResult)
             {
-                var targetDesc = _target.GetOwnProperty(property);
-                if (targetDesc != PropertyDescriptor.Undefined && !targetDesc.Configurable)
-                {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm, $"'deleteProperty' on proxy: trap returned truish for property '{property}' which is non-configurable in the proxy target");
-                }
+                return false;
             }
 
-            return success;
+            var targetDesc = _target.GetOwnProperty(property);
+
+            if (targetDesc == PropertyDescriptor.Undefined)
+            {
+                return true;
+            }
+
+            if (!targetDesc.Configurable)
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm, $"'deleteProperty' on proxy: trap returned truish for property '{property}' which is non-configurable in the proxy target");
+            }
+
+            if (!_target.Extensible)
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
+            }
+
+            return true;
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-preventextensions
         /// </summary>
-        public override JsValue PreventExtensions()
+        public override bool PreventExtensions()
         {
             if (!TryCallHandler(TrapPreventExtensions, new JsValue[] { _target }, out var result))
             {
@@ -496,7 +559,7 @@ namespace Jint.Native.Proxy
             return true;
         }
 
-        internal override bool IsCallable => _target is not null && _target.IsCallable;
+        internal override bool IsCallable { get; }
 
         private bool TryCallHandler(JsValue propertyName, JsValue[] arguments, out JsValue result)
         {

@@ -305,7 +305,7 @@ namespace Jint.Native.Promise
             // resolve the promise sync
             if (results.Count == 0)
             {
-                resolve.Call(Undefined, new JsValue[] {_realm.Intrinsics.Array.ConstructFast(0)});
+                resolve.Call(Undefined, new JsValue[] {_realm.Intrinsics.Array.ArrayCreate(0)});
             }
 
             return resultingPromise;

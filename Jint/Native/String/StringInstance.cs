@@ -78,17 +78,28 @@ namespace Jint.Native.String
             }
         }
 
+        internal override IEnumerable<JsValue> GetInitialOwnStringPropertyKeys()
+        {
+            return new[] { JsString.LengthString };
+        }
+
         public override List<JsValue> GetOwnPropertyKeys(Types types)
         {
             var keys = new List<JsValue>(StringData.Length + 1);
-            for (uint i = 0; i < StringData.Length; ++i)
+            if ((types & Types.String) != 0)
             {
-                keys.Add(JsString.Create(i));
+                for (uint i = 0; i < StringData.Length; ++i)
+                {
+                    keys.Add(JsString.Create(i));
+                }
+
+                keys.AddRange(base.GetOwnPropertyKeys(Types.String));
             }
 
-            keys.AddRange(base.GetOwnPropertyKeys(Types.String));
-            keys.AddRange(base.GetOwnPropertyKeys(Types.Symbol));
-            keys.Add(JsString.LengthString);
+            if ((types & Types.Symbol) != 0)
+            {
+                keys.AddRange(base.GetOwnPropertyKeys(Types.Symbol));
+            }
 
             return keys;
         }

@@ -68,7 +68,7 @@ namespace Jint.Native.Iterator
                 var done = ReferenceEquals(null, key) && ReferenceEquals(null, value);
                 if (!done)
                 {
-                    var arrayInstance = engine.Realm.Intrinsics.Array.ConstructFast(2);
+                    var arrayInstance = engine.Realm.Intrinsics.Array.ArrayCreate(2);
                     arrayInstance.SetIndexValue(0, key, false);
                     arrayInstance.SetIndexValue(1, value, false);
                     SetProperty("value", new PropertyDescriptor(arrayInstance, PropertyFlag.AllForbidden));

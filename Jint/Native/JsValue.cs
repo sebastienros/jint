@@ -166,7 +166,7 @@ namespace Jint.Native
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.12.3
+        /// https://tc39.es/ecma262/#sec-get-o-p
         /// </summary>
         public virtual JsValue Get(JsValue property, JsValue receiver)
         {
@@ -174,7 +174,7 @@ namespace Jint.Native
         }
 
         /// <summary>
-        /// https://tc39.es/ecma262/#sec-ordinary-object-internal-methods-and-internal-slots-set-p-v-receiver
+        /// https://tc39.es/ecma262/#sec-set-o-p-v-throw
         /// </summary>
         public virtual bool Set(JsValue property, JsValue value, JsValue receiver)
         {

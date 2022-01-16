@@ -82,21 +82,24 @@ namespace Jint.Native.Reflect
             return target.Construct(args, newTargetArgument);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-reflect.defineproperty
+        /// </summary>
         private JsValue DefineProperty(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.At(0) as ObjectInstance;
-            if (o is null)
+            var target = arguments.At(0) as ObjectInstance;
+            if (target is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Reflect.defineProperty called on non-object");
             }
 
-            var p = arguments.At(1);
-            var name = TypeConverter.ToPropertyKey(p);
-
+            var propertyKey = arguments.At(1);
             var attributes = arguments.At(2);
+
+            var key = TypeConverter.ToPropertyKey(propertyKey);
             var desc = PropertyDescriptor.ToPropertyDescriptor(_realm, attributes);
 
-            return o.DefineOwnProperty(name, desc);
+            return target.DefineOwnProperty(key, desc);
         }
 
         private JsValue DeleteProperty(JsValue thisObject, JsValue[] arguments)
