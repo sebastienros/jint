@@ -44,7 +44,7 @@ namespace Jint.Tests.Runtime
         public void CanExportAll()
         {
             _engine.DefineModule(@"export const value = 'exported value';", "module1");
-            _engine.DefineModule(@"export * from 'module 1';", "module2");
+            _engine.DefineModule(@"export * from 'module1';", "module2");
             var ns = _engine.ImportModule("module2");
 
             Assert.Equal("exported value", ns.Get("value").AsString());

@@ -149,13 +149,13 @@ public sealed class JsModule : JsValue, IScriptOrModule
         for (var i = 0; i < _localExportEntries.Count; i++)
         {
             var e = _localExportEntries[i];
-            exportedNames.Add(e.ExportName);
+            exportedNames.Add(e.ImportName ?? e.ExportName);
         }
 
         for (var i = 0; i < _indirectExportEntries.Count; i++)
         {
             var e = _indirectExportEntries[i];
-            exportedNames.Add(e.ExportName);
+            exportedNames.Add(e.ImportName ?? e.ExportName);
         }
 
         for(var i = 0; i < _starExportEntries.Count; i++)
@@ -199,16 +199,16 @@ public sealed class JsModule : JsValue, IScriptOrModule
         {
             var e = _localExportEntries[i];
 
-            if (exportName == e.ExportName)
+            if (exportName == (e.ImportName ?? e.ExportName))
             {
-                return new ResolvedBinding(this, e.LocalName);
+                return new ResolvedBinding(this, e.LocalName ?? e.ExportName);
             }
         }
 
         for(var i = 0; i < _indirectExportEntries.Count; i++)
         {
             var e = _localExportEntries[i];
-            if (exportName.Equals(e.ExportName))
+            if (exportName.Equals(e.ImportName ?? e.ExportName))
             {
                 var importedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
                 if(e.ImportName == "*")

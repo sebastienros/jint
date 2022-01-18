@@ -13,6 +13,5 @@ internal sealed class JintExportAllDeclarationStatement : JintExportDeclarationS
 
     protected override void Initialize(EvaluationContext context)
     {
-        throw new NotImplementedException();
     }
 }

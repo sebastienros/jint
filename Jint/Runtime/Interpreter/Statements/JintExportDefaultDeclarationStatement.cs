@@ -22,6 +22,7 @@ internal sealed class JintExportDefaultDeclarationStatement : JintExportDeclarat
         _init = JintExpression.Build(context.Engine, (Expression) _statement.Declaration);
     }
 
+    // https://tc39.es/ecma262/#sec-exports-runtime-semantics-evaluation
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         var module = context.Engine.GetActiveScriptOrModule() as JsModule;

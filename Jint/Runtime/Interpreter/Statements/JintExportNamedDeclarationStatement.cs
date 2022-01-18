@@ -10,6 +10,14 @@ namespace Jint.Runtime.Interpreter.Statements;
 
 internal sealed class JintExportNamedDeclarationStatement : JintExportDeclarationStatement<ExportNamedDeclaration>
 {
+    private ExportedSpecifier[]? _specifiers;
+
+    private class ExportedSpecifier
+    {
+        public JintExpression Local = null!;
+        public JintExpression Exported = null!;
+    }
+
     public JintExportNamedDeclarationStatement(ExportNamedDeclaration statement) : base(statement)
     {
     }
@@ -30,6 +38,19 @@ internal sealed class JintExportNamedDeclarationStatement : JintExportDeclaratio
                     throw new NotSupportedException();
             }
         }
+
+        if (_statement.Specifiers.Count > 0)
+        {
+            _specifiers = new ExportedSpecifier[_statement.Specifiers.Count];
+            for (var i = 0; i < _statement.Specifiers.Count; i++)
+            {
+                _specifiers[i] = new ExportedSpecifier
+                {
+                    Local = JintExpression.Build(context.Engine, _statement.Specifiers[i].Local),
+                    Exported = JintExpression.Build(context.Engine, _statement.Specifiers[i].Exported),
+                };
+            }
+        }
     }
 
     /// <summary>
@@ -37,12 +58,18 @@ internal sealed class JintExportNamedDeclarationStatement : JintExportDeclaratio
     /// </summary>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        // var module = context.Engine.GetActiveScriptOrModule() as JsModule;
-        // if (module == null) throw new JavaScriptException("Export can only be used in a module");
+        var module = context.Engine.GetActiveScriptOrModule() as JsModule;
+        if (module == null) throw new JavaScriptException("Export can only be used in a module");
 
-        foreach (var specifier in _statement.Specifiers)
+        if (_specifiers != null)
         {
-            //module._environment.CreateImportBinding();
+            for (var i = 0; i < _specifiers.Length; i++)
+            {
+                var specifier = _specifiers[i];
+                var local = (specifier.Local as JintIdentifierExpression)?._expressionName.Key ?? throw new NotSupportedException("Renamed local export must be an identifier");
+                var exported = (specifier.Exported as JintIdentifierExpression)?._expressionName.Key ?? throw new NotSupportedException("Renamed export must be an identifier");
+                module._environment.CreateImportBinding(exported.Name, module, local.Name);
+            }
         }
 
         if (_declarationStatement != null)
