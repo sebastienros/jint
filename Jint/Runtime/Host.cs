@@ -165,7 +165,7 @@ namespace Jint.Runtime
                 return JsValue.Undefined;
             }, 0, PropertyFlag.Configurable);
 
-            PromiseOperations.PerformPromiseThen(Engine, innerPromise, onFulfilled, onRejected, null);
+            PromiseOperations.PerformPromiseThen(Engine, innerPromise, onFulfilled, onRejected, promiseCapability);
         }
     }
 }

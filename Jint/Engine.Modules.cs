@@ -87,6 +87,9 @@ namespace Jint
 
             if (module.Status == ModuleStatus.Evaluated)
             {
+                // TODO what about callstack and thrown exceptions?
+                RunAvailableContinuations(_eventLoop);
+
                 return JsModule.GetModuleNamespace(module);
             }
 
