@@ -1,4 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using Esprima;
+using Esprima.Ast;
+using Jint.Native.Object;
 using Jint.Runtime.Modules;
 
 namespace Jint
@@ -26,6 +30,50 @@ namespace Jint
             _modules[key] = module;
 
             return module;
+        }
+
+        public JsModule DefineModule(string source, string specifier)
+        {
+            var module = new JavaScriptParser(source).ParseModule();
+
+            return DefineModule(module, specifier);
+        }
+
+        public JsModule DefineModule(Module source, string specifier)
+        {
+            var key = new ModuleCacheKey(string.Empty, specifier);
+
+            var module = new JsModule(this, _host.CreateRealm(), source, null, false);
+
+            _modules[key] = module;
+
+            return module;
+        }
+
+        public ObjectInstance ImportModule(string specifier)
+        {
+            var key = new ModuleCacheKey(string.Empty, specifier);
+
+            if (!_modules.TryGetValue(key, out var module))
+                throw new ArgumentOutOfRangeException(nameof(specifier), "No module was found for this specified");
+
+            if (module.Status == ModuleStatus.Unlinked)
+            {
+                module.Link();
+            }
+
+            if (module.Status == ModuleStatus.Linked)
+            {
+                // TODO: Do something about that promise
+                var promise = module.Evaluate();
+            }
+
+            if (module.Status == ModuleStatus.Evaluated)
+            {
+                return JsModule.GetModuleNamespace(module);
+            }
+
+            throw new NotSupportedException($"The module is currently in status '{module.Status}'");
         }
 
         internal readonly record struct ModuleCacheKey(string ReferencingModuleLocation, string Specifier);

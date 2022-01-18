@@ -246,7 +246,7 @@ namespace Jint
                             }
                         }
 
-                        if (parent is null && variableDeclaration.Kind != VariableDeclarationKind.Var)
+                        if ((parent is null or Module) && variableDeclaration.Kind != VariableDeclarationKind.Var)
                         {
                             _lexicalDeclarations ??= new List<VariableDeclaration>();
                             _lexicalDeclarations.Add(variableDeclaration);

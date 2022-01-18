@@ -90,9 +90,9 @@ namespace Jint.Runtime.Interpreter.Statements
                 Nodes.DebuggerStatement => new JintDebuggerStatement((DebuggerStatement) statement),
                 Nodes.Program when statement is Script s => new JintScript(s),
                 Nodes.ClassDeclaration => new JintClassDeclarationStatement((ClassDeclaration) statement),
-                Nodes.ExportAllDeclaration or
-                Nodes.ExportDefaultDeclaration or
-                Nodes.ExportNamedDeclaration or
+                Nodes.ExportNamedDeclaration => new JintExportNamedDeclarationStatement((ExportNamedDeclaration) statement),
+                Nodes.ExportAllDeclaration => new JintExportAllDeclarationStatement((ExportAllDeclaration) statement),
+                Nodes.ExportDefaultDeclaration => new JintExportDefaultDeclarationStatement((ExportDefaultDeclaration) statement),
                 Nodes.ImportDeclaration => new JintEmptyStatement(new EmptyStatement()),
                 _ => null
             };

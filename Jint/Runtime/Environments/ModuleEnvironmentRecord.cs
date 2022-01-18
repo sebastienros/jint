@@ -27,26 +27,27 @@ internal sealed class ModuleEnvironmentRecord : DeclarativeEnvironmentRecord
         _importBindings[importName] = new IndirectBinding(module, name);
     }
 
+    // https://tc39.es/ecma262/#sec-module-environment-records-getbindingvalue-n-s
     public override JsValue GetBindingValue(string name, bool strict)
     {
         if (_importBindings.TryGetValue(name, out var indirectBinding))
         {
-            return base.GetBindingValue(name, strict);
+            return indirectBinding.Module._environment.GetBindingValue(indirectBinding.BindingName, true);
         }
 
-        return indirectBinding.Module._environment.GetBindingValue(indirectBinding.BindingName, true);
+        return base.GetBindingValue(name, strict);
     }
 
     internal override bool TryGetBinding(in BindingName name, bool strict, out Binding binding, out JsValue value)
     {
-        if (!_importBindings.TryGetValue(name.Key, out var indirectBinding))
+        if (_importBindings.TryGetValue(name.Key, out var indirectBinding))
         {
-            return base.TryGetBinding(name, strict, out binding, out value);
+            value = indirectBinding.Module._environment.GetBindingValue(indirectBinding.BindingName, true);
+            binding = new(value, false, false, true);
+            return true;
         }
 
-        value = indirectBinding.Module._environment.GetBindingValue(indirectBinding.BindingName, true);
-        binding = new(value, false, false, true);
-        return true;
+        return base.TryGetBinding(name, strict, out binding, out value);
     }
 
     public override bool HasThisBinding() => true;

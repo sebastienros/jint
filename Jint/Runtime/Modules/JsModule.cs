@@ -600,33 +600,36 @@ public sealed class JsModule : JsValue
         var env = JintEnvironment.NewModuleEnvironment(_engine, realm.GlobalEnv);
         _environment = env;
 
-        for (var i = 0; i < _importEntries.Count; i++)
+        if (_importEntries != null)
         {
-            var ie = _importEntries[i];
-            var importedModule = _engine._host.ResolveImportedModule(this, ie.ModuleRequest);
-            if(ie.ImportName == "*")
+            for (var i = 0; i < _importEntries.Count; i++)
             {
-                var ns = GetModuleNamespace(importedModule);
-                env.CreateImmutableBinding(ie.LocalName, true);
-                env.InitializeBinding(ie.LocalName, ns);
-            }
-            else
-            {
-                var resolution = importedModule.ResolveExport(ie.ImportName);
-                if(resolution is null || resolution == ResolvedBinding.Ambiguous)
+                var ie = _importEntries[i];
+                var importedModule = _engine._host.ResolveImportedModule(this, ie.ModuleRequest);
+                if (ie.ImportName == "*")
                 {
-                    ExceptionHelper.ThrowSyntaxError(_realm, "Ambigous import statement for identifier " + ie.ImportName);
-                }
-
-                if (resolution.BindingName == "*namespace*")
-                {
-                    var ns = GetModuleNamespace(resolution.Module);
+                    var ns = GetModuleNamespace(importedModule);
                     env.CreateImmutableBinding(ie.LocalName, true);
                     env.InitializeBinding(ie.LocalName, ns);
                 }
                 else
                 {
-                    env.CreateImportBinding(ie.LocalName, resolution.Module, resolution.BindingName);
+                    var resolution = importedModule.ResolveExport(ie.ImportName);
+                    if (resolution is null || resolution == ResolvedBinding.Ambiguous)
+                    {
+                        ExceptionHelper.ThrowSyntaxError(_realm, "Ambigous import statement for identifier " + ie.ImportName);
+                    }
+
+                    if (resolution.BindingName == "*namespace*")
+                    {
+                        var ns = GetModuleNamespace(resolution.Module);
+                        env.CreateImmutableBinding(ie.LocalName, true);
+                        env.InitializeBinding(ie.LocalName, ns);
+                    }
+                    else
+                    {
+                        env.CreateImportBinding(ie.LocalName, resolution.Module, resolution.BindingName);
+                    }
                 }
             }
         }
@@ -899,11 +902,6 @@ public sealed class JsModule : JsValue
 
 
         return Undefined;
-    }
-
-    public override bool Equals(JsValue other)
-    {
-        return false;
     }
 
     public override object ToObject()
