@@ -37,5 +37,21 @@ namespace Jint.Runtime
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref readonly ExecutionContext Pop() => ref _stack.Pop();
+
+        public IScriptOrModule? GetActiveScriptOrModule()
+        {
+            var array = _stack._array;
+            var size = _stack._size;
+            for (var i = size - 1; i > -1; --i)
+            {
+                var context = array[i];
+                if (context.ScriptOrModule is not null)
+                {
+                    return context.ScriptOrModule;
+                }
+            }
+
+            return null;
+        }
     }
 }

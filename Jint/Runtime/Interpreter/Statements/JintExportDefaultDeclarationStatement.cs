@@ -1,5 +1,6 @@
 ﻿#nullable enable
 
+using System;
 using Esprima.Ast;
 
 namespace Jint.Runtime.Interpreter.Statements;
@@ -12,6 +13,6 @@ internal sealed class JintExportDefaultDeclarationStatement : JintExportDeclarat
 
     protected override void Initialize(EvaluationContext context)
     {
-        InitializeDeclaration(context.Engine, _statement.Declaration);
+        throw new NotImplementedException();
     }
 }

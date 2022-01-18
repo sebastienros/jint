@@ -348,6 +348,8 @@ namespace Jint.Native.Function
             var calleeRealm = _realm;
 
             var calleeContext = new ExecutionContext(
+                // TODO: Should this be null?
+                _engine.GetActiveScriptOrModule(),
                 localEnv,
                 localEnv,
                 _privateEnvironment,

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native.Object;
+using Jint.Runtime;
 using Jint.Runtime.Modules;
 
 namespace Jint
@@ -12,6 +13,14 @@ namespace Jint
         internal IModuleLoader ModuleLoader { get; set; }
 
         private readonly Dictionary<ModuleCacheKey, JsModule> _modules = new();
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getactivescriptormodule
+        /// </summary>
+        internal IScriptOrModule GetActiveScriptOrModule()
+        {
+            return _executionContexts.GetActiveScriptOrModule();
+        }
 
         public JsModule LoadModule(string specifier) => LoadModule(null, specifier);
 
@@ -73,7 +82,7 @@ namespace Jint
                 return JsModule.GetModuleNamespace(module);
             }
 
-            throw new NotSupportedException($"The module is currently in status '{module.Status}'");
+            throw new NotSupportedException($"Error while evaluating module: Module is in an invalid state: '{module.Status}'");
         }
 
         internal readonly record struct ModuleCacheKey(string ReferencingModuleLocation, string Specifier);

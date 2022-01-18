@@ -43,7 +43,7 @@ internal sealed record ExportResolveSetItem(
 /// https://tc39.es/ecma262/#sec-cyclic-module-records
 /// https://tc39.es/ecma262/#sec-source-text-module-records
 /// </summary>
-public sealed class JsModule : JsValue
+public sealed class JsModule : JsValue, IScriptOrModule
 {
     private readonly Engine _engine;
     private readonly Realm _realm;
@@ -374,7 +374,8 @@ public sealed class JsModule : JsValue
     /// </summary>
     private int Link(JsModule module, Stack<JsModule> stack, int index)
     {
-        if(module.Status is ModuleStatus.Linking or
+        if(module.Status is
+           ModuleStatus.Linking or
            ModuleStatus.Linked or
            ModuleStatus.EvaluatingAsync or
            ModuleStatus.Evaluating)
@@ -399,16 +400,20 @@ public sealed class JsModule : JsValue
         {
             var requiredModule = _engine._host.ResolveImportedModule(module, moduleSpecifier);
 
+            //TODO: Should we link only when a module is requested? https://tc39.es/ecma262/#sec-example-cyclic-module-record-graphs Should we support retry?
+            if (requiredModule.Status == ModuleStatus.Unlinked)
+                requiredModule.Link();
+
             if (requiredModule.Status != ModuleStatus.Linking &&
                 requiredModule.Status != ModuleStatus.Linked &&
                 requiredModule.Status != ModuleStatus.Evaluated)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Required module is in an invalid state");
+                ExceptionHelper.ThrowInvalidOperationException($"Error while linking module: Required module is in an invalid state: {requiredModule.Status}");
             }
 
             if(requiredModule.Status == ModuleStatus.Linking && !stack.Contains(requiredModule))
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Required module is in an invalid state");
+                ExceptionHelper.ThrowInvalidOperationException($"Error while linking module: Required module is in an invalid state: {requiredModule.Status}");
             }
 
             if (requiredModule.Status == ModuleStatus.Linking)
@@ -492,16 +497,22 @@ public sealed class JsModule : JsValue
 
             index = TypeConverter.ToInt32(result.Value);
 
+            // TODO: Validate this behavior: https://tc39.es/ecma262/#sec-example-cyclic-module-record-graphs
+            if (requiredModule.Status == ModuleStatus.Linked)
+            {
+                requiredModule.Evaluate();
+            }
+
             if (requiredModule.Status != ModuleStatus.Evaluating &&
                 requiredModule.Status != ModuleStatus.EvaluatingAsync &&
                 requiredModule.Status != ModuleStatus.Evaluated)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module is in an invalid state: {requiredModule.Status}");
             }
 
             if (requiredModule.Status == ModuleStatus.Evaluating && !stack.Contains(requiredModule))
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module is in an invalid state: {requiredModule.Status}");
             }
 
             if(requiredModule.Status == ModuleStatus.Evaluating)
@@ -634,7 +645,7 @@ public sealed class JsModule : JsValue
             }
         }
 
-        var moduleContext = new ExecutionContext(_environment, _environment, null, realm, null);
+        var moduleContext = new ExecutionContext(this, _environment, _environment, null, realm, null);
         _context = moduleContext;
 
         _engine.EnterExecutionContext(_context);
@@ -712,7 +723,7 @@ public sealed class JsModule : JsValue
     /// </summary>
     private Completion Execute(PromiseCapability capability = null)
     {
-        var moduleContext = new ExecutionContext(_environment, _environment, null, _realm);
+        var moduleContext = new ExecutionContext(this, _environment, _environment, null, _realm);
         if (!_hasTLA)
         {
             using (new StrictModeScope(strict: true))
