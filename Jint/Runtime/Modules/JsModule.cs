@@ -1,4 +1,5 @@
-﻿using Esprima.Ast;
+﻿using System;
+using Esprima.Ast;
 using System.Collections.Generic;
 using System.Linq;
 using Jint.Native;
@@ -334,7 +335,7 @@ public sealed class JsModule : JsValue
                 m.Status = ModuleStatus.Evaluated;
                 m._evalError = result;
             }
-            capability.Reject.Call(result.Value);
+            capability.Reject.Call(Undefined, new [] { result.Value });
         }
         else
         {
@@ -355,7 +356,7 @@ public sealed class JsModule : JsValue
                     ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
                 }
 
-                capability.Resolve.Call(Undefined);
+                capability.Resolve.Call(Undefined, Array.Empty<JsValue>());
             }
 
             if (stack.Any())
@@ -807,7 +808,7 @@ public sealed class JsModule : JsValue
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
-            module._topLevelCapability.Resolve.Call(Undefined);
+            module._topLevelCapability.Resolve.Call(Undefined, Array.Empty<JsValue>());
         }
 
         var execList = new List<JsModule>();
@@ -842,7 +843,7 @@ public sealed class JsModule : JsValue
                             ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
                         }
 
-                        m._topLevelCapability.Resolve.Call(Undefined);
+                        m._topLevelCapability.Resolve.Call(Undefined, Array.Empty<JsValue>());
                     }
                 }
             }
@@ -893,7 +894,7 @@ public sealed class JsModule : JsValue
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
-            module._topLevelCapability.Reject.Call(error);
+            module._topLevelCapability.Reject.Call(Undefined, new [] { error });
         }
 
 

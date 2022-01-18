@@ -1006,8 +1006,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void JsonParserShouldHandleEmptyString()
         {
-            var ex = Assert.Throws<ParserException>(() => _engine.Evaluate("JSON.parse('');"));
-            Assert.Equal("Line 1: Unexpected end of input", ex.Message);
+            var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("JSON.parse('');"));
+            Assert.Equal("Unexpected end of JSON input at position 0", ex.Message);
         }
 
         [Fact]
@@ -2059,6 +2059,20 @@ var prep = function (fn) { fn(); };
             Assert.True(res == "Cyclic reference detected.");
         }
 
+        [Fact]
+        public void ShouldNotStringifyFunctionValuedProperties()
+        {
+            var engine = new Engine();
+            var res = engine.Evaluate(@"
+                var obj = {
+                    f: function() { }
+                };
+                return JSON.stringify(obj);
+            ");
+
+            Assert.Equal("{}", res.AsString());
+        }
+
         [Theory]
         [InlineData("", "escape('')")]
         [InlineData("%u0100%u0101%u0102", "escape('\u0100\u0101\u0102')")]
@@ -2647,7 +2661,7 @@ function output(x) {
         {
             var engine = new Engine();
             var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("JSON.parse('[01]')"));
-            Assert.Equal("Unexpected token '1'", ex.Message);
+            Assert.Equal("Unexpected token '1' in JSON at position 2", ex.Message);
 
             var voidCompletion = engine.Evaluate("try { JSON.parse('01') } catch (e) {}");
             Assert.Equal(JsValue.Undefined, voidCompletion);
@@ -2774,6 +2788,19 @@ x.test = {
                 .AsNumber();
 
             Assert.Equal(1, result);
+        }
+
+        [Fact]
+        public void ShouldObeyScriptLevelStrictModeInFunctions()
+        {
+            var engine = new Engine();
+            const string source = "'use strict'; var x = () => { delete Boolean.prototype; }; x();";
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(source));
+            Assert.Equal("Cannot delete property 'prototype' of function Boolean() { [native code] }", ex.Message);
+
+            const string source2 = "'use strict'; delete foobar;";
+            ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(source2));
+            Assert.Equal("Delete of an unqualified identifier in strict mode.", ex.Message);
         }
 
         private class Wrapper

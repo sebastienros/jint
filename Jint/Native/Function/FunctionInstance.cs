@@ -103,20 +103,6 @@ namespace Jint.Native.Function
             }
         }
 
-        public override List<JsValue> GetOwnPropertyKeys(Types types)
-        {
-            var keys = base.GetOwnPropertyKeys(types);
-
-            // works around a problem where we don't use property for function names and classes should report it last
-            // as it's the last operation when creating a class constructor
-            if ((types & Types.String) != 0 && _nameDescriptor != null && this is ScriptFunctionInstance { _isClassConstructor: true })
-            {
-                keys.Add(CommonProperties.Name);
-            }
-
-            return keys;
-        }
-
         internal override IEnumerable<JsValue> GetInitialOwnStringPropertyKeys()
         {
             if (_length != null)
@@ -124,9 +110,7 @@ namespace Jint.Native.Function
                 yield return CommonProperties.Length;
             }
 
-            // works around a problem where we don't use property for function names and classes should report it last
-            // as it's the last operation when creating a class constructor
-            if (_nameDescriptor != null && this is not ScriptFunctionInstance { _isClassConstructor: true })
+            if (_nameDescriptor != null)
             {
                 yield return CommonProperties.Name;
             }
@@ -280,7 +264,7 @@ namespace Jint.Native.Function
 
             if (obj is BindFunctionInstance bindFunctionInstance)
             {
-                return GetFunctionRealm(bindFunctionInstance.TargetFunction);
+                return GetFunctionRealm(bindFunctionInstance.BoundTargetFunction);
             }
 
             if (obj is ProxyInstance proxyInstance)

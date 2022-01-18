@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
@@ -17,12 +18,17 @@ namespace Jint
 {
     public static class EsprimaExtensions
     {
-        public static JsValue GetKey(this ClassProperty property, Engine engine) => GetKey(property.Key, engine, property.Computed);
+        public static JsValue GetKey<T>(this T property, Engine engine) where T : ClassProperty => GetKey(property.Key, engine, property.Computed);
 
         public static JsValue GetKey(this Expression expression, Engine engine, bool resolveComputed = false)
         {
             if (expression is Literal literal)
             {
+                if (literal.TokenType == TokenType.NullLiteral)
+                {
+                    return JsValue.Null;
+                }
+
                 return LiteralKeyToString(literal);
             }
 
@@ -49,7 +55,11 @@ namespace Jint
                 or Nodes.UpdateExpression
                 or Nodes.AssignmentExpression
                 or Nodes.UnaryExpression
-                or Nodes.MemberExpression)
+                or Nodes.MemberExpression
+                or Nodes.LogicalExpression
+                or Nodes.ConditionalExpression
+                or Nodes.ArrowFunctionExpression
+                or Nodes.FunctionExpression)
             {
                 var context = engine._activeEvaluationContext;
                 propertyKey = TypeConverter.ToPropertyKey(JintExpression.Build(engine, expression).GetValue(context).Value);

@@ -18,6 +18,7 @@ namespace Jint.Runtime.Interop
 	public sealed class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWrapper>
     {
         private readonly TypeDescriptor _typeDescriptor;
+        internal bool _allowAddingProperties;
 
         public ObjectWrapper(Engine engine, object obj)
             : base(engine)
@@ -51,6 +52,13 @@ namespace Jint.Runtime.Interop
                 {
                     // can try utilize fast path
                     var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, Target.GetType(), member);
+
+                    if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor) && _allowAddingProperties)
+                    {
+                        // there's no such property, but we can allow extending by calling base
+                        // which will add properties, this allows for example JS class to extend a CLR type
+                        return base.Set(property, value, receiver);
+                    }
 
                     // CanPut logic
                     if (!accessor.Writable || !_engine.Options.Interop.AllowWrite)

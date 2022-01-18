@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 using Jint.Collections;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;
@@ -40,46 +39,47 @@ namespace Jint.Native.Json
                 return Undefined.Instance;
             }
 
-            if (replacer.IsObject())
+            if (replacer is ObjectInstance oi)
             {
-                if (replacer is ICallable)
+                if (oi.IsCallable)
                 {
                     _replacerFunction = replacer;
                 }
                 else
                 {
-                    var replacerObj = replacer.AsObject();
-                    if (replacerObj.Class == ObjectClass.Array)
+                    if (oi.IsArray())
                     {
                         _propertyList = new List<JsValue>();
-                    }
-
-                    foreach (var property in replacerObj.GetOwnProperties().Select(x => x.Value))
-                    {
-                        JsValue v = _engine.GetValue(property, false);
-                        string item = null;
-                        if (v.IsString())
+                        var len = oi.Length;
+                        var k = 0;
+                        while (k < len)
                         {
-                            item = v.ToString();
-                        }
-                        else if (v.IsNumber())
-                        {
-                            item = TypeConverter.ToString(v);
-                        }
-                        else if (v.IsObject())
-                        {
-                            var propertyObj = v.AsObject();
-                            if (propertyObj.Class == ObjectClass.String || propertyObj.Class == ObjectClass.Number)
+                            var prop = JsString.Create(k);
+                            var v = replacer.Get(prop);
+                            var item = JsValue.Undefined;
+                            if (v.IsString())
+                            {
+                                item = v;
+                            }
+                            else if (v.IsNumber())
                             {
                                 item = TypeConverter.ToString(v);
                             }
-                        }
+                            else if (v.IsObject())
+                            {
+                                if (v is StringInstance or NumberInstance)
+                                {
+                                    item = TypeConverter.ToString(v);
+                                }
+                            }
 
-                        if (item != null && !_propertyList.Contains(item))
-                        {
-                            _propertyList.Add(item);
-                        }
+                            if (!item.IsUndefined() && !_propertyList.Contains(item))
+                            {
+                                _propertyList.Add(item);
+                            }
 
+                            k++;
+                        }
                     }
                 }
             }
@@ -144,7 +144,7 @@ namespace Jint.Native.Json
                 {
                     if (toJson.AsObject() is ICallable callableToJson)
                     {
-                        value = callableToJson.Call(value, Arguments.From(key));
+                        value = callableToJson.Call(value, Arguments.From(TypeConverter.ToPropertyKey(key)));
                     }
                 }
             }
@@ -152,19 +152,18 @@ namespace Jint.Native.Json
             if (!_replacerFunction.IsUndefined())
             {
                 var replacerFunctionCallable = (ICallable) _replacerFunction.AsObject();
-                value = replacerFunctionCallable.Call(holder, Arguments.From(key, value));
+                value = replacerFunctionCallable.Call(holder, Arguments.From(TypeConverter.ToPropertyKey(key), value));
             }
 
             if (value.IsObject())
             {
-                var valueObj = value.AsObject();
-                switch (valueObj)
+                switch (value)
                 {
-                    case NumberInstance numberInstance:
-                        value = numberInstance.NumberData;
+                    case NumberInstance:
+                        value = TypeConverter.ToNumber(value);
                         break;
-                    case StringInstance stringInstance:
-                        value = stringInstance.StringData;
+                    case StringInstance:
+                        value = TypeConverter.ToString(value);
                         break;
                     case BooleanInstance booleanInstance:
                         value = booleanInstance.BooleanData;
@@ -172,11 +171,6 @@ namespace Jint.Native.Json
                     case BigIntInstance bigIntInstance:
                         value = bigIntInstance.BigIntData;
                         break;
-                    default:
-                        value = SerializesAsArray(value)
-                            ? SerializeJSONArray(value)
-                            : SerializeJSONObject(value.AsObject());
-                        return value;
                 }
             }
 
@@ -211,7 +205,7 @@ namespace Jint.Native.Json
                 ExceptionHelper.ThrowTypeError(_engine.Realm, "Do not know how to serialize a BigInt");
             }
 
-            var isCallable = value.IsObject() && value.AsObject() is ICallable;
+            var isCallable = value.IsObject() && value.IsCallable;
 
             if (value.IsObject() && isCallable == false)
             {
@@ -334,9 +328,7 @@ namespace Jint.Native.Json
             var stepback = _indent;
             _indent += _gap;
 
-            var k = _propertyList ?? value.GetOwnProperties()
-                .Where(x => x.Value.Enumerable)
-                .Select(x => x.Key);
+            var k = (IEnumerable<JsValue>) _propertyList ?? value.EnumerableOwnPropertyNames(ObjectInstance.EnumerableOwnPropertyNamesKind.Key);
 
             var partial = new List<string>();
             foreach (var p in k)

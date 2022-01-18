@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -72,9 +71,6 @@ namespace Jint.Native.Array
 
         public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            var oldLenDesc = _length;
-            var oldLen = (uint) TypeConverter.ToNumber(oldLenDesc.Value);
-
             if (property == CommonProperties.Length)
             {
                 var value = desc.Value;
@@ -89,6 +85,9 @@ namespace Jint.Native.Array
                 {
                     ExceptionHelper.ThrowRangeError(_engine.Realm);
                 }
+
+                var oldLenDesc = _length;
+                var oldLen = (uint) TypeConverter.ToNumber(oldLenDesc.Value);
 
                 newLenDesc.Value = newLen;
                 if (newLen >= oldLen)
@@ -205,29 +204,38 @@ namespace Jint.Native.Array
 
                 return true;
             }
-            else if (IsArrayIndex(property, out var index))
+
+            if (IsArrayIndex(property, out var index))
             {
-                if (index >= oldLen && !oldLenDesc.Writable)
-                {
-                    return false;
-                }
-
-                var succeeded = base.DefineOwnProperty(property, desc);
-                if (!succeeded)
-                {
-                    return false;
-                }
-
-                if (index >= oldLen)
-                {
-                    oldLenDesc.Value = index + 1;
-                    base.DefineOwnProperty(CommonProperties.Length, oldLenDesc);
-                }
-
-                return true;
+                return DefineOwnProperty(index, desc);
             }
 
             return base.DefineOwnProperty(property, desc);
+        }
+
+        private bool DefineOwnProperty(uint index, PropertyDescriptor desc)
+        {
+            var oldLenDesc = _length;
+            var oldLen = (uint) TypeConverter.ToNumber(oldLenDesc.Value);
+
+            if (index >= oldLen && !oldLenDesc.Writable)
+            {
+                return false;
+            }
+
+            var succeeded = base.DefineOwnProperty(index, desc);
+            if (!succeeded)
+            {
+                return false;
+            }
+
+            if (index >= oldLen)
+            {
+                oldLenDesc.Value = index + 1;
+                base.DefineOwnProperty(CommonProperties.Length, oldLenDesc);
+            }
+
+            return true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -265,6 +273,11 @@ namespace Jint.Native.Array
 
         public override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
         {
+            if ((types & Types.String) == 0)
+            {
+                return base.GetOwnPropertyKeys(types);
+            }
+
             var properties = new List<JsValue>(_dense?.Length ?? 0 + 1);
             if (_dense != null)
             {
@@ -734,7 +747,7 @@ namespace Jint.Native.Array
             }
             else
             {
-                if (!Set(CommonProperties.Length, newLength, this))
+                if (!Set(CommonProperties.Length, newLength))
                 {
                     ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
@@ -750,7 +763,7 @@ namespace Jint.Native.Array
                 return _length.Writable;
             }
             var set = _length.Set;
-            return !(set is null) && !set.IsUndefined();
+            return set is not null && !set.IsUndefined();
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -774,7 +787,7 @@ namespace Jint.Native.Array
             var len = GetLength();
 
             var callable = GetCallable(callbackfn);
-            var a = Engine.Realm.Intrinsics.Array.ConstructFast(len);
+            var a = Engine.Realm.Intrinsics.Array.ArrayCreate(len);
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
             for (uint k = 0; k < len; k++)
@@ -867,9 +880,14 @@ namespace Jint.Native.Array
                 return;
             }
 
-            var dense = _dense;
             var sourceDense = source._dense;
 
+            if (sourceDense is not null)
+            {
+                EnsureCapacity((uint) sourceDense.LongLength);
+            }
+
+            var dense = _dense;
             if (dense != null && sourceDense != null
                                && (uint) dense.Length >= targetStartIndex + length
                                && dense[targetStartIndex] is null)
@@ -895,6 +913,8 @@ namespace Jint.Native.Array
                     {
                         SetIndexValue(targetStartIndex, subElement, updateLength: false);
                     }
+
+                    targetStartIndex++;
                 }
             }
         }

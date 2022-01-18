@@ -28,6 +28,8 @@ namespace Jint.Native.Symbol
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
+        public SymbolPrototype PrototypeObject { get; }
+
         protected override void Initialize()
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
@@ -68,7 +70,10 @@ namespace Jint.Native.Symbol
             return value;
         }
 
-        public JsValue For(JsValue thisObj, JsValue[] arguments)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-symbol.for
+        /// </summary>
+        private JsValue For(JsValue thisObj, JsValue[] arguments)
         {
             var stringKey = TypeConverter.ToJsString(arguments.At(0));
 
@@ -83,7 +88,10 @@ namespace Jint.Native.Symbol
             return symbol;
         }
 
-        public JsValue KeyFor(JsValue thisObj, JsValue[] arguments)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-symbol.keyfor
+        /// </summary>
+        private JsValue KeyFor(JsValue thisObj, JsValue[] arguments)
         {
             var symbol = arguments.At(0) as JsSymbol;
             if (symbol is null)
@@ -99,7 +107,7 @@ namespace Jint.Native.Symbol
             return Undefined;
         }
 
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
         {
             ExceptionHelper.ThrowTypeError(_realm);
             return null;
@@ -107,15 +115,7 @@ namespace Jint.Native.Symbol
 
         public SymbolInstance Construct(JsSymbol symbol)
         {
-            var instance = new SymbolInstance(Engine)
-            {
-                _prototype = PrototypeObject,
-                SymbolData = symbol
-            };
-
-            return instance;
+            return new SymbolInstance(Engine, PrototypeObject, symbol);
         }
-
-        public SymbolPrototype PrototypeObject { get; private set; }
     }
 }

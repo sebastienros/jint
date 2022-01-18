@@ -6,6 +6,7 @@ using Esprima;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Date;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Native.RegExp;
@@ -418,28 +419,26 @@ namespace Jint
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsCallable(this JsValue value)
+        public static FunctionInstance AsFunctionInstance(this JsValue value)
         {
-            return value.IsCallable;
-        }
-
-        [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ICallable AsCallable(this JsValue value)
-        {
-            if (!value.IsCallable())
+            if (value is not FunctionInstance instance)
             {
-                ThrowWrongTypeException(value, "Callable");
+                ThrowWrongTypeException(value, "FunctionInstance");
+                return null;
             }
 
-            return value as ICallable;
+            return instance;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static JsValue Call(this ICallable value, params JsValue[] arguments)
+        public static JsValue Call(this JsValue value, params JsValue[] arguments)
         {
-            return value.Call(JsValue.Undefined, arguments);
+            if (!value.IsCallable)
+            {
+                ExceptionHelper.ThrowArgumentException(value + " is not callable");
+            }
+            return ((ICallable) value).Call(JsValue.Undefined, arguments);
         }
 
         /// <summary>

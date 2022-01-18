@@ -3,7 +3,6 @@ using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -12,6 +11,9 @@ using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.String
 {
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-string-constructor
+    /// </summary>
     public sealed class StringConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new JsString("String");
@@ -144,7 +146,7 @@ namespace Jint.Native.String
         /// <summary>
         /// https://tc39.es/ecma262/#sec-string-constructor-string-value
         /// </summary>
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
         {
             JsString s;
             if (arguments.Length == 0)
@@ -156,7 +158,7 @@ namespace Jint.Native.String
                 var value = arguments.At(0);
                 if (newTarget.IsUndefined() && value.IsSymbol())
                 {
-                    return StringCreate(JsString.Create(SymbolPrototype.SymbolDescriptiveString((JsSymbol) value)), PrototypeObject);
+                    return StringCreate(JsString.Create(((JsSymbol) value).ToString()), PrototypeObject);
                 }
                 s = TypeConverter.ToJsString(arguments[0]);
             }

@@ -3,24 +3,46 @@ using Jint.Runtime;
 
 namespace Jint.Native.Function
 {
-    public sealed class BindFunctionInstance : FunctionInstance, IConstructor
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-bound-function-exotic-objects
+    /// </summary>
+    internal sealed class BindFunctionInstance : ObjectInstance, IConstructor, ICallable
     {
-        public BindFunctionInstance(
-            Engine engine,
-            Realm realm)
-            : base(engine, realm, name: null, thisMode: FunctionThisMode.Strict)
+        private readonly Realm _realm;
+
+        public BindFunctionInstance(Engine engine,
+            Realm realm,
+            ObjectInstance proto,
+            ObjectInstance targetFunction,
+            JsValue boundThis,
+            JsValue[] boundArgs)
+            : base(engine, ObjectClass.Function)
         {
+            _realm = realm;
+            _prototype = proto;
+            BoundTargetFunction = targetFunction;
+            BoundThis = boundThis;
+            BoundArguments = boundArgs;
         }
 
-        public JsValue TargetFunction { get; set; }
+        /// <summary>
+        /// The wrapped function object.
+        /// </summary>
+        public JsValue BoundTargetFunction { get; }
 
-        public JsValue BoundThis { get; set; }
+        /// <summary>
+        /// The value that is always passed as the this value when calling the wrapped function.
+        /// </summary>
+        public JsValue BoundThis { get; }
 
-        public JsValue[] BoundArgs { get; set; }
+        /// <summary>
+        /// A list of values whose elements are used as the first arguments to any call to the wrapped function.
+        /// </summary>
+        public JsValue[] BoundArguments { get; }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments)
         {
-            var f = TargetFunction as FunctionInstance;
+            var f = BoundTargetFunction as FunctionInstance;
             if (f is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
@@ -33,9 +55,9 @@ namespace Jint.Native.Function
             return value;
         }
 
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
         {
-            var target = TargetFunction as IConstructor;
+            var target = BoundTargetFunction as IConstructor;
             if (target is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
@@ -45,7 +67,7 @@ namespace Jint.Native.Function
 
             if (ReferenceEquals(this, newTarget))
             {
-                newTarget = TargetFunction;
+                newTarget = BoundTargetFunction;
             }
 
             var value = target.Construct(args, newTarget);
@@ -56,7 +78,7 @@ namespace Jint.Native.Function
 
         internal override bool OrdinaryHasInstance(JsValue v)
         {
-            var f = TargetFunction as FunctionInstance;
+            var f = BoundTargetFunction as FunctionInstance;
             if (f is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
@@ -67,13 +89,13 @@ namespace Jint.Native.Function
 
         private JsValue[] CreateArguments(JsValue[] arguments)
         {
-            var combined = _engine._jsValueArrayPool.RentArray(BoundArgs.Length + arguments.Length);
-            System.Array.Copy(BoundArgs, combined, BoundArgs.Length);
-            System.Array.Copy(arguments, 0, combined, BoundArgs.Length, arguments.Length);
+            var combined = _engine._jsValueArrayPool.RentArray(BoundArguments.Length + arguments.Length);
+            System.Array.Copy(BoundArguments, combined, BoundArguments.Length);
+            System.Array.Copy(arguments, 0, combined, BoundArguments.Length, arguments.Length);
             return combined;
         }
 
-        internal override bool IsConstructor => TargetFunction.IsConstructor;
+        internal override bool IsConstructor => BoundTargetFunction.IsConstructor;
 
         public override string ToString() => "function () { [native code] }";
     }

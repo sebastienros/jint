@@ -787,6 +787,23 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Fact]
+        public void JavaScriptClassCanExtendClrType()
+        {
+            var engine = new Engine();
+            engine.SetValue("TestClass", TypeReference.CreateTypeReference<TestClass>(engine));
+
+            engine.Execute("class ExtendedType extends TestClass { constructor() { super(); this.a = 1; } }");
+            engine.Execute("class MyExtendedType extends ExtendedType { constructor() { super(); this.b = 2; } }");
+            engine.Evaluate("let obj = new MyExtendedType();");
+
+            engine.Evaluate("obj.setString('Hello World!');");
+
+            Assert.Equal("Hello World!", engine.Evaluate("obj.string"));
+            Assert.Equal(1, engine.Evaluate("obj.a"));
+            Assert.Equal(2, engine.Evaluate("obj.b"));
+        }
+
         private struct TestStruct
         {
             public int Value;
@@ -2681,12 +2698,10 @@ namespace Jint.Tests.Runtime
             engine.Evaluate("var f = () => true;");
 
             var result = engine.GetValue("f");
-            Assert.True(result.IsCallable());
+            Assert.True(result.IsCallable);
 
-            var callable = result.AsCallable();
-            Assert.True(callable.Call(JsValue.Undefined, Array.Empty<JsValue>()).AsBoolean());
-
-            Assert.True(callable.Call().AsBoolean());
+            Assert.True(result.Call(Array.Empty<JsValue>()).AsBoolean());
+            Assert.True(result.Call().AsBoolean());
         }
 
         [Fact]

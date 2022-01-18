@@ -44,7 +44,7 @@ namespace Jint
         internal readonly IObjectConverter[] _objectConverters;
         private readonly IConstraint[] _constraints;
         internal readonly bool _isDebugMode;
-        internal readonly bool _isStrict;
+        internal bool _isStrict;
         internal readonly IReferenceResolver _referenceResolver;
         internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
@@ -268,43 +268,41 @@ namespace Jint
         {
             Engine DoInvoke()
             {
-                using (new StrictModeScope(_isStrict || script.Strict))
+                GlobalDeclarationInstantiation(
+                    script,
+                    Realm.GlobalEnv);
+
+                var list = new JintStatementList(null, script.Body);
+
+                Completion result;
+                try
                 {
-                    GlobalDeclarationInstantiation(
-                        script,
-                        Realm.GlobalEnv);
-
-                    var list = new JintStatementList(null, script.Body);
-
-                    Completion result;
-                    try
-                    {
-                        result = list.Execute(_activeEvaluationContext);
-                    }
-                    catch
-                    {
-                        // unhandled exception
-                        ResetCallStack();
-                        throw;
-                    }
-
-                    if (result.Type == CompletionType.Throw)
-                    {
-                        var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
-                        ResetCallStack();
-                        throw ex;
-                    }
-
-                    // TODO what about callstack and thrown exceptions?
-                    RunAvailableContinuations(_eventLoop);
-
-                    _completionValue = result.GetValueOrDefault();
-
-                    return this;
+                    result = list.Execute(_activeEvaluationContext);
                 }
+                catch
+                {
+                    // unhandled exception
+                    ResetCallStack();
+                    throw;
+                }
+
+                if (result.Type == CompletionType.Throw)
+                {
+                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
+                    ResetCallStack();
+                    throw ex;
+                }
+
+                // TODO what about callstack and thrown exceptions?
+                RunAvailableContinuations(_eventLoop);
+
+                _completionValue = result.GetValueOrDefault();
+
+                return this;
             }
 
-            ExecuteWithConstraints(DoInvoke);
+            var strict = _isStrict || script.Strict;
+            ExecuteWithConstraints(strict, DoInvoke);
 
             return this;
         }
@@ -558,15 +556,6 @@ namespace Jint
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/6.0/#sec-initializereferencedbinding
-        /// </summary>
-        public void InitializeReferenceBinding(Reference reference, JsValue value)
-        {
-            var baseValue = (EnvironmentRecord) reference.GetBase();
-            baseValue.InitializeBinding(TypeConverter.ToString(reference.GetReferencedName()), value);
-        }
-
-        /// <summary>
         /// Invoke the current value as function.
         /// </summary>
         /// <param name="propertyName">The name of the function to call.</param>
@@ -630,19 +619,24 @@ namespace Jint
                 return result;
             }
 
-            return ExecuteWithConstraints(DoInvoke);
+            return ExecuteWithConstraints(Options.Strict, DoInvoke);
         }
 
-        private T ExecuteWithConstraints<T>(Func<T> callback)
+        private T ExecuteWithConstraints<T>(bool strict, Func<T> callback)
         {
             ResetConstraints();
 
             var ownsContext = _activeEvaluationContext is null;
             _activeEvaluationContext ??= new EvaluationContext(this);
 
+            var oldStrict = _isStrict;
             try
             {
-                return callback();
+                _isStrict = strict;
+                using (new StrictModeScope(_isStrict))
+                {
+                    return callback();
+                }
             }
             finally
             {
@@ -650,6 +644,7 @@ namespace Jint
                 {
                     _activeEvaluationContext = null;
                 }
+                _isStrict = oldStrict;
                 ResetConstraints();
             }
         }
@@ -1232,7 +1227,43 @@ namespace Jint
             return callable.Call(thisObject, arguments);
         }
 
-        internal JsValue Construct(IConstructor constructor, JsValue[] arguments, JsValue newTarget,
+        /// <summary>
+        /// Calls the named constructor and returns the resulting object.
+        /// </summary>
+        /// <param name="constructorName">The name of the constructor to call.</param>
+        /// <param name="arguments">The arguments of the constructor call.</param>
+        /// <returns>The value returned by the constructor call.</returns>
+        public ObjectInstance Construct(string constructorName, params JsValue[] arguments)
+        {
+            var constructor = Evaluate(constructorName);
+            return Construct(constructor, arguments);
+        }
+
+        /// <summary>
+        /// Calls the constructor and returns the resulting object.
+        /// </summary>
+        /// <param name="constructor">The name of the constructor to call.</param>
+        /// <param name="arguments">The arguments of the constructor call.</param>
+        /// <returns>The value returned by the constructor call.</returns>
+        public ObjectInstance Construct(JsValue constructor, params JsValue[] arguments)
+        {
+            ObjectInstance Callback()
+            {
+                if (!constructor.IsConstructor)
+                {
+                    ExceptionHelper.ThrowArgumentException(constructor + " is not a constructor");
+                }
+
+                return Construct(constructor, arguments, constructor, null);
+            }
+
+            return ExecuteWithConstraints(Options.Strict, Callback);
+        }
+
+        internal ObjectInstance Construct(
+            JsValue constructor,
+            JsValue[] arguments,
+            JsValue newTarget,
             JintExpression expression)
         {
             if (constructor is FunctionInstance functionInstance)
@@ -1240,7 +1271,7 @@ namespace Jint
                 return Construct(functionInstance, arguments, newTarget, expression);
             }
 
-            return constructor.Construct(arguments, newTarget);
+            return ((IConstructor) constructor).Construct(arguments, newTarget);
         }
 
         internal JsValue Call(
@@ -1266,7 +1297,7 @@ namespace Jint
             return result;
         }
 
-        internal JsValue Construct(
+        private ObjectInstance Construct(
             FunctionInstance functionInstance,
             JsValue[] arguments,
             JsValue newTarget,

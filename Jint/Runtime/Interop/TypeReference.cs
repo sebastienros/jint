@@ -43,29 +43,42 @@ namespace Jint.Runtime.Interop
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             // direct calls on a TypeReference constructor object is equivalent to the new operator
-            return Construct(arguments, thisObject);
+            return Construct(arguments);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments);
+
+        private ObjectInstance Construct(JsValue[] arguments)
         {
+            ObjectInstance result = null;
             if (arguments.Length == 0 && ReferenceType.IsValueType)
             {
                 var instance = Activator.CreateInstance(ReferenceType);
-                var result = TypeConverter.ToObject(_realm, FromObject(Engine, instance));
+                result = TypeConverter.ToObject(_realm, FromObject(Engine, instance));
+            }
+            else
+            {
+                var constructors = _constructorCache.GetOrAdd(
+                    ReferenceType,
+                    t => MethodDescriptor.Build(t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)));
 
-                return result;
+                foreach (var (method, _, _) in TypeConverter.FindBestMatch(_engine, constructors, _ => arguments))
+                {
+                    var retVal = method.Call(Engine, null, arguments);
+                    result = TypeConverter.ToObject(_realm, retVal);
+
+                    // todo: cache method info
+                    break;
+                }
             }
 
-            var constructors = _constructorCache.GetOrAdd(
-                ReferenceType,
-                t => MethodDescriptor.Build(t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)));
-
-            foreach (var (method, _, _) in TypeConverter.FindBestMatch(_engine, constructors, _ => arguments))
+            if (result is not null)
             {
-                var retVal = method.Call(Engine, null, arguments);
-                var result = TypeConverter.ToObject(_realm, retVal);
-
-                // todo: cache method info
+                if (result is ObjectWrapper objectWrapper)
+                {
+                    // allow class extension
+                    objectWrapper._allowAddingProperties = true;
+                }
 
                 return result;
             }
@@ -125,11 +138,15 @@ namespace Jint.Runtime.Interop
             if (_properties?.TryGetValue(key, out descriptor) != true)
             {
                 descriptor = CreatePropertyDescriptor(key);
-                _properties ??= new PropertyDictionary();
-                _properties[key] = descriptor;
+                if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+                {
+                    _properties ??= new PropertyDictionary();
+                    _properties[key] = descriptor;
+                    return descriptor;
+                }
             }
 
-            return descriptor;
+            return base.GetOwnProperty(property);
         }
 
         private PropertyDescriptor CreatePropertyDescriptor(string name)

@@ -7,6 +7,9 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Proxy
 {
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-proxy-constructor
+    /// </summary>
     public sealed class ProxyConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _name = new JsString("Proxy");
@@ -21,27 +24,6 @@ namespace Jint.Native.Proxy
             _length = new PropertyDescriptor(2, PropertyFlag.Configurable);
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
-        {
-            ExceptionHelper.ThrowTypeError(_realm, "Constructor Proxy requires 'new'");
-            return null;
-        }
-
-        /// <summary>
-        /// https://www.ecma-international.org/ecma-262/6.0/index.html#sec-proxy-object-internal-methods-and-internal-slots-construct-argumentslist-newtarget
-        /// </summary>
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
-        {
-            var target = arguments.At(0);
-            var handler = arguments.At(1);
-
-            if (!target.IsObject() || !handler.IsObject())
-            {
-                ExceptionHelper.ThrowTypeError(_realm, "Cannot create proxy with a non-object as target or handler");
-            }
-            return Construct(target.AsObject(), handler.AsObject());
-        }
-
         protected override void Initialize()
         {
             var properties = new PropertyDictionary(1, checkExistingKeys: false)
@@ -51,41 +33,74 @@ namespace Jint.Native.Proxy
             SetProperties(properties);
         }
 
+        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        {
+            ExceptionHelper.ThrowTypeError(_realm, "Constructor Proxy requires 'new'");
+            return null;
+        }
+
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        {
+            if (newTarget.IsUndefined())
+            {
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
+
+            return Construct(arguments.At(0), arguments.At(1));
+        }
+
         protected internal override ObjectInstance GetPrototypeOf()
         {
             return _realm.Intrinsics.Function.Prototype;
         }
 
-        public ProxyInstance Construct(ObjectInstance target, ObjectInstance handler)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-proxy-target-handler
+        /// </summary>
+        public ProxyInstance Construct(JsValue target, JsValue handler)
         {
-            if (target is ProxyInstance targetProxy && targetProxy._handler is null)
-            {
-                ExceptionHelper.ThrowTypeError(_realm);
-            }
-            if (handler is ProxyInstance handlerProxy && handlerProxy._handler is null)
-            {
-                ExceptionHelper.ThrowTypeError(_realm);
-            }
-            var instance = new ProxyInstance(Engine, target, handler);
-            return instance;
+            return ProxyCreate(target, handler);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-proxy.revocable
+        /// </summary>
         private JsValue Revocable(JsValue thisObject, JsValue[] arguments)
         {
-            var p = Construct(arguments, thisObject);
+            var p = ProxyCreate(arguments.At(0), arguments.At(1));
 
-            System.Func<JsValue, JsValue[], JsValue> revoke = (JsValue thisObject, JsValue[] arguments) =>
+            JsValue Revoke(JsValue thisObject, JsValue[] arguments)
             {
-                var proxy = (ProxyInstance) p;
-                proxy._handler = null;
-                proxy._target = null;
+                p._handler = null;
+                p._target = null;
                 return Undefined;
-            };
+            }
 
             var result = _realm.Intrinsics.Object.Construct(System.Array.Empty<JsValue>());
-            result.DefineOwnProperty(PropertyRevoke, new PropertyDescriptor(new ClrFunctionInstance(_engine, name: null, revoke, 0, PropertyFlag.Configurable), PropertyFlag.ConfigurableEnumerableWritable));
+            result.DefineOwnProperty(PropertyRevoke, new PropertyDescriptor(new ClrFunctionInstance(_engine, name: "", Revoke, 0, PropertyFlag.Configurable), PropertyFlag.ConfigurableEnumerableWritable));
             result.DefineOwnProperty(PropertyProxy, new PropertyDescriptor(p, PropertyFlag.ConfigurableEnumerableWritable));
             return result;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-proxycreate
+        /// </summary>
+        private ProxyInstance ProxyCreate(JsValue target, JsValue handler)
+        {
+            if (target is not ObjectInstance targetObject)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "Cannot create proxy with a non-object as target");
+                return null;
+            }
+
+            if (handler is not ObjectInstance targetHandler)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "Cannot create proxy with a non-object as handler");
+                return null;
+            }
+
+            var p = new ProxyInstance(Engine, targetObject, targetHandler);
+            return p;
         }
     }
 }

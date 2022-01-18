@@ -369,7 +369,7 @@ namespace Jint.Native.Math
                 return JsNumber.NegativeZero;
             }
 #endif
-            
+
             return System.Math.Ceiling(x);
         }
 
@@ -600,6 +600,9 @@ namespace Jint.Native.Math
             return System.Math.Log10(x);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-math.max
+        /// </summary>
         private static JsValue Max(JsValue thisObject, JsValue[] arguments)
         {
             if (arguments.Length == 0)
@@ -607,36 +610,31 @@ namespace Jint.Native.Math
                 return JsNumber.DoubleNegativeInfinity;
             }
 
-            double max = TypeConverter.ToNumber(arguments.At(0));
-
-            if (double.IsNaN(max))
+            var highest = double.NegativeInfinity;
+            foreach (var number in Coerced(arguments))
             {
-                return JsNumber.DoubleNaN;
-            }
-
-            for (int i = 0; i < arguments.Length; i++)
-            {
-                var value = TypeConverter.ToNumber(arguments[i]);
-
-                if (double.IsNaN(value))
+                if (double.IsNaN(number))
                 {
                     return JsNumber.DoubleNaN;
                 }
 
-                if (max == 0 && value == 0)
+                if (NumberInstance.IsPositiveZero(number) && NumberInstance.IsNegativeZero(highest))
                 {
-                    max = NumberInstance.IsNegativeZero(value)
-                        ? max
-                        : value;
+                    highest = 0;
                 }
-                else
+
+                if (number > highest)
                 {
-                    max = System.Math.Max(max, value);
+                    highest = number;
                 }
             }
-            return max;
+
+            return highest;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-math.min
+        /// </summary>
         private static JsValue Min(JsValue thisObject, JsValue[] arguments)
         {
             if (arguments.Length == 0)
@@ -644,22 +642,26 @@ namespace Jint.Native.Math
                 return JsNumber.DoublePositiveInfinity;
             }
 
-            double min = TypeConverter.ToNumber(arguments.At(0));
-            for (int i = 0; i < arguments.Length; i++)
+            var lowest = double.PositiveInfinity;
+            foreach (var number in Coerced(arguments))
             {
-                var value = TypeConverter.ToNumber(arguments[i]);
-                if (min == 0 && value == 0)
+                if (double.IsNaN(number))
                 {
-                    min = NumberInstance.IsNegativeZero(min)
-                        ? min
-                        : value;
+                    return JsNumber.DoubleNaN;
                 }
-                else
+
+                if (NumberInstance.IsNegativeZero(number) && NumberInstance.IsPositiveZero(lowest))
                 {
-                    min = System.Math.Min(min, value);
+                    lowest = JsNumber.NegativeZero._value;
+                }
+
+                if (number < lowest)
+                {
+                    lowest = number;
                 }
             }
-            return min;
+
+            return lowest;
         }
 
         private static JsValue Pow(JsValue thisObject, JsValue[] arguments)
@@ -677,7 +679,7 @@ namespace Jint.Native.Math
             {
                 return 1;
             }
-            
+
             return HandlePowUnlikely(y, x);
         }
 
@@ -822,7 +824,7 @@ namespace Jint.Native.Math
             {
                 _random = new Random();
             }
-            
+
             return _random.NextDouble();
         }
 
@@ -997,19 +999,57 @@ namespace Jint.Native.Math
             return -1 * System.Math.Pow(System.Math.Abs(x), 1.0 / 3.0);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-math.hypot
+        /// </summary>
         private static JsValue Hypot(JsValue thisObject, JsValue[] arguments)
         {
-            double y = 0;
-            for (int i = 0; i < arguments.Length; ++i)
+            var coerced = Coerced(arguments);
+
+            foreach (var number in coerced)
             {
-                var number = TypeConverter.ToNumber(arguments[i]);
                 if (double.IsInfinity(number))
                 {
                     return JsNumber.DoublePositiveInfinity;
                 }
+            }
+
+            var onlyZero = true;
+            double y = 0;
+            foreach (var number in coerced)
+            {
+                if (double.IsNaN(number))
+                {
+                    return JsNumber.DoubleNaN;
+                }
+
+                if (onlyZero && number != 0)
+                {
+                    onlyZero = false;
+                }
+
                 y += number * number;
             }
+
+            if (onlyZero)
+            {
+                return JsNumber.PositiveZero;
+            }
+
             return System.Math.Sqrt(y);
+        }
+
+        private static double[] Coerced(JsValue[] arguments)
+        {
+            // TODO stackalloc
+            var coerced = new double[arguments.Length];
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                var argument = arguments[i];
+                coerced[i] = TypeConverter.ToNumber(argument);
+            }
+
+            return coerced;
         }
 
         private static JsValue Imul(JsValue thisObject, JsValue[] arguments)

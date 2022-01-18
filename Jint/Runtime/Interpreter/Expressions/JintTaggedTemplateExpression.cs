@@ -60,8 +60,8 @@ namespace Jint.Runtime.Interpreter.Expressions
         private ArrayInstance GetTemplateObject(EvaluationContext context)
         {
             var count = (uint) _quasi._templateLiteralExpression.Quasis.Count;
-            var template = context.Engine.Realm.Intrinsics.Array.ConstructFast(count);
-            var rawObj = context.Engine.Realm.Intrinsics.Array.ConstructFast(count);
+            var template = context.Engine.Realm.Intrinsics.Array.ArrayCreate(count);
+            var rawObj = context.Engine.Realm.Intrinsics.Array.ArrayCreate(count);
             for (uint i = 0; i < _quasi._templateLiteralExpression.Quasis.Count; ++i)
             {
                 var templateElementValue = _quasi._templateLiteralExpression.Quasis[(int) i].Value;

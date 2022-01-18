@@ -9,6 +9,9 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Date
 {
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-date-constructor
+    /// </summary>
     public sealed class DateConstructor : FunctionInstance, IConstructor
     {
         internal static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -67,6 +70,8 @@ namespace Jint.Native.Date
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
+        public DatePrototype PrototypeObject { get; }
+
         protected override void Initialize()
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
@@ -103,7 +108,7 @@ namespace Jint.Native.Date
             return FromDateTime(result);
         }
 
-        private JsValue Utc(JsValue thisObj, JsValue[] arguments)
+        private static JsValue Utc(JsValue thisObj, JsValue[] arguments)
         {
             var y = TypeConverter.ToNumber(arguments.At(0));
             var m = TypeConverter.ToNumber(arguments.At(1, JsNumber.PositiveZero));
@@ -136,10 +141,12 @@ namespace Jint.Native.Date
             return PrototypeObject.ToString(Construct(Arguments.Empty, thisObject), Arguments.Empty);
         }
 
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.9.3
         /// </summary>
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             double dv;
             if (arguments.Length == 0 || newTarget.IsUndefined())
@@ -191,8 +198,6 @@ namespace Jint.Native.Date
             o.PrimitiveValue = dv;
             return o;
         }
-
-        public DatePrototype PrototypeObject { get; private set; }
 
         public DateInstance Construct(DateTimeOffset value)
         {

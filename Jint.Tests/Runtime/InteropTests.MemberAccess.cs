@@ -84,7 +84,7 @@ namespace Jint.Tests.Runtime
                 options.Interop.AllowSystemReflection = true;
             });
             engine.SetValue("m", new HiddenMembers());
-            Assert.True(engine.Evaluate("m.GetType").IsCallable());
+            Assert.True(engine.Evaluate("m.GetType").IsCallable);
 
             // reflection could bypass some safeguards
             Assert.Equal("Method1", engine.Evaluate("m.GetType().GetMethod('Method1').Invoke(m, [])").AsString());

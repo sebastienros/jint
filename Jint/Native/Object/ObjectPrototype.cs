@@ -1,4 +1,5 @@
 ﻿using Jint.Collections;
+using Jint.Native.Proxy;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -114,7 +115,18 @@ namespace Jint.Native.Object
             var tag = o.Get(GlobalSymbolRegistry.ToStringTag);
             if (!tag.IsString())
             {
-                tag = o.Class.ToString();
+                if (o.IsArray())
+                {
+                    tag = "Array";
+                }
+                else if (o.IsCallable)
+                {
+                    tag = "Function";
+                }
+                else
+                {
+                    tag = (o is ProxyInstance ? ObjectClass.Object : o.Class).ToString();
+                }
             }
 
             return "[object " + tag + "]";

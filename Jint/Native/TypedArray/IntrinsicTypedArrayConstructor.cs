@@ -189,7 +189,7 @@ namespace Jint.Native.TypedArray
             return Undefined;
         }
 
-        public ObjectInstance Construct(JsValue[] args, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(JsValue[] args, JsValue newTarget)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Abstract class TypedArray not directly constructable");
             return null;

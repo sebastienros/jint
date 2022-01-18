@@ -10,7 +10,6 @@ namespace Jint.Native.Object
         Function,
         Iterator,
         JSON,
-        Map,
         Math,
         Number,
         Object,

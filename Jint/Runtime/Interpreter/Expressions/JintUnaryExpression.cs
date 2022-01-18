@@ -111,8 +111,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
 
                 case UnaryOperator.Delete:
-                    var r = _argument.Evaluate(context).Value as Reference;
-                    if (r == null)
+                    if (_argument.Evaluate(context).Value is not Reference r)
                     {
                         return JsBoolean.True;
                     }
@@ -121,7 +120,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         if (r.IsStrictReference())
                         {
-                            ExceptionHelper.ThrowSyntaxError(engine.Realm);
+                            ExceptionHelper.ThrowSyntaxError(engine.Realm, "Delete of an unqualified identifier in strict mode.");
                         }
 
                         engine._referencePool.Return(r);
@@ -139,7 +138,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         var deleteStatus = o.Delete(r.GetReferencedName());
                         if (!deleteStatus && r.IsStrictReference())
                         {
-                            ExceptionHelper.ThrowTypeError(engine.Realm);
+                            ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{r.GetReferencedName()}' of {o}");
                         }
 
                         engine._referencePool.Return(r);

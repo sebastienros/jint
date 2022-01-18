@@ -259,7 +259,7 @@ namespace Jint.Runtime.Environments
             }
             else if (argument.IsObject() && argument.TryGetIterator(_functionObject._realm, out var iterator))
             {
-                array = _engine.Realm.Intrinsics.Array.ConstructFast(0);
+                array = _engine.Realm.Intrinsics.Array.ArrayCreate(0);
                 var max = arrayPattern.Elements.Count;
                 if (max > 0 && arrayPattern.Elements[max - 1]?.Type == Nodes.RestElement)
                 {
@@ -297,7 +297,7 @@ namespace Jint.Runtime.Environments
             int restCount = arguments.Length - (index + 1) + 1;
             uint count = restCount > 0 ? (uint) restCount : 0;
 
-            var rest = _engine.Realm.Intrinsics.Array.ConstructFast(count);
+            var rest = _engine.Realm.Intrinsics.Array.ArrayCreate(count);
 
             uint targetIndex = 0;
             for (var argIndex = index; argIndex < arguments.Length; ++argIndex)
