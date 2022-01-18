@@ -2,6 +2,7 @@
 using Esprima.Ast;
 using System.Collections.Generic;
 using System.Linq;
+using Esprima;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -500,7 +501,15 @@ public sealed class JsModule : JsValue, IScriptOrModule
             // TODO: Validate this behavior: https://tc39.es/ecma262/#sec-example-cyclic-module-record-graphs
             if (requiredModule.Status == ModuleStatus.Linked)
             {
-                requiredModule.Evaluate();
+                var evaluationResult = requiredModule.Evaluate();
+                if (evaluationResult == null)
+                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise");
+                else if (evaluationResult is not PromiseInstance promise)
+                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");
+                else if (promise.State == PromiseState.Rejected)
+                    ExceptionHelper.ThrowJavaScriptException(_engine, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, new Location(new Position(), new Position(), moduleSpecifier)));
+                else if (promise.State != PromiseState.Fulfilled)
+                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a fulfilled promise: {promise.State}");
             }
 
             if (requiredModule.Status != ModuleStatus.Evaluating &&
@@ -535,6 +544,8 @@ public sealed class JsModule : JsValue, IScriptOrModule
             }
         }
 
+        Completion completion;
+
         if(module._pendingAsyncDependencies > 0 || module._hasTLA)
         {
             if (module._asyncEvaluation)
@@ -546,16 +557,16 @@ public sealed class JsModule : JsValue, IScriptOrModule
             module._asyncEvalOrder = asyncEvalOrder++;
             if (module._pendingAsyncDependencies == 0)
             {
-                module.ExecuteAsync();
+                completion = module.ExecuteAsync();
             }
             else
             {
-                module.Execute();
+                completion = module.Execute();
             }
         }
         else
         {
-            module.Execute();
+            completion = module.Execute();
         }
 
         if(stack.Count(x => x == module) != 1)
@@ -588,8 +599,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
             }
         }
 
-        return new Completion(CompletionType.Normal, index, null, default);
-
+        return completion;
     }
 
     /// <summary>

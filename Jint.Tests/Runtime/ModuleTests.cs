@@ -1,4 +1,5 @@
-﻿using Xunit;
+﻿using Jint.Runtime;
+using Xunit;
 
 namespace Jint.Tests.Runtime
 {
@@ -57,6 +58,57 @@ namespace Jint.Tests.Runtime
             var ns = _engine.ImportModule("my-module");
 
             Assert.Equal("exported value", ns.Get("exported").AsString());
+        }
+
+        [Fact]
+        public void CanImportRenamed()
+        {
+            _engine.DefineModule(@"export const value = 'exported value';", "imported-module");
+            _engine.DefineModule(@"import { value as renamed } from 'imported-module'; export const exported = renamed;", "my-module");
+            var ns = _engine.ImportModule("my-module");
+
+            Assert.Equal("exported value", ns.Get("exported").AsString());
+        }
+
+        [Fact]
+        public void CanImportDefault()
+        {
+            _engine.DefineModule(@"export default 'exported value';", "imported-module");
+            _engine.DefineModule(@"import imported from 'imported-module'; export const exported = imported;", "my-module");
+            var ns = _engine.ImportModule("my-module");
+
+            Assert.Equal("exported value", ns.Get("exported").AsString());
+        }
+
+        [Fact]
+        public void CanImportAll()
+        {
+            _engine.DefineModule(@"export const value = 'exported value';", "imported-module");
+            _engine.DefineModule(@"import * as imported from 'imported-module'; export const exported = imported.value;", "my-module");
+            var ns = _engine.ImportModule("my-module");
+
+            Assert.Equal("exported value", ns.Get("exported").AsString());
+        }
+
+        [Fact]
+        public void CanThrow()
+        {
+            _engine.DefineModule(@"throw new Error('imported successfully');", "my-module");
+
+            var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
+            Assert.Equal("imported successfully", exc.Message);
+            Assert.Equal("my-module", exc.Location.Source);
+        }
+
+        [Fact]
+        public void CanPropagateThrowThroughImport()
+        {
+            _engine.DefineModule(@"throw new Error('imported successfully');", "imported-module");
+            _engine.DefineModule(@"import 'imported-module';", "my-module");
+
+            var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
+            Assert.Equal("imported successfully", exc.Message);
+            Assert.Equal("imported-module", exc.Location.Source);
         }
     }
 }

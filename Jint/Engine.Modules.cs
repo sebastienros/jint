@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
 
@@ -73,8 +74,15 @@ namespace Jint
 
             if (module.Status == ModuleStatus.Linked)
             {
-                // TODO: Do something about that promise
-                var promise = module.Evaluate();
+                var evaluationResult = module.Evaluate();
+                if (evaluationResult == null)
+                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise");
+                else if (evaluationResult is not PromiseInstance promise)
+                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");
+                else if (promise.State == PromiseState.Rejected)
+                    ExceptionHelper.ThrowJavaScriptException(this, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, new Location(new Position(), new Position(), specifier)));
+                else if (promise.State != PromiseState.Fulfilled)
+                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a fulfilled promise: {promise.State}");
             }
 
             if (module.Status == ModuleStatus.Evaluated)
