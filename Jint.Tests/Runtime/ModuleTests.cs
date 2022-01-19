@@ -149,6 +149,8 @@ namespace Jint.Tests.Runtime
             public string Value { get; set; } = "hello world";
         }
 
+#if(NET6_0_OR_GREATER)
+
         [Fact]
         public void CanLoadModuleImportsFromFiles()
         {
@@ -175,5 +177,7 @@ namespace Jint.Tests.Runtime
             var basePath = Path.Combine(assemblyDirectory.Parent.Parent.Parent.FullName, "Runtime", "Scripts");
             return basePath;
         }
+
+#endif
     }
 }
