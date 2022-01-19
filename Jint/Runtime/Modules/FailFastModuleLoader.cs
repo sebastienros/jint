@@ -1,4 +1,5 @@
 using System;
+using Esprima.Ast;
 
 #nullable enable
 
@@ -10,10 +11,10 @@ internal sealed class FailFastModuleLoader : IModuleLoader
 
     public Uri BasePath => throw new InvalidOperationException("Cannot access base path when modules loading is disabled");
 
-    public ModuleLoaderResult LoadModule(Engine engine, string location)
+    public Module LoadModule(Engine engine, ResolvedSpecifier moduleResolution)
     {
         ThrowDisabledException();
-        return default;
+        return default!;
     }
 
     private static void ThrowDisabledException()

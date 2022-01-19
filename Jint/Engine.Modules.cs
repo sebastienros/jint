@@ -15,6 +15,7 @@ namespace Jint
     public partial class Engine
     {
         internal IModuleLoader ModuleLoader { get; set; }
+        internal IModuleResolver ModuleResolver { get; set; }
 
         private readonly Dictionary<string, JsModule> _modules = new();
 
@@ -30,17 +31,17 @@ namespace Jint
 
         internal JsModule LoadModule(string referencingModuleLocation, string specifier)
         {
-            ResolveSpecifier(referencingModuleLocation, ref specifier);
+            var moduleResolution = ModuleResolver.Resolve(referencingModuleLocation, specifier);
 
-            if (_modules.TryGetValue(specifier, out var module))
+            if (_modules.TryGetValue(moduleResolution.Key, out var module))
             {
                 return module;
             }
 
-            var (loadedModule, location) = ModuleLoader.LoadModule(this, specifier);
-            module = new JsModule(this, _host.CreateRealm(), loadedModule, location.AbsoluteUri, false);
+            var loadedModule = ModuleLoader.LoadModule(this, moduleResolution);
+            module = new JsModule(this, _host.CreateRealm(), loadedModule, moduleResolution.Path, false);
 
-            _modules[specifier] = module;
+            _modules[moduleResolution.Key] = module;
 
             return module;
         }
@@ -52,11 +53,11 @@ namespace Jint
 
         public JsModule DefineModule(Module source, string specifier)
         {
-            ResolveSpecifier(null, ref specifier);
+            var moduleResolution = ModuleResolver.Resolve(null, specifier);
 
-            var module = new JsModule(this, _host.CreateRealm(), source, null, false);
+            var module = new JsModule(this, _host.CreateRealm(), source, moduleResolution.Path, false);
 
-            _modules[specifier] = module;
+            _modules[moduleResolution.Key] = module;
 
             return module;
         }
@@ -81,10 +82,12 @@ namespace Jint
 
         public ObjectInstance ImportModule(string specifier)
         {
-            ResolveSpecifier(null, ref specifier);
+            var moduleResolution = ModuleResolver.Resolve(null, specifier);
 
-            if (!_modules.TryGetValue(specifier, out var module))
-                throw new ArgumentOutOfRangeException(nameof(specifier), $"No module was found for this specifier: {specifier}");
+            if (!_modules.TryGetValue(moduleResolution.Key, out var module))
+            {
+                module = LoadModule(null, specifier);
+            }
 
             if (module.Status == ModuleStatus.Unlinked)
             {
@@ -127,18 +130,6 @@ namespace Jint
             }
 
             throw new NotSupportedException($"Error while evaluating module: Module is in an invalid state: '{module.Status}'");
-        }
-
-        private void ResolveSpecifier(string referencingModuleLocation, ref string specifier)
-        {
-            // Relative module resolution
-            // TODO: Not tested; add tests with the different variations of path resolution
-            if (specifier.StartsWith("./") || specifier.StartsWith("../") || specifier.StartsWith("/"))
-            {
-                // TODO: Not tested; find official module resolve reference: https://www.typescriptlang.org/docs/handbook/module-resolution.html
-                var uri = new Uri(referencingModuleLocation != null ? new Uri(referencingModuleLocation) : ModuleLoader.BasePath, specifier);
-                specifier = $"/{ModuleLoader.BasePath.MakeRelativeUri(uri)}";
-            }
         }
     }
 }

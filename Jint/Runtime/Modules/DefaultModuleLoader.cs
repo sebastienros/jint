@@ -9,41 +9,20 @@ namespace Jint.Runtime.Modules;
 
 public class DefaultModuleLoader : IModuleLoader
 {
-    public Uri BasePath { get; }
-
-    public DefaultModuleLoader(string basePath)
+    public virtual Module LoadModule(Engine engine, ResolvedSpecifier moduleResolution)
     {
-        if (string.IsNullOrWhiteSpace(basePath)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(basePath));
-        if (!Path.IsPathRooted(basePath)) throw new ArgumentException("Path must be rooted", nameof(basePath));
+        if (moduleResolution.Type != SpecifierType.File)
+            throw new InvalidOperationException("The default module loader can only resolve files. You can define modules directly to allow imports like 'module-name'.");
 
-        basePath = Path.GetFullPath(basePath);
-        if (basePath[basePath.Length - 1] != Path.DirectorySeparatorChar) basePath += Path.DirectorySeparatorChar;
+        if (moduleResolution.Path == null)
+            throw new NullReferenceException("Cannot load a module with a null path.");
 
-        BasePath = new Uri(basePath, UriKind.Absolute);
-    }
-
-    public virtual ModuleLoaderResult LoadModule(Engine engine, string location)
-    {
-        if (!location.StartsWith("/"))
-            throw new InvalidOperationException($"Cannot load module from location '{location}' because it does not start with '/'. Was this path resolved before being loaded?");
-
-        var locationUri = new Uri(BasePath, $".{location}");
-
-        // Ensure the resulting resource is under the base path if it is provided
-        if (!BasePath.IsBaseOf(locationUri))
-            ExceptionHelper.ThrowArgumentException($"Cannot import files outside of the base path '{BasePath}'. Imported location: '{locationUri.LocalPath}'");
-
-        return LoadModule(engine, locationUri);
-    }
-
-    protected virtual ModuleLoaderResult LoadModule(Engine engine, Uri location)
-    {
-        var code = LoadModuleSourceCode(location);
+        var code = File.ReadAllText(moduleResolution.Path);
 
         Module module;
         try
         {
-            var parserOptions = new ParserOptions(location.ToString())
+            var parserOptions = new ParserOptions(moduleResolution.Path)
             {
                 AdaptRegexp = true,
                 Tolerant = true
@@ -53,33 +32,10 @@ public class DefaultModuleLoader : IModuleLoader
         }
         catch (ParserException ex)
         {
-            ExceptionHelper.ThrowSyntaxError(engine.Realm, $"Error while loading module: error in module '{location}': {ex.Error}");
+            ExceptionHelper.ThrowSyntaxError(engine.Realm, $"Error while loading module: error in module '{moduleResolution.Path ?? moduleResolution.Specifier}': {ex.Error}");
             module = null;
         }
 
-        return new ModuleLoaderResult(module, location);
-    }
-
-    protected virtual string LoadModuleSourceCode(Uri location)
-    {
-        if (!location.IsFile)
-        {
-            ExceptionHelper.ThrowArgumentException("Only file loading is supported");
-        }
-
-        var path = ToFilePath(location);
-        return File.ReadAllText(path);
-    }
-
-    protected virtual string ToFilePath(Uri location)
-    {
-        var path = location.AbsolutePath;
-
-        if (!File.Exists(path) && !Path.HasExtension(path))
-        {
-            path += ".js";
-        }
-
-        return path;
+        return module;
     }
 }

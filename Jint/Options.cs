@@ -120,6 +120,7 @@ namespace Jint
             }
 
             engine.ModuleLoader = Modules.ModuleLoader;
+            engine.ModuleResolver = Modules.ModuleResolver;
 
             // ensure defaults
             engine.ClrTypeConverter ??= new DefaultTypeConverter(engine);
@@ -362,5 +363,10 @@ namespace Jint
         /// Module loader implementation, by default exception will be thrown if module loading is not enabled.
         /// </summary>
         public IModuleLoader ModuleLoader { get; set; } = FailFastModuleLoader.Instance;
+
+        /// <summary>
+        /// Module resolver implementation, resolves import statements.
+        /// </summary>
+        public IModuleResolver ModuleResolver { get; set; } = DisabledModuleResolver.Instance;
     }
 }

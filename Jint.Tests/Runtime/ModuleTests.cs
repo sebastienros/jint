@@ -152,15 +152,28 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void CanLoadModuleImportsFromFiles()
         {
-            var assemblyPath = new Uri(typeof(ModuleTests).GetTypeInfo().Assembly.Location).LocalPath;
-            var assemblyDirectory = new FileInfo(assemblyPath).Directory;
-            var basePath = Path.Combine(assemblyDirectory.Parent.Parent.Parent.FullName, "Runtime", "Scripts");
-
-            var engine = new Engine(options => options.EnableModules(basePath));
-            engine.DefineModule("import { User } from './Modules/user'; export const user = new User('John', 'Doe');", "my-module");
+            var engine = new Engine(options => options.EnableModules(GetBasePath()));
+            engine.DefineModule("import { User } from './modules/user'; export const user = new User('John', 'Doe');", "my-module");
             var ns = engine.ImportModule("my-module");
 
             Assert.Equal("John Doe", ns["user"].AsObject()["name"].AsString());
+        }
+
+        [Fact]
+        public void CanImportFromFile()
+        {
+            var engine = new Engine(options => options.EnableModules(GetBasePath()));
+            var ns = engine.ImportModule("./modules/format-name");
+
+            Assert.Equal("John Doe", ns["formatName"].AsFunctionInstance().Call(JsString.Create("John"), JsString.Create("Doe")).AsString());
+        }
+
+        private static string GetBasePath()
+        {
+            var assemblyPath = new Uri(typeof(ModuleTests).GetTypeInfo().Assembly.Location).LocalPath;
+            var assemblyDirectory = new FileInfo(assemblyPath).Directory;
+            var basePath = Path.Combine(assemblyDirectory.Parent.Parent.Parent.FullName, "Runtime", "Scripts");
+            return basePath;
         }
     }
 }
