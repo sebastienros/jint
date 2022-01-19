@@ -1,4 +1,6 @@
-﻿using Jint.Runtime;
+﻿using Jint.Native;
+using Jint.Runtime;
+using Jint.Runtime.Interop;
 using Xunit;
 
 namespace Jint.Tests.Runtime
@@ -109,6 +111,40 @@ namespace Jint.Tests.Runtime
             var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
             Assert.Equal("imported successfully", exc.Message);
             Assert.Equal("imported-module", exc.Location.Source);
+        }
+
+        [Fact]
+        public void CanDefineModuleWithValue()
+        {
+            _engine.DefineModule("value", JsString.Create("hello world"), "my-module");
+            var ns = _engine.ImportModule("my-module");
+
+            Assert.Equal("hello world", ns.Get("value").AsString());
+        }
+
+        [Fact]
+        public void CanDefineModuleWithClrInstance()
+        {
+            _engine.DefineModule("value", new ImportedClass { Value = "instance value" }, "imported-module");
+            _engine.DefineModule(@"import { value } from 'imported-module'; export const exported = value.value;", "my-module");
+            var ns = _engine.ImportModule("my-module");
+
+            Assert.Equal("instance value", ns.Get("exported").AsString());
+        }
+
+        [Fact]
+        public void CanDefineModuleWithClrType()
+        {
+            _engine.DefineModule<ImportedClass>("imported-module");
+            _engine.DefineModule(@"import { ImportedClass } from 'imported-module'; export const exported = new ImportedClass().value;", "my-module");
+            var ns = _engine.ImportModule("my-module");
+
+            Assert.Equal("hello world", ns.Get("exported").AsString());
+        }
+
+        private class ImportedClass
+        {
+            public string Value { get; set; } = "hello world";
         }
     }
 }

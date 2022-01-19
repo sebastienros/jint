@@ -132,6 +132,12 @@ public sealed class JsModule : JsValue, IScriptOrModule
         return m;
     }
 
+    internal void BindExportedValue(string name, JsValue value)
+    {
+        _environment.CreateImmutableBindingAndInitialize(name, true, value);
+        _localExportEntries.Add(new ExportEntry(name, null, null, null));
+    }
+
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getexportednames
     /// </summary>

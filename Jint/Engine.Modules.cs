@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using Esprima;
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
 
 namespace Jint
@@ -44,9 +46,7 @@ namespace Jint
 
         public JsModule DefineModule(string source, string specifier)
         {
-            var module = new JavaScriptParser(source).ParseModule();
-
-            return DefineModule(module, specifier);
+            return DefineModule(new JavaScriptParser(source).ParseModule(), specifier);
         }
 
         public JsModule DefineModule(Module source, string specifier)
@@ -60,12 +60,30 @@ namespace Jint
             return module;
         }
 
+        public JsModule DefineModule<T>(string specifier)
+        {
+            return DefineModule(typeof(T).Name, TypeReference.CreateTypeReference<T>(this), specifier);
+        }
+
+        public JsModule DefineModule(string exportName, object exportValue, string specifier)
+        {
+            return DefineModule(exportName, JsValue.FromObject(this, exportValue), specifier);
+        }
+
+        public JsModule DefineModule(string exportName, JsValue exportValue, string specifier)
+        {
+            var module = DefineModule(new Module(NodeList.Create(System.Array.Empty<Statement>())), specifier);
+            module.Link();
+            module.BindExportedValue(exportName, exportValue);
+            return module;
+        }
+
         public ObjectInstance ImportModule(string specifier)
         {
             var key = new ModuleCacheKey(string.Empty, specifier);
 
             if (!_modules.TryGetValue(key, out var module))
-                throw new ArgumentOutOfRangeException(nameof(specifier), "No module was found for this specified");
+                throw new ArgumentOutOfRangeException(nameof(specifier), $"No module was found for this specifier: {specifier}");
 
             if (module.Status == ModuleStatus.Unlinked)
             {
