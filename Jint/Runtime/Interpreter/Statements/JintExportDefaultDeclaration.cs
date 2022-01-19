@@ -1,19 +1,16 @@
 ﻿#nullable enable
 
 using Esprima.Ast;
-using Jint.Native;
-using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.Modules;
-using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Statements;
 
-internal sealed class JintExportDefaultDeclarationStatement : JintExportDeclarationStatement<ExportDefaultDeclaration>
+internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefaultDeclaration>
 {
     private JintExpression? _init;
 
-    public JintExportDefaultDeclarationStatement(ExportDefaultDeclaration statement) : base(statement)
+    public JintExportDefaultDeclaration(ExportDefaultDeclaration statement) : base(statement)
     {
     }
 

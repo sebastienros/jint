@@ -8,8 +8,10 @@ using Jint.Runtime.Modules;
 
 namespace Jint.Runtime.Interpreter.Statements;
 
-internal sealed class JintExportNamedDeclarationStatement : JintExportDeclarationStatement<ExportNamedDeclaration>
+internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDeclaration>
 {
+    private JintExpression? _declarationExpression;
+    private JintStatement? _declarationStatement;
     private ExportedSpecifier[]? _specifiers;
 
     private class ExportedSpecifier
@@ -18,7 +20,7 @@ internal sealed class JintExportNamedDeclarationStatement : JintExportDeclaratio
         public JintExpression Exported = null!;
     }
 
-    public JintExportNamedDeclarationStatement(ExportNamedDeclaration statement) : base(statement)
+    public JintExportNamedDeclaration(ExportNamedDeclaration statement) : base(statement)
     {
     }
 
@@ -74,7 +76,6 @@ internal sealed class JintExportNamedDeclarationStatement : JintExportDeclaratio
 
         if (_declarationStatement != null)
         {
-            // TODO: Not tested
             _declarationStatement.Execute(context);
             return NormalCompletion(Undefined.Instance);
         }

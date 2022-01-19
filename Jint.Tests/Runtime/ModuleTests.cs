@@ -1,6 +1,5 @@
 ﻿using Jint.Native;
 using Jint.Runtime;
-using Jint.Runtime.Interop;
 using Xunit;
 
 namespace Jint.Tests.Runtime
@@ -15,7 +14,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void CanExportNamed()
+        public void ShouldExportNamed()
         {
             _engine.DefineModule(@"export const value = 'exported value';", "my-module");
             var ns = _engine.ImportModule("my-module");
@@ -24,7 +23,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void CanExportNamedListRenamed()
+        public void ShouldExportNamedListRenamed()
         {
             _engine.DefineModule(@"const value1 = 1; const value2 = 2; export { value1 as renamed1, value2 as renamed2 }", "my-module");
             var ns = _engine.ImportModule("my-module");
@@ -34,7 +33,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void CanExportDefault()
+        public void ShouldExportDefault()
         {
             _engine.DefineModule(@"export default 'exported value';", "my-module");
             var ns = _engine.ImportModule("my-module");
@@ -43,7 +42,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void CanExportAll()
+        public void ShouldExportAll()
         {
             _engine.DefineModule(@"export const value = 'exported value';", "module1");
             _engine.DefineModule(@"export * from 'module1';", "module2");
@@ -53,7 +52,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void CanImportNamed()
+        public void ShouldImportNamed()
         {
             _engine.DefineModule(@"export const value = 'exported value';", "imported-module");
             _engine.DefineModule(@"import { value } from 'imported-module'; export const exported = value;", "my-module");
@@ -63,7 +62,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void CanImportRenamed()
+        public void ShouldImportRenamed()
         {
             _engine.DefineModule(@"export const value = 'exported value';", "imported-module");
             _engine.DefineModule(@"import { value as renamed } from 'imported-module'; export const exported = renamed;", "my-module");
@@ -73,7 +72,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void CanImportDefault()
+        public void ShouldImportDefault()
         {
             _engine.DefineModule(@"export default 'exported value';", "imported-module");
             _engine.DefineModule(@"import imported from 'imported-module'; export const exported = imported;", "my-module");
@@ -83,7 +82,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void CanImportAll()
+        public void ShouldImportAll()
         {
             _engine.DefineModule(@"export const value = 'exported value';", "imported-module");
             _engine.DefineModule(@"import * as imported from 'imported-module'; export const exported = imported.value;", "my-module");
@@ -93,7 +92,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void CanThrow()
+        public void ShouldPropagateThrowStatementOnCSharpImport()
         {
             _engine.DefineModule(@"throw new Error('imported successfully');", "my-module");
 
@@ -103,7 +102,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void CanPropagateThrowThroughImport()
+        public void ShouldPropagateThrowStatementThroughJavaScriptImport()
         {
             _engine.DefineModule(@"throw new Error('imported successfully');", "imported-module");
             _engine.DefineModule(@"import 'imported-module';", "my-module");
@@ -114,7 +113,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void CanDefineModuleWithValue()
+        public void ShouldDefineModuleFromJsValue()
         {
             _engine.DefineModule("value", JsString.Create("hello world"), "my-module");
             var ns = _engine.ImportModule("my-module");
@@ -123,7 +122,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void CanDefineModuleWithClrInstance()
+        public void ShouldDefineModuleFromClrInstance()
         {
             _engine.DefineModule("value", new ImportedClass { Value = "instance value" }, "imported-module");
             _engine.DefineModule(@"import { value } from 'imported-module'; export const exported = value.value;", "my-module");
@@ -133,7 +132,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void CanDefineModuleWithClrType()
+        public void ShouldDefineModuleFromClrType()
         {
             _engine.DefineModule<ImportedClass>("imported-module");
             _engine.DefineModule(@"import { ImportedClass } from 'imported-module'; export const exported = new ImportedClass().value;", "my-module");

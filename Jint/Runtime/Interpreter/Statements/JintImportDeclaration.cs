@@ -3,9 +3,9 @@ using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Statements;
 
-internal sealed class JintImportDeclarationStatement : JintStatement<ImportDeclaration>
+internal sealed class JintImportDeclaration : JintStatement<ImportDeclaration>
 {
-    public JintImportDeclarationStatement(ImportDeclaration statement) : base(statement)
+    public JintImportDeclaration(ImportDeclaration statement) : base(statement)
     {
     }
 
