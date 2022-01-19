@@ -1,6 +1,7 @@
 using System;
 using Jint.Native;
 using Jint.Native.Array;
+using Jint.Native.Function;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Xunit;
@@ -123,6 +124,23 @@ assertEqual(booleanCount, 1);
             Assert.Equal((uint) 2, arrayInstance.Length);
             Assert.Equal("abc", arrayInstance[0]);
             Assert.Equal(123, arrayInstance[1]);
+        }
+
+        [Fact]
+        public void CanInvokeConstructorsFromFunctionInstance()
+        {
+            var engine = new Engine();
+
+            var result = engine.Evaluate(@"
+                (function () {
+                    class Foo { test() { return 123 } }
+                    let f = new Foo()
+                    return f.test()
+                })
+            ").As<FunctionInstance>().Call();
+
+            Assert.True(result.IsInteger());
+            Assert.Equal(123, result.AsInteger());
         }
     }
 }
