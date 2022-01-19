@@ -9,28 +9,29 @@ namespace Jint.Runtime.Modules;
 
 public class DefaultModuleLoader : IModuleLoader
 {
-    private readonly string _basePath;
+    public Uri BasePath { get; }
 
     public DefaultModuleLoader(string basePath)
     {
-        _basePath = basePath;
+        if (string.IsNullOrWhiteSpace(basePath)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(basePath));
+        if (!Path.IsPathRooted(basePath)) throw new ArgumentException("Path must be rooted", nameof(basePath));
+
+        basePath = Path.GetFullPath(basePath);
+        if (basePath[basePath.Length - 1] != Path.DirectorySeparatorChar) basePath += Path.DirectorySeparatorChar;
+
+        BasePath = new Uri(basePath, UriKind.Absolute);
     }
 
-    public virtual ModuleLoaderResult LoadModule(Engine engine, string location, string? referencingLocation)
+    public virtual ModuleLoaderResult LoadModule(Engine engine, string location)
     {
-        // If no referencing location is provided, ensure location is absolute
+        if (!location.StartsWith("/"))
+            throw new InvalidOperationException($"Cannot load module from location '{location}' because it does not start with '/'. Was this path resolved before being loaded?");
 
-        var locationUri = referencingLocation == null 
-            ? new Uri(location, UriKind.Absolute) 
-            : new Uri(new Uri(referencingLocation, UriKind.Absolute), location)
-            ;
+        var locationUri = new Uri(BasePath, $".{location}");
 
         // Ensure the resulting resource is under the base path if it is provided
-
-        if (!String.IsNullOrEmpty(_basePath) && !locationUri.AbsolutePath.StartsWith(_basePath, StringComparison.Ordinal))
-        {
-            ExceptionHelper.ThrowArgumentException("Invalid file location.");
-        }
+        if (!BasePath.IsBaseOf(locationUri))
+            ExceptionHelper.ThrowArgumentException($"Cannot import files outside of the base path '{BasePath}'. Imported location: '{locationUri.LocalPath}'");
 
         return LoadModule(engine, locationUri);
     }
@@ -66,6 +67,19 @@ public class DefaultModuleLoader : IModuleLoader
             ExceptionHelper.ThrowArgumentException("Only file loading is supported");
         }
 
-        return File.ReadAllText(location.AbsolutePath);
+        var path = ToFilePath(location);
+        return File.ReadAllText(path);
+    }
+
+    protected virtual string ToFilePath(Uri location)
+    {
+        var path = location.AbsolutePath;
+
+        if (!File.Exists(path) && !Path.HasExtension(path))
+        {
+            path += ".js";
+        }
+
+        return path;
     }
 }

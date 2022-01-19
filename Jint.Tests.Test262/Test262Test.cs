@@ -22,7 +22,7 @@ namespace Jint.Tests.Test262
     {
         private static readonly Dictionary<string, Script> Sources;
 
-        private static readonly string BasePath;
+        protected static readonly string BasePath;
 
         private static readonly TimeZoneInfo _pacificTimeZone;
 

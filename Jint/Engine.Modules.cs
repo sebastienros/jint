@@ -7,6 +7,7 @@ using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Interpreter;
 using Jint.Runtime.Modules;
 
 namespace Jint
@@ -15,7 +16,7 @@ namespace Jint
     {
         internal IModuleLoader ModuleLoader { get; set; }
 
-        private readonly Dictionary<ModuleCacheKey, JsModule> _modules = new();
+        private readonly Dictionary<string, JsModule> _modules = new();
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-getactivescriptormodule
@@ -29,17 +30,17 @@ namespace Jint
 
         internal JsModule LoadModule(string referencingModuleLocation, string specifier)
         {
-            var key = new ModuleCacheKey(referencingModuleLocation ?? string.Empty, specifier);
+            ResolveSpecifier(referencingModuleLocation, ref specifier);
 
-            if (_modules.TryGetValue(key, out var module))
+            if (_modules.TryGetValue(specifier, out var module))
             {
                 return module;
             }
 
-            var (loadedModule, location) = ModuleLoader.LoadModule(this, specifier, referencingModuleLocation);
+            var (loadedModule, location) = ModuleLoader.LoadModule(this, specifier);
             module = new JsModule(this, _host.CreateRealm(), loadedModule, location.AbsoluteUri, false);
 
-            _modules[key] = module;
+            _modules[specifier] = module;
 
             return module;
         }
@@ -51,11 +52,11 @@ namespace Jint
 
         public JsModule DefineModule(Module source, string specifier)
         {
-            var key = new ModuleCacheKey(string.Empty, specifier);
+            ResolveSpecifier(null, ref specifier);
 
             var module = new JsModule(this, _host.CreateRealm(), source, null, false);
 
-            _modules[key] = module;
+            _modules[specifier] = module;
 
             return module;
         }
@@ -80,9 +81,9 @@ namespace Jint
 
         public ObjectInstance ImportModule(string specifier)
         {
-            var key = new ModuleCacheKey(string.Empty, specifier);
+            ResolveSpecifier(null, ref specifier);
 
-            if (!_modules.TryGetValue(key, out var module))
+            if (!_modules.TryGetValue(specifier, out var module))
                 throw new ArgumentOutOfRangeException(nameof(specifier), $"No module was found for this specifier: {specifier}");
 
             if (module.Status == ModuleStatus.Unlinked)
@@ -92,7 +93,21 @@ namespace Jint
 
             if (module.Status == ModuleStatus.Linked)
             {
-                var evaluationResult = module.Evaluate();
+                var ownsContext = _activeEvaluationContext is null;
+                _activeEvaluationContext ??= new EvaluationContext(this);
+                JsValue evaluationResult;
+                try
+                {
+                    evaluationResult = module.Evaluate();
+                }
+                finally
+                {
+                    if (ownsContext)
+                    {
+                        _activeEvaluationContext = null;
+                    }
+                }
+
                 if (evaluationResult == null)
                     ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise");
                 else if (evaluationResult is not PromiseInstance promise)
@@ -114,6 +129,16 @@ namespace Jint
             throw new NotSupportedException($"Error while evaluating module: Module is in an invalid state: '{module.Status}'");
         }
 
-        internal readonly record struct ModuleCacheKey(string ReferencingModuleLocation, string Specifier);
+        private void ResolveSpecifier(string referencingModuleLocation, ref string specifier)
+        {
+            // Relative module resolution
+            // TODO: Not tested; add tests with the different variations of path resolution
+            if (specifier.StartsWith("./") || specifier.StartsWith("../") || specifier.StartsWith("/"))
+            {
+                // TODO: Not tested; find official module resolve reference: https://www.typescriptlang.org/docs/handbook/module-resolution.html
+                var uri = new Uri(referencingModuleLocation != null ? new Uri(referencingModuleLocation) : ModuleLoader.BasePath, specifier);
+                specifier = $"/{ModuleLoader.BasePath.MakeRelativeUri(uri)}";
+            }
+        }
     }
 }

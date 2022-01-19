@@ -16,7 +16,12 @@ public readonly record struct ModuleLoaderResult(Module Module, Uri Location);
 public interface IModuleLoader
 {
     /// <summary>
+    /// The base path from which file-based modules will be resolved
+    /// </summary>
+    Uri BasePath { get; }
+
+    /// <summary>
     /// Loads a module from given location.
     /// </summary>
-    public ModuleLoaderResult LoadModule(Engine engine, string location, string? referencingLocation);
+    public ModuleLoaderResult LoadModule(Engine engine, string location);
 }

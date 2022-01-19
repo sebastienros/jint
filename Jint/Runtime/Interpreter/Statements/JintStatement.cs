@@ -93,7 +93,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 Nodes.ExportNamedDeclaration => new JintExportNamedDeclaration((ExportNamedDeclaration) statement),
                 Nodes.ExportAllDeclaration => new JintExportAllDeclaration((ExportAllDeclaration) statement),
                 Nodes.ExportDefaultDeclaration => new JintExportDefaultDeclaration((ExportDefaultDeclaration) statement),
-                Nodes.ImportDeclaration => new JintImportDeclarationStatement((ImportDeclaration) statement),
+                Nodes.ImportDeclaration => new JintImportDeclaration((ImportDeclaration) statement),
                 _ => null
             };
 

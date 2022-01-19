@@ -69,7 +69,6 @@ public sealed class JsModule : JsValue, IScriptOrModule
     private readonly List<ExportEntry> _localExportEntries;
     private readonly List<ExportEntry> _indirectExportEntries;
     private readonly List<ExportEntry> _starExportEntries;
-    internal readonly string _location;
     internal JsValue _evalResult;
 
     internal JsModule(Engine engine, Realm realm, Module source, string location, bool async) : base(InternalTypes.Module)
@@ -77,7 +76,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
         _engine = engine;
         _realm = realm;
         _source = source;
-        _location = location;
+        Location = location;
 
         _importMeta = _realm.Intrinsics.Object.Construct(1);
         _importMeta.DefineOwnProperty("url", new PropertyDescriptor(location, PropertyFlag.ConfigurableEnumerableWritable));
@@ -94,6 +93,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
 
     }
 
+    public string Location { get; }
     internal ModuleStatus Status { get; private set; }
 
     /// <summary>
@@ -935,5 +935,10 @@ public sealed class JsModule : JsValue, IScriptOrModule
     {
         ExceptionHelper.ThrowNotSupportedException();
         return null;
+    }
+
+    public override string ToString()
+    {
+        return $"{Type}: {Location}";
     }
 }

@@ -1,4 +1,7 @@
-﻿using Jint.Native;
+﻿using System;
+using System.IO;
+using System.Reflection;
+using Jint.Native;
 using Jint.Runtime;
 using Xunit;
 
@@ -144,6 +147,20 @@ namespace Jint.Tests.Runtime
         private class ImportedClass
         {
             public string Value { get; set; } = "hello world";
+        }
+
+        [Fact]
+        public void CanLoadModuleImportsFromFiles()
+        {
+            var assemblyPath = new Uri(typeof(ModuleTests).GetTypeInfo().Assembly.Location).LocalPath;
+            var assemblyDirectory = new FileInfo(assemblyPath).Directory;
+            var basePath = Path.Combine(assemblyDirectory.Parent.Parent.Parent.FullName, "Runtime", "Scripts");
+
+            var engine = new Engine(options => options.EnableModules(basePath));
+            engine.DefineModule("import { User } from './Modules/user'; export const user = new User('John', 'Doe');", "my-module");
+            var ns = engine.ImportModule("my-module");
+
+            Assert.Equal("John Doe", ns["user"].AsObject()["name"].AsString());
         }
     }
 }

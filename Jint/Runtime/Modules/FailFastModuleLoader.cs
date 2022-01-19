@@ -1,3 +1,5 @@
+using System;
+
 #nullable enable
 
 namespace Jint.Runtime.Modules;
@@ -6,7 +8,9 @@ internal sealed class FailFastModuleLoader : IModuleLoader
 {
     public static readonly IModuleLoader Instance = new FailFastModuleLoader();
 
-    public ModuleLoaderResult LoadModule(Engine engine, string location, string? referencingLocation)
+    public Uri BasePath => throw new InvalidOperationException("Cannot access base path when modules loading is disabled");
+
+    public ModuleLoaderResult LoadModule(Engine engine, string location)
     {
         ThrowDisabledException();
         return default;

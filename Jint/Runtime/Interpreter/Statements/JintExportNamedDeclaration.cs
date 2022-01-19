@@ -70,7 +70,8 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
                 var specifier = _specifiers[i];
                 var local = (specifier.Local as JintIdentifierExpression)?._expressionName.Key ?? throw new NotSupportedException("Renamed local export must be an identifier");
                 var exported = (specifier.Exported as JintIdentifierExpression)?._expressionName.Key ?? throw new NotSupportedException("Renamed export must be an identifier");
-                module._environment.CreateImportBinding(exported.Name, module, local.Name);
+                if (local.Name != exported.Name)
+                    module._environment.CreateImportBinding(exported.Name, module, local.Name);
             }
         }
 

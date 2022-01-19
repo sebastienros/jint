@@ -107,7 +107,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         protected internal virtual JsModule ResolveImportedModule(JsModule referencingModule, string specifier)
         {
-            return Engine.LoadModule(referencingModule._location, specifier);
+            return Engine.LoadModule(referencingModule.Location, specifier);
         }
 
         /// <summary>
@@ -122,7 +122,7 @@ namespace Jint.Runtime
 
             try
             {
-                Engine.LoadModule(referencingModule._location, specifier);
+                Engine.LoadModule(referencingModule.Location, specifier);
                 promise.Resolve(JsValue.Undefined);
 
             }
