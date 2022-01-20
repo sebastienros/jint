@@ -238,26 +238,29 @@ namespace Jint
         /// <remarks>
         /// Passed Engine instance is still in construction and should not be used during call stage.
         /// </remarks>
-        public static void UseHostFactory<T>(this Options options, Func<Engine, T> factory) where T : Host
+        public static Options UseHostFactory<T>(this Options options, Func<Engine, T> factory) where T : Host
         {
             options.Host.Factory = factory;
+            return options;
         }
 
         /// <summary>
         /// Enables module loading in the engine via the 'require' function. By default there's no sand-boxing and
         /// you need to trust the script loading the modules not doing bad things.
         /// </summary>
-        public static void EnableModules(this Options options, string basePath, bool restrictToBasePath = true)
+        public static Options EnableModules(this Options options, string basePath, bool restrictToBasePath = true)
         {
             options.Modules.ModuleLoader = new DefaultModuleLoader(basePath, restrictToBasePath);
+            return options;
         }
 
         /// <summary>
         /// Prevents loading modules. You can still define modules using <see cref="Engine.DefineModule(string,string)"/>.
         /// </summary>
-        public static void DisableModuleLoader(this Options options)
+        public static Options DisableModuleLoader(this Options options)
         {
             options.Modules.ModuleLoader = new FailFastModuleLoader();
+            return options;
         }
 
         /// <summary>
