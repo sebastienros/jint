@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using Jint.Runtime.Modules;
 using Xunit;
 
@@ -8,66 +7,50 @@ namespace Jint.Tests.Runtime.Modules
     public class DefaultModuleLoaderTests
     {
         [Theory]
-        [InlineData("./other", @"Z:\project\folder\other.js", "/folder/other")]
-        [InlineData("./other.js", @"Z:\project\folder\other.js", "/folder/other")]
-        [InlineData("../model/other", @"Z:\project\model\other.js", "/model/other")]
-        [InlineData("/model/other", @"Z:\project\model\other.js", "/model/other")]
-        public void ShouldResolveRelativePathsOnWindows(string specifier, string expectedPath, string expectedKey)
+        [InlineData("./other.js", @"file://c/project/folder/other.js")]
+        [InlineData("../model/other.js", @"file://c/project/model/other.js")]
+        [InlineData("/model/other.js", @"file://c/project/model/other.js")]
+        public void ShouldResolveRelativePaths(string specifier, string expectedUri)
         {
-            if (Environment.OSVersion.Platform == PlatformID.Unix)
-            {
-                // Making this test work on both Windows and Linux would make the test unreadable
-                return;
-            }
+            var resolver = new TestModuleLoader("file://C/project");
 
-            const string basePath = @"Z:\project";
-            const string parentPath = @"Z:\project\folder\script.js";
-            var resolver = new DefaultModuleLoader(basePath);
-
-            var resolved = resolver.Resolve(parentPath, specifier);
+            var resolved = resolver.Resolve("file://C/project/folder/script.js", specifier);
 
             Assert.Equal(specifier, resolved.Specifier);
-            Assert.Equal(expectedKey, resolved.Key);
-            Assert.Equal(expectedPath, resolved.Path?.Replace('/', Path.DirectorySeparatorChar));
-            Assert.Equal(SpecifierType.File, resolved.Type);
-        }
-
-        [Theory]
-        [InlineData("./other", @"/project/folder/other.js", "/folder/other")]
-        [InlineData("./other.js", @"/project/folder/other.js", "/folder/other")]
-        [InlineData("../model/other", @"/project/model/other.js", "/model/other")]
-        [InlineData("/model/other", @"/project/model/other.js", "/model/other")]
-        public void ShouldResolveRelativePathsOnLinux(string specifier, string expectedPath, string expectedKey)
-        {
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-            {
-                // Making this test work on both Windows and Linux would make the test unreadable
-                return;
-            }
-
-            const string basePath = @"/project";
-            const string parentPath = @"/project/folder/script.js";
-            var resolver = new DefaultModuleLoader(basePath);
-
-            var resolved = resolver.Resolve(parentPath, specifier);
-
-            Assert.Equal(specifier, resolved.Specifier);
-            Assert.Equal(expectedKey, resolved.Key);
-            Assert.Equal(expectedPath, resolved.Path);
-            Assert.Equal(SpecifierType.File, resolved.Type);
+            Assert.Equal(expectedUri, resolved.Key);
+            Assert.Equal(expectedUri, resolved.Uri?.AbsoluteUri);
+            Assert.Equal(SpecifierType.RelativeOrAbsolute, resolved.Type);
         }
 
         [Fact]
         public void ShouldResolveBareSpecifiers()
         {
-            var resolver = new DefaultModuleLoader("/tmp");
+            var resolver = new TestModuleLoader("/");
 
             var resolved = resolver.Resolve(null, "my-module");
 
             Assert.Equal("my-module", resolved.Specifier);
             Assert.Equal("my-module", resolved.Key);
-            Assert.Equal(null, resolved.Path);
+            Assert.Equal(null, resolved.Uri?.AbsoluteUri);
             Assert.Equal(SpecifierType.Bare, resolved.Type);
+        }
+
+        public class TestModuleLoader : DefaultModuleLoader
+        {
+            public TestModuleLoader(string basePath)
+                : base(basePath)
+            {
+            }
+
+            protected override bool FileExists(Uri uri)
+            {
+                return true;
+            }
+
+            protected override string ReadAllText(Uri uri)
+            {
+                throw new NotImplementedException();
+            }
         }
     }
 }

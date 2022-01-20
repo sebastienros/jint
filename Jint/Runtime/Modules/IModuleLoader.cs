@@ -17,5 +17,5 @@ public interface IModuleLoader
     /// <summary>
     /// Loads a module from given location.
     /// </summary>
-    public Module LoadModule(Engine engine, ResolvedSpecifier moduleResolution);
+    public Module LoadModule(Engine engine, ResolvedSpecifier resolved);
 }

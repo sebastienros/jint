@@ -54,7 +54,7 @@ public class ModuleTests : Test262Test
 
         try
         {
-            engine.LoadModule($"/{sourceFile.Source}");
+            engine.LoadModule(sourceFile.FullPath);
         }
         catch (JavaScriptException ex)
         {

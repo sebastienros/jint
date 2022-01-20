@@ -16,7 +16,7 @@ internal sealed class FailFastModuleLoader : IModuleLoader
         return new ResolvedSpecifier(specifier, specifier, null, SpecifierType.Bare);
     }
 
-    public Module LoadModule(Engine engine, ResolvedSpecifier moduleResolution)
+    public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
     {
         ThrowDisabledException();
         return default!;

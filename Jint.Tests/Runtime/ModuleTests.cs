@@ -167,7 +167,7 @@ namespace Jint.Tests.Runtime
         public void CanLoadModuleImportsFromFiles()
         {
             var engine = new Engine(options => options.EnableModules(GetBasePath()));
-            engine.DefineModule("import { User } from './modules/user'; export const user = new User('John', 'Doe');", "my-module");
+            engine.DefineModule("import { User } from './modules/user.js'; export const user = new User('John', 'Doe');", "my-module");
             var ns = engine.ImportModule("my-module");
 
             Assert.Equal("John Doe", ns["user"].AsObject()["name"].AsString());
@@ -177,7 +177,7 @@ namespace Jint.Tests.Runtime
         public void CanImportFromFile()
         {
             var engine = new Engine(options => options.EnableModules(GetBasePath()));
-            var ns = engine.ImportModule("./modules/format-name");
+            var ns = engine.ImportModule("./modules/format-name.js");
 
             Assert.Equal("John Doe", ns["formatName"].AsFunctionInstance().Call(JsString.Create("John"), JsString.Create("Doe")).AsString());
         }

@@ -2,6 +2,6 @@
 
 public enum SpecifierType
 {
-    File,
+    RelativeOrAbsolute,
     Bare,
 }

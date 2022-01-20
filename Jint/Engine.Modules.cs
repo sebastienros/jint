@@ -38,7 +38,7 @@ namespace Jint
             }
 
             var loadedModule = ModuleLoader.LoadModule(this, moduleResolution);
-            module = new JsModule(this, _host.CreateRealm(), loadedModule, moduleResolution.Path, false);
+            module = new JsModule(this, _host.CreateRealm(), loadedModule, moduleResolution.Uri?.LocalPath, false);
 
             _modules[moduleResolution.Key] = module;
 
@@ -54,7 +54,7 @@ namespace Jint
         {
             var moduleResolution = ModuleLoader.Resolve(null, specifier);
 
-            var module = new JsModule(this, _host.CreateRealm(), source, moduleResolution.Path, false);
+            var module = new JsModule(this, _host.CreateRealm(), source, moduleResolution.Uri?.LocalPath, false);
 
             _modules[moduleResolution.Key] = module;
 

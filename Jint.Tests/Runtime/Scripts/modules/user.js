@@ -1,4 +1,4 @@
-import { formatName as nameFormatter } from './format-name';
+import { formatName as nameFormatter } from './format-name.js';
 
 class User {
     constructor(firstName, lastName) {
