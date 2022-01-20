@@ -509,13 +509,21 @@ public sealed class JsModule : JsValue, IScriptOrModule
             {
                 var evaluationResult = requiredModule.Evaluate();
                 if (evaluationResult == null)
+                {
                     ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise");
+                }
                 else if (evaluationResult is not PromiseInstance promise)
+                {
                     ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");
+                }
                 else if (promise.State == PromiseState.Rejected)
+                {
                     ExceptionHelper.ThrowJavaScriptException(_engine, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, new Location(new Position(), new Position(), moduleSpecifier)));
+                }
                 else if (promise.State != PromiseState.Fulfilled)
+                {
                     ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a fulfilled promise: {promise.State}");
+                }
             }
 
             if (requiredModule.Status != ModuleStatus.Evaluating &&

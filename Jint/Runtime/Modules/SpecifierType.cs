@@ -2,6 +2,7 @@
 
 public enum SpecifierType
 {
+    Error,
     RelativeOrAbsolute,
     Bare,
 }

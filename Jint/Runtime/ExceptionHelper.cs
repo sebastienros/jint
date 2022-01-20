@@ -2,8 +2,10 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using Esprima;
 using Jint.Native;
 using Jint.Runtime.CallStack;
+using Jint.Runtime.Modules;
 using Jint.Runtime.References;
 
 namespace Jint.Runtime
@@ -14,6 +16,12 @@ namespace Jint.Runtime
         public static void ThrowSyntaxError(Realm realm, string message = null)
         {
             throw new JavaScriptException(realm.Intrinsics.SyntaxError, message);
+        }
+
+        [DoesNotReturn]
+        public static void ThrowSyntaxError(Realm realm, string message, Location location)
+        {
+            throw new JavaScriptException(realm.Intrinsics.SyntaxError, message).SetLocation(location);
         }
 
         [DoesNotReturn]
@@ -167,6 +175,12 @@ namespace Jint.Runtime
         public static void ThrowExecutionCanceledException()
         {
             throw new ExecutionCanceledException();
+        }
+
+        [DoesNotReturn]
+        public static void ThrowModuleResolutionException(string message, string specifier, string parent)
+        {
+            throw new ModuleResolutionException(message, specifier, parent);
         }
     }
 }

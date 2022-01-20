@@ -1,5 +1,5 @@
 namespace Jint.Runtime;
 
-public interface IScriptOrModule
+internal interface IScriptOrModule
 {
 }

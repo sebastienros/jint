@@ -1,4 +1,6 @@
-﻿using System;
+﻿#nullable enable
+
+using System;
 using System.Collections.Generic;
 using Esprima;
 using Esprima.Ast;
@@ -21,14 +23,14 @@ namespace Jint
         /// <summary>
         /// https://tc39.es/ecma262/#sec-getactivescriptormodule
         /// </summary>
-        internal IScriptOrModule GetActiveScriptOrModule()
+        internal IScriptOrModule? GetActiveScriptOrModule()
         {
-            return _executionContexts.GetActiveScriptOrModule();
+            return _executionContexts?.GetActiveScriptOrModule();
         }
 
         public JsModule LoadModule(string specifier) => LoadModule(null, specifier);
 
-        internal JsModule LoadModule(string referencingModuleLocation, string specifier)
+        internal JsModule LoadModule(string? referencingModuleLocation, string specifier)
         {
             var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, specifier);
 
@@ -111,13 +113,21 @@ namespace Jint
                 }
 
                 if (evaluationResult == null)
+                {
                     ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise");
+                }
                 else if (evaluationResult is not PromiseInstance promise)
+                {
                     ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");
+                }
                 else if (promise.State == PromiseState.Rejected)
+                {
                     ExceptionHelper.ThrowJavaScriptException(this, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, new Location(new Position(), new Position(), specifier)));
+                }
                 else if (promise.State != PromiseState.Fulfilled)
+                {
                     ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a fulfilled promise: {promise.State}");
+                }
             }
 
             if (module.Status == ModuleStatus.Evaluated)
@@ -128,7 +138,8 @@ namespace Jint
                 return JsModule.GetModuleNamespace(module);
             }
 
-            throw new NotSupportedException($"Error while evaluating module: Module is in an invalid state: '{module.Status}'");
+            ExceptionHelper.ThrowNotSupportedException($"Error while evaluating module: Module is in an invalid state: '{module.Status}'");
+            return default;
         }
     }
 }

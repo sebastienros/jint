@@ -1,10 +1,8 @@
 ﻿#nullable enable
 
-using System;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Interpreter.Expressions;
-using Jint.Runtime.Modules;
 
 namespace Jint.Runtime.Interpreter.Statements;
 
@@ -14,11 +12,10 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
     private JintStatement? _declarationStatement;
     private ExportedSpecifier[]? _specifiers;
 
-    private class ExportedSpecifier
-    {
-        public JintExpression Local = null!;
-        public JintExpression Exported = null!;
-    }
+    private sealed record ExportedSpecifier(
+        JintExpression Local,
+        JintExpression Exported
+    );
 
     public JintExportNamedDeclaration(ExportNamedDeclaration statement) : base(statement)
     {
@@ -37,20 +34,23 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
                     _declarationStatement = Build(s);
                     break;
                 default:
-                    throw new NotSupportedException();
+                    ExceptionHelper.ThrowNotSupportedException($"Statement {_statement.Declaration.Type} is not supported in an export declaration.");
+                    break;
             }
         }
 
         if (_statement.Specifiers.Count > 0)
         {
             _specifiers = new ExportedSpecifier[_statement.Specifiers.Count];
-            for (var i = 0; i < _statement.Specifiers.Count; i++)
+            ref readonly var statementSpecifiers = ref _statement.Specifiers;
+            for (var i = 0; i < statementSpecifiers.Count; i++)
             {
-                _specifiers[i] = new ExportedSpecifier
-                {
-                    Local = JintExpression.Build(context.Engine, _statement.Specifiers[i].Local),
-                    Exported = JintExpression.Build(context.Engine, _statement.Specifiers[i].Exported),
-                };
+                var statementSpecifier = statementSpecifiers[i];
+
+                _specifiers[i] = new ExportedSpecifier(
+                    Local: JintExpression.Build(context.Engine, statementSpecifier.Local),
+                    Exported: JintExpression.Build(context.Engine, statementSpecifier.Exported)
+                );
             }
         }
     }
@@ -60,18 +60,24 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
     /// </summary>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        var module = context.Engine.GetActiveScriptOrModule() as JsModule;
-        if (module == null) throw new JavaScriptException("Export can only be used in a module");
+        var module = context.Engine.GetActiveScriptOrModule().AsModule(context.Engine, context.LastSyntaxNode.Location);
 
         if (_specifiers != null)
         {
-            for (var i = 0; i < _specifiers.Length; i++)
+            foreach (var specifier in _specifiers)
             {
-                var specifier = _specifiers[i];
-                var local = (specifier.Local as JintIdentifierExpression)?._expressionName.Key ?? throw new NotSupportedException("Renamed local export must be an identifier");
-                var exported = (specifier.Exported as JintIdentifierExpression)?._expressionName.Key ?? throw new NotSupportedException("Renamed export must be an identifier");
-                if (local.Name != exported.Name)
-                    module._environment.CreateImportBinding(exported.Name, module, local.Name);
+                if (specifier.Local is not JintIdentifierExpression local || specifier.Exported is not JintIdentifierExpression exported)
+                {
+                    ExceptionHelper.ThrowSyntaxError(context.Engine.Realm, "", context.LastSyntaxNode.Location);
+                    return default;
+                }
+
+                var localKey = local._expressionName.Key.Name;
+                var exportedKey = exported._expressionName.Key.Name;
+                if (localKey != exportedKey)
+                {
+                    module._environment.CreateImportBinding(exportedKey, module, localKey);
+                }
             }
         }
 

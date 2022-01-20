@@ -1,10 +1,10 @@
-﻿using System;
+﻿#nullable enable
 
 namespace Jint.Runtime.Modules;
 
-public class ModuleResolutionException : Exception
+public sealed class ModuleResolutionException : JintException
 {
-    public ModuleResolutionException(string message, string specifier, string parent)
+    public ModuleResolutionException(string message, string specifier, string? parent)
         : base($"{message} in module '{parent ?? "(null)"}': '{specifier}'")
     {
     }

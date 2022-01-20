@@ -43,7 +43,7 @@ internal sealed class ModuleEnvironmentRecord : DeclarativeEnvironmentRecord
         if (_importBindings.TryGetValue(name.Key, out var indirectBinding))
         {
             value = indirectBinding.Module._environment.GetBindingValue(indirectBinding.BindingName, true);
-            binding = new(value, false, false, true);
+            binding = new(value, canBeDeleted: false, mutable: false, strict: true);
             return true;
         }
 

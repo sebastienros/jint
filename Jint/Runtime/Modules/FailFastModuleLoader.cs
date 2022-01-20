@@ -9,7 +9,14 @@ internal sealed class FailFastModuleLoader : IModuleLoader
 {
     public static readonly IModuleLoader Instance = new FailFastModuleLoader();
 
-    public Uri BasePath => throw new InvalidOperationException("Cannot access base path when modules loading is disabled");
+    public Uri BasePath
+    {
+        get
+        {
+            ExceptionHelper.ThrowInvalidOperationException("Cannot access base path when modules loading is disabled");
+            return default;
+        }
+    }
 
     public ResolvedSpecifier Resolve(string? referencingModuleLocation, string specifier)
     {
