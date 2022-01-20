@@ -35,7 +35,7 @@ namespace Jint.Runtime
             var realm = CreateRealm();
 
             var newContext = new ExecutionContext(
-                scriptOrModule: Engine.GetActiveScriptOrModule(),
+                scriptOrModule: null,
                 lexicalEnvironment: realm.GlobalEnv,
                 variableEnvironment: realm.GlobalEnv,
                 privateEnvironment: null,

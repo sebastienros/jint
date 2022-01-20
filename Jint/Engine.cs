@@ -157,8 +157,7 @@ namespace Jint
             PrivateEnvironmentRecord privateEnvironment)
         {
             var context = new ExecutionContext(
-                // TODO: Should this be null?
-                GetActiveScriptOrModule(),
+                null,
                 lexicalEnvironment,
                 variableEnvironment,
                 privateEnvironment,
