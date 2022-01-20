@@ -249,8 +249,7 @@ namespace Jint
         /// </summary>
         public static void EnableModules(this Options options, string basePath)
         {
-            options.Modules.ModuleLoader = new DefaultModuleLoader();
-            options.Modules.ModuleResolver = new DefaultModuleResolver(basePath);
+            options.Modules.ModuleLoader = new DefaultModuleLoader(basePath);
         }
 
         /// <summary>
@@ -259,7 +258,6 @@ namespace Jint
         public static void DisableModuleLoader(this Options options)
         {
             options.Modules.ModuleLoader = new FailFastModuleLoader();
-            options.Modules.ModuleResolver = new DisabledModuleResolver();
         }
 
         /// <summary>
@@ -276,23 +274,6 @@ namespace Jint
         public static Options WithModuleLoader(this Options options, IModuleLoader moduleLoader)
         {
             options.Modules.ModuleLoader = moduleLoader;
-            return options;
-        }
-
-        /// <summary>
-        /// Allows to configure module resolver implementation.
-        /// </summary>
-        public static Options WithModuleResolver<T>(this Options options) where T : IModuleLoader, new()
-        {
-            return WithModuleLoader(options, new T());
-        }
-
-        /// <summary>
-        /// Allows to configure module resolver implementation.
-        /// </summary>
-        public static Options WithModuleResolver(this Options options, IModuleResolver moduleResolver)
-        {
-            options.Modules.ModuleResolver = moduleResolver;
             return options;
         }
     }

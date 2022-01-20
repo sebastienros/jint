@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Jint.Tests.Runtime.Modules
 {
-    public class DefaultModuleResolverTests
+    public class DefaultModuleLoaderTests
     {
         [Theory]
         [InlineData("./other", @"Z:\project\folder\other.js", "/folder/other")]
@@ -22,7 +22,7 @@ namespace Jint.Tests.Runtime.Modules
 
             const string basePath = @"Z:\project";
             const string parentPath = @"Z:\project\folder\script.js";
-            var resolver = new DefaultModuleResolver(basePath);
+            var resolver = new DefaultModuleLoader(basePath);
 
             var resolved = resolver.Resolve(parentPath, specifier);
 
@@ -47,7 +47,7 @@ namespace Jint.Tests.Runtime.Modules
 
             const string basePath = @"/project";
             const string parentPath = @"/project/folder/script.js";
-            var resolver = new DefaultModuleResolver(basePath);
+            var resolver = new DefaultModuleLoader(basePath);
 
             var resolved = resolver.Resolve(parentPath, specifier);
 
@@ -60,7 +60,7 @@ namespace Jint.Tests.Runtime.Modules
         [Fact]
         public void ShouldResolveBareSpecifiers()
         {
-            var resolver = new DefaultModuleResolver("/tmp");
+            var resolver = new DefaultModuleLoader("/tmp");
 
             var resolved = resolver.Resolve(null, "my-module");
 

@@ -15,7 +15,6 @@ namespace Jint
     public partial class Engine
     {
         internal IModuleLoader ModuleLoader { get; set; }
-        internal IModuleResolver ModuleResolver { get; set; }
 
         private readonly Dictionary<string, JsModule> _modules = new();
 
@@ -31,7 +30,7 @@ namespace Jint
 
         internal JsModule LoadModule(string referencingModuleLocation, string specifier)
         {
-            var moduleResolution = ModuleResolver.Resolve(referencingModuleLocation, specifier);
+            var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, specifier);
 
             if (_modules.TryGetValue(moduleResolution.Key, out var module))
             {
@@ -53,7 +52,7 @@ namespace Jint
 
         public JsModule DefineModule(Module source, string specifier)
         {
-            var moduleResolution = ModuleResolver.Resolve(null, specifier);
+            var moduleResolution = ModuleLoader.Resolve(null, specifier);
 
             var module = new JsModule(this, _host.CreateRealm(), source, moduleResolution.Path, false);
 
@@ -82,7 +81,7 @@ namespace Jint
 
         public ObjectInstance ImportModule(string specifier)
         {
-            var moduleResolution = ModuleResolver.Resolve(null, specifier);
+            var moduleResolution = ModuleLoader.Resolve(null, specifier);
 
             if (!_modules.TryGetValue(moduleResolution.Key, out var module))
             {
