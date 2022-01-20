@@ -172,7 +172,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
 
             for (var j = 0; j < starNames.Count; j++)
             {
-                var n = starNames[i];
+                var n = starNames[j];
                 if (!"default".Equals(n) && !exportedNames.Contains(n))
                 {
                     exportedNames.Add(n);

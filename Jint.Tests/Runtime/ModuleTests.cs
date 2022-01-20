@@ -144,6 +144,18 @@ namespace Jint.Tests.Runtime
             Assert.Equal("hello world", ns.Get("exported").AsString());
         }
 
+        [Fact]
+        public void ShouldAllowExportMultipleImports()
+        {
+            _engine.DefineModule("value1", JsNumber.Create(1), "@mine/import1");
+            _engine.DefineModule("value2", JsNumber.Create(2), "@mine/import2");
+            _engine.DefineModule("export * from '@mine/import1'; export * from '@mine/import2'", "@mine");
+            _engine.DefineModule(@"import { value1, value2 } from '@mine'; export const result = `${value1} ${value2}`", "app");
+            var ns = _engine.ImportModule("app");
+
+            Assert.Equal("1 2", ns.Get("result").AsString());
+        }
+
         private class ImportedClass
         {
             public string Value { get; set; } = "hello world";
