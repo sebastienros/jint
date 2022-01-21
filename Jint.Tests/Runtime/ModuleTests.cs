@@ -1,8 +1,8 @@
 #if(NET6_0_OR_GREATER)
-using System;
 using System.IO;
 using System.Reflection;
 #endif
+using System;
 using Jint.Native;
 using Jint.Runtime;
 using Xunit;
@@ -118,7 +118,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldDefineModuleFromJsValue()
+        public void ShouldAddModuleFromJsValue()
         {
             _engine.AddModule("my-module", builder => builder.ExportValue("value", JsString.Create("hello world")));
             var ns = _engine.ImportModule("my-module");
@@ -127,7 +127,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldDefineModuleFromClrInstance()
+        public void ShouldAddModuleFromClrInstance()
         {
             _engine.AddModule("imported-module", builder => builder.ExportObject("value", new ImportedClass { Value = "instance value" }));
             _engine.AddModule("my-module", @"import { value } from 'imported-module'; export const exported = value.value;");
@@ -137,7 +137,18 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ShouldDefineModuleFromClrType()
+        public void ShouldAllowInvokeUserDefinedClass()
+        {
+            _engine.AddModule("user", "export class UserDefined { constructor(v) { this._v = v; } hello(c) { return `hello ${this._v}${c}`; } }");
+            var ctor = _engine.ImportModule("user").Get("UserDefined");
+            var instance = _engine.Construct(ctor, JsString.Create("world"));
+            var result = instance.GetMethod("hello").Call(instance, JsString.Create("!"));
+
+            Assert.Equal("hello world!", result);
+        }
+
+        [Fact]
+        public void ShouldAddModuleFromClrType()
         {
             _engine.AddModule("imported-module", builder => builder.ExportType<ImportedClass>());
             _engine.AddModule("my-module", @"import { ImportedClass } from 'imported-module'; export const exported = new ImportedClass().value;");
