@@ -210,7 +210,7 @@ namespace Jint.Tests.Runtime
             engine.AddModule("my-module", "import { User } from './modules/user.js'; export const user = new User('John', 'Doe');");
             var ns = engine.ImportModule("my-module");
 
-            Assert.Equal("John Doe", ns["user"].AsObject()["name"].AsString());
+            Assert.Equal("John Doe", ns["user"].Get("name").AsString());
         }
 
         [Fact]
@@ -218,8 +218,9 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine(options => options.EnableModules(GetBasePath()));
             var ns = engine.ImportModule("./modules/format-name.js");
+            var result = engine.Invoke(ns.Get("formatName"), "John", "Doe").AsString();
 
-            Assert.Equal("John Doe", ns["formatName"].AsFunctionInstance().Call(JsString.Create("John"), JsString.Create("Doe")).AsString());
+            Assert.Equal("John Doe", result);
         }
 
         private static string GetBasePath()
