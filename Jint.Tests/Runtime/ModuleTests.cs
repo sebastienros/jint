@@ -173,6 +173,18 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal("1 2", ns.Get("result").AsString());
         }
+        
+        /* ECMAScript 2020 "export * as ns from"
+        [Fact]
+        public void ShouldAllowNamedStarExport()
+        {
+            _engine.AddModule("imported-module", builder => builder.ExportValue("value1", 5));
+            _engine.AddModule("my-module", "export * as ns from 'imported-module';");
+            var ns = _engine.ImportModule("my-module");
+
+            Assert.Equal(5, ns.Get("ns").Get("value1").AsNumber());
+        }
+        */
 
         [Fact]
         public void ShouldAllowChaining()
