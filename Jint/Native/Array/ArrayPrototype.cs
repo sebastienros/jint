@@ -139,39 +139,47 @@ namespace Jint.Native.Array
         /// </summary>
         private JsValue Fill(JsValue thisObj, JsValue[] arguments)
         {
+            var value = arguments.At(0);
+            var start = arguments.At(1);
+            var end = arguments.At(2);
+
             var o = TypeConverter.ToObject(_realm, thisObj);
 
             var operations = ArrayOperations.For(o);
             var length = operations.GetLongLength();
 
-            var value = arguments.At(0);
+            var relativeStart = TypeConverter.ToIntegerOrInfinity(start);
 
-            var start = ConvertAndCheckForInfinity(arguments.At(1), 0);
-
-            var relativeStart = TypeConverter.ToInteger(start);
-            ulong actualStart;
-            if (relativeStart < 0)
+            ulong k;
+            if (double.IsNegativeInfinity(relativeStart))
             {
-                actualStart = (ulong) System.Math.Max(length + relativeStart, 0);
+                k = 0;
+            }
+            else if (relativeStart < 0)
+            {
+                k = (ulong) System.Math.Max(length + relativeStart, 0);
             }
             else
             {
-                actualStart = (ulong) System.Math.Min(relativeStart, length);
+                k = (ulong) System.Math.Min(relativeStart, length);
             }
 
-            var end = ConvertAndCheckForInfinity(arguments.At(2), (long) length);
-            var relativeEnd = TypeConverter.ToInteger(end);
-            ulong actualEnd;
-            if (relativeEnd < 0)
+            var relativeEnd = end.IsUndefined() ? length : TypeConverter.ToIntegerOrInfinity(end);
+            ulong final;
+            if (double.IsNegativeInfinity(relativeEnd))
             {
-                actualEnd = (ulong) System.Math.Max(length + relativeEnd, 0);
+                final = 0;
+            }
+            else if (relativeEnd < 0)
+            {
+                final = (ulong) System.Math.Max(length + relativeEnd, 0);
             }
             else
             {
-                actualEnd = (ulong) System.Math.Min(relativeEnd, length);
+                final = (ulong) System.Math.Min(relativeEnd, length);
             }
 
-            for (var i = actualStart; i < actualEnd; ++i)
+            for (var i = k; i < final; ++i)
             {
                 operations.Set(i, value, throwOnError: false);
             }
@@ -191,28 +199,47 @@ namespace Jint.Native.Array
             JsValue end = arguments.At(2);
 
             var operations = ArrayOperations.For(o);
-            var initialLength = operations.GetLongLength();
-            var len = ConvertAndCheckForInfinity(initialLength, 0);
+            var len = operations.GetLongLength();
 
-            var relativeTarget = ConvertAndCheckForInfinity(target, 0);
+            var relativeTarget = TypeConverter.ToIntegerOrInfinity(target);
 
             var to = relativeTarget < 0 ?
                 System.Math.Max(len + relativeTarget, 0) :
                 System.Math.Min(relativeTarget, len);
 
-            var relativeStart = ConvertAndCheckForInfinity(start, 0);
+            var relativeStart = TypeConverter.ToIntegerOrInfinity(start);
 
-            var from = relativeStart < 0 ?
-                System.Math.Max(len + relativeStart, 0) :
-                System.Math.Min(relativeStart, len);
+            long from;
+            if (double.IsNegativeInfinity(relativeStart))
+            {
+                from = 0;
+            }
+            else if (relativeStart < 0)
+            {
+                from = (long) System.Math.Max(len + relativeStart, 0);
+            }
+            else
+            {
+                from = (long) System.Math.Min(relativeStart, len);
+            }
 
-            var relativeEnd = ConvertAndCheckForInfinity(end, len);
+            var relativeEnd = end.IsUndefined() ? len : TypeConverter.ToIntegerOrInfinity(end);
 
-            var final = relativeEnd < 0 ?
-                System.Math.Max(len + relativeEnd, 0) :
-                System.Math.Min(relativeEnd, len);
+            long final;
+            if (double.IsNegativeInfinity(relativeEnd))
+            {
+                final = 0;
+            }
+            else if (relativeEnd < 0)
+            {
+                final = (long) System.Math.Max(len + relativeEnd, 0);
+            }
+            else
+            {
+                final = (long) System.Math.Min(relativeEnd, len);
+            }
 
-            var count = System.Math.Min(final - from, len - to);
+            var count = (long) System.Math.Min(final - from, len - to);
 
             long direction = 1;
 
@@ -241,23 +268,6 @@ namespace Jint.Native.Array
             }
 
             return o;
-        }
-
-        static long ConvertAndCheckForInfinity(JsValue jsValue, long defaultValue)
-        {
-            if (jsValue.IsUndefined())
-            {
-                return defaultValue;
-            }
-
-            var num = TypeConverter.ToNumber(jsValue);
-
-            if (double.IsPositiveInfinity(num))
-            {
-                return long.MaxValue;
-            }
-
-            return (long) num;
         }
 
         /// <summary>
@@ -601,32 +611,48 @@ namespace Jint.Native.Array
             return Undefined;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-array.prototype.includes
+        /// </summary>
         private JsValue Includes(JsValue thisObj, JsValue[] arguments)
         {
             var o = ArrayOperations.For(_realm, thisObj);
-            var len = o.GetLongLength();
+            var len = (long) o.GetLongLength();
 
             if (len == 0)
             {
-                return false;
+                return JsBoolean.False;
             }
 
             var searchElement = arguments.At(0);
-            var fromIndex = arguments.At(1, 0);
+            var fromIndex = arguments.At(1);
 
-            var n = TypeConverter.ToNumber(fromIndex);
-            n = n > ArrayOperations.MaxArrayLikeLength
-                ? ArrayOperations.MaxArrayLikeLength
-                : n;
-
-            var k = (ulong) System.Math.Max(
-                n >= 0
-                    ? n
-                    : len - System.Math.Abs(n), 0);
+            long k = 0;
+            var n = TypeConverter.ToIntegerOrInfinity(fromIndex);
+            if (double.IsPositiveInfinity(n))
+            {
+                return JsBoolean.False;
+            }
+            else if (double.IsNegativeInfinity(n))
+            {
+                n = 0;
+            }
+            else if (n >= 0)
+            {
+                k = (long) n;
+            }
+            else
+            {
+                k = len + (long) n;
+                if (k < 0)
+                {
+                    k = 0;
+                }
+            }
 
             while (k < len)
             {
-                var value = o.Get(k);
+                var value = o.Get((ulong) k);
                 if (SameValueZeroComparer.Equals(value, searchElement))
                 {
                     return true;
@@ -676,6 +702,9 @@ namespace Jint.Native.Array
             return JsBoolean.True;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-array.prototype.indexof
+        /// </summary>
         private JsValue IndexOf(JsValue thisObj, JsValue[] arguments)
         {
             var o = ArrayOperations.For(_realm, thisObj);
@@ -686,7 +715,7 @@ namespace Jint.Native.Array
             }
 
             var startIndex = arguments.Length > 1
-                ? TypeConverter.ToNumber(arguments[1])
+                ? TypeConverter.ToIntegerOrInfinity(arguments.At(1))
                 : 0;
 
             if (startIndex > ArrayOperations.MaxArrayLikeLength)
@@ -1502,5 +1531,4 @@ namespace Jint.Native.Array
             }
         }
     }
-
 }
