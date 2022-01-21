@@ -3,12 +3,10 @@
 using System;
 using System.Collections.Generic;
 using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;
-using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Modules;
 
@@ -19,6 +17,7 @@ namespace Jint
         internal IModuleLoader ModuleLoader { get; set; }
 
         private readonly Dictionary<string, JsModule> _modules = new();
+        private readonly Dictionary<string, ModuleBuilder> _builders = new();
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-getactivescriptormodule
@@ -28,7 +27,7 @@ namespace Jint
             return _executionContexts?.GetActiveScriptOrModule();
         }
 
-        public JsModule LoadModule(string specifier) => LoadModule(null, specifier);
+        internal JsModule LoadModule(string specifier) => LoadModule(null, specifier);
 
         internal JsModule LoadModule(string? referencingModuleLocation, string specifier)
         {
@@ -39,46 +38,42 @@ namespace Jint
                 return module;
             }
 
-            var loadedModule = ModuleLoader.LoadModule(this, moduleResolution);
-            module = new JsModule(this, _host.CreateRealm(), loadedModule, moduleResolution.Uri?.LocalPath, false);
+            if (_builders.TryGetValue(specifier, out var moduleBuilder))
+            {
+                var parsedModule = moduleBuilder.Parse();
+                module = new JsModule(this, _host.CreateRealm(), parsedModule, null, false);
+                // Early link is required because we need to bind values before returning
+                module.Link();
+                moduleBuilder.BindExportedValues(module);
+            }
+            else
+            {
+                var parsedModule = ModuleLoader.LoadModule(this, moduleResolution);
+                module = new JsModule(this, _host.CreateRealm(), parsedModule, moduleResolution.Uri?.LocalPath, false);
+            }
 
             _modules[moduleResolution.Key] = module;
 
             return module;
         }
 
-        public JsModule DefineModule(string source, string specifier)
+        public void AddModule(string specifier, string source)
         {
-            return DefineModule(new JavaScriptParser(source).ParseModule(), specifier);
+            var moduleBuilder = new ModuleBuilder(this);
+            moduleBuilder.AddSource(source);
+            AddModule(specifier, moduleBuilder);
         }
 
-        public JsModule DefineModule(Module source, string specifier)
+        public void AddModule(string specifier, Action<ModuleBuilder> buildModule)
         {
-            var moduleResolution = ModuleLoader.Resolve(null, specifier);
-
-            var module = new JsModule(this, _host.CreateRealm(), source, moduleResolution.Uri?.LocalPath, false);
-
-            _modules[moduleResolution.Key] = module;
-
-            return module;
+            var moduleBuilder = new ModuleBuilder(this);
+            buildModule(moduleBuilder);
+            AddModule(specifier, moduleBuilder);
         }
 
-        public JsModule DefineModule<T>(string specifier)
+        public void AddModule(string specifier, ModuleBuilder moduleBuilder)
         {
-            return DefineModule(typeof(T).Name, TypeReference.CreateTypeReference<T>(this), specifier);
-        }
-
-        public JsModule DefineModule(string exportName, object exportValue, string specifier)
-        {
-            return DefineModule(exportName, JsValue.FromObject(this, exportValue), specifier);
-        }
-
-        public JsModule DefineModule(string exportName, JsValue exportValue, string specifier)
-        {
-            var module = DefineModule(new Module(NodeList.Create(System.Array.Empty<Statement>())), specifier);
-            module.Link();
-            module.BindExportedValue(exportName, exportValue);
-            return module;
+            _builders.Add(specifier, moduleBuilder);
         }
 
         public ObjectInstance ImportModule(string specifier)

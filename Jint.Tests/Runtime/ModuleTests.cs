@@ -1,6 +1,8 @@
-﻿using System;
+#if(NET6_0_OR_GREATER)
+using System;
 using System.IO;
 using System.Reflection;
+#endif
 using Jint.Native;
 using Jint.Runtime;
 using Xunit;
@@ -19,7 +21,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldExportNamed()
         {
-            _engine.DefineModule(@"export const value = 'exported value';", "my-module");
+            _engine.AddModule("my-module", @"export const value = 'exported value';");
             var ns = _engine.ImportModule("my-module");
 
             Assert.Equal("exported value", ns.Get("value").AsString());
@@ -28,7 +30,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldExportNamedListRenamed()
         {
-            _engine.DefineModule(@"const value1 = 1; const value2 = 2; export { value1 as renamed1, value2 as renamed2 }", "my-module");
+            _engine.AddModule("my-module", @"const value1 = 1; const value2 = 2; export { value1 as renamed1, value2 as renamed2 }");
             var ns = _engine.ImportModule("my-module");
 
             Assert.Equal(1, ns.Get("renamed1").AsInteger());
@@ -38,7 +40,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldExportDefault()
         {
-            _engine.DefineModule(@"export default 'exported value';", "my-module");
+            _engine.AddModule("my-module", @"export default 'exported value';");
             var ns = _engine.ImportModule("my-module");
 
             Assert.Equal("exported value", ns.Get("default").AsString());
@@ -47,8 +49,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldExportAll()
         {
-            _engine.DefineModule(@"export const value = 'exported value';", "module1");
-            _engine.DefineModule(@"export * from 'module1';", "module2");
+            _engine.AddModule("module1", @"export const value = 'exported value';");
+            _engine.AddModule("module2", @"export * from 'module1';");
             var ns = _engine.ImportModule("module2");
 
             Assert.Equal("exported value", ns.Get("value").AsString());
@@ -57,8 +59,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldImportNamed()
         {
-            _engine.DefineModule(@"export const value = 'exported value';", "imported-module");
-            _engine.DefineModule(@"import { value } from 'imported-module'; export const exported = value;", "my-module");
+            _engine.AddModule("imported-module", @"export const value = 'exported value';");
+            _engine.AddModule("my-module", @"import { value } from 'imported-module'; export const exported = value;");
             var ns = _engine.ImportModule("my-module");
 
             Assert.Equal("exported value", ns.Get("exported").AsString());
@@ -67,8 +69,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldImportRenamed()
         {
-            _engine.DefineModule(@"export const value = 'exported value';", "imported-module");
-            _engine.DefineModule(@"import { value as renamed } from 'imported-module'; export const exported = renamed;", "my-module");
+            _engine.AddModule("imported-module", @"export const value = 'exported value';");
+            _engine.AddModule("my-module", @"import { value as renamed } from 'imported-module'; export const exported = renamed;");
             var ns = _engine.ImportModule("my-module");
 
             Assert.Equal("exported value", ns.Get("exported").AsString());
@@ -77,8 +79,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldImportDefault()
         {
-            _engine.DefineModule(@"export default 'exported value';", "imported-module");
-            _engine.DefineModule(@"import imported from 'imported-module'; export const exported = imported;", "my-module");
+            _engine.AddModule("imported-module", @"export default 'exported value';");
+            _engine.AddModule("my-module", @"import imported from 'imported-module'; export const exported = imported;");
             var ns = _engine.ImportModule("my-module");
 
             Assert.Equal("exported value", ns.Get("exported").AsString());
@@ -87,8 +89,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldImportAll()
         {
-            _engine.DefineModule(@"export const value = 'exported value';", "imported-module");
-            _engine.DefineModule(@"import * as imported from 'imported-module'; export const exported = imported.value;", "my-module");
+            _engine.AddModule("imported-module", @"export const value = 'exported value';");
+            _engine.AddModule("my-module", @"import * as imported from 'imported-module'; export const exported = imported.value;");
             var ns = _engine.ImportModule("my-module");
 
             Assert.Equal("exported value", ns.Get("exported").AsString());
@@ -97,7 +99,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldPropagateThrowStatementOnCSharpImport()
         {
-            _engine.DefineModule(@"throw new Error('imported successfully');", "my-module");
+            _engine.AddModule("my-module", @"throw new Error('imported successfully');");
 
             var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
             Assert.Equal("imported successfully", exc.Message);
@@ -107,8 +109,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldPropagateThrowStatementThroughJavaScriptImport()
         {
-            _engine.DefineModule(@"throw new Error('imported successfully');", "imported-module");
-            _engine.DefineModule(@"import 'imported-module';", "my-module");
+            _engine.AddModule("imported-module", @"throw new Error('imported successfully');");
+            _engine.AddModule("my-module", @"import 'imported-module';");
 
             var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
             Assert.Equal("imported successfully", exc.Message);
@@ -118,7 +120,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldDefineModuleFromJsValue()
         {
-            _engine.DefineModule("value", JsString.Create("hello world"), "my-module");
+            _engine.AddModule("my-module", builder => builder.ExportValue("value", JsString.Create("hello world")));
             var ns = _engine.ImportModule("my-module");
 
             Assert.Equal("hello world", ns.Get("value").AsString());
@@ -127,8 +129,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldDefineModuleFromClrInstance()
         {
-            _engine.DefineModule("value", new ImportedClass { Value = "instance value" }, "imported-module");
-            _engine.DefineModule(@"import { value } from 'imported-module'; export const exported = value.value;", "my-module");
+            _engine.AddModule("imported-module", builder => builder.ExportObject("value", new ImportedClass { Value = "instance value" }));
+            _engine.AddModule("my-module", @"import { value } from 'imported-module'; export const exported = value.value;");
             var ns = _engine.ImportModule("my-module");
 
             Assert.Equal("instance value", ns.Get("exported").AsString());
@@ -137,8 +139,8 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldDefineModuleFromClrType()
         {
-            _engine.DefineModule<ImportedClass>("imported-module");
-            _engine.DefineModule(@"import { ImportedClass } from 'imported-module'; export const exported = new ImportedClass().value;", "my-module");
+            _engine.AddModule("imported-module", builder => builder.ExportType<ImportedClass>());
+            _engine.AddModule("my-module", @"import { ImportedClass } from 'imported-module'; export const exported = new ImportedClass().value;");
             var ns = _engine.ImportModule("my-module");
 
             Assert.Equal("hello world", ns.Get("exported").AsString());
@@ -147,13 +149,28 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldAllowExportMultipleImports()
         {
-            _engine.DefineModule("value1", JsNumber.Create(1), "@mine/import1");
-            _engine.DefineModule("value2", JsNumber.Create(2), "@mine/import2");
-            _engine.DefineModule("export * from '@mine/import1'; export * from '@mine/import2'", "@mine");
-            _engine.DefineModule(@"import { value1, value2 } from '@mine'; export const result = `${value1} ${value2}`", "app");
+            _engine.AddModule("@mine/import1", builder => builder.ExportValue("value1", JsNumber.Create(1)));
+            _engine.AddModule("@mine/import2", builder => builder.ExportValue("value2", JsNumber.Create(2)));
+            _engine.AddModule("@mine", "export * from '@mine/import1'; export * from '@mine/import2'");
+            _engine.AddModule("app", @"import { value1, value2 } from '@mine'; export const result = `${value1} ${value2}`");
             var ns = _engine.ImportModule("app");
 
             Assert.Equal("1 2", ns.Get("result").AsString());
+        }
+
+        [Fact]
+        public void ShouldAllowChaining()
+        {
+            _engine.AddModule("dependent-module", "export const dependency = 1;");
+            _engine.AddModule("my-module", builder => builder
+                .AddSource("import { dependency } from 'dependent-module';")
+                .AddSource("export const output = dependency + 1;")
+                .ExportValue("num", JsNumber.Create(-1))
+            );
+            var ns = _engine.ImportModule("my-module");
+
+            Assert.Equal(2, ns.Get("output").AsInteger());
+            Assert.Equal(-1, ns.Get("num").AsInteger());
         }
 
         private class ImportedClass
@@ -167,7 +184,7 @@ namespace Jint.Tests.Runtime
         public void CanLoadModuleImportsFromFiles()
         {
             var engine = new Engine(options => options.EnableModules(GetBasePath()));
-            engine.DefineModule("import { User } from './modules/user.js'; export const user = new User('John', 'Doe');", "my-module");
+            engine.AddModule("my-module", "import { User } from './modules/user.js'; export const user = new User('John', 'Doe');");
             var ns = engine.ImportModule("my-module");
 
             Assert.Equal("John Doe", ns["user"].AsObject()["name"].AsString());
@@ -186,8 +203,10 @@ namespace Jint.Tests.Runtime
         {
             var assemblyPath = new Uri(typeof(ModuleTests).GetTypeInfo().Assembly.Location).LocalPath;
             var assemblyDirectory = new FileInfo(assemblyPath).Directory;
-            var basePath = Path.Combine(assemblyDirectory.Parent.Parent.Parent.FullName, "Runtime", "Scripts");
-            return basePath;
+            return Path.Combine(
+                assemblyDirectory?.Parent?.Parent?.Parent?.FullName ?? throw new NullReferenceException("Could not find tests base path"),
+                "Runtime",
+                "Scripts");
         }
 
 #endif
