@@ -59,7 +59,7 @@ public class DefaultModuleLoader : IModuleLoader
         }
         else if (specifier[0] == '#')
         {
-            ExceptionHelper.ThrowModuleResolutionException($"PACKAGE_IMPORTS_RESOLVE is not supported", specifier, referencingModuleLocation);
+            ExceptionHelper.ThrowNotSupportedException($"PACKAGE_IMPORTS_RESOLVE is not supported: '{specifier}'");
             return default;
         }
         else
