@@ -146,6 +146,11 @@ namespace Jint.Tests.Runtime
             Assert.Equal("hello world", ns.Get("exported").AsString());
         }
 
+        private class ImportedClass
+        {
+            public string Value { get; set; } = "hello world";
+        }
+
         [Fact]
         public void ShouldAllowExportMultipleImports()
         {
@@ -173,9 +178,16 @@ namespace Jint.Tests.Runtime
             Assert.Equal(-1, ns.Get("num").AsInteger());
         }
 
-        private class ImportedClass
+        [Fact]
+        public void ShouldAllowLoadingMoreThanOnce()
         {
-            public string Value { get; set; } = "hello world";
+            var called = 0;
+            _engine.AddModule("imported-module", builder => builder.ExportFunction("count", args => called++));
+            _engine.AddModule("my-module", @"import { count } from 'imported-module'; count();");
+            _engine.ImportModule("my-module");
+            _engine.ImportModule("my-module");
+
+            Assert.Equal(called, 1);
         }
 
 #if(NET6_0_OR_GREATER)

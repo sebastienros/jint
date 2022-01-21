@@ -63,6 +63,12 @@ public sealed class ModuleBuilder
         return this;
     }
 
+    public ModuleBuilder ExportFunction(string name, Func<JsValue[], JsValue> fn)
+    {
+        _exports.Add(name, new ClrFunctionInstance(_engine, name, (@this, args) => fn(args)));
+        return this;
+    }
+
     internal Module Parse()
     {
         if (_sourceRaw.Count > 0)

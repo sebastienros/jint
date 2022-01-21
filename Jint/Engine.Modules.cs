@@ -45,6 +45,7 @@ namespace Jint
                 // Early link is required because we need to bind values before returning
                 module.Link();
                 moduleBuilder.BindExportedValues(module);
+                _builders.Remove(specifier);
             }
             else
             {
