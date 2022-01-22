@@ -247,7 +247,11 @@ namespace Jint.Native.ArrayBuffer
             else
             {
                 // inlined conversion for faster speed instead of getting the method in spec
-                var intValue = (long) value.DoubleValue;
+                var doubleValue  = value.DoubleValue;
+                var intValue = double.IsNaN(doubleValue) || doubleValue == 0 || double.IsInfinity(doubleValue)
+                    ? 0
+                    : (long) doubleValue;
+
                 rawBytes = _workBuffer;
                 switch (type)
                 {

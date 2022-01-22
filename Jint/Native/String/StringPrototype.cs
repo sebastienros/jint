@@ -1003,32 +1003,37 @@ namespace Jint.Native.String
             return str.Normalize(nf);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-string.prototype.repeat
+        /// </summary>
         private JsValue Repeat(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
-            var str = TypeConverter.ToString(thisObj);
-            var n = (int) TypeConverter.ToInteger(arguments.At(0));
+            var s = TypeConverter.ToString(thisObj);
+            var count = arguments.At(0);
 
-            if (n < 0)
+            var n = TypeConverter.ToIntegerOrInfinity(count);
+
+            if (n < 0 || double.IsPositiveInfinity(n))
             {
                 ExceptionHelper.ThrowRangeError(_realm, "Invalid count value");
             }
 
-            if (n == 0 || str.Length == 0)
+            if (n == 0 || s.Length == 0)
             {
                 return JsString.Empty;
             }
 
-            if (str.Length == 1)
+            if (s.Length == 1)
             {
-                return new string(str[0], n);
+                return new string(s[0], (int) n);
             }
 
             using var sb = StringBuilderPool.Rent();
-            sb.Builder.EnsureCapacity(n * str.Length);
+            sb.Builder.EnsureCapacity((int) (n * s.Length));
             for (var i = 0; i < n; ++i)
             {
-                sb.Builder.Append(str);
+                sb.Builder.Append(s);
             }
 
             return sb.ToString();
