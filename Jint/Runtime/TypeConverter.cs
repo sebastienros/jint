@@ -466,7 +466,7 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.6
+        /// https://tc39.es/ecma262/#sec-touint32
         /// </summary>
         public static uint ToUint32(JsValue o)
         {
@@ -476,7 +476,7 @@ namespace Jint.Runtime
             }
 
             var doubleVal = ToNumber(o);
-            if (doubleVal >= 0.0 && doubleVal <= uint.MaxValue)
+            if (doubleVal is >= 0.0 and <= uint.MaxValue)
             {
                 // Double-to-uint cast is correct in this range
                 return (uint) doubleVal;
@@ -486,13 +486,32 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-9.7
+        /// https://tc39.es/ecma262/#sec-touint16
         /// </summary>
         public static ushort ToUint16(JsValue o)
         {
-            return o._type == InternalTypes.Integer
-                ? (ushort) (uint) o.AsInteger()
-                : (ushort) (uint) ToNumber(o);
+            if (o._type == InternalTypes.Integer)
+            {
+                var integer = o.AsInteger();
+                if (integer is >= 0 and <= ushort.MaxValue)
+                {
+                    return (ushort) integer;
+                }
+            }
+
+            var number = ToNumber(o);
+            if (double.IsNaN(number) || number == 0 || double.IsInfinity(number))
+            {
+                return 0;
+            }
+
+            var intValue = Math.Floor(Math.Abs(number));
+            if (number < 0)
+            {
+                intValue *= -1;
+            }
+            var int16Bit = intValue % 65_536; // 2^16
+            return (ushort) int16Bit;
         }
 
         /// <summary>
@@ -769,7 +788,7 @@ namespace Jint.Runtime
             {
                 if (jsString.ToString() == "-0")
                 {
-                    return -0d;
+                    return JsNumber.NegativeZero._value;
                 }
 
                 var n = ToNumber(value);

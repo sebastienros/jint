@@ -144,7 +144,7 @@ namespace Jint.Native.TypedArray
         /// </summary>
         public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            if (property.IsNumber() || property.IsString())
+            if (property.IsString())
             {
                 var numericIndex = TypeConverter.CanonicalNumericIndexString(property);
                 if (numericIndex is not null)
@@ -341,10 +341,27 @@ namespace Jint.Native.TypedArray
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsValidIntegerIndex(double index)
         {
-            return !_viewedArrayBuffer.IsDetachedBuffer
-                   && TypeConverter.IsIntegralNumber(index)
-                   && !NumberInstance.IsNegativeZero(index)
-                   && (uint) index < _arrayLength;
+            if (_viewedArrayBuffer.IsDetachedBuffer)
+            {
+                return false;
+            }
+
+            if (!TypeConverter.IsIntegralNumber(index))
+            {
+                return false;
+            }
+
+            if (NumberInstance.IsNegativeZero(index))
+            {
+                return false;
+            }
+
+            if (index < 0 || index >= _arrayLength)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>

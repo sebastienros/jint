@@ -44,15 +44,26 @@ namespace Jint.Native.String
             SetProperties(properties);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-string.fromcharcode
+        /// </summary>
         private static JsValue FromCharCode(JsValue thisObj, JsValue[] arguments)
         {
-            var chars = new char[arguments.Length];
-            for (var i = 0; i < chars.Length; i++ )
+            var length = arguments.Length;
+
+            if (length == 0)
             {
-                chars[i] = (char)TypeConverter.ToUint16(arguments[i]);
+                return JsString.Empty;
             }
 
-            return JsString.Create(new string(chars));
+            var elements = new char[length];
+            for (var i = 0; i < elements.Length; i++ )
+            {
+                var nextCu = TypeConverter.ToUint16(arguments[i]);
+                elements[i] = (char) nextCu;
+            }
+
+            return JsString.Create(new string(elements));
         }
 
         private JsValue FromCodePoint(JsValue thisObj, JsValue[] arguments)
