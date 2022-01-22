@@ -434,11 +434,13 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue Call(this JsValue value, params JsValue[] arguments)
         {
-            if (!value.IsCallable)
+            if (value is not ObjectInstance objectInstance)
             {
-                ExceptionHelper.ThrowArgumentException(value + " is not callable");
+                ExceptionHelper.ThrowArgumentException(value + " is not object");
+                return null;
             }
-            return ((ICallable) value).Call(JsValue.Undefined, arguments);
+
+            return objectInstance.Engine.Call(value, arguments);
         }
 
         /// <summary>

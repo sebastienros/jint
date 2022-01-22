@@ -124,7 +124,7 @@ namespace Jint.Runtime.Interop
             return genericMethodInfo;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
         {
             JsValue[] ArgumentProvider(MethodDescriptor method)
             {

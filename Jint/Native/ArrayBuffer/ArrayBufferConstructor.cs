@@ -65,7 +65,7 @@ namespace Jint.Native.ArrayBuffer
             return thisObject;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Constructor ArrayBuffer requires 'new'");
             return Undefined;

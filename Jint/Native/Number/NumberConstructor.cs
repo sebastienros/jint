@@ -112,7 +112,7 @@ namespace Jint.Native.Number
             return System.Math.Abs(integer) <= MaxSafeInteger;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             var n = ProcessFirstParameter(arguments);
             return n;

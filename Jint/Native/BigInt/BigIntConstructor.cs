@@ -68,7 +68,7 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
         return result;
     }
 
-    public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
     {
         if (arguments.Length == 0)
         {

@@ -42,7 +42,7 @@ namespace Jint.Native.Set
             return thisObject;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             ExceptionHelper.ThrowTypeError(_engine.Realm, "Constructor Set requires 'new'");
             return null;

@@ -14,7 +14,7 @@ namespace Jint.Native.Function
             PreventExtensions();
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             ExceptionHelper.ThrowTypeError(_realm);
             return null;

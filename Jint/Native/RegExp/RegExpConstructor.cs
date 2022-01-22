@@ -37,7 +37,7 @@ namespace Jint.Native.RegExp
             SetSymbols(symbols);
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             return Construct(arguments, thisObject);
         }

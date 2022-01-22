@@ -24,7 +24,7 @@ namespace Jint.Native.WeakSet
 
         public WeakSetPrototype PrototypeObject { get; }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Constructor WeakSet requires 'new'");
             return null;

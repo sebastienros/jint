@@ -263,7 +263,7 @@ namespace Jint.Native.Array
             return oi.IsArray();
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             return Construct(arguments, thisObject);
         }

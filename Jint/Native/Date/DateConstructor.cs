@@ -154,7 +154,7 @@ namespace Jint.Native.Date
             return System.Math.Floor((DateTime.UtcNow - Epoch).TotalMilliseconds);
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             return PrototypeObject.ToString(Construct(Arguments.Empty, thisObject), Arguments.Empty);
         }

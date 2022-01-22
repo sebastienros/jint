@@ -40,7 +40,7 @@ namespace Jint.Runtime.Interop
             return new TypeReference(engine, type);
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             // direct calls on a TypeReference constructor object is equivalent to the new operator
             return Construct(arguments);

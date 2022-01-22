@@ -33,7 +33,7 @@ namespace Jint.Native.Proxy
             SetProperties(properties);
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Constructor Proxy requires 'new'");
             return null;
