@@ -443,6 +443,19 @@ namespace Jint
             return objectInstance.Engine.Call(value, arguments);
         }
 
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static JsValue Call(this JsValue value, JsValue thisObj, params JsValue[] arguments)
+        {
+            if (value is not ObjectInstance objectInstance)
+            {
+                ExceptionHelper.ThrowArgumentException(value + " is not object");
+                return null;
+            }
+
+            return objectInstance.Engine.Call(value, thisObj, arguments);
+        }
+
         /// <summary>
         /// If the value is a Promise
         ///     1. If "Fulfilled" returns the value it was fulfilled with

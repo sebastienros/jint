@@ -258,5 +258,16 @@ assertEqual(booleanCount, 1);
             Assert.Equal(123, engine.Call(function, 123));
             Assert.Equal(123, engine.Call("bar", 123));
         }
+
+        [Fact]
+        public void CanInvokeFunctionViaEngineInstanceWithCustomThisObj()
+        {
+            var engine = new Engine();
+
+            var function = engine.Evaluate("function baz() { return this; }; baz;");
+
+            Assert.Equal("I'm this!", TypeConverter.ToString(engine.Call(function, "I'm this!", Arguments.Empty)));
+            Assert.Equal("I'm this!", TypeConverter.ToString(function.Call("I'm this!", Arguments.Empty)));
+        }
     }
 }

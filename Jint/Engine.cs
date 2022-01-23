@@ -1239,7 +1239,7 @@ namespace Jint
         /// <param name="thisObject">Value bound as this.</param>
         /// <param name="arguments">The arguments of the call.</param>
         /// <returns>The value returned by the call.</returns>
-        private JsValue Call(JsValue callable, JsValue thisObject, params JsValue[] arguments)
+        public JsValue Call(JsValue callable, JsValue thisObject, JsValue[] arguments)
         {
             JsValue Callback()
             {
