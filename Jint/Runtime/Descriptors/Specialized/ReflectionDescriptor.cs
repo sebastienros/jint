@@ -13,8 +13,9 @@ namespace Jint.Runtime.Descriptors.Specialized
         public ReflectionDescriptor(
             Engine engine,
             ReflectionAccessor reflectionAccessor,
-            object target)
-            : base(PropertyFlag.Enumerable | PropertyFlag.CustomJsValue)
+            object target,
+            bool enumerable)
+            : base((enumerable ? PropertyFlag.Enumerable : PropertyFlag.None) | PropertyFlag.CustomJsValue)
         {
             _engine = engine;
             _reflectionAccessor = reflectionAccessor;
