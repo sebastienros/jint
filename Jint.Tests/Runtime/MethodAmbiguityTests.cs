@@ -99,6 +99,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal("Class2.Double[]", engine.Evaluate("Class2.Print([ 1, 2 ]); "));
             Assert.Equal("Class2.ExpandoObject", engine.Evaluate("Class2.Print({ x: 1, y: 2 });"));
             Assert.Equal("Class2.Int32", engine.Evaluate("Class2.Print(5);"));
+            Assert.Equal("Class2.Object", engine.Evaluate("Class2.Print(() => '');"));
         }
 
         private struct Class1
