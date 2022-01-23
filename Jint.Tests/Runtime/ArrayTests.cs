@@ -176,5 +176,25 @@ namespace Jint.Tests.Runtime
             _engine.Execute("assert(!!['hello'].values()[Symbol.iterator])");
             _engine.Execute("assert(!!new Map([['hello', 'world']]).keys()[Symbol.iterator])");
         }
+
+
+
+        [Fact]
+        public void ArraySortDoesNotCrashInDebugMode()
+        {
+            var engine = new Engine(o =>
+            {
+                o.DebugMode(true);
+            });
+            engine.SetValue("equal", new Action<object, object>(Assert.Equal));
+
+            const string code = @"
+                var items = [5,2,4,1];
+                items.sort((a,b) => a - b);
+                equal('1,2,4,5', items.join());
+            ";
+
+            engine.Execute(code);
+        }
     }
 }
