@@ -39,5 +39,30 @@ namespace Jint.Tests.Runtime
                 }
             ");
         }
+
+        [Fact]
+        public void DestructuringWithFunctionArgReferenceInStrictMode()
+        {
+            _engine.Execute(@"
+                'use strict';
+                function tst(a) {
+                    let [let1, let2, let3] = a;
+                    const [const1, const2, const3] = a;
+                    var [var1, var2, var3] = a;
+                    
+                    equal(1, var1);
+                    equal(2, var2);
+                    equal(undefined, var3);
+                    equal(1, const1);
+                    equal(2, const2);
+                    equal(undefined, const3);
+                    equal(1, let1);
+                    equal(2, let2);
+                    equal(undefined, let3);
+                }
+
+                tst([1,2])
+            ");
+        }
     }
 }
