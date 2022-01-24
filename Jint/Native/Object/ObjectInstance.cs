@@ -426,7 +426,7 @@ namespace Jint.Native.Object
                     return true;
                 }
 
-                var getter = desc.Get ??  Undefined;
+                var getter = desc.Get ?? Undefined;
                 if (getter.IsUndefined())
                 {
                     value = Undefined;
@@ -961,7 +961,8 @@ namespace Jint.Native.Object
                 case ObjectClass.Function:
                     if (this is FunctionInstance function)
                     {
-                        converted = (Func<JsValue, JsValue[], JsValue>) function.Call;
+                        converted = new Func<JsValue, JsValue[], JsValue>(
+                            (thisVal, args) => function.Engine.Invoke(function, (object) thisVal, args));
                     }
 
                     break;
@@ -1311,7 +1312,7 @@ namespace Jint.Native.Object
                         else
                         {
                             var objectInstance = _engine.Realm.Intrinsics.Array.ArrayCreate(2);
-                            objectInstance.SetIndexValue(0,  property, updateLength: false);
+                            objectInstance.SetIndexValue(0, property, updateLength: false);
                             objectInstance.SetIndexValue(1, value, updateLength: false);
                             array.SetIndexValue(index, objectInstance, updateLength: false);
                         }

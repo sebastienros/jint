@@ -52,7 +52,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             if (pattern is ArrayPattern ap)
             {
-                return HandleArrayPattern(context, ap, argument, environment);
+                return HandleArrayPattern(context, ap, argument, environment, checkObjectPatternPropertyReference);
             }
 
             if (pattern is ObjectPattern op)
@@ -83,7 +83,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             EvaluationContext context,
             ArrayPattern pattern,
             JsValue argument,
-            EnvironmentRecord environment)
+            EnvironmentRecord environment,
+            bool checkReference)
         {
             var engine = context.Engine;
             var realm = engine.Realm;
@@ -141,7 +142,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             ConsumeFromIterator(iterator, out value, out done);
                         }
 
-                        AssignToIdentifier(engine, identifier.Name, value, environment);
+                        AssignToIdentifier(engine, identifier.Name, value, environment, checkReference);
                     }
                     else if (left is MemberExpression me)
                     {

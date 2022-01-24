@@ -124,5 +124,39 @@ assertEqual(booleanCount, 1);
             Assert.Equal("abc", arrayInstance[0]);
             Assert.Equal(123, arrayInstance[1]);
         }
+
+
+        [Fact]
+        public void FunctionInstancesCanBePassedToHost()
+        {
+            var engine = new Engine();
+            Func<JsValue, JsValue[], JsValue> ev = null;
+
+            void addListener(Func<JsValue, JsValue[], JsValue> callback)
+            {
+                ev = callback;
+            }
+
+            engine.SetValue("addListener", new Action<Func<JsValue, JsValue[], JsValue>>(addListener));
+
+            engine.Execute(@"
+                var a = 5;
+
+                (function() {
+                    var acc = 10;
+                    addListener(function (val) {
+                        a = (val || 0) + acc;
+                    });
+                })();
+");
+
+            Assert.Equal(5, engine.Evaluate("a"));
+
+            ev(null, new JsValue[0]);
+            Assert.Equal(10, engine.Evaluate("a"));
+
+            ev(null, new JsValue[] { 20 });
+            Assert.Equal(30, engine.Evaluate("a"));
+        }
     }
 }

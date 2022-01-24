@@ -35,8 +35,8 @@ bar += 'bar';
         public void TrimLeftRightShouldBeSameAsTrimStartEnd()
         {
             _engine.Execute(@"
-                equal(''.trimLeft, ''.trimStart);
-                equal(''.trimRight, ''.trimEnd);
+                assert(''.trimLeft === ''.trimStart);
+                assert(''.trimRight === ''.trimEnd);
 ");
         }
     }

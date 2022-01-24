@@ -368,7 +368,7 @@ namespace Jint
                 constraint.Check();
             }
 
-            if (_isDebugMode)
+            if (_isDebugMode && statement != null)
             {
                 DebugHandler.OnStep(statement);
             }

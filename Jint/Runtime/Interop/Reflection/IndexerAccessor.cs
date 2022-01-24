@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using Jint.Native;
+using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 
 namespace Jint.Runtime.Interop.Reflection
 {
@@ -150,6 +152,11 @@ namespace Jint.Runtime.Interop.Reflection
 
             object[] parameters = {_key, value};
             _setter!.Invoke(target, parameters);
+        }
+
+        public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target)
+        {
+            return new ReflectionDescriptor(engine, this, target, false);
         }
     }
 }

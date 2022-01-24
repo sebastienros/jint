@@ -114,7 +114,7 @@ namespace Jint.Runtime.Interop.Reflection
 
         public virtual PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target)
         {
-            return new ReflectionDescriptor(engine, this, target);
+            return new ReflectionDescriptor(engine, this, target, true);
         }
     }
 }

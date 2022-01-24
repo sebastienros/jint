@@ -40,7 +40,6 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ✔ Promises (Experimental, API is unstable)
 - ✔ Reflect
 - ✔ Proxies
-- ✔ Reflect
 - ✔ Symbols
 - ❌ Tail calls
 - ✔ Typed arrays
