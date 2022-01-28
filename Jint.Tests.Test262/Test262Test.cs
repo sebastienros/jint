@@ -1,439 +1,86 @@
 ﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text.RegularExpressions;
 using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.ArrayBuffer;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
-using Newtonsoft.Json.Linq;
-using Xunit.Abstractions;
-using Xunit.Sdk;
+using Test262Harness;
 
-namespace Jint.Tests.Test262
+namespace Jint.Tests.Test262;
+
+public abstract partial class Test262Test
 {
-    public abstract class Test262Test
+    private Engine BuildTestExecutor(Test262File file)
     {
-        private static readonly Dictionary<string, Script> Sources;
-
-        protected static readonly string BasePath;
-
-        private static readonly TimeZoneInfo _pacificTimeZone;
-
-        private static readonly Dictionary<string, string> _skipReasons = new(StringComparer.OrdinalIgnoreCase);
-
-        private static readonly HashSet<string> _strictSkips = new(StringComparer.OrdinalIgnoreCase);
-
-        private static readonly Regex _moduleFlagRegex = new Regex(@"flags:\s*?\[.*?module.*?]", RegexOptions.Compiled);
-
-        static Test262Test()
+        var engine = new Engine(cfg =>
         {
-            //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
-            try
-            {
-                _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
-            }
-            catch (TimeZoneNotFoundException)
-            {
-                // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
-                // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
-                _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Los_Angeles");
-            }
+            cfg
+                .LocalTimeZone(State.TimeZone);
 
-            var assemblyPath = new Uri(typeof(Test262Test).GetTypeInfo().Assembly.Location).LocalPath;
-            var assemblyDirectory = new FileInfo(assemblyPath).Directory;
+            var relativePath = Path.GetDirectoryName(file.FileName);
+            cfg.EnableModules(new Test262ModuleLoader(State.Test262Stream.Options.FileSystem, relativePath));
+        });
 
-            BasePath = assemblyDirectory.Parent.Parent.Parent.FullName;
+        engine.Execute(State.Sources["assert.js"]);
+        engine.Execute(State.Sources["sta.js"]);
 
-            string[] files =
+        engine.SetValue("print",
+            new ClrFunctionInstance(engine, "print", (thisObj, args) => TypeConverter.ToString(args.At(0))));
+
+        var o = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
+        o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunctionInstance(engine, "evalScript",
+            (thisObj, args) =>
             {
-                "sta.js",
-                "assert.js",
-                "arrayContains.js",
-                "isConstructor.js",
-                "promiseHelper.js",
-                "propertyHelper.js",
-                "compareArray.js",
-                "decimalToHexString.js",
-                "deepEqual.js",
-                "proxyTrapsHelper.js",
-                "dateConstants.js",
-                "assertRelativeDateMs.js",
-                "regExpUtils.js",
-                "nans.js",
-                "compareIterator.js",
-                "nativeFunctionMatcher.js",
-                "wellKnownIntrinsicObjects.js",
-                "fnGlobalObject.js",
-                "testTypedArray.js",
-                "detachArrayBuffer.js",
-                "byteConversionValues.js",
-                "hidden-constructors.js",
-                "testBigIntTypedArray.js"
-            };
-
-            Sources = new Dictionary<string, Script>(files.Length);
-            for (var i = 0; i < files.Length; i++)
-            {
-                var source = File.ReadAllText(Path.Combine(BasePath, "harness", files[i]));
-                Sources[files[i]] = new JavaScriptParser(source, new ParserOptions(files[i])).ParseScript();
-            }
-
-            var content = File.ReadAllText(Path.Combine(BasePath, "test/skipped.json"));
-            var doc = JArray.Parse(content);
-            foreach (var entry in doc.Values<JObject>())
-            {
-                var source = entry["source"].Value<string>();
-                _skipReasons[source] = entry["reason"].Value<string>();
-                if (entry.TryGetValue("mode", out var mode) && mode.Value<string>() == "strict")
+                if (args.Length > 1)
                 {
-                    _strictSkips.Add(source);
+                    throw new Exception("only script parsing supported");
                 }
-            }
+
+                var options = new ParserOptions { AdaptRegexp = true, Tolerant = false };
+                var parser = new JavaScriptParser(args.At(0).AsString(), options);
+                var script = parser.ParseScript();
+
+                return engine.Evaluate(script);
+            }), true, true, true));
+
+        o.FastSetProperty("createRealm", new PropertyDescriptor(new ClrFunctionInstance(engine, "createRealm",
+            (thisObj, args) =>
+            {
+                var realm = engine._host.CreateRealm();
+                realm.GlobalObject.Set("global", realm.GlobalObject);
+                return realm.GlobalObject;
+            }), true, true, true));
+
+        o.FastSetProperty("detachArrayBuffer", new PropertyDescriptor(new ClrFunctionInstance(engine, "detachArrayBuffer",
+            (thisObj, args) =>
+            {
+                var buffer = (ArrayBufferInstance) args.At(0);
+                buffer.DetachArrayBuffer();
+                return JsValue.Undefined;
+            }), true, true, true));
+
+        engine.SetValue("$262", o);
+
+        foreach (var include in file.Includes)
+        {
+            engine.Execute(State.Sources[include]);
         }
 
-        protected void RunTestCode(string fileName, string code, bool strict, string fullPath)
-        {
-            var module = _moduleFlagRegex.IsMatch(code);
-
-            var engine = new Engine(cfg =>
-            {
-                cfg.LocalTimeZone(_pacificTimeZone);
-                cfg.Strict(strict);
-                if (module)
-                {
-                    cfg.EnableModules(Path.Combine(BasePath, "test", Path.GetDirectoryName(fullPath)!));
-                }
-            });
-
-            engine.Execute(Sources["sta.js"]);
-            engine.Execute(Sources["assert.js"]);
-            engine.SetValue("print",
-                new ClrFunctionInstance(engine, "print", (thisObj, args) => TypeConverter.ToString(args.At(0))));
-
-            var o = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
-            o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunctionInstance(engine, "evalScript",
-                (thisObj, args) =>
-                {
-                    if (args.Length > 1)
-                    {
-                        throw new Exception("only script parsing supported");
-                    }
-
-                    var options = new ParserOptions {AdaptRegexp = true, Tolerant = false};
-                    var parser = new JavaScriptParser(args.At(0).AsString(), options);
-                    var script = parser.ParseScript(strict);
-
-                    return engine.Evaluate(script);
-                }), true, true, true));
-
-            o.FastSetProperty("createRealm", new PropertyDescriptor(new ClrFunctionInstance(engine, "createRealm",
-                (thisObj, args) =>
-                {
-                    var realm = engine._host.CreateRealm();
-                    realm.GlobalObject.Set("global", realm.GlobalObject);
-                    return realm.GlobalObject;
-                }), true, true, true));
-
-            o.FastSetProperty("detachArrayBuffer", new PropertyDescriptor(new ClrFunctionInstance(engine, "detachArrayBuffer",
-                (thisObj, args) =>
-                {
-                    var buffer = (ArrayBufferInstance) args.At(0);
-                    buffer.DetachArrayBuffer();
-                    return JsValue.Undefined;
-                }), true, true, true));
-
-            engine.SetValue("$262", o);
-
-            var includes = Regex.Match(code, @"includes: \[(.+?)\]");
-            if (includes.Success)
-            {
-                var files = includes.Groups[1].Captures[0].Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-                foreach (var file in files)
-                {
-                    engine.Execute(Sources[file.Trim()]);
-                }
-            }
-
-            if (code.IndexOf("propertyHelper.js", StringComparison.OrdinalIgnoreCase) != -1)
-            {
-                engine.Execute(Sources["propertyHelper.js"]);
-            }
-
-            string lastError = null;
-
-            bool negative = code.IndexOf("negative:", StringComparison.Ordinal) > -1;
-            try
-            {
-                if (module)
-                {
-                    engine.AddModule(fullPath, builder => builder.AddSource(code));
-                    engine.ImportModule(fullPath);
-                }
-                else
-                {
-                    engine.Execute(new JavaScriptParser(code, new ParserOptions(fileName)).ParseScript());
-                }
-            }
-            catch (JavaScriptException j)
-            {
-                lastError = j.ToString();
-            }
-            catch (Exception e)
-            {
-                lastError = e.ToString();
-            }
-
-            if (!negative && !string.IsNullOrWhiteSpace(lastError))
-            {
-                throw new XunitException($"{Environment.NewLine}{fileName}{Environment.NewLine}{Environment.NewLine}{lastError}");
-            }
-        }
-
-        protected void RunTestInternal(SourceFile sourceFile)
-        {
-            if (sourceFile.Skip)
-            {
-                return;
-            }
-
-            if (sourceFile.Code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0 && !_moduleFlagRegex.IsMatch(sourceFile.Code))
-            {
-                RunTestCode(sourceFile.Source, sourceFile.Code, strict: false, fullPath: sourceFile.FullPath);
-            }
-
-            if (!_strictSkips.Contains(sourceFile.Source)
-                && sourceFile.Code.IndexOf("noStrict", StringComparison.Ordinal) < 0)
-            {
-                RunTestCode(sourceFile.Source, sourceFile.Code, strict: true, fullPath: sourceFile.FullPath);
-            }
-        }
-
-        public static IEnumerable<object[]> SourceFiles(string pathPrefix, bool skipped)
-        {
-            var results = new ConcurrentBag<object[]>();
-            var fixturesPath = Path.Combine(BasePath, "test");
-            var segments = pathPrefix.Split('\\');
-            var searchPath = Path.Combine(fixturesPath, Path.Combine(segments));
-            var files = Directory.GetFiles(searchPath, "*", SearchOption.AllDirectories);
-
-            foreach (var file in files)
-            {
-                if (file.IndexOf("_FIXTURE", StringComparison.OrdinalIgnoreCase) != -1)
-                {
-                    // Files bearing a name which includes the sequence _FIXTURE MUST NOT be interpreted
-                    // as standalone tests; they are intended to be referenced by test files.
-                    continue;
-                }
-
-                var name = file.Substring(fixturesPath.Length + 1).Replace("\\", "/");
-                bool skip = _skipReasons.TryGetValue(name, out var reason);
-
-                var code = skip ? "" : File.ReadAllText(file);
-
-                var flags = Regex.Match(code, "flags: \\[(.+?)\\]");
-                if (flags.Success)
-                {
-                    var items = flags.Groups[1].Captures[0].Value.Split(',');
-                    foreach (var item in items.Select(x => x.Trim()))
-                    {
-                        switch (item)
-                        {
-                            // TODO implement
-                            case "async":
-                                skip = true;
-                                reason = "async not implemented";
-                                break;
-                        }
-                    }
-                }
-
-                var features = Regex.Match(code, "features: \\[(.+?)\\]");
-                if (features.Success)
-                {
-                    var items = features.Groups[1].Captures[0].Value.Split(',');
-                    foreach (var item in items.Select(x => x.Trim()))
-                    {
-                        switch (item)
-                        {
-                            // TODO implement
-                            case "tail-call-optimization":
-                                skip = true;
-                                reason = "tail-calls not implemented";
-                                break;
-                            case "generators":
-                                skip = true;
-                                reason = "generators not implemented";
-                                break;
-                            case "async-functions":
-                                skip = true;
-                                reason = "async-functions not implemented";
-                                break;
-                            case "async-iteration":
-                                skip = true;
-                                reason = "async not implemented";
-                                break;
-                            case "class-fields-private":
-                            case "class-fields-public":
-                                skip = true;
-                                reason = "private/public class fields not implemented in esprima";
-                                break;
-                            case "String.prototype.replaceAll":
-                                skip = true;
-                                reason = "not in spec yet";
-                                break;
-                            case "regexp-match-indices":
-                                skip = true;
-                                reason = "regexp-match-indices not implemented";
-                                break;
-                            case "regexp-named-groups":
-                                skip = true;
-                                reason = "regexp-named-groups not implemented";
-                                break;
-                            case "regexp-lookbehind":
-                                skip = true;
-                                reason = "regexp-lookbehind not implemented";
-                                break;
-                            case "SharedArrayBuffer":
-                                skip = true;
-                                reason = "SharedArrayBuffer not implemented";
-                                break;
-                            case "resizable-arraybuffer":
-                                skip = true;
-                                reason = "resizable-arraybuffer not implemented";
-                                break;
-                            case "json-modules":
-                                skip = true;
-                                reason = "json-modules not implemented";
-                                break;
-                            case "top-level-await":
-                                skip = true;
-                                reason = "top-level-await not implemented";
-                                break;
-                            case "import-assertions":
-                                skip = true;
-                                reason = "import-assertions not implemented";
-                                break;
-                        }
-                    }
-                }
-
-                if (code.IndexOf("SpecialCasing.txt") > -1)
-                {
-                    skip = true;
-                    reason = "SpecialCasing.txt not implemented";
-                }
-
-                if (name.StartsWith("language/expressions/object/dstr-async-gen-meth-"))
-                {
-                    skip = true;
-                    reason = "Esprima problem, Unexpected token *";
-                }
-
-                // Unicode regular expressions
-
-                if (name.StartsWith("built-ins/RegExp/property-escapes/generated/"))
-                {
-                    skip = true;
-                    reason = "Esprima problem";
-                }
-
-                // Promises
-                if (name.StartsWith("built-ins/Promise/allSettled") ||
-                    name.StartsWith("built-ins/Promise/any"))
-                {
-                    skip = true;
-                    reason = "Promise.any and Promise.allSettled are not implemented yet";
-                }
-
-                if (file.EndsWith("tv-line-continuation.js")
-                    || file.EndsWith("tv-line-terminator-sequence.js")
-                    || file.EndsWith("special-characters.js"))
-                {
-                    // LF endings required
-                    code = code.Replace("\r\n", "\n");
-                }
-
-                var sourceFile = new SourceFile(
-                    name,
-                    file,
-                    skip,
-                    reason,
-                    code);
-
-                if (skipped == sourceFile.Skip)
-                {
-                    results.Add(new object[]
-                    {
-                        sourceFile
-                    });
-                }
-            }
-
-            return results;
-        }
-
-        private static ParserOptions CreateParserOptions(string fileName) =>
-            new ParserOptions(fileName)
-            {
-                AdaptRegexp = true,
-                Tolerant = true
-            };
+        return engine;
     }
 
-    public class SourceFile : IXunitSerializable
+    private static void ExecuteTest(Engine engine, Test262File file)
     {
-        public SourceFile()
+        if (file.Type == ProgramType.Module)
         {
+            engine.AddModule(file.FileName, builder => builder.AddSource(file.Program));
+            engine.ImportModule(file.FileName);
         }
-
-        public SourceFile(
-            string source,
-            string fullPath,
-            bool skip,
-            string reason,
-            string code)
+        else
         {
-            Skip = skip;
-            Source = source;
-            Reason = reason;
-            FullPath = fullPath;
-            Code = code;
-        }
-
-        public string Source { get; set; }
-        public bool Skip { get; set; }
-        public string Reason { get; set; }
-        public string FullPath { get; set; }
-        public string Code { get; set; }
-
-        public void Deserialize(IXunitSerializationInfo info)
-        {
-            Skip = info.GetValue<bool>(nameof(Skip));
-            Source = info.GetValue<string>(nameof(Source));
-            Reason = info.GetValue<string>(nameof(Reason));
-            FullPath = info.GetValue<string>(nameof(FullPath));
-            Code = info.GetValue<string>(nameof(Code));
-        }
-
-        public void Serialize(IXunitSerializationInfo info)
-        {
-            info.AddValue(nameof(Skip), Skip);
-            info.AddValue(nameof(Source), Source);
-            info.AddValue(nameof(Reason), Reason);
-            info.AddValue(nameof(FullPath), FullPath);
-            info.AddValue(nameof(Code), Code);
-        }
-
-        public override string ToString()
-        {
-            return Source;
+            engine.Execute(new JavaScriptParser(file.Program, new ParserOptions(file.FileName)).ParseScript());
         }
     }
 }

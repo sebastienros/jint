@@ -25,6 +25,10 @@ jobs:
       with:
         dotnet-version: 6.0.*
 
+    - name: Generate test cases
+      working-directory: ./Jint.Tests.Test262
+      run: dotnet tool restore && dotnet test262 generate
+
     - name: Test
       run: dotnet test --configuration Release
 
