@@ -16,32 +16,32 @@ namespace Jint.Native.Date
         public DateInstance(Engine engine)
             : base(engine, ObjectClass.Date)
         {
-            PrimitiveValue = double.NaN;
+            DateValue = double.NaN;
         }
 
         public DateTime ToDateTime()
         {
             if (DateTimeRangeValid)
             {
-                return DateConstructor.Epoch.AddMilliseconds(PrimitiveValue);
+                return DateConstructor.Epoch.AddMilliseconds(DateValue);
             }
 
             ExceptionHelper.ThrowRangeError(_engine.Realm);
             return DateTime.MinValue;
         }
 
-        public double PrimitiveValue { get; set; }
+        public double DateValue { get; internal set; }
 
-        internal bool DateTimeRangeValid => !double.IsNaN(PrimitiveValue) && PrimitiveValue <= Max && PrimitiveValue >= Min;
+        internal bool DateTimeRangeValid => !double.IsNaN(DateValue) && DateValue <= Max && DateValue >= Min;
 
         public override string ToString()
         {
-            if (double.IsNaN(PrimitiveValue))
+            if (double.IsNaN(DateValue))
             {
                 return "NaN";
             }
 
-            if (double.IsInfinity(PrimitiveValue))
+            if (double.IsInfinity(DateValue))
             {
                 return "Infinity";
             }

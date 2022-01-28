@@ -87,9 +87,26 @@ namespace Jint.Native.Date
             SetProperties(properties);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-date.parse
+        /// </summary>
         private JsValue Parse(JsValue thisObj, JsValue[] arguments)
         {
             var date = TypeConverter.ToString(arguments.At(0));
+            var negative = date.StartsWith("-");
+            if (negative)
+            {
+                date = date.Substring(1);
+            }
+
+            var startParen = date.IndexOf('(');
+            if (startParen != -1)
+            {
+                // informative text
+                date = date.Substring(0, startParen);
+            }
+
+            date = date.Trim();
 
             if (!DateTime.TryParseExact(date, DefaultFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var result))
             {
@@ -106,7 +123,7 @@ namespace Jint.Native.Date
                 }
             }
 
-            return FromDateTime(result);
+            return FromDateTime(result, negative);
         }
 
         private static JsValue Utc(JsValue thisObj, JsValue[] arguments)
@@ -145,7 +162,7 @@ namespace Jint.Native.Date
         ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.9.3
+        /// https://tc39.es/ecma262/#sec-date
         /// </summary>
         private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
@@ -158,7 +175,7 @@ namespace Jint.Native.Date
             {
                 if (arguments[0] is DateInstance date)
                 {
-                    return Construct(date.PrimitiveValue);
+                    return Construct(date.DateValue);
                 }
 
                 var v = TypeConverter.ToPrimitive(arguments[0]);
@@ -196,7 +213,7 @@ namespace Jint.Native.Date
                 newTarget,
                 static intrinsics => intrinsics.Date.PrototypeObject,
                 static (engine, realm, _) => new DateInstance(engine));
-            o.PrimitiveValue = dv;
+            o.DateValue = dv;
             return o;
         }
 
@@ -215,7 +232,7 @@ namespace Jint.Native.Date
             var instance = new DateInstance(_engine)
             {
                 _prototype = PrototypeObject,
-                PrimitiveValue = TimeClip(time)
+                DateValue = TimeClip(time)
             };
 
             return instance;
@@ -236,7 +253,7 @@ namespace Jint.Native.Date
             return TypeConverter.ToInteger(time) + 0;
         }
 
-        private double FromDateTime(DateTime dt)
+        private double FromDateTime(DateTime dt, bool negative = false)
         {
             var convertToUtcAfter = (dt.Kind == DateTimeKind.Unspecified);
 
@@ -244,7 +261,17 @@ namespace Jint.Native.Date
                 ? dt.ToUniversalTime()
                 : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
 
-            var result = (dateAsUtc - Epoch).TotalMilliseconds;
+            double result;
+            if (negative)
+            {
+                var zero = (Epoch - DateTime.MinValue).TotalMilliseconds;
+                result = zero - TimeSpan.FromTicks(dateAsUtc.Ticks).TotalMilliseconds;
+                result *= -1;
+            }
+            else
+            {
+                result = (dateAsUtc - Epoch).TotalMilliseconds;
+            }
 
             if (convertToUtcAfter)
             {

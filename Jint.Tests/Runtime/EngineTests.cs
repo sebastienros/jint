@@ -1115,7 +1115,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(-11 * 60 * 1000, parseLocalEpoch);
 
             var epochToLocalString = engine.Evaluate("var d = new Date(0); d.toString();").AsString();
-            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT+0011", epochToLocalString);
+            Assert.Equal("Thu Jan 01 1970 00:11:00 GMT+0011 (Custom Time)", epochToLocalString);
 
             var epochToUTCString = engine.Evaluate("var d = new Date(0); d.toUTCString();").AsString();
             Assert.Equal("Thu, 01 Jan 1970 00:00:00 GMT", epochToUTCString);
@@ -1210,18 +1210,19 @@ namespace Jint.Tests.Runtime
             Assert.Equal(testDateTimeOffset.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture), engine.Evaluate("d.toISOString();").ToString());
         }
 
-        [Theory, MemberData("TestDates")]
+        [Theory, MemberData(nameof(TestDates))]
         public void TestDateToStringFormat(DateTime testDate)
         {
             var customTimeZone = _pacificTimeZone;
 
             var engine = new Engine(ctx => ctx.LocalTimeZone(customTimeZone));
-            var testDateTimeOffset = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
-            engine.Execute(
-                string.Format("var d = new Date({0},{1},{2},{3},{4},{5},{6});", testDateTimeOffset.Year, testDateTimeOffset.Month - 1, testDateTimeOffset.Day, testDateTimeOffset.Hour, testDateTimeOffset.Minute, testDateTimeOffset.Second, testDateTimeOffset.Millisecond));
+            var dt = new DateTimeOffset(testDate, customTimeZone.GetUtcOffset(testDate));
+            var dateScript = $"var d = new Date({dt.Year}, {dt.Month - 1}, {dt.Day}, {dt.Hour}, {dt.Minute}, {dt.Second}, {dt.Millisecond});";
+            engine.Execute(dateScript);
 
-            var expected = testDateTimeOffset.ToString("ddd MMM dd yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-            expected += testDateTimeOffset.ToString(" 'GMT'zzz", CultureInfo.InvariantCulture).Replace(":", "");
+            var expected = dt.ToString("ddd MMM dd yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+            expected += dt.ToString(" 'GMT'zzz", CultureInfo.InvariantCulture).Replace(":", "");
+            expected += " (Pacific Standard Time)";
             var actual = engine.Evaluate("d.toString();").ToString();
 
             Assert.Equal(expected, actual);
@@ -1813,9 +1814,9 @@ var prep = function (fn) { fn(); };
             engine.Evaluate(@"
                     var d = new Date(1433160000000);
 
-                    equal('Mon Jun 01 2015 05:00:00 GMT-0700', d.toString());
+                    equal('Mon Jun 01 2015 05:00:00 GMT-0700 (Pacific Standard Time)', d.toString());
                     equal('Mon Jun 01 2015', d.toDateString());
-                    equal('05:00:00 GMT-0700', d.toTimeString());
+                    equal('05:00:00 GMT-0700 (Pacific Standard Time)', d.toTimeString());
                     equal('lundi 1 juin 2015 05:00:00', d.toLocaleString());
                     equal('lundi 1 juin 2015', d.toLocaleDateString());
                     equal('05:00:00', d.toLocaleTimeString());
@@ -1835,7 +1836,7 @@ var prep = function (fn) { fn(); };
             engine.Evaluate(@"
                     var d = new Date(2016, 8, 1);
 
-                    equal('Thu Sep 01 2016 00:00:00 GMT-0400', d.toString());
+                    equal('Thu Sep 01 2016 00:00:00 GMT-0400 (US Eastern Standard Time)', d.toString());
                     equal('Thu Sep 01 2016', d.toDateString());
             ");
         }
