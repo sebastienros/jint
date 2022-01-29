@@ -319,7 +319,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else if (AreNonBigIntOperands(left, right))
                 {
-                    number = JsNumber.Create(TypeConverter.ToNumber(left) - TypeConverter.ToNumber(right));
+                    number = JsNumber.Create(left.AsNumber() - right.AsNumber());
                 }
                 else
                 {
@@ -358,7 +358,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (leftNumeric.IsNumber())
                     {
-                        result = JsNumber.Create(TypeConverter.ToNumber(left) * TypeConverter.ToNumber(right));
+                        result = JsNumber.Create(leftNumeric.AsNumber() * rightNumeric.AsNumber());
                     }
                     else
                     {
@@ -656,8 +656,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else if (AreNonBigIntOperands(left, right))
                 {
-                    var n = TypeConverter.ToNumber(left);
-                    var d = TypeConverter.ToNumber(right);
+                    var n = left.AsNumber();
+                    var d = right.AsNumber();
 
                     if (double.IsNaN(n) || double.IsNaN(d) || double.IsInfinity(n))
                     {

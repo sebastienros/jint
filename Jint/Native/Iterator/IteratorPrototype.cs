@@ -19,7 +19,7 @@ namespace Jint.Native.Iterator
             Engine engine,
             Realm realm,
             string name,
-            ObjectPrototype objectPrototype) : base(engine, realm)
+            Prototype objectPrototype) : base(engine, realm)
         {
             _prototype = objectPrototype;
             _name = name;
@@ -36,7 +36,7 @@ namespace Jint.Native.Iterator
 
             var symbols = new SymbolDictionary(_name != null ? 2 : 1)
             {
-                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", ToIterator, 1, PropertyFlag.Configurable), true, false, true),
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.iterator]", ToIterator, 0, PropertyFlag.Configurable), true, false, true),
             };
 
             if (_name != null)

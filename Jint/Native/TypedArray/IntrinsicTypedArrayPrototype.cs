@@ -39,7 +39,7 @@ namespace Jint.Native.TypedArray
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-            var properties = new PropertyDictionary(31, false)
+            var properties = new PropertyDictionary(33, false)
             {
                 ["buffer"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get buffer", Buffer, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
                 ["byteLength"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get byteLength", ByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),

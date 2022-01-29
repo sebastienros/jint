@@ -7,17 +7,15 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Object
 {
-    public sealed class ObjectPrototype : ObjectInstance
+    public sealed class ObjectPrototype : Prototype
     {
-        private readonly Realm _realm;
         private readonly ObjectConstructor _constructor;
 
         internal ObjectPrototype(
             Engine engine,
             Realm realm,
-            ObjectConstructor constructor) : base(engine)
+            ObjectConstructor constructor) : base(engine, realm)
         {
-            _realm = realm;
             _constructor = constructor;
         }
 
@@ -111,11 +109,12 @@ namespace Jint.Native.Object
             }
 
             var o = TypeConverter.ToObject(_realm, thisObject);
+            var isArray = o.IsArray();
 
             var tag = o.Get(GlobalSymbolRegistry.ToStringTag);
             if (!tag.IsString())
             {
-                if (o.IsArray())
+                if (isArray)
                 {
                     tag = "Array";
                 }

@@ -111,7 +111,7 @@ namespace Jint.Runtime
             _array ??= new ArrayConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
         internal ArrayIteratorPrototype ArrayIteratorPrototype =>
-            _arrayIteratorPrototype ??= new ArrayIteratorPrototype(_engine, _realm, Object.PrototypeObject);
+            _arrayIteratorPrototype ??= new ArrayIteratorPrototype(_engine, _realm, this.IteratorPrototype);
 
         public DataViewConstructor DataView =>
             _dataView ??= new DataViewConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
@@ -183,13 +183,13 @@ namespace Jint.Runtime
             _string ??= new StringConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
         internal StringIteratorPrototype StringIteratorPrototype =>
-            _stringIteratorPrototype ??= new StringIteratorPrototype(_engine, _realm, Object.PrototypeObject);
+            _stringIteratorPrototype ??= new StringIteratorPrototype(_engine, _realm, IteratorPrototype);
 
         public RegExpConstructor RegExp =>
             _regExp ??= new RegExpConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
         internal RegExpStringIteratorPrototype RegExpStringIteratorPrototype =>
-            _regExpStringIteratorPrototype ??= new RegExpStringIteratorPrototype(_engine, _realm, Object.PrototypeObject);
+            _regExpStringIteratorPrototype ??= new RegExpStringIteratorPrototype(_engine, _realm, IteratorPrototype);
 
         public BooleanConstructor Boolean =>
             _boolean ??= new BooleanConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
