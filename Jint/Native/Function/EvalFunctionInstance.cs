@@ -23,7 +23,7 @@ namespace Jint.Native.Function
                 StrictModeScope.IsStrictModeCode ? FunctionThisMode.Strict : FunctionThisMode.Global)
         {
             _prototype = functionPrototype;
-            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
+            _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] arguments)

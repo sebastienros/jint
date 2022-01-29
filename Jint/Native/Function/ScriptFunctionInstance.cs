@@ -44,7 +44,7 @@ namespace Jint.Native.Function
 
             if (!function.Strict && !engine._isStrict && function.Function is not ArrowFunctionExpression)
             {
-                DefineOwnProperty(CommonProperties.Arguments, engine._callerCalleeArgumentsThrowerConfigurable);
+                DefineOwnProperty(CommonProperties.Arguments, new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(engine, PropertyFlag.Configurable | PropertyFlag.CustomJsValue));
                 DefineOwnProperty(CommonProperties.Caller, new PropertyDescriptor(Undefined, PropertyFlag.Configurable));
             }
         }

@@ -56,10 +56,6 @@ namespace Jint
         // cache of types used when resolving CLR type names
         internal readonly Dictionary<string, Type> TypeCache = new();
 
-        // shared frozen version
-        internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerConfigurable;
-        internal readonly PropertyDescriptor _callerCalleeArgumentsThrowerNonConfigurable;
-
         internal readonly JintCallStack CallStack;
 
         // needed in initial engine setup, for example CLR function construction
@@ -95,13 +91,6 @@ namespace Jint
         public Engine(Action<Engine, Options> options)
         {
             _executionContexts = new ExecutionContextStack(2);
-
-            _callerCalleeArgumentsThrowerConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this,
-                PropertyFlag.Configurable | PropertyFlag.CustomJsValue,
-                "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
-            _callerCalleeArgumentsThrowerNonConfigurable = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(this,
-                PropertyFlag.CustomJsValue,
-                "'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them");
 
             Options = new Options();
             options?.Invoke(this, Options);
