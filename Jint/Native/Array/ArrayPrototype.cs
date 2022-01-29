@@ -47,6 +47,8 @@ namespace Jint.Native.Array
             unscopables.SetDataProperty("fill", JsBoolean.True);
             unscopables.SetDataProperty("find", JsBoolean.True);
             unscopables.SetDataProperty("findIndex", JsBoolean.True);
+            unscopables.SetDataProperty("findLast", JsBoolean.True);
+            unscopables.SetDataProperty("findLastIndex", JsBoolean.True);
             unscopables.SetDataProperty("flat", JsBoolean.True);
             unscopables.SetDataProperty("flatMap", JsBoolean.True);
             unscopables.SetDataProperty("includes", JsBoolean.True);
@@ -54,7 +56,7 @@ namespace Jint.Native.Array
             unscopables.SetDataProperty("values", JsBoolean.True);
 
             const PropertyFlag propertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-            var properties = new PropertyDictionary(32, checkExistingKeys: false)
+            var properties = new PropertyDictionary(34, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), propertyFlags),
@@ -84,6 +86,8 @@ namespace Jint.Native.Array
                 ["reduceRight"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1, PropertyFlag.Configurable), propertyFlags),
                 ["find"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), propertyFlags),
                 ["findIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), propertyFlags),
+                ["findLast"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findLast", FindLast, 1, PropertyFlag.Configurable), propertyFlags),
+                ["findLastIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findLastIndex", FindLastIndex, 1, PropertyFlag.Configurable), propertyFlags),
                 ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), propertyFlags),
                 ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
                 ["flat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flat", Flat, 0, PropertyFlag.Configurable), propertyFlags),
@@ -771,14 +775,31 @@ namespace Jint.Native.Array
         private JsValue Find(JsValue thisObj, JsValue[] arguments)
         {
             var target = TypeConverter.ToObject(_realm, thisObj);
-            target.FindWithCallback(arguments, out _, out var value, true);
+            target.FindWithCallback(arguments, out _, out var value, visitUnassigned: true);
             return value;
         }
 
         private JsValue FindIndex(JsValue thisObj, JsValue[] arguments)
         {
             var target = TypeConverter.ToObject(_realm, thisObj);
-            if (target.FindWithCallback(arguments, out var index, out _, true))
+            if (target.FindWithCallback(arguments, out var index, out _, visitUnassigned: true))
+            {
+                return index;
+            }
+            return -1;
+        }
+
+        private JsValue FindLast(JsValue thisObj, JsValue[] arguments)
+        {
+            var target = TypeConverter.ToObject(_realm, thisObj);
+            target.FindWithCallback(arguments, out _, out var value, visitUnassigned: true, fromEnd: true);
+            return value;
+        }
+
+        private JsValue FindLastIndex(JsValue thisObj, JsValue[] arguments)
+        {
+            var target = TypeConverter.ToObject(_realm, thisObj);
+            if (target.FindWithCallback(arguments, out var index, out _, visitUnassigned: true, fromEnd: true))
             {
                 return index;
             }
