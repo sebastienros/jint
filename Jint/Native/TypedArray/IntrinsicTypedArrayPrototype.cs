@@ -53,6 +53,8 @@ namespace Jint.Native.TypedArray
                 ["filter"] = new(new ClrFunctionInstance(Engine, "filter", Filter, 1, PropertyFlag.Configurable), propertyFlags),
                 ["find"] = new(new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), propertyFlags),
                 ["findIndex"] = new(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), propertyFlags),
+                ["findLast"] = new(new ClrFunctionInstance(Engine, "findLast", FindLast, 1, PropertyFlag.Configurable), propertyFlags),
+                ["findLastIndex"] = new(new ClrFunctionInstance(Engine, "findLastIndex", FindLastIndex, 1, PropertyFlag.Configurable), propertyFlags),
                 ["forEach"] = new(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), propertyFlags),
                 ["includes"] = new(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), propertyFlags),
                 ["indexOf"] = new(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), propertyFlags),
@@ -421,25 +423,52 @@ namespace Jint.Native.TypedArray
             return DoFind(thisObj, arguments).Key;
         }
 
-        private KeyValuePair<JsValue, JsValue> DoFind(JsValue thisObj, JsValue[] arguments)
+        private JsValue FindLast(JsValue thisObj, JsValue[] arguments)
+        {
+            return DoFind(thisObj, arguments, fromEnd: true).Value;
+        }
+
+        private JsValue FindLastIndex(JsValue thisObj, JsValue[] arguments)
+        {
+            return DoFind(thisObj, arguments, fromEnd: true).Key;
+        }
+
+        private KeyValuePair<JsValue, JsValue> DoFind(JsValue thisObj, JsValue[] arguments, bool fromEnd = false)
         {
             var o = thisObj.ValidateTypedArray(_realm);
-            var len = o.Length;
+            var len = (int) o.Length;
 
             var predicate = GetCallable(arguments.At(0));
             var thisArg = arguments.At(1);
 
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o;
-            for (var k = 0; k < len; k++)
+            if (!fromEnd)
             {
-                var kNumber = JsNumber.Create(k);
-                var kValue = o[k];
-                args[0] = kValue;
-                args[1] = kNumber;
-                if (TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
+                for (var k = 0; k < len; k++)
                 {
-                    return new KeyValuePair<JsValue, JsValue>(kNumber, kValue);
+                    var kNumber = JsNumber.Create(k);
+                    var kValue = o[k];
+                    args[0] = kValue;
+                    args[1] = kNumber;
+                    if (TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
+                    {
+                        return new KeyValuePair<JsValue, JsValue>(kNumber, kValue);
+                    }
+                }
+            }
+            else
+            {
+                for (var k = len - 1; k >= 0; k--)
+                {
+                    var kNumber = JsNumber.Create(k);
+                    var kValue = o[k];
+                    args[0] = kValue;
+                    args[1] = kNumber;
+                    if (TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
+                    {
+                        return new KeyValuePair<JsValue, JsValue>(kNumber, kValue);
+                    }
                 }
             }
 

@@ -818,7 +818,8 @@ namespace Jint.Native.Array
             JsValue[] arguments,
             out uint index,
             out JsValue value,
-            bool visitUnassigned)
+            bool visitUnassigned,
+            bool fromEnd = false)
         {
             var thisArg = arguments.At(1);
             var callbackfn = arguments.At(0);
@@ -834,18 +835,41 @@ namespace Jint.Native.Array
 
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
-            for (uint k = 0; k < len; k++)
+
+            if (!fromEnd)
             {
-                if (TryGetValue(k, out var kvalue) || visitUnassigned)
+                for (uint k = 0; k < len; k++)
                 {
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var testResult = callable.Call(thisArg, args);
-                    if (TypeConverter.ToBoolean(testResult))
+                    if (TryGetValue(k, out var kvalue) || visitUnassigned)
                     {
-                        index = k;
-                        value = kvalue;
-                        return true;
+                        args[0] = kvalue;
+                        args[1] = k;
+                        var testResult = callable.Call(thisArg, args);
+                        if (TypeConverter.ToBoolean(testResult))
+                        {
+                            index = k;
+                            value = kvalue;
+                            return true;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (long k = len - 1; k >= 0; k--)
+                {
+                    var idx = (uint) k;
+                    if (TryGetValue(idx, out var kvalue) || visitUnassigned)
+                    {
+                        args[0] = kvalue;
+                        args[1] = idx;
+                        var testResult = callable.Call(thisArg, args);
+                        if (TypeConverter.ToBoolean(testResult))
+                        {
+                            index = idx;
+                            value = kvalue;
+                            return true;
+                        }
                     }
                 }
             }

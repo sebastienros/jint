@@ -1017,7 +1017,8 @@ namespace Jint.Native.Object
             JsValue[] arguments,
             out uint index,
             out JsValue value,
-            bool visitUnassigned)
+            bool visitUnassigned,
+            bool fromEnd = false)
         {
             long GetLength()
             {
