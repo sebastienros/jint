@@ -12,7 +12,7 @@ namespace Jint.Native.Map
         internal MapIteratorPrototype(
             Engine engine,
             Realm realm,
-            ObjectPrototype objectPrototype) : base(engine, realm, "Map Iterator", objectPrototype)
+            Prototype objectPrototype) : base(engine, realm, "Map Iterator", objectPrototype)
         {
         }
 

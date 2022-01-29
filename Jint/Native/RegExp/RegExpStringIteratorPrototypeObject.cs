@@ -9,7 +9,7 @@ namespace Jint.Native.RegExp
         internal RegExpStringIteratorPrototypeObject(
             Engine engine,
             Realm realm,
-            ObjectPrototype objectPrototype) : base(engine, realm, "RegExp String Iterator", objectPrototype)
+            Prototype objectPrototype) : base(engine, realm, "RegExp String Iterator", objectPrototype)
         {
         }
 

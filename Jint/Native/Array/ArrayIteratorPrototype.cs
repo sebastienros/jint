@@ -13,7 +13,7 @@ namespace Jint.Native.Array
         internal ArrayIteratorPrototype(
             Engine engine,
             Realm realm,
-            ObjectPrototype objectPrototype) : base(engine, realm, "Array Iterator", objectPrototype)
+            IteratorPrototype objectPrototype) : base(engine, realm, "Array Iterator", objectPrototype)
         {
         }
 

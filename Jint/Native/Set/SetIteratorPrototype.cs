@@ -12,7 +12,7 @@ namespace Jint.Native.Set
         internal SetIteratorPrototype(
             Engine engine,
             Realm realm,
-            ObjectPrototype objectPrototype) : base(engine, realm, "Set Iterator", objectPrototype)
+            Prototype objectPrototype) : base(engine, realm, "Set Iterator", objectPrototype)
         {
         }
 

@@ -311,7 +311,7 @@ namespace Jint.Runtime.Descriptors
         /// <summary>
         /// https://tc39.es/ecma262/#sec-frompropertydescriptor
         /// </summary>
-        public static JsValue FromPropertyDescriptor(Engine engine, PropertyDescriptor desc)
+        public static JsValue FromPropertyDescriptor(Engine engine, PropertyDescriptor desc, bool strictUndefined = false)
         {
             if (ReferenceEquals(desc, Undefined))
             {
@@ -321,7 +321,7 @@ namespace Jint.Runtime.Descriptors
             var obj = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
             var properties = new PropertyDictionary(4, checkExistingKeys: false);
 
-            // TODO should not check for PropertyFlag.None, but needs a bigger cleanup
+            // TODO should not check for strictUndefined, but needs a bigger cleanup
             // we should have possibility to leave out the properties in property descriptors as newer tests
             // also assert properties to be undefined
 
@@ -339,12 +339,12 @@ namespace Jint.Runtime.Descriptors
                 properties["set"] = new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
-            if (desc._flags != PropertyFlag.None || desc.EnumerableSet)
+            if (!strictUndefined || desc.EnumerableSet)
             {
                 properties["enumerable"] = new PropertyDescriptor(desc.Enumerable, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
-            if (desc._flags != PropertyFlag.None || desc.ConfigurableSet)
+            if (!strictUndefined || desc.ConfigurableSet)
             {
                 properties["configurable"] = new PropertyDescriptor(desc.Configurable, PropertyFlag.ConfigurableEnumerableWritable);
             }

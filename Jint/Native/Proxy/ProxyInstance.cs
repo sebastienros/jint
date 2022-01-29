@@ -114,14 +114,15 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override JsValue Get(JsValue property, JsValue receiver)
         {
-            if (property == KeyFunctionRevoke || !TryCallHandler(TrapGet, new[] {_target, TypeConverter.ToPropertyKey(property), this }, out var result))
+            AssertTargetNotRevoked(property);
+            var target = _target;
+
+            if (property == KeyFunctionRevoke || !TryCallHandler(TrapGet, new[] {target, TypeConverter.ToPropertyKey(property), this }, out var result))
             {
-                AssertTargetNotRevoked(property);
-                return _target.Get(property, receiver);
+                return target.Get(property, receiver);
             }
 
-            AssertTargetNotRevoked(property);
-            var targetDesc = _target.GetOwnProperty(property);
+            var targetDesc = target.GetOwnProperty(property);
             if (targetDesc != PropertyDescriptor.Undefined)
             {
                 if (targetDesc.IsDataDescriptor() && !targetDesc.Configurable && !targetDesc.Writable && !ReferenceEquals(result, targetDesc._value))
@@ -339,7 +340,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            var arguments = new[] { _target, TypeConverter.ToPropertyKey(property), PropertyDescriptor.FromPropertyDescriptor(_engine, desc) };
+            var arguments = new[] { _target, TypeConverter.ToPropertyKey(property), PropertyDescriptor.FromPropertyDescriptor(_engine, desc, strictUndefined: true) };
             if (!TryCallHandler(TrapDefineProperty, arguments, out var result))
             {
                 return _target.DefineOwnProperty(property, desc);
