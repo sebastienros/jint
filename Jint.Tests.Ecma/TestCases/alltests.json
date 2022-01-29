@@ -17685,8 +17685,8 @@
     source: "ch15/15.1/15.1.2/15.1.2.1/S15.1.2.1_A4.1.js"
   },
   {
-    skip: false,
-    reason: "",
+    skip: true,
+    reason: "Spec has changed",
     source: "ch15/15.1/15.1.2/15.1.2.1/S15.1.2.1_A4.2.js"
   },
   {

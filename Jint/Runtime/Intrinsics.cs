@@ -40,6 +40,7 @@ namespace Jint.Runtime
         private readonly Realm _realm;
 
         // lazy properties
+        private ThrowTypeError _throwTypeError;
         private ErrorConstructor _error;
         private ErrorConstructor _evalError;
         private ErrorConstructor _rangeError;
@@ -221,25 +222,27 @@ namespace Jint.Runtime
             _eval ??= new EvalFunctionInstance(_engine, _realm, Function.PrototypeObject);
 
         public ErrorConstructor Error =>
-            _error ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, _errorFunctionName);
+            _error ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, _errorFunctionName, static intrinsics => intrinsics.Error.PrototypeObject);
 
         public ErrorConstructor EvalError =>
-            _evalError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _evalErrorFunctionName);
+            _evalError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _evalErrorFunctionName, static intrinsics => intrinsics.EvalError.PrototypeObject);
 
         public ErrorConstructor SyntaxError =>
-            _syntaxError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _syntaxErrorFunctionName);
+            _syntaxError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _syntaxErrorFunctionName, static intrinsics => intrinsics.SyntaxError.PrototypeObject);
 
         public ErrorConstructor TypeError =>
-            _typeError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _typeErrorFunctionName);
+            _typeError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _typeErrorFunctionName, static intrinsics => intrinsics.TypeError.PrototypeObject);
 
         public ErrorConstructor RangeError =>
-            _rangeError ??=
-                new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _rangeErrorFunctionName);
+            _rangeError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _rangeErrorFunctionName, static intrinsics => intrinsics.RangeError.PrototypeObject);
 
-        public ErrorConstructor ReferenceError
-            => _referenceError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _referenceErrorFunctionName);
+        public ErrorConstructor ReferenceError =>
+            _referenceError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _referenceErrorFunctionName, static intrinsics => intrinsics.ReferenceError.PrototypeObject);
 
         public ErrorConstructor UriError =>
-            _uriError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _uriErrorFunctionName);
+            _uriError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _uriErrorFunctionName, static intrinsics => intrinsics.UriError.PrototypeObject);
+
+        public ThrowTypeError ThrowTypeError =>
+            _throwTypeError ??= new ThrowTypeError(_engine, _engine.Realm) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject };
     }
 }

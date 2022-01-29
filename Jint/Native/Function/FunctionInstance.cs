@@ -16,7 +16,7 @@ namespace Jint.Native.Function
         protected PropertyDescriptor _prototypeDescriptor;
 
         protected internal PropertyDescriptor _length;
-        private PropertyDescriptor _nameDescriptor;
+        internal PropertyDescriptor _nameDescriptor;
 
         protected internal EnvironmentRecord _environment;
         internal readonly JintFunctionDefinition _functionDefinition;

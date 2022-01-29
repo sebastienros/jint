@@ -67,7 +67,7 @@ namespace Jint.Native.Argument
                     CreateDataProperty(JsString.Create(i), val);
                 }
 
-                DefinePropertyOrThrow(CommonProperties.Callee, _engine._callerCalleeArgumentsThrowerNonConfigurable);
+                DefinePropertyOrThrow(CommonProperties.Callee, new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.CustomJsValue));
             }
             else
             {

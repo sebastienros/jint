@@ -44,18 +44,15 @@ namespace Jint.Runtime.Descriptors
         internal sealed class ThrowerPropertyDescriptor : PropertyDescriptor
         {
             private readonly Engine _engine;
-            private readonly string _message;
             private JsValue _thrower;
 
-            public ThrowerPropertyDescriptor(Engine engine, PropertyFlag flags, string message)
-                : base(flags)
+            public ThrowerPropertyDescriptor(Engine engine, PropertyFlag flags) : base(flags)
             {
                 _engine = engine;
-                _message = message;
             }
 
-            public override JsValue Get => _thrower ??= new ThrowTypeError(_engine, _engine.Realm, _message) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject};
-            public override JsValue Set => _thrower ??= new ThrowTypeError(_engine, _engine.Realm, _message) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject};
+            public override JsValue Get => _thrower ??= _engine.Realm.Intrinsics.ThrowTypeError;
+            public override JsValue Set => _thrower ??= _engine.Realm.Intrinsics.ThrowTypeError;
 
             protected internal override JsValue CustomValue
             {

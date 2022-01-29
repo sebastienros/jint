@@ -1,4 +1,5 @@
-﻿using Jint.Native.Function;
+﻿using System;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -7,20 +8,20 @@ namespace Jint.Native.Error
 {
     public sealed class ErrorConstructor : FunctionInstance, IConstructor
     {
-        private readonly JsString _name;
+        private readonly Func<Intrinsics, ObjectInstance> _intrinsicDefaultProto;
 
         internal ErrorConstructor(
             Engine engine,
             Realm realm,
             ObjectInstance functionPrototype,
             ObjectInstance objectPrototype,
-            JsString name)
+            JsString name, Func<Intrinsics, ObjectInstance> intrinsicDefaultProto)
             : base(engine, realm, name)
         {
-            _name = name;
+            _intrinsicDefaultProto = intrinsicDefaultProto;
             _prototype = functionPrototype;
             PrototypeObject = new ErrorPrototype(engine, realm, this, objectPrototype, name, ObjectClass.Object);
-            _length = PropertyDescriptor.AllForbiddenDescriptor.NumberOne;
+            _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
@@ -38,11 +39,14 @@ namespace Jint.Native.Error
 
         ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-nativeerror
+        /// </summary>
         private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
-                static intrinsics => intrinsics.Error.PrototypeObject,
+                _intrinsicDefaultProto,
                 static (engine, realm, state) => new ErrorInstance(engine));
 
             var jsValue = arguments.At(0);
