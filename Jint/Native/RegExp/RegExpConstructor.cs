@@ -24,7 +24,7 @@ namespace Jint.Native.RegExp
         {
             _prototype = functionPrototype;
             PrototypeObject = new RegExpPrototype(engine, realm, this, objectPrototype);
-            _length = new PropertyDescriptor(2, PropertyFlag.AllForbidden);
+            _length = new PropertyDescriptor(2, PropertyFlag.Configurable);
             _prototypeDescriptor= new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 

@@ -74,8 +74,27 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
             return Equals(bigInt);
         }
 
-        return value is JsNumber jsNumber && TypeConverter.IsIntegralNumber(jsNumber._value) && _value == new BigInteger(jsNumber._value)
-               || value is JsString jsString && TypeConverter.TryStringToBigInt(jsString.ToString(), out var temp) && temp == _value;
+        if (value is JsNumber number && TypeConverter.IsIntegralNumber(number._value) && _value == new BigInteger(number._value))
+        {
+            return true;
+        }
+
+        if (value is JsBoolean b)
+        {
+            return b._value && _value == BigInteger.One || !b._value && _value == BigInteger.Zero;
+        }
+
+        if (value is JsString s && TypeConverter.TryStringToBigInt(s.ToString(), out var temp) && temp == _value)
+        {
+            return true;
+        }
+
+        if (value.IsObject())
+        {
+            return IsLooselyEqual(TypeConverter.ToPrimitive(value, Types.Number));
+        }
+
+        return false;
     }
 
     public override bool Equals(object other)
