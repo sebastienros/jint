@@ -307,7 +307,7 @@ namespace Jint.Native.Function
             }
             else
             {
-                if (thisArgument == null || thisArgument.IsNullOrUndefined())
+                if (thisArgument is null || thisArgument.IsNullOrUndefined())
                 {
                     var globalEnv = calleeRealm.GlobalEnv;
                     thisValue = globalEnv.GlobalThisValue;
