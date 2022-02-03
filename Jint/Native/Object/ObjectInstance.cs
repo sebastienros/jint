@@ -959,10 +959,9 @@ namespace Jint.Native.Object
                     break;
 
                 case ObjectClass.Function:
-                    if (this is FunctionInstance function)
+                    if (this is ICallable function)
                     {
-                        converted = new Func<JsValue, JsValue[], JsValue>(
-                            (thisVal, args) => function.Engine.Invoke(function, (object) thisVal, args));
+                        converted = (Func<JsValue, JsValue[], JsValue>) function.Call;
                     }
 
                     break;
