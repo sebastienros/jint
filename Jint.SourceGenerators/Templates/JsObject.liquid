@@ -1,0 +1,113 @@
+#nullable enable
+
+#pragma warning disable CS0219
+
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+
+using Jint.HighPerformance;
+using Jint.Native.Function;
+using Jint.Native.Object;
+using Jint.Runtime;
+using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
+
+namespace {{ Namespace }};
+
+partial class {{ Name }}
+{
+{%- for item in Properties %}
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)] private PropertyDescriptor? __{{ item.Name }}_property_backingField;
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)] private PropertyDescriptor __{{ item.Name }}_property
+    {
+        [DebuggerStepThrough]
+        get { return __{{ item.Name }}_property_backingField ??= new PropertyDescriptor({% if item.IsStatic %}{{ Name }}.{% endif %}{{ item.ClrName }}, PropertyFlag.AllForbidden); }
+    }
+{% endfor %}
+
+{% for item in Functions %}
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)] private FunctionInstance? __{{ item.Name }}_backingField;
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)] private FunctionInstance __{{ item.Name }} { [MethodImpl(MethodImplOptions.AggressiveInlining)] get { return __{{ item.Name }}_backingField ??= new {{ item.ClrName }}Function(this); } }
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)] private PropertyDescriptor? __{{ item.Name }}_property_backingField;
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)] private PropertyDescriptor __{{ item.Name }}_property { [MethodImpl(MethodImplOptions.AggressiveInlining)] [DebuggerStepThrough] get { return __{{ item.Name }}_property_backingField ??= new PropertyDescriptor(__{{ item.Name }}, PropertyFlag.Writable | PropertyFlag.Configurable); } }
+
+{% endfor %}
+    protected override void Initialize()
+    {
+        CreateProperties();
+        CreateSymbols();
+    }
+
+    protected override bool TryGetProperty(JsValue property, [NotNullWhen(true)] out PropertyDescriptor? descriptor)
+    {
+        if (property is JsString jsString)
+        {
+            var str = jsString._value;
+            PropertyDescriptor? match = null;
+            {{ PropertyLookup }}
+            if (match is not null)
+            {
+                descriptor = match;
+                return true;
+            }
+        }
+        return base.TryGetProperty(property, out descriptor);
+    }
+
+    public override PropertyDescriptor GetOwnProperty(JsValue property)
+    {
+        if (property is JsString jsString)
+        {
+            var str = jsString._value;
+            PropertyDescriptor? match = null;
+            {{ PropertyLookup }}
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+        return base.GetOwnProperty(property);
+    }
+
+    protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
+    {
+        if (property is JsString jsString)
+        {
+            var str = jsString._value;
+            PropertyDescriptor? match = null;
+            {{ PropertySet }}
+            if (match is not null)
+            {
+throw new System.Exception("TROUBLE");
+          //      return;
+            }
+        }
+    }
+
+{%- for item in Functions %}
+    private sealed class {{ item.ClrName }}Function : FunctionInstance
+    {
+        private static readonly JsString _name = new JsString("{{ item.Name }}");
+        private readonly {{ Name }} _host;
+
+        public {{ item.ClrName }}Function({{ Name }} host) : base(host.Engine, host.Engine.Realm, _name)
+        {
+            _host = host;
+            _prototype = host.Engine._originalIntrinsics.Function.PrototypeObject;
+            _length = new PropertyDescriptor(JsNumber.Create({{ item.Length }}), PropertyFlag.Configurable);
+        }
+
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        {
+{%- if item.IsStatic %}
+             return {{ Name }}.{{ item.ClrName }}({{ item.ParametersString }});
+{%- else %}
+            return _host.{{ item.ClrName }}({{ item.ParametersString }});
+{%- endif %}
+        }
+
+        public override string ToString() => "function {{ item.Name }}() { [native code] }";
+    }
+{% endfor %}
+}
