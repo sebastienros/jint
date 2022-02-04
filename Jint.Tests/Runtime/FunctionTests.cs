@@ -158,5 +158,72 @@ assertEqual(booleanCount, 1);
             ev(null, new JsValue[] { 20 });
             Assert.Equal(30, engine.Evaluate("a"));
         }
+
+
+        [Fact]
+        public void BoundFunctionsCanBePassedToHost()
+        {
+            var engine = new Engine();
+            Func<JsValue, JsValue[], JsValue> ev = null;
+
+            void addListener(Func<JsValue, JsValue[], JsValue> callback)
+            {
+                ev = callback;
+            }
+
+            engine.SetValue("addListener", new Action<Func<JsValue, JsValue[], JsValue>>(addListener));
+
+            engine.Execute(@"
+                var a = 5;
+
+                (function() {
+                    addListener(function (acc, val) {
+                        a = (val || 0) + acc;
+                    }.bind(null, 10));
+                })();
+            ");
+
+            Assert.Equal(5, engine.Evaluate("a"));
+
+            ev(null, new JsValue[0]);
+            Assert.Equal(10, engine.Evaluate("a"));
+
+            ev(null, new JsValue[] { 20 });
+            Assert.Equal(30, engine.Evaluate("a"));
+        }
+
+        [Fact]
+        public void ConstructorsCanBePassedToHost()
+        {
+            var engine = new Engine();
+            Func<JsValue, JsValue[], JsValue> ev = null;
+
+            void addListener(Func<JsValue, JsValue[], JsValue> callback)
+            {
+                ev = callback;
+            }
+
+            engine.SetValue("addListener", new Action<Func<JsValue, JsValue[], JsValue>>(addListener));
+
+            engine.Execute(@"addListener(Boolean)");
+
+            Assert.Equal(true, ev(JsValue.Undefined, new JsValue[] { "test" }));
+            Assert.Equal(true, ev(JsValue.Undefined, new JsValue[] { 5 }));
+            Assert.Equal(false, ev(JsValue.Undefined, new JsValue[] { false }));
+            Assert.Equal(false, ev(JsValue.Undefined, new JsValue[] { 0}));
+            Assert.Equal(false, ev(JsValue.Undefined, new JsValue[] { JsValue.Undefined }));
+        }
+
+
+        [Fact]
+        public void FunctionsShouldResolveToSameReference()
+        {
+            var engine = new Engine();
+            engine.SetValue("equal", new Action<object, object>(Assert.Equal));
+            engine.Execute(@"
+                function testFn() {}
+                equal(testFn, testFn);
+            ");
+        }
     }
 }
