@@ -29,7 +29,7 @@ namespace Jint.Tests.Runtime
                 }
             }));
 
-            var result = await engine.EvaluateAsync(@"
+            await engine.ExecuteAsync(@"
                 setTimeout(function () {
                     ctx.Result = 'Hello World';
                 }, 100);
@@ -55,7 +55,7 @@ namespace Jint.Tests.Runtime
                 }
             }));
 
-            var result = await engine.EvaluateAsync(@"
+            await engine.ExecuteAsync(@"
                 setTimeout(function () {
                     setTimeout(function () {
                         setTimeout(function () {
@@ -84,7 +84,7 @@ namespace Jint.Tests.Runtime
                 }
             }));
 
-            var result = await engine.EvaluateAsync(@"
+            await engine.ExecuteAsync(@"
                 setTimeout(function () {
                     ctx.Result = 'Hello World';
                 }, 100);

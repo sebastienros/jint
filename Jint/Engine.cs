@@ -265,7 +265,43 @@ namespace Jint
 
         public Engine Execute(Script script)
         {
-            _ = ExecuteAsync(script);
+            Engine DoInvoke()
+            {
+                GlobalDeclarationInstantiation(
+                    script,
+                    Realm.GlobalEnv);
+
+                var list = new JintStatementList(null, script.Body);
+
+                Completion result;
+                try
+                {
+                    result = list.Execute(_activeEvaluationContext);
+                }
+                catch
+                {
+                    // unhandled exception
+                    ResetCallStack();
+                    throw;
+                }
+
+                if (result.Type == CompletionType.Throw)
+                {
+                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
+                    ResetCallStack();
+                    throw ex;
+                }
+
+                // TODO what about callstack and thrown exceptions?
+                RunAvailableContinuations(_eventLoop);
+
+                _completionValue = result.GetValueOrDefault();
+
+                return this;
+            }
+
+            var strict = _isStrict || script.Strict;
+            ExecuteWithConstraints(strict, DoInvoke);
 
             return this;
         }
