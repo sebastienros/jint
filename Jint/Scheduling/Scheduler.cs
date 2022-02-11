@@ -12,6 +12,12 @@ namespace Jint.Scheduling
         private bool _isRunning;
         private bool _isDisposed;
         private bool _isMainFlow = true;
+        private bool _allowAsyncFlow;
+
+        public Scheduler(bool allowAsyncFlow)
+        {
+            _allowAsyncFlow = allowAsyncFlow;
+        }
 
         public Task Completion
         {
@@ -45,6 +51,11 @@ namespace Jint.Scheduling
             {
                 _inlinedTasks.Enqueue(action);
                 return;
+            }
+
+            if (!_allowAsyncFlow)
+            {
+                throw new InvalidOperationException("You can only run async task when using ExecuteAsync()");
             }
 
             _isRunning = true;

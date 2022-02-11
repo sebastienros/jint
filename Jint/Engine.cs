@@ -265,7 +265,7 @@ namespace Jint
 
         public Engine Execute(Script script)
         {
-            using (var scheduler = new Scheduler())
+            using (var scheduler = new Scheduler(false))
             {
                 try
                 {
@@ -284,7 +284,7 @@ namespace Jint
 
         public async Task<Engine> ExecuteAsync(Script script)
         {
-            using (var scheduler = new Scheduler())
+            using (var scheduler = new Scheduler(true))
             {
                 try
                 {
@@ -351,6 +351,11 @@ namespace Jint
 
         public IDeferredTask CreateTask()
         {
+            if (_schedulers.Count == 0)
+            {
+                throw new InvalidOperationException("Not within a script.");
+            }
+
             return _schedulers.Peek().CreateTask();
         }
 
