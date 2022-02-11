@@ -11,6 +11,7 @@ namespace Jint.Scheduling
         private readonly Queue<Action> _inlinedTasks = new Queue<Action>();
         private bool _isRunning;
         private bool _isDisposed;
+        private bool _isMainFlow = true;
 
         public Task Completion
         {
@@ -55,12 +56,13 @@ namespace Jint.Scheduling
 
                 TryComplete();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!_isMainFlow)
             {
                 _taskCompletionSource.TrySetException(ex);
             }
             finally
             {
+                _isMainFlow = false;
                 _isRunning = false;
             }
         }

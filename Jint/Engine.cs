@@ -38,7 +38,7 @@ namespace Jint
         internal EvaluationContext _activeEvaluationContext;
 
         private readonly EventLoop _eventLoop = new();
-        private Scheduler _scheduler;
+        private readonly Stack<Scheduler> _schedulers = new Stack<Scheduler>();
 
         // lazy properties
         private DebugHandler _debugHandler;
@@ -265,6 +265,46 @@ namespace Jint
 
         public Engine Execute(Script script)
         {
+            using (var scheduler = new Scheduler())
+            {
+                try
+                {
+                    _schedulers.Push(scheduler);
+
+                    ExecuteWithScheduler(scheduler, script);
+                }
+                finally
+                {
+                    _schedulers.Pop();
+                }
+            }
+
+            return this;
+        }
+
+        public async Task<Engine> ExecuteAsync(Script script)
+        {
+            using (var scheduler = new Scheduler())
+            {
+                try
+                {
+                    _schedulers.Push(scheduler);
+
+                    ExecuteWithScheduler(scheduler, script);
+
+                    await scheduler.Completion;
+                }
+                finally
+                {
+                    _schedulers.Pop();
+                }
+            }
+
+            return this;
+        }
+
+        private void ExecuteWithScheduler(Scheduler scheduler, Script script)
+        {
             Engine DoInvoke()
             {
                 GlobalDeclarationInstantiation(
@@ -300,70 +340,18 @@ namespace Jint
                 return this;
             }
 
-            var strict = _isStrict || script.Strict;
-            ExecuteWithConstraints(strict, DoInvoke);
-
-            return this;
-        }
-
-        public async Task<Engine> ExecuteAsync(Script script)
-        {
-            if (_scheduler != null)
-            {
-                throw new InvalidOperationException("Another call is pending.");
-            }
-
-            _scheduler = new Scheduler();
-
-            Engine DoInvoke()
-            {
-                GlobalDeclarationInstantiation(
-                    script,
-                    Realm.GlobalEnv);
-
-                var list = new JintStatementList(null, script.Body);
-
-                Completion result;
-                try
-                {
-                    result = list.Execute(_activeEvaluationContext);
-                }
-                catch
-                {
-                    // unhandled exception
-                    ResetCallStack();
-                    throw;
-                }
-
-                if (result.Type == CompletionType.Throw)
-                {
-                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
-                    ResetCallStack();
-                    throw ex;
-                }
-
-                // TODO what about callstack and thrown exceptions?
-                RunAvailableContinuations(_eventLoop);
-
-                return this;
-            }
-
-            var task = _scheduler.CreateTask();
+            var task = scheduler.CreateTask();
 
             task.Invoke(() =>
             {
                 var strict = _isStrict || script.Strict;
                 ExecuteWithConstraints(strict, DoInvoke);
             });
-
-            await _scheduler.Completion;
-
-            return this;
         }
 
         public IDeferredTask CreateTask()
         {
-            return _scheduler.CreateTask();
+            return _schedulers.Peek().CreateTask();
         }
 
         /// <summary>
