@@ -257,24 +257,6 @@ namespace Jint
         public Engine Execute(string source, ParserOptions parserOptions)
             => Execute(new JavaScriptParser(source, parserOptions).ParseScript());
 
-        public async Task<JsValue> EvaluateAsync(string source)
-        {
-            await ExecuteAsync(source, DefaultParserOptions);
-            return _completionValue;
-        }
-
-        public async Task<JsValue> EvaluateAsync(string source, ParserOptions parserOptions)
-        {
-            await ExecuteAsync(source, parserOptions);
-            return _completionValue;
-        }
-
-        public async Task<JsValue> EvaluateAsync(Script script)
-        {
-            await ExecuteAsync(script);
-            return _completionValue;
-        }
-
         public Task<Engine> ExecuteAsync(string source)
             => ExecuteAsync(source, DefaultParserOptions);
 
