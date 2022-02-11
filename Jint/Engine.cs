@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -20,6 +21,7 @@ using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
+using Jint.Scheduling;
 
 namespace Jint
 {
@@ -36,6 +38,7 @@ namespace Jint
         internal EvaluationContext _activeEvaluationContext;
 
         private readonly EventLoop _eventLoop = new();
+        private Scheduler _scheduler;
 
         // lazy properties
         private DebugHandler _debugHandler;
@@ -50,6 +53,7 @@ namespace Jint
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
         internal readonly ExtensionMethodCache _extensionMethods;
+
 
         public ITypeConverter ClrTypeConverter { get; internal set; }
 
@@ -253,8 +257,46 @@ namespace Jint
         public Engine Execute(string source, ParserOptions parserOptions)
             => Execute(new JavaScriptParser(source, parserOptions).ParseScript());
 
+        public async Task<JsValue> EvaluateAsync(string source)
+        {
+            await ExecuteAsync(source, DefaultParserOptions);
+            return _completionValue;
+        }
+
+        public async Task<JsValue> EvaluateAsync(string source, ParserOptions parserOptions)
+        {
+            await ExecuteAsync(source, parserOptions);
+            return _completionValue;
+        }
+
+        public async Task<JsValue> EvaluateAsync(Script script)
+        {
+            await ExecuteAsync(script);
+            return _completionValue;
+        }
+
+        public Task<Engine> ExecuteAsync(string source)
+            => ExecuteAsync(source, DefaultParserOptions);
+
+        public Task<Engine> ExecuteAsync(string source, ParserOptions parserOptions)
+            => ExecuteAsync(new JavaScriptParser(source, parserOptions).ParseScript());
+
         public Engine Execute(Script script)
         {
+            _ = ExecuteAsync(script);
+
+            return this;
+        }
+
+        public async Task<Engine> ExecuteAsync(Script script)
+        {
+            if (_scheduler != null)
+            {
+                throw new InvalidOperationException("Another call is pending.");
+            }
+
+            _scheduler = new Scheduler();
+
             Engine DoInvoke()
             {
                 GlobalDeclarationInstantiation(
@@ -285,15 +327,25 @@ namespace Jint
                 // TODO what about callstack and thrown exceptions?
                 RunAvailableContinuations(_eventLoop);
 
-                _completionValue = result.GetValueOrDefault();
-
                 return this;
             }
 
-            var strict = _isStrict || script.Strict;
-            ExecuteWithConstraints(strict, DoInvoke);
+            var task = _scheduler.CreateTask();
+
+            task.Invoke(() =>
+            {
+                var strict = _isStrict || script.Strict;
+                ExecuteWithConstraints(strict, DoInvoke);
+            });
+
+            await _scheduler.Completion;
 
             return this;
+        }
+
+        public IDeferredTask CreateTask()
+        {
+            return _scheduler.CreateTask();
         }
 
         /// <summary>
