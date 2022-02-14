@@ -17,15 +17,16 @@ namespace Jint.Native.Date
         internal static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         private static readonly string[] DefaultFormats = {
-            "yyyy-MM-ddTHH:mm:ss.FFF",
-            "yyyy-MM-ddTHH:mm:ss",
-            "yyyy-MM-ddTHH:mm",
             "yyyy-MM-dd",
             "yyyy-MM",
             "yyyy"
         };
 
         private static readonly string[] SecondaryFormats = {
+            "yyyy-MM-ddTHH:mm:ss.FFF",
+            "yyyy-MM-ddTHH:mm:ss",
+            "yyyy-MM-ddTHH:mm",
+            
             // Formats used in DatePrototype toString methods
             "ddd MMM dd yyyy HH:mm:ss 'GMT'K",
             "ddd MMM dd yyyy",

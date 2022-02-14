@@ -1109,9 +1109,9 @@ namespace Jint.Tests.Runtime
         [InlineData("1970")]
         [InlineData("1970-01")]
         [InlineData("1970-01-01")]
-        [InlineData("1970-01-01T00:00")]
-        [InlineData("1970-01-01T00:00:00")]
-        [InlineData("1970-01-01T00:00:00.000")]
+        [InlineData("1970-01-01T00:00Z")]
+        [InlineData("1970-01-01T00:00:00Z")]
+        [InlineData("1970-01-01T00:00:00.000Z")]
         [InlineData("1970Z")]
         [InlineData("1970-1Z")]
         [InlineData("1970-1-1Z")]
@@ -1137,6 +1137,9 @@ namespace Jint.Tests.Runtime
         }
 
         [Theory]
+        [InlineData("1970-01-01T00:00")]
+        [InlineData("1970-01-01T00:00:00")]
+        [InlineData("1970-01-01T00:00:00.000")]
         [InlineData("1970/01")]
         [InlineData("1970/01/01")]
         [InlineData("1970/01/01T00:00")]
@@ -1314,10 +1317,10 @@ var prep = function (fn) { fn(); };
         {
             var engine = new Engine();
 
-            var minValue = engine.Evaluate("new Date('0001-01-01T00:00:00.000')").ToObject();
+            var minValue = engine.Evaluate("new Date('0001-01-01T00:00:00.000Z')").ToObject();
             Assert.Equal(new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc), minValue);
 
-            var maxValue = engine.Evaluate("new Date('9999-12-31T23:59:59.999')").ToObject();
+            var maxValue = engine.Evaluate("new Date('9999-12-31T23:59:59.999Z')").ToObject();
 
 #if NETCOREAPP
             Assert.Equal(new DateTime(9999, 12, 31, 23, 59, 59, 998, DateTimeKind.Utc), maxValue);
@@ -1920,7 +1923,7 @@ var prep = function (fn) { fn(); };
         {
 
             RunTest(@"
-                var d = new Date('1969-01-01T08:17:00');
+                var d = new Date('1969-01-01T08:17:00Z');
                 d.setYear(2015);
                 equal('2015-01-01T08:17:00.000Z', d.toISOString());
             ");
