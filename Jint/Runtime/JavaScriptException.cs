@@ -89,7 +89,7 @@ namespace Jint.Runtime
             }
         }
 
-        public Location Location { get; private set; }
+        public Location Location { get; protected set; }
 
         public int LineNumber => Location.Start.Line;
 
