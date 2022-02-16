@@ -325,5 +325,106 @@ var x = b(7);";
             actualString = actualString.Replace("\r\n", "\n");
             Assert.Contains(expectedSubstring, actualString);
         }
+
+        [Fact]
+        public void CustomException()
+        {
+            var engine = new Engine();
+            const string filename = "someFile.js";
+            JintJsException jsException = Assert.Throws<JintJsException>(() =>
+            {
+                try
+                {
+                    const string script = @"
+                        var test = 42; // just adding a line for a non zero line offset
+                        throw new Error('blah');
+                    ";
+
+                    engine.Execute(script);
+                }
+                catch (JavaScriptException ex)
+                {
+                    throw new JintJsException(filename, ex);
+                }
+            });
+
+            Assert.Equal(24, jsException.Column);
+            Assert.Equal(3, jsException.LineNumber);
+            Assert.Equal(filename, jsException.Module);
+        }
+
+        [Fact]
+        public void CustomExceptionUsesCopyConstructor()
+        {
+            var engine = new Engine();
+            const string filename = "someFile.js";
+            JintJsException2 jsException = Assert.Throws<JintJsException2>(() =>
+            {
+                try
+                {
+                    const string script = @"
+                        var test = 42; // just adding a line for a non zero line offset
+                        throw new Error('blah');
+                    ";
+
+                    engine.Execute(script);
+                }
+                catch (JavaScriptException ex)
+                {
+                    throw new JintJsException2(filename, ex);
+                }
+            });
+
+            Assert.Equal(24, jsException.Column);
+            Assert.Equal(3, jsException.LineNumber);
+            Assert.Equal(filename, jsException.Module);
+        }
+
+    }
+
+    public class JintJsException : JavaScriptException
+    {
+        public string Module
+        {
+            get;
+            private set;
+        }
+        private JavaScriptException _jsException;
+
+        public JintJsException(string moduleName, JavaScriptException jsException) : base(jsException.Error)
+        {
+            Module = moduleName;
+            _jsException = jsException;
+            Location = jsException.Location;
+        }
+
+        public override string Message
+        {
+            get
+            {
+                var scriptFilename = (Module != null) ? "Filepath: " + Module + " " : "";
+                var errorMsg = $"{scriptFilename}{_jsException.Message}";
+                return errorMsg;
+            }
+        }
+
+        public override string? StackTrace
+        {
+            get { return _jsException.StackTrace; }
+        }
+    }
+
+    public class JintJsException2 : JavaScriptException
+    {
+        public string Module
+		{
+            get;
+            private set;
+		}
+	
+        public JintJsException2(string moduleName, JavaScriptException jsException) : base(jsException)
+        {
+            Module = moduleName;
+        }
     }
 }
