@@ -547,6 +547,22 @@ namespace Jint.Tests.Runtime
             ");
         }
 
+        [Theory]
+        [InlineData(2147483647, 1, 2147483648)]
+        [InlineData(-2147483647, -2, -2147483649)]
+        public void IntegerAdditionShouldNotOverflow(int lhs, int rhs, long result)
+        {
+            RunTest($"assert({lhs} + {rhs} == {result})");
+        }
+
+        [Theory]
+        [InlineData(2147483647, -1, 2147483648)]
+        [InlineData(-2147483647, 2, -2147483649)]
+        public void IntegerSubtractionShouldNotOverflow(int lhs, int rhs, long result)
+        {
+            RunTest($"assert({lhs} - {rhs} == {result})");
+        }
+
         [Fact]
         public void ToNumberHandlesStringObject()
         {
