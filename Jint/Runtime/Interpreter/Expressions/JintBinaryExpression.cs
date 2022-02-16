@@ -268,7 +268,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (AreIntegerOperands(left, right))
                 {
-                    return NormalCompletion(JsNumber.Create(left.AsInteger() + right.AsInteger()));
+                    return NormalCompletion(JsNumber.Create((long)left.AsInteger() + right.AsInteger()));
                 }
 
                 var lprim = TypeConverter.ToPrimitive(left);
@@ -315,7 +315,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (AreIntegerOperands(left, right))
                 {
-                    number = JsNumber.Create(left.AsInteger() - right.AsInteger());
+                    number = JsNumber.Create((long)left.AsInteger() - right.AsInteger());
                 }
                 else if (AreNonBigIntOperands(left, right))
                 {
