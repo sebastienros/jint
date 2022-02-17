@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 
 using System;
 using Esprima;
@@ -12,7 +12,6 @@ namespace Jint.Runtime
     public class JavaScriptException : JintException
     {
         private string? _callStack;
-		//private JavaScriptException jsException;
 
 		public JavaScriptException(ErrorConstructor errorConstructor) : base("")
         {
@@ -36,18 +35,18 @@ namespace Jint.Runtime
             Error = error;
         }
 
-        // Copy constructors
-        public JavaScriptException(JavaScriptException exception, Exception? innerException) : base(exception.Message, exception.InnerException)
-        {
-            Error = exception.Error;
-            Location = exception.Location;
-        }
+		// Copy constructors
+		public JavaScriptException(JavaScriptException exception, Exception? innerException) : base(exception.Message, exception.InnerException)
+		{
+			Error = exception.Error;
+			Location = exception.Location;
+		}
 
-        public JavaScriptException(JavaScriptException exception) : base(exception.Message)
-        {
-            Error = exception.Error;
-            Location = exception.Location;
-        }
+		public JavaScriptException(JavaScriptException exception) : base(exception.Message)
+		{
+			Error = exception.Error;
+			Location = exception.Location;
+		}
 
         internal JavaScriptException SetCallstack(Engine engine, Location location)
         {
