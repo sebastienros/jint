@@ -138,10 +138,12 @@ namespace Jint.Runtime.Environments
 
         internal override void SetMutableBinding(in BindingName name, JsValue value, bool strict)
         {
-            if (!_bindingObject.Set(name.StringValue, value) && strict)
+            if (strict && !_bindingObject.HasProperty(name.StringValue))
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm);
+                ExceptionHelper.ThrowReferenceError(_engine.Realm, name.Key);
             }
+                
+            _bindingObject.Set(name.StringValue, value);
         }
 
         public override JsValue GetBindingValue(string name, bool strict)

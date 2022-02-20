@@ -356,7 +356,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var leftNumeric = TypeConverter.ToNumeric(left);
                     var rightNumeric = TypeConverter.ToNumeric(right);
 
-                    if (leftNumeric.IsNumber())
+                    if (leftNumeric.IsNumber() && rightNumeric.IsNumber())
                     {
                         result = JsNumber.Create(leftNumeric.AsNumber() * rightNumeric.AsNumber());
                     }
