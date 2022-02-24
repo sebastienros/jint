@@ -286,8 +286,11 @@ namespace Jint.Runtime.Interop
 			{
                 foreach(var methodInfo in extensionMethods)
 				{
-                    methods ??= new List<MethodInfo>();
-                    methods.Add(methodInfo);
+                    if (memberNameComparer.Equals(methodInfo.Name, memberName))
+                    {
+                        methods ??= new List<MethodInfo>();
+                        methods.Add(methodInfo);
+                    }
 				}
 			}
 
