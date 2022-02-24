@@ -1,8 +1,11 @@
-﻿using Jint.Native;
+using Jint.Native;
 using Jint.Tests.Runtime.Domain;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
+using Xunit.Abstractions;
+using System.IO;
+using System.Text;
 
 namespace Jint.Tests.Runtime.ExtensionMethods
 {
@@ -156,5 +159,59 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             // Thus, the following script will not work as expected.
             // stringList.Select((x, i) => x + i).ToArray().join()
         }
+
+        [Fact]
+        public void GenericTypeExtension()
+        {
+            var options = new Options();
+            options.AddExtensionMethods(typeof(ObservableExtensions));
+
+            var engine = new Engine(options);
+
+            engine.SetValue("log", new System.Action<object>(System.Console.WriteLine));
+
+            NameObservable observable = new NameObservable();
+
+            engine.SetValue("observable", observable);
+            engine.Evaluate(@"
+                log('before');
+                observable.Subscribe((name) =>{
+                    log('observable: subscribe: name: ' + name);
+                });
+
+                observable.UpdateName('foobar');
+                log('after');
+            ");
+
+            Assert.Equal("foobar", observable.Last);
+        }
+
+
+        private class Converter : TextWriter
+        {
+            ITestOutputHelper _output;
+            public Converter(ITestOutputHelper output)
+            {
+                _output = output;
+            }
+            public override Encoding Encoding
+            {
+                get { return Encoding.ASCII; }
+            }
+            public override void WriteLine(string message)
+            {
+                _output.WriteLine(message);
+            }
+            public override void WriteLine(string format, params object[] args)
+            {
+                _output.WriteLine(format, args);
+            }
+
+            public override void Write(char value)
+            {
+                throw new System.Exception("This text writer only supports WriteLine(string) and WriteLine(string, params object[]).");
+            }
+        }
     }
+
 }
