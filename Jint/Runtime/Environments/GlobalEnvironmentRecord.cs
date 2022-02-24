@@ -130,10 +130,13 @@ namespace Jint.Runtime.Environments
             {
                 // fast inlined path as we know we target global, otherwise would be
                 // _objectRecord.SetMutableBinding(name, value, strict);
-                if (!_global.Set(name, value) && strict)
+                var property = JsString.Create(name);
+                if (strict && !_global.HasProperty(property))
                 {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm);
+                    ExceptionHelper.ThrowReferenceError(_engine.Realm, name);
                 }
+
+                _global.Set(property, value);
             }
         }
 
