@@ -7,17 +7,23 @@ using Esprima.Ast;
 
 namespace Jint.Runtime.Modules;
 
-public class DefaultModuleLoader : IModuleLoader
+public sealed class DefaultModuleLoader : IModuleLoader
 {
     private readonly Uri _basePath;
     private readonly bool _restrictToBasePath;
 
-    public DefaultModuleLoader(string basePath, bool restrictToBasePath = true)
+    public DefaultModuleLoader(string basePath) : this(basePath, true)
+    {
+
+    }
+
+    public DefaultModuleLoader(string basePath, bool restrictToBasePath)
     {
         if (string.IsNullOrWhiteSpace(basePath))
         {
             ExceptionHelper.ThrowArgumentException("Value cannot be null or whitespace.", nameof(basePath));
         }
+
         _restrictToBasePath = restrictToBasePath;
 
         if (!Uri.TryCreate(basePath, UriKind.Absolute, out _basePath))
@@ -26,6 +32,7 @@ public class DefaultModuleLoader : IModuleLoader
             {
                 ExceptionHelper.ThrowArgumentException("Path must be rooted", nameof(basePath));
             }
+
             basePath = Path.GetFullPath(basePath);
             _basePath = new Uri(basePath, UriKind.Absolute);
         }
@@ -38,7 +45,7 @@ public class DefaultModuleLoader : IModuleLoader
         }
     }
 
-    public virtual ResolvedSpecifier Resolve(string? referencingModuleLocation, string specifier)
+    public ResolvedSpecifier Resolve(string? referencingModuleLocation, string specifier)
     {
         if (string.IsNullOrEmpty(specifier))
         {
@@ -85,12 +92,6 @@ public class DefaultModuleLoader : IModuleLoader
                 ExceptionHelper.ThrowModuleResolutionException("Unsupported Directory Import", specifier, referencingModuleLocation);
                 return default;
             }
-
-            if (!FileExists(resolved))
-            {
-                ExceptionHelper.ThrowModuleResolutionException("Module Not Found", specifier, referencingModuleLocation);
-                return default;
-            }
         }
 
         if (_restrictToBasePath && !_basePath.IsBaseOf(resolved))
@@ -107,16 +108,11 @@ public class DefaultModuleLoader : IModuleLoader
         );
     }
 
-    protected virtual bool FileExists(Uri uri)
-    {
-        return File.Exists(uri.LocalPath);
-    }
-
-    public virtual Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+    public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
     {
         if (resolved.Type != SpecifierType.RelativeOrAbsolute)
         {
-            ExceptionHelper.ThrowNotSupportedException($"The default module loader can only resolve files. You can define modules directly to allow imports using Engine.DefineModule(). Attempted to resolve: '{resolved.Specifier}'.");
+            ExceptionHelper.ThrowNotSupportedException($"The default module loader can only resolve files. You can define modules directly to allow imports using {nameof(Engine)}.{nameof(Engine.AddModule)}(). Attempted to resolve: '{resolved.Specifier}'.");
             return default;
         }
 
@@ -125,7 +121,13 @@ public class DefaultModuleLoader : IModuleLoader
             ExceptionHelper.ThrowInvalidOperationException($"Module '{resolved.Specifier}' of type '{resolved.Type}' has no resolved URI.");
         }
 
-        var code = ReadAllText(resolved.Uri);
+        if (!File.Exists(resolved.Uri.AbsolutePath))
+        {
+            ExceptionHelper.ThrowArgumentException("Module Not Found: ", resolved.Specifier);
+            return default;
+        }
+
+        var code = File.ReadAllText(resolved.Uri.LocalPath);
 
         Module module;
         try
@@ -147,13 +149,8 @@ public class DefaultModuleLoader : IModuleLoader
         return module;
     }
 
-    protected virtual string ReadAllText(Uri uri)
-    {
-        return File.ReadAllText(uri.LocalPath);
-    }
-
     private static bool IsRelative(string specifier)
     {
-        return specifier.StartsWith("./") || specifier.StartsWith("../") || specifier.StartsWith("/");
+        return specifier.StartsWith(".") || specifier.StartsWith("/");
     }
 }

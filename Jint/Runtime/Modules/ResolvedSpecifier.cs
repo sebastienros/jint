@@ -1,6 +1,6 @@
-﻿using System;
+﻿#nullable enable
 
-#nullable enable
+using System;
 
 namespace Jint.Runtime.Modules;
 

@@ -15,7 +15,7 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
 
     protected override void Initialize(EvaluationContext context)
     {
-        _init = JintExpression.Build(context.Engine, (Expression) _statement.Declaration);
+        _init = JintExpression.Build(context.Engine, (Expression)_statement.Declaration);
     }
 
     // https://tc39.es/ecma262/#sec-exports-runtime-semantics-evaluation
