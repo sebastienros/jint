@@ -2,6 +2,7 @@
 using Esprima.Ast;
 using System.Collections.Generic;
 using System.Linq;
+using Esprima;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -43,7 +44,7 @@ internal sealed record ExportResolveSetItem(
 /// https://tc39.es/ecma262/#sec-cyclic-module-records
 /// https://tc39.es/ecma262/#sec-source-text-module-records
 /// </summary>
-public sealed class JsModule : JsValue
+public sealed class JsModule : JsValue, IScriptOrModule
 {
     private readonly Engine _engine;
     private readonly Realm _realm;
@@ -68,7 +69,6 @@ public sealed class JsModule : JsValue
     private readonly List<ExportEntry> _localExportEntries;
     private readonly List<ExportEntry> _indirectExportEntries;
     private readonly List<ExportEntry> _starExportEntries;
-    internal readonly string _location;
     internal JsValue _evalResult;
 
     internal JsModule(Engine engine, Realm realm, Module source, string location, bool async) : base(InternalTypes.Module)
@@ -76,7 +76,7 @@ public sealed class JsModule : JsValue
         _engine = engine;
         _realm = realm;
         _source = source;
-        _location = location;
+        Location = location;
 
         _importMeta = _realm.Intrinsics.Object.Construct(1);
         _importMeta.DefineOwnProperty("url", new PropertyDescriptor(location, PropertyFlag.ConfigurableEnumerableWritable));
@@ -93,6 +93,7 @@ public sealed class JsModule : JsValue
 
     }
 
+    public string Location { get; }
     internal ModuleStatus Status { get; private set; }
 
     /// <summary>
@@ -131,6 +132,12 @@ public sealed class JsModule : JsValue
         return m;
     }
 
+    internal void BindExportedValue(string name, JsValue value)
+    {
+        _environment.CreateImmutableBindingAndInitialize(name, true, value);
+        _localExportEntries.Add(new ExportEntry(name, null, null, null));
+    }
+
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getexportednames
     /// </summary>
@@ -148,13 +155,13 @@ public sealed class JsModule : JsValue
         for (var i = 0; i < _localExportEntries.Count; i++)
         {
             var e = _localExportEntries[i];
-            exportedNames.Add(e.ExportName);
+            exportedNames.Add(e.ImportName ?? e.ExportName);
         }
 
         for (var i = 0; i < _indirectExportEntries.Count; i++)
         {
             var e = _indirectExportEntries[i];
-            exportedNames.Add(e.ExportName);
+            exportedNames.Add(e.ImportName ?? e.ExportName);
         }
 
         for(var i = 0; i < _starExportEntries.Count; i++)
@@ -165,7 +172,7 @@ public sealed class JsModule : JsValue
 
             for (var j = 0; j < starNames.Count; j++)
             {
-                var n = starNames[i];
+                var n = starNames[j];
                 if (!"default".Equals(n) && !exportedNames.Contains(n))
                 {
                     exportedNames.Add(n);
@@ -198,16 +205,16 @@ public sealed class JsModule : JsValue
         {
             var e = _localExportEntries[i];
 
-            if (exportName == e.ExportName)
+            if (exportName == (e.ImportName ?? e.ExportName))
             {
-                return new ResolvedBinding(this, e.LocalName);
+                return new ResolvedBinding(this, e.LocalName ?? e.ExportName);
             }
         }
 
         for(var i = 0; i < _indirectExportEntries.Count; i++)
         {
             var e = _localExportEntries[i];
-            if (exportName.Equals(e.ExportName))
+            if (exportName.Equals(e.ImportName ?? e.ExportName))
             {
                 var importedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
                 if(e.ImportName == "*")
@@ -374,7 +381,8 @@ public sealed class JsModule : JsValue
     /// </summary>
     private int Link(JsModule module, Stack<JsModule> stack, int index)
     {
-        if(module.Status is ModuleStatus.Linking or
+        if(module.Status is
+           ModuleStatus.Linking or
            ModuleStatus.Linked or
            ModuleStatus.EvaluatingAsync or
            ModuleStatus.Evaluating)
@@ -399,16 +407,20 @@ public sealed class JsModule : JsValue
         {
             var requiredModule = _engine._host.ResolveImportedModule(module, moduleSpecifier);
 
+            //TODO: Should we link only when a module is requested? https://tc39.es/ecma262/#sec-example-cyclic-module-record-graphs Should we support retry?
+            if (requiredModule.Status == ModuleStatus.Unlinked)
+                requiredModule.Link();
+
             if (requiredModule.Status != ModuleStatus.Linking &&
                 requiredModule.Status != ModuleStatus.Linked &&
                 requiredModule.Status != ModuleStatus.Evaluated)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Required module is in an invalid state");
+                ExceptionHelper.ThrowInvalidOperationException($"Error while linking module: Required module is in an invalid state: {requiredModule.Status}");
             }
 
             if(requiredModule.Status == ModuleStatus.Linking && !stack.Contains(requiredModule))
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Required module is in an invalid state");
+                ExceptionHelper.ThrowInvalidOperationException($"Error while linking module: Required module is in an invalid state: {requiredModule.Status}");
             }
 
             if (requiredModule.Status == ModuleStatus.Linking)
@@ -492,16 +504,38 @@ public sealed class JsModule : JsValue
 
             index = TypeConverter.ToInt32(result.Value);
 
+            // TODO: Validate this behavior: https://tc39.es/ecma262/#sec-example-cyclic-module-record-graphs
+            if (requiredModule.Status == ModuleStatus.Linked)
+            {
+                var evaluationResult = requiredModule.Evaluate();
+                if (evaluationResult == null)
+                {
+                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise");
+                }
+                else if (evaluationResult is not PromiseInstance promise)
+                {
+                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");
+                }
+                else if (promise.State == PromiseState.Rejected)
+                {
+                    ExceptionHelper.ThrowJavaScriptException(_engine, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, new Location(new Position(), new Position(), moduleSpecifier)));
+                }
+                else if (promise.State != PromiseState.Fulfilled)
+                {
+                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a fulfilled promise: {promise.State}");
+                }
+            }
+
             if (requiredModule.Status != ModuleStatus.Evaluating &&
                 requiredModule.Status != ModuleStatus.EvaluatingAsync &&
                 requiredModule.Status != ModuleStatus.Evaluated)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module is in an invalid state: {requiredModule.Status}");
             }
 
             if (requiredModule.Status == ModuleStatus.Evaluating && !stack.Contains(requiredModule))
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module is in an invalid state: {requiredModule.Status}");
             }
 
             if(requiredModule.Status == ModuleStatus.Evaluating)
@@ -524,6 +558,8 @@ public sealed class JsModule : JsValue
             }
         }
 
+        Completion completion;
+
         if(module._pendingAsyncDependencies > 0 || module._hasTLA)
         {
             if (module._asyncEvaluation)
@@ -535,16 +571,16 @@ public sealed class JsModule : JsValue
             module._asyncEvalOrder = asyncEvalOrder++;
             if (module._pendingAsyncDependencies == 0)
             {
-                module.ExecuteAsync();
+                completion = module.ExecuteAsync();
             }
             else
             {
-                module.Execute();
+                completion = module.Execute();
             }
         }
         else
         {
-            module.Execute();
+            completion = module.Execute();
         }
 
         if(stack.Count(x => x == module) != 1)
@@ -577,8 +613,7 @@ public sealed class JsModule : JsValue
             }
         }
 
-        return new Completion(CompletionType.Normal, index, null, default);
-
+        return completion;
     }
 
     /// <summary>
@@ -600,38 +635,41 @@ public sealed class JsModule : JsValue
         var env = JintEnvironment.NewModuleEnvironment(_engine, realm.GlobalEnv);
         _environment = env;
 
-        for (var i = 0; i < _importEntries.Count; i++)
+        if (_importEntries != null)
         {
-            var ie = _importEntries[i];
-            var importedModule = _engine._host.ResolveImportedModule(this, ie.ModuleRequest);
-            if(ie.ImportName == "*")
+            for (var i = 0; i < _importEntries.Count; i++)
             {
-                var ns = GetModuleNamespace(importedModule);
-                env.CreateImmutableBinding(ie.LocalName, true);
-                env.InitializeBinding(ie.LocalName, ns);
-            }
-            else
-            {
-                var resolution = importedModule.ResolveExport(ie.ImportName);
-                if(resolution is null || resolution == ResolvedBinding.Ambiguous)
+                var ie = _importEntries[i];
+                var importedModule = _engine._host.ResolveImportedModule(this, ie.ModuleRequest);
+                if (ie.ImportName == "*")
                 {
-                    ExceptionHelper.ThrowSyntaxError(_realm, "Ambigous import statement for identifier " + ie.ImportName);
-                }
-
-                if (resolution.BindingName == "*namespace*")
-                {
-                    var ns = GetModuleNamespace(resolution.Module);
+                    var ns = GetModuleNamespace(importedModule);
                     env.CreateImmutableBinding(ie.LocalName, true);
                     env.InitializeBinding(ie.LocalName, ns);
                 }
                 else
                 {
-                    env.CreateImportBinding(ie.LocalName, resolution.Module, resolution.BindingName);
+                    var resolution = importedModule.ResolveExport(ie.ImportName);
+                    if (resolution is null || resolution == ResolvedBinding.Ambiguous)
+                    {
+                        ExceptionHelper.ThrowSyntaxError(_realm, "Ambigous import statement for identifier " + ie.ImportName);
+                    }
+
+                    if (resolution.BindingName == "*namespace*")
+                    {
+                        var ns = GetModuleNamespace(resolution.Module);
+                        env.CreateImmutableBinding(ie.LocalName, true);
+                        env.InitializeBinding(ie.LocalName, ns);
+                    }
+                    else
+                    {
+                        env.CreateImportBinding(ie.LocalName, resolution.Module, resolution.BindingName);
+                    }
                 }
             }
         }
 
-        var moduleContext = new ExecutionContext(_environment, _environment, null, realm, null);
+        var moduleContext = new ExecutionContext(this, _environment, _environment, null, realm, null);
         _context = moduleContext;
 
         _engine.EnterExecutionContext(_context);
@@ -709,7 +747,7 @@ public sealed class JsModule : JsValue
     /// </summary>
     private Completion Execute(PromiseCapability capability = null)
     {
-        var moduleContext = new ExecutionContext(_environment, _environment, null, _realm);
+        var moduleContext = new ExecutionContext(this, _environment, _environment, null, _realm);
         if (!_hasTLA)
         {
             using (new StrictModeScope(strict: true))
@@ -901,14 +939,14 @@ public sealed class JsModule : JsValue
         return Undefined;
     }
 
-    public override bool Equals(JsValue other)
-    {
-        return false;
-    }
-
     public override object ToObject()
     {
         ExceptionHelper.ThrowNotSupportedException();
         return null;
+    }
+
+    public override string ToString()
+    {
+        return $"{Type}: {Location}";
     }
 }

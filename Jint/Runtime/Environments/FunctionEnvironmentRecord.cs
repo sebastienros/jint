@@ -345,7 +345,7 @@ namespace Jint.Runtime.Environments
                 var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                 var paramVarEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
 
-                _engine.EnterExecutionContext(new ExecutionContext(paramVarEnv, paramVarEnv, null, _engine.Realm, null));
+                _engine.EnterExecutionContext(new ExecutionContext(null, paramVarEnv, paramVarEnv, null, _engine.Realm, null));
                 try
                 {
                     argument = jintExpression.GetValue(context).Value;

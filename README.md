@@ -77,7 +77,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ❌ `export * as ns from`
 - ✔ `for-in` enhancements
 - ✔ `globalThis` object
-- ❌ `import`
+- ✔ `import`
 - ❌ `import.meta`
 - ✔ Nullish coalescing operator (`??`)
 - ✔ Optional chaining
@@ -324,6 +324,58 @@ for (var i = 0; i < 10; i++)
     }
 }
 ```
+
+## Using Modules
+
+You can use modules to `import` and `export` variables from multiple script files:
+
+```c#
+var engine = new Engine(options =>
+{
+    options.EnableModules(@"C:\Scripts");
+})
+
+var ns = engine.ImportModule("./my-module.js");
+
+var value = ns.Get("value").AsString();
+```
+
+By default, the module resolution algorithm will be restricted to the base path specified in `EnableModules`, and there is no package support. However you can provide your own packages in two ways.
+
+Defining modules using JavaScript source code:
+
+```c#
+engine.CreateModule("user", "export const name = 'John';")
+
+var ns = engine.ImportModule("user");
+
+var name = ns.Get("name").AsString();
+```
+
+Defining modules using the module builder, which allows you to export CLR classes and values from .NET:
+
+```c#
+// Create the module 'lib' with the class MyClass and the variable version
+engine.CreateModule("lib", builder => builder
+    .ExportType<MyClass>()
+    .ExportValue("version", 15)
+);
+
+// Create a user-defined module and do something with 'lib'
+engine.CreateModule("custom", @"
+    import { MyClass, version } from 'lib';
+    const x = new MyClass();
+    export const result as x.doSomething();
+");
+
+// Import the user-defined module; this will execute the import chain
+var ns = engine.ImportModule("custom");
+
+// The result contains "live" bindings to the module
+var id = ns.Get("result").AsInteger();
+```
+
+Note that you don't need to `EnableModules` if you only use modules created using `AddModule`.
 
 ## .NET Interoperability
 

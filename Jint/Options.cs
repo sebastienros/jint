@@ -103,31 +103,22 @@ namespace Jint
                 AttachExtensionMethodsToPrototypes(engine);
             }
 
-            var moduleLoader = Modules.ModuleLoader;
-            if (Modules.Enabled)
+            if (Modules.RegisterRequire)
             {
-                if (ReferenceEquals(moduleLoader, FailFastModuleLoader.Instance))
-                {
-                    moduleLoader = new DefaultModuleLoader(new System.IO.FileInfo(Assembly.GetEntryAssembly().CodeBase).DirectoryName);
-                }
-
-                if (Modules.RegisterRequire)
-                {
-                    // Node js like loading of modules
-                    engine.Realm.GlobalObject.SetProperty("require", new PropertyDescriptor(new ClrFunctionInstance(
-                            engine,
-                            "require",
-                            (thisObj, arguments) =>
-                            {
-                                var specifier = TypeConverter.ToString(arguments.At(0));
-                                var module = engine.LoadModule(specifier);
-                                return JsModule.GetModuleNamespace(module);
-                            }),
-                        PropertyFlag.AllForbidden));
-                }
+                // Node js like loading of modules
+                engine.Realm.GlobalObject.SetProperty("require", new PropertyDescriptor(new ClrFunctionInstance(
+                        engine,
+                        "require",
+                        (thisObj, arguments) =>
+                        {
+                            var specifier = TypeConverter.ToString(arguments.At(0));
+                            var module = engine.LoadModule(specifier);
+                            return JsModule.GetModuleNamespace(module);
+                        }),
+                    PropertyFlag.AllForbidden));
             }
 
-            engine.ModuleLoader = moduleLoader;
+            engine.ModuleLoader = Modules.ModuleLoader;
 
             // ensure defaults
             engine.ClrTypeConverter ??= new DefaultTypeConverter(engine);
@@ -357,15 +348,10 @@ namespace Jint
     }
 
     /// <summary>
-    /// Module related customization, work in progress
+    /// Module related customization
     /// </summary>
     public class ModuleOptions
     {
-        /// <summary>
-        /// Indicates if modules are enabled in the current engine context, defaults to false.
-        /// </summary>
-        public bool Enabled { get; set; }
-
         /// <summary>
         /// Whether to register require function to engine which will delegate to module loader, defaults to false.
         /// </summary>
@@ -374,6 +360,6 @@ namespace Jint
         /// <summary>
         /// Module loader implementation, by default exception will be thrown if module loading is not enabled.
         /// </summary>
-        public IModuleLoader? ModuleLoader { get; set; } = FailFastModuleLoader.Instance;
+        public IModuleLoader ModuleLoader { get; set; } = FailFastModuleLoader.Instance;
     }
 }

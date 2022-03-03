@@ -1,14 +1,8 @@
 ﻿#nullable enable
 
-using System;
 using Esprima.Ast;
 
 namespace Jint.Runtime.Modules;
-
-/// <summary>
-/// Module loading result.
-/// </summary>
-public readonly record struct ModuleLoaderResult(Module Module, Uri Location);
 
 /// <summary>
 /// Module loader interface that allows defining how module loadings requests are handled.
@@ -16,7 +10,12 @@ public readonly record struct ModuleLoaderResult(Module Module, Uri Location);
 public interface IModuleLoader
 {
     /// <summary>
+    /// Resolves a specifier to a path or module
+    /// </summary>
+    ResolvedSpecifier Resolve(string? referencingModuleLocation, string specifier);
+
+    /// <summary>
     /// Loads a module from given location.
     /// </summary>
-    public ModuleLoaderResult LoadModule(Engine engine, string location, string? referencingLocation);
+    public Module LoadModule(Engine engine, ResolvedSpecifier resolved);
 }

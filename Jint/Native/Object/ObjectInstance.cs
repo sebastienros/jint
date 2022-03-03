@@ -82,6 +82,8 @@ namespace Jint.Native.Object
             get => _class;
         }
 
+        public JsValue this[JsValue property] => Get(property);
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-construct
         /// </summary>
@@ -214,8 +216,6 @@ namespace Jint.Native.Object
                 }
             }
         }
-
-
 
         public virtual List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
         {

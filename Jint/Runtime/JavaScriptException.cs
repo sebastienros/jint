@@ -43,10 +43,17 @@ namespace Jint.Runtime
         }
 
         public JavaScriptException(JavaScriptException exception) : base(exception.Message)
-		{
+        {
             Error = exception.Error;
             Location = exception.Location;
-		}
+        }
+
+        internal JavaScriptException SetLocation(Location location)
+        {
+            Location = location;
+
+            return this;
+        }
 
         internal JavaScriptException SetCallstack(Engine engine, Location location)
         {
