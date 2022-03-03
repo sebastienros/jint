@@ -58,17 +58,17 @@ namespace Jint.Native
             _value = value;
         }
 
-        public JsNumber(uint value) : base(value < int.MaxValue ? InternalTypes.Integer : InternalTypes.Number)
+        public JsNumber(uint value) : base(value <= int.MaxValue ? InternalTypes.Integer : InternalTypes.Number)
         {
             _value = value;
         }
 
-        public JsNumber(ulong value) : base(value < int.MaxValue ? InternalTypes.Integer : InternalTypes.Number)
+        public JsNumber(ulong value) : base(value <= int.MaxValue ? InternalTypes.Integer : InternalTypes.Number)
         {
             _value = value;
         }
 
-        public JsNumber(long value) : base(value < int.MaxValue && value > int.MinValue ? InternalTypes.Integer : InternalTypes.Number)
+        public JsNumber(long value) : base(value <= int.MaxValue && value >= int.MinValue ? InternalTypes.Integer : InternalTypes.Number)
         {
             _value = value;
         }
