@@ -1,3 +1,5 @@
+#nullable enable
+
 using System;
 using System.Collections.Generic;
 using Jint.Native.Object;
@@ -29,20 +31,22 @@ namespace Jint.Native.Promise
         //      j. Else,
         //          i. Let status be Call(promiseCapability.[[Resolve]], undefined, « handlerResult.[[Value]] »).
         //      k. Return Completion(status).
-        internal static Action NewPromiseReactionJob(PromiseReaction reaction, JsValue value)
+        private static Action NewPromiseReactionJob(PromiseReaction reaction, JsValue value)
         {
             return () =>
             {
+                var promiseCapability = reaction.Capability;
+
                 if (reaction.Handler is ICallable handler)
                 {
                     try
                     {
                         var result = handler.Call(JsValue.Undefined, new[] {value});
-                        reaction.Capability.Resolve.Call(JsValue.Undefined, new[] {result});
+                        promiseCapability.Resolve.Call(JsValue.Undefined, new[] {result});
                     }
                     catch (JavaScriptException e)
                     {
-                        reaction.Capability.Reject.Call(JsValue.Undefined, new[] {e.Error});
+                        promiseCapability.Reject.Call(JsValue.Undefined, new[] {e.Error});
                     }
                 }
                 else
@@ -50,13 +54,13 @@ namespace Jint.Native.Promise
                     switch (reaction.Type)
                     {
                         case ReactionType.Fulfill:
-                            reaction.Capability.Resolve.Call(JsValue.Undefined, new[] {value});
+                            promiseCapability.Resolve.Call(JsValue.Undefined, new[] {value});
                             break;
 
                         case ReactionType.Reject:
-                            reaction.Capability.Reject.Call(JsValue.Undefined, new[] {value});
-
+                            promiseCapability.Reject.Call(JsValue.Undefined, new[] {value});
                             break;
+
                         default:
                             throw new ArgumentOutOfRangeException();
                     }

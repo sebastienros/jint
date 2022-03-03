@@ -35,6 +35,13 @@ namespace Jint.Runtime
             Error = error;
         }
 
+        internal JavaScriptException SetLocation(Location location)
+        {
+            Location = location;
+
+            return this;
+        }
+
         internal JavaScriptException SetCallstack(Engine engine, Location location)
         {
             Location = location;

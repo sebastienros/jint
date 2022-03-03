@@ -5,11 +5,7 @@
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
     <IsPackable>false</IsPackable>
-    <!--
-      Unity currently supports only C# 8 so ensure we can use the features Jint introduces
-      https://docs.unity3d.com/Manual/CSharpCompiler.html
-    -->
-    <LangVersion>8</LangVersion>
+    <LangVersion>latest</LangVersion>
     <NoWarn>612</NoWarn>
   </PropertyGroup>
   <ItemGroup>

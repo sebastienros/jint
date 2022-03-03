@@ -238,33 +238,25 @@ namespace Jint
         /// <remarks>
         /// Passed Engine instance is still in construction and should not be used during call stage.
         /// </remarks>
-        public static void UseHostFactory<T>(this Options options, Func<Engine, T> factory) where T : Host
+        public static Options UseHostFactory<T>(this Options options, Func<Engine, T> factory) where T : Host
         {
             options.Host.Factory = factory;
+            return options;
         }
 
         /// <summary>
         /// Enables module loading in the engine via the 'require' function. By default there's no sand-boxing and
         /// you need to trust the script loading the modules not doing bad things.
         /// </summary>
-        public static Options EnableModules(this Options options, bool enable = true)
+        public static Options EnableModules(this Options options, string basePath, bool restrictToBasePath = true)
         {
-            options.Modules.Enabled = enable;
-            return options;
+            return EnableModules(options, new DefaultModuleLoader(basePath, restrictToBasePath));
         }
 
         /// <summary>
-        /// Allows to configure module loader implementation.
+        /// Enables module loading using a custom loader implementation.
         /// </summary>
-        public static Options WithModuleLoader<T>(this Options options) where T : IModuleLoader, new()
-        {
-            return WithModuleLoader(options, new T());
-        }
-
-        /// <summary>
-        /// Allows to configure module loader implementation.
-        /// </summary>
-        public static Options WithModuleLoader(this Options options, IModuleLoader moduleLoader)
+        public static Options EnableModules(this Options options, IModuleLoader moduleLoader)
         {
             options.Modules.ModuleLoader = moduleLoader;
             return options;

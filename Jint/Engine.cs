@@ -157,6 +157,7 @@ namespace Jint
             PrivateEnvironmentRecord privateEnvironment)
         {
             var context = new ExecutionContext(
+                null,
                 lexicalEnvironment,
                 variableEnvironment,
                 privateEnvironment,

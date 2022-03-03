@@ -42,11 +42,13 @@ namespace Jint.Runtime.Interpreter
             for (var i = 0; i < jintStatements.Length; i++)
             {
                 var esprimaStatement = _statements[i];
+                var statement = JintStatement.Build(esprimaStatement);
+                // When in debug mode, don't do FastResolve: Stepping requires each statement to be actually executed.
+                var value = context.DebugMode ? null : JintStatement.FastResolve(esprimaStatement);
                 jintStatements[i] = new Pair
                 {
-                    Statement = JintStatement.Build(esprimaStatement),
-                    // When in debug mode, don't do FastResolve: Stepping requires each statement to be actually executed.
-                    Value = context.DebugMode ? null : JintStatement.FastResolve(esprimaStatement)
+                    Statement = statement,
+                    Value = value
                 };
             }
             _jintStatements = jintStatements;

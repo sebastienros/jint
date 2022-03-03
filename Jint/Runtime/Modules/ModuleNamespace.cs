@@ -90,6 +90,7 @@ internal sealed class ModuleNamespace : ObjectInstance
         return _exports.Contains(p);
     }
 
+    // https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-get-p-receiver
     public override JsValue Get(JsValue property, JsValue receiver)
     {
         if (property.IsSymbol())

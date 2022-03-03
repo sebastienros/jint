@@ -35,6 +35,7 @@ namespace Jint.Runtime
             var realm = CreateRealm();
 
             var newContext = new ExecutionContext(
+                scriptOrModule: null,
                 lexicalEnvironment: realm.GlobalEnv,
                 variableEnvironment: realm.GlobalEnv,
                 privateEnvironment: null,
@@ -106,7 +107,7 @@ namespace Jint.Runtime
         /// <returns></returns>
         protected internal virtual JsModule ResolveImportedModule(JsModule referencingModule, string specifier)
         {
-            return Engine.LoadModule(referencingModule._location, specifier);
+            return Engine.LoadModule(referencingModule.Location, specifier);
         }
 
         /// <summary>
@@ -121,7 +122,7 @@ namespace Jint.Runtime
 
             try
             {
-                Engine.LoadModule(referencingModule._location, specifier);
+                Engine.LoadModule(referencingModule.Location, specifier);
                 promise.Resolve(JsValue.Undefined);
 
             }
@@ -164,7 +165,7 @@ namespace Jint.Runtime
                 return JsValue.Undefined;
             }, 0, PropertyFlag.Configurable);
 
-            PromiseOperations.PerformPromiseThen(Engine, innerPromise, onFulfilled, onRejected, null);
+            PromiseOperations.PerformPromiseThen(Engine, innerPromise, onFulfilled, onRejected, promiseCapability);
         }
     }
 }
