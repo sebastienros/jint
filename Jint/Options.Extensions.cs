@@ -250,31 +250,13 @@ namespace Jint
         /// </summary>
         public static Options EnableModules(this Options options, string basePath, bool restrictToBasePath = true)
         {
-            options.Modules.ModuleLoader = new DefaultModuleLoader(basePath, restrictToBasePath);
-            return options;
+            return EnableModules(options, new DefaultModuleLoader(basePath, restrictToBasePath));
         }
 
         /// <summary>
-        /// Prevents loading modules. You can still define modules using <see cref="Engine.DefineModule(string,string)"/>.
+        /// Enables module loading using a custom loader implementation.
         /// </summary>
-        public static Options DisableModuleLoader(this Options options)
-        {
-            options.Modules.ModuleLoader = new FailFastModuleLoader();
-            return options;
-        }
-
-        /// <summary>
-        /// Allows to configure module loader implementation.
-        /// </summary>
-        public static Options WithModuleLoader<T>(this Options options) where T : IModuleLoader, new()
-        {
-            return WithModuleLoader(options, new T());
-        }
-
-        /// <summary>
-        /// Allows to configure module loader implementation.
-        /// </summary>
-        public static Options WithModuleLoader(this Options options, IModuleLoader moduleLoader)
+        public static Options EnableModules(this Options options, IModuleLoader moduleLoader)
         {
             options.Modules.ModuleLoader = moduleLoader;
             return options;
