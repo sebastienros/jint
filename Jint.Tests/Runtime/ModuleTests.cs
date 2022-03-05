@@ -1,8 +1,10 @@
 #if(NET6_0_OR_GREATER)
 using System.IO;
 using System.Reflection;
+using Jint.Runtime.Modules;
 #endif
 using System;
+using Esprima;
 using Jint.Native;
 using Jint.Runtime;
 using Xunit;
@@ -234,6 +236,23 @@ public class ModuleTests
 
         Assert.Equal("John Doe", result);
     }
+    
+    [Fact]
+    public void CanReferenceModuleImportFromFileInInlineScript()
+    {
+        var engine = new Engine(options => options.EnableModules(GetBasePath()));
+        const string script = @"
+            import { formatName } from './modules/format-name.js'
+            formatName('John', 'Doe'); 
+        ";
+
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(script));
+        Assert.Equal("Cannot use import/export statements outside a module", ex.Message);
+
+        var value = engine.Evaluate(script, SourceType.Module);
+        Assert.IsType<ModuleNamespace>(value);
+    }
+
 
     private static string GetBasePath()
     {

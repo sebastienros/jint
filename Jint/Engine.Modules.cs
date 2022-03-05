@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using Esprima;
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -41,7 +42,7 @@ namespace Jint
             if (_builders.TryGetValue(specifier, out var moduleBuilder))
             {
                 var parsedModule = moduleBuilder.Parse();
-                module = new JsModule(this, _host.CreateRealm(), parsedModule, null, false);
+                module = new JsModule(this, Realm, parsedModule, null, false);
                 // Early link is required because we need to bind values before returning
                 module.Link();
                 moduleBuilder.BindExportedValues(module);
@@ -50,7 +51,7 @@ namespace Jint
             else
             {
                 var parsedModule = ModuleLoader.LoadModule(this, moduleResolution);
-                module = new JsModule(this, _host.CreateRealm(), parsedModule, moduleResolution.Uri?.LocalPath, false);
+                module = new JsModule(this, Realm, parsedModule, moduleResolution.Uri?.LocalPath, false);
             }
 
             _modules[moduleResolution.Key] = module;
@@ -79,13 +80,30 @@ namespace Jint
 
         public ObjectInstance ImportModule(string specifier)
         {
-            var moduleResolution = ModuleLoader.Resolve(null, specifier);
+            var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation: null, specifier);
 
             if (!_modules.TryGetValue(moduleResolution.Key, out var module))
             {
                 module = LoadModule(null, specifier);
             }
 
+            return Execute(specifier, module);
+        }
+
+        public Engine Execute(Module module)
+        {
+            Evaluate(module);
+            return this;
+        }
+
+        public JsValue Evaluate(Module module)
+        {
+            var jsModule = new JsModule(this, Realm, module, location: null, async: false);
+            return Execute(specifier: null, jsModule);
+        }
+
+        private ObjectInstance Execute(string? specifier, JsModule module)
+        {
             if (module.Status == ModuleStatus.Unlinked)
             {
                 module.Link();
@@ -108,11 +126,7 @@ namespace Jint
                     }
                 }
 
-                if (evaluationResult == null)
-                {
-                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise");
-                }
-                else if (evaluationResult is not PromiseInstance promise)
+                if (evaluationResult is not PromiseInstance promise)
                 {
                     ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");
                 }
@@ -129,7 +143,7 @@ namespace Jint
             if (module.Status == ModuleStatus.Evaluated)
             {
                 // TODO what about callstack and thrown exceptions?
-                RunAvailableContinuations(_eventLoop);
+                RunAvailableContinuations();
 
                 return JsModule.GetModuleNamespace(module);
             }
