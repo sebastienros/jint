@@ -9,7 +9,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public JintClassExpression(ClassExpression expression) : base(expression)
         {
-            _classDefinition = new ClassDefinition(expression.Id, expression.SuperClass, expression.Body);
+            _classDefinition = new ClassDefinition(expression.Id?.Name, expression.SuperClass, expression.Body);
         }
 
         protected override ExpressionResult EvaluateInternal(EvaluationContext context)

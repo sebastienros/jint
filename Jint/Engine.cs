@@ -239,20 +239,24 @@ namespace Jint
             CallStack.Clear();
         }
 
-        public JsValue Evaluate(string source)
-            => Execute(source, DefaultParserOptions)._completionValue;
+        public JsValue Evaluate(string source, SourceType sourceType = SourceType.Script)
+            => Evaluate(source, DefaultParserOptions, sourceType);
 
-        public JsValue Evaluate(string source, ParserOptions parserOptions)
-            => Execute(source, parserOptions)._completionValue;
+        public JsValue Evaluate(string source, ParserOptions parserOptions, SourceType sourceType = SourceType.Script)
+            => sourceType == SourceType.Script 
+                ? Evaluate(new JavaScriptParser(source, parserOptions).ParseScript())
+                : Evaluate(new JavaScriptParser(source, parserOptions).ParseModule());
 
         public JsValue Evaluate(Script script)
             => Execute(script)._completionValue;
 
-        public Engine Execute(string source)
-            => Execute(source, DefaultParserOptions);
+        public Engine Execute(string source, SourceType sourceType = SourceType.Script)
+            => Execute(source, DefaultParserOptions, sourceType);
 
-        public Engine Execute(string source, ParserOptions parserOptions)
-            => Execute(new JavaScriptParser(source, parserOptions).ParseScript());
+        public Engine Execute(string source, ParserOptions parserOptions, SourceType sourceType = SourceType.Script)
+            => sourceType == SourceType.Script 
+                ? Execute(new JavaScriptParser(source, parserOptions).ParseScript())
+                : Execute(new JavaScriptParser(source, parserOptions).ParseModule());
 
         public Engine Execute(Script script)
         {
@@ -284,7 +288,7 @@ namespace Jint
                 }
 
                 // TODO what about callstack and thrown exceptions?
-                RunAvailableContinuations(_eventLoop);
+                RunAvailableContinuations();
 
                 _completionValue = result.GetValueOrDefault();
 
@@ -320,7 +324,7 @@ namespace Jint
             Action<JsValue> SettleWith(FunctionInstance settle) => value =>
             {
                 settle.Call(JsValue.Undefined, new[] {value});
-                RunAvailableContinuations(_eventLoop);
+                RunAvailableContinuations();
             };
 
             return new ManualPromise(promise, SettleWith(resolve), SettleWith(reject));
@@ -331,10 +335,9 @@ namespace Jint
             _eventLoop.Events.Enqueue(continuation);
         }
 
-
-        private static void RunAvailableContinuations(EventLoop loop)
+        internal void RunAvailableContinuations()
         {
-            var queue = loop.Events;
+            var queue = _eventLoop.Events;
 
             while (true)
             {

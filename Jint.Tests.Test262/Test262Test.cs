@@ -101,6 +101,7 @@ namespace Jint.Tests.Test262
             var engine = new Engine(cfg => cfg
                 .LocalTimeZone(_pacificTimeZone)
                 .Strict(strict)
+                .EnableModules(Path.Combine(BasePath, "test", Path.GetDirectoryName(fileName)!))
             );
 
             engine.Execute(Sources["sta.js"]);
@@ -151,6 +152,8 @@ namespace Jint.Tests.Test262
                     engine.Execute(Sources[file.Trim()]);
                 }
             }
+            
+            var module = Regex.IsMatch(code, @"flags:\s*?\[.*?module.*?]");
 
             if (code.IndexOf("propertyHelper.js", StringComparison.OrdinalIgnoreCase) != -1)
             {
@@ -162,7 +165,14 @@ namespace Jint.Tests.Test262
             bool negative = code.IndexOf("negative:", StringComparison.Ordinal) > -1;
             try
             {
-                engine.Execute(new JavaScriptParser(code, new ParserOptions(fileName)).ParseScript());
+                if (module)
+                {
+                    engine.Execute(new JavaScriptParser(code, new ParserOptions(fileName)).ParseModule());
+                }
+                else
+                {
+                    engine.Execute(new JavaScriptParser(code, new ParserOptions(fileName)).ParseScript());
+                }
             }
             catch (JavaScriptException j)
             {

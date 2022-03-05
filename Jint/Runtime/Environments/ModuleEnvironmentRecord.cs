@@ -16,18 +16,26 @@ internal sealed class ModuleEnvironmentRecord : DeclarativeEnvironmentRecord
     {
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-environment-records-getthisbinding
+    /// </summary>
     public override JsValue GetThisBinding()
     {
         return Undefined;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-createimportbinding
+    /// </summary>
     public void CreateImportBinding(string importName, JsModule module, string name)
     {
         _hasBindings = true;
         _importBindings[importName] = new IndirectBinding(module, name);
     }
 
-    // https://tc39.es/ecma262/#sec-module-environment-records-getbindingvalue-n-s
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-environment-records-getbindingvalue-n-s
+    /// </summary>
     public override JsValue GetBindingValue(string name, bool strict)
     {
         if (_importBindings.TryGetValue(name, out var indirectBinding))
@@ -50,6 +58,9 @@ internal sealed class ModuleEnvironmentRecord : DeclarativeEnvironmentRecord
         return base.TryGetBinding(name, strict, out binding, out value);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-environment-records-hasthisbinding
+    /// </summary>
     public override bool HasThisBinding() => true;
 
     private readonly record struct IndirectBinding(JsModule Module, string BindingName);

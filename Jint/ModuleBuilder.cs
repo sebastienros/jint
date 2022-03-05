@@ -16,7 +16,7 @@ public sealed class ModuleBuilder
     private readonly List<string> _sourceRaw = new();
     private readonly Dictionary<string, JsValue> _exports = new();
 
-    public ModuleBuilder(Engine engine)
+    internal ModuleBuilder(Engine engine)
     {
         _engine = engine;
     }

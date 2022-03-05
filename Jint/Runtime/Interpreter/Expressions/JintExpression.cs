@@ -193,6 +193,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 Nodes.TemplateLiteral => new JintTemplateLiteralExpression((TemplateLiteral) expression),
                 Nodes.TaggedTemplateExpression => new JintTaggedTemplateExpression((TaggedTemplateExpression) expression),
                 Nodes.ClassExpression => new JintClassExpression((ClassExpression) expression),
+                Nodes.Import => new JintImportExpression((Import) expression),
                 Nodes.Super => new JintSuperExpression((Super) expression),
                 Nodes.MetaProperty => new JintMetaPropertyExpression((MetaProperty) expression),
                 Nodes.ChainExpression => ((ChainExpression) expression).Expression.Type == Nodes.CallExpression

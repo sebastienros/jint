@@ -11,7 +11,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         public JintClassDeclarationStatement(ClassDeclaration classDeclaration) : base(classDeclaration)
         {
-            _classDefinition = new ClassDefinition(className: classDeclaration.Id, classDeclaration.SuperClass, classDeclaration.Body);
+            _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name, classDeclaration.SuperClass, classDeclaration.Body);
         }
 
         protected override Completion ExecuteInternal(EvaluationContext context)
@@ -27,7 +27,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 env.InitializeBinding(classBinding, F);
             }
 
-            return Completion.Empty();
+            return NormalCompletion(F);
         }
     }
 }
