@@ -15,10 +15,12 @@ public sealed class ModuleBuilder
     private readonly Engine _engine;
     private readonly List<string> _sourceRaw = new();
     private readonly Dictionary<string, JsValue> _exports = new();
+    private readonly ParserOptions _options;
 
-    internal ModuleBuilder(Engine engine)
+    internal ModuleBuilder(Engine engine, string source)
     {
         _engine = engine;
+        _options = new ParserOptions(source);
     }
 
     public ModuleBuilder AddSource(string code)
@@ -69,11 +71,17 @@ public sealed class ModuleBuilder
         return this;
     }
 
+    public ModuleBuilder WithOptions(Action<ParserOptions> configure)
+    {
+        configure(_options);
+        return this;
+    }
+
     internal Module Parse()
     {
         if (_sourceRaw.Count > 0)
         {
-            return new JavaScriptParser(_sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw)).ParseModule();
+            return new JavaScriptParser(_sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw), _options).ParseModule();
         }
         else
         {

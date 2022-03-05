@@ -41,7 +41,22 @@ namespace Jint
 
             if (_builders.TryGetValue(specifier, out var moduleBuilder))
             {
-                var parsedModule = moduleBuilder.Parse();
+                Module parsedModule;
+                try
+                {
+                    parsedModule = moduleBuilder.Parse();
+                }
+                catch (ParserException ex)
+                {
+                    ExceptionHelper.ThrowSyntaxError(Realm, $"Error while loading module: error in module '{moduleResolution.Specifier}': {ex.Error}");
+                    return null!;
+                }
+                catch (Exception)
+                {
+                    ExceptionHelper.ThrowJavaScriptException(this, $"Could not load module {moduleResolution.Specifier}", Completion.Empty());
+                    return null!;
+                }
+
                 module = new JsModule(this, Realm, parsedModule, null, false);
                 // Early link is required because we need to bind values before returning
                 module.Link();
@@ -59,16 +74,16 @@ namespace Jint
             return module;
         }
 
-        public void AddModule(string specifier, string source)
+        public void AddModule(string specifier, string code)
         {
-            var moduleBuilder = new ModuleBuilder(this);
-            moduleBuilder.AddSource(source);
+            var moduleBuilder = new ModuleBuilder(this, specifier);
+            moduleBuilder.AddSource(code);
             AddModule(specifier, moduleBuilder);
         }
 
         public void AddModule(string specifier, Action<ModuleBuilder> buildModule)
         {
-            var moduleBuilder = new ModuleBuilder(this);
+            var moduleBuilder = new ModuleBuilder(this,specifier);
             buildModule(moduleBuilder);
             AddModule(specifier, moduleBuilder);
         }
