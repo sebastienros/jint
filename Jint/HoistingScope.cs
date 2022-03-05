@@ -30,7 +30,7 @@ namespace Jint
         }
 
         public static HoistingScope GetProgramLevelDeclarations(
-            Script script,
+            Program script,
             bool collectVarNames = false,
             bool collectLexicalNames = false)
         {

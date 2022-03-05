@@ -320,7 +320,7 @@ namespace Jint
                     exportEntries.Add(new(null, allDeclaration.Source.StringValue, "*", null));
                     break;
                 case ExportNamedDeclaration namedDeclaration:
-                    var specifiers = namedDeclaration.Specifiers;
+                    ref readonly var specifiers = ref namedDeclaration.Specifiers;
                     if (specifiers.Count == 0)
                     {
                         GetExportEntries(false, namedDeclaration.Declaration!, exportEntries, namedDeclaration.Source?.StringValue);
@@ -332,8 +332,9 @@ namespace Jint
                     }
                     else
                     {
-                        foreach (var specifier in specifiers)
+                        for (var i = 0; i < specifiers.Count; i++)
                         {
+                            var specifier = specifiers[i];
                             exportEntries.Add(new(specifier.Local.GetModuleKey(), namedDeclaration.Source?.StringValue, specifier.Exported.GetModuleKey(), null));
                         }
                     }
@@ -387,9 +388,10 @@ namespace Jint
 
                     break;
                 case VariableDeclaration variableDeclaration:
-                    var declarators = variableDeclaration.Declarations;
-                    foreach (var declarator in declarators)
+                    ref readonly var declarators = ref variableDeclaration.Declarations;
+                    for (var i = 0; i < declarators.Count; i++)
                     {
+                        var declarator = declarators[i];
                         var varName = declarator.Id.As<Identifier>()?.Name;
                         if (varName is not null)
                         {

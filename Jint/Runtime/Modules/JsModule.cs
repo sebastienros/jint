@@ -1,7 +1,6 @@
 ﻿using System;
 using Esprima.Ast;
 using System.Collections.Generic;
-using System.Linq;
 using Esprima;
 using Jint.Native;
 using Jint.Native.Object;
@@ -90,7 +89,6 @@ public sealed class JsModule : JsValue, IScriptOrModule
             out _starExportEntries);
 
         //ToDo async modules
-
     }
 
     public string Location { get; }
@@ -102,7 +100,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
     public static ObjectInstance GetModuleNamespace(JsModule module)
     {
         var ns = module._namespace;
-        if(ns is null)
+        if (ns is null)
         {
             var exportedNames = module.GetExportedNames();
             var unambiguousNames = new List<string>();
@@ -110,7 +108,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
             {
                 var name = exportedNames[i];
                 var resolution = module.ResolveExport(name);
-                if(resolution is not null)
+                if (resolution is not null)
                 {
                     unambiguousNames.Add(name);
                 }
@@ -143,11 +141,11 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// </summary>
     public List<string> GetExportedNames(List<JsModule> exportStarSet = null)
     {
-        exportStarSet ??= new();
+        exportStarSet ??= new List<JsModule>();
         if (exportStarSet.Contains(this))
         {
             //Reached the starting point of an export * circularity
-            return new();
+            return new List<string>();
         }
 
         exportStarSet.Add(this);
@@ -164,7 +162,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
             exportedNames.Add(e.ImportName ?? e.ExportName);
         }
 
-        for(var i = 0; i < _starExportEntries.Count; i++)
+        for (var i = 0; i < _starExportEntries.Count; i++)
         {
             var e = _starExportEntries[i];
             var requestedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
@@ -188,36 +186,35 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// </summary>
     internal ResolvedBinding ResolveExport(string exportName, List<ExportResolveSetItem> resolveSet = null)
     {
-        resolveSet ??= new();
+        resolveSet ??= new List<ExportResolveSetItem>();
 
-        for(var i = 0; i < resolveSet.Count; i++)
+        for (var i = 0; i < resolveSet.Count; i++)
         {
             var r = resolveSet[i];
-            if(this == r.Module && exportName == r.ExportName)
+            if (ReferenceEquals(this, r.Module) && exportName == r.ExportName)
             {
-                //circular import request
+                // circular import request
                 return null;
             }
         }
 
-        resolveSet.Add(new(this, exportName));
-        for(var i = 0; i < _localExportEntries.Count; i++)
+        resolveSet.Add(new ExportResolveSetItem(this, exportName));
+        for (var i = 0; i < _localExportEntries.Count; i++)
         {
             var e = _localExportEntries[i];
-
             if (exportName == (e.ImportName ?? e.ExportName))
             {
                 return new ResolvedBinding(this, e.LocalName ?? e.ExportName);
             }
         }
 
-        for(var i = 0; i < _indirectExportEntries.Count; i++)
+        for (var i = 0; i < _indirectExportEntries.Count; i++)
         {
-            var e = _localExportEntries[i];
-            if (exportName.Equals(e.ImportName ?? e.ExportName))
+            var e = _indirectExportEntries[i];
+            if (exportName == (e.ImportName ?? e.ExportName))
             {
                 var importedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
-                if(e.ImportName == "*")
+                if (e.ImportName == "*")
                 {
                     return new ResolvedBinding(importedModule, "*namespace*");
                 }
@@ -235,25 +232,25 @@ public sealed class JsModule : JsValue, IScriptOrModule
 
         ResolvedBinding starResolution = null;
 
-        for(var i = 0; i < _starExportEntries.Count; i++)
+        for (var i = 0; i < _starExportEntries.Count; i++)
         {
             var e = _starExportEntries[i];
             var importedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
             var resolution = importedModule.ResolveExport(exportName, resolveSet);
-            if(resolution == ResolvedBinding.Ambiguous)
+            if (resolution == ResolvedBinding.Ambiguous)
             {
                 return resolution;
             }
 
-            if(resolution is not null)
+            if (resolution is not null)
             {
-                if(starResolution is null)
+                if (starResolution is null)
                 {
                     starResolution = resolution;
                 }
                 else
                 {
-                    if(resolution.Module != starResolution.Module || resolution.BindingName != starResolution.BindingName)
+                    if (resolution.Module != starResolution.Module || resolution.BindingName != starResolution.BindingName)
                     {
                         return ResolvedBinding.Ambiguous;
                     }
@@ -289,6 +286,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
                 m._dfsIndex = -1;
                 m._dfsAncestorIndex = -1;
             }
+
             Status = ModuleStatus.Unlinked;
             throw;
         }
@@ -298,7 +296,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
             ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module is neither linked or unlinked");
         }
 
-        if(stack.Any())
+        if (stack.Count > 0)
         {
             ExceptionHelper.ThrowInvalidOperationException("Error while linking module: One or more modules were not linked");
         }
@@ -330,19 +328,20 @@ public sealed class JsModule : JsValue, IScriptOrModule
 
         var stack = new Stack<JsModule>();
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
-        int asyncEvalOrder = 0;
+        var asyncEvalOrder = 0;
         module._topLevelCapability = capability;
 
         var result = Evaluate(module, stack, 0, ref asyncEvalOrder);
 
-        if(result.Type != CompletionType.Normal)
+        if (result.Type != CompletionType.Normal)
         {
-            foreach(var m in stack)
+            foreach (var m in stack)
             {
                 m.Status = ModuleStatus.Evaluated;
                 m._evalError = result;
             }
-            capability.Reject.Call(Undefined, new [] { result.Value });
+
+            capability.Reject.Call(Undefined, new[] { result.Value });
         }
         else
         {
@@ -358,7 +357,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
 
             if (!module._asyncEvaluation)
             {
-                if(module.Status != ModuleStatus.Evaluated)
+                if (module.Status != ModuleStatus.Evaluated)
                 {
                     ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
                 }
@@ -366,14 +365,13 @@ public sealed class JsModule : JsValue, IScriptOrModule
                 capability.Resolve.Call(Undefined, Array.Empty<JsValue>());
             }
 
-            if (stack.Any())
+            if (stack.Count > 0)
             {
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
         }
 
         return capability.PromiseInstance;
-
     }
 
     /// <summary>
@@ -381,16 +379,16 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// </summary>
     private int Link(JsModule module, Stack<JsModule> stack, int index)
     {
-        if(module.Status is
-           ModuleStatus.Linking or
-           ModuleStatus.Linked or
-           ModuleStatus.EvaluatingAsync or
-           ModuleStatus.Evaluating)
+        if (module.Status is
+            ModuleStatus.Linking or
+            ModuleStatus.Linked or
+            ModuleStatus.EvaluatingAsync or
+            ModuleStatus.Evaluating)
         {
             return index;
         }
 
-        if(module.Status != ModuleStatus.Unlinked)
+        if (module.Status != ModuleStatus.Unlinked)
         {
             ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module in an invalid state");
         }
@@ -409,7 +407,9 @@ public sealed class JsModule : JsValue, IScriptOrModule
 
             //TODO: Should we link only when a module is requested? https://tc39.es/ecma262/#sec-example-cyclic-module-record-graphs Should we support retry?
             if (requiredModule.Status == ModuleStatus.Unlinked)
+            {
                 requiredModule.Link();
+            }
 
             if (requiredModule.Status != ModuleStatus.Linking &&
                 requiredModule.Status != ModuleStatus.Linked &&
@@ -418,20 +418,20 @@ public sealed class JsModule : JsValue, IScriptOrModule
                 ExceptionHelper.ThrowInvalidOperationException($"Error while linking module: Required module is in an invalid state: {requiredModule.Status}");
             }
 
-            if(requiredModule.Status == ModuleStatus.Linking && !stack.Contains(requiredModule))
+            if (requiredModule.Status == ModuleStatus.Linking && !stack.Contains(requiredModule))
             {
                 ExceptionHelper.ThrowInvalidOperationException($"Error while linking module: Required module is in an invalid state: {requiredModule.Status}");
             }
 
             if (requiredModule.Status == ModuleStatus.Linking)
             {
-                module._dfsAncestorIndex = System.Math.Min(module._dfsAncestorIndex, requiredModule._dfsAncestorIndex);
+                module._dfsAncestorIndex = Math.Min(module._dfsAncestorIndex, requiredModule._dfsAncestorIndex);
             }
         }
 
         module.InitializeEnvironment();
 
-        if (stack.Count(m => m == module) != 1)
+        if (StackReferenceCount(stack, module) != 1)
         {
             ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Recursive dependency detected");
         }
@@ -455,7 +455,6 @@ public sealed class JsModule : JsValue, IScriptOrModule
         }
 
         return index;
-
     }
 
     /// <summary>
@@ -463,9 +462,9 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// </summary>
     private Completion Evaluate(JsModule module, Stack<JsModule> stack, int index, ref int asyncEvalOrder)
     {
-        if(module.Status == ModuleStatus.EvaluatingAsync || module.Status == ModuleStatus.Evaluated)
+        if (module.Status == ModuleStatus.EvaluatingAsync || module.Status == ModuleStatus.Evaluated)
         {
-            if(module._evalError is null)
+            if (module._evalError is null)
             {
                 return new Completion(CompletionType.Normal, index, null, default);
             }
@@ -473,7 +472,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
             return module._evalError.Value;
         }
 
-        if(module.Status == ModuleStatus.Evaluating)
+        if (module.Status == ModuleStatus.Evaluating)
         {
             return new Completion(CompletionType.Normal, index, null, default);
         }
@@ -497,7 +496,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
         {
             var requiredModule = _engine._host.ResolveImportedModule(module, moduleSpecifier);
             var result = Evaluate(module, stack, index, ref asyncEvalOrder);
-            if(result.Type != CompletionType.Normal)
+            if (result.Type != CompletionType.Normal)
             {
                 return result;
             }
@@ -538,14 +537,14 @@ public sealed class JsModule : JsValue, IScriptOrModule
                 ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module is in an invalid state: {requiredModule.Status}");
             }
 
-            if(requiredModule.Status == ModuleStatus.Evaluating)
+            if (requiredModule.Status == ModuleStatus.Evaluating)
             {
-                module._dfsAncestorIndex = System.Math.Min(module._dfsAncestorIndex, requiredModule._dfsAncestorIndex);
+                module._dfsAncestorIndex = Math.Min(module._dfsAncestorIndex, requiredModule._dfsAncestorIndex);
             }
             else
             {
                 requiredModule = requiredModule._cycleRoot;
-                if(requiredModule.Status != ModuleStatus.EvaluatingAsync && requiredModule.Status != ModuleStatus.Evaluated)
+                if (requiredModule.Status != ModuleStatus.EvaluatingAsync && requiredModule.Status != ModuleStatus.Evaluated)
                 {
                     ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
                 }
@@ -560,7 +559,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
 
         Completion completion;
 
-        if(module._pendingAsyncDependencies > 0 || module._hasTLA)
+        if (module._pendingAsyncDependencies > 0 || module._hasTLA)
         {
             if (module._asyncEvaluation)
             {
@@ -583,7 +582,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
             completion = module.Execute();
         }
 
-        if(stack.Count(x => x == module) != 1)
+        if (StackReferenceCount(stack, module) != 1)
         {
             ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
@@ -593,9 +592,9 @@ public sealed class JsModule : JsValue, IScriptOrModule
             ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
 
-        if(module._dfsIndex == module._dfsAncestorIndex)
+        if (module._dfsIndex == module._dfsAncestorIndex)
         {
-            bool done = false;
+            var done = false;
             while (!done)
             {
                 var requiredModule = stack.Pop();
@@ -616,12 +615,26 @@ public sealed class JsModule : JsValue, IScriptOrModule
         return completion;
     }
 
+    private static int StackReferenceCount(Stack<JsModule> stack, JsModule module)
+    {
+        var count = 0;
+        foreach (var item in stack)
+        {
+            if (ReferenceEquals(item, module))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
     /// <summary>
     /// https://tc39.es/ecma262/#sec-source-text-module-record-initialize-environment
     /// </summary>
     private void InitializeEnvironment()
     {
-        for(var i = 0; i < _indirectExportEntries.Count; i++)
+        for (var i = 0; i < _indirectExportEntries.Count; i++)
         {
             var e = _indirectExportEntries[i];
             var resolution = ResolveExport(e.ExportName);
@@ -652,7 +665,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
                     var resolution = importedModule.ResolveExport(ie.ImportName);
                     if (resolution is null || resolution == ResolvedBinding.Ambiguous)
                     {
-                        ExceptionHelper.ThrowSyntaxError(_realm, "Ambigous import statement for identifier " + ie.ImportName);
+                        ExceptionHelper.ThrowSyntaxError(_realm, "Ambiguous import statement for identifier " + ie.ImportName);
                     }
 
                     if (resolution.BindingName == "*namespace*")
@@ -677,23 +690,22 @@ public sealed class JsModule : JsValue, IScriptOrModule
         var hoistingScope = HoistingScope.GetModuleLevelDeclarations(_source);
 
         var varDeclarations = hoistingScope._variablesDeclarations;
-        var declaredVarNames = new List<string>();
-        if(varDeclarations != null)
+        var declaredVarNames = new HashSet<string>();
+        if (varDeclarations != null)
         {
             var boundNames = new List<string>();
-            for(var i = 0; i < varDeclarations.Count; i++)
+            for (var i = 0; i < varDeclarations.Count; i++)
             {
                 var d = varDeclarations[i];
                 boundNames.Clear();
                 d.GetBoundNames(boundNames);
-                for(var j = 0; j < boundNames.Count; j++)
+                for (var j = 0; j < boundNames.Count; j++)
                 {
                     var dn = boundNames[j];
-                    if (!declaredVarNames.Contains(dn))
+                    if (declaredVarNames.Add(dn))
                     {
                         env.CreateMutableBinding(dn, false);
                         env.InitializeBinding(dn, Undefined);
-                        declaredVarNames.Add(dn);
                     }
                 }
             }
@@ -701,10 +713,10 @@ public sealed class JsModule : JsValue, IScriptOrModule
 
         var lexDeclarations = hoistingScope._lexicalDeclarations;
 
-        if(lexDeclarations != null)
+        if (lexDeclarations != null)
         {
             var boundNames = new List<string>();
-            for(var i = 0; i < lexDeclarations.Count; i++)
+            for (var i = 0; i < lexDeclarations.Count; i++)
             {
                 var d = lexDeclarations[i];
                 boundNames.Clear();
@@ -726,14 +738,14 @@ public sealed class JsModule : JsValue, IScriptOrModule
 
         var functionDeclarations = hoistingScope._functionDeclarations;
 
-        if(functionDeclarations != null)
+        if (functionDeclarations != null)
         {
-            for(var i = 0; i < functionDeclarations.Count; i++)
+            for (var i = 0; i < functionDeclarations.Count; i++)
             {
                 var d = functionDeclarations[i];
-                var fn = d.Id.Name;
+                var fn = d.Id?.Name ?? "*default*";
                 var fd = new JintFunctionDefinition(_engine, d);
-                env.CreateImmutableBinding(fn, true);
+                env.CreateMutableBinding(fn, true);
                 var fo = realm.Intrinsics.Function.InstantiateFunctionObject(fd, env);
                 env.InitializeBinding(fn, fo);
             }
@@ -750,7 +762,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
         var moduleContext = new ExecutionContext(this, _environment, _environment, null, _realm);
         if (!_hasTLA)
         {
-            using (new StrictModeScope(strict: true))
+            using (new StrictModeScope(true, force: true))
             {
                 _engine.EnterExecutionContext(moduleContext);
                 var statementList = new JintStatementList(null, _source.Body);
@@ -771,7 +783,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// </summary>
     private Completion ExecuteAsync()
     {
-        if((Status != ModuleStatus.Evaluating && Status != ModuleStatus.EvaluatingAsync) || !_hasTLA)
+        if (Status != ModuleStatus.Evaluating && Status != ModuleStatus.EvaluatingAsync || !_hasTLA)
         {
             ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
@@ -781,10 +793,9 @@ public sealed class JsModule : JsValue, IScriptOrModule
         var onFullfilled = new ClrFunctionInstance(_engine, "fulfilled", AsyncModuleExecutionFulfilled, 1, PropertyFlag.Configurable);
         var onRejected = new ClrFunctionInstance(_engine, "rejected", AsyncModuleExecutionRejected, 1, PropertyFlag.Configurable);
 
-        PromiseOperations.PerformPromiseThen(_engine, (PromiseInstance)capability.PromiseInstance, onFullfilled, onRejected, null);
+        PromiseOperations.PerformPromiseThen(_engine, (PromiseInstance) capability.PromiseInstance, onFullfilled, onRejected, null);
 
         return Execute(capability);
-
     }
 
     /// <summary>
@@ -792,19 +803,19 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// </summary>
     private void GatherAvailableAncestors(List<JsModule> execList)
     {
-        foreach(var m in _asyncParentModules)
+        foreach (var m in _asyncParentModules)
         {
-            if(!execList.Contains(m) && m._cycleRoot._evalError is null)
+            if (!execList.Contains(m) && m._cycleRoot._evalError is null)
             {
-                if(m.Status != ModuleStatus.EvaluatingAsync ||
-                   m._evalError is not null ||
-                   !m._asyncEvaluation ||
-                   m._pendingAsyncDependencies <= 0)
+                if (m.Status != ModuleStatus.EvaluatingAsync ||
+                    m._evalError is not null ||
+                    !m._asyncEvaluation ||
+                    m._pendingAsyncDependencies <= 0)
                 {
                     ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
                 }
 
-                if(--m._pendingAsyncDependencies == 0)
+                if (--m._pendingAsyncDependencies == 0)
                 {
                     execList.Add(m);
                     if (!m._hasTLA)
@@ -821,10 +832,10 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// </summary>
     private JsValue AsyncModuleExecutionFulfilled(JsValue thisObj, JsValue[] arguments)
     {
-        var module = (JsModule)arguments.At(0);
+        var module = (JsModule) arguments.At(0);
         if (module.Status == ModuleStatus.Evaluated)
         {
-            if(module._evalError is not null)
+            if (module._evalError is not null)
             {
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
@@ -841,7 +852,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
 
         if (module._topLevelCapability is not null)
         {
-            if(module._cycleRoot is null)
+            if (module._cycleRoot is null)
             {
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
@@ -853,7 +864,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
         module.GatherAvailableAncestors(execList);
         execList.Sort((x, y) => x._asyncEvalOrder - y._asyncEvalOrder);
 
-        for(var i = 0; i < execList.Count; i++)
+        for (var i = 0; i < execList.Count; i++)
         {
             var m = execList[i];
             if (m.Status == ModuleStatus.Evaluated && m._evalError is null)
@@ -867,14 +878,14 @@ public sealed class JsModule : JsValue, IScriptOrModule
             else
             {
                 var result = m.Execute();
-                if(result.Type != CompletionType.Normal)
+                if (result.Type != CompletionType.Normal)
                 {
                     AsyncModuleExecutionRejected(Undefined, new[] { m, result.Value });
                 }
                 else
                 {
                     m.Status = ModuleStatus.Evaluated;
-                    if(m._topLevelCapability is not null)
+                    if (m._topLevelCapability is not null)
                     {
                         if (m._cycleRoot is null)
                         {
@@ -895,12 +906,12 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// </summary>
     private JsValue AsyncModuleExecutionRejected(JsValue thisObj, JsValue[] arguments)
     {
-        JsModule module = (JsModule)arguments.At(0);
-        JsValue error = arguments.At(1);
+        var module = (JsModule) arguments.At(0);
+        var error = arguments.At(1);
 
         if (module.Status == ModuleStatus.Evaluated)
         {
-            if(module._evalError is null)
+            if (module._evalError is null)
             {
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
@@ -932,7 +943,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
-            module._topLevelCapability.Reject.Call(Undefined, new [] { error });
+            module._topLevelCapability.Reject.Call(Undefined, new[] { error });
         }
 
 

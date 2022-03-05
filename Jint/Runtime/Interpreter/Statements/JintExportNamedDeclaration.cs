@@ -2,6 +2,7 @@
 
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter.Statements;
@@ -12,10 +13,7 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
     private JintStatement? _declarationStatement;
     private ExportedSpecifier[]? _specifiers;
 
-    private sealed record ExportedSpecifier(
-        JintExpression Local,
-        JintExpression Exported
-    );
+    private readonly record struct ExportedSpecifier(string Local, string Exported);
 
     public JintExportNamedDeclaration(ExportNamedDeclaration statement) : base(statement)
     {
@@ -48,8 +46,8 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
                 var statementSpecifier = statementSpecifiers[i];
 
                 _specifiers[i] = new ExportedSpecifier(
-                    Local: JintExpression.Build(context.Engine, statementSpecifier.Local),
-                    Exported: JintExpression.Build(context.Engine, statementSpecifier.Exported)
+                    Local: statementSpecifier.Local.GetKey(context.Engine).AsString(),
+                    Exported: statementSpecifier.Exported.GetKey(context.Engine).AsString()
                 );
             }
         }
@@ -60,23 +58,18 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
     /// </summary>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        var module = context.Engine.GetActiveScriptOrModule().AsModule(context.Engine, context.LastSyntaxNode.Location);
+        var env = (ModuleEnvironmentRecord) context.Engine.ExecutionContext.LexicalEnvironment;
 
         if (_specifiers != null)
         {
+            var module = context.Engine.GetActiveScriptOrModule().AsModule(context.Engine, context.LastSyntaxNode.Location);
             foreach (var specifier in _specifiers)
             {
-                if (specifier.Local is not JintIdentifierExpression local || specifier.Exported is not JintIdentifierExpression exported)
-                {
-                    ExceptionHelper.ThrowSyntaxError(context.Engine.Realm, "", context.LastSyntaxNode.Location);
-                    return default;
-                }
-
-                var localKey = local._expressionName.Key.Name;
-                var exportedKey = exported._expressionName.Key.Name;
+                var localKey = specifier.Local;
+                var exportedKey = specifier.Exported;
                 if (localKey != exportedKey)
                 {
-                    module._environment.CreateImportBinding(exportedKey, module, localKey);
+                    env.CreateImportBinding(exportedKey, module, localKey);
                 }
             }
         }

@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
+using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Modules;
@@ -20,20 +22,47 @@ internal sealed class ModuleNamespace : ObjectInstance
         _exports = new HashSet<string>(exports);
     }
 
+    protected override void Initialize()
+    {
+        var symbols = new SymbolDictionary(1)
+        {
+            [GlobalSymbolRegistry.ToStringTag] = new("Module", false, false, false)
+        };
+        SetSymbols(symbols);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-getprototypeof
+    /// </summary>
     protected internal override ObjectInstance GetPrototypeOf() => null;
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-setprototypeof-v
+    /// </summary>
     public override bool SetPrototypeOf(JsValue value) => SetImmutablePrototype(value);
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-set-immutable-prototype
+    /// </summary>
     private bool SetImmutablePrototype(JsValue value)
     {
         var current = GetPrototypeOf();
         return SameValue(value, current ?? Null);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-isextensible
+    /// </summary>
     public override bool Extensible => false;
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-preventextensions
+    /// </summary>
     public override bool PreventExtensions() => true;
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-getownproperty-p
+    /// </summary>
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
         if (property.IsSymbol())
@@ -52,6 +81,9 @@ internal sealed class ModuleNamespace : ObjectInstance
         return new PropertyDescriptor(value, true, true, false);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-defineownproperty-p-desc
+    /// </summary>
     public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
         if (property.IsSymbol())
@@ -66,7 +98,22 @@ internal sealed class ModuleNamespace : ObjectInstance
             return false;
         }
 
-        if (desc.Configurable || desc.Enumerable || desc.IsAccessorDescriptor() || !desc.Writable)
+        if (desc.Configurable)
+        {
+            return false;
+        }
+
+        if (desc.EnumerableSet && !desc.Enumerable)
+        {
+            return false;
+        }
+
+        if (desc.IsAccessorDescriptor())
+        {
+            return false;
+        }
+
+        if (desc.WritableSet && !desc.Writable)
         {
             return false;
         }
@@ -79,6 +126,9 @@ internal sealed class ModuleNamespace : ObjectInstance
         return true;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-hasproperty-p
+    /// </summary>
     public override bool HasProperty(JsValue property)
     {
         if (property.IsSymbol())
@@ -90,7 +140,9 @@ internal sealed class ModuleNamespace : ObjectInstance
         return _exports.Contains(p);
     }
 
-    // https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-get-p-receiver
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-get-p-receiver
+    /// </summary>
     public override JsValue Get(JsValue property, JsValue receiver)
     {
         if (property.IsSymbol())
@@ -123,11 +175,17 @@ internal sealed class ModuleNamespace : ObjectInstance
         return targetEnv.GetBindingValue(binding.BindingName, true);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-set-p-v-receiver
+    /// </summary>
     public override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
         return false;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-delete-p
+    /// </summary>
     public override bool Delete(JsValue property)
     {
         if (property.IsSymbol())
@@ -139,6 +197,9 @@ internal sealed class ModuleNamespace : ObjectInstance
         return !_exports.Contains(p);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-ownpropertykeys
+    /// </summary>
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
     {
         var keys = base.GetOwnPropertyKeys(types);
