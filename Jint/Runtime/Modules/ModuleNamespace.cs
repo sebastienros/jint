@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Jint.Collections;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
@@ -18,7 +19,6 @@ internal sealed class ModuleNamespace : ObjectInstance
     public ModuleNamespace(Engine engine, JsModule module, List<string> exports) : base(engine)
     {
         _module = module;
-        exports.Sort();
         _exports = new HashSet<string>(exports);
     }
 
@@ -202,15 +202,19 @@ internal sealed class ModuleNamespace : ObjectInstance
     /// </summary>
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
     {
-        var keys = base.GetOwnPropertyKeys(types);
+        var result = new List<JsValue>();
         if ((types & Types.String) != 0)
         {
+            result.Capacity = _exports.Count;
             foreach (var export in _exports)
             {
-                keys.Add(export);
+                result.Add(export);
             }
+            result.Sort(ArrayPrototype.ArrayComparer.Default);
         }
+        
+        result.AddRange(base.GetOwnPropertyKeys(types));
 
-        return keys;
+        return result;
     }
 }
