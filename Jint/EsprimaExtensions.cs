@@ -325,10 +325,6 @@ namespace Jint
                     {
                         GetExportEntries(false, namedDeclaration.Declaration!, exportEntries, namedDeclaration.Source?.StringValue);
 
-                        if (namedDeclaration.Source is not null)
-                        {
-                            requestedModules.Add(namedDeclaration.Source.StringValue!);
-                        }
                     }
                     else
                     {
@@ -337,6 +333,11 @@ namespace Jint
                             var specifier = specifiers[i];
                             exportEntries.Add(new(specifier.Local.GetModuleKey(), namedDeclaration.Source?.StringValue, specifier.Exported.GetModuleKey(), null));
                         }
+                    }
+
+                    if (namedDeclaration.Source is not null)
+                    {
+                        requestedModules.Add(namedDeclaration.Source.StringValue!);
                     }
 
                     break;
