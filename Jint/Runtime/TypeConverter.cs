@@ -1197,15 +1197,12 @@ namespace Jint.Runtime
                 return 1;
             }
 
-            if (engine.Options.Interop.AllowOperatorOverloading)
+            foreach (var m in objectValueType.GetOperatorOverloadMethods())
             {
-                foreach (var m in objectValueType.GetOperatorOverloadMethods())
+                if (paramType.IsAssignableFrom(m.ReturnType) && m.Name is "op_Implicit" or "op_Explicit")
                 {
-                    if (paramType.IsAssignableFrom(m.ReturnType) && m.Name is "op_Implicit" or "op_Explicit")
-                    {
-                        // implicit/explicit operator conversion is OK, but not ideal
-                        return 1;
-                    }
+                    // implicit/explicit operator conversion is OK, but not ideal
+                    return 1;
                 }
             }
 

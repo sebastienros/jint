@@ -207,47 +207,18 @@ namespace Jint.Runtime.Interop
                 return obj;
             }
 
-            if (_engine.Options.Interop.AllowOperatorOverloading)
-            {
-                var key = new TypeConversionKey(valueType, type);
-
-                static MethodInfo CreateValueFactory(TypeConversionKey k)
-                {
-                    foreach (var m in k.Source.GetOperatorOverloadMethods().Concat(k.Target.GetOperatorOverloadMethods()))
-                    {
-                        var parameters = m.GetParameters();
-                        if (parameters.Length != 1)
-                        {
-                            continue;
-                        }
-
-                        if (!parameters[0].ParameterType.IsAssignableFrom(k.Source))
-                        {
-                            continue;
-                        }
-
-                        if (k.Target.IsAssignableFrom(m.ReturnType) && m.Name is "op_Implicit" or "op_Explicit")
-                        {
-                            return m;
-                        }
-                    }
-                    return null;
-                }
-
-                var castOperator = _knownCastOperators.GetOrAdd(key, CreateValueFactory);
-
-                if (castOperator != null)
-                {
-                    return castOperator.Invoke(null, new[] { value });
-                }
-            }
-
             try
             {
                 return System.Convert.ChangeType(value, type, formatProvider);
             }
             catch (Exception e)
             {
+                // check if we can do a cast with operator overloading
+                if (TryCastWithOperators(value, type, valueType, out var invoke))
+                {
+                    return invoke;
+                }
+                
                 if (!_engine.Options.Interop.ExceptionHandler(e))
                 {
                     throw;
@@ -256,6 +227,53 @@ namespace Jint.Runtime.Interop
                 ExceptionHelper.ThrowError(_engine, e.Message);
                 return null;
             }
+        }
+
+        private bool TryCastWithOperators(object value, Type type, Type valueType, out object converted)
+        {
+            var key = new TypeConversionKey(valueType, type);
+
+            static MethodInfo CreateValueFactory(TypeConversionKey k)
+            {
+                var (source, target) = k;
+                foreach (var m in source.GetOperatorOverloadMethods().Concat(target.GetOperatorOverloadMethods()))
+                {
+                    if (!target.IsAssignableFrom(m.ReturnType) || m.Name is not ("op_Implicit" or "op_Explicit"))
+                    {
+                        continue;
+                    }
+
+                    var parameters = m.GetParameters();
+                    if (parameters.Length != 1 || !parameters[0].ParameterType.IsAssignableFrom(source))
+                    {
+                        continue;
+                    }
+
+                    // we found a match
+                    return m;
+                }
+
+                return null;
+            }
+
+            var castOperator = _knownCastOperators.GetOrAdd(key, CreateValueFactory);
+
+            if (castOperator != null)
+            {
+                try
+                {
+                    converted = castOperator.Invoke(null, new[] { value });
+                    return true;
+                }
+                catch
+                {
+                    converted = null;
+                    return false;
+                }
+            }
+
+            converted = null;
+            return false;
         }
 
         public virtual bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)
