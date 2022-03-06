@@ -10,6 +10,7 @@ using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
 using Jint.Tests.Runtime.Domain;
+using Jint.Tests.Runtime.TestClasses;
 using MongoDB.Bson;
 using Shapes;
 using Xunit;
@@ -2764,6 +2765,18 @@ namespace Jint.Tests.Runtime
             _engine.SetValue("profile", new Profile());
             var ex = Assert.Throws<NotSupportedException>(() => _engine.Evaluate("profile.AnyProperty"));
             Assert.Equal("NOT SUPPORTED", ex.Message);
+        }
+
+        [Fact]
+        public void ShouldBeAbleToUseConvertibleStructAsMethodParameter()
+        {
+            var engine = new Engine(options => options.AllowOperatorOverloading());
+            engine.SetValue("test", new DiscordTestClass());
+            engine.SetValue("id", new DiscordId("12345"));
+
+            Assert.Equal("12345", engine.Evaluate("String(id)").AsString());
+            Assert.Equal("12345", engine.Evaluate("test.echo('12345')").AsString());
+            Assert.Equal("12345", engine.Evaluate("test.create(12345)").AsString());
         }
 
         private class Profile
