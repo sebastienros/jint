@@ -638,7 +638,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
         for (var i = 0; i < _indirectExportEntries.Count; i++)
         {
             var e = _indirectExportEntries[i];
-            var resolution = ResolveExport(e.ExportName);
+            var resolution = ResolveExport(e.ImportName ?? e.ExportName);
             if (resolution is null || resolution == ResolvedBinding.Ambiguous)
             {
                 ExceptionHelper.ThrowSyntaxError(_realm, "Ambiguous import statement for identifier: " + e.ExportName);
