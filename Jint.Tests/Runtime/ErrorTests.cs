@@ -24,6 +24,7 @@ var b = a.user.name;
             Assert.Equal(4, e.Location.Start.Line);
             Assert.Equal(15, e.Location.Start.Column);
         }
+
         [Fact]
         public void CanReturnCorrectErrorMessageAndLocation1WithoutReferencedName()
         {
@@ -198,7 +199,7 @@ var b = function(v) {
             engine.SetValue("folder", folder);
 
             var javaScriptException = Assert.Throws<JavaScriptException>(() =>
-           engine.Execute(@"
+                engine.Execute(@"
                 var Test = {
                     recursive: function(folderInstance) {
                         // Enabling the guard here corrects the problem, but hides the hard fault
@@ -210,7 +211,7 @@ var b = function(v) {
                 }
 
                 Test.recursive(folder);"
-           ));
+                ));
 
             Assert.Equal("Cannot read property 'Name' of null", javaScriptException.Message);
             EqualIgnoringNewLineDifferences(@"   at recursive (folderInstance) <anonymous>:6:44
@@ -325,5 +326,95 @@ var x = b(7);";
             actualString = actualString.Replace("\r\n", "\n");
             Assert.Contains(expectedSubstring, actualString);
         }
+
+        [Fact]
+        public void CustomException()
+        {
+            var engine = new Engine();
+            const string filename = "someFile.js";
+            JintJsException jsException = Assert.Throws<JintJsException>(() =>
+            {
+                try
+                {
+                    const string script = @"
+                        var test = 42; // just adding a line for a non zero line offset
+                        throw new Error('blah');
+                    ";
+
+                    engine.Execute(script);
+                }
+                catch (JavaScriptException ex)
+                {
+                    throw new JintJsException(filename, ex);
+                }
+            });
+
+            Assert.Equal(24, jsException.Column);
+            Assert.Equal(3, jsException.LineNumber);
+            Assert.Equal(filename, jsException.Module);
+        }
+
+        [Fact]
+        public void CustomExceptionUsesCopyConstructor()
+        {
+            var engine = new Engine();
+            const string filename = "someFile.js";
+            JintJsException2 jsException = Assert.Throws<JintJsException2>(() =>
+            {
+                try
+                {
+                    const string script = @"
+                        var test = 42; // just adding a line for a non zero line offset
+                        throw new Error('blah');
+                    ";
+
+                    engine.Execute(script);
+                }
+                catch (JavaScriptException ex)
+                {
+                    throw new JintJsException2(filename, ex);
+                }
+            });
+
+            Assert.Equal(24, jsException.Column);
+            Assert.Equal(3, jsException.LineNumber);
+            Assert.Equal(filename, jsException.Module);
+        }
+    }
+
+    public class JintJsException : JavaScriptException
+    {
+        private readonly JavaScriptException _jsException;
+
+        public JintJsException(string moduleName, JavaScriptException jsException) : base(jsException.Error)
+        {
+            Module = moduleName;
+            _jsException = jsException;
+            Location = jsException.Location;
+        }
+
+        public string Module { get; }
+        
+        public override string Message
+        {
+            get
+            {
+                var scriptFilename = (Module != null) ? "Filepath: " + Module + " " : "";
+                var errorMsg = $"{scriptFilename}{_jsException.Message}";
+                return errorMsg;
+            }
+        }
+
+        public override string StackTrace => _jsException.StackTrace;
+    }
+
+    public class JintJsException2 : JavaScriptException
+    {
+        public JintJsException2(string moduleName, JavaScriptException jsException) : base(jsException)
+        {
+            Module = moduleName;
+        }
+
+        public string Module { get; }
     }
 }

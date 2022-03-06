@@ -280,6 +280,20 @@ namespace Jint.Runtime.Interop
                 }
             }
 
+            // TPC: need to grab the extension methods here - for overloads
+            MethodInfo[] extensionMethods;
+            if (engine._extensionMethods.TryGetExtensionMethods(type, out extensionMethods))
+            {
+                foreach (var methodInfo in extensionMethods)
+                {
+                    if (memberNameComparer.Equals(methodInfo.Name, memberName))
+                    {
+                        methods ??= new List<MethodInfo>();
+                        methods.Add(methodInfo);
+                    }
+                }
+            }
+
             if (methods?.Count > 0)
             {
                 accessor = new MethodAccessor(MethodDescriptor.Build(methods));

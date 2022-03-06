@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 
 using System;
 using Esprima;
@@ -19,7 +19,7 @@ namespace Jint.Runtime
         }
 
         public JavaScriptException(ErrorConstructor errorConstructor, string? message, Exception? innerException)
-             : base(message, innerException)
+            : base(message, innerException)
         {
             Error = errorConstructor.Construct(new JsValue[] { message });
         }
@@ -33,6 +33,19 @@ namespace Jint.Runtime
         public JavaScriptException(JsValue error)
         {
             Error = error;
+        }
+
+        // Copy constructors
+        public JavaScriptException(JavaScriptException exception, Exception? innerException) : base(exception.Message, exception.InnerException)
+        {
+            Error = exception.Error;
+            Location = exception.Location;
+        }
+
+        public JavaScriptException(JavaScriptException exception) : base(exception.Message)
+        {
+            Error = exception.Error;
+            Location = exception.Location;
         }
 
         internal JavaScriptException SetLocation(Location location)
@@ -91,12 +104,12 @@ namespace Jint.Runtime
                 var callstack = oi.Get(CommonProperties.Stack, Error);
 
                 return callstack.IsUndefined()
-                    ? null 
+                    ? null
                     : callstack.AsString();
             }
         }
 
-        public Location Location { get; private set; }
+        public Location Location { get; protected set; }
 
         public int LineNumber => Location.Start.Line;
 
@@ -110,7 +123,7 @@ namespace Jint.Runtime
             var innerExceptionString = InnerException?.ToString() ?? "";
             const string endOfInnerExceptionResource = "--- End of inner exception stack trace ---";
             var stackTrace = StackTrace;
- 
+
             using var rent = StringBuilderPool.Rent();
             var sb = rent.Builder;
             sb.Append(className);
@@ -119,6 +132,7 @@ namespace Jint.Runtime
                 sb.Append(": ");
                 sb.Append(message);
             }
+
             if (InnerException != null)
             {
                 sb.Append(Environment.NewLine);
@@ -128,12 +142,13 @@ namespace Jint.Runtime
                 sb.Append("   ");
                 sb.Append(endOfInnerExceptionResource);
             }
+
             if (stackTrace != null)
             {
                 sb.Append(Environment.NewLine);
                 sb.Append(stackTrace);
             }
- 
+
             return rent.ToString();
         }
     }
