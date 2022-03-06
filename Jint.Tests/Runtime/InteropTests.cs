@@ -2770,13 +2770,12 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeAbleToUseConvertibleStructAsMethodParameter()
         {
-            var engine = new Engine(options => options.AllowOperatorOverloading());
-            engine.SetValue("test", new DiscordTestClass());
-            engine.SetValue("id", new DiscordId("12345"));
+            _engine.SetValue("test", new DiscordTestClass());
+            _engine.SetValue("id", new DiscordId("12345"));
 
-            Assert.Equal("12345", engine.Evaluate("String(id)").AsString());
-            Assert.Equal("12345", engine.Evaluate("test.echo('12345')").AsString());
-            Assert.Equal("12345", engine.Evaluate("test.create(12345)").AsString());
+            Assert.Equal("12345", _engine.Evaluate("String(id)").AsString());
+            Assert.Equal("12345", _engine.Evaluate("test.echo('12345')").AsString());
+            Assert.Equal("12345", _engine.Evaluate("test.create(12345)").AsString());
         }
 
         private class Profile
