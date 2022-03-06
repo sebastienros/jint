@@ -99,7 +99,28 @@ public class ModuleTests
     }
 
     [Fact]
-    public void ShouldPropagateThrowStatementOnCSharpImport()
+    public void ShouldPropagateParseError()
+    {
+        _engine.AddModule("imported", @"export const invalid;");
+        _engine.AddModule("my-module", @"import { invalid } from 'imported';");
+
+        var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
+        Assert.Equal("Error while loading module: error in module 'imported': Line 1: Missing initializer in const declaration", exc.Message);
+    }
+
+    [Fact]
+    public void ShouldPropagateLinkError()
+    {
+        _engine.AddModule("imported", @"import { x } from 'my-module'; export const value = x;");
+        _engine.AddModule("my-module", @"import { value } from 'imported'; export const x = 0;");
+
+        var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
+        Assert.Equal("Ambiguous import statement for identifier value", exc.Message);
+        Assert.Equal("my-module", exc.Location.Source);
+    }
+
+    [Fact]
+    public void ShouldPropagateExecuteError()
     {
         _engine.AddModule("my-module", @"throw new Error('imported successfully');");
 
@@ -204,7 +225,7 @@ public class ModuleTests
     }
 
     [Fact(Skip = "TODO re-enable in module fix branch")]
-    public void ShouldAllowLoadingMoreThanOnce()
+    public void ShouldImportOnlyOnce()
     {
         var called = 0;
         _engine.AddModule("imported-module", builder => builder.ExportFunction("count", args => called++));
@@ -212,7 +233,20 @@ public class ModuleTests
         _engine.ImportModule("my-module");
         _engine.ImportModule("my-module");
 
-        Assert.Equal(called, 1);
+        Assert.Equal(1, called);
+    }
+
+    [Fact]
+    public void ShouldAllowSelfImport()
+    {
+        _engine.AddModule("my-globals", @"export const globals = { counter: 0 };");
+        _engine.AddModule("my-module", @"
+import { globals } from 'my-globals';
+export const count = ++globals.counter;
+");
+        var ns= _engine.ImportModule("my-module");
+
+        Assert.Equal(1, ns.Get("count").AsInteger());
     }
 
 #if(NET6_0_OR_GREATER)

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
 
@@ -13,14 +14,16 @@ namespace Jint;
 public sealed class ModuleBuilder
 {
     private readonly Engine _engine;
+    private readonly string _specifier;
     private readonly List<string> _sourceRaw = new();
     private readonly Dictionary<string, JsValue> _exports = new();
     private readonly ParserOptions _options;
 
-    internal ModuleBuilder(Engine engine, string source)
+    internal ModuleBuilder(Engine engine, string specifier)
     {
         _engine = engine;
-        _options = new ParserOptions(source);
+        _specifier = specifier;
+        _options = new ParserOptions(specifier);
     }
 
     public ModuleBuilder AddSource(string code)
@@ -79,13 +82,23 @@ public sealed class ModuleBuilder
 
     internal Module Parse()
     {
-        if (_sourceRaw.Count > 0)
+        if (_sourceRaw.Count <= 0) return new Module(NodeList.Create(Array.Empty<Statement>()));
+
+        var javaScriptParser = new JavaScriptParser(_sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw), _options);
+
+        try
         {
-            return new JavaScriptParser(_sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw), _options).ParseModule();
+            return javaScriptParser.ParseModule();
         }
-        else
+        catch (ParserException ex)
         {
-            return new Module(NodeList.Create(Array.Empty<Statement>()));
+            ExceptionHelper.ThrowSyntaxError(_engine.Realm, $"Error while loading module: error in module '{_specifier}': {ex.Error}");
+            return null!;
+        }
+        catch (Exception)
+        {
+            ExceptionHelper.ThrowJavaScriptException(_engine, $"Could not load module {_specifier}", Completion.Empty());
+            return null!;
         }
     }
 

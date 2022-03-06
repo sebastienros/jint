@@ -41,36 +41,43 @@ namespace Jint
 
             if (_builders.TryGetValue(specifier, out var moduleBuilder))
             {
-                Module parsedModule;
-                try
-                {
-                    parsedModule = moduleBuilder.Parse();
-                }
-                catch (ParserException ex)
-                {
-                    ExceptionHelper.ThrowSyntaxError(Realm, $"Error while loading module: error in module '{moduleResolution.Specifier}': {ex.Error}");
-                    return null!;
-                }
-                catch (Exception)
-                {
-                    ExceptionHelper.ThrowJavaScriptException(this, $"Could not load module {moduleResolution.Specifier}", Completion.Empty());
-                    return null!;
-                }
-
-                module = new JsModule(this, Realm, parsedModule, null, false);
-                // Early link is required because we need to bind values before returning
-                module.Link();
-                moduleBuilder.BindExportedValues(module);
-                _builders.Remove(specifier);
+                module = LoadFromBuilder(specifier, moduleBuilder, moduleResolution);
             }
             else
             {
-                var parsedModule = ModuleLoader.LoadModule(this, moduleResolution);
-                module = new JsModule(this, Realm, parsedModule, moduleResolution.Uri?.LocalPath, false);
+                module = LoaderFromModuleLoader(moduleResolution);
             }
 
-            _modules[moduleResolution.Key] = module;
+            return module;
+        }
 
+        private JsModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution)
+        {
+            var parsedModule = moduleBuilder.Parse();
+            var module = new JsModule(this, Realm, parsedModule, null, false);
+            _modules[moduleResolution.Key] = module;
+            // Early link is required because we need to bind values before returning
+            try
+            {
+                module.Link();
+            }
+            catch (JavaScriptException ex)
+            {
+                if (ex.Location.Source == null)
+                    ex.SetLocation(new Location(new Position(), new Position(), specifier));
+                throw;
+            }
+
+            moduleBuilder.BindExportedValues(module);
+            _builders.Remove(specifier);
+            return module;
+        }
+
+        private JsModule LoaderFromModuleLoader(ResolvedSpecifier moduleResolution)
+        {
+            var parsedModule = ModuleLoader.LoadModule(this, moduleResolution);
+            var module = new JsModule(this, Realm, parsedModule, moduleResolution.Uri?.LocalPath, false);
+            _modules[moduleResolution.Key] = module;
             return module;
         }
 
@@ -104,7 +111,16 @@ namespace Jint
 
             if (module.Status == ModuleStatus.Unlinked)
             {
-                module.Link();
+                try
+                {
+                    module.Link();
+                }
+                catch (JavaScriptException ex)
+                {
+                    if (ex.Location.Source == null)
+                        ex.SetLocation(new Location(new Position(), new Position(), specifier));
+                    throw;
+                }
             }
 
             if (module.Status == ModuleStatus.Linked)
