@@ -68,6 +68,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
     private readonly List<ExportEntry> _localExportEntries;
     private readonly List<ExportEntry> _indirectExportEntries;
     private readonly List<ExportEntry> _starExportEntries;
+    private readonly List<KeyValuePair<string, JsValue>> _exportBuilderDeclarations = new();
     internal JsValue _evalResult;
 
     internal JsModule(Engine engine, Realm realm, Module source, string location, bool async) : base(InternalTypes.Module)
@@ -132,8 +133,8 @@ public sealed class JsModule : JsValue, IScriptOrModule
 
     internal void BindExportedValue(string name, JsValue value)
     {
-        _environment.CreateImmutableBindingAndInitialize(name, true, value);
-        _localExportEntries.Add(new ExportEntry(name, null, null, null));
+        if(_environment != null) ExceptionHelper.ThrowInvalidOperationException("Cannot bind exported values after the environment has been initialized");
+        _exportBuilderDeclarations.Add(new KeyValuePair<string, JsValue>(name, value));
     }
 
     /// <summary>
@@ -275,7 +276,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
 
         try
         {
-            Link(this, stack, 0);
+            InnerModuleLinking(this, stack, 0);
         }
         catch
         {
@@ -377,7 +378,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-InnerModuleLinking
     /// </summary>
-    private int Link(JsModule module, Stack<JsModule> stack, int index)
+    private int InnerModuleLinking(JsModule module, Stack<JsModule> stack, int index)
     {
         if (module.Status is
             ModuleStatus.Linking or
@@ -408,7 +409,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
             //TODO: Should we link only when a module is requested? https://tc39.es/ecma262/#sec-example-cyclic-module-record-graphs Should we support retry?
             if (requiredModule.Status == ModuleStatus.Unlinked)
             {
-                requiredModule.Link();
+                index = requiredModule.InnerModuleLinking(requiredModule, stack, index);
             }
 
             if (requiredModule.Status != ModuleStatus.Linking &&
@@ -749,6 +750,17 @@ public sealed class JsModule : JsValue, IScriptOrModule
                 var fo = realm.Intrinsics.Function.InstantiateFunctionObject(fd, env);
                 env.InitializeBinding(fn, fo);
             }
+        }
+
+        if (_exportBuilderDeclarations != null)
+        {
+            for (var i = 0; i < _exportBuilderDeclarations.Count; i++)
+            {
+                var d = _exportBuilderDeclarations[i];
+                _environment.CreateImmutableBindingAndInitialize(d.Key, true, d.Value);
+                _localExportEntries.Add(new ExportEntry(d.Key, null, null, null));
+            }
+            _exportBuilderDeclarations.Clear();
         }
 
         _engine.LeaveExecutionContext();

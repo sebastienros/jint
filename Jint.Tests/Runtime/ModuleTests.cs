@@ -111,11 +111,11 @@ public class ModuleTests
     [Fact]
     public void ShouldPropagateLinkError()
     {
-        _engine.AddModule("imported", @"import { x } from 'my-module'; export const value = x;");
-        _engine.AddModule("my-module", @"import { value } from 'imported'; export const x = 0;");
+        _engine.AddModule("imported", @"export invalid;");
+        _engine.AddModule("my-module", @"import { value } from 'imported';");
 
         var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
-        Assert.Equal("Ambiguous import statement for identifier value", exc.Message);
+        Assert.Equal("Error while loading module: error in module 'imported': Line 1: Unexpected identifier", exc.Message);
         Assert.Equal("my-module", exc.Location.Source);
     }
 
@@ -247,6 +247,19 @@ export const count = ++globals.counter;
         var ns= _engine.ImportModule("my-module");
 
         Assert.Equal(1, ns.Get("count").AsInteger());
+    }
+
+    [Fact]
+    public void ShouldAllowCyclicImport()
+    {
+        _engine.AddModule("module2", @"import { x1 } from 'module1'; export const x2 = 2;");
+        _engine.AddModule("module1", @"import { x2 } from 'module2'; export const x1 = 1;");
+
+        var ns1 = _engine.ImportModule("module1");
+        var ns2 = _engine.ImportModule("module2");
+
+        Assert.Equal(1, ns1.Get("x1").AsInteger());
+        Assert.Equal(2, ns2.Get("x2").AsInteger());
     }
 
 #if(NET6_0_OR_GREATER)

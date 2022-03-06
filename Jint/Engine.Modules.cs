@@ -28,8 +28,6 @@ namespace Jint
             return _executionContexts?.GetActiveScriptOrModule();
         }
 
-        internal JsModule LoadModule(string specifier) => LoadModule(null, specifier);
-
         internal JsModule LoadModule(string? referencingModuleLocation, string specifier)
         {
             var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, specifier);
@@ -56,18 +54,6 @@ namespace Jint
             var parsedModule = moduleBuilder.Parse();
             var module = new JsModule(this, Realm, parsedModule, null, false);
             _modules[moduleResolution.Key] = module;
-            // Early link is required because we need to bind values before returning
-            try
-            {
-                module.Link();
-            }
-            catch (JavaScriptException ex)
-            {
-                if (ex.Location.Source == null)
-                    ex.SetLocation(new Location(new Position(), new Position(), specifier));
-                throw;
-            }
-
             moduleBuilder.BindExportedValues(module);
             _builders.Remove(specifier);
             return module;
