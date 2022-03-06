@@ -5,16 +5,17 @@ using Jint.Native;
 
 namespace Jint.Runtime.Debugger
 {
+    public enum PauseType
+    {
+        Step,
+        Break,
+        DebuggerStatement
+    }
+
     public class DebugHandler
     {
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
         public delegate StepMode BreakDelegate(object sender, DebugInformation e);
-
-        private enum PauseType
-        {
-            Step,
-            Break
-        }
 
         private readonly Engine _engine;
         private bool _paused;
@@ -75,26 +76,7 @@ namespace Jint.Runtime.Debugger
             }
         }
 
-        private void Pause(PauseType type, Statement statement = null, Location? location = null, JsValue returnValue = null)
-        {
-            _paused = true;
-            
-            DebugInformation info = CreateDebugInformation(statement, location ?? statement.Location, returnValue);
-            
-            StepMode? result = type switch
-            {
-                // Conventionally, sender should be DebugHandler - but Engine is more useful
-                PauseType.Step => Step?.Invoke(_engine, info),
-                PauseType.Break => Break?.Invoke(_engine, info),
-                _ => throw new ArgumentException("Invalid pause type", nameof(type))
-            };
-            
-            _paused = false;
-            
-            HandleNewStepMode(result);
-        }
-
-        internal void OnBreak(Statement statement)
+        internal void OnDebuggerStatement(Statement statement)
         {
             // Don't reenter if we're already paused
             if (_paused)
@@ -102,7 +84,27 @@ namespace Jint.Runtime.Debugger
                 return;
             }
 
-            Pause(PauseType.Break, statement);
+            Pause(PauseType.DebuggerStatement, statement);
+        }
+
+        private void Pause(PauseType type, Statement statement = null, Location? location = null, JsValue returnValue = null)
+        {
+            _paused = true;
+            
+            DebugInformation info = CreateDebugInformation(statement, location ?? statement.Location, returnValue, type);
+            
+            StepMode? result = type switch
+            {
+                // Conventionally, sender should be DebugHandler - but Engine is more useful
+                PauseType.Step => Step?.Invoke(_engine, info),
+                PauseType.Break => Break?.Invoke(_engine, info),
+                PauseType.DebuggerStatement => Break?.Invoke(_engine, info),
+                _ => throw new ArgumentException("Invalid pause type", nameof(type))
+            };
+            
+            _paused = false;
+            
+            HandleNewStepMode(result);
         }
 
         private void HandleNewStepMode(StepMode? newStepMode)
@@ -119,12 +121,13 @@ namespace Jint.Runtime.Debugger
             }
         }
 
-        private DebugInformation CreateDebugInformation(Statement statement, Location? currentLocation, JsValue returnValue)
+        private DebugInformation CreateDebugInformation(Statement statement, Location? currentLocation, JsValue returnValue, PauseType pauseType)
         {
             return new DebugInformation(
                 statement,
                 new DebugCallStack(_engine, currentLocation ?? statement.Location, _engine.CallStack, returnValue),
-                _engine.CurrentMemoryUsage
+                _engine.CurrentMemoryUsage,
+                pauseType
             );
         }
     }
