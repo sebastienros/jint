@@ -7,6 +7,10 @@ using System.Threading.Tasks;
 
 namespace Jint
 {
+    /// <summary>
+    /// Event arguments for the <see cref="Engine.Parsed" /> event, containing the results of the engine's parsing
+    /// of the script (AST etc.)
+    /// </summary>
     public sealed class SourceParsedEventArgs
     {
         public SourceParsedEventArgs(string source, Script ast)
@@ -16,8 +20,24 @@ namespace Jint
             Ast = ast;
         }
 
+        /// <summary>
+        /// The source ID of the parsed script.
+        /// </summary>
+        /// <remarks>
+        /// This corresponds to the source passed to Esprima through ParserOptions - which is stored on each AST
+        /// node's Location.Source property. I.e, it's user defined, and is a string describing where the code is
+        /// coming from.
+        /// </remarks>
         public string SourceId { get; }
+
+        /// <summary>
+        /// The source Javascript as a string.
+        /// </summary>
         public string Source { get; }
+
+        /// <summary>
+        /// The AST result from the parser.
+        /// </summary>
         public Script Ast { get; }
     }
 }

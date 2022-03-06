@@ -76,10 +76,18 @@ namespace Jint.Runtime.Debugger
 
             if (!string.IsNullOrEmpty(breakPoint.Condition))
             {
-                var completionValue = engine.Evaluate(breakPoint.Condition);
-
-                if (!completionValue.AsBoolean())
+                try
                 {
+                    var completionValue = engine.Evaluate(breakPoint.Condition);
+
+                    if (!completionValue.AsBoolean())
+                    {
+                        return null;
+                    }
+                }
+                catch (JavaScriptException)
+                {
+                    // Error in the condition means it doesn't match - shouldn't actually throw.
                     return null;
                 }
             }
