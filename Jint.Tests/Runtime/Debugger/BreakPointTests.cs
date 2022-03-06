@@ -265,5 +265,57 @@ test();";
 
             Assert.Equal(2, step);
         }
+
+        [Fact(Skip = "Not yet functional - requires changes in exception handling")]
+        public void ErrorInConditionalBreakpointLeavesCallStackAlone()
+        {
+            string script = @"
+function foo()
+{
+let x = 0;
+'before breakpoint';
+'breakpoint here';
+'after breakpoint';
+}
+
+foo();
+";
+            var engine = new Engine(options => options.DebugMode());
+
+            int stepsReached = 0;
+            int breakpointsReached = 0;
+
+            // This breakpoint will be hit:
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(6, 0, "x == 0"));
+            // This condition is an error (y is not defined). DebugHandler will
+            // treat it as an unmatched breakpoint:
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(6, 0, "y == 0"));
+
+            engine.DebugHandler.Step += (sender, info) =>
+            {
+                if (info.ReachedLiteral("before breakpoint"))
+                {
+                    Assert.Equal(1, engine.CallStack.Count);
+                    stepsReached++;
+                }
+                else if (info.ReachedLiteral("after breakpoint"))
+                {
+                    Assert.Equal(1, engine.CallStack.Count);
+                    stepsReached++;
+                }
+                return StepMode.Into;
+            };
+
+            engine.DebugHandler.Break += (sender, info) =>
+            {
+                breakpointsReached++;
+                return StepMode.Into;
+            };
+
+            engine.Execute(script);
+
+            Assert.Equal(1, breakpointsReached);
+            Assert.Equal(2, stepsReached);
+        }
     }
 }
