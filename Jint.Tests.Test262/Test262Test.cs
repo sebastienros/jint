@@ -96,13 +96,17 @@ namespace Jint.Tests.Test262
             }
         }
 
-        protected void RunTestCode(string fileName, string code, bool strict)
+        protected void RunTestCode(string fileName, string code, bool strict, string fullPath)
         {
-            var engine = new Engine(cfg => cfg
-                .LocalTimeZone(_pacificTimeZone)
-                .Strict(strict)
-                .EnableModules(Path.Combine(BasePath, "test", Path.GetDirectoryName(fileName)!))
-            );
+            var module = Regex.IsMatch(code, @"flags:\s*?\[.*?module.*?]");
+
+            var engine = new Engine(cfg =>
+            {
+                cfg.LocalTimeZone(_pacificTimeZone);
+                cfg.Strict(strict);
+                if (module)
+                    cfg.EnableModules(Path.Combine(BasePath, "test", Path.GetDirectoryName(fullPath)!));
+            });
 
             engine.Execute(Sources["sta.js"]);
             engine.Execute(Sources["assert.js"]);
@@ -152,8 +156,6 @@ namespace Jint.Tests.Test262
                     engine.Execute(Sources[file.Trim()]);
                 }
             }
-            
-            var module = Regex.IsMatch(code, @"flags:\s*?\[.*?module.*?]");
 
             if (code.IndexOf("propertyHelper.js", StringComparison.OrdinalIgnoreCase) != -1)
             {
@@ -167,9 +169,8 @@ namespace Jint.Tests.Test262
             {
                 if (module)
                 {
-                    var moduleName = Path.GetFileNameWithoutExtension(fileName);
-                    engine.AddModule(moduleName, builder => builder.AddSource(code).WithOptions(opts => opts.ErrorHandler.Source = fileName));
-                    engine.ImportModule(moduleName);
+                    engine.AddModule(fullPath, builder => builder.AddSource(code));
+                    engine.ImportModule(fullPath);
                 }
                 else
                 {
@@ -200,13 +201,13 @@ namespace Jint.Tests.Test262
 
             if (sourceFile.Code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0)
             {
-                RunTestCode(sourceFile.Source, sourceFile.Code, strict: false);
+                RunTestCode(sourceFile.Source, sourceFile.Code, strict: false, fullPath: sourceFile.FullPath);
             }
 
             if (!_strictSkips.Contains(sourceFile.Source)
                 && sourceFile.Code.IndexOf("noStrict", StringComparison.Ordinal) < 0)
             {
-                RunTestCode(sourceFile.Source, sourceFile.Code, strict: true);
+                RunTestCode(sourceFile.Source, sourceFile.Code, strict: true, fullPath: sourceFile.FullPath);
             }
         }
 

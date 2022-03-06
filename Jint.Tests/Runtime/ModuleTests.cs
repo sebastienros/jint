@@ -242,7 +242,9 @@ public class ModuleTests
         _engine.AddModule("my-globals", @"export const globals = { counter: 0 };");
         _engine.AddModule("my-module", @"
 import { globals } from 'my-globals';
-export const count = ++globals.counter;
+import {} from 'my-module';
+globals.counter++;
+export const count = globals.counter;
 ");
         var ns= _engine.ImportModule("my-module");
 
