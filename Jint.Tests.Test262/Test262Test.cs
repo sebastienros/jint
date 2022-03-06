@@ -167,7 +167,9 @@ namespace Jint.Tests.Test262
             {
                 if (module)
                 {
-                    engine.Execute(new JavaScriptParser(code, new ParserOptions(fileName)).ParseModule());
+                    var moduleName = Path.GetFileNameWithoutExtension(fileName);
+                    engine.AddModule(moduleName, builder => builder.AddSource(code).WithOptions(opts => opts.ErrorHandler.Source = fileName));
+                    engine.ImportModule(moduleName);
                 }
                 else
                 {

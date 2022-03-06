@@ -102,23 +102,6 @@ namespace Jint
                 module = LoadModule(null, specifier);
             }
 
-            return Execute(specifier, module);
-        }
-
-        public Engine Execute(Module module)
-        {
-            Evaluate(module);
-            return this;
-        }
-
-        public JsValue Evaluate(Module module)
-        {
-            var jsModule = new JsModule(this, Realm, module, location: null, async: false);
-            return Execute(specifier: null, jsModule);
-        }
-
-        private ObjectInstance Execute(string? specifier, JsModule module)
-        {
             if (module.Status == ModuleStatus.Unlinked)
             {
                 module.Link();

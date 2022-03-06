@@ -239,24 +239,20 @@ namespace Jint
             CallStack.Clear();
         }
 
-        public JsValue Evaluate(string source, SourceType sourceType = SourceType.Script)
-            => Evaluate(source, DefaultParserOptions, sourceType);
+        public JsValue Evaluate(string source)
+            => Evaluate(source, DefaultParserOptions);
 
-        public JsValue Evaluate(string source, ParserOptions parserOptions, SourceType sourceType = SourceType.Script)
-            => sourceType == SourceType.Script 
-                ? Evaluate(new JavaScriptParser(source, parserOptions).ParseScript())
-                : Evaluate(new JavaScriptParser(source, parserOptions).ParseModule());
+        public JsValue Evaluate(string source, ParserOptions parserOptions)
+            => Evaluate(new JavaScriptParser(source, parserOptions).ParseScript());
 
         public JsValue Evaluate(Script script)
             => Execute(script)._completionValue;
 
-        public Engine Execute(string source, SourceType sourceType = SourceType.Script)
-            => Execute(source, DefaultParserOptions, sourceType);
+        public Engine Execute(string source)
+            => Execute(source, DefaultParserOptions);
 
-        public Engine Execute(string source, ParserOptions parserOptions, SourceType sourceType = SourceType.Script)
-            => sourceType == SourceType.Script 
-                ? Execute(new JavaScriptParser(source, parserOptions).ParseScript())
-                : Execute(new JavaScriptParser(source, parserOptions).ParseModule());
+        public Engine Execute(string source, ParserOptions parserOptions)
+            => Execute(new JavaScriptParser(source, parserOptions).ParseScript());
 
         public Engine Execute(Script script)
         {
