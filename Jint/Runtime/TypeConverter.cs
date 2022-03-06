@@ -1193,7 +1193,7 @@ namespace Jint.Runtime
 
             if (CanChangeType(objectValue, paramType))
             {
-                // forcing conversion isn't ideal not ideal, but works, especially for int -> double for example
+                // forcing conversion isn't ideal, but works, especially for int -> double for example
                 return 1;
             }
 

@@ -211,10 +211,30 @@ namespace Jint.Runtime.Interop
             {
                 var key = new TypeConversionKey(valueType, type);
 
-                var castOperator = _knownCastOperators.GetOrAdd(key, _ =>
-                    valueType.GetOperatorOverloadMethods()
-                    .Concat(type.GetOperatorOverloadMethods())
-                    .FirstOrDefault(m => type.IsAssignableFrom(m.ReturnType) && m.Name is "op_Implicit" or "op_Explicit"));
+                static MethodInfo CreateValueFactory(TypeConversionKey k)
+                {
+                    foreach (var m in k.Source.GetOperatorOverloadMethods().Concat(k.Target.GetOperatorOverloadMethods()))
+                    {
+                        var parameters = m.GetParameters();
+                        if (parameters.Length != 1)
+                        {
+                            continue;
+                        }
+
+                        if (!parameters[0].ParameterType.IsAssignableFrom(k.Source))
+                        {
+                            continue;
+                        }
+
+                        if (k.Target.IsAssignableFrom(m.ReturnType) && m.Name is "op_Implicit" or "op_Explicit")
+                        {
+                            return m;
+                        }
+                    }
+                    return null;
+                }
+
+                var castOperator = _knownCastOperators.GetOrAdd(key, CreateValueFactory);
 
                 if (castOperator != null)
                 {
