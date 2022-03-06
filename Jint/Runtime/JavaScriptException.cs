@@ -13,13 +13,13 @@ namespace Jint.Runtime
     {
         private string? _callStack;
 
-		public JavaScriptException(ErrorConstructor errorConstructor) : base("")
+        public JavaScriptException(ErrorConstructor errorConstructor) : base("")
         {
             Error = errorConstructor.Construct(Arguments.Empty);
         }
 
         public JavaScriptException(ErrorConstructor errorConstructor, string? message, Exception? innerException)
-             : base(message, innerException)
+            : base(message, innerException)
         {
             Error = errorConstructor.Construct(new JsValue[] { message });
         }
@@ -104,7 +104,7 @@ namespace Jint.Runtime
                 var callstack = oi.Get(CommonProperties.Stack, Error);
 
                 return callstack.IsUndefined()
-                    ? null 
+                    ? null
                     : callstack.AsString();
             }
         }
@@ -123,7 +123,7 @@ namespace Jint.Runtime
             var innerExceptionString = InnerException?.ToString() ?? "";
             const string endOfInnerExceptionResource = "--- End of inner exception stack trace ---";
             var stackTrace = StackTrace;
- 
+
             using var rent = StringBuilderPool.Rent();
             var sb = rent.Builder;
             sb.Append(className);
@@ -132,6 +132,7 @@ namespace Jint.Runtime
                 sb.Append(": ");
                 sb.Append(message);
             }
+
             if (InnerException != null)
             {
                 sb.Append(Environment.NewLine);
@@ -141,12 +142,13 @@ namespace Jint.Runtime
                 sb.Append("   ");
                 sb.Append(endOfInnerExceptionResource);
             }
+
             if (stackTrace != null)
             {
                 sb.Append(Environment.NewLine);
                 sb.Append(stackTrace);
             }
- 
+
             return rent.ToString();
         }
     }

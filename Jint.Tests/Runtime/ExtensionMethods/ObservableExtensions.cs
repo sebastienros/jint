@@ -3,11 +3,11 @@ using System.Collections.Generic;
 
 namespace Jint.Tests.Runtime.ExtensionMethods
 {
-    class Subscribe<T> : IObserver<T>
+    internal class Subscribe<T> : IObserver<T>
     {
-        readonly Action<T> onNext;
-        readonly Action<Exception> onError;
-        readonly Action onCompleted;
+        private readonly Action<T> onNext;
+        private readonly Action<Exception> onError;
+        private readonly Action onCompleted;
 
         int isStopped = 0;
 
@@ -28,13 +28,13 @@ namespace Jint.Tests.Runtime.ExtensionMethods
 
         public void OnError(Exception error)
         {
-               onError(error);
+            onError(error);
         }
 
 
         public void OnCompleted()
         {
-                onCompleted();
+            onCompleted();
         }
     }
 
@@ -45,18 +45,13 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             var subs = new Subscribe<T>(onNext, null, null);
             source.Subscribe(subs);
         }
-
     }
 
     public class NameObservable : IObservable<string>
     {
         private List<IObserver<string>> observers = new List<IObserver<string>>();
 
-        public string Last
-		{
-            get;
-            private set;
-		}
+        public string Last { get; private set; }
 
         public IDisposable Subscribe(IObserver<string> observer)
         {
@@ -102,6 +97,4 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             observers.Clear();
         }
     }
-
-
 }

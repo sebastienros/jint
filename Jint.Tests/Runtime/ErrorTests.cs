@@ -24,6 +24,7 @@ var b = a.user.name;
             Assert.Equal(4, e.Location.Start.Line);
             Assert.Equal(15, e.Location.Start.Column);
         }
+
         [Fact]
         public void CanReturnCorrectErrorMessageAndLocation1WithoutReferencedName()
         {
@@ -198,7 +199,7 @@ var b = function(v) {
             engine.SetValue("folder", folder);
 
             var javaScriptException = Assert.Throws<JavaScriptException>(() =>
-           engine.Execute(@"
+                engine.Execute(@"
                 var Test = {
                     recursive: function(folderInstance) {
                         // Enabling the guard here corrects the problem, but hides the hard fault
@@ -210,7 +211,7 @@ var b = function(v) {
                 }
 
                 Test.recursive(folder);"
-           ));
+                ));
 
             Assert.Equal("Cannot read property 'Name' of null", javaScriptException.Message);
             EqualIgnoringNewLineDifferences(@"   at recursive (folderInstance) <anonymous>:6:44
@@ -379,17 +380,11 @@ var x = b(7);";
             Assert.Equal(3, jsException.LineNumber);
             Assert.Equal(filename, jsException.Module);
         }
-
     }
 
     public class JintJsException : JavaScriptException
     {
-        public string Module
-        {
-            get;
-            private set;
-        }
-        private JavaScriptException _jsException;
+        private readonly JavaScriptException _jsException;
 
         public JintJsException(string moduleName, JavaScriptException jsException) : base(jsException.Error)
         {
@@ -398,6 +393,8 @@ var x = b(7);";
             Location = jsException.Location;
         }
 
+        public string Module { get; }
+        
         public override string Message
         {
             get
@@ -408,23 +405,16 @@ var x = b(7);";
             }
         }
 
-        public override string? StackTrace
-        {
-            get { return _jsException.StackTrace; }
-        }
+        public override string StackTrace => _jsException.StackTrace;
     }
 
     public class JintJsException2 : JavaScriptException
     {
-        public string Module
-		{
-            get;
-            private set;
-		}
-	
         public JintJsException2(string moduleName, JavaScriptException jsException) : base(jsException)
         {
             Module = moduleName;
         }
+
+        public string Module { get; }
     }
 }
