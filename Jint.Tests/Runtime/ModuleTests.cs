@@ -194,7 +194,6 @@ public class ModuleTests
         Assert.Equal("1 2", ns.Get("result").AsString());
     }
 
-    /* ECMAScript 2020 "export * as ns from"
     [Fact]
     public void ShouldAllowNamedStarExport()
     {
@@ -204,7 +203,6 @@ public class ModuleTests
 
         Assert.Equal(5, ns.Get("ns").Get("value1").AsNumber());
     }
-    */
 
     [Fact]
     public void ShouldAllowChaining()

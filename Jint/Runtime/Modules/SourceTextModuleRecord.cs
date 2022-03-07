@@ -129,7 +129,7 @@ public class SourceTextModuleRecord : CyclicModuleRecord
             if (exportName == e.ExportName)
             {
                 // i. Assert: module provides the direct binding for this export.
-                return new ResolvedBinding(this, e.LocalName ?? e.ExportName);
+                return new ResolvedBinding(this, e.LocalName);
             }
         }
 
@@ -147,7 +147,7 @@ public class SourceTextModuleRecord : CyclicModuleRecord
                 else
                 {
                     // 1. Assert: module imports a specific binding for this export.
-                    return importedModule.ResolveExport(e.ExportName, resolveSet);
+                    return importedModule.ResolveExport(e.ImportName, resolveSet);
                 }
             }
         }

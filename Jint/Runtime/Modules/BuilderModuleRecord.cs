@@ -33,7 +33,7 @@ internal class BuilderModuleRecord : SourceTextModuleRecord
             {
                 var d = _exportBuilderDeclarations[i];
                 _environment.CreateImmutableBindingAndInitialize(d.Key, true, d.Value);
-                _localExportEntries.Add(new ExportEntry(d.Key, null, null, null));
+                _localExportEntries.Add(new ExportEntry(d.Key, null, null, d.Key));
             }
             _exportBuilderDeclarations.Clear();
         }
