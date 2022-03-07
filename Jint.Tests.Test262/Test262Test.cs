@@ -199,7 +199,7 @@ namespace Jint.Tests.Test262
                 return;
             }
 
-            if (sourceFile.Code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0)
+            if (sourceFile.Code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0 && sourceFile.Code.IndexOf("module", StringComparison.Ordinal) < 0)
             {
                 RunTestCode(sourceFile.Source, sourceFile.Code, strict: false, fullPath: sourceFile.FullPath);
             }

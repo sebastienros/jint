@@ -377,7 +377,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 var rval = _right.GetValue(context).GetValueOrDefault();
 
-                if (/* IS STRICT MODE && */ lref.IsPropertyReference())
+                if (StrictModeScope.IsStrictModeCode && lref.IsPropertyReference())
                 {
                     var lrefReferenceName = lref.GetReferencedName();
                     var lrefBase = lref.GetBase();

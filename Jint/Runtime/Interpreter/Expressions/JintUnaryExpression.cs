@@ -145,7 +145,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                                 ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{referencedName}' of {o}");
                             }
 
-                            if (/* IS STRICT MODE && */ !r.GetBase().AsObject().GetProperty(referencedName).Configurable)
+                            if (StrictModeScope.IsStrictModeCode && !r.GetBase().AsObject().GetProperty(referencedName).Configurable)
                             {
                                 ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{referencedName}' of {o}");
                             }
