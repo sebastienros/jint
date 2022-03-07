@@ -115,7 +115,7 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostresolveimportedmodule
         /// </summary>
-        protected internal virtual ModuleRecord ResolveImportedModule(ModuleRecord? referencingModule, string specifier)
+        protected internal virtual CyclicModuleRecord ResolveImportedModule(ModuleRecord? referencingModule, string specifier)
         {
             return Engine.LoadModule(referencingModule?.Location, specifier);
         }
@@ -150,7 +150,7 @@ namespace Jint.Runtime
                 var moduleRecord = ResolveImportedModule(referencingModule, specifier);
                 try
                 {
-                    var ns = ModuleRecord.GetModuleNamespace(moduleRecord);
+                    var ns = CyclicModuleRecord.GetModuleNamespace(moduleRecord);
                     promiseCapability.Resolve.Call(JsValue.Undefined, new[] { ns });
                 }
                 catch (JavaScriptException ex)
