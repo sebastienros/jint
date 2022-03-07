@@ -266,7 +266,7 @@ test();";
             Assert.Equal(2, step);
         }
 
-        [Fact(Skip = "Not yet functional - requires changes in exception handling")]
+        [Fact]
         public void ErrorInConditionalBreakpointLeavesCallStackAlone()
         {
             string script = @"
@@ -274,7 +274,8 @@ function foo()
 {
 let x = 0;
 'before breakpoint';
-'breakpoint here';
+'breakpoint 1 here';
+'breakpoint 2 here';
 'after breakpoint';
 }
 
@@ -289,7 +290,7 @@ foo();
             engine.DebugHandler.BreakPoints.Set(new BreakPoint(6, 0, "x == 0"));
             // This condition is an error (y is not defined). DebugHandler will
             // treat it as an unmatched breakpoint:
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(6, 0, "y == 0"));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(7, 0, "y == 0"));
 
             engine.DebugHandler.Step += (sender, info) =>
             {

@@ -2,6 +2,7 @@ using System;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Runtime.Interpreter;
 
 namespace Jint.Runtime.Debugger
 {
@@ -10,6 +11,17 @@ namespace Jint.Runtime.Debugger
         Step,
         Break,
         DebuggerStatement
+    }
+
+    public class DebugEvaluationException : Exception
+    {
+        public DebugEvaluationException(string message) : base(message)
+        {
+        }
+
+        public DebugEvaluationException(string message, Exception innerException) : base(message, innerException)
+        {
+        }
     }
 
     public class DebugHandler
@@ -32,6 +44,44 @@ namespace Jint.Runtime.Debugger
 
         public BreakPointCollection BreakPoints { get; } = new BreakPointCollection();
 
+        public JsValue Evaluate(string source, ParserOptions options = null)
+        {
+            // TODO: Default options should probably be retrieved from engine
+            options ??= new ParserOptions("evaluation") { AdaptRegexp = true, Tolerant = true };
+            var parser = new JavaScriptParser(source, options);
+            var script = parser.ParseScript();
+
+            int callStackSize = _engine.CallStack.Count;
+
+            var list = new JintStatementList(null, script.Body);
+            Completion result;
+            try
+            {
+                result = list.Execute(_engine._activeEvaluationContext);
+            }
+            catch (Exception ex)
+            {
+                throw new DebugEvaluationException("An error occurred during debug expression evaluation", ex);
+            }
+            finally
+            {
+                // Restore call stack
+                while (_engine.CallStack.Count > callStackSize)
+                {
+                    _engine.CallStack.Pop();
+                }
+            }
+
+            if (result.Type == CompletionType.Throw)
+            {
+                // TODO: Should we return an error here? (avoid exception overhead, since e.g. breakpoint
+                // evaluation may be high volume.
+                throw new DebugEvaluationException($"Evaluation of debug expression threw an Error: {result.GetValueOrDefault()}");
+            }
+
+            return result.GetValueOrDefault();
+        }
+
         internal void OnStep(Statement statement)
         {
             // Don't reenter if we're already paused (e.g. when evaluating a getter in a Break/Step handler)
@@ -40,7 +90,7 @@ namespace Jint.Runtime.Debugger
                 return;
             }
 
-            BreakPoint breakpoint = BreakPoints.FindMatch(_engine, new BreakLocation(statement.Location.Source, statement.Location.Start));
+            BreakPoint breakpoint = BreakPoints.FindMatch(this, new BreakLocation(statement.Location.Source, statement.Location.Start));
 
             if (breakpoint != null)
             {
@@ -64,7 +114,7 @@ namespace Jint.Runtime.Debugger
             var functionBodyEnd = bodyLocation.End;
             var location = new Location(functionBodyEnd, functionBodyEnd, bodyLocation.Source);
 
-            BreakPoint breakpoint = BreakPoints.FindMatch(_engine, new BreakLocation(bodyLocation.Source, bodyLocation.End));
+            BreakPoint breakpoint = BreakPoints.FindMatch(this, new BreakLocation(bodyLocation.Source, bodyLocation.End));
 
             if (breakpoint != null)
             {

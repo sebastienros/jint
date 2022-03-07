@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace Jint.Runtime.Debugger
@@ -62,7 +63,7 @@ namespace Jint.Runtime.Debugger
             _breakPoints.Clear();
         }
 
-        internal BreakPoint FindMatch(Engine engine, BreakLocation location)
+        internal BreakPoint FindMatch(DebugHandler debugger, BreakLocation location)
         {
             if (!Active)
             {
@@ -78,14 +79,15 @@ namespace Jint.Runtime.Debugger
             {
                 try
                 {
-                    var completionValue = engine.Evaluate(breakPoint.Condition);
+                    var completionValue = debugger.Evaluate(breakPoint.Condition);
 
-                    if (!completionValue.AsBoolean())
+                    // Truthiness check:
+                    if (!TypeConverter.ToBoolean(completionValue))
                     {
                         return null;
                     }
                 }
-                catch (JavaScriptException)
+                catch (Exception ex) when (ex is JavaScriptException || ex is DebugEvaluationException)
                 {
                     // Error in the condition means it doesn't match - shouldn't actually throw.
                     return null;
