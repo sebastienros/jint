@@ -317,7 +317,7 @@ namespace Jint
                 case ExportAllDeclaration allDeclaration:
                     //Note: there is a pending PR for Esprima to support exporting an imported modules content as a namespace i.e. 'export * as ns from "mod"'
                     requestedModules.Add(allDeclaration.Source.StringValue!);
-                    exportEntries.Add(new(null, allDeclaration.Source.StringValue, "*", null));
+                    exportEntries.Add(new(allDeclaration.Exported?.GetModuleKey(), allDeclaration.Source.StringValue, "*", null));
                     break;
                 case ExportNamedDeclaration namedDeclaration:
                     ref readonly var specifiers = ref namedDeclaration.Specifiers;
@@ -330,7 +330,7 @@ namespace Jint
                         for (var i = 0; i < specifiers.Count; i++)
                         {
                             var specifier = specifiers[i];
-                            exportEntries.Add(new(specifier.Local.GetModuleKey(), namedDeclaration.Source?.StringValue, specifier.Exported.GetModuleKey(), null));
+                            exportEntries.Add(new(specifier.Exported.GetModuleKey(), namedDeclaration.Source?.StringValue, specifier.Local.GetModuleKey(), null));
                         }
                     }
 

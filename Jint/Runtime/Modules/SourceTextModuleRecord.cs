@@ -59,7 +59,8 @@ public class SourceTextModuleRecord : CyclicModuleRecord
 
         //ToDo async modules
     }
-        /// <summary>
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-getexportednames
     /// </summary>
     public override List<string> GetExportedNames(List<CyclicModuleRecord> exportStarSet = null)
@@ -76,13 +77,13 @@ public class SourceTextModuleRecord : CyclicModuleRecord
         for (var i = 0; i < _localExportEntries.Count; i++)
         {
             var e = _localExportEntries[i];
-            exportedNames.Add(e.ImportName ?? e.ExportName);
+            exportedNames.Add(e.ExportName);
         }
 
         for (var i = 0; i < _indirectExportEntries.Count; i++)
         {
             var e = _indirectExportEntries[i];
-            exportedNames.Add(e.ImportName ?? e.ExportName);
+            exportedNames.Add(e.ExportName);
         }
 
         for (var i = 0; i < _starExportEntries.Count; i++)
@@ -125,8 +126,9 @@ public class SourceTextModuleRecord : CyclicModuleRecord
         for (var i = 0; i < _localExportEntries.Count; i++)
         {
             var e = _localExportEntries[i];
-            if (exportName == (e.ImportName ?? e.ExportName))
+            if (exportName == e.ExportName)
             {
+                // i. Assert: module provides the direct binding for this export.
                 return new ResolvedBinding(this, e.LocalName ?? e.ExportName);
             }
         }
@@ -134,15 +136,17 @@ public class SourceTextModuleRecord : CyclicModuleRecord
         for (var i = 0; i < _indirectExportEntries.Count; i++)
         {
             var e = _indirectExportEntries[i];
-            if (exportName == (e.ImportName ?? e.ExportName))
+            if (exportName == e.ExportName)
             {
                 var importedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
                 if (e.ImportName == "*")
                 {
+                    // 1. Assert: module does not provide the direct binding for this export.
                     return new ResolvedBinding(importedModule, "*namespace*");
                 }
                 else
                 {
+                    // 1. Assert: module imports a specific binding for this export.
                     return importedModule.ResolveExport(e.ExportName, resolveSet);
                 }
             }
@@ -150,6 +154,7 @@ public class SourceTextModuleRecord : CyclicModuleRecord
 
         if ("default".Equals(exportName))
         {
+            // Assert: A default export was not explicitly defined by this module
             return null;
         }
 
@@ -192,7 +197,7 @@ public class SourceTextModuleRecord : CyclicModuleRecord
         for (var i = 0; i < _indirectExportEntries.Count; i++)
         {
             var e = _indirectExportEntries[i];
-            var resolution = ResolveExport(e.ImportName ?? e.ExportName);
+            var resolution = ResolveExport(e.ExportName);
             if (resolution is null || resolution == ResolvedBinding.Ambiguous)
             {
                 ExceptionHelper.ThrowSyntaxError(_realm, "Ambiguous import statement for identifier: " + e.ExportName);
