@@ -324,7 +324,6 @@ namespace Jint
                     if (specifiers.Count == 0)
                     {
                         GetExportEntries(false, namedDeclaration.Declaration!, exportEntries, namedDeclaration.Source?.StringValue);
-
                     }
                     else
                     {

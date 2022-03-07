@@ -362,6 +362,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return completion ?? SetValue(context);
             }
 
+            // https://262.ecma-international.org/5.1/#sec-11.13.1
             private ExpressionResult SetValue(EvaluationContext context)
             {
                 // slower version
@@ -375,6 +376,19 @@ namespace Jint.Runtime.Interpreter.Expressions
                 lref.AssertValid(engine.Realm);
 
                 var rval = _right.GetValue(context).GetValueOrDefault();
+
+                if (/* IS STRICT MODE && */ lref.IsPropertyReference())
+                {
+                    var lrefReferenceName = lref.GetReferencedName();
+                    var lrefBase = lref.GetBase();
+
+                    if (lref._strict && lrefBase is EnvironmentRecord && (lrefReferenceName == "eval" || lrefReferenceName == "arguments"))
+                        ExceptionHelper.ThrowSyntaxError(engine.Realm);
+
+                    var lrefObject = lrefBase.AsObject();
+                    if (!lrefObject.Extensible && !lrefObject.HasOwnProperty(lrefReferenceName))
+                        ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot add property {lrefReferenceName}, object is not extensible");
+                }
 
                 engine.PutValue(lref, rval);
                 engine._referencePool.Return(lref);
