@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Esprima.Ast;
-using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
-using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
 
 namespace Jint.Runtime.Modules;
@@ -315,7 +312,7 @@ public class SourceTextModuleRecord : CyclicModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-source-text-module-record-execute-module
     /// </summary>
-    internal override Completion Execute(PromiseCapability capability = null)
+    internal override Completion ExecuteModule(PromiseCapability capability = null)
     {
         var moduleContext = new ExecutionContext(this, _environment, _environment, null, _realm);
         if (!_hasTLA)

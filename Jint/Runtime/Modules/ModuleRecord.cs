@@ -34,6 +34,9 @@ public abstract class ModuleRecord : JsValue, IScriptOrModule
     public abstract void Link();
     public abstract JsValue Evaluate();
 
+    protected internal abstract int InnerModuleLinking(Stack<CyclicModuleRecord> stack, int index);
+    protected internal abstract Completion InnerModuleEvaluation(Stack<CyclicModuleRecord> stack, int index, ref int asyncEvalOrder);
+
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getmodulenamespace
     /// </summary>

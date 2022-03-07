@@ -1,10 +1,8 @@
 #if(NET6_0_OR_GREATER)
 using System.IO;
 using System.Reflection;
-using Jint.Runtime.Modules;
 #endif
 using System;
-using Esprima;
 using Jint.Native;
 using Jint.Runtime;
 using Xunit;
@@ -137,7 +135,6 @@ public class ModuleTests
 
         var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
         Assert.Equal("imported successfully", exc.Message);
-        Assert.Equal("imported-module", exc.Location.Source);
     }
 
     [Fact]
@@ -254,14 +251,16 @@ export const count = globals.counter;
     [Fact]
     public void ShouldAllowCyclicImport()
     {
-        _engine.AddModule("module2", @"import { x1 } from 'module1'; export const x2 = 2;");
-        _engine.AddModule("module1", @"import { x2 } from 'module2'; export const x1 = 1;");
+        // https://tc39.es/ecma262/#sec-example-cyclic-module-record-graphs
 
-        var ns1 = _engine.ImportModule("module1");
-        var ns2 = _engine.ImportModule("module2");
+        _engine.AddModule("B", @"import { a } from 'A'; export const b = 'b';");
+        _engine.AddModule("A", @"import { b } from 'B'; export const a = 'a';");
 
-        Assert.Equal(1, ns1.Get("x1").AsInteger());
-        Assert.Equal(2, ns2.Get("x2").AsInteger());
+        var nsA = _engine.ImportModule("A");
+        var nsB = _engine.ImportModule("B");
+
+        Assert.Equal("a", nsA.Get("a").AsString());
+        Assert.Equal("b", nsB.Get("b").AsString());
     }
 
 #if(NET6_0_OR_GREATER)

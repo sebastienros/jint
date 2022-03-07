@@ -1,7 +1,6 @@
 ﻿using System;
 using Esprima.Ast;
 using System.Collections.Generic;
-using Esprima;
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime.Descriptors;
@@ -46,7 +45,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// </summary>
     public override void Link()
     {
-        if (Status == ModuleStatus.Linking || Status == ModuleStatus.Evaluating)
+        if (Status is ModuleStatus.Linking or ModuleStatus.Evaluating)
         {
             ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module is already either linking or evaluating");
         }
@@ -61,19 +60,27 @@ public abstract class CyclicModuleRecord : ModuleRecord
         {
             foreach (var m in stack)
             {
-                m.Status = ModuleStatus.Unlinked;
                 m._environment = null;
+
+                if (m.Status != ModuleStatus.Linking)
+                {
+                    ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module should be linking after abrupt completion");
+                }
+                m.Status = ModuleStatus.Unlinked;
                 m._dfsIndex = -1;
                 m._dfsAncestorIndex = -1;
             }
 
-            Status = ModuleStatus.Unlinked;
+            if (Status != ModuleStatus.Unlinked)
+            {
+                ExceptionHelper.ThrowInvalidOperationException("Error while processing abrupt completion of module link: Module should be unlinked after cleanup");
+            }
             throw;
         }
 
-        if (Status != ModuleStatus.Linked && Status != ModuleStatus.Unlinked)
+        if (Status is not (ModuleStatus.Linked or ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated))
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module is neither linked or unlinked");
+            ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module is neither linked, evaluating-async or evaluated");
         }
 
         if (stack.Count > 0)
@@ -157,20 +164,20 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-InnerModuleLinking
     /// </summary>
-    private int InnerModuleLinking(Stack<CyclicModuleRecord> stack, int index)
+    protected internal override int InnerModuleLinking(Stack<CyclicModuleRecord> stack, int index)
     {
         if (Status is
             ModuleStatus.Linking or
             ModuleStatus.Linked or
             ModuleStatus.EvaluatingAsync or
-            ModuleStatus.Evaluating)
+            ModuleStatus.Evaluated)
         {
             return index;
         }
 
         if (Status != ModuleStatus.Unlinked)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module in an invalid state");
+            ExceptionHelper.ThrowInvalidOperationException($"Error while linking module: Module in an invalid state: {Status}");
         }
 
         Status = ModuleStatus.Linking;
@@ -179,31 +186,27 @@ public abstract class CyclicModuleRecord : ModuleRecord
         index++;
         stack.Push(this);
 
-        var requestedModules = _requestedModules;
-
-        foreach (var moduleSpecifier in requestedModules)
+        foreach (var required in _requestedModules)
         {
-            var requiredModule = _engine._host.ResolveImportedModule(this, moduleSpecifier);
+            var requiredModule = _engine._host.ResolveImportedModule(this, required);
+
+            index = requiredModule.InnerModuleLinking(stack, index);
 
             if (requiredModule is not CyclicModuleRecord requiredCyclicModule)
             {
                 continue;
             }
 
-            //TODO: Should we link only when a module is requested? https://tc39.es/ecma262/#sec-example-cyclic-module-record-graphs Should we support retry?
-            if (requiredCyclicModule.Status == ModuleStatus.Unlinked)
-            {
-                index = requiredCyclicModule.InnerModuleLinking(stack, index);
-            }
-
-            if (requiredCyclicModule.Status != ModuleStatus.Linking &&
-                requiredCyclicModule.Status != ModuleStatus.Linked &&
-                requiredCyclicModule.Status != ModuleStatus.Evaluated)
+            if (requiredCyclicModule.Status is not (
+                ModuleStatus.Linking or
+                ModuleStatus.Linked or
+                ModuleStatus.EvaluatingAsync or
+                ModuleStatus.Evaluated))
             {
                 ExceptionHelper.ThrowInvalidOperationException($"Error while linking module: Required module is in an invalid state: {requiredCyclicModule.Status}");
             }
 
-            if (requiredCyclicModule.Status == ModuleStatus.Linking && !stack.Contains(requiredCyclicModule))
+            if ((requiredCyclicModule.Status == ModuleStatus.Linking) == !stack.Contains(requiredCyclicModule))
             {
                 ExceptionHelper.ThrowInvalidOperationException($"Error while linking module: Required module is in an invalid state: {requiredCyclicModule.Status}");
             }
@@ -221,7 +224,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
             ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Recursive dependency detected");
         }
 
-        if (_dfsIndex > _dfsAncestorIndex)
+        if (_dfsAncestorIndex > _dfsIndex)
         {
             ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Recursive dependency detected");
         }
@@ -245,7 +248,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-innermoduleevaluation
     /// </summary>
-    private Completion InnerModuleEvaluation(Stack<CyclicModuleRecord> stack, int index, ref int asyncEvalOrder)
+    protected internal override Completion InnerModuleEvaluation(Stack<CyclicModuleRecord> stack, int index, ref int asyncEvalOrder)
     {
         if (Status is ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated)
         {
@@ -264,9 +267,8 @@ public abstract class CyclicModuleRecord : ModuleRecord
 
         if (Status != ModuleStatus.Linked)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+            ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module is in an invalid state: {Status}");
         }
-
 
         Status = ModuleStatus.Evaluating;
         _dfsIndex = index;
@@ -275,45 +277,21 @@ public abstract class CyclicModuleRecord : ModuleRecord
         index++;
         stack.Push(this);
 
-        foreach (var moduleSpecifier in _requestedModules)
+        foreach (var required in _requestedModules)
         {
-            var requiredModule = _engine._host.ResolveImportedModule(this, moduleSpecifier);
+            var requiredModule = _engine._host.ResolveImportedModule(this, required);
+
+            var result = requiredModule.InnerModuleEvaluation(stack, index, ref asyncEvalOrder);
+            if (result.Type != CompletionType.Normal)
+            {
+                return result;
+            }
+            index = TypeConverter.ToInt32(result.Value);
 
             if (requiredModule is not CyclicModuleRecord requiredCyclicModule)
             {
                 ExceptionHelper.ThrowNotImplementedException($"Resolving modules of type {requiredModule.GetType()} is not implemented");
                 continue;
-            }
-
-            var result = requiredCyclicModule.InnerModuleEvaluation(stack, index, ref asyncEvalOrder);
-            if (result.Type != CompletionType.Normal)
-            {
-                return result;
-            }
-
-            index = TypeConverter.ToInt32(result.Value);
-
-            // TODO: Validate this behavior: https://tc39.es/ecma262/#sec-example-cyclic-module-record-graphs
-            if (requiredCyclicModule.Status == ModuleStatus.Linked)
-            {
-                var evaluationResult = requiredCyclicModule.Evaluate();
-                if (evaluationResult == null)
-                {
-                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise");
-                }
-                else if (evaluationResult is not PromiseInstance promise)
-                {
-                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");
-                }
-                else if (promise.State == PromiseState.Rejected)
-                {
-                    ExceptionHelper.ThrowJavaScriptException(_engine, promise.Value,
-                        new Completion(CompletionType.Throw, promise.Value, null, new Location(new Position(), new Position(), moduleSpecifier)));
-                }
-                else if (promise.State != PromiseState.Fulfilled)
-                {
-                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a fulfilled promise: {promise.State}");
-                }
             }
 
             if (requiredCyclicModule.Status != ModuleStatus.Evaluating &&
@@ -335,9 +313,14 @@ public abstract class CyclicModuleRecord : ModuleRecord
             else
             {
                 requiredCyclicModule = requiredCyclicModule._cycleRoot;
-                if (requiredCyclicModule.Status != ModuleStatus.EvaluatingAsync && requiredCyclicModule.Status != ModuleStatus.Evaluated)
+                if (requiredCyclicModule.Status is not (ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated))
                 {
                     ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                }
+
+                if (requiredCyclicModule._evalError != null)
+                {
+                    return requiredCyclicModule._evalError.Value;
                 }
             }
 
@@ -354,33 +337,34 @@ public abstract class CyclicModuleRecord : ModuleRecord
         {
             if (_asyncEvaluation)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state (async evaluation is true)");
             }
 
             _asyncEvaluation = true;
             _asyncEvalOrder = asyncEvalOrder++;
             if (_pendingAsyncDependencies == 0)
             {
-                completion = ExecuteAsync();
+                completion = ExecuteAsyncModule();
             }
             else
             {
-                completion = Execute();
+                // This is not in the specifications, but it's unclear whether 16.2.1.5.2.1.13 "Otherwise" should mean "Else" for 12 or "In other cases"..
+                completion = ExecuteModule();
             }
         }
         else
         {
-            completion = Execute();
+            completion = ExecuteModule();
         }
 
         if (StackReferenceCount(stack) != 1)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state (not found exactly once in stack)");
         }
 
         if (_dfsAncestorIndex > _dfsIndex)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state (mismatch DFS ancestor index)");
         }
 
         if (_dfsIndex == _dfsAncestorIndex)
@@ -397,7 +381,6 @@ public abstract class CyclicModuleRecord : ModuleRecord
                 {
                     requiredModule.Status = ModuleStatus.EvaluatingAsync;
                 }
-
                 done = requiredModule == this;
                 requiredModule._cycleRoot = this;
             }
@@ -423,7 +406,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-execute-async-module
     /// </summary>
-    private Completion ExecuteAsync()
+    private Completion ExecuteAsyncModule()
     {
         if (Status != ModuleStatus.Evaluating && Status != ModuleStatus.EvaluatingAsync || !_hasTLA)
         {
@@ -437,7 +420,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
 
         PromiseOperations.PerformPromiseThen(_engine, (PromiseInstance) capability.PromiseInstance, onFullfilled, onRejected, null);
 
-        return Execute(capability);
+        return ExecuteModule(capability);
     }
 
 
@@ -487,11 +470,11 @@ public abstract class CyclicModuleRecord : ModuleRecord
             }
             else if (m._hasTLA)
             {
-                m.ExecuteAsync();
+                m.ExecuteAsyncModule();
             }
             else
             {
-                var result = m.Execute();
+                var result = m.ExecuteModule();
                 if (result.Type != CompletionType.Normal)
                 {
                     AsyncModuleExecutionRejected(Undefined, new[] { m, result.Value });
@@ -596,5 +579,5 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// https://tc39.es/ecma262/#table-cyclic-module-methods
     /// </summary>
     protected abstract void InitializeEnvironment();
-    internal abstract Completion Execute(PromiseCapability capability = null);
+    internal abstract Completion ExecuteModule(PromiseCapability capability = null);
 }
