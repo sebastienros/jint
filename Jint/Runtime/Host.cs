@@ -115,15 +115,15 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostresolveimportedmodule
         /// </summary>
-        protected internal virtual CyclicModuleRecord ResolveImportedModule(ModuleRecord? referencingModule, string specifier)
+        protected internal virtual ModuleRecord ResolveImportedModule(IScriptOrModule? referencingScriptOrModule, string specifier)
         {
-            return Engine.LoadModule(referencingModule?.Location, specifier);
+            return Engine.LoadModule(referencingScriptOrModule?.Location, specifier);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostimportmoduledynamically
         /// </summary>
-        internal virtual void ImportModuleDynamically(ModuleRecord? referencingModule, string specifier, PromiseCapability promiseCapability)
+        internal virtual void ImportModuleDynamically(IScriptOrModule? referencingModule, string specifier, PromiseCapability promiseCapability)
         {
             var promise = Engine.RegisterPromise();
 
@@ -143,15 +143,15 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-finishdynamicimport
         /// </summary>
-        internal virtual void FinishDynamicImport(ModuleRecord? referencingModule, string specifier, PromiseCapability promiseCapability, PromiseInstance innerPromise)
+        internal virtual void FinishDynamicImport(IScriptOrModule? referencingModule, string specifier, PromiseCapability promiseCapability, PromiseInstance innerPromise)
         {
             var onFulfilled = new ClrFunctionInstance(Engine, "", (thisObj, args) =>
             {
                 var moduleRecord = ResolveImportedModule(referencingModule, specifier);
                 try
                 {
-                    var ns = CyclicModuleRecord.GetModuleNamespace(moduleRecord);
-                    promiseCapability.Resolve.Call(JsValue.Undefined, new[] { ns });
+                    var ns = ModuleRecord.GetModuleNamespace(moduleRecord);
+                    promiseCapability.Resolve.Call(JsValue.Undefined, new JsValue[] { ns });
                 }
                 catch (JavaScriptException ex)
                 {

@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -17,7 +16,7 @@ namespace Jint
     {
         internal IModuleLoader ModuleLoader { get; set; }
 
-        private readonly Dictionary<string, CyclicModuleRecord> _modules = new();
+        private readonly Dictionary<string, ModuleRecord> _modules = new();
         private readonly Dictionary<string, ModuleBuilder> _builders = new();
 
         /// <summary>
@@ -28,7 +27,7 @@ namespace Jint
             return _executionContexts?.GetActiveScriptOrModule();
         }
 
-        internal CyclicModuleRecord LoadModule(string? referencingModuleLocation, string specifier)
+        internal ModuleRecord LoadModule(string? referencingModuleLocation, string specifier)
         {
             var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, specifier);
 
@@ -95,11 +94,16 @@ namespace Jint
                 module = LoadModule(null, specifier);
             }
 
-            if (module.Status == ModuleStatus.Unlinked)
+            if (module is not CyclicModuleRecord cyclicModule)
+            {
+                module.Link();
+                EvaluateModule(specifier, module);
+            }
+            else if (cyclicModule.Status == ModuleStatus.Unlinked)
             {
                 try
                 {
-                    module.Link();
+                    cyclicModule.Link();
                 }
                 catch (JavaScriptException ex)
                 {
@@ -107,49 +111,53 @@ namespace Jint
                         ex.SetLocation(new Location(new Position(), new Position(), specifier));
                     throw;
                 }
+
+                if (cyclicModule.Status == ModuleStatus.Linked)
+                {
+                    EvaluateModule(specifier, cyclicModule);
+                }
+
+                if (cyclicModule.Status != ModuleStatus.Evaluated)
+                {
+                    ExceptionHelper.ThrowNotSupportedException($"Error while evaluating module: Module is in an invalid state: '{cyclicModule.Status}'");
+                }
             }
 
-            if (module.Status == ModuleStatus.Linked)
+            RunAvailableContinuations();
+
+            return ModuleRecord.GetModuleNamespace(module);
+        }
+
+        private void EvaluateModule(string specifier, ModuleRecord cyclicModule)
+        {
+            var ownsContext = _activeEvaluationContext is null;
+            _activeEvaluationContext ??= new EvaluationContext(this);
+            JsValue evaluationResult;
+            try
             {
-                var ownsContext = _activeEvaluationContext is null;
-                _activeEvaluationContext ??= new EvaluationContext(this);
-                JsValue evaluationResult;
-                try
-                {
-                    evaluationResult = module.Evaluate();
-                }
-                finally
-                {
-                    if (ownsContext)
-                    {
-                        _activeEvaluationContext = null;
-                    }
-                }
-
-                if (evaluationResult is not PromiseInstance promise)
-                {
-                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");
-                }
-                else if (promise.State == PromiseState.Rejected)
-                {
-                    ExceptionHelper.ThrowJavaScriptException(this, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, new Location(new Position(), new Position(), specifier)));
-                }
-                else if (promise.State != PromiseState.Fulfilled)
-                {
-                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a fulfilled promise: {promise.State}");
-                }
+                evaluationResult = cyclicModule.Evaluate();
             }
-
-            if (module.Status == ModuleStatus.Evaluated)
+            finally
             {
-                // TODO what about callstack and thrown exceptions?
-                RunAvailableContinuations();
-
-                return CyclicModuleRecord.GetModuleNamespace(module);
+                if (ownsContext)
+                {
+                    _activeEvaluationContext = null;
+                }
             }
 
-            ExceptionHelper.ThrowNotSupportedException($"Error while evaluating module: Module is in an invalid state: '{module.Status}'");
-            return default;
+            if (evaluationResult is not PromiseInstance promise)
+            {
+                ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");
+            }
+            else if (promise.State == PromiseState.Rejected)
+            {
+                ExceptionHelper.ThrowJavaScriptException(this, promise.Value,
+                    new Completion(CompletionType.Throw, promise.Value, null, new Location(new Position(), new Position(), specifier)));
+            }
+            else if (promise.State != PromiseState.Fulfilled)
+            {
+                ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a fulfilled promise: {promise.State}");
+            }
         }
     }
 }

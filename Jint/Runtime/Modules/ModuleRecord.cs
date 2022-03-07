@@ -15,9 +15,9 @@ internal sealed record ExportResolveSetItem(
 /// </summary>
 public abstract class ModuleRecord : JsValue, IScriptOrModule
 {
+    private ObjectInstance _namespace;
     protected readonly Engine _engine;
     protected readonly Realm _realm;
-    protected ObjectInstance _namespace;
     internal ModuleEnvironmentRecord _environment;
 
     public string Location { get; }
@@ -37,7 +37,7 @@ public abstract class ModuleRecord : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getmodulenamespace
     /// </summary>
-    public static ObjectInstance GetModuleNamespace(CyclicModuleRecord module)
+    public static ObjectInstance GetModuleNamespace(ModuleRecord module)
     {
         var ns = module._namespace;
         if (ns is null)
@@ -63,7 +63,7 @@ public abstract class ModuleRecord : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-modulenamespacecreate
     /// </summary>
-    private static ObjectInstance CreateModuleNamespace(CyclicModuleRecord module, List<string> unambiguousNames)
+    private static ObjectInstance CreateModuleNamespace(ModuleRecord module, List<string> unambiguousNames)
     {
         var m = new ModuleNamespace(module._engine, module, unambiguousNames);
         module._namespace = m;
