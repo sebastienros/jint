@@ -221,7 +221,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
                 }
                 else
                 {
-                    return importedModule.ResolveExport(e.ImportName, resolveSet);
+                    return importedModule.ResolveExport(e.ExportName, resolveSet);
                 }
             }
         }
