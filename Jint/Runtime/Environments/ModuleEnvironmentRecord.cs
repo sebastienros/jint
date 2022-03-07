@@ -27,7 +27,7 @@ internal sealed class ModuleEnvironmentRecord : DeclarativeEnvironmentRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-createimportbinding
     /// </summary>
-    public void CreateImportBinding(string importName, JsModule module, string name)
+    public void CreateImportBinding(string importName, ModuleRecord module, string name)
     {
         _hasBindings = true;
         _importBindings[importName] = new IndirectBinding(module, name);
@@ -63,5 +63,5 @@ internal sealed class ModuleEnvironmentRecord : DeclarativeEnvironmentRecord
     /// </summary>
     public override bool HasThisBinding() => true;
 
-    private readonly record struct IndirectBinding(JsModule Module, string BindingName);
+    private readonly record struct IndirectBinding(ModuleRecord Module, string BindingName);
 }

@@ -14,7 +14,7 @@ namespace Jint.Runtime.Modules;
 
 #pragma warning disable CS0649 // never assigned to, waiting for new functionalities in spec
 
-internal sealed record ResolvedBinding(JsModule Module, string BindingName)
+internal sealed record ResolvedBinding(ModuleRecord Module, string BindingName)
 {
     internal static ResolvedBinding Ambiguous => new(null, "ambiguous");
 }
@@ -33,7 +33,7 @@ internal sealed record ExportEntry(
 );
 
 internal sealed record ExportResolveSetItem(
-    JsModule Module,
+    ModuleRecord Module,
     string ExportName
 );
 
@@ -43,7 +43,7 @@ internal sealed record ExportResolveSetItem(
 /// https://tc39.es/ecma262/#sec-cyclic-module-records
 /// https://tc39.es/ecma262/#sec-source-text-module-records
 /// </summary>
-public sealed class JsModule : JsValue, IScriptOrModule
+public sealed class ModuleRecord : JsValue, IScriptOrModule
 {
     private readonly Engine _engine;
     private readonly Realm _realm;
@@ -53,11 +53,11 @@ public sealed class JsModule : JsValue, IScriptOrModule
     private int _dfsIndex;
     private int _dfsAncestorIndex;
     private readonly HashSet<string> _requestedModules;
-    private JsModule _cycleRoot;
+    private ModuleRecord _cycleRoot;
     private bool _hasTLA;
     private bool _asyncEvaluation;
     private PromiseCapability _topLevelCapability;
-    private List<JsModule> _asyncParentModules;
+    private List<ModuleRecord> _asyncParentModules;
     private int _asyncEvalOrder;
     private int _pendingAsyncDependencies;
 
@@ -71,7 +71,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
     private readonly List<KeyValuePair<string, JsValue>> _exportBuilderDeclarations = new();
     internal JsValue _evalResult;
 
-    internal JsModule(Engine engine, Realm realm, Module source, string location, bool async) : base(InternalTypes.Module)
+    internal ModuleRecord(Engine engine, Realm realm, Module source, string location, bool async) : base(InternalTypes.Module)
     {
         _engine = engine;
         _realm = realm;
@@ -98,7 +98,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getmodulenamespace
     /// </summary>
-    public static ObjectInstance GetModuleNamespace(JsModule module)
+    public static ObjectInstance GetModuleNamespace(ModuleRecord module)
     {
         var ns = module._namespace;
         if (ns is null)
@@ -124,7 +124,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-modulenamespacecreate
     /// </summary>
-    private static ObjectInstance CreateModuleNamespace(JsModule module, List<string> unambiguousNames)
+    private static ObjectInstance CreateModuleNamespace(ModuleRecord module, List<string> unambiguousNames)
     {
         var m = new ModuleNamespace(module._engine, module, unambiguousNames);
         module._namespace = m;
@@ -140,9 +140,9 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getexportednames
     /// </summary>
-    public List<string> GetExportedNames(List<JsModule> exportStarSet = null)
+    public List<string> GetExportedNames(List<ModuleRecord> exportStarSet = null)
     {
-        exportStarSet ??= new List<JsModule>();
+        exportStarSet ??= new List<ModuleRecord>();
         if (exportStarSet.Contains(this))
         {
             //Reached the starting point of an export * circularity
@@ -272,7 +272,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
             ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module is already either linking or evaluating");
         }
 
-        var stack = new Stack<JsModule>();
+        var stack = new Stack<ModuleRecord>();
 
         try
         {
@@ -327,7 +327,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
             return module._topLevelCapability.PromiseInstance;
         }
 
-        var stack = new Stack<JsModule>();
+        var stack = new Stack<ModuleRecord>();
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
         var asyncEvalOrder = 0;
         module._topLevelCapability = capability;
@@ -378,7 +378,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-InnerModuleLinking
     /// </summary>
-    private int InnerModuleLinking(JsModule module, Stack<JsModule> stack, int index)
+    private int InnerModuleLinking(ModuleRecord module, Stack<ModuleRecord> stack, int index)
     {
         if (module.Status is
             ModuleStatus.Linking or
@@ -461,7 +461,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-innermoduleevaluation
     /// </summary>
-    private Completion Evaluate(JsModule module, Stack<JsModule> stack, int index, ref int asyncEvalOrder)
+    private Completion Evaluate(ModuleRecord module, Stack<ModuleRecord> stack, int index, ref int asyncEvalOrder)
     {
         if (module.Status == ModuleStatus.EvaluatingAsync || module.Status == ModuleStatus.Evaluated)
         {
@@ -616,7 +616,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
         return completion;
     }
 
-    private static int StackReferenceCount(Stack<JsModule> stack, JsModule module)
+    private static int StackReferenceCount(Stack<ModuleRecord> stack, ModuleRecord module)
     {
         var count = 0;
         foreach (var item in stack)
@@ -813,7 +813,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-gather-available-ancestors
     /// </summary>
-    private void GatherAvailableAncestors(List<JsModule> execList)
+    private void GatherAvailableAncestors(List<ModuleRecord> execList)
     {
         foreach (var m in _asyncParentModules)
         {
@@ -844,7 +844,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// </summary>
     private JsValue AsyncModuleExecutionFulfilled(JsValue thisObj, JsValue[] arguments)
     {
-        var module = (JsModule) arguments.At(0);
+        var module = (ModuleRecord) arguments.At(0);
         if (module.Status == ModuleStatus.Evaluated)
         {
             if (module._evalError is not null)
@@ -872,7 +872,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
             module._topLevelCapability.Resolve.Call(Undefined, Array.Empty<JsValue>());
         }
 
-        var execList = new List<JsModule>();
+        var execList = new List<ModuleRecord>();
         module.GatherAvailableAncestors(execList);
         execList.Sort((x, y) => x._asyncEvalOrder - y._asyncEvalOrder);
 
@@ -918,7 +918,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
     /// </summary>
     private JsValue AsyncModuleExecutionRejected(JsValue thisObj, JsValue[] arguments)
     {
-        var module = (JsModule) arguments.At(0);
+        var module = (ModuleRecord) arguments.At(0);
         var error = arguments.At(1);
 
         if (module.Status == ModuleStatus.Evaluated)

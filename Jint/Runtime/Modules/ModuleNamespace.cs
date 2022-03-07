@@ -13,10 +13,10 @@ namespace Jint.Runtime.Modules;
 /// </summary>
 internal sealed class ModuleNamespace : ObjectInstance
 {
-    private readonly JsModule _module;
+    private readonly ModuleRecord _module;
     private readonly HashSet<string> _exports;
 
-    public ModuleNamespace(Engine engine, JsModule module, List<string> exports) : base(engine)
+    public ModuleNamespace(Engine engine, ModuleRecord module, List<string> exports) : base(engine)
     {
         _module = module;
         _exports = new HashSet<string>(exports);
@@ -163,7 +163,7 @@ internal sealed class ModuleNamespace : ObjectInstance
 
         if (binding.BindingName == "*namespace*")
         {
-            return JsModule.GetModuleNamespace(targetModule);
+            return ModuleRecord.GetModuleNamespace(targetModule);
         }
 
         var targetEnv = targetModule._environment;

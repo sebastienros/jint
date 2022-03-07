@@ -102,7 +102,7 @@ public sealed class ModuleBuilder
         }
     }
 
-    internal void BindExportedValues(JsModule module)
+    internal void BindExportedValues(ModuleRecord module)
     {
         foreach (var export in _exports)
         {

@@ -17,7 +17,7 @@ namespace Jint
     {
         internal IModuleLoader ModuleLoader { get; set; }
 
-        private readonly Dictionary<string, JsModule> _modules = new();
+        private readonly Dictionary<string, ModuleRecord> _modules = new();
         private readonly Dictionary<string, ModuleBuilder> _builders = new();
 
         /// <summary>
@@ -28,7 +28,7 @@ namespace Jint
             return _executionContexts?.GetActiveScriptOrModule();
         }
 
-        internal JsModule LoadModule(string? referencingModuleLocation, string specifier)
+        internal ModuleRecord LoadModule(string? referencingModuleLocation, string specifier)
         {
             var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, specifier);
 
@@ -49,20 +49,20 @@ namespace Jint
             return module;
         }
 
-        private JsModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution)
+        private ModuleRecord LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution)
         {
             var parsedModule = moduleBuilder.Parse();
-            var module = new JsModule(this, Realm, parsedModule, null, false);
+            var module = new ModuleRecord(this, Realm, parsedModule, null, false);
             _modules[moduleResolution.Key] = module;
             moduleBuilder.BindExportedValues(module);
             _builders.Remove(specifier);
             return module;
         }
 
-        private JsModule LoaderFromModuleLoader(ResolvedSpecifier moduleResolution)
+        private ModuleRecord LoaderFromModuleLoader(ResolvedSpecifier moduleResolution)
         {
             var parsedModule = ModuleLoader.LoadModule(this, moduleResolution);
-            var module = new JsModule(this, Realm, parsedModule, moduleResolution.Uri?.LocalPath, false);
+            var module = new ModuleRecord(this, Realm, parsedModule, moduleResolution.Uri?.LocalPath, false);
             _modules[moduleResolution.Key] = module;
             return module;
         }
@@ -145,7 +145,7 @@ namespace Jint
                 // TODO what about callstack and thrown exceptions?
                 RunAvailableContinuations();
 
-                return JsModule.GetModuleNamespace(module);
+                return ModuleRecord.GetModuleNamespace(module);
             }
 
             ExceptionHelper.ThrowNotSupportedException($"Error while evaluating module: Module is in an invalid state: '{module.Status}'");

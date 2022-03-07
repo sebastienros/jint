@@ -115,7 +115,7 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostresolveimportedmodule
         /// </summary>
-        protected internal virtual JsModule ResolveImportedModule(JsModule? referencingModule, string specifier)
+        protected internal virtual ModuleRecord ResolveImportedModule(ModuleRecord? referencingModule, string specifier)
         {
             return Engine.LoadModule(referencingModule?.Location, specifier);
         }
@@ -123,7 +123,7 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostimportmoduledynamically
         /// </summary>
-        internal virtual void ImportModuleDynamically(JsModule? referencingModule, string specifier, PromiseCapability promiseCapability)
+        internal virtual void ImportModuleDynamically(ModuleRecord? referencingModule, string specifier, PromiseCapability promiseCapability)
         {
             var promise = Engine.RegisterPromise();
 
@@ -143,14 +143,14 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-finishdynamicimport
         /// </summary>
-        internal virtual void FinishDynamicImport(JsModule? referencingModule, string specifier, PromiseCapability promiseCapability, PromiseInstance innerPromise)
+        internal virtual void FinishDynamicImport(ModuleRecord? referencingModule, string specifier, PromiseCapability promiseCapability, PromiseInstance innerPromise)
         {
             var onFulfilled = new ClrFunctionInstance(Engine, "", (thisObj, args) =>
             {
                 var moduleRecord = ResolveImportedModule(referencingModule, specifier);
                 try
                 {
-                    var ns = JsModule.GetModuleNamespace(moduleRecord);
+                    var ns = ModuleRecord.GetModuleNamespace(moduleRecord);
                     promiseCapability.Resolve.Call(JsValue.Undefined, new[] { ns });
                 }
                 catch (JavaScriptException ex)
