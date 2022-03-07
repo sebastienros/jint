@@ -102,7 +102,7 @@ public sealed class ModuleBuilder
         }
     }
 
-    internal void BindExportedValues(CyclicModuleRecord module)
+    internal void BindExportedValues(BuilderModuleRecord module)
     {
         foreach (var export in _exports)
         {

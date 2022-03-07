@@ -69,4 +69,15 @@ public abstract class ModuleRecord : JsValue, IScriptOrModule
         module._namespace = m;
         return m;
     }
+
+    public override object ToObject()
+    {
+        ExceptionHelper.ThrowNotSupportedException();
+        return null;
+    }
+
+    public override string ToString()
+    {
+        return $"{Type}: {Location}";
+    }
 }
