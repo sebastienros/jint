@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -25,6 +25,12 @@ namespace Jint.Runtime.Interop
             : this(engine, methods)
         {
             _fallbackClrFunctionInstance = fallbackClrFunctionInstance;
+        }
+
+        private static bool IsAssignableToGenericType(Type givenType, Type genericType)
+        {
+            var result = TypeConverter.IsAssignableToGenericType(givenType, genericType);
+            return (result >= 0);
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
@@ -57,7 +63,13 @@ namespace Jint.Runtime.Interop
                     parameters = new object[methodParameters.Length];
                 }
                 var argumentsMatch = true;
-
+                //System.Collections.Generic.List<Type> genericArgTypes = new System.Collections.Generic.List<Type>();
+                Type[] genericArgTypes = null;
+                if (method.Method.IsGenericMethod)
+				{
+                    var methodGenericArgs = method.Method.GetGenericArguments();
+                    genericArgTypes = new Type[methodGenericArgs.Length];
+				}
                 for (var i = 0; i < parameters.Length; i++)
                 {
                     var methodParameter = methodParameters[i];
@@ -67,6 +79,15 @@ namespace Jint.Runtime.Interop
                     if (typeof(JsValue).IsAssignableFrom(parameterType))
                     {
                         parameters[i] = argument;
+                    }
+                    else if ((parameterType.IsGenericParameter) && (IsAssignableToGenericType(argument.ToObject()?.GetType(), parameterType)))
+                    {
+                        var argObj = argument.ToObject();
+                        if (parameterType.GenericParameterPosition >= 0)
+                        {
+                            genericArgTypes[parameterType.GenericParameterPosition] = argObj.GetType();
+                        }
+                        parameters[i] = argObj;
                     }
                     else if (argument is null)
                     {
@@ -110,7 +131,18 @@ namespace Jint.Runtime.Interop
                 // todo: cache method info
                 try
                 {
-                    return FromObject(Engine, method.Method.Invoke(thisObject.ToObject(), parameters));
+                    if ((method.Method.IsGenericMethod) && (method.Method is MethodInfo methodInfo))
+					{
+                        var declaringType = methodInfo.DeclaringType;
+                        var genericMethodInfo = methodInfo.MakeGenericMethod(genericArgTypes);
+                        var thisObj = thisObject.ToObject();
+                        var result = genericMethodInfo.Invoke(thisObj, parameters);
+                        return FromObject(Engine, result);
+                    }
+                    else
+					{
+                        return FromObject(Engine, method.Method.Invoke(thisObject.ToObject(), parameters));
+                    }
                 }
                 catch (TargetInvocationException exception)
                 {

@@ -1121,6 +1121,55 @@ namespace Jint.Runtime
         }
 
         /// <summary>
+        /// resources:
+        /// https://docs.microsoft.com/en-us/dotnet/framework/reflection-and-codedom/how-to-examine-and-instantiate-generic-types-with-reflection
+        /// https://stackoverflow.com/questions/74616/how-to-detect-if-type-is-another-generic-type/1075059#1075059
+		/// https://docs.microsoft.com/en-us/dotnet/api/system.type.isconstructedgenerictype?view=net-6.0
+		/// This can be improved upon - specifically as mentioned in the above MS document:
+		/// GetGenericParameterConstraints()
+		/// and array handling - i.e.
+		/// GetElementType()
+		/// </summary>
+		/// <param name="givenType"></param>
+		/// <param name="genericType"></param>
+		/// <returns></returns>
+        public static int IsAssignableToGenericType(Type givenType, Type genericType)
+        {
+            if (!genericType.IsConstructedGenericType)
+			{
+                // as mentioned here:
+                // https://docs.microsoft.com/en-us/dotnet/api/system.type.isconstructedgenerictype?view=net-6.0
+                // this effectively means this generic type is open (i.e. not closed) - so any type is "possible" - without looking at the code in the method we don't know
+                // whether any operations are being applied that "don't work"
+                return 2;
+            }
+
+            var interfaceTypes = givenType.GetInterfaces();
+
+            foreach (var it in interfaceTypes)
+            {
+                if (it.IsGenericType && it.GetGenericTypeDefinition() == genericType)
+				{
+                    return 0;
+                }
+            }
+
+            if (givenType.IsGenericType && givenType.GetGenericTypeDefinition() == genericType)
+			{
+                return 0;
+            }
+
+            Type baseType = givenType.BaseType;
+            if (baseType == null)
+            {
+                return -1;
+            }
+
+            var result = IsAssignableToGenericType(baseType, genericType);
+            return result;
+        }
+
+        /// <summary>
         /// Determines how well parameter type matches target method's type.
         /// </summary>
         private static int CalculateMethodParameterScore(
@@ -1189,6 +1238,16 @@ namespace Jint.Runtime
             {
                 // we have potential, TODO if we'd know JS array's internal type we could have exact match
                 return 2;
+            }
+
+            // not sure the best point to start generic type tests
+            if (paramType.IsGenericParameter) 
+            {
+                var genericTypeAssignmentScore = IsAssignableToGenericType(objectValueType, paramType);
+                if (genericTypeAssignmentScore != -1)
+				{
+                    return genericTypeAssignmentScore;
+				}
             }
 
             if (CanChangeType(objectValue, paramType))
