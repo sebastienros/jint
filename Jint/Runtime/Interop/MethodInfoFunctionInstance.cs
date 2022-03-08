@@ -131,8 +131,8 @@ namespace Jint.Runtime.Interop
                 // todo: cache method info
                 try
                 {
-                    if ((method.Method.IsGenericMethod) && (method.Method is MethodInfo methodInfo))
-					{
+                    if ((method.Method.IsGenericMethodDefinition) && (method.Method is MethodInfo methodInfo))
+                    {
                         var declaringType = methodInfo.DeclaringType;
                         var genericMethodInfo = methodInfo.MakeGenericMethod(genericArgTypes);
                         var thisObj = thisObject.ToObject();
