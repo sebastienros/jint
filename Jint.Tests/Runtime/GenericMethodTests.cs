@@ -12,18 +12,9 @@ namespace Jint.Tests.Runtime
 {
     public class GenericMethodTests : IDisposable
     {
-        public GenericMethodTests()
-        {
-        }
-
         void IDisposable.Dispose()
         {
         }
-
-        private void RunTest(string source)
-        {
-        }
-
 
         [Fact]
         public void TestGeneric()
