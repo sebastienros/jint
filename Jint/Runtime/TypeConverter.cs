@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Numerics;
@@ -1136,7 +1136,7 @@ namespace Jint.Runtime
         public static int IsAssignableToGenericType(Type givenType, Type genericType)
         {
             if (!genericType.IsConstructedGenericType)
-			{
+            {
                 // as mentioned here:
                 // https://docs.microsoft.com/en-us/dotnet/api/system.type.isconstructedgenerictype?view=net-6.0
                 // this effectively means this generic type is open (i.e. not closed) - so any type is "possible" - without looking at the code in the method we don't know
@@ -1149,13 +1149,13 @@ namespace Jint.Runtime
             foreach (var it in interfaceTypes)
             {
                 if (it.IsGenericType && it.GetGenericTypeDefinition() == genericType)
-				{
+                {
                     return 0;
                 }
             }
 
             if (givenType.IsGenericType && givenType.GetGenericTypeDefinition() == genericType)
-			{
+            {
                 return 0;
             }
 
@@ -1241,13 +1241,13 @@ namespace Jint.Runtime
             }
 
             // not sure the best point to start generic type tests
-            if (paramType.IsGenericParameter) 
+            if (paramType.IsGenericParameter)
             {
                 var genericTypeAssignmentScore = IsAssignableToGenericType(objectValueType, paramType);
                 if (genericTypeAssignmentScore != -1)
-				{
+                {
                     return genericTypeAssignmentScore;
-				}
+                }
             }
 
             if (CanChangeType(objectValue, paramType))

@@ -63,30 +63,30 @@ namespace Jint.Tests.Runtime.Generics
             var testGenericObj = new TestGenericClass();
             engine.SetValue("testGenericObj", testGenericObj);
 
-            var argException = Assert.Throws< System.ArgumentException>(() =>
-            {
-                engine.Execute(@"
+            var argException = Assert.Throws<System.ArgumentException>(() =>
+           {
+               engine.Execute(@"
                     testGenericObj.Fancy('test', 'foo', 42);
                 ");
-            });
+           });
 
             Assert.Equal("Object of type 'System.String' cannot be converted to type 'System.Double'.", argException.Message);
         }
 
         public class TestGenericBaseClass<T>
-		{
+        {
             private System.Collections.Generic.List<T> _list = new System.Collections.Generic.List<T>();
 
             public int Count
-			{
+            {
                 get { return _list.Count; }
-			}
+            }
 
             public void Add(T t)
-			{
+            {
                 _list.Add(t);
-			}
-		}
+            }
+        }
 
         public class TestGenericClass : TestGenericBaseClass<string>
         {
@@ -107,7 +107,7 @@ namespace Jint.Tests.Runtime.Generics
             }
 
             public TestGenericClass()
-			{
+            {
                 BarInvoked = false;
                 FooInvoked = false;
                 FancyInvoked = false;
@@ -126,8 +126,8 @@ namespace Jint.Tests.Runtime.Generics
                 FooInvoked = true;
             }
 
-            public void Fancy<T,U>(T t1, U u, T t2)
-			{
+            public void Fancy<T, U>(T t1, U u, T t2)
+            {
                 System.Console.WriteLine("TestGenericClass: FancyInvoked: t1: " + t1 + "u: " + u + " t2: " + t2);
                 FancyInvoked = true;
             }
