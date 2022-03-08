@@ -2,6 +2,7 @@ using System.Numerics;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.Object;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
@@ -385,9 +386,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (lref._strict && lrefBase is EnvironmentRecord && (lrefReferenceName == "eval" || lrefReferenceName == "arguments"))
                         ExceptionHelper.ThrowSyntaxError(engine.Realm);
 
-                    var lrefObject = lrefBase.AsObject();
-                    if (!lrefObject.Extensible && !lrefObject.HasOwnProperty(lrefReferenceName))
-                        ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot add property {lrefReferenceName}, object is not extensible");
+                    if (lrefBase is ObjectInstance lrefObject)
+                    {
+                        if (!lrefObject.Extensible && !lrefObject.HasOwnProperty(lrefReferenceName))
+                            ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot add property {lrefReferenceName}, object is not extensible");
+                    }
                 }
 
                 engine.PutValue(lref, rval);
