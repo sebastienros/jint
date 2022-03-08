@@ -378,21 +378,6 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 var rval = _right.GetValue(context).GetValueOrDefault();
 
-                if (StrictModeScope.IsStrictModeCode && lref.IsPropertyReference())
-                {
-                    var lrefReferenceName = lref.GetReferencedName();
-                    var lrefBase = lref.GetBase();
-
-                    if (lref._strict && lrefBase is EnvironmentRecord && (lrefReferenceName == "eval" || lrefReferenceName == "arguments"))
-                        ExceptionHelper.ThrowSyntaxError(engine.Realm);
-
-                    if (lrefBase is ObjectInstance lrefObject)
-                    {
-                        if (!lrefObject.Extensible && !lrefObject.HasOwnProperty(lrefReferenceName))
-                            ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot add property {lrefReferenceName}, object is not extensible");
-                    }
-                }
-
                 engine.PutValue(lref, rval);
                 engine._referencePool.Return(lref);
                 return NormalCompletion(rval);
