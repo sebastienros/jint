@@ -31,6 +31,7 @@ internal sealed class ModuleEnvironmentRecord : DeclarativeEnvironmentRecord
     {
         _hasBindings = true;
         _importBindings[importName] = new IndirectBinding(module, name);
+        CreateImmutableBindingAndInitialize(importName, true, JsValue.Undefined);
     }
 
     /// <summary>
