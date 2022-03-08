@@ -307,6 +307,7 @@ public class SourceTextModuleRecord : CyclicModuleRecord
                 var fd = new JintFunctionDefinition(_engine, d);
                 env.CreateMutableBinding(fn, true);
                 var fo = realm.Intrinsics.Function.InstantiateFunctionObject(fd, env);
+                if (fn == "*default*") fo.SetFunctionName("default");
                 env.InitializeBinding(fn, fo);
             }
         }
