@@ -78,7 +78,7 @@ namespace Jint.Runtime.Interpreter
 
             internal struct LexicalVariableDeclaration
             {
-                public VariableDeclarationKind Kind;
+                public bool IsConstantDeclaration;
                 public List<string> BoundNames;
             }
         }
@@ -200,7 +200,7 @@ namespace Jint.Runtime.Interpreter
                     d.GetBoundNames(boundNames);
                     declarations[i] = new State.LexicalVariableDeclaration
                     {
-                        Kind = d.Kind,
+                        IsConstantDeclaration = d.IsConstantDeclaration(),
                         BoundNames = boundNames
                     };
                 }

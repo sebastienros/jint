@@ -8,37 +8,59 @@ namespace Jint.Runtime.Environments
 {
     internal static class JintEnvironment
     {
+        internal static bool TryGetIdentifierEnvironmentWithBinding(
+            EnvironmentRecord env,
+            in EnvironmentRecord.BindingName name,
+            out EnvironmentRecord? record)
+        {
+            record = env;
+
+            var keyName = name.Key.Name;
+            if (env._outerEnv is null)
+            {
+                return env.HasBinding(keyName);
+            }
+
+            while (!ReferenceEquals(record, null))
+            {
+                if (record.HasBinding(keyName))
+                {
+                    return true;
+                }
+
+                record = record._outerEnv;
+            }
+
+            return false;
+        }
+
         internal static bool TryGetIdentifierEnvironmentWithBindingValue(
-            Engine engine,
-            EnvironmentRecord? lex,
+            EnvironmentRecord env,
             in EnvironmentRecord.BindingName name,
             bool strict,
             out EnvironmentRecord? record,
             out JsValue? value)
         {
-            record = default;
+            record = env;
             value = default;
 
-            if (ReferenceEquals(lex, engine.Realm.GlobalEnv)
-                && lex.TryGetBinding(name, strict, out _, out value))
+            if (env._outerEnv is null)
             {
-                record = lex;
-                return true;
+                return env.TryGetBinding(name, strict, out _, out value);
             }
 
-            while (!ReferenceEquals(lex, null))
+            while (!ReferenceEquals(record, null))
             {
-                if (lex.TryGetBinding(
+                if (record.TryGetBinding(
                     name,
                     strict,
                     out _,
                     out value))
                 {
-                    record = lex;
                     return true;
                 }
 
-                lex = lex._outerEnv;
+                record = record._outerEnv;
             }
 
             return false;

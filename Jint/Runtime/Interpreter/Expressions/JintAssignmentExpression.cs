@@ -390,13 +390,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var engine = context.Engine;
                 var env = engine.ExecutionContext.LexicalEnvironment;
                 var strict = StrictModeScope.IsStrictModeCode;
-                if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
-                    engine,
+                if (JintEnvironment.TryGetIdentifierEnvironmentWithBinding(
                     env,
                     left._expressionName,
-                    strict,
-                    out var environmentRecord,
-                    out _))
+                    out var environmentRecord))
                 {
                     if (strict && hasEvalOrArguments)
                     {

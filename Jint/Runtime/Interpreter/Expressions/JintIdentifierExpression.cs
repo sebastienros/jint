@@ -27,7 +27,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var engine = context.Engine;
             var env = engine.ExecutionContext.LexicalEnvironment;
             var strict = StrictModeScope.IsStrictModeCode;
-            var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(engine, env, _expressionName, strict, out var temp, out _)
+            var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, _expressionName, out var temp)
                 ? temp
                 : JsValue.Undefined;
 
@@ -49,7 +49,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             var env = engine.ExecutionContext.LexicalEnvironment;
 
             if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
-                engine,
                 env,
                 _expressionName,
                 strict,

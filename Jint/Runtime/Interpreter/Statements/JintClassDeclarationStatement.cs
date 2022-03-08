@@ -23,7 +23,6 @@ namespace Jint.Runtime.Interpreter.Statements
             var classBinding = _classDefinition._className;
             if (classBinding != null)
             {
-                env.CreateMutableBinding(classBinding);
                 env.InitializeBinding(classBinding, F);
             }
 
