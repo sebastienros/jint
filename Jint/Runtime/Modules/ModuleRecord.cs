@@ -51,7 +51,7 @@ public abstract class ModuleRecord : JsValue, IScriptOrModule
             {
                 var name = exportedNames[i];
                 var resolution = module.ResolveExport(name);
-                if (resolution is not null)
+                if (resolution is not null && resolution != ResolvedBinding.Ambiguous)
                 {
                     unambiguousNames.Add(name);
                 }
