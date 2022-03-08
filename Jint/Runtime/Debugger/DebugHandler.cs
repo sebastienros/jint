@@ -89,6 +89,7 @@ namespace Jint.Runtime.Debugger
             {
                 return;
             }
+            _paused = true;
 
             BreakPoint breakpoint = BreakPoints.FindMatch(this, new BreakLocation(statement.Location.Source, statement.Location.Start));
 
@@ -100,6 +101,8 @@ namespace Jint.Runtime.Debugger
             {
                 Pause(PauseType.Step, statement);
             }
+
+            _paused = false;
         }
 
         internal void OnReturnPoint(Node functionBody, JsValue returnValue)
@@ -109,6 +112,7 @@ namespace Jint.Runtime.Debugger
             {
                 return;
             }
+            _paused = true;
 
             var bodyLocation = functionBody.Location;
             var functionBodyEnd = bodyLocation.End;
@@ -124,6 +128,8 @@ namespace Jint.Runtime.Debugger
             {
                 Pause(PauseType.Step, statement: null, location, returnValue);
             }
+
+            _paused = false;
         }
 
         internal void OnDebuggerStatement(Statement statement)
@@ -133,14 +139,15 @@ namespace Jint.Runtime.Debugger
             {
                 return;
             }
+            _paused = true;
 
             Pause(PauseType.DebuggerStatement, statement);
+
+            _paused = false;
         }
 
         private void Pause(PauseType type, Statement statement = null, Location? location = null, JsValue returnValue = null)
         {
-            _paused = true;
-            
             DebugInformation info = CreateDebugInformation(statement, location ?? statement.Location, returnValue, type);
             
             StepMode? result = type switch
@@ -151,8 +158,6 @@ namespace Jint.Runtime.Debugger
                 PauseType.DebuggerStatement => Break?.Invoke(_engine, info),
                 _ => throw new ArgumentException("Invalid pause type", nameof(type))
             };
-            
-            _paused = false;
             
             HandleNewStepMode(result);
         }
