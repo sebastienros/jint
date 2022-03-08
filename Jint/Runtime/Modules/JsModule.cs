@@ -712,7 +712,7 @@ public sealed class JsModule : JsValue, IScriptOrModule
                 for (var j = 0; j < boundNames.Count; j++)
                 {
                     var dn = boundNames[j];
-                    if(d.Kind == VariableDeclarationKind.Const)
+                    if(d.IsConstantDeclaration())
                     {
                         env.CreateImmutableBinding(dn, true);
                     }

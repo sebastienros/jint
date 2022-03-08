@@ -835,7 +835,7 @@ namespace Jint
                             ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{dn}' has already been declared");
                         }
 
-                        if (d.Kind == VariableDeclarationKind.Const)
+                        if (d.IsConstantDeclaration())
                         {
                             env.CreateImmutableBinding(dn, strict: true);
                         }
@@ -981,7 +981,7 @@ namespace Jint
                     for (var j = 0; j < d.BoundNames.Count; j++)
                     {
                         var dn = d.BoundNames[j];
-                        if (d.Kind == VariableDeclarationKind.Const)
+                        if (d.IsConstantDeclaration)
                         {
                             lexEnv.CreateImmutableBinding(dn, strict: true);
                         }
@@ -1143,7 +1143,7 @@ namespace Jint
                 for (var j = 0; j < boundNames.Count; j++)
                 {
                     var dn = boundNames[j];
-                    if (d.Kind == VariableDeclarationKind.Const)
+                    if (d.IsConstantDeclaration())
                     {
                         lexEnvRec.CreateImmutableBinding(dn, strict: true);
                     }

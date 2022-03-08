@@ -81,6 +81,15 @@ namespace Jint
                 or Nodes.ClassExpression;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-static-semantics-isconstantdeclaration
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool IsConstantDeclaration(this Declaration d)
+        {
+            return d is VariableDeclaration { Kind: VariableDeclarationKind.Const };
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool HasName<T>(this T node) where T : Node
         {
@@ -186,7 +195,8 @@ namespace Jint
                     parameter = restElement.Argument;
                     continue;
                 }
-                else if (parameter is ArrayPattern arrayPattern)
+
+                if (parameter is ArrayPattern arrayPattern)
                 {
                     ref readonly var arrayPatternElements = ref arrayPattern.Elements;
                     for (var i = 0; i < arrayPatternElements.Count; i++)
@@ -214,6 +224,11 @@ namespace Jint
                 else if (parameter is AssignmentPattern assignmentPattern)
                 {
                     parameter = assignmentPattern.Left;
+                    continue;
+                }
+                else if (parameter is ClassDeclaration classDeclaration)
+                {
+                    parameter = classDeclaration.Id;
                     continue;
                 }
 

@@ -122,7 +122,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             var engine = context.Engine;
             var env = engine.ExecutionContext.LexicalEnvironment;
             if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
-                engine,
                 env,
                 name,
                 strict,

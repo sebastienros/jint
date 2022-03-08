@@ -12,14 +12,14 @@ namespace Jint
         internal readonly List<VariableDeclaration> _variablesDeclarations;
         internal readonly List<Key> _varNames;
 
-        internal readonly List<VariableDeclaration> _lexicalDeclarations;
+        internal readonly List<Declaration> _lexicalDeclarations;
         internal readonly List<string> _lexicalNames;
 
         private HoistingScope(
             List<FunctionDeclaration> functionDeclarations,
             List<Key> varNames,
             List<VariableDeclaration> variableDeclarations,
-            List<VariableDeclaration> lexicalDeclarations,
+            List<Declaration> lexicalDeclarations,
             List<string> lexicalNames)
         {
             _functionDeclarations = functionDeclarations;
@@ -205,7 +205,7 @@ namespace Jint
             internal List<Key> _varNames;
 
             private readonly bool _collectLexicalNames;
-            internal List<VariableDeclaration> _lexicalDeclarations;
+            internal List<Declaration> _lexicalDeclarations;
             internal List<string> _lexicalNames;
 
             public ScriptWalker(bool strict, bool collectVarNames, bool collectLexicalNames)
@@ -248,7 +248,7 @@ namespace Jint
 
                         if ((parent is null or Module) && variableDeclaration.Kind != VariableDeclarationKind.Var)
                         {
-                            _lexicalDeclarations ??= new List<VariableDeclaration>();
+                            _lexicalDeclarations ??= new List<Declaration>();
                             _lexicalDeclarations.Add(variableDeclaration);
                             if (_collectLexicalNames)
                             {
@@ -270,6 +270,11 @@ namespace Jint
                     {
                         _functions ??= new List<FunctionDeclaration>();
                         _functions.Add((FunctionDeclaration)childNode);
+                    }
+                    else if (childNode.Type == Nodes.ClassDeclaration)
+                    {
+                        _lexicalDeclarations ??= new List<Declaration>();
+                        _lexicalDeclarations.Add((Declaration) childNode);
                     }
 
                     if (childNode.Type != Nodes.FunctionDeclaration
