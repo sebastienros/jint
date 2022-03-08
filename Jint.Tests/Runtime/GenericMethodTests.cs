@@ -1,26 +1,17 @@
 ﻿using Jint.Native;
+using Jint.Runtime.Interop;
 using System;
 using System.Dynamic;
-using Jint.Runtime.Interop;
 using Xunit;
 
-using Xunit.Abstractions;
-using System.IO;
-using System.Text;
-
-namespace Jint.Tests.Runtime
+namespace Jint.Tests.Runtime.Generics
 {
-    public class GenericMethodTests : IDisposable
+    public class GenericMethodTests
     {
-        void IDisposable.Dispose()
-        {
-        }
-
         [Fact]
         public void TestGeneric()
         {
             var engine = new Engine(cfg => cfg.AllowOperatorOverloading());
-            //engine.SetValue("Class1", TypeReference.CreateTypeReference<Class1>(engine));
             engine.SetValue("TestGenericBaseClass", typeof(TestGenericBaseClass<>));
             engine.SetValue("TestGenericClass", typeof(TestGenericClass));
 

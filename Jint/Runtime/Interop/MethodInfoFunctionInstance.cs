@@ -63,7 +63,6 @@ namespace Jint.Runtime.Interop
                     parameters = new object[methodParameters.Length];
                 }
                 var argumentsMatch = true;
-                //System.Collections.Generic.List<Type> genericArgTypes = new System.Collections.Generic.List<Type>();
                 Type[] genericArgTypes = null;
                 if (method.Method.IsGenericMethod)
 				{
