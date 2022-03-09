@@ -2,7 +2,6 @@
 
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter.Statements;
@@ -11,9 +10,6 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
 {
     private JintExpression? _declarationExpression;
     private JintStatement? _declarationStatement;
-    private ExportedSpecifier[]? _specifiers;
-
-    private readonly record struct ExportedSpecifier(string Local, string Exported);
 
     public JintExportNamedDeclaration(ExportNamedDeclaration statement) : base(statement)
     {
@@ -36,21 +32,6 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
                     break;
             }
         }
-
-        if (_statement.Specifiers.Count > 0)
-        {
-            _specifiers = new ExportedSpecifier[_statement.Specifiers.Count];
-            ref readonly var statementSpecifiers = ref _statement.Specifiers;
-            for (var i = 0; i < statementSpecifiers.Count; i++)
-            {
-                var statementSpecifier = statementSpecifiers[i];
-
-                _specifiers[i] = new ExportedSpecifier(
-                    Local: statementSpecifier.Local.GetKey(context.Engine).AsString(),
-                    Exported: statementSpecifier.Exported.GetKey(context.Engine).AsString()
-                );
-            }
-        }
     }
 
     /// <summary>
@@ -58,22 +39,6 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
     /// </summary>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        var env = (ModuleEnvironmentRecord) context.Engine.ExecutionContext.LexicalEnvironment;
-
-        if (_specifiers != null)
-        {
-            var module = context.Engine.GetActiveScriptOrModule().AsModule(context.Engine, context.LastSyntaxNode.Location);
-            foreach (var specifier in _specifiers)
-            {
-                var localKey = specifier.Local;
-                var exportedKey = specifier.Exported;
-                if (localKey != exportedKey)
-                {
-                    env.CreateImportBinding(exportedKey, module, localKey);
-                }
-            }
-        }
-
         if (_declarationStatement != null)
         {
             _declarationStatement.Execute(context);

@@ -330,7 +330,14 @@ namespace Jint
                         for (var i = 0; i < specifiers.Count; i++)
                         {
                             var specifier = specifiers[i];
-                            exportEntries.Add(new(specifier.Exported.GetModuleKey(), namedDeclaration.Source?.StringValue, namedDeclaration.Source != null ? specifier.Local.GetModuleKey() : null, specifier.Local.GetModuleKey()));
+                            if (namedDeclaration.Source != null)
+                            {
+                                exportEntries.Add(new(specifier.Exported.GetModuleKey(), namedDeclaration.Source.StringValue, specifier.Local.GetModuleKey(), null));
+                            }
+                            else
+                            {
+                                exportEntries.Add(new(specifier.Exported.GetModuleKey(), null, null, specifier.Local.GetModuleKey()));
+                            }
                         }
                     }
 
