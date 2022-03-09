@@ -1,8 +1,10 @@
 #if(NET6_0_OR_GREATER)
+using System;
 using System.IO;
 using System.Reflection;
 #endif
-using System;
+using System.Collections.Generic;
+using System.Linq;
 using Jint.Native;
 using Jint.Runtime;
 using Xunit;
@@ -94,6 +96,19 @@ public class ModuleTests
         var ns = _engine.ImportModule("my-module");
 
         Assert.Equal("exported value", ns.Get("exported").AsString());
+    }
+
+    [Fact(Skip = "Import promise is not resolved")]
+    public void ShouldImportDynamically()
+    {
+        var received = false;
+        _engine.AddModule("imported-module", builder => builder.ExportFunction("signal", () => received = true));
+        _engine.AddModule("my-module", @"import('imported-module').then(ns => { ns.signal(); });");
+
+        _engine.ImportModule("my-module");
+        _engine.RunAvailableContinuations();
+
+        Assert.True(received);
     }
 
     [Fact]

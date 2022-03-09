@@ -1,8 +1,8 @@
 #nullable enable
 
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Native.Promise;
-using Jint.Runtime.Modules;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
@@ -27,24 +27,13 @@ internal sealed class JintImportExpression : JintExpression
     /// </summary>
     protected override ExpressionResult EvaluateInternal(EvaluationContext context)
     {
-        var module = context.Engine.GetActiveScriptOrModule().AsModule(context.Engine, context.LastSyntaxNode.Location);
-
+        var referencingScriptOrModule = context.Engine.GetActiveScriptOrModule();
         var argRef = _importExpression.Evaluate(context);
-        context.Engine.RunAvailableContinuations();
-        var value = context.Engine.GetValue(argRef.Value);
-        var specifier = value.UnwrapIfPromise();
-
-        if (specifier is ModuleNamespace)
-        {
-            // already resolved
-            return NormalCompletion(value);
-        }
-
+        var specifier = context.Engine.GetValue(argRef.Value); //.UnwrapIfPromise();
         var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
         var specifierString = TypeConverter.ToString(specifier);
-
-        // 6.IfAbruptRejectPromise(specifierString, promiseCapability);
-        context.Engine._host.ImportModuleDynamically(module, specifierString, promiseCapability);
+        context.Engine._host.ImportModuleDynamically(referencingScriptOrModule, specifierString, promiseCapability);
+        context.Engine.RunAvailableContinuations();
         return NormalCompletion(promiseCapability.PromiseInstance);
     }
 }
