@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Numerics;
@@ -510,6 +510,7 @@ namespace Jint.Runtime
             {
                 intValue *= -1;
             }
+
             var int16Bit = intValue % 65_536; // 2^16
             return (ushort) int16Bit;
         }
@@ -713,6 +714,7 @@ namespace Jint.Runtime
                         {
                             return false;
                         }
+
                         bigInteger = bigInteger * 8 + c - '0';
                     }
 
@@ -755,6 +757,7 @@ namespace Jint.Runtime
             {
                 return (long) (int64bit - BigInteger.Pow(2, 64));
             }
+
             return (long) int64bit;
         }
 
@@ -1114,6 +1117,7 @@ namespace Jint.Runtime
                 {
                     return parameterScore;
                 }
+
                 score += parameterScore;
             }
 
@@ -1124,16 +1128,16 @@ namespace Jint.Runtime
         /// resources:
         /// https://docs.microsoft.com/en-us/dotnet/framework/reflection-and-codedom/how-to-examine-and-instantiate-generic-types-with-reflection
         /// https://stackoverflow.com/questions/74616/how-to-detect-if-type-is-another-generic-type/1075059#1075059
-		/// https://docs.microsoft.com/en-us/dotnet/api/system.type.isconstructedgenerictype?view=net-6.0
-		/// This can be improved upon - specifically as mentioned in the above MS document:
-		/// GetGenericParameterConstraints()
-		/// and array handling - i.e.
-		/// GetElementType()
-		/// </summary>
-		/// <param name="givenType"></param>
-		/// <param name="genericType"></param>
-		/// <returns></returns>
-        public static int IsAssignableToGenericType(Type givenType, Type genericType)
+        /// https://docs.microsoft.com/en-us/dotnet/api/system.type.isconstructedgenerictype?view=net-6.0
+        /// This can be improved upon - specifically as mentioned in the above MS document:
+        /// GetGenericParameterConstraints()
+        /// and array handling - i.e.
+        /// GetElementType()
+        /// </summary>
+        /// <param name="givenType"></param>
+        /// <param name="genericType"></param>
+        /// <returns></returns>
+        internal static int IsAssignableToGenericType(Type givenType, Type genericType)
         {
             if (!genericType.IsConstructedGenericType)
             {

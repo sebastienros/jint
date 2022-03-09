@@ -46,6 +46,7 @@ namespace Jint.Runtime.Interop
                         ? ProcessParamsArrays(jsArgumentsTemp, method)
                         : jsArgumentsTemp;
                 }
+
                 return method.HasParams
                     ? ProcessParamsArrays(jsArguments, method)
                     : jsArguments;
@@ -62,13 +63,15 @@ namespace Jint.Runtime.Interop
                 {
                     parameters = new object[methodParameters.Length];
                 }
+
                 var argumentsMatch = true;
                 Type[] genericArgTypes = null;
                 if (method.Method.IsGenericMethod)
-				{
+                {
                     var methodGenericArgs = method.Method.GetGenericArguments();
                     genericArgTypes = new Type[methodGenericArgs.Length];
-				}
+                }
+
                 for (var i = 0; i < parameters.Length; i++)
                 {
                     var methodParameter = methodParameters[i];
@@ -86,6 +89,7 @@ namespace Jint.Runtime.Interop
                         {
                             genericArgTypes[parameterType.GenericParameterPosition] = argObj.GetType();
                         }
+
                         parameters[i] = argObj;
                     }
                     else if (argument is null)
@@ -104,6 +108,7 @@ namespace Jint.Runtime.Interop
                         {
                             result[k] = arrayInstance.TryGetValue(k, out var value) ? value : Undefined;
                         }
+
                         parameters[i] = result;
                     }
                     else
@@ -139,7 +144,7 @@ namespace Jint.Runtime.Interop
                         return FromObject(Engine, result);
                     }
                     else
-					{
+                    {
                         return FromObject(Engine, method.Method.Invoke(thisObject.ToObject(), parameters));
                     }
                 }
