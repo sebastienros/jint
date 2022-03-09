@@ -75,11 +75,6 @@ namespace Jint
         public IReferenceResolver ReferenceResolver { get; set; } = DefaultReferenceResolver.Instance;
 
         /// <summary>
-        /// Whether to return details of unhandled exceptions. Poses a security risk. Defaults to false.
-        /// </summary>
-        public bool IncludeExceptionDetails { get; set; }
-
-        /// <summary>
         /// Called by the <see cref="Engine"/> instance that loads this <see cref="Options" />
         /// once it is loaded.
         /// </summary>

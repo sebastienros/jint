@@ -115,7 +115,7 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostresolveimportedmodule
         /// </summary>
-        protected internal virtual ModuleRecord ResolveImportedModule(IScriptOrModule? referencingScriptOrModule, string specifier)
+        internal virtual ModuleRecord ResolveImportedModule(IScriptOrModule? referencingScriptOrModule, string specifier)
         {
             return Engine.LoadModule(referencingScriptOrModule?.Location, specifier);
         }

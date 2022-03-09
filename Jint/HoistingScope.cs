@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using Esprima.Ast;
 using Jint.Runtime.Modules;
 
@@ -172,14 +171,22 @@ namespace Jint
                         }
                         else
                         {
-                            var ie = importEntries.First(x => x.LocalName == ee.LocalName);
-                            if (ie.ImportName == "*")
+                            for (var j = 0; j < importEntries!.Count; j++)
                             {
-                                localExportEntries.Add(ee);
-                            }
-                            else
-                            {
-                                indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, ie.ImportName, null));
+                                var ie = importEntries[j];
+                                if (ie.LocalName == ee.LocalName)
+                                {
+                                    if (ie.ImportName == "*")
+                                    {
+                                        localExportEntries.Add(ee);
+                                    }
+                                    else
+                                    {
+                                        indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, ie.ImportName, null));
+                                    }
+
+                                    break;
+                                }
                             }
                         }
                     }

@@ -228,8 +228,11 @@ namespace Jint
                 }
                 else if (parameter is ClassDeclaration classDeclaration)
                 {
-                    parameter = classDeclaration.Id;
-                    continue;
+                    var name = classDeclaration.Id?.Name;
+                    if (name != null)
+                    {
+                        target.Add(name);
+                    }
                 }
 
                 break;

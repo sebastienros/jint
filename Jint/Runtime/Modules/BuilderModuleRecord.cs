@@ -7,7 +7,7 @@ namespace Jint.Runtime.Modules;
 /// <summary>
 /// This is a custom ModuleRecord implementation for dynamically built modules using <see cref="ModuleBuilder"/>
 /// </summary>
-internal class BuilderModuleRecord : SourceTextModuleRecord
+internal sealed class BuilderModuleRecord : SourceTextModuleRecord
 {
     private List<KeyValuePair<string, JsValue>> _exportBuilderDeclarations = new();
 
@@ -18,8 +18,12 @@ internal class BuilderModuleRecord : SourceTextModuleRecord
 
     internal void BindExportedValue(string name, JsValue value)
     {
-        if(_environment != null) ExceptionHelper.ThrowInvalidOperationException("Cannot bind exported values after the environment has been initialized");
-        if (_exportBuilderDeclarations == null) _exportBuilderDeclarations = new();
+        if (_environment != null)
+        {
+            ExceptionHelper.ThrowInvalidOperationException("Cannot bind exported values after the environment has been initialized");
+        }
+
+        _exportBuilderDeclarations ??= new();
         _exportBuilderDeclarations.Add(new KeyValuePair<string, JsValue>(name, value));
     }
 
@@ -35,8 +39,8 @@ internal class BuilderModuleRecord : SourceTextModuleRecord
                 _environment.CreateImmutableBindingAndInitialize(d.Key, true, d.Value);
                 _localExportEntries.Add(new ExportEntry(d.Key, null, null, d.Key));
             }
+
             _exportBuilderDeclarations.Clear();
         }
-
     }
 }

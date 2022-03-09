@@ -75,7 +75,7 @@ namespace Jint
 
         public void AddModule(string specifier, Action<ModuleBuilder> buildModule)
         {
-            var moduleBuilder = new ModuleBuilder(this,specifier);
+            var moduleBuilder = new ModuleBuilder(this, specifier);
             buildModule(moduleBuilder);
             AddModule(specifier, moduleBuilder);
         }

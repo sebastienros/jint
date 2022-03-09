@@ -305,6 +305,7 @@ export const count = globals.counter;
 
 #if(NET6_0_OR_GREATER)
 
+    [Fact]
     public void CanLoadModuleImportsFromFiles()
     {
         var engine = new Engine(options => options.EnableModules(GetBasePath()));

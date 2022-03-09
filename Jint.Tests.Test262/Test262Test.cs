@@ -30,6 +30,8 @@ namespace Jint.Tests.Test262
 
         private static readonly HashSet<string> _strictSkips = new(StringComparer.OrdinalIgnoreCase);
 
+        private static readonly Regex _moduleFlagRegex = new Regex(@"flags:\s*?\[.*?module.*?]", RegexOptions.Compiled);
+
         static Test262Test()
         {
             //NOTE: The Date tests in test262 assume the local timezone is Pacific Standard Time
@@ -98,14 +100,16 @@ namespace Jint.Tests.Test262
 
         protected void RunTestCode(string fileName, string code, bool strict, string fullPath)
         {
-            var module = Regex.IsMatch(code, @"flags:\s*?\[.*?module.*?]");
+            var module = _moduleFlagRegex.IsMatch(code);
 
             var engine = new Engine(cfg =>
             {
                 cfg.LocalTimeZone(_pacificTimeZone);
                 cfg.Strict(strict);
                 if (module)
+                {
                     cfg.EnableModules(Path.Combine(BasePath, "test", Path.GetDirectoryName(fullPath)!));
+                }
             });
 
             engine.Execute(Sources["sta.js"]);
@@ -199,7 +203,7 @@ namespace Jint.Tests.Test262
                 return;
             }
 
-            if (sourceFile.Code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0 && sourceFile.Code.IndexOf("module", StringComparison.Ordinal) < 0)
+            if (sourceFile.Code.IndexOf("onlyStrict", StringComparison.Ordinal) < 0 && !_moduleFlagRegex.IsMatch(sourceFile.Code))
             {
                 RunTestCode(sourceFile.Source, sourceFile.Code, strict: false, fullPath: sourceFile.FullPath);
             }

@@ -30,7 +30,7 @@ internal sealed record ExportEntry(
 /// <summary>
 /// https://tc39.es/ecma262/#sec-source-text-module-records
 /// </summary>
-public class SourceTextModuleRecord : CyclicModuleRecord
+internal class SourceTextModuleRecord : CyclicModuleRecord
 {
     private readonly Module _source;
     private ExecutionContext _context;
@@ -334,7 +334,7 @@ public class SourceTextModuleRecord : CyclicModuleRecord
         }
         else
         {
-            //ToDo async modules
+            ExceptionHelper.ThrowNotImplementedException("async modules not implemented");
             return default;
         }
     }

@@ -108,7 +108,10 @@ public sealed class ModuleBuilder
 
     internal Module Parse()
     {
-        if (_sourceRaw.Count <= 0) return new Module(NodeList.Create(Array.Empty<Statement>()));
+        if (_sourceRaw.Count <= 0)
+        {
+            return new Module(NodeList.Create(Array.Empty<Statement>()));
+        }
 
         var javaScriptParser = new JavaScriptParser(_sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw), _options);
 

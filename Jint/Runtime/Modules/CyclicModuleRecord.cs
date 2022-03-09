@@ -66,6 +66,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
                 {
                     ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module should be linking after abrupt completion");
                 }
+
                 m.Status = ModuleStatus.Unlinked;
                 m._dfsIndex = -1;
                 m._dfsAncestorIndex = -1;
@@ -75,6 +76,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
             {
                 ExceptionHelper.ThrowInvalidOperationException("Error while processing abrupt completion of module link: Module should be unlinked after cleanup");
             }
+
             throw;
         }
 
@@ -286,6 +288,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
             {
                 return result;
             }
+
             index = TypeConverter.ToInt32(result.Value);
 
             if (requiredModule is not CyclicModuleRecord requiredCyclicModule)
@@ -381,6 +384,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
                 {
                     requiredModule.Status = ModuleStatus.EvaluatingAsync;
                 }
+
                 done = requiredModule == this;
                 requiredModule._cycleRoot = this;
             }
@@ -501,7 +505,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-module-execution-rejected
     /// </summary>
-    private JsValue AsyncModuleExecutionRejected(JsValue thisObj, JsValue[] arguments)
+    private static JsValue AsyncModuleExecutionRejected(JsValue thisObj, JsValue[] arguments)
     {
         var module = (SourceTextModuleRecord) arguments.At(0);
         var error = arguments.At(1);
@@ -579,5 +583,6 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// https://tc39.es/ecma262/#table-cyclic-module-methods
     /// </summary>
     protected abstract void InitializeEnvironment();
+
     internal abstract Completion ExecuteModule(PromiseCapability capability = null);
 }
