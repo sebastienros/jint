@@ -311,11 +311,11 @@
         "reason": "generators not implemented"
     },
     {
-        "source": "language/language/module-code/instn-local-bndng-export-gen.js",
+        "source": "language/module-code/instn-local-bndng-export-gen.js",
         "reason": "generators not implemented"
     },
     {
-        "source": "language/language/module-code/instn-local-bndng-gen.js",
+        "source": "language/module-code/instn-local-bndng-gen.js",
         "reason": "generators not implemented"
     },
 
