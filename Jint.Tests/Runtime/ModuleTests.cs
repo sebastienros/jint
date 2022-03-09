@@ -98,7 +98,7 @@ public class ModuleTests
         Assert.Equal("exported value", ns.Get("exported").AsString());
     }
 
-    [Fact(Skip = "Import promise is not resolved")]
+    [Fact]
     public void ShouldImportDynamically()
     {
         var received = false;

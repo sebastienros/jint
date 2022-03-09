@@ -87,7 +87,12 @@ namespace Jint
 
         public ObjectInstance ImportModule(string specifier)
         {
-            var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation: null, specifier);
+            return ImportModule(specifier, null);
+        }
+
+        internal ObjectInstance ImportModule(string specifier, string? referencingModuleLocation)
+        {
+            var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, specifier);
 
             if (!_modules.TryGetValue(moduleResolution.Key, out var module))
             {
@@ -145,6 +150,7 @@ namespace Jint
                 }
             }
 
+            // This should instead be returned and resolved in ImportModule(specifier) only so Host.ImportModuleDynamically can use this promise
             if (evaluationResult is not PromiseInstance promise)
             {
                 ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");

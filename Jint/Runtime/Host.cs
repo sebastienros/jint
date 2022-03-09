@@ -129,7 +129,8 @@ namespace Jint.Runtime
 
             try
             {
-                Engine.LoadModule(referencingModule?.Location, specifier);
+                // This should instead return the PromiseInstance returned by ModuleRecord.Evaluate (currently done in Engine.EvaluateModule), but until we have await this will do.
+                Engine.ImportModule(specifier, referencingModule?.Location);
                 promise.Resolve(JsValue.Undefined);
             }
             catch (JavaScriptException ex)
