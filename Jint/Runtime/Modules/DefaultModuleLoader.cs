@@ -145,6 +145,11 @@ public sealed class DefaultModuleLoader : IModuleLoader
             ExceptionHelper.ThrowSyntaxError(engine.Realm, $"Error while loading module: error in module '{resolved.Uri.LocalPath}': {ex.Error}");
             module = null;
         }
+        catch (Exception)
+        {
+            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {resolved.Uri?.LocalPath}", Completion.Empty());
+            module = null;
+        }
 
         return module;
     }

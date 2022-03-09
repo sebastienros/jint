@@ -112,8 +112,7 @@ namespace Jint
                         (thisObj, arguments) =>
                         {
                             var specifier = TypeConverter.ToString(arguments.At(0));
-                            var module = engine.LoadModule(specifier);
-                            return JsModule.GetModuleNamespace(module);
+                            return engine.ImportModule(specifier);
                         }),
                     PropertyFlag.AllForbidden));
             }

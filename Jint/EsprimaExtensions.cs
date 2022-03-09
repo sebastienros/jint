@@ -228,8 +228,11 @@ namespace Jint
                 }
                 else if (parameter is ClassDeclaration classDeclaration)
                 {
-                    parameter = classDeclaration.Id;
-                    continue;
+                    var name = classDeclaration.Id?.Name;
+                    if (name != null)
+                    {
+                        target.Add(name);
+                    }
                 }
 
                 break;
@@ -317,25 +320,33 @@ namespace Jint
                 case ExportAllDeclaration allDeclaration:
                     //Note: there is a pending PR for Esprima to support exporting an imported modules content as a namespace i.e. 'export * as ns from "mod"'
                     requestedModules.Add(allDeclaration.Source.StringValue!);
-                    exportEntries.Add(new(null, allDeclaration.Source.StringValue, "*", null));
+                    exportEntries.Add(new(allDeclaration.Exported?.GetModuleKey(), allDeclaration.Source.StringValue, "*", null));
                     break;
                 case ExportNamedDeclaration namedDeclaration:
-                    var specifiers = namedDeclaration.Specifiers;
+                    ref readonly var specifiers = ref namedDeclaration.Specifiers;
                     if (specifiers.Count == 0)
                     {
                         GetExportEntries(false, namedDeclaration.Declaration!, exportEntries, namedDeclaration.Source?.StringValue);
-
-                        if (namedDeclaration.Source is not null)
-                        {
-                            requestedModules.Add(namedDeclaration.Source.StringValue!);
-                        }
                     }
                     else
                     {
-                        foreach (var specifier in specifiers)
+                        for (var i = 0; i < specifiers.Count; i++)
                         {
-                            exportEntries.Add(new(specifier.Local.GetModuleKey(), namedDeclaration.Source?.StringValue, specifier.Exported.GetModuleKey(), null));
+                            var specifier = specifiers[i];
+                            if (namedDeclaration.Source != null)
+                            {
+                                exportEntries.Add(new(specifier.Exported.GetModuleKey(), namedDeclaration.Source.StringValue, specifier.Local.GetModuleKey(), null));
+                            }
+                            else
+                            {
+                                exportEntries.Add(new(specifier.Exported.GetModuleKey(), null, null, specifier.Local.GetModuleKey()));
+                            }
                         }
+                    }
+
+                    if (namedDeclaration.Source is not null)
+                    {
+                        requestedModules.Add(namedDeclaration.Source.StringValue!);
                     }
 
                     break;
@@ -387,9 +398,10 @@ namespace Jint
 
                     break;
                 case VariableDeclaration variableDeclaration:
-                    var declarators = variableDeclaration.Declarations;
-                    foreach (var declarator in declarators)
+                    ref readonly var declarators = ref variableDeclaration.Declarations;
+                    for (var i = 0; i < declarators.Count; i++)
                     {
+                        var declarator = declarators[i];
                         var varName = declarator.Id.As<Identifier>()?.Name;
                         if (varName is not null)
                         {

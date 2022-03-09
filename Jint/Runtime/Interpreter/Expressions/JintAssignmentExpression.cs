@@ -362,6 +362,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return completion ?? SetValue(context);
             }
 
+            // https://262.ecma-international.org/5.1/#sec-11.13.1
             private ExpressionResult SetValue(EvaluationContext context)
             {
                 // slower version

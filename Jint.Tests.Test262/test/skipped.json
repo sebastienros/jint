@@ -310,6 +310,14 @@
         "source": "language/statements/class/subclass/builtin-objects/GeneratorFunction/regular-subclassing.js",
         "reason": "generators not implemented"
     },
+    {
+        "source": "language/module-code/instn-local-bndng-export-gen.js",
+        "reason": "generators not implemented"
+    },
+    {
+        "source": "language/module-code/instn-local-bndng-gen.js",
+        "reason": "generators not implemented"
+    },
 
     // Eval problems
 

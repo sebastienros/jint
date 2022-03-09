@@ -1,3 +1,5 @@
+#nullable enable
+
 using Jint.Native;
 using Jint.Native.Global;
 using Jint.Native.Object;
@@ -11,7 +13,20 @@ namespace Jint.Runtime
 {
     public class Host
     {
-        protected Engine Engine { get; private set; }
+        private Engine? _engine;
+
+        protected Engine Engine
+        {
+            get
+            {
+                if (_engine is null)
+                {
+                    ExceptionHelper.ThrowInvalidOperationException("Initialize has not been called");
+                }
+                return _engine!;
+            }
+            private set => _engine = value;
+        }
 
         /// <summary>
         /// Initializes the host.
@@ -93,8 +108,6 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostensurecancompilestrings
         /// </summary>
-        /// <param name="callerRealm"></param>
-        /// <param name="evalRealm"></param>
         public virtual void EnsureCanCompileStrings(Realm callerRealm, Realm evalRealm)
         {
         }
@@ -102,54 +115,44 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostresolveimportedmodule
         /// </summary>
-        /// <param name="referencingModule"></param>
-        /// <param name="specifier"></param>
-        /// <returns></returns>
-        protected internal virtual JsModule ResolveImportedModule(JsModule referencingModule, string specifier)
+        internal virtual ModuleRecord ResolveImportedModule(IScriptOrModule? referencingScriptOrModule, string specifier)
         {
-            return Engine.LoadModule(referencingModule.Location, specifier);
+            return Engine.LoadModule(referencingScriptOrModule?.Location, specifier);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostimportmoduledynamically
         /// </summary>
-        /// <param name="referencingModule"></param>
-        /// <param name="specifier"></param>
-        /// <param name="promiseCapability"></param>
-        internal virtual void ImportModuleDynamically(JsModule referencingModule, string specifier, PromiseCapability promiseCapability)
+        internal virtual void ImportModuleDynamically(IScriptOrModule? referencingModule, string specifier, PromiseCapability promiseCapability)
         {
             var promise = Engine.RegisterPromise();
 
             try
             {
-                Engine.LoadModule(referencingModule.Location, specifier);
+                // This should instead return the PromiseInstance returned by ModuleRecord.Evaluate (currently done in Engine.EvaluateModule), but until we have await this will do.
+                Engine.ImportModule(specifier, referencingModule?.Location);
                 promise.Resolve(JsValue.Undefined);
-
             }
             catch (JavaScriptException ex)
             {
                 promise.Reject(ex.Error);
             }
 
-            FinishDynamicImport(referencingModule, specifier, promiseCapability, (PromiseInstance)promise.Promise);
+            FinishDynamicImport(referencingModule, specifier, promiseCapability, (PromiseInstance) promise.Promise);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-finishdynamicimport
         /// </summary>
-        /// <param name="referencingModule"></param>
-        /// <param name="specifier"></param>
-        /// <param name="promiseCapability"></param>
-        /// <param name="innerPromise"></param>
-        internal virtual void FinishDynamicImport(JsModule referencingModule, string specifier, PromiseCapability promiseCapability, PromiseInstance innerPromise)
+        internal virtual void FinishDynamicImport(IScriptOrModule? referencingModule, string specifier, PromiseCapability promiseCapability, PromiseInstance innerPromise)
         {
             var onFulfilled = new ClrFunctionInstance(Engine, "", (thisObj, args) =>
             {
                 var moduleRecord = ResolveImportedModule(referencingModule, specifier);
                 try
                 {
-                    var ns = JsModule.GetModuleNamespace(moduleRecord);
-                    promiseCapability.Resolve.Call(JsValue.Undefined, new[] { ns });
+                    var ns = ModuleRecord.GetModuleNamespace(moduleRecord);
+                    promiseCapability.Resolve.Call(JsValue.Undefined, new JsValue[] { ns });
                 }
                 catch (JavaScriptException ex)
                 {

@@ -1,8 +1,10 @@
 #if(NET6_0_OR_GREATER)
+using System;
 using System.IO;
 using System.Reflection;
 #endif
-using System;
+using System.Collections.Generic;
+using System.Linq;
 using Jint.Native;
 using Jint.Runtime;
 using Xunit;
@@ -97,7 +99,41 @@ public class ModuleTests
     }
 
     [Fact]
-    public void ShouldPropagateThrowStatementOnCSharpImport()
+    public void ShouldImportDynamically()
+    {
+        var received = false;
+        _engine.AddModule("imported-module", builder => builder.ExportFunction("signal", () => received = true));
+        _engine.AddModule("my-module", @"import('imported-module').then(ns => { ns.signal(); });");
+
+        _engine.ImportModule("my-module");
+        _engine.RunAvailableContinuations();
+
+        Assert.True(received);
+    }
+
+    [Fact]
+    public void ShouldPropagateParseError()
+    {
+        _engine.AddModule("imported", @"export const invalid;");
+        _engine.AddModule("my-module", @"import { invalid } from 'imported';");
+
+        var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
+        Assert.Equal("Error while loading module: error in module 'imported': Line 1: Missing initializer in const declaration", exc.Message);
+    }
+
+    [Fact]
+    public void ShouldPropagateLinkError()
+    {
+        _engine.AddModule("imported", @"export invalid;");
+        _engine.AddModule("my-module", @"import { value } from 'imported';");
+
+        var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
+        Assert.Equal("Error while loading module: error in module 'imported': Line 1: Unexpected identifier", exc.Message);
+        Assert.Equal("my-module", exc.Location.Source);
+    }
+
+    [Fact]
+    public void ShouldPropagateExecuteError()
     {
         _engine.AddModule("my-module", @"throw new Error('imported successfully');");
 
@@ -114,7 +150,6 @@ public class ModuleTests
 
         var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
         Assert.Equal("imported successfully", exc.Message);
-        Assert.Equal("imported-module", exc.Location.Source);
     }
 
     [Fact]
@@ -157,6 +192,33 @@ public class ModuleTests
         Assert.Equal("hello world", ns.Get("exported").AsString());
     }
 
+    [Fact]
+    public void ShouldAddModuleFromClrFunction()
+    {
+        var received = new List<string>();
+        _engine.AddModule("imported-module", builder => builder
+            .ExportFunction("act_noargs", () => received.Add("act_noargs"))
+            .ExportFunction("act_args", args => received.Add($"act_args:{args[0].AsString()}"))
+            .ExportFunction("fn_noargs", () =>
+            {
+                received.Add("fn_noargs");
+                return "ret";
+            })
+            .ExportFunction("fn_args", args =>
+            {
+                received.Add($"fn_args:{args[0].AsString()}");
+                return "ret";
+            })
+        );
+        _engine.AddModule("my-module", @"
+import * as fns from 'imported-module';
+export const result = [fns.act_noargs(), fns.act_args('ok'), fns.fn_noargs(), fns.fn_args('ok')];");
+        var ns = _engine.ImportModule("my-module");
+
+        Assert.Equal(new[] { "act_noargs", "act_args:ok", "fn_noargs", "fn_args:ok" }, received.ToArray());
+        Assert.Equal(new[] { "undefined", "undefined", "ret", "ret" }, ns.Get("result").AsArray().Select(x => x.ToString()).ToArray());
+    }
+
     private class ImportedClass
     {
         public string Value { get; set; } = "hello world";
@@ -174,7 +236,6 @@ public class ModuleTests
         Assert.Equal("1 2", ns.Get("result").AsString());
     }
 
-    /* ECMAScript 2020 "export * as ns from"
     [Fact]
     public void ShouldAllowNamedStarExport()
     {
@@ -184,7 +245,6 @@ public class ModuleTests
 
         Assert.Equal(5, ns.Get("ns").Get("value1").AsNumber());
     }
-    */
 
     [Fact]
     public void ShouldAllowChaining()
@@ -201,8 +261,8 @@ public class ModuleTests
         Assert.Equal(-1, ns.Get("num").AsInteger());
     }
 
-    [Fact(Skip = "TODO re-enable in module fix branch")]
-    public void ShouldAllowLoadingMoreThanOnce()
+    [Fact]
+    public void ShouldImportOnlyOnce()
     {
         var called = 0;
         _engine.AddModule("imported-module", builder => builder.ExportFunction("count", args => called++));
@@ -210,12 +270,42 @@ public class ModuleTests
         _engine.ImportModule("my-module");
         _engine.ImportModule("my-module");
 
-        Assert.Equal(called, 1);
+        Assert.Equal(1, called);
+    }
+
+    [Fact]
+    public void ShouldAllowSelfImport()
+    {
+        _engine.AddModule("my-globals", @"export const globals = { counter: 0 };");
+        _engine.AddModule("my-module", @"
+import { globals } from 'my-globals';
+import {} from 'my-module';
+globals.counter++;
+export const count = globals.counter;
+");
+        var ns= _engine.ImportModule("my-module");
+
+        Assert.Equal(1, ns.Get("count").AsInteger());
+    }
+
+    [Fact]
+    public void ShouldAllowCyclicImport()
+    {
+        // https://tc39.es/ecma262/#sec-example-cyclic-module-record-graphs
+
+        _engine.AddModule("B", @"import { a } from 'A'; export const b = 'b';");
+        _engine.AddModule("A", @"import { b } from 'B'; export const a = 'a';");
+
+        var nsA = _engine.ImportModule("A");
+        var nsB = _engine.ImportModule("B");
+
+        Assert.Equal("a", nsA.Get("a").AsString());
+        Assert.Equal("b", nsB.Get("b").AsString());
     }
 
 #if(NET6_0_OR_GREATER)
 
-    [Fact(Skip = "TODO re-enable in module fix branch")]
+    [Fact]
     public void CanLoadModuleImportsFromFiles()
     {
         var engine = new Engine(options => options.EnableModules(GetBasePath()));
@@ -234,7 +324,7 @@ public class ModuleTests
 
         Assert.Equal("John Doe", result);
     }
-
+    
     private static string GetBasePath()
     {
         var assemblyPath = new Uri(typeof(ModuleTests).GetTypeInfo().Assembly.Location).LocalPath;
