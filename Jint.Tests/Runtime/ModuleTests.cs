@@ -177,6 +177,33 @@ public class ModuleTests
         Assert.Equal("hello world", ns.Get("exported").AsString());
     }
 
+    [Fact]
+    public void ShouldAddModuleFromClrFunction()
+    {
+        var received = new List<string>();
+        _engine.AddModule("imported-module", builder => builder
+            .ExportFunction("act_noargs", () => received.Add("act_noargs"))
+            .ExportFunction("act_args", args => received.Add($"act_args:{args[0].AsString()}"))
+            .ExportFunction("fn_noargs", () =>
+            {
+                received.Add("fn_noargs");
+                return "ret";
+            })
+            .ExportFunction("fn_args", args =>
+            {
+                received.Add($"fn_args:{args[0].AsString()}");
+                return "ret";
+            })
+        );
+        _engine.AddModule("my-module", @"
+import * as fns from 'imported-module';
+export const result = [fns.act_noargs(), fns.act_args('ok'), fns.fn_noargs(), fns.fn_args('ok')];");
+        var ns = _engine.ImportModule("my-module");
+
+        Assert.Equal(new[] { "act_noargs", "act_args:ok", "fn_noargs", "fn_args:ok" }, received.ToArray());
+        Assert.Equal(new[] { "undefined", "undefined", "ret", "ret" }, ns.Get("result").AsArray().Select(x => x.ToString()).ToArray());
+    }
+
     private class ImportedClass
     {
         public string Value { get; set; } = "hello world";
@@ -219,7 +246,7 @@ public class ModuleTests
         Assert.Equal(-1, ns.Get("num").AsInteger());
     }
 
-    [Fact(Skip = "TODO re-enable in module fix branch")]
+    [Fact]
     public void ShouldImportOnlyOnce()
     {
         var called = 0;
@@ -263,7 +290,6 @@ export const count = globals.counter;
 
 #if(NET6_0_OR_GREATER)
 
-    [Fact(Skip = "TODO re-enable in module fix branch")]
     public void CanLoadModuleImportsFromFiles()
     {
         var engine = new Engine(options => options.EnableModules(GetBasePath()));
