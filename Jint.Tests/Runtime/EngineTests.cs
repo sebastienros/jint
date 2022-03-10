@@ -1560,7 +1560,7 @@ var prep = function (fn) { fn(); };
             Assert.NotNull(debugInfo);
 
             Assert.NotNull(debugInfo.CallStack);
-            Assert.NotNull(debugInfo.CurrentStatement);
+            Assert.NotNull(debugInfo.CurrentNode);
             Assert.NotNull(debugInfo.CurrentScopeChain);
             Assert.NotNull(debugInfo.CurrentScopeChain.Global);
             Assert.NotNull(debugInfo.CurrentScopeChain.Local);
@@ -1721,13 +1721,13 @@ var prep = function (fn) { fn(); };
             engine.Evaluate(@"var step1 = 1; // first step
                 var step2 = 2; // second step
                 if (step1 !== step2) // third step
-                { // fourth step
-                    ; // fifth step
+                {
+                    ; // fourth step
                 }");
 
             engine.DebugHandler.Step -= EngineStep;
 
-            Assert.Equal(5, countBreak);
+            Assert.Equal(4, countBreak);
         }
 
         [Fact]

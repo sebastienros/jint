@@ -56,13 +56,13 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var script = @"
                 'source';
-                test();
+                test(); // first step
                 function test()
                 {
-                    'target';
+                    'target'; // second step
                 }";
 
-            Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Into));
+            Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Into));
         }
 
         [Fact]
@@ -103,13 +103,13 @@ namespace Jint.Tests.Runtime.Debugger
                 const obj = {
                     test()
                     {
-                        'target';
+                        'target'; // second step
                     }
                 };
                 'source';
-                obj.test();";
+                obj.test(); // first step";
 
-            Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Into));
+            Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Into));
         }
 
         [Fact]
@@ -152,13 +152,13 @@ namespace Jint.Tests.Runtime.Debugger
             var script = @"
                 function test()
                 {
-                    'target';
+                    'target'; // second step
                     return 42;
                 }
                 'source';
-                const x = test();";
+                const x = test(); // first step";
 
-            Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Into));
+            Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Into));
         }
 
         [Fact]
@@ -200,14 +200,14 @@ namespace Jint.Tests.Runtime.Debugger
                 const obj = {
                     get test()
                     {
-                        'target';
+                        'target'; // second step
                         return 144;
                     }
                 };
                 'source';
-                const x = obj.test;";
+                const x = obj.test; // first step";
 
-            Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Into));
+            Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Into));
         }
 
         [Fact]
@@ -252,14 +252,14 @@ namespace Jint.Tests.Runtime.Debugger
                 const obj = {
                     set test(value)
                     {
-                        'target';
+                        'target'; // second step
                         this.value = value;
                     }
                 };
                 'source';
-                obj.test = 37;";
+                obj.test = 37; // first step";
 
-            Assert.Equal(3, StepsFromSourceToTarget(script, StepMode.Into));
+            Assert.Equal(2, StepsFromSourceToTarget(script, StepMode.Into));
         }
 
         [Fact]

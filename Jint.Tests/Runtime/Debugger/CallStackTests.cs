@@ -121,7 +121,7 @@ bar()";
                     atReturn = false;
                 }
 
-                if (info.CurrentStatement is ReturnStatement)
+                if (info.CurrentNode is ReturnStatement)
                 {
                     // Step one further, and we should have the return value
                     atReturn = true;

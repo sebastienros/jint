@@ -85,7 +85,7 @@ namespace Jint.Tests.Runtime.Debugger
             engine.DebugHandler.BreakPoints.Set(new BreakPoint(4, 5, "i === 1"));
             engine.DebugHandler.BreakPoints.Set(new BreakPoint(5, 6, "j === 2"));
             engine.DebugHandler.BreakPoints.Set(new BreakPoint(10, 7, "x > 5"));
-            Assert.Equal(3, engine.DebugHandler.BreakPoints.Count());
+            Assert.Equal(3, engine.DebugHandler.BreakPoints.Count);
 
             engine.DebugHandler.BreakPoints.RemoveAt(new BreakLocation(null, 4, 5));
             engine.DebugHandler.BreakPoints.RemoveAt(new BreakLocation(null, 10, 7));

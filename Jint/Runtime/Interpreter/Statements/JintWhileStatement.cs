@@ -29,6 +29,11 @@ namespace Jint.Runtime.Interpreter.Statements
             var v = Undefined.Instance;
             while (true)
             {
+                if (context.Engine._isDebugMode)
+                {
+                    context.Engine.DebugHandler.OnStep(_test._expression);
+                }
+
                 var jsValue = _test.GetValue(context).Value;
                 if (!TypeConverter.ToBoolean(jsValue))
                 {

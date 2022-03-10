@@ -7,9 +7,9 @@ namespace Jint.Tests.Runtime.Debugger
 {
     public static class TestHelpers
     {
-        public static bool IsLiteral(this Statement statement, string requiredValue = null)
+        public static bool IsLiteral(this Node node, string requiredValue = null)
         {
-            switch (statement)
+            switch (node)
             {
                 case Directive directive:
                     return requiredValue == null || directive.Directiv == requiredValue;
@@ -22,7 +22,7 @@ namespace Jint.Tests.Runtime.Debugger
 
         public static bool ReachedLiteral(this DebugInformation info, string requiredValue)
         {
-            return info.CurrentStatement.IsLiteral(requiredValue);
+            return info.CurrentNode.IsLiteral(requiredValue);
         }
 
         /// <summary>

@@ -257,7 +257,6 @@ namespace Jint
         {
             var parser = new JavaScriptParser(source, parserOptions);
             var script = parser.ParseScript();
-            Parsed?.Invoke(this, new SourceParsedEventArgs(source, script));
 
             return Execute(script);
         }
@@ -266,6 +265,8 @@ namespace Jint
         {
             Engine DoInvoke()
             {
+                Parsed?.Invoke(this, new SourceParsedEventArgs(script));
+
                 GlobalDeclarationInstantiation(
                     script,
                     Realm.GlobalEnv);
@@ -366,7 +367,7 @@ namespace Jint
                 constraint.Check();
             }
 
-            if (_isDebugMode && statement != null)
+            if (_isDebugMode && statement != null && statement.Type != Nodes.BlockStatement)
             {
                 DebugHandler.OnStep(statement);
             }

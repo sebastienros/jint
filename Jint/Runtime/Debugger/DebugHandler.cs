@@ -82,7 +82,7 @@ namespace Jint.Runtime.Debugger
             return result.GetValueOrDefault();
         }
 
-        internal void OnStep(Statement statement)
+        internal void OnStep(Node node)
         {
             // Don't reenter if we're already paused (e.g. when evaluating a getter in a Break/Step handler)
             if (_paused)
@@ -91,15 +91,15 @@ namespace Jint.Runtime.Debugger
             }
             _paused = true;
 
-            BreakPoint breakpoint = BreakPoints.FindMatch(this, new BreakLocation(statement.Location.Source, statement.Location.Start));
+            BreakPoint breakpoint = BreakPoints.FindMatch(this, new BreakLocation(node.Location.Source, node.Location.Start));
 
             if (breakpoint != null)
             {
-                Pause(PauseType.Break, statement);
+                Pause(PauseType.Break, node);
             }
             else if (_engine.CallStack.Count <= _steppingDepth)
             {
-                Pause(PauseType.Step, statement);
+                Pause(PauseType.Step, node);
             }
 
             _paused = false;
@@ -122,11 +122,11 @@ namespace Jint.Runtime.Debugger
 
             if (breakpoint != null)
             {
-                Pause(PauseType.Break, statement: null, location, returnValue);
+                Pause(PauseType.Break, node: null, location, returnValue);
             }
             else if (_engine.CallStack.Count <= _steppingDepth)
             {
-                Pause(PauseType.Step, statement: null, location, returnValue);
+                Pause(PauseType.Step, node: null, location, returnValue);
             }
 
             _paused = false;
@@ -146,9 +146,9 @@ namespace Jint.Runtime.Debugger
             _paused = false;
         }
 
-        private void Pause(PauseType type, Statement statement = null, Location? location = null, JsValue returnValue = null)
+        private void Pause(PauseType type, Node node = null, Location? location = null, JsValue returnValue = null)
         {
-            DebugInformation info = CreateDebugInformation(statement, location ?? statement.Location, returnValue, type);
+            DebugInformation info = CreateDebugInformation(node, location ?? node.Location, returnValue, type);
             
             StepMode? result = type switch
             {
@@ -176,11 +176,11 @@ namespace Jint.Runtime.Debugger
             }
         }
 
-        private DebugInformation CreateDebugInformation(Statement statement, Location? currentLocation, JsValue returnValue, PauseType pauseType)
+        private DebugInformation CreateDebugInformation(Node node, Location? currentLocation, JsValue returnValue, PauseType pauseType)
         {
             return new DebugInformation(
-                statement,
-                new DebugCallStack(_engine, currentLocation ?? statement.Location, _engine.CallStack, returnValue),
+                node,
+                new DebugCallStack(_engine, currentLocation ?? node.Location, _engine.CallStack, returnValue),
                 _engine.CurrentMemoryUsage,
                 pauseType
             );

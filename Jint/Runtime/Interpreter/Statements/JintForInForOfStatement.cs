@@ -207,6 +207,11 @@ namespace Jint.Runtime.Interpreter.Statements
                         }
                     }
 
+                    if (context.Engine._isDebugMode)
+                    {
+                        context.Engine.DebugHandler.OnStep(_leftNode);
+                    }
+
                     var status = new Completion();
                     if (!destructuring)
                     {

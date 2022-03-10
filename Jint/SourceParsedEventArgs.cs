@@ -13,10 +13,9 @@ namespace Jint
     /// </summary>
     public sealed class SourceParsedEventArgs
     {
-        public SourceParsedEventArgs(string source, Script ast)
+        public SourceParsedEventArgs(Script ast)
         {
             SourceId = ast.Location.Source ?? Guid.NewGuid().ToString();
-            Source = source;
             Ast = ast;
         }
 
@@ -29,11 +28,6 @@ namespace Jint
         /// coming from.
         /// </remarks>
         public string SourceId { get; }
-
-        /// <summary>
-        /// The source Javascript as a string.
-        /// </summary>
-        public string Source { get; }
 
         /// <summary>
         /// The AST result from the parser.

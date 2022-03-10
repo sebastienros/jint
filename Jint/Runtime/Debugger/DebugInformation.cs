@@ -7,9 +7,9 @@ namespace Jint.Runtime.Debugger
 {
     public sealed class DebugInformation : EventArgs
     {
-        internal DebugInformation(Statement currentStatement, DebugCallStack callStack, long currentMemoryUsage, PauseType pauseType)
+        internal DebugInformation(Node currentNode, DebugCallStack callStack, long currentMemoryUsage, PauseType pauseType)
         {
-            CurrentStatement = currentStatement;
+            CurrentNode = currentNode;
             CallStack = callStack;
             CurrentMemoryUsage = currentMemoryUsage;
             PauseType = pauseType;
@@ -27,10 +27,10 @@ namespace Jint.Runtime.Debugger
         public DebugCallStack CallStack { get; set; }
 
         /// <summary>
-        /// The Statement that will be executed on next step.
+        /// The AST Node that will be executed on next step.
         /// Note that this will be null when execution is at a return point.
         /// </summary>
-        public Statement CurrentStatement { get; }
+        public Node CurrentNode { get; }
 
         /// <summary>
         /// The current source Location.
