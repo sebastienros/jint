@@ -27,10 +27,45 @@ namespace Jint.Runtime.Interop
             _fallbackClrFunctionInstance = fallbackClrFunctionInstance;
         }
 
-        private static bool IsAssignableToGenericType(Type givenType, Type genericType)
+        private bool HandleGenericParameter(object argObj, Type parameterType, object[] parameters, int parameterIndex, Type[] genericArgTypes)
         {
-            var result = TypeConverter.IsAssignableToGenericType(givenType, genericType);
-            return (result >= 0);
+            var result = TypeConverter.IsAssignableToGenericType(argObj?.GetType(), parameterType);
+            if (result.Score < 0)
+            {
+                return false;
+            }
+
+            if (parameterType.IsGenericParameter)
+            {
+                var genericParamPosition = parameterType.GenericParameterPosition;
+                if (genericParamPosition >= 0)
+                {
+                    genericArgTypes[genericParamPosition] = argObj.GetType();
+                }
+            }
+            else if (parameterType.IsGenericType)
+            {
+                // TPC: maybe we can pull the generic parameters from the arguments?
+                var genericArgs = parameterType.GetGenericArguments();
+                for (int j = 0; j < genericArgs.Length; ++j)
+                {
+                    var genericArg = genericArgs[j];
+                    if (genericArg.IsGenericParameter)
+                    {
+                        var genericParamPosition = genericArg.GenericParameterPosition;
+                        if (genericParamPosition >= 0)
+                        {
+                            var givenTypeGenericArgs = result.MatchingGivenType.GetGenericArguments();
+                            genericArgTypes[genericParamPosition] = givenTypeGenericArgs[j]; // is this string in my test?
+                        }
+                    }
+                }
+            }
+            else
+            {
+                return false;
+            }
+            return true;
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
@@ -53,7 +88,8 @@ namespace Jint.Runtime.Interop
             }
 
             var converter = Engine.ClrTypeConverter;
-
+            var thisObj = thisObject.ToObject();
+            var thisObjType = thisObj?.GetType();
             object[] parameters = null;
             foreach (var (method, arguments, _) in TypeConverter.FindBestMatch(_engine, _methods, ArgumentProvider))
             {
@@ -66,9 +102,11 @@ namespace Jint.Runtime.Interop
 
                 var argumentsMatch = true;
                 Type[] genericArgTypes = null;
+                Type[] originalGenericArgTypes = null;
                 if (method.Method.IsGenericMethod)
                 {
                     var methodGenericArgs = method.Method.GetGenericArguments();
+                    originalGenericArgTypes = methodGenericArgs;
                     genericArgTypes = new Type[methodGenericArgs.Length];
                 }
 
@@ -82,25 +120,18 @@ namespace Jint.Runtime.Interop
                     {
                         parameters[i] = argument;
                     }
-                    else if ((parameterType.IsGenericParameter) && (IsAssignableToGenericType(argument.ToObject()?.GetType(), parameterType)))
-                    {
-                        var argObj = argument.ToObject();
-                        if (parameterType.GenericParameterPosition >= 0)
-                        {
-                            genericArgTypes[parameterType.GenericParameterPosition] = argObj.GetType();
-                        }
-
-                        parameters[i] = argObj;
-                    }
                     else if (argument is null)
                     {
                         // optional
                         parameters[i] = System.Type.Missing;
                     }
+                    else if (HandleGenericParameter(argument.ToObject(), parameterType, parameters, i, genericArgTypes)) // don't think we need the condition preface of (argument == null) because of earlier condition
+                    {
+                        parameters[i] = argument.ToObject();
+                    }
                     else if (parameterType == typeof(JsValue[]) && argument.IsArray())
                     {
                         // Handle specific case of F(params JsValue[])
-
                         var arrayInstance = argument.AsArray();
                         var len = TypeConverter.ToInt32(arrayInstance.Get(CommonProperties.Length, this));
                         var result = new JsValue[len];
@@ -137,15 +168,13 @@ namespace Jint.Runtime.Interop
                 {
                     if ((method.Method.IsGenericMethodDefinition) && (method.Method is MethodInfo methodInfo))
                     {
-                        var declaringType = methodInfo.DeclaringType;
                         var genericMethodInfo = methodInfo.MakeGenericMethod(genericArgTypes);
-                        var thisObj = thisObject.ToObject();
                         var result = genericMethodInfo.Invoke(thisObj, parameters);
                         return FromObject(Engine, result);
                     }
                     else
                     {
-                        return FromObject(Engine, method.Method.Invoke(thisObject.ToObject(), parameters));
+                        return FromObject(Engine, method.Method.Invoke(thisObj, parameters));
                     }
                 }
                 catch (TargetInvocationException exception)

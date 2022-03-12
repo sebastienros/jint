@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Jint.Tests.Runtime.ExtensionMethods
@@ -44,6 +44,11 @@ namespace Jint.Tests.Runtime.ExtensionMethods
         {
             var subs = new Subscribe<T>(onNext, null, null);
             source.Subscribe(subs);
+        }
+		
+        public static TResult Select<T, TResult>(this IObservable<T> source, TResult result)
+        {
+            return result;
         }
     }
 

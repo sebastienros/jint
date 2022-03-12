@@ -186,35 +186,28 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             Assert.Equal("foobar", observable.Last);
         }
 
-
-        private class Converter : TextWriter
+        [Fact]
+        public void GenericExtensionMethodOnGenericType()
         {
-            ITestOutputHelper _output;
+            var options = new Options();
+            options.AddExtensionMethods(typeof(ObservableExtensions));
 
-            public Converter(ITestOutputHelper output)
-            {
-                _output = output;
-            }
+            var engine = new Engine(options);
 
-            public override Encoding Encoding
-            {
-                get { return Encoding.ASCII; }
-            }
+            engine.SetValue("log", new System.Action<object>(System.Console.WriteLine));
 
-            public override void WriteLine(string message)
-            {
-                _output.WriteLine(message);
-            }
+            NameObservable observable = new NameObservable();
+            engine.SetValue("observable", observable);
+            var result = engine.Evaluate(@"
+                log('before calling Select');
+                var result = observable.Select('some text');
+                log('result: ' + result);
+                return result;
+            ");
 
-            public override void WriteLine(string format, params object[] args)
-            {
-                _output.WriteLine(format, args);
-            }
+            //System.Console.WriteLine("GenericExtensionMethodOnGenericType: result: " + result + " result.ToString(): " + result.ToString());
 
-            public override void Write(char value)
-            {
-                throw new System.Exception("This text writer only supports WriteLine(string) and WriteLine(string, params object[]).");
-            }
+            Assert.Equal("some text", result);
         }
     }
 }

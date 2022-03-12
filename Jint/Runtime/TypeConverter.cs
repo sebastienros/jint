@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Numerics;
@@ -1124,6 +1124,19 @@ namespace Jint.Runtime
             return score;
         }
 
+        internal class AssignableResult
+        {
+            public int Score = -1;
+            public bool IsAssignable { get { return Score >= 0; } }
+            public Type MatchingGivenType;
+
+            public AssignableResult(int score, Type matchingGivenType)
+            {
+                Score = score;
+                MatchingGivenType = matchingGivenType;
+            }
+        }
+
         /// <summary>
         /// resources:
         /// https://docs.microsoft.com/en-us/dotnet/framework/reflection-and-codedom/how-to-examine-and-instantiate-generic-types-with-reflection
@@ -1137,7 +1150,7 @@ namespace Jint.Runtime
         /// <param name="givenType"></param>
         /// <param name="genericType"></param>
         /// <returns></returns>
-        internal static int IsAssignableToGenericType(Type givenType, Type genericType)
+        internal static AssignableResult IsAssignableToGenericType(Type givenType, Type genericType)
         {
             if (!genericType.IsConstructedGenericType)
             {
@@ -1145,28 +1158,36 @@ namespace Jint.Runtime
                 // https://docs.microsoft.com/en-us/dotnet/api/system.type.isconstructedgenerictype?view=net-6.0
                 // this effectively means this generic type is open (i.e. not closed) - so any type is "possible" - without looking at the code in the method we don't know
                 // whether any operations are being applied that "don't work"
-                return 2;
+                return new AssignableResult(2, givenType);
             }
 
             var interfaceTypes = givenType.GetInterfaces();
-
             foreach (var it in interfaceTypes)
             {
-                if (it.IsGenericType && it.GetGenericTypeDefinition() == genericType)
+                if (it.IsGenericType)
                 {
-                    return 0;
+                    var givenTypeGenericDef = it.GetGenericTypeDefinition();
+                    if (givenTypeGenericDef == genericType)
+                    {
+                        return new AssignableResult(0, it);
+                    }
+                    else if (genericType.IsGenericType && (givenTypeGenericDef == genericType.GetGenericTypeDefinition()))
+                    {
+                        return new AssignableResult(0, it);
+                    }
+                    // TPC: we could also add a loop to recurse and iterate thru the iterfaces of generic type - because of covariance/contravariance
                 }
             }
 
             if (givenType.IsGenericType && givenType.GetGenericTypeDefinition() == genericType)
             {
-                return 0;
+                return new AssignableResult(0, givenType);
             }
 
             Type baseType = givenType.BaseType;
             if (baseType == null)
             {
-                return -1;
+                return new AssignableResult(-1, givenType);
             }
 
             var result = IsAssignableToGenericType(baseType, genericType);
@@ -1248,9 +1269,9 @@ namespace Jint.Runtime
             if (paramType.IsGenericParameter)
             {
                 var genericTypeAssignmentScore = IsAssignableToGenericType(objectValueType, paramType);
-                if (genericTypeAssignmentScore != -1)
+                if (genericTypeAssignmentScore.Score != -1)
                 {
-                    return genericTypeAssignmentScore;
+                    return genericTypeAssignmentScore.Score;
                 }
             }
 
