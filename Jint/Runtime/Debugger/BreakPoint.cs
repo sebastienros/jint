@@ -4,21 +4,13 @@
     // or breakpoint type) but still let it be managed by Jint's breakpoint collection.
     public class BreakPoint
     {
-        public BreakPoint(string source, int line, int column)
+        public BreakPoint(string source, int line, int column, string condition = null)
         {
             Location = new BreakLocation(source, line, column);
-        }
-
-        public BreakPoint(string source, int line, int column, string condition) : this(source, line, column)
-        {
             Condition = condition;
         }
 
-        public BreakPoint(int line, int column) : this(null, line, column)
-        {
-        }
-
-        public BreakPoint(int line, int column, string condition) : this(null, line, column, condition)
+        public BreakPoint(int line, int column, string condition = null) : this(null, line, column, condition)
         {
         }
 

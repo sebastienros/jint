@@ -7,18 +7,25 @@ namespace Jint.Runtime.Debugger
 {
     public sealed class DebugInformation : EventArgs
     {
-        internal DebugInformation(Node currentNode, DebugCallStack callStack, long currentMemoryUsage, PauseType pauseType)
+        internal DebugInformation(Node currentNode, DebugCallStack callStack, long currentMemoryUsage, PauseType pauseType, BreakPoint breakPoint)
         {
             CurrentNode = currentNode;
             CallStack = callStack;
             CurrentMemoryUsage = currentMemoryUsage;
             PauseType = pauseType;
+            BreakPoint = breakPoint;
         }
 
         /// <summary>
         /// Indicates the type of pause that resulted in this DebugInformation being generated.
         /// </summary>
         public PauseType PauseType { get; }
+
+        /// <summary>
+        /// The breakpoint that caused the pause.
+        /// Null if pause wasn't caused by a breakpoint.
+        /// </summary>
+        public BreakPoint BreakPoint { get; }
 
         /// <summary>
         /// The current call stack.

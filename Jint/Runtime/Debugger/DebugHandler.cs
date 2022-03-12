@@ -95,7 +95,7 @@ namespace Jint.Runtime.Debugger
 
             if (breakpoint != null)
             {
-                Pause(PauseType.Break, node);
+                Pause(PauseType.Break, node, breakPoint: breakpoint);
             }
             else if (_engine.CallStack.Count <= _steppingDepth)
             {
@@ -122,7 +122,7 @@ namespace Jint.Runtime.Debugger
 
             if (breakpoint != null)
             {
-                Pause(PauseType.Break, node: null, location, returnValue);
+                Pause(PauseType.Break, node: null, location, returnValue, breakpoint);
             }
             else if (_engine.CallStack.Count <= _steppingDepth)
             {
@@ -146,9 +146,9 @@ namespace Jint.Runtime.Debugger
             _paused = false;
         }
 
-        private void Pause(PauseType type, Node node = null, Location? location = null, JsValue returnValue = null)
+        private void Pause(PauseType type, Node node = null, Location? location = null, JsValue returnValue = null, BreakPoint breakPoint = null)
         {
-            DebugInformation info = CreateDebugInformation(node, location ?? node.Location, returnValue, type);
+            DebugInformation info = CreateDebugInformation(node, location ?? node.Location, returnValue, type, breakPoint);
             
             StepMode? result = type switch
             {
@@ -176,13 +176,14 @@ namespace Jint.Runtime.Debugger
             }
         }
 
-        private DebugInformation CreateDebugInformation(Node node, Location? currentLocation, JsValue returnValue, PauseType pauseType)
+        private DebugInformation CreateDebugInformation(Node node, Location? currentLocation, JsValue returnValue, PauseType pauseType, BreakPoint breakPoint)
         {
             return new DebugInformation(
                 node,
                 new DebugCallStack(_engine, currentLocation ?? node.Location, _engine.CallStack, returnValue),
                 _engine.CurrentMemoryUsage,
-                pauseType
+                pauseType,
+                breakPoint
             );
         }
     }
