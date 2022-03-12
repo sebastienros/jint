@@ -44,13 +44,8 @@ namespace Jint.Runtime.Debugger
 
         public BreakPointCollection BreakPoints { get; } = new BreakPointCollection();
 
-        public JsValue Evaluate(string source, ParserOptions options = null)
+        public JsValue Evaluate(Script script)
         {
-            // TODO: Default options should probably be retrieved from engine
-            options ??= new ParserOptions("evaluation") { AdaptRegexp = true, Tolerant = true };
-            var parser = new JavaScriptParser(source, options);
-            var script = parser.ParseScript();
-
             int callStackSize = _engine.CallStack.Count;
 
             var list = new JintStatementList(null, script.Body);
@@ -80,6 +75,15 @@ namespace Jint.Runtime.Debugger
             }
 
             return result.GetValueOrDefault();
+        }
+
+        public JsValue Evaluate(string source, ParserOptions options = null)
+        {
+            // TODO: Default options should probably be retrieved from engine
+            options ??= new ParserOptions("evaluation") { AdaptRegexp = true, Tolerant = true };
+            var parser = new JavaScriptParser(source, options);
+            var script = parser.ParseScript();
+            return Evaluate(script);
         }
 
         internal void OnStep(Node node)
