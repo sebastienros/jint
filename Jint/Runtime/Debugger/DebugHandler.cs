@@ -13,17 +13,6 @@ namespace Jint.Runtime.Debugger
         DebuggerStatement
     }
 
-    public class DebugEvaluationException : Exception
-    {
-        public DebugEvaluationException(string message) : base(message)
-        {
-        }
-
-        public DebugEvaluationException(string message, Exception innerException) : base(message, innerException)
-        {
-        }
-    }
-
     public class DebugHandler
     {
         public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
@@ -71,7 +60,8 @@ namespace Jint.Runtime.Debugger
             {
                 // TODO: Should we return an error here? (avoid exception overhead, since e.g. breakpoint
                 // evaluation may be high volume.
-                throw new DebugEvaluationException($"Evaluation of debug expression threw an Error: {result.GetValueOrDefault()}");
+                var error = result.GetValueOrDefault();
+                throw new DebugEvaluationException(error.ToString());
             }
 
             return result.GetValueOrDefault();
