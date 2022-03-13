@@ -50,6 +50,15 @@ namespace Jint
         }
 
         /// <summary>
+        /// Set initial step mode.
+        /// </summary>
+        public static Options InitialStepMode(this Options options, StepMode initialStepMode = StepMode.None)
+        {
+            options.Debugger.InitialStepMode = initialStepMode;
+            return options;
+        }
+
+        /// <summary>
         /// Adds a <see cref="IObjectConverter"/> instance to convert CLR types to <see cref="JsValue"/>
         /// </summary>
         public static Options AddObjectConverter<T>(this Options options) where T : IObjectConverter, new()

@@ -106,7 +106,7 @@ bar()";
 
             foo();";
 
-            var engine = new Engine(options => options.DebugMode());
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
 
             bool atReturn = false;
             bool didCheckReturn = false;

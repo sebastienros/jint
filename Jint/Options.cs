@@ -201,6 +201,11 @@ namespace Jint
         /// Configures the statement handling strategy, defaults to Ignore.
         /// </summary>
         public DebuggerStatementHandling StatementHandling { get; set; } = DebuggerStatementHandling.Ignore;
+
+        /// <summary>
+        /// Configures the step mode used when entering the script.
+        /// </summary>
+        public StepMode InitialStepMode { get; set; } = StepMode.None;
     }
 
     public class InteropOptions

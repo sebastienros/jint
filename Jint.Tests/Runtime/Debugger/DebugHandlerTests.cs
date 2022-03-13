@@ -20,7 +20,7 @@ namespace Jint.Tests.Runtime.Debugger
                 'target';
             ";
 
-            var engine = new Engine(options => options.DebugMode());
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
 
             bool didPropertyAccess = false;
 

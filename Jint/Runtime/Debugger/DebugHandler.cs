@@ -36,10 +36,10 @@ namespace Jint.Runtime.Debugger
         public event DebugStepDelegate Step;
         public event BreakDelegate Break;
 
-        internal DebugHandler(Engine engine)
+        internal DebugHandler(Engine engine, StepMode initialStepMode)
         {
             _engine = engine;
-            _steppingDepth = int.MaxValue;
+            HandleNewStepMode(initialStepMode);
         }
 
         public BreakPointCollection BreakPoints { get; } = new BreakPointCollection();
@@ -95,18 +95,11 @@ namespace Jint.Runtime.Debugger
             }
             _paused = true;
 
-            BreakPoint breakpoint = BreakPoints.FindMatch(this, new BreakLocation(node.Location.Source, node.Location.Start));
-
-            if (breakpoint != null)
-            {
-                Pause(PauseType.Break, node, breakPoint: breakpoint);
-            }
-            else if (_engine.CallStack.Count <= _steppingDepth)
-            {
-                Pause(PauseType.Step, node);
-            }
-
-            _paused = false;
+            CheckBreakPointAndPause(
+                new BreakLocation(node.Location.Source, node.Location.Start), 
+                node: node, 
+                location: null, 
+                returnValue: null);
         }
 
         internal void OnReturnPoint(Node functionBody, JsValue returnValue)
@@ -122,15 +115,25 @@ namespace Jint.Runtime.Debugger
             var functionBodyEnd = bodyLocation.End;
             var location = new Location(functionBodyEnd, functionBodyEnd, bodyLocation.Source);
 
-            BreakPoint breakpoint = BreakPoints.FindMatch(this, new BreakLocation(bodyLocation.Source, bodyLocation.End));
+            CheckBreakPointAndPause(
+                new BreakLocation(bodyLocation.Source, bodyLocation.End), 
+                node: null, 
+                location: location, 
+                returnValue: returnValue);
+        }
 
-            if (breakpoint != null)
+        private void CheckBreakPointAndPause(BreakLocation breakLocation, Node node = null, Location? location = null, JsValue returnValue = null)
+        {
+            BreakPoint breakpoint = BreakPoints.FindMatch(this, breakLocation);
+
+            bool isStepping = _engine.CallStack.Count <= _steppingDepth;
+
+            if (breakpoint != null || isStepping)
             {
-                Pause(PauseType.Break, node: null, location, returnValue, breakpoint);
-            }
-            else if (_engine.CallStack.Count <= _steppingDepth)
-            {
-                Pause(PauseType.Step, node: null, location, returnValue);
+                // Even if we matched a breakpoint, if we're stepping, the reason we're pausing is the step.
+                // Still, we need to include the breakpoint at this location, in case the debugger UI needs to update
+                // e.g. a hit count.
+                Pause(isStepping ? PauseType.Step : PauseType.Break, node, location, returnValue, breakpoint);
             }
 
             _paused = false;
@@ -145,7 +148,10 @@ namespace Jint.Runtime.Debugger
             }
             _paused = true;
 
-            Pause(PauseType.DebuggerStatement, statement);
+            bool isStepping = _engine.CallStack.Count <= _steppingDepth;
+
+            // Even though we're at a debugger statement, if we're stepping, the reason we're pausing is the step.
+            Pause(isStepping ? PauseType.Step : PauseType.DebuggerStatement, statement);
 
             _paused = false;
         }

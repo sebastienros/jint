@@ -22,8 +22,7 @@ namespace Jint.Runtime.Debugger
         public PauseType PauseType { get; }
 
         /// <summary>
-        /// The breakpoint that caused the pause.
-        /// Null if pause wasn't caused by a breakpoint.
+        /// Breakpoint at the current location. This will be set even if the pause wasn't caused by the breakpoint.
         /// </summary>
         public BreakPoint BreakPoint { get; }
 

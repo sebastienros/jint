@@ -61,5 +61,15 @@ namespace Jint.Runtime.Debugger
             _record.TryGetBindingValue(name, strict: true, out var result);
             return result;
         }
+
+        /// <summary>
+        /// Sets the value of an existing binding.
+        /// </summary>
+        /// <param name="name">Binding name</param>
+        /// <param name="value">New value of the binding</param>
+        public void SetBindingValue(string name, JsValue value)
+        {
+            _record.SetMutableBinding(name, value, strict: true);
+        }
     }
 }

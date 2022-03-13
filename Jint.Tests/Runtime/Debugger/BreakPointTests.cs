@@ -281,7 +281,7 @@ let x = 0;
 
 foo();
 ";
-            var engine = new Engine(options => options.DebugMode());
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
 
             int stepsReached = 0;
             int breakpointsReached = 0;
@@ -298,11 +298,13 @@ foo();
                 {
                     Assert.Equal(1, engine.CallStack.Count);
                     stepsReached++;
+                    return StepMode.None;
                 }
                 else if (info.ReachedLiteral("after breakpoint"))
                 {
                     Assert.Equal(1, engine.CallStack.Count);
                     stepsReached++;
+                    return StepMode.None;
                 }
                 return StepMode.Into;
             };

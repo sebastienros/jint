@@ -1488,7 +1488,7 @@ var prep = function (fn) { fn(); };
             countBreak = 0;
             stepMode = StepMode.Into;
 
-            var engine = new Engine(options => options.DebugMode());
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(stepMode));
 
             engine.DebugHandler.Step += EngineStep;
 
@@ -1507,7 +1507,7 @@ var prep = function (fn) { fn(); };
             countBreak = 0;
             stepMode = StepMode.Into;
 
-            var engine = new Engine(options => options.DebugMode());
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(stepMode));
             engine.DebugHandler.BreakPoints.Set(new BreakPoint(1, 1));
             engine.DebugHandler.Step += EngineStep;
             engine.DebugHandler.Break += EngineStep;
@@ -1610,7 +1610,7 @@ var prep = function (fn) { fn(); };
             countBreak = 0;
             stepMode = StepMode.Out;
 
-            var engine = new Engine(options => options.DebugMode());
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
 
             engine.DebugHandler.Step += EngineStep;
 
@@ -1632,7 +1632,7 @@ var prep = function (fn) { fn(); };
         {
             countBreak = 0;
 
-            var engine = new Engine(options => options.DebugMode());
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
 
             engine.DebugHandler.Step += EngineStepOutWhenInsideFunction;
 
@@ -1689,10 +1689,10 @@ var prep = function (fn) { fn(); };
         public void ShouldNotStepInsideIfRequiredToStepOver()
         {
             countBreak = 0;
-
-            var engine = new Engine(options => options.DebugMode());
-
             stepMode = StepMode.Over;
+
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(stepMode));
+
             engine.DebugHandler.Step += EngineStep;
 
             engine.Evaluate(@"function func() // first step
@@ -1712,10 +1712,10 @@ var prep = function (fn) { fn(); };
         public void ShouldStepAllStatementsWithoutInvocationsIfStepOver()
         {
             countBreak = 0;
-
-            var engine = new Engine(options => options.DebugMode());
-
             stepMode = StepMode.Over;
+
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(stepMode));
+
             engine.DebugHandler.Step += EngineStep;
 
             engine.Evaluate(@"var step1 = 1; // first step

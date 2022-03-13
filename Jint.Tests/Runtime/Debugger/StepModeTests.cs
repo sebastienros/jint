@@ -17,6 +17,7 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options
                 .DebugMode()
+                .InitialStepMode(StepMode.Into)
                 .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             int steps = 0;
