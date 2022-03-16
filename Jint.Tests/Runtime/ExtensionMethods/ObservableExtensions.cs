@@ -45,20 +45,34 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             var subs = new Subscribe<T>(onNext, null, null);
             source.Subscribe(subs);
         }
-		
+
         public static TResult Select<T, TResult>(this IObservable<T> source, TResult result)
         {
             return result;
         }
+
+        public static IObservable<T> Where<T>(this IObservable<T> source, Func<T, bool> predicate)
+        {
+            T t = default;
+            predicate(t);
+            return source;
+        }
+
+        public static IObservable<T> Where<T>(this IObservable<T> source, Func<T, int, bool> predicate)
+        {
+            T t = default;
+            bool result = predicate(t, 42);
+            return source;
+        }
     }
 
-    public class NameObservable : IObservable<string>
+    public class BaseObservable<T> : IObservable<T>
     {
-        private List<IObserver<string>> observers = new List<IObserver<string>>();
+        private List<IObserver<T>> observers = new List<IObserver<T>>();
 
-        public string Last { get; private set; }
+        public T Last { get; private set; }
 
-        public IDisposable Subscribe(IObserver<string> observer)
+        public IDisposable Subscribe(IObserver<T> observer)
         {
             if (!observers.Contains(observer))
                 observers.Add(observer);
@@ -67,10 +81,10 @@ namespace Jint.Tests.Runtime.ExtensionMethods
 
         private class Unsubscriber : IDisposable
         {
-            private List<IObserver<string>> _observers;
-            private IObserver<string> _observer;
+            private List<IObserver<T>> _observers;
+            private IObserver<T> _observer;
 
-            public Unsubscriber(List<IObserver<string>> observers, IObserver<string> observer)
+            public Unsubscriber(List<IObserver<T>> observers, IObserver<T> observer)
             {
                 this._observers = observers;
                 this._observer = observer;
@@ -83,23 +97,48 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             }
         }
 
-        public void UpdateName(string name)
+        protected void BroadcastUpdate(T t)
         {
-            Last = name;
             foreach (var observer in observers)
             {
-                observer.OnNext(name);
+                observer.OnNext(t);
             }
         }
 
-        public void CommitName()
+        public void Update(T t)
+        {
+            Last = t;
+            BroadcastUpdate(t);
+        }
+
+        public void BroadcastCompleted()
         {
             foreach (var observer in observers.ToArray())
             {
                 observer.OnCompleted();
             }
-
             observers.Clear();
+        }
+    }
+
+    public class ObservableFactory
+    {
+        public static BaseObservable<bool> GetBoolBaseObservable()
+        {
+            return new BaseObservable<bool>();
+        }
+    }
+
+    public class NameObservable : BaseObservable<string>
+    {
+        public void UpdateName(string name)
+        {
+            Update(name);
+        }
+
+        public void CommitName()
+        {
+            BroadcastCompleted();
         }
     }
 }

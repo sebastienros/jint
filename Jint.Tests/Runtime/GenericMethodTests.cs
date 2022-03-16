@@ -60,14 +60,14 @@ public class GenericMethodTests
         var testGenericObj = new TestGenericClass();
         engine.SetValue("testGenericObj", testGenericObj);
 
-        var argException = Assert.Throws<ArgumentException>(() =>
+        var argException = Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
         {
             engine.Execute(@"
                     testGenericObj.Fancy('test', 'foo', 42);
                 ");
         });
 
-        Assert.Equal("Object of type 'System.String' cannot be converted to type 'System.Double'.", argException.Message);
+        Assert.Equal("No public methods with the specified arguments were found.", argException.Message);
     }
 
     // TPC: TODO: tldr; typescript transpiled to javascript does not include the types in the constructors - JINT should allow you to use generics without specifying type
