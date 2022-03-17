@@ -109,7 +109,7 @@ namespace Jint.Native.Symbol
 
         ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            ExceptionHelper.ThrowTypeError(_realm, "Symbol is not a constructor");
             return null;
         }
 

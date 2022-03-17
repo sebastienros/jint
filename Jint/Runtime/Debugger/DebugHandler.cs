@@ -140,8 +140,12 @@ namespace Jint.Runtime.Debugger
 
             bool isStepping = _engine.CallStack.Count <= _steppingDepth;
 
-            // Even though we're at a debugger statement, if we're stepping, the reason we're pausing is the step.
-            Pause(isStepping ? PauseType.Step : PauseType.DebuggerStatement, statement);
+            // Even though we're at a debugger statement, if we're stepping, ignore the statement. OnStep already
+            // takes care of pausing.
+            if (!isStepping)
+            {
+                Pause(PauseType.DebuggerStatement, statement);
+            }
 
             _paused = false;
         }
