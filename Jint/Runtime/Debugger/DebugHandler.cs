@@ -15,15 +15,30 @@ namespace Jint.Runtime.Debugger
 
     public class DebugHandler
     {
-        public delegate StepMode DebugStepDelegate(object sender, DebugInformation e);
-        public delegate StepMode BreakDelegate(object sender, DebugInformation e);
+        public delegate StepMode DebugEventHandler(object sender, DebugInformation e);
 
         private readonly Engine _engine;
         private bool _paused;
         private int _steppingDepth;
 
-        public event DebugStepDelegate Step;
-        public event BreakDelegate Break;
+        /// <summary>
+        /// The Step event is triggered before the engine executes a step-eligible AST node.
+        /// </summary>
+        /// <remarks>
+        /// If the current step mode is <see cref="StepMode.None"/>, this event is never triggered. The script may
+        /// still be paused by a debugger statement or breakpoint, but these will trigger the
+        /// <see cref="Break"/> event.
+        /// </remarks>
+        public event DebugEventHandler Step;
+
+        /// <summary>
+        /// The Break event is triggered when a breakpoint or debugger statement is hit.
+        /// </summary>
+        /// <remarks>
+        /// This is event is not triggered if the current script location was reached by stepping. In that case, only
+        /// the <see cref="Step"/> event is triggered.
+        /// </remarks>
+        public event DebugEventHandler Break;
 
         internal DebugHandler(Engine engine, StepMode initialStepMode)
         {
@@ -31,8 +46,27 @@ namespace Jint.Runtime.Debugger
             HandleNewStepMode(initialStepMode);
         }
 
+        /// <summary>
+        /// The location of the current (step-eligible) AST node being executed.
+        /// </summary>
+        /// <remarks>
+        /// The location is available as long as DebugMode is enabled - i.e. even when not stepping
+        /// or hitting a breakpoint.
+        /// </remarks>
+        public Location? CurrentLocation { get; private set; }
+
+        /// <summary>
+        /// Collection of active breakpoints for the engine.
+        /// </summary>
         public BreakPointCollection BreakPoints { get; } = new BreakPointCollection();
 
+        /// <summary>
+        /// Evaluates a script (expression) within the current execution context.
+        /// </summary>
+        /// <remarks>
+        /// Internally, this is used for evaluating breakpoint conditions, but may also be used for e.g. watch lists
+        /// in a debugger.
+        /// </remarks>
         public JsValue Evaluate(Script script)
         {
             int callStackSize = _engine.CallStack.Count;
@@ -67,6 +101,7 @@ namespace Jint.Runtime.Debugger
             return result.GetValueOrDefault();
         }
 
+        /// <inheritdoc cref="Evaluate(Script)" />
         public JsValue Evaluate(string source, ParserOptions options = null)
         {
             // TODO: Default options should probably be retrieved from engine
@@ -112,23 +147,6 @@ namespace Jint.Runtime.Debugger
                 returnValue: returnValue);
         }
 
-        private void CheckBreakPointAndPause(BreakLocation breakLocation, Node node = null, Location? location = null, JsValue returnValue = null)
-        {
-            BreakPoint breakpoint = BreakPoints.FindMatch(this, breakLocation);
-
-            bool isStepping = _engine.CallStack.Count <= _steppingDepth;
-
-            if (breakpoint != null || isStepping)
-            {
-                // Even if we matched a breakpoint, if we're stepping, the reason we're pausing is the step.
-                // Still, we need to include the breakpoint at this location, in case the debugger UI needs to update
-                // e.g. a hit count.
-                Pause(isStepping ? PauseType.Step : PauseType.Break, node, location, returnValue, breakpoint);
-            }
-
-            _paused = false;
-        }
-
         internal void OnDebuggerStatement(Statement statement)
         {
             // Don't reenter if we're already paused
@@ -150,9 +168,37 @@ namespace Jint.Runtime.Debugger
             _paused = false;
         }
 
-        private void Pause(PauseType type, Node node = null, Location? location = null, JsValue returnValue = null, BreakPoint breakPoint = null)
+        private void CheckBreakPointAndPause(BreakLocation breakLocation, Node node = null, Location? location = null,
+            JsValue returnValue = null)
         {
-            DebugInformation info = CreateDebugInformation(node, location ?? node.Location, returnValue, type, breakPoint);
+            CurrentLocation = location ?? node?.Location;
+            BreakPoint breakpoint = BreakPoints.FindMatch(this, breakLocation);
+
+            bool isStepping = _engine.CallStack.Count <= _steppingDepth;
+
+            if (breakpoint != null || isStepping)
+            {
+                // Even if we matched a breakpoint, if we're stepping, the reason we're pausing is the step.
+                // Still, we need to include the breakpoint at this location, in case the debugger UI needs to update
+                // e.g. a hit count.
+                Pause(isStepping ? PauseType.Step : PauseType.Break, node, location, returnValue, breakpoint);
+            }
+
+            _paused = false;
+        }
+
+        private void Pause(PauseType type, Node node = null, Location? location = null, JsValue returnValue = null,
+            BreakPoint breakPoint = null)
+        {
+            var info = new DebugInformation(
+                engine: _engine,
+                currentNode: node,
+                currentLocation: location ?? node.Location,
+                returnValue: returnValue,
+                currentMemoryUsage: _engine.CurrentMemoryUsage,
+                pauseType: type,
+                breakPoint: breakPoint
+            );
             
             StepMode? result = type switch
             {
@@ -172,23 +218,12 @@ namespace Jint.Runtime.Debugger
             {
                 _steppingDepth = newStepMode switch
                 {
-                    StepMode.Over => _engine.CallStack.Count,// Resume stepping when we're back at this level of the call stack
-                    StepMode.Out => _engine.CallStack.Count - 1,// Resume stepping when we've popped the call stack
+                    StepMode.Over => _engine.CallStack.Count,// Resume stepping when back at this level of the stack
+                    StepMode.Out => _engine.CallStack.Count - 1,// Resume stepping when we've popped the stack
                     StepMode.None => int.MinValue,// Never step
                     _ => int.MaxValue,// Always step
                 };
             }
-        }
-
-        private DebugInformation CreateDebugInformation(Node node, Location? currentLocation, JsValue returnValue, PauseType pauseType, BreakPoint breakPoint)
-        {
-            return new DebugInformation(
-                node,
-                new DebugCallStack(_engine, currentLocation ?? node.Location, _engine.CallStack, returnValue),
-                _engine.CurrentMemoryUsage,
-                pauseType,
-                breakPoint
-            );
         }
     }
 }

@@ -7,10 +7,19 @@ namespace Jint.Runtime.Debugger
 {
     public sealed class DebugInformation : EventArgs
     {
-        internal DebugInformation(Node currentNode, DebugCallStack callStack, long currentMemoryUsage, PauseType pauseType, BreakPoint breakPoint)
+        private readonly Engine _engine;
+        private readonly Location _currentLocation;
+        private readonly JsValue _returnValue;
+
+        private DebugCallStack _callStack;
+
+        internal DebugInformation(Engine engine, Node currentNode, Location currentLocation, JsValue returnValue,
+            long currentMemoryUsage, PauseType pauseType, BreakPoint breakPoint)
         {
+            _engine = engine;
             CurrentNode = currentNode;
-            CallStack = callStack;
+            _currentLocation = currentLocation;
+            _returnValue = returnValue;
             CurrentMemoryUsage = currentMemoryUsage;
             PauseType = pauseType;
             BreakPoint = breakPoint;
@@ -30,7 +39,8 @@ namespace Jint.Runtime.Debugger
         /// The current call stack.
         /// </summary>
         /// <remarks>This will always include at least a call frame for the global environment.</remarks>
-        public DebugCallStack CallStack { get; set; }
+        public DebugCallStack CallStack =>
+            _callStack ??= new DebugCallStack(_engine, _currentLocation, _engine.CallStack, _returnValue);
 
         /// <summary>
         /// The AST Node that will be executed on next step.
