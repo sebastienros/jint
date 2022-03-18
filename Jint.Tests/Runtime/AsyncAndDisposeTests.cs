@@ -82,19 +82,17 @@ namespace Jint.Tests.Runtime
 				    let counter = 0;
 				    var callback = function(){
 					    ++counter;
-					    log('js callback: counter: ' + counter);
 					    var result = numInStringOut2(42);
-					    log('js callback: result: ' + result);
 				    }
 
 				    CallJavascriptCallback.Register(function(a, b){
-					    log('RegisterWithMeBro.Register: a: ' + a + ' b: ' + b);
+                        if (a != 'asdfklhj'){
+                            throw new Error('CallJavascriptCallback: a does not have expected value - it equals: ' + a);
+                        }
 					    return 52;
 				    });
 
-				    log('before setTimeout');
 				    setTimeout(callback, 5);
-				    log('after setTimeout');
 			    }
 		    ");
 
