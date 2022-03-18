@@ -9,7 +9,7 @@
     <NoWarn>612</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Runtime\Scripts\*.*;Parser\Scripts\*.*" />
+    <EmbeddedResource Include="Runtime\**\*.cs;Parser\Scripts\*.*;" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
