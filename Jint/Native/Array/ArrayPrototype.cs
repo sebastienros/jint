@@ -1458,7 +1458,7 @@ namespace Jint.Native.Array
             return element;
         }
 
-        private sealed class ArrayComparer : IComparer<JsValue>
+        internal sealed class ArrayComparer : IComparer<JsValue>
         {
             /// <summary>
             /// Default instance without any compare function.

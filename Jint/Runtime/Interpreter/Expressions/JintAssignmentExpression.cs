@@ -362,6 +362,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return completion ?? SetValue(context);
             }
 
+            // https://262.ecma-international.org/5.1/#sec-11.13.1
             private ExpressionResult SetValue(EvaluationContext context)
             {
                 // slower version
@@ -390,13 +391,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var engine = context.Engine;
                 var env = engine.ExecutionContext.LexicalEnvironment;
                 var strict = StrictModeScope.IsStrictModeCode;
-                if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
-                    engine,
+                if (JintEnvironment.TryGetIdentifierEnvironmentWithBinding(
                     env,
                     left._expressionName,
-                    strict,
-                    out var environmentRecord,
-                    out _))
+                    out var environmentRecord))
                 {
                     if (strict && hasEvalOrArguments)
                     {

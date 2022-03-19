@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
 
@@ -13,12 +14,16 @@ namespace Jint;
 public sealed class ModuleBuilder
 {
     private readonly Engine _engine;
+    private readonly string _specifier;
     private readonly List<string> _sourceRaw = new();
     private readonly Dictionary<string, JsValue> _exports = new();
+    private readonly ParserOptions _options;
 
-    public ModuleBuilder(Engine engine)
+    internal ModuleBuilder(Engine engine, string specifier)
     {
         _engine = engine;
+        _specifier = specifier;
+        _options = new ParserOptions(specifier);
     }
 
     public ModuleBuilder AddSource(string code)
@@ -65,23 +70,68 @@ public sealed class ModuleBuilder
 
     public ModuleBuilder ExportFunction(string name, Func<JsValue[], JsValue> fn)
     {
-        _exports.Add(name, new ClrFunctionInstance(_engine, name, (@this, args) => fn(args)));
+        _exports.Add(name, new ClrFunctionInstance(_engine, name, (_, args) => fn(args)));
+        return this;
+    }
+
+    public ModuleBuilder ExportFunction(string name, Func<JsValue> fn)
+    {
+        _exports.Add(name, new ClrFunctionInstance(_engine, name, (_, _) => fn()));
+        return this;
+    }
+
+    public ModuleBuilder ExportFunction(string name, Action<JsValue[]> fn)
+    {
+        _exports.Add(name, new ClrFunctionInstance(_engine, name, (_, args) =>
+        {
+            fn(args);
+            return JsValue.Undefined;
+        }));
+        return this;
+    }
+
+    public ModuleBuilder ExportFunction(string name, Action fn)
+    {
+        _exports.Add(name, new ClrFunctionInstance(_engine, name, (_, _) =>
+        {
+            fn();
+            return JsValue.Undefined;
+        }));
+        return this;
+    }
+
+    public ModuleBuilder WithOptions(Action<ParserOptions> configure)
+    {
+        configure(_options);
         return this;
     }
 
     internal Module Parse()
     {
-        if (_sourceRaw.Count > 0)
-        {
-            return new JavaScriptParser(_sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw)).ParseModule();
-        }
-        else
+        if (_sourceRaw.Count <= 0)
         {
             return new Module(NodeList.Create(Array.Empty<Statement>()));
         }
+
+        var javaScriptParser = new JavaScriptParser(_sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw), _options);
+
+        try
+        {
+            return javaScriptParser.ParseModule();
+        }
+        catch (ParserException ex)
+        {
+            ExceptionHelper.ThrowSyntaxError(_engine.Realm, $"Error while loading module: error in module '{_specifier}': {ex.Error}");
+            return null!;
+        }
+        catch (Exception)
+        {
+            ExceptionHelper.ThrowJavaScriptException(_engine, $"Could not load module {_specifier}", Completion.Empty());
+            return null!;
+        }
     }
 
-    internal void BindExportedValues(JsModule module)
+    internal void BindExportedValues(BuilderModuleRecord module)
     {
         foreach (var export in _exports)
         {

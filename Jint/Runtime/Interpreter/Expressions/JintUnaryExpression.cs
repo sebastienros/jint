@@ -111,6 +111,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
 
                 case UnaryOperator.Delete:
+                    // https://262.ecma-international.org/5.1/#sec-11.4.1
                     if (_argument.Evaluate(context).Value is not Reference r)
                     {
                         return JsBoolean.True;
@@ -127,6 +128,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return JsBoolean.True;
                     }
 
+                    var referencedName = r.GetReferencedName();
                     if (r.IsPropertyReference())
                     {
                         if (r.IsSuperReference())
@@ -135,10 +137,18 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
 
                         var o = TypeConverter.ToObject(engine.Realm, r.GetBase());
-                        var deleteStatus = o.Delete(r.GetReferencedName());
-                        if (!deleteStatus && r.IsStrictReference())
+                        var deleteStatus = o.Delete(referencedName);
+                        if (!deleteStatus)
                         {
-                            ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{r.GetReferencedName()}' of {o}");
+                            if (r.IsStrictReference())
+                            {
+                                ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{referencedName}' of {o}");
+                            }
+
+                            if (StrictModeScope.IsStrictModeCode && !r.GetBase().AsObject().GetProperty(referencedName).Configurable)
+                            {
+                                ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{referencedName}' of {o}");
+                            }
                         }
 
                         engine._referencePool.Return(r);
@@ -151,7 +161,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     var bindings = r.GetBase().TryCast<EnvironmentRecord>();
-                    var property = r.GetReferencedName();
+                    var property = referencedName;
                     engine._referencePool.Return(r);
 
                     return bindings.DeleteBinding(property.ToString()) ? JsBoolean.True : JsBoolean.False;

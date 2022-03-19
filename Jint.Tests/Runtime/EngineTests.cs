@@ -2810,6 +2810,13 @@ x.test = {
         }
 
         [Fact]
+        public void ClassDeclarationHoisting()
+        {
+            var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("typeof MyClass; class MyClass {}"));
+            Assert.Equal("Cannot access 'MyClass' before initialization", ex.Message);
+        }
+
+        [Fact]
         public void ShouldObeyScriptLevelStrictModeInFunctions()
         {
             var engine = new Engine();

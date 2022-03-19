@@ -10,12 +10,6 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
 {
     private JintExpression? _declarationExpression;
     private JintStatement? _declarationStatement;
-    private ExportedSpecifier[]? _specifiers;
-
-    private sealed record ExportedSpecifier(
-        JintExpression Local,
-        JintExpression Exported
-    );
 
     public JintExportNamedDeclaration(ExportNamedDeclaration statement) : base(statement)
     {
@@ -38,21 +32,6 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
                     break;
             }
         }
-
-        if (_statement.Specifiers.Count > 0)
-        {
-            _specifiers = new ExportedSpecifier[_statement.Specifiers.Count];
-            ref readonly var statementSpecifiers = ref _statement.Specifiers;
-            for (var i = 0; i < statementSpecifiers.Count; i++)
-            {
-                var statementSpecifier = statementSpecifiers[i];
-
-                _specifiers[i] = new ExportedSpecifier(
-                    Local: JintExpression.Build(context.Engine, statementSpecifier.Local),
-                    Exported: JintExpression.Build(context.Engine, statementSpecifier.Exported)
-                );
-            }
-        }
     }
 
     /// <summary>
@@ -60,27 +39,6 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
     /// </summary>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        var module = context.Engine.GetActiveScriptOrModule().AsModule(context.Engine, context.LastSyntaxNode.Location);
-
-        if (_specifiers != null)
-        {
-            foreach (var specifier in _specifiers)
-            {
-                if (specifier.Local is not JintIdentifierExpression local || specifier.Exported is not JintIdentifierExpression exported)
-                {
-                    ExceptionHelper.ThrowSyntaxError(context.Engine.Realm, "", context.LastSyntaxNode.Location);
-                    return default;
-                }
-
-                var localKey = local._expressionName.Key.Name;
-                var exportedKey = exported._expressionName.Key.Name;
-                if (localKey != exportedKey)
-                {
-                    module._environment.CreateImportBinding(exportedKey, module, localKey);
-                }
-            }
-        }
-
         if (_declarationStatement != null)
         {
             _declarationStatement.Execute(context);
