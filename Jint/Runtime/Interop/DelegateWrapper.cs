@@ -42,7 +42,7 @@ namespace Jint.Runtime.Interop
             var currentThread = System.Threading.Thread.CurrentThread;
             if (currentThread != Engine.Thread)
             {
-                var exception = new System.Exception("JINT is not thread-safe!  This instance of the JINT engine was initialized with a different thread (" + Engine.Thread + ") than the thread (" + currentThread + ") being used to call this callback!");
+                var exception = new System.Exception("JINT is not thread-safe!  This instance of the JINT engine was initialized with a different thread (" + Engine.Thread?.Name + ") than the thread (" + currentThread?.Name + ") being used to call this callback!");
                 throw exception;
                 // TPC: not sure if this is the preferred way to throw:
                 //ExceptionHelper.ThrowMeaningfulException(Engine, exception);
