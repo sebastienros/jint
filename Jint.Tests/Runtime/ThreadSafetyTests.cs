@@ -6,11 +6,11 @@ using Xunit;
 
 namespace Jint.Tests.Runtime
 {
-    public class AsyncAndDisposeTests
+    public class ThreadSafetyTests
     {
         private readonly Engine _engine;
 
-        public AsyncAndDisposeTests()
+        public ThreadSafetyTests()
         {
             _engine = new Engine(cfg => cfg
                 .AllowOperatorOverloading())
@@ -55,26 +55,33 @@ namespace Jint.Tests.Runtime
         public void NoUndefinedParameterValues()
         {
             var cSharpMethodCalled = false;
-            var logString = "";
 
             _engine.SetValue("numInStringOut2",
                 new Func<int, string>(number =>
                 {
                     cSharpMethodCalled = true;
-                    logString += "numInStringOut2: number: " + number;
                     return "C# can see that you passed: " + number;
                 })
             );
 
             _engine.SetValue("CallJavascriptCallback", typeof(CallJavascriptCallback));
 
-            _engine.SetValue("setTimeout", new Action<Action, int>((action, msec) =>
+            var setTimeoutCompleted = false;
+            _engine.SetValue("setTimeout", new Action<Action, int>(async (action, msec) =>
             {
-                System.Threading.Tasks.Task.Run(() =>
+                var task = System.Threading.Tasks.Task.Run(() =>
                 {
                     System.Threading.Tasks.Task.Delay(msec);
                     action();
                 });
+
+                var exception = await Assert.ThrowsAsync<System.Exception>(async () =>
+                {
+                    await task;
+                });
+
+                Assert.Contains("JINT is not thread-safe!", exception.Message);
+                setTimeoutCompleted = true;
             }));
 
             _engine.Execute(@"
@@ -96,14 +103,19 @@ namespace Jint.Tests.Runtime
 			    }
 		    ");
 
-            CallJavascriptCallback.Run();
-
-            for (int i = 0; (i < 100) && (!cSharpMethodCalled); ++i) // Give our setTimeout enough time to run - so that it can call the C# that will set cSharpMethodCalled to true
+            try
+            {
+                CallJavascriptCallback.Run();
+            }
+            catch
+            {
+                // Currently this Exception is JavaScriptException "a is not defined" - but the authors of JINT may change what exception is thrown in this situation - so not testing that
+            }
+            for (int i = 0; (i < 100) && (!setTimeoutCompleted); ++i) // wait until setTimeout callback completes - in this case it will throw
             {
                 System.Threading.Thread.Sleep(10);
             }
 
-            Assert.Equal(true, cSharpMethodCalled);
         }
 
     }
