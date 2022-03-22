@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -51,6 +51,15 @@ namespace Jint.Runtime.Interop
             if (type.IsInstanceOfType(value))
             {
                 return value;
+            }
+
+            if (type.IsGenericType)
+            {
+                var result = TypeConverter.IsAssignableToGenericType(value.GetType(), type);
+                if (result.IsAssignable)
+                {
+                    return value;
+                }
             }
 
             if (type.IsNullable())
