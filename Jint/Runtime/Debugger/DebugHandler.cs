@@ -69,10 +69,11 @@ namespace Jint.Runtime.Debugger
         /// </remarks>
         public JsValue Evaluate(Script script)
         {
+            // TODO: Can we combine this with the main Engine.Execute -> DoInvoke?
             var context = _engine._activeEvaluationContext;
             if (context == null)
             {
-                throw new DebugEvaluationException("Jint has no evaluation context (yet?)");
+                throw new DebugEvaluationException("Jint has no active evaluation context");
             }
             int callStackSize = _engine.CallStack.Count;
 
@@ -84,7 +85,8 @@ namespace Jint.Runtime.Debugger
             }
             catch (Exception ex)
             {
-                throw new DebugEvaluationException("An error occurred during debug expression evaluation", ex);
+                // An error in the evaluation may return a Throw Completion, or it may throw an exception:
+                throw new DebugEvaluationException(ex.Message, ex);
             }
             finally
             {
@@ -98,7 +100,8 @@ namespace Jint.Runtime.Debugger
             if (result.Type == CompletionType.Throw)
             {
                 // TODO: Should we return an error here? (avoid exception overhead, since e.g. breakpoint
-                // evaluation may be high volume.
+                // evaluation may be high volume. IF we throw, we should probably include the JS exception as
+                // InnerException, but that would be more DRY, if we shared the code with DoInvoke.
                 var error = result.GetValueOrDefault();
                 throw new DebugEvaluationException(error.ToString());
             }
@@ -112,8 +115,15 @@ namespace Jint.Runtime.Debugger
             // TODO: Default options should probably be retrieved from engine
             options ??= new ParserOptions("evaluation") { AdaptRegexp = true, Tolerant = true };
             var parser = new JavaScriptParser(source, options);
-            var script = parser.ParseScript();
-            return Evaluate(script);
+            try
+            {
+                var script = parser.ParseScript();
+                return Evaluate(script);
+            }
+            catch (ParserException ex)
+            {
+                throw new DebugEvaluationException(ex.Message, ex);
+            }
         }
 
         internal void OnStep(Node node)

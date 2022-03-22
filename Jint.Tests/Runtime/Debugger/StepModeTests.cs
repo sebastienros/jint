@@ -1,4 +1,6 @@
-﻿using Jint.Runtime.Debugger;
+﻿using System.Collections.Generic;
+using Esprima.Ast;
+using Jint.Runtime.Debugger;
 using Xunit;
 
 namespace Jint.Tests.Runtime.Debugger
@@ -403,6 +405,35 @@ namespace Jint.Tests.Runtime.Debugger
             };
 
             engine.Execute(script);
+        }
+
+        [Fact]
+        public void StepNotTriggeredWhenRunning()
+        {
+            string script = @"
+                test();
+
+                function test()
+                {
+                    'dummy';
+                    'øummy';
+                }";
+
+            var engine = new Engine(options => options
+                .DebugMode()
+                .InitialStepMode(StepMode.Into));
+
+            int stepCount = 0;
+            engine.DebugHandler.Step += (sender, info) =>
+            {
+                stepCount++;
+                // Start running after first step
+                return StepMode.None;
+            };
+
+            engine.Execute(script);
+
+            Assert.Equal(1, stepCount);
         }
     }
 }

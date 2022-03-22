@@ -204,6 +204,81 @@ debugger;
             Assert.True(didBreak);
         }
 
+        [Fact]
+        public void DebuggerStatementDoesNotTriggerBreakWhenStepping()
+        {
+            string script = @"'dummy';
+debugger;
+'dummy';";
+
+            var engine = new Engine(options => options
+                .DebugMode()
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script)
+                .InitialStepMode(StepMode.Into));
+
+            bool didBreak = false;
+            int stepCount = 0;
+            engine.DebugHandler.Break += (sender, info) =>
+            {
+                didBreak = true;
+                return StepMode.None;
+            };
+
+            engine.DebugHandler.Step += (sender, info) =>
+            {
+                stepCount++;
+                return StepMode.Into;
+            };
+
+            engine.Execute(script);
+            Assert.Equal(3, stepCount);
+            Assert.False(didBreak);
+        }
+
+        [Fact]
+        public void BreakPointDoesNotTriggerBreakWhenStepping()
+        {
+            string script = @"
+'first breakpoint';
+'dummy';
+'second breakpoint';";
+
+            var engine = new Engine(options => options
+                .DebugMode()
+                .InitialStepMode(StepMode.Into));
+
+            bool didStep = true;
+            bool didBreak = true;
+
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(2, 0));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(4, 0));
+
+            engine.DebugHandler.Break += (sender, info) =>
+            {
+                didBreak = true;
+                // first breakpoint shouldn't cause us to get here, because we're stepping,
+                // but when we reach the second, we're running:
+                Assert.True(TestHelpers.ReachedLiteral(info, "second breakpoint"));
+                return StepMode.None;
+            };
+
+            engine.DebugHandler.Step += (sender, info) =>
+            {
+                didStep = true;
+                if (TestHelpers.ReachedLiteral(info, "first breakpoint"))
+                {
+                    // Run from here
+                    return StepMode.None;
+                }
+                return StepMode.Into;
+            };
+
+            engine.Execute(script);
+
+            Assert.True(didStep);
+            Assert.True(didBreak);
+        }
+
         [Fact(Skip = "Non-source breakpoint is triggered before Statement, while debugger statement is now triggered by ExecuteInternal")]
         public void DebuggerStatementAndBreakpointTriggerSingleBreak()
         {
