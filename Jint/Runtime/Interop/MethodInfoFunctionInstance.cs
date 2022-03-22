@@ -27,10 +27,111 @@ namespace Jint.Runtime.Interop
             _fallbackClrFunctionInstance = fallbackClrFunctionInstance;
         }
 
-        private static bool IsAssignableToGenericType(Type givenType, Type genericType)
+        private bool IsGenericParameter(object argObj, Type parameterType, int parameterIndex)
         {
-            var result = TypeConverter.IsAssignableToGenericType(givenType, genericType);
-            return (result >= 0);
+            var result = TypeConverter.IsAssignableToGenericType(argObj?.GetType(), parameterType);
+            if (result.Score < 0)
+            {
+                return false;
+            }
+
+            if ((parameterType.IsGenericParameter) || (parameterType.IsGenericType))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        private bool HandleGenericParameter(object argObj, Type parameterType, int parameterIndex, Type[] genericArgTypes)
+        {
+            var result = TypeConverter.IsAssignableToGenericType(argObj?.GetType(), parameterType);
+            if (result.Score < 0)
+            {
+                return false;
+            }
+
+            if (parameterType.IsGenericParameter)
+            {
+                var genericParamPosition = parameterType.GenericParameterPosition;
+                if (genericParamPosition >= 0)
+                {
+                    genericArgTypes[genericParamPosition] = argObj.GetType();
+                }
+            }
+            else if (parameterType.IsGenericType)
+            {
+                // TPC: maybe we can pull the generic parameters from the arguments?
+                var genericArgs = parameterType.GetGenericArguments();
+                for (int j = 0; j < genericArgs.Length; ++j)
+                {
+                    var genericArg = genericArgs[j];
+                    if (genericArg.IsGenericParameter)
+                    {
+                        var genericParamPosition = genericArg.GenericParameterPosition;
+                        if (genericParamPosition >= 0)
+                        {
+                            var givenTypeGenericArgs = result.MatchingGivenType.GetGenericArguments();
+                            genericArgTypes[genericParamPosition] = givenTypeGenericArgs[j];
+                        }
+                    }
+                }
+            }
+            else
+            {
+                return false;
+            }
+            return true;
+        }
+
+        private MethodBase ResolveMethod(MethodBase method, ParameterInfo[] methodParameters, object thisObj, JsValue[] arguments)
+        {
+            if (!method.IsGenericMethod)
+            {
+                return method;
+            }
+            if (!method.IsGenericMethodDefinition)
+            {
+                return method;
+            }
+            MethodInfo methodInfo = method as MethodInfo;
+            if (methodInfo == null)
+            {
+                // probably should issue at least a warning here
+                return method;
+            }
+
+            // TPC: we could also && "(method.Method.IsGenericMethodDefinition)" because we won't create a generic method if that isn't the case
+            var methodGenericArgs = method.GetGenericArguments();
+            var originalGenericArgTypes = methodGenericArgs;
+            var genericArgTypes = new Type[methodGenericArgs.Length];
+
+            for (int i = 0; i < methodParameters.Length; ++i)
+            {
+                var methodParameter = methodParameters[i];
+                var parameterType = methodParameter.ParameterType;
+                object argObj;
+                if (i < arguments.Length)
+                {
+                    argObj = arguments[i].ToObject();
+                }
+                else
+                {
+                    argObj = typeof(object);
+                }
+                var handled = HandleGenericParameter(argObj, parameterType, i, genericArgTypes);
+            }
+
+            for (int i = 0; i < genericArgTypes.Length; ++i)
+            {
+                if (genericArgTypes[i] == null)
+                {
+                    // this is how we're dealing with things like "void" return types - you can't use "void" as a type:
+                    genericArgTypes[i] = typeof(object);
+                }
+            }
+
+            var genericMethodInfo = methodInfo.MakeGenericMethod(genericArgTypes);
+            return genericMethodInfo;
         }
 
         public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
@@ -53,25 +154,21 @@ namespace Jint.Runtime.Interop
             }
 
             var converter = Engine.ClrTypeConverter;
-
+            var thisObj = thisObject.ToObject();
+            var thisObjType = thisObj?.GetType();
             object[] parameters = null;
             foreach (var (method, arguments, _) in TypeConverter.FindBestMatch(_engine, _methods, ArgumentProvider))
             {
                 var methodParameters = method.Parameters;
-
                 if (parameters == null || parameters.Length != methodParameters.Length)
                 {
                     parameters = new object[methodParameters.Length];
                 }
 
                 var argumentsMatch = true;
-                Type[] genericArgTypes = null;
-                if (method.Method.IsGenericMethod)
-                {
-                    var methodGenericArgs = method.Method.GetGenericArguments();
-                    genericArgTypes = new Type[methodGenericArgs.Length];
-                }
-
+                var resolvedMethod = ResolveMethod(method.Method, methodParameters, thisObj, arguments);
+                // TPC: if we're concerned about cost of MethodInfo.GetParameters() - we could only invoke it if this ends up being a generic method (i.e. they will be different in that scenario)
+                methodParameters = resolvedMethod.GetParameters();
                 for (var i = 0; i < parameters.Length; i++)
                 {
                     var methodParameter = methodParameters[i];
@@ -82,25 +179,18 @@ namespace Jint.Runtime.Interop
                     {
                         parameters[i] = argument;
                     }
-                    else if ((parameterType.IsGenericParameter) && (IsAssignableToGenericType(argument.ToObject()?.GetType(), parameterType)))
-                    {
-                        var argObj = argument.ToObject();
-                        if (parameterType.GenericParameterPosition >= 0)
-                        {
-                            genericArgTypes[parameterType.GenericParameterPosition] = argObj.GetType();
-                        }
-
-                        parameters[i] = argObj;
-                    }
                     else if (argument is null)
                     {
                         // optional
                         parameters[i] = System.Type.Missing;
                     }
+                    else if (IsGenericParameter(argument.ToObject(), parameterType, i)) // don't think we need the condition preface of (argument == null) because of earlier condition
+                    {
+                        parameters[i] = argument.ToObject();
+                    }
                     else if (parameterType == typeof(JsValue[]) && argument.IsArray())
                     {
                         // Handle specific case of F(params JsValue[])
-
                         var arrayInstance = argument.AsArray();
                         var len = TypeConverter.ToInt32(arrayInstance.Get(CommonProperties.Length, this));
                         var result = new JsValue[len];
@@ -137,15 +227,13 @@ namespace Jint.Runtime.Interop
                 {
                     if ((method.Method.IsGenericMethodDefinition) && (method.Method is MethodInfo methodInfo))
                     {
-                        var declaringType = methodInfo.DeclaringType;
-                        var genericMethodInfo = methodInfo.MakeGenericMethod(genericArgTypes);
-                        var thisObj = thisObject.ToObject();
+                        var genericMethodInfo = resolvedMethod;
                         var result = genericMethodInfo.Invoke(thisObj, parameters);
                         return FromObject(Engine, result);
                     }
                     else
                     {
-                        return FromObject(Engine, method.Method.Invoke(thisObject.ToObject(), parameters));
+                        return FromObject(Engine, method.Method.Invoke(thisObj, parameters));
                     }
                 }
                 catch (TargetInvocationException exception)
