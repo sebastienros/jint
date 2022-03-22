@@ -186,35 +186,127 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             Assert.Equal("foobar", observable.Last);
         }
 
-
-        private class Converter : TextWriter
+        [Fact]
+        public void GenericExtensionMethodOnClosedGenericType()
         {
-            ITestOutputHelper _output;
+            var options = new Options();
+            options.AddExtensionMethods(typeof(ObservableExtensions));
 
-            public Converter(ITestOutputHelper output)
-            {
-                _output = output;
-            }
+            var engine = new Engine(options);
 
-            public override Encoding Encoding
-            {
-                get { return Encoding.ASCII; }
-            }
+            engine.SetValue("log", new System.Action<object>(System.Console.WriteLine));
 
-            public override void WriteLine(string message)
-            {
-                _output.WriteLine(message);
-            }
+            NameObservable observable = new NameObservable();
+            engine.SetValue("observable", observable);
+            var result = engine.Evaluate(@"
+                log('before calling Select');
+                var result = observable.Select('some text');
+                log('result: ' + result);
+                return result;
+            ");
 
-            public override void WriteLine(string format, params object[] args)
-            {
-                _output.WriteLine(format, args);
-            }
+            //System.Console.WriteLine("GenericExtensionMethodOnGenericType: result: " + result + " result.ToString(): " + result.ToString());
 
-            public override void Write(char value)
-            {
-                throw new System.Exception("This text writer only supports WriteLine(string) and WriteLine(string, params object[]).");
-            }
+            Assert.Equal("some text", result);
         }
+
+        [Fact]
+        public void GenericExtensionMethodOnClosedGenericType2()
+        {
+            var options = new Options();
+            options.AddExtensionMethods(typeof(ObservableExtensions));
+
+            var engine = new Engine(options);
+
+            NameObservable observable = new NameObservable();
+            observable.Where((text) =>
+            {
+                System.Console.WriteLine("GenericExtensionMethodOnClosedGenericType2: NameObservable: Where: text: " + text);
+                return true;
+            });
+            engine.SetValue("observable", observable);
+            var result = engine.Evaluate(@"
+                var result = observable.Where(function(text){
+                    return true;
+                });
+
+                observable.UpdateName('testing yo');
+                observable.CommitName();
+                return result;
+            ");
+
+            var nameObservableResult = result.ToObject() as NameObservable;
+            Assert.NotNull(nameObservableResult);
+            Assert.Equal("testing yo", nameObservableResult.Last);
+        }
+
+        [Fact]
+        public void GenericExtensionMethodOnOpenGenericType()
+        {
+            var options = new Options();
+            options.AddExtensionMethods(typeof(ObservableExtensions));
+
+            var engine = new Engine(options);
+
+            BaseObservable<string> observable = new BaseObservable<string>();
+            observable.Where((text) =>
+            {
+                System.Console.WriteLine("GenericExtensionMethodOnOpenGenericType: BaseObservable: Where: text: " + text);
+                return true;
+            });
+            engine.SetValue("observable", observable);
+            var result = engine.Evaluate(@"
+                var result = observable.Where(function(text){
+                    return true;
+                });
+
+                observable.Update('testing yo');
+                observable.BroadcastCompleted();
+
+                return result;
+            ");
+
+            System.Console.WriteLine("GenericExtensionMethodOnOpenGenericType: result: " + result + " result.ToString(): " + result.ToString());
+            var baseObservableResult = result.ToObject() as BaseObservable<string>;
+
+            System.Console.WriteLine("GenericExtensionMethodOnOpenGenericType: baseObservableResult: " + baseObservableResult);
+            Assert.NotNull(baseObservableResult);
+            Assert.Equal("testing yo", baseObservableResult.Last);
+        }
+
+        [Fact]
+        public void GenericExtensionMethodOnGenericTypeInstantiatedInJs()
+        {
+            var options = new Options();
+            options.AddExtensionMethods(typeof(ObservableExtensions));
+
+            var engine = new Engine(options);
+
+            engine.SetValue("BaseObservable", typeof(BaseObservable<>));
+            engine.SetValue("ObservableFactory", typeof(ObservableFactory));
+
+            var result = engine.Evaluate(@"
+
+                // you can't instantiate generic types in JS (without providing the types as arguments to the constructor) - i.e. not compatible with transpiled typescript
+                //const observable = new BaseObservable();
+                //const observable = BaseObservable.GetBoolBaseObservable();
+                const observable = ObservableFactory.GetBoolBaseObservable();
+
+                var result = observable.Where(function(someBool){
+                    return true;
+                });
+                observable.Update(false);
+                observable.BroadcastCompleted();
+
+                return result;
+            ");
+
+            var baseObservableResult = result.ToObject() as BaseObservable<bool>;
+
+            System.Console.WriteLine("GenericExtensionMethodOnOpenGenericType: baseObservableResult: " + baseObservableResult);
+            Assert.NotNull(baseObservableResult);
+            Assert.Equal(false, baseObservableResult.Last);
+        }
+
     }
 }
