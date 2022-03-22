@@ -69,13 +69,18 @@ namespace Jint.Runtime.Debugger
         /// </remarks>
         public JsValue Evaluate(Script script)
         {
+            var context = _engine._activeEvaluationContext;
+            if (context == null)
+            {
+                throw new DebugEvaluationException("Jint has no evaluation context (yet?)");
+            }
             int callStackSize = _engine.CallStack.Count;
 
             var list = new JintStatementList(null, script.Body);
             Completion result;
             try
             {
-                result = list.Execute(_engine._activeEvaluationContext);
+                result = list.Execute(context);
             }
             catch (Exception ex)
             {
@@ -121,9 +126,9 @@ namespace Jint.Runtime.Debugger
             _paused = true;
 
             CheckBreakPointAndPause(
-                new BreakLocation(node.Location.Source, node.Location.Start), 
-                node: node, 
-                location: null, 
+                new BreakLocation(node.Location.Source, node.Location.Start),
+                node: node,
+                location: null,
                 returnValue: null);
         }
 
@@ -141,9 +146,9 @@ namespace Jint.Runtime.Debugger
             var location = new Location(functionBodyEnd, functionBodyEnd, bodyLocation.Source);
 
             CheckBreakPointAndPause(
-                new BreakLocation(bodyLocation.Source, bodyLocation.End), 
-                node: null, 
-                location: location, 
+                new BreakLocation(bodyLocation.Source, bodyLocation.End),
+                node: null,
+                location: location,
                 returnValue: returnValue);
         }
 
@@ -199,7 +204,7 @@ namespace Jint.Runtime.Debugger
                 pauseType: type,
                 breakPoint: breakPoint
             );
-            
+
             StepMode? result = type switch
             {
                 // Conventionally, sender should be DebugHandler - but Engine is more useful
@@ -208,7 +213,7 @@ namespace Jint.Runtime.Debugger
                 PauseType.DebuggerStatement => Break?.Invoke(_engine, info),
                 _ => throw new ArgumentException("Invalid pause type", nameof(type))
             };
-            
+
             HandleNewStepMode(result);
         }
 
