@@ -147,8 +147,6 @@ namespace Jint
             private set;
         }
 
-		public event EventHandler<SourceParsedEventArgs> Parsed;
-		
         public DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this, Options.Debugger.InitialStepMode);
 
 
@@ -265,8 +263,6 @@ namespace Jint
         {
             Engine DoInvoke()
             {
-                Parsed?.Invoke(this, new SourceParsedEventArgs(script));
-
                 GlobalDeclarationInstantiation(
                     script,
                     Realm.GlobalEnv);
