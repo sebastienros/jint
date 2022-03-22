@@ -12,15 +12,9 @@ namespace Jint.Tests.Runtime
 
         public ThreadSafetyTests()
         {
-            _engine = new Engine(cfg => cfg
-                .AllowOperatorOverloading())
-                .SetValue("log", new Action<object>(Console.WriteLine))
-                .SetValue("throws", new Func<Action, Exception>(Assert.Throws<Exception>))
-                .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("assertFalse", new Action<bool>(Assert.False))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
-                .SetValue("CallJavascriptCallback", typeof(CallJavascriptCallback))
-            ;
+            var options = new Options();
+            options.Interop.MainThreadCheck = true;
+            _engine = new Engine(options);
         }
 
         public class SomeClass
@@ -52,7 +46,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void NoUndefinedParameterValues()
+        public void EnsureExceptionInMultiThread()
         {
             var cSharpMethodCalled = false;
 
@@ -80,7 +74,7 @@ namespace Jint.Tests.Runtime
                     await task;
                 });
 
-                Assert.Contains("JINT is not thread-safe!", exception.Message);
+                Assert.Contains("This instance of the JINT Engine was initialized with a different thread", exception.Message);
                 setTimeoutCompleted = true;
             }));
 
