@@ -442,7 +442,7 @@ namespace Jint.Native.Array
 
             if (!c.IsConstructor)
             {
-                ExceptionHelper.ThrowTypeError(_realm);
+                ExceptionHelper.ThrowTypeError(_realm, $"{c} is not a constructor");
             }
 
             return ((IConstructor) c).Construct(new JsValue[] { JsNumber.Create(length) }, c);

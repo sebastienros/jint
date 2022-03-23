@@ -50,6 +50,11 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                 }
 
+                if (context.DebugMode)
+                {
+                    context.Engine.DebugHandler.OnStep(_test._expression);
+                }
+
                 iterating = TypeConverter.ToBoolean(_test.GetValue(context).Value);
             } while (iterating);
 

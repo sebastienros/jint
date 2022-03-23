@@ -126,6 +126,11 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 if (_test != null)
                 {
+                    if (context.DebugMode)
+                    {
+                        context.Engine.DebugHandler.OnStep(_test._expression);
+                    }
+
                     if (!TypeConverter.ToBoolean(_test.GetValue(context).Value))
                     {
                         return NormalCompletion(v);
@@ -156,7 +161,15 @@ namespace Jint.Runtime.Interpreter.Statements
                     CreatePerIterationEnvironment(context);
                 }
 
-                _increment?.GetValue(context);
+                if (_increment != null)
+                {
+                    if (context.DebugMode)
+                    {
+                        context.Engine.DebugHandler.OnStep(_increment._expression);
+                    }
+
+                    _increment.GetValue(context);
+                }
             }
         }
 

@@ -16,11 +16,11 @@ namespace Jint.Tests.Runtime.Debugger
             // reentrance in a multithreaded environment (e.g. using ManualResetEvent(Slim)) would cause
             // a deadlock.
             string script = @"
-                const obj = { get name() { 'fail'; return 'Smith'; } };
+                var obj = { get name() { 'fail'; return 'Smith'; } };
                 'target';
             ";
 
-            var engine = new Engine(options => options.DebugMode());
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
 
             bool didPropertyAccess = false;
 

@@ -1471,7 +1471,7 @@ var prep = function (fn) { fn(); };
 
             engine.DebugHandler.Break += EngineStep;
 
-            engine.DebugHandler.BreakPoints.Add(new BreakPoint(1, 1));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(1, 0));
 
             engine.Evaluate(@"var local = true;
                 if (local === true)
@@ -1488,7 +1488,7 @@ var prep = function (fn) { fn(); };
             countBreak = 0;
             stepMode = StepMode.Into;
 
-            var engine = new Engine(options => options.DebugMode());
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(stepMode));
 
             engine.DebugHandler.Step += EngineStep;
 
@@ -1507,8 +1507,8 @@ var prep = function (fn) { fn(); };
             countBreak = 0;
             stepMode = StepMode.Into;
 
-            var engine = new Engine(options => options.DebugMode());
-            engine.DebugHandler.BreakPoints.Add(new BreakPoint(1, 1));
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(stepMode));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(1, 1));
             engine.DebugHandler.Step += EngineStep;
             engine.DebugHandler.Break += EngineStep;
 
@@ -1537,7 +1537,7 @@ var prep = function (fn) { fn(); };
             stepMode = StepMode.None;
 
             var engine = new Engine(options => options.DebugMode());
-            engine.DebugHandler.BreakPoints.Add(new BreakPoint(5, 0));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(5, 0));
             engine.DebugHandler.Break += EngineStepVerifyDebugInfo;
 
             engine.Evaluate(@"var global = true;
@@ -1560,7 +1560,7 @@ var prep = function (fn) { fn(); };
             Assert.NotNull(debugInfo);
 
             Assert.NotNull(debugInfo.CallStack);
-            Assert.NotNull(debugInfo.CurrentStatement);
+            Assert.NotNull(debugInfo.CurrentNode);
             Assert.NotNull(debugInfo.CurrentScopeChain);
             Assert.NotNull(debugInfo.CurrentScopeChain.Global);
             Assert.NotNull(debugInfo.CurrentScopeChain.Local);
@@ -1588,8 +1588,8 @@ var prep = function (fn) { fn(); };
 
             engine.DebugHandler.Break += EngineStep;
 
-            engine.DebugHandler.BreakPoints.Add(new BreakPoint(5, 16, "condition === true"));
-            engine.DebugHandler.BreakPoints.Add(new BreakPoint(6, 16, "condition === false"));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(5, 16, "condition === true"));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(6, 16, "condition === false"));
 
             engine.Evaluate(@"var local = true;
                 var condition = true;
@@ -1610,7 +1610,7 @@ var prep = function (fn) { fn(); };
             countBreak = 0;
             stepMode = StepMode.Out;
 
-            var engine = new Engine(options => options.DebugMode());
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
 
             engine.DebugHandler.Step += EngineStep;
 
@@ -1632,7 +1632,7 @@ var prep = function (fn) { fn(); };
         {
             countBreak = 0;
 
-            var engine = new Engine(options => options.DebugMode());
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
 
             engine.DebugHandler.Step += EngineStepOutWhenInsideFunction;
 
@@ -1669,7 +1669,7 @@ var prep = function (fn) { fn(); };
             stepMode = StepMode.None;
 
             var engine = new Engine(options => options.DebugMode());
-            engine.DebugHandler.BreakPoints.Add(new BreakPoint(4, 33));
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(4, 32));
             engine.DebugHandler.Break += EngineStep;
 
             engine.Evaluate(@"var global = true;
@@ -1689,10 +1689,10 @@ var prep = function (fn) { fn(); };
         public void ShouldNotStepInsideIfRequiredToStepOver()
         {
             countBreak = 0;
-
-            var engine = new Engine(options => options.DebugMode());
-
             stepMode = StepMode.Over;
+
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(stepMode));
+
             engine.DebugHandler.Step += EngineStep;
 
             engine.Evaluate(@"function func() // first step
@@ -1712,22 +1712,22 @@ var prep = function (fn) { fn(); };
         public void ShouldStepAllStatementsWithoutInvocationsIfStepOver()
         {
             countBreak = 0;
-
-            var engine = new Engine(options => options.DebugMode());
-
             stepMode = StepMode.Over;
+
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(stepMode));
+
             engine.DebugHandler.Step += EngineStep;
 
             engine.Evaluate(@"var step1 = 1; // first step
                 var step2 = 2; // second step
                 if (step1 !== step2) // third step
-                { // fourth step
-                    ; // fifth step
+                {
+                    ; // fourth step
                 }");
 
             engine.DebugHandler.Step -= EngineStep;
 
-            Assert.Equal(5, countBreak);
+            Assert.Equal(4, countBreak);
         }
 
         [Fact]

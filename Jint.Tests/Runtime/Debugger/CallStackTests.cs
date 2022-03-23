@@ -106,7 +106,7 @@ bar()";
 
             foo();";
 
-            var engine = new Engine(options => options.DebugMode());
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.Into));
 
             bool atReturn = false;
             bool didCheckReturn = false;
@@ -121,7 +121,7 @@ bar()";
                     atReturn = false;
                 }
 
-                if (info.CurrentStatement is ReturnStatement)
+                if (info.CurrentNode is ReturnStatement)
                 {
                     // Step one further, and we should have the return value
                     atReturn = true;

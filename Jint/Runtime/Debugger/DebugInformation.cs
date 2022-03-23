@@ -7,24 +7,46 @@ namespace Jint.Runtime.Debugger
 {
     public sealed class DebugInformation : EventArgs
     {
-        internal DebugInformation(Statement currentStatement, DebugCallStack callStack, long currentMemoryUsage)
+        private readonly Engine _engine;
+        private readonly Location _currentLocation;
+        private readonly JsValue _returnValue;
+
+        private DebugCallStack _callStack;
+
+        internal DebugInformation(Engine engine, Node currentNode, Location currentLocation, JsValue returnValue,
+            long currentMemoryUsage, PauseType pauseType, BreakPoint breakPoint)
         {
-            CurrentStatement = currentStatement;
-            CallStack = callStack;
+            _engine = engine;
+            CurrentNode = currentNode;
+            _currentLocation = currentLocation;
+            _returnValue = returnValue;
             CurrentMemoryUsage = currentMemoryUsage;
+            PauseType = pauseType;
+            BreakPoint = breakPoint;
         }
+
+        /// <summary>
+        /// Indicates the type of pause that resulted in this DebugInformation being generated.
+        /// </summary>
+        public PauseType PauseType { get; }
+
+        /// <summary>
+        /// Breakpoint at the current location. This will be set even if the pause wasn't caused by the breakpoint.
+        /// </summary>
+        public BreakPoint BreakPoint { get; }
 
         /// <summary>
         /// The current call stack.
         /// </summary>
         /// <remarks>This will always include at least a call frame for the global environment.</remarks>
-        public DebugCallStack CallStack { get; set; }
+        public DebugCallStack CallStack =>
+            _callStack ??= new DebugCallStack(_engine, _currentLocation, _engine.CallStack, _returnValue);
 
         /// <summary>
-        /// The Statement that will be executed on next step.
+        /// The AST Node that will be executed on next step.
         /// Note that this will be null when execution is at a return point.
         /// </summary>
-        public Statement CurrentStatement { get; }
+        public Node CurrentNode { get; }
 
         /// <summary>
         /// The current source Location.

@@ -14,8 +14,9 @@ namespace Jint.Runtime.Environments
     public sealed class GlobalEnvironmentRecord : EnvironmentRecord
     {
         private readonly ObjectInstance _global;
-        private readonly DeclarativeEnvironmentRecord _declarativeRecord;
-        private readonly ObjectEnvironmentRecord _objectRecord;
+        // Environment records are needed by debugger
+        internal readonly DeclarativeEnvironmentRecord _declarativeRecord;
+        internal readonly ObjectEnvironmentRecord _objectRecord;
         private readonly HashSet<string> _varNames = new HashSet<string>();
 
         public GlobalEnvironmentRecord(Engine engine, ObjectInstance global) : base(engine)
@@ -168,6 +169,13 @@ namespace Jint.Runtime.Environments
             return _declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name)
                 ? _declarativeRecord.GetBindingValue(name, strict)
                 : _objectRecord.GetBindingValue(name, strict);
+        }
+
+        internal override bool TryGetBindingValue(string name, bool strict, out JsValue value)
+        {
+            return _declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name)
+                ? _declarativeRecord.TryGetBindingValue(name, strict, out value)
+                : _objectRecord.TryGetBindingValue(name, strict, out value);
         }
 
         public override bool DeleteBinding(string name)

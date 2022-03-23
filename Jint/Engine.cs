@@ -147,7 +147,7 @@ namespace Jint
             private set;
         }
 
-        public DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this);
+        public DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this, Options.Debugger.InitialStepMode);
 
 
         internal ExecutionContext EnterExecutionContext(
@@ -252,7 +252,12 @@ namespace Jint
             => Execute(source, DefaultParserOptions);
 
         public Engine Execute(string source, ParserOptions parserOptions)
-            => Execute(new JavaScriptParser(source, parserOptions).ParseScript());
+        {
+            var parser = new JavaScriptParser(source, parserOptions);
+            var script = parser.ParseScript();
+
+            return Execute(script);
+        }
 
         public Engine Execute(Script script)
         {
@@ -357,7 +362,7 @@ namespace Jint
                 constraint.Check();
             }
 
-            if (_isDebugMode && statement != null)
+            if (_isDebugMode && statement != null && statement.Type != Nodes.BlockStatement)
             {
                 DebugHandler.OnStep(statement);
             }
