@@ -424,7 +424,7 @@ for (let i = 0; i < 10; i++)
             engine.DebugHandler.BreakPoints.Set(
                 new SimpleHitConditionBreakPoint(4, 4, condition: null, hitCondition: 5));
 
-            int numberOfHits = 0;
+            int numberOfBreaks = 0;
             engine.DebugHandler.Break += (sender, info) =>
             {
                 Assert.True(info.ReachedLiteral("breakpoint"));
@@ -435,14 +435,14 @@ for (let i = 0; i < 10; i++)
                     // Here is where we would normally pause the execution.
                     // the breakpoint is hit for the fifth time, when i is 4 (off by one)
                     Assert.Equal(4, info.CurrentScopeChain[0].GetBindingValue("i").AsInteger());
-                    numberOfHits++;
+                    numberOfBreaks++;
                 }
                 return StepMode.None;
             };
 
             engine.Execute(script);
 
-            Assert.Equal(1, numberOfHits);
+            Assert.Equal(1, numberOfBreaks);
         }
     }
 }
