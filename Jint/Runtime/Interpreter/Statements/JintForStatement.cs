@@ -126,7 +126,7 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 if (_test != null)
                 {
-                    if (context.Engine._isDebugMode)
+                    if (context.DebugMode)
                     {
                         context.Engine.DebugHandler.OnStep(_test._expression);
                     }
@@ -163,7 +163,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                 if (_increment != null)
                 {
-                    if (context.Engine._isDebugMode)
+                    if (context.DebugMode)
                     {
                         context.Engine.DebugHandler.OnStep(_increment._expression);
                     }

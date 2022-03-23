@@ -1,5 +1,6 @@
 ﻿using Esprima;
 using Jint.Native;
+using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Xunit;
 
@@ -29,6 +30,14 @@ namespace Jint.Tests.Runtime.Debugger
         }
 
         [Fact]
+        public void ThrowsIfNoCurrentContext()
+        {
+            var engine = new Engine(options => options.DebugMode());
+            var exception = Assert.Throws<DebugEvaluationException>(() => engine.DebugHandler.Evaluate("let x = 1;"));
+            Assert.Null(exception.InnerException); // Not a JavaScript or parser exception
+        }
+
+        [Fact]
         public void ThrowsOnRuntimeError()
         {
             var script = @"
@@ -44,8 +53,7 @@ namespace Jint.Tests.Runtime.Debugger
             TestHelpers.TestAtBreak(script, (engine, info) =>
             {
                 var exception = Assert.Throws<DebugEvaluationException>(() => engine.DebugHandler.Evaluate("y"));
-                // We should check InnerException, but currently there is none.
-                //Assert.IsType<JavaScriptException>(exception.InnerException);
+                Assert.IsType<JavaScriptException>(exception.InnerException);
             });
         }
 

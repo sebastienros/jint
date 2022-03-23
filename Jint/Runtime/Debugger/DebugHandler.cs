@@ -69,7 +69,6 @@ namespace Jint.Runtime.Debugger
         /// </remarks>
         public JsValue Evaluate(Script script)
         {
-            // TODO: Can we combine this with the main Engine.Execute -> DoInvoke?
             var context = _engine._activeEvaluationContext;
             if (context == null)
             {
@@ -86,7 +85,7 @@ namespace Jint.Runtime.Debugger
             catch (Exception ex)
             {
                 // An error in the evaluation may return a Throw Completion, or it may throw an exception:
-                throw new DebugEvaluationException(ex.Message, ex);
+                throw new DebugEvaluationException("An error occurred during debugger evaluation", ex);
             }
             finally
             {
@@ -100,10 +99,10 @@ namespace Jint.Runtime.Debugger
             if (result.Type == CompletionType.Throw)
             {
                 // TODO: Should we return an error here? (avoid exception overhead, since e.g. breakpoint
-                // evaluation may be high volume. IF we throw, we should probably include the JS exception as
-                // InnerException, but that would be more DRY, if we shared the code with DoInvoke.
+                // evaluation may be high volume.
                 var error = result.GetValueOrDefault();
-                throw new DebugEvaluationException(error.ToString());
+                var ex = new JavaScriptException(error).SetCallstack(_engine, result.Location);
+                throw new DebugEvaluationException("An error occurred during debugger evaluation", ex);
             }
 
             return result.GetValueOrDefault();
@@ -112,7 +111,6 @@ namespace Jint.Runtime.Debugger
         /// <inheritdoc cref="Evaluate(Script)" />
         public JsValue Evaluate(string source, ParserOptions options = null)
         {
-            // TODO: Default options should probably be retrieved from engine
             options ??= new ParserOptions("evaluation") { AdaptRegexp = true, Tolerant = true };
             var parser = new JavaScriptParser(source, options);
             try
@@ -122,7 +120,7 @@ namespace Jint.Runtime.Debugger
             }
             catch (ParserException ex)
             {
-                throw new DebugEvaluationException(ex.Message, ex);
+                throw new DebugEvaluationException("An error occurred during debugger expression parsing", ex);
             }
         }
 

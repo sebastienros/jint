@@ -29,7 +29,7 @@ namespace Jint.Runtime.Interpreter.Statements
             var v = Undefined.Instance;
             while (true)
             {
-                if (context.Engine._isDebugMode)
+                if (context.DebugMode)
                 {
                     context.Engine.DebugHandler.OnStep(_test._expression);
                 }

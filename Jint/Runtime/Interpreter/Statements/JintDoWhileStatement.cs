@@ -50,7 +50,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
                 }
 
-                if (context.Engine._isDebugMode)
+                if (context.DebugMode)
                 {
                     context.Engine.DebugHandler.OnStep(_test._expression);
                 }

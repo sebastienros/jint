@@ -395,5 +395,54 @@ foo();
             Assert.Equal(1, breakpointsReached);
             Assert.Equal(2, stepsReached);
         }
+
+        private class SimpleHitConditionBreakPoint : BreakPoint
+        {
+            public SimpleHitConditionBreakPoint(int line, int column, string condition = null,
+                int? hitCondition = null) : base(line, column, condition)
+            {
+                HitCondition = hitCondition;
+            }
+
+            public int HitCount { get; set; }
+            public int? HitCondition { get; set; }
+        }
+
+        [Fact]
+        public void BreakPointCanBeExtended()
+        {
+            // More of a documentation than a required test, this shows the usefulness of BreakPoint being
+            // extensible - as a test, at least it ensures that it is.
+            var script = @"
+for (let i = 0; i < 10; i++)
+{
+    'breakpoint';
+}
+";
+            var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.None));
+
+            engine.DebugHandler.BreakPoints.Set(
+                new SimpleHitConditionBreakPoint(4, 4, condition: null, hitCondition: 5));
+
+            int numberOfHits = 0;
+            engine.DebugHandler.Break += (sender, info) =>
+            {
+                Assert.True(info.ReachedLiteral("breakpoint"));
+                var extendedBreakPoint = Assert.IsType<SimpleHitConditionBreakPoint>(info.BreakPoint);
+                extendedBreakPoint.HitCount++;
+                if (extendedBreakPoint.HitCount == extendedBreakPoint.HitCondition)
+                {
+                    // Here is where we would normally pause the execution.
+                    // the breakpoint is hit for the fifth time, when i is 4 (off by one)
+                    Assert.Equal(4, info.CurrentScopeChain[0].GetBindingValue("i").AsInteger());
+                    numberOfHits++;
+                }
+                return StepMode.None;
+            };
+
+            engine.Execute(script);
+
+            Assert.Equal(1, numberOfHits);
+        }
     }
 }
