@@ -13,7 +13,7 @@ namespace Jint.Tests.Runtime
         public ThreadSafetyTests()
         {
             var options = new Options();
-            options.Interop.MainThreadCheck = true;
+            options.Interop.EnforceThreadConsistency = true;
             _engine = new Engine(options);
         }
 

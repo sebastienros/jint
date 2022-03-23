@@ -5,7 +5,7 @@ namespace Jint.Runtime
     {
         public static bool ValidateThread(Engine engine)
         {
-            if (!engine.Options.Interop.MainThreadCheck)
+            if (!engine.Options.Interop.EnforceThreadConsistency)
             {
                 return true;
             }

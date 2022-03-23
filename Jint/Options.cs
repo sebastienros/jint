@@ -284,7 +284,7 @@ namespace Jint
         /// <summary>
         /// Whether Jint should throw exception when multiple threads are being used to execute
         /// </summary>
-        public bool MainThreadCheck { get; set; } = false;
+        public bool EnforceThreadConsistency { get; set; } = false;
     }
 
     /// <summary>
