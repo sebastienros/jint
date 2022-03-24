@@ -22,7 +22,7 @@ jobs:
       run: dotnet tool restore && dotnet test262 generate
 
     - name: Test
-      run: dotnet test --configuration Release
+      run: dotnet test --configuration Release --logger:"console;verbosity=quiet"
 
     - name: Pack with dotnet
       run: |
