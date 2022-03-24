@@ -1,7 +1,6 @@
 #nullable enable
 
 using Esprima.Ast;
-using Jint.Native;
 using Jint.Native.Promise;
 
 namespace Jint.Runtime.Interpreter.Expressions;

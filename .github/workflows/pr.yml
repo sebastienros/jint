@@ -25,7 +25,7 @@ jobs:
       run: dotnet tool restore && dotnet test262 generate
 
     - name: Test
-      run: dotnet test --configuration Release
+      run: dotnet test --configuration Release --logger:"console;verbosity=quiet"
 
   linux:
     runs-on: ubuntu-latest
@@ -42,4 +42,4 @@ jobs:
       run: dotnet tool restore && dotnet test262 generate
 
     - name: Test
-      run: dotnet test --configuration Release
+      run: dotnet test --configuration Release --logger:"console;verbosity=quiet"
