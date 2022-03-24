@@ -3,9 +3,6 @@ using Jint.Tests.Runtime.Domain;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
-using Xunit.Abstractions;
-using System.IO;
-using System.Text;
 
 namespace Jint.Tests.Runtime.ExtensionMethods
 {

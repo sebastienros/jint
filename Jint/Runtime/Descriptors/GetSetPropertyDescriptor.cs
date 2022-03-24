@@ -1,5 +1,4 @@
 ﻿using Jint.Native;
-using Jint.Native.Function;
 
 namespace Jint.Runtime.Descriptors
 {
