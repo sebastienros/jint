@@ -46,7 +46,7 @@ namespace Jint.Native.Date
                 return "Infinity";
             }
 
-            return ToDateTime().ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'K", CultureInfo.InvariantCulture);
+            return ToDateTime().ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz", CultureInfo.InvariantCulture);
         }
     }
 }

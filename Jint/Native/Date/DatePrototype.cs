@@ -1099,6 +1099,7 @@ namespace Jint.Native.Date
         {
             var year = YearFromTime(t);
             var timeInYear = t - TimeFromYear(year);
+            timeInYear = double.IsNaN(timeInYear) ? 0 : timeInYear;
 
             if (year < 9999 && year >= 1)
             {

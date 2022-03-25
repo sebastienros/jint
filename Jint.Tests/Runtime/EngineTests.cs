@@ -1830,13 +1830,12 @@ var prep = function (fn) { fn(); };
             var engine = new Engine(options => options.LocalTimeZone(EST))
                 .SetValue("log", new Action<object>(Console.WriteLine))
                 .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("equal", new Action<object, object>(Assert.Equal))
-                ;
+                .SetValue("equal", new Action<object, object>(Assert.Equal));
 
             engine.Evaluate(@"
                     var d = new Date(2016, 8, 1);
-
-                    equal('Thu Sep 01 2016 00:00:00 GMT-0400 (US Eastern Standard Time)', d.toString());
+                    // there's a Linux difference, so do a replace
+                    equal('Thu Sep 01 2016 00:00:00 GMT-0400 (US Eastern Standard Time)', d.toString().replace('(Eastern Standard Time)', '(US Eastern Standard Time)'));
                     equal('Thu Sep 01 2016', d.toDateString());
             ");
         }
