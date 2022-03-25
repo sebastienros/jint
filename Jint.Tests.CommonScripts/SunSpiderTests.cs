@@ -2,18 +2,17 @@
 using System.IO;
 using System.Reflection;
 using Jint.Runtime;
-using Xunit;
+using NUnit.Framework;
 
 namespace Jint.Tests.CommonScripts
 {
     public class SunSpiderTests
     {
-        private Engine RunTest(string source)
+        private static void RunTest(string source)
         {
             var engine = new Engine()
-                .SetValue("log", new Action<object>(Console.WriteLine))
-                .SetValue("assert", new Action<bool, string>(Assert.True))
-            ;
+                    .SetValue("log", new Action<object>(Console.WriteLine))
+                    .SetValue("assert", new Action<bool, string>((condition, message) => Assert.True(condition, message)));
 
             try
             {
@@ -23,41 +22,40 @@ namespace Jint.Tests.CommonScripts
             {
                 throw new Exception(je.ToString());
             }
-
-            return engine;
         }
 
-        [Theory(DisplayName = "Sunspider")]
-        [InlineData("3d-cube.js")]
-        [InlineData("3d-morph.js")]
-        [InlineData("3d-raytrace.js")]
-        [InlineData("access-binary-trees.js")]
-        [InlineData("access-fannkuch.js")]
-        [InlineData("access-nbody.js")]
-        [InlineData("access-nsieve.js")]
-        [InlineData("bitops-3bit-bits-in-byte.js")]
-        [InlineData("bitops-bits-in-byte.js")]
-        [InlineData("bitops-bitwise-and.js")]
-        [InlineData("bitops-nsieve-bits.js")]
+        [Test]
+        [Parallelizable(ParallelScope.All)]
+        [TestCase("3d-cube.js")]
+        [TestCase("3d-morph.js")]
+        [TestCase("3d-raytrace.js")]
+        [TestCase("access-binary-trees.js")]
+        [TestCase("access-fannkuch.js")]
+        [TestCase("access-nbody.js")]
+        [TestCase("access-nsieve.js")]
+        [TestCase("bitops-3bit-bits-in-byte.js")]
+        [TestCase("bitops-bits-in-byte.js")]
+        [TestCase("bitops-bitwise-and.js")]
+        [TestCase("bitops-nsieve-bits.js")]
 #if !DEBUG // should only be ran in release mode when inlining happens
-        [InlineData("controlflow-recursive.js")]
+        [TestCase("controlflow-recursive.js")]
 #endif
-        [InlineData("crypto-aes.js")]
-        [InlineData("crypto-md5.js")]
-        [InlineData("crypto-sha1.js")]
-        [InlineData("date-format-tofte.js")]
-        [InlineData("date-format-xparb.js")]
-        [InlineData("math-cordic.js")]
-        [InlineData("math-partial-sums.js")]
-        [InlineData("math-spectral-norm.js")]
-        [InlineData("regexp-dna.js")]
-        [InlineData("string-base64.js")]
-        [InlineData("string-fasta.js")]
-        [InlineData("string-tagcloud.js")]
-        [InlineData("string-unpack-code.js")]
-        [InlineData("string-validate-input.js")]
-        [InlineData("babel-standalone.js")]
-        public void RunScript(string url)
+        [TestCase("crypto-aes.js")]
+        [TestCase("crypto-md5.js")]
+        [TestCase("crypto-sha1.js")]
+        [TestCase("date-format-tofte.js")]
+        [TestCase("date-format-xparb.js")]
+        [TestCase("math-cordic.js")]
+        [TestCase("math-partial-sums.js")]
+        [TestCase("math-spectral-norm.js")]
+        [TestCase("regexp-dna.js")]
+        [TestCase("string-base64.js")]
+        [TestCase("string-fasta.js")]
+        [TestCase("string-tagcloud.js")]
+        [TestCase("string-unpack-code.js")]
+        [TestCase("string-validate-input.js")]
+        [TestCase("babel-standalone.js")]
+        public void Sunspider(string url)
         {
             var content = GetEmbeddedFile(url);
             RunTest(content);
@@ -70,14 +68,9 @@ namespace Jint.Tests.CommonScripts
             var assembly = typeof(SunSpiderTests).GetTypeInfo().Assembly;
             var scriptPath = prefix + filename;
 
-            using (var stream = assembly.GetManifestResourceStream(scriptPath))
-            {
-                using (var sr = new StreamReader(stream))
-                {
-                    return sr.ReadToEnd();
-                }
-            }
+            using var stream = assembly.GetManifestResourceStream(scriptPath);
+            using var sr = new StreamReader(stream);
+            return sr.ReadToEnd();
         }
-
     }
 }
