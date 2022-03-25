@@ -101,9 +101,6 @@
     // there is bug in suite and bug in Jint, refer to https://github.com/sebastienros/jint/issues/888 and https://github.com/tc39/test262/issues/2985
     "built-ins/Promise/race/resolve-element-function-name.js",
 
-    "built-ins/Symbol/species/subclassing.js", // subclassing not implemented
-    "built-ins/Date/subclassing.js", // subclassing not implemented
-
     // parsing of large/small years not implemented in .NET (-271821, +271821)
     "built-ins/Date/parse/time-value-maximum-range.js",
 
@@ -222,18 +219,6 @@
     "built-ins/Date/prototype/*/negative-year.js",
     
     // failing tests in new test suite (due to updating to latest and using whole set)
-    "built-ins/Date/prototype/setDate/arg-coercion-order.js",
-    "built-ins/Date/prototype/setHours/arg-coercion-order.js",
-    "built-ins/Date/prototype/setMilliseconds/arg-coercion-order.js",
-    "built-ins/Date/prototype/setMinutes/arg-coercion-order.js",
-    "built-ins/Date/prototype/setMonth/arg-coercion-order.js",
-    "built-ins/Date/prototype/setSeconds/arg-coercion-order.js",
-    "built-ins/Date/prototype/setUTCDate/arg-coercion-order.js",
-    "built-ins/Date/prototype/setUTCHours/arg-coercion-order.js",
-    "built-ins/Date/prototype/setUTCMilliseconds/arg-coercion-order.js",
-    "built-ins/Date/prototype/setUTCMinutes/arg-coercion-order.js",
-    "built-ins/Date/prototype/setUTCMonth/arg-coercion-order.js",
-    "built-ins/Date/prototype/setUTCSeconds/arg-coercion-order.js",
     "language/arguments-object/mapped/nonconfigurable-descriptors-define-failure.js",
     "language/destructuring/binding/syntax/destructuring-array-parameters-function-arguments-length.js",
     "language/destructuring/binding/syntax/destructuring-object-parameters-function-arguments-length.js",
