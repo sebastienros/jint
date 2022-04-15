@@ -2778,6 +2778,26 @@ namespace Jint.Tests.Runtime
             Assert.Equal("12345", _engine.Evaluate("test.create(12345)").AsString());
         }
 
+        [Fact]
+        public void ShouldGetIteratorForListAndDictionary()
+        {
+            const string Script = @"
+                var it = collection[Symbol.iterator]();
+                var result = it.next();
+                var str = """";
+                while (!result.done) {
+                    str += result.value;
+                    result = it.next();
+                }
+                return str;";
+
+            _engine.SetValue("collection", new List<string> { "a", "b", "c" });
+            Assert.Equal("abc", _engine.Evaluate(Script));
+
+            _engine.SetValue("collection", new Dictionary<string, object> { {"a", 1 }, { "b", 2 }, { "c", 3 } });
+            Assert.Equal("a,1b,2c,3", _engine.Evaluate(Script));
+        }
+
         private class Profile
         {
             public int AnyProperty => throw new NotSupportedException("NOT SUPPORTED");

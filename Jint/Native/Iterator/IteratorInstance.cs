@@ -22,7 +22,8 @@ namespace Jint.Native.Iterator
             IEnumerable<JsValue> enumerable) : base(engine, ObjectClass.Iterator)
         {
             _enumerable = enumerable.GetEnumerator();
-        }
+            _prototype = engine.Realm.Intrinsics.IteratorPrototype;
+       }
 
         public override object ToObject()
         {
