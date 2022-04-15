@@ -22,7 +22,7 @@ namespace Jint.Runtime.Interop.Reflection
         {
         }
 
-        public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target)
+        public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, bool enumerable = true)
         {
             return new(new MethodInfoFunctionInstance(engine, _methods), PropertyFlag.AllForbidden);
         }

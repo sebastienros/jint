@@ -220,7 +220,11 @@ namespace Jint.Runtime.Interop
 
             var member = property.ToString();
 
-            if (_typeDescriptor.IsStringKeyedGenericDictionary)
+            // if type is dictionary, we cannot enumerate anything other than keys
+            // and we cannot store accessors as dictionary can change dynamically
+            
+            var isDictionary = _typeDescriptor.IsStringKeyedGenericDictionary;
+            if (isDictionary)
             {
                 if (_typeDescriptor.TryGetValue(Target, member, out var value))
                 {
@@ -235,8 +239,11 @@ namespace Jint.Runtime.Interop
             }
 
             var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, Target.GetType(), member);
-            var descriptor = accessor.CreatePropertyDescriptor(_engine, Target);
-            SetProperty(member, descriptor);
+            var descriptor = accessor.CreatePropertyDescriptor(_engine, Target, enumerable: !isDictionary);
+            if (!isDictionary)
+            {
+                SetProperty(member, descriptor);
+            }
             return descriptor;
         }
 

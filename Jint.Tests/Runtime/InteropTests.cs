@@ -514,12 +514,9 @@ namespace Jint.Tests.Runtime
             list.Add("Goofy");
 
             _engine.SetValue("list", list);
+            _engine.Evaluate("list[1] = 'Donald Duck';");
 
-            RunTest(@"
-                list[1] = 'Donald Duck';
-                assert(list[1] === 'Donald Duck');
-            ");
-
+            Assert.Equal("Donald Duck", _engine.Evaluate("list[1]").AsString());
             Assert.Equal("Mickey Mouse", list[0]);
             Assert.Equal("Donald Duck", list[1]);
         }
@@ -2796,6 +2793,35 @@ namespace Jint.Tests.Runtime
 
             _engine.SetValue("collection", new Dictionary<string, object> { {"a", 1 }, { "b", 2 }, { "c", 3 } });
             Assert.Equal("a,1b,2c,3", _engine.Evaluate(Script));
+        }
+
+        [Fact]
+        public void ShouldNotIntroduceNewPropertiesWhenTraversing()
+        {
+            _engine.SetValue("x", new Dictionary<string, int> { { "First", 1 }, { "Second", 2 } });
+
+            Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+
+            Assert.Equal("x['First']: 1", _engine.Evaluate("\"x['First']: \" + x['First']"));
+            Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+            
+            Assert.Equal("x['Third']: undefined", _engine.Evaluate("\"x['Third']: \" + x['Third']"));
+            Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+            
+            Assert.Equal(JsValue.Undefined, _engine.Evaluate("x.length"));
+            Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+            
+            Assert.Equal(2, _engine.Evaluate("x.Count").AsNumber());
+            Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+
+            _engine.Evaluate("x.Clear();");
+
+            Assert.Equal("[]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+
+            _engine.Evaluate("x['Fourth'] = 4;");
+            Assert.Equal("[\"Fourth\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
+
+            Assert.False(_engine.Evaluate("Object.prototype.hasOwnProperty.call(x, 'Third')").AsBoolean());
         }
 
         private class Profile

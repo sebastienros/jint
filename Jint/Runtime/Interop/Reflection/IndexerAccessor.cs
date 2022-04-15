@@ -63,7 +63,7 @@ namespace Jint.Runtime.Interop.Reflection
                     // get contains key method to avoid index exception being thrown in dictionaries
                     paramTypeArray[0] = paramType;
                     var containsKeyMethod = targetType.GetMethod(nameof(IDictionary<string, string>.ContainsKey), paramTypeArray);
-                    if (containsKeyMethod is null)
+                    if (containsKeyMethod is null && targetType.IsAssignableFrom(typeof(IDictionary)))
                     {
                         paramTypeArray[0] = typeof(object);
                         containsKeyMethod = targetType.GetMethod(nameof(IDictionary.Contains), paramTypeArray);
@@ -130,7 +130,7 @@ namespace Jint.Runtime.Interop.Reflection
                 return null;
             }
 
-            object[] parameters = {_key};
+            object[] parameters = { _key };
 
             if (_containsKey != null)
             {
@@ -150,12 +150,20 @@ namespace Jint.Runtime.Interop.Reflection
                 ExceptionHelper.ThrowInvalidOperationException("Indexer has no public setter.");
             }
 
-            object[] parameters = {_key, value};
+            object[] parameters = { _key, value };
             _setter!.Invoke(target, parameters);
         }
 
-        public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target)
+        public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, bool enumerable = true)
         {
+            if (_containsKey != null)
+            {
+                if (_containsKey.Invoke(target, new[] { _key }) as bool? != true)
+                {
+                    return PropertyDescriptor.Undefined;
+                }
+            }
+
             return new ReflectionDescriptor(engine, this, target, false);
         }
     }

@@ -153,7 +153,7 @@ namespace Jint.Runtime.Interop
         {
             var key = new Tuple<Type, string>(ReferenceType, name);
             var accessor = _memberAccessors.GetOrAdd(key, x => ResolveMemberAccessor(x.Item1, x.Item2));
-            return accessor.CreatePropertyDescriptor(_engine, ReferenceType);
+            return accessor.CreatePropertyDescriptor(_engine, ReferenceType, enumerable: true);
         }
 
         private ReflectionAccessor ResolveMemberAccessor(Type type, string name)
