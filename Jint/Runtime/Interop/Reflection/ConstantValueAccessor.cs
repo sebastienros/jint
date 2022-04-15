@@ -27,7 +27,7 @@ namespace Jint.Runtime.Interop.Reflection
             throw new InvalidOperationException();
         }
 
-        public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target)
+        public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, bool enumerable = true)
         {
             return ConstantValue is null 
                 ? PropertyDescriptor.Undefined 

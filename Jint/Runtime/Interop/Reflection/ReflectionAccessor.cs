@@ -112,9 +112,9 @@ namespace Jint.Runtime.Interop.Reflection
             return engine.ClrTypeConverter.Convert(value, _memberType, CultureInfo.InvariantCulture);
         }
 
-        public virtual PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target)
+        public virtual PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, bool enumerable = true)
         {
-            return new ReflectionDescriptor(engine, this, target, true);
+            return new ReflectionDescriptor(engine, this, target, enumerable);
         }
     }
 }
