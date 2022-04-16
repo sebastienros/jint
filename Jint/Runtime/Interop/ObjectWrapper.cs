@@ -70,6 +70,16 @@ namespace Jint.Runtime.Interop
                     return true;
                 }
             }
+            else if (property is JsSymbol jsSymbol)
+            {
+                // symbol addition will never hit any known CLR object properties, so if write is allowed, allow writing symbols too 
+                if (_engine.Options.Interop.AllowWrite)
+                {
+                    return base.Set(jsSymbol, value, receiver);
+                }
+
+                return false;
+            }
 
             return SetSlow(property, value);
         }
@@ -103,12 +113,6 @@ namespace Jint.Runtime.Interop
             {
                 var index = (int) ((JsNumber) property)._value;
                 return (uint) index < list.Count ? FromObject(_engine, list[index]) : Undefined;
-            }
-
-            if (property.IsSymbol() && property != GlobalSymbolRegistry.Iterator)
-            {
-                // wrapped objects cannot have symbol properties
-                return Undefined;
             }
 
             return base.Get(property, receiver);
