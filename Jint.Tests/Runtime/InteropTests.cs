@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
@@ -917,6 +918,51 @@ namespace Jint.Tests.Runtime
 
             var name = e.Evaluate("o.values.filter(x => x.age == 12)[0].name").ToString();
             Assert.Equal("John", name);
+        }
+        
+                
+        [Fact]
+        public void CanSetIsConcatSpreadableForArrays()
+        {
+            var engine = new Engine(opt =>
+            {
+                opt.SetWrapObjectHandler((eng, obj) =>
+                {
+                    var wrapper = new ObjectWrapper(eng, obj);
+                    if (wrapper.IsArrayLike)
+                    {
+                        wrapper.SetPrototypeOf(eng.Realm.Intrinsics.Array.PrototypeObject);
+                        wrapper.Set(GlobalSymbolRegistry.IsConcatSpreadable, true);
+                    }
+                    return wrapper;
+                });
+            });
+
+            engine
+                .SetValue("list1", new List<string> { "A", "B", "C" })
+                .SetValue("list2", new List<string> { "D", "E", "F" })
+                .Execute("var array1 = ['A', 'B', 'C'];")
+                .Execute("var array2 = ['D', 'E', 'F'];");
+
+            Assert.True(engine.Evaluate("list1[Symbol.isConcatSpreadable] = true; list1[Symbol.isConcatSpreadable];").AsBoolean());
+            Assert.True(engine.Evaluate("list2[Symbol.isConcatSpreadable] = true; list2[Symbol.isConcatSpreadable];").AsBoolean());
+            
+            Assert.Equal("[\"A\",\"B\",\"C\"]", engine.Evaluate("JSON.stringify(array1);"));
+            Assert.Equal("[\"D\",\"E\",\"F\"]", engine.Evaluate("JSON.stringify(array2);"));
+            Assert.Equal("[\"A\",\"B\",\"C\"]", engine.Evaluate("JSON.stringify(list1);"));
+            Assert.Equal("[\"D\",\"E\",\"F\"]", engine.Evaluate("JSON.stringify(list2);"));
+
+            const string Concatenated = "[\"A\",\"B\",\"C\",\"D\",\"E\",\"F\"]";
+            Assert.Equal(Concatenated, engine.Evaluate("JSON.stringify(array1.concat(array2));"));
+            Assert.Equal(Concatenated, engine.Evaluate("JSON.stringify(array1.concat(list2));"));
+            Assert.Equal(Concatenated, engine.Evaluate("JSON.stringify(list1.concat(array2));"));
+            Assert.Equal(Concatenated, engine.Evaluate("JSON.stringify(list1.concat(list2));"));
+            
+            Assert.False(engine.Evaluate("list1[Symbol.isConcatSpreadable] = false; list1[Symbol.isConcatSpreadable];").AsBoolean());
+            Assert.False(engine.Evaluate("list2[Symbol.isConcatSpreadable] = false; list2[Symbol.isConcatSpreadable];").AsBoolean());
+            
+            Assert.Equal("[[\"A\",\"B\",\"C\"]]", engine.Evaluate("JSON.stringify([].concat(list1));"));
+            Assert.Equal("[[\"A\",\"B\",\"C\"],[\"D\",\"E\",\"F\"]]", engine.Evaluate("JSON.stringify(list1.concat(list2));"));
         }
 
         [Fact]
