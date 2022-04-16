@@ -37,7 +37,7 @@ namespace Jint.Native.Boolean
             SetProperties(properties);
         }
 
-        private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
+        private JsValue ValueOf(JsValue thisObj, in Arguments arguments)
         {
             if (thisObj._type == InternalTypes.Boolean)
             {
@@ -53,7 +53,7 @@ namespace Jint.Native.Boolean
             return Undefined;
         }
 
-        private JsValue ToBooleanString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToBooleanString(JsValue thisObj, in Arguments arguments)
         {
             var b = ValueOf(thisObj, Arguments.Empty);
             return ((JsBoolean) b)._value ? JsString.TrueString : JsString.FalseString;

@@ -41,7 +41,7 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.asintn
     /// </summary>
-    private JsValue AsIntN(JsValue thisObj, JsValue[] arguments)
+    private JsValue AsIntN(JsValue thisObj, in Arguments arguments)
     {
         var bits = (int) TypeConverter.ToIndex(_realm, arguments.At(0));
         var bigint = arguments.At(1).ToBigInteger(_engine);
@@ -58,7 +58,7 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.asuintn
     /// </summary>
-    private JsValue AsUintN(JsValue thisObj, JsValue[] arguments)
+    private JsValue AsUintN(JsValue thisObj, in Arguments arguments)
     {
         var bits = (int) TypeConverter.ToIndex(_realm, arguments.At(0));
         var bigint = arguments.At(1).ToBigInteger(_engine);
@@ -68,7 +68,7 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
         return result;
     }
 
-    public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    public override JsValue Call(JsValue thisObject, in Arguments arguments)
     {
         if (arguments.Length == 0)
         {
@@ -101,7 +101,7 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint-constructor-number-value
     /// </summary>
-    ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+    ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget)
     {
         var value = arguments.Length > 0
             ? JsBigInt.Create(arguments[0].ToBigInteger(_engine))

@@ -8,6 +8,8 @@
     <IsPackable>true</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="IDisposableAnalyzers" Version="4.0.2" PrivateAssets="all" />
+    <PackageReference Include="ErrorProne.NET.Structs" Version="0.4.0-beta.1" PrivateAssets="all" />
     <PackageReference Include="Esprima" Version="2.1.2" />
     <PackageReference Include="IsExternalInit" Version="1.0.2" PrivateAssets="all" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="all" />

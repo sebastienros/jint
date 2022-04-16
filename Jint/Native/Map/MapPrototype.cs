@@ -52,26 +52,26 @@ namespace Jint.Native.Map
             SetSymbols(symbols);
         }
 
-        private JsValue Size(JsValue thisObj, JsValue[] arguments)
+        private JsValue Size(JsValue thisObj, in Arguments arguments)
         {
             AssertMapInstance(thisObj);
             return JsNumber.Create(0);
         }
 
-        private JsValue Get(JsValue thisObj, JsValue[] arguments)
+        private JsValue Get(JsValue thisObj, in Arguments arguments)
         {
             var map = AssertMapInstance(thisObj);
             return map.MapGet(arguments.At(0));
         }
 
-        private JsValue Clear(JsValue thisObj, JsValue[] arguments)
+        private JsValue Clear(JsValue thisObj, in Arguments arguments)
         {
             var map = AssertMapInstance(thisObj);
             map.Clear();
             return Undefined;
         }
 
-        private JsValue Delete(JsValue thisObj, JsValue[] arguments)
+        private JsValue Delete(JsValue thisObj, in Arguments arguments)
         {
             var map = AssertMapInstance(thisObj);
             return map.MapDelete(arguments[0])
@@ -79,14 +79,14 @@ namespace Jint.Native.Map
                 : JsBoolean.False;
         }
 
-        private JsValue Set(JsValue thisObj, JsValue[] arguments)
+        private JsValue Set(JsValue thisObj, in Arguments arguments)
         {
             var map = AssertMapInstance(thisObj);
             map.MapSet(arguments[0], arguments[1]);
             return thisObj;
         }
 
-        private JsValue Has(JsValue thisObj, JsValue[] arguments)
+        private JsValue Has(JsValue thisObj, in Arguments arguments)
         {
             var map = AssertMapInstance(thisObj);
             return map.Has(arguments[0])
@@ -94,7 +94,7 @@ namespace Jint.Native.Map
                 : JsBoolean.False;
         }
 
-        private JsValue ForEach(JsValue thisObj, JsValue[] arguments)
+        private JsValue ForEach(JsValue thisObj, in Arguments arguments)
         {
             var map = AssertMapInstance(thisObj);
             var callbackfn = arguments.At(0);
@@ -107,19 +107,19 @@ namespace Jint.Native.Map
             return Undefined;
         }
 
-        private ObjectInstance Entries(JsValue thisObj, JsValue[] arguments)
+        private ObjectInstance Entries(JsValue thisObj, in Arguments arguments)
         {
             var map = AssertMapInstance(thisObj);
             return map.Iterator();
         }
 
-        private ObjectInstance Keys(JsValue thisObj, JsValue[] arguments)
+        private ObjectInstance Keys(JsValue thisObj, in Arguments arguments)
         {
             var map = AssertMapInstance(thisObj);
             return map.Keys();
         }
 
-        private ObjectInstance Values(JsValue thisObj, JsValue[] arguments)
+        private ObjectInstance Values(JsValue thisObj, in Arguments arguments)
         {
             var map = AssertMapInstance(thisObj);
             return map.Values();

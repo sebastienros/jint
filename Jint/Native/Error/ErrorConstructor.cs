@@ -27,22 +27,22 @@ namespace Jint.Native.Error
 
         public ErrorPrototype PrototypeObject { get; }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             return Construct(arguments, this);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(in Arguments arguments)
         {
             return Construct(arguments, this);
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget) => Construct(arguments, newTarget);
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-nativeerror
         /// </summary>
-        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        private ObjectInstance Construct(in Arguments arguments, JsValue newTarget)
         {
             var o = OrdinaryCreateFromConstructor(
                 newTarget,

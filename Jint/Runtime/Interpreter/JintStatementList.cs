@@ -102,18 +102,12 @@ namespace Jint.Runtime.Interpreter
             }
             catch (TypeErrorException e)
             {
-                var error = engine.Realm.Intrinsics.TypeError.Construct(new JsValue[]
-                {
-                    e.Message
-                });
+                var error = engine.Realm.Intrinsics.TypeError.Construct(new Arguments(e.Message));
                 return new Completion(CompletionType.Throw, error, null, s.Location);
             }
             catch (RangeErrorException e)
             {
-                var error = engine.Realm.Intrinsics.RangeError.Construct(new JsValue[]
-                {
-                    e.Message
-                });
+                var error = engine.Realm.Intrinsics.RangeError.Construct(new Arguments(e.Message));
                 c = new Completion(CompletionType.Throw, error, null, s.Location);
             }
             return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Target, c.Location);

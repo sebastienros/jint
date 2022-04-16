@@ -13,7 +13,6 @@ namespace Jint.Runtime.Interpreter.Expressions
         private bool _cached;
 
         private JintExpression _calleeExpression;
-        private bool _hasSpreads;
 
         public JintCallExpression(CallExpression expression) : base(expression)
         {
@@ -25,44 +24,36 @@ namespace Jint.Runtime.Interpreter.Expressions
             var engine = context.Engine;
             var expression = (CallExpression) _expression;
             _calleeExpression = Build(engine, expression.Callee);
-            var cachedArgumentsHolder = new CachedArgumentsHolder
-            {
-                JintArguments = new JintExpression[expression.Arguments.Count]
-            };
+            var expressions = new JintExpression[expression.Arguments.Count];
 
             static bool CanSpread(Node e)
             {
                 return e?.Type == Nodes.SpreadElement
-                    || e is AssignmentExpression ae && ae.Right?.Type == Nodes.SpreadElement;
+                    || e is AssignmentExpression ae && ae.Right.Type == Nodes.SpreadElement;
             }
 
-            bool cacheable = true;
+            var hasSpreads = false;
+            var cacheable = true;
             for (var i = 0; i < expression.Arguments.Count; i++)
             {
                 var expressionArgument = expression.Arguments[i];
-                cachedArgumentsHolder.JintArguments[i] = Build(engine, expressionArgument);
+                expressions[i] = Build(engine, expressionArgument);
                 cacheable &= expressionArgument.Type == Nodes.Literal;
-                _hasSpreads |= CanSpread(expressionArgument);
+                hasSpreads |= CanSpread(expressionArgument);
                 if (expressionArgument is ArrayExpression ae)
                 {
                     for (var elementIndex = 0; elementIndex < ae.Elements.Count; elementIndex++)
                     {
-                        _hasSpreads |= CanSpread(ae.Elements[elementIndex]);
+                        hasSpreads |= CanSpread(ae.Elements[elementIndex]);
                     }
                 }
             }
 
+            var cachedArgumentsHolder = new CachedArgumentsHolder(expressions, hasSpreads);
             if (cacheable)
             {
                 _cached = true;
-                var arguments = System.Array.Empty<JsValue>();
-                if (cachedArgumentsHolder.JintArguments.Length > 0)
-                {
-                    arguments = new JsValue[cachedArgumentsHolder.JintArguments.Length];
-                    BuildArguments(context, cachedArgumentsHolder.JintArguments, arguments);
-                }
-
-                cachedArgumentsHolder.CachedArguments = arguments;
+                cachedArgumentsHolder.CacheArguments(context, hasSpreads);
             }
 
             _cachedArguments = cachedArgumentsHolder;
@@ -89,6 +80,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var argList = ArgumentListEvaluation(context);
             var result = ((IConstructor) func).Construct(argList, newTarget);
+            
             var thisER = (FunctionEnvironmentRecord) engine.ExecutionContext.GetThisEnvironment();
             return thisER.BindThisValue(result);
         }
@@ -125,13 +117,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                 && ReferenceEquals(func, engine.Realm.Intrinsics.Eval))
             {
                 var argList = ArgumentListEvaluation(context);
+                var evalArg = argList.Length > 0 ? argList[0] : null;
+
                 if (argList.Length == 0)
                 {
                     return Undefined.Instance;
                 }
 
                 var evalFunctionInstance = (EvalFunctionInstance) func;
-                var evalArg = argList[0];
                 var strictCaller = StrictModeScope.IsStrictModeCode;
                 var evalRealm = evalFunctionInstance._realm;
                 var direct = !((CallExpression) _expression).Optional;
@@ -206,11 +199,6 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var result = engine.Call(callable, thisValue, argList, _calleeExpression);
 
-            if (!_cached && argList.Length > 0)
-            {
-                engine._jsValueArrayPool.ReturnArray(argList);
-            }
-
             engine._referencePool.Return(referenceRecord);
             return result;
         }
@@ -224,37 +212,36 @@ namespace Jint.Runtime.Interpreter.Expressions
             return false;
         }
 
-        private JsValue[] ArgumentListEvaluation(EvaluationContext context)
+        private Arguments ArgumentListEvaluation(EvaluationContext context)
         {
             var cachedArguments = _cachedArguments;
-            var arguments = System.Array.Empty<JsValue>();
+            Arguments arguments;
             if (_cached)
             {
                 arguments = cachedArguments.CachedArguments;
             }
             else
             {
-                if (cachedArguments.JintArguments.Length > 0)
-                {
-                    if (_hasSpreads)
-                    {
-                        arguments = BuildArgumentsWithSpreads(context, cachedArguments.JintArguments);
-                    }
-                    else
-                    {
-                        arguments = context.Engine._jsValueArrayPool.RentArray(cachedArguments.JintArguments.Length);
-                        BuildArguments(context, cachedArguments.JintArguments, arguments);
-                    }
-                }
+                arguments = cachedArguments.ArgumentBuilder.Build(context);
             }
 
             return arguments;
         }
 
-        private class CachedArgumentsHolder
+        private sealed class CachedArgumentsHolder
         {
-            internal JintExpression[] JintArguments;
-            internal JsValue[] CachedArguments;
+            public CachedArgumentsHolder(JintExpression[] expressions, bool hasSpreads)
+            {
+                ArgumentBuilder = CallArgumentsBuilder.GetArgumentsBuilder(expressions, hasSpreads);
+            }
+
+            internal readonly CallArgumentsBuilder ArgumentBuilder;
+            internal Arguments CachedArguments;
+
+            public void CacheArguments(EvaluationContext context, bool hasSpreads)
+            {
+                CachedArguments = ArgumentBuilder.Build(context);
+            }
         }
     }
 }

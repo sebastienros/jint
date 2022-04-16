@@ -26,7 +26,7 @@
 //            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToTypeReferenceString), true, false, true);
 //        }
 
-//        private JsValue ToTypeReferenceString(JsValue thisObj, JsValue[] arguments)
+//        private JsValue ToTypeReferenceString(JsValue thisObj, in Arguments arguments)
 //        {
 //            var typeReference = thisObj.As<TypeReference>();
 //            if (typeReference == null)

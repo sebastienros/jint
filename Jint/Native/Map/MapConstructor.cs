@@ -37,12 +37,12 @@ namespace Jint.Native.Map
             SetSymbols(symbols);
         }
 
-        private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Species(JsValue thisObject, in Arguments arguments)
         {
             return thisObject;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Constructor Map requires 'new'");
             return null;
@@ -51,7 +51,7 @@ namespace Jint.Native.Map
         /// <summary>
         /// https://tc39.es/ecma262/#sec-map-iterable
         /// </summary>
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {

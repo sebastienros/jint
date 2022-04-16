@@ -144,7 +144,7 @@ namespace Jint.Native.Json
                 {
                     if (toJson.AsObject() is ICallable callableToJson)
                     {
-                        value = callableToJson.Call(value, Arguments.From(TypeConverter.ToPropertyKey(key)));
+                        value = callableToJson.Call(value, new Arguments(TypeConverter.ToPropertyKey(key)));
                     }
                 }
             }
@@ -152,7 +152,7 @@ namespace Jint.Native.Json
             if (!_replacerFunction.IsUndefined())
             {
                 var replacerFunctionCallable = (ICallable) _replacerFunction.AsObject();
-                value = replacerFunctionCallable.Call(holder, Arguments.From(TypeConverter.ToPropertyKey(key), value));
+                value = replacerFunctionCallable.Call(holder, new Arguments(TypeConverter.ToPropertyKey(key), value));
             }
 
             if (value.IsObject())
@@ -191,7 +191,7 @@ namespace Jint.Native.Json
 
             if (value.IsNumber())
             {
-                var isFinite = GlobalObject.IsFinite(Undefined.Instance, Arguments.From(value));
+                var isFinite = GlobalObject.IsFinite(Undefined.Instance, new Arguments(value));
                 if (((JsBoolean) isFinite)._value)
                 {
                     return TypeConverter.ToJsString(value);

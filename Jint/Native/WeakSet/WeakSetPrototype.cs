@@ -44,20 +44,20 @@ namespace Jint.Native.WeakSet
             SetSymbols(symbols);
         }
 
-        private JsValue Add(JsValue thisObj, JsValue[] arguments)
+        private JsValue Add(JsValue thisObj, in Arguments arguments)
         {
             var set = AssertWeakSetInstance(thisObj);
             set.WeakSetAdd(arguments.At(0));
             return thisObj;
         }
 
-        private JsValue Delete(JsValue thisObj, JsValue[] arguments)
+        private JsValue Delete(JsValue thisObj, in Arguments arguments)
         {
             var set = AssertWeakSetInstance(thisObj);
             return set.WeakSetDelete(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;
         }
 
-        private JsValue Has(JsValue thisObj, JsValue[] arguments)
+        private JsValue Has(JsValue thisObj, in Arguments arguments)
         {
             var set = AssertWeakSetInstance(thisObj);
             return set.WeakSetHas(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;

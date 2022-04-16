@@ -47,7 +47,7 @@ namespace Jint.Native.ArrayBuffer
         /// <summary>
         /// https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
         /// </summary>
-        private JsValue ByteLength(JsValue thisObj, JsValue[] arguments)
+        private JsValue ByteLength(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj as ArrayBufferInstance;
             if (o is null)
@@ -71,7 +71,7 @@ namespace Jint.Native.ArrayBuffer
         /// <summary>
         /// https://tc39.es/ecma262/#sec-arraybuffer.prototype.slice
         /// </summary>
-        private JsValue Slice(JsValue thisObj, JsValue[] arguments)
+        private JsValue Slice(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj as ArrayBufferInstance;
             if (o is null)
@@ -117,7 +117,7 @@ namespace Jint.Native.ArrayBuffer
 
             var newLen = System.Math.Max(final - first, 0);
             var ctor = SpeciesConstructor(o, _realm.Intrinsics.ArrayBuffer);
-            var bufferInstance = Construct(ctor, new JsValue[] { JsNumber.Create(newLen) }) as ArrayBufferInstance;
+            var bufferInstance = Construct(ctor, new Arguments(JsNumber.Create(newLen))) as ArrayBufferInstance;
 
             if (bufferInstance is null)
             {

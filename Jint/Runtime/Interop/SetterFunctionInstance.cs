@@ -18,7 +18,7 @@ namespace Jint.Runtime.Interop
             _setter = setter;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             _setter(thisObject, arguments[0]);
 

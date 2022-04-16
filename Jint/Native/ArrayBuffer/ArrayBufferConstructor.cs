@@ -51,7 +51,7 @@ namespace Jint.Native.ArrayBuffer
         /// <summary>
         /// https://tc39.es/ecma262/#sec-arraybuffer.isview
         /// </summary>
-        private static JsValue IsView(JsValue thisObject, JsValue[] arguments)
+        private static JsValue IsView(JsValue thisObject, in Arguments arguments)
         {
             var arg = arguments.At(0);
             return arg is DataViewInstance or TypedArrayInstance;
@@ -60,18 +60,18 @@ namespace Jint.Native.ArrayBuffer
         /// <summary>
         /// https://tc39.es/ecma262/#sec-get-arraybuffer-@@species
         /// </summary>
-        private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Species(JsValue thisObject, in Arguments arguments)
         {
             return thisObject;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Constructor ArrayBuffer requires 'new'");
             return Undefined;
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {

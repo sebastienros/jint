@@ -6,8 +6,6 @@ using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Array;
-using Jint.Native.Iterator;
 using Jint.Native.Number;
 using Jint.Runtime.References;
 
@@ -459,71 +457,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             return string.CompareOrdinal(TypeConverter.ToString(x), TypeConverter.ToString(y)) < 0;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static void BuildArguments(EvaluationContext context, JintExpression[] jintExpressions, JsValue[] targetArray)
-        {
-            for (var i = 0; i < jintExpressions.Length; i++)
-            {
-                var completion = jintExpressions[i].GetValue(context);
-                targetArray[i] = completion.Value!.Clone();
-            }
-        }
-
-        protected static JsValue[] BuildArgumentsWithSpreads(EvaluationContext context, JintExpression[] jintExpressions)
-        {
-            var args = new System.Collections.Generic.List<JsValue>(jintExpressions.Length);
-            for (var i = 0; i < jintExpressions.Length; i++)
-            {
-                var jintExpression = jintExpressions[i];
-                if (jintExpression is JintSpreadExpression jse)
-                {
-                    jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
-                    // optimize for array unless someone has touched the iterator
-                    if (objectInstance is ArrayInstance ai && ai.HasOriginalIterator)
-                    {
-                        var length = ai.GetLength();
-                        for (uint j = 0; j < length; ++j)
-                        {
-                            if (ai.TryGetValue(j, out var value))
-                            {
-                                args.Add(value);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        var protocol = new ArraySpreadProtocol(context.Engine, args, iterator);
-                        protocol.Execute();
-                    }
-                }
-                else
-                {
-                    var completion = jintExpression.GetValue(context);
-                    args.Add(completion.Value!.Clone());
-                }
-            }
-
-            return args.ToArray();
-        }
-
-        private sealed class ArraySpreadProtocol : IteratorProtocol
-        {
-            private readonly System.Collections.Generic.List<JsValue> _instance;
-
-            public ArraySpreadProtocol(
-                Engine engine,
-                System.Collections.Generic.List<JsValue> instance,
-                IteratorInstance iterator) : base(engine, iterator, 0)
-            {
-                _instance = instance;
-            }
-
-            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
-            {
-                _instance.Add(currentValue);
-            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

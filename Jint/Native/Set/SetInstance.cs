@@ -56,18 +56,11 @@ namespace Jint.Native.Set
 
         internal void ForEach(ICallable callable, JsValue thisArg)
         {
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = this;
-
             for (var i = 0; i < _set._list.Count; i++)
             {
                 var value = _set._list[i];
-                args[0] = value;
-                args[1] = value;
-                callable.Call(thisArg, args);
+                callable.Call(thisArg, new Arguments(value, value, this));
             }
-
-            _engine._jsValueArrayPool.ReturnArray(args);
         }
 
         internal ObjectInstance Entries()

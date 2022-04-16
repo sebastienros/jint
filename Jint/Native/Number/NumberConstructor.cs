@@ -53,7 +53,7 @@ namespace Jint.Native.Number
             SetProperties(properties);
         }
 
-        private static JsValue IsFinite(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsFinite(JsValue thisObj, in Arguments arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {
@@ -63,7 +63,7 @@ namespace Jint.Native.Number
             return double.IsInfinity(num._value) || double.IsNaN(num._value) ? JsBoolean.False : JsBoolean.True;
         }
 
-        private static JsValue IsInteger(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsInteger(JsValue thisObj, in Arguments arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {
@@ -80,7 +80,7 @@ namespace Jint.Native.Number
             return integer == num._value;
         }
 
-        private static JsValue IsNaN(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsNaN(JsValue thisObj, in Arguments arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {
@@ -90,7 +90,7 @@ namespace Jint.Native.Number
             return double.IsNaN(num._value);
         }
 
-        private static JsValue IsSafeInteger(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsSafeInteger(JsValue thisObj, in Arguments arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {
@@ -112,7 +112,7 @@ namespace Jint.Native.Number
             return System.Math.Abs(integer) <= MaxSafeInteger;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             var n = ProcessFirstParameter(arguments);
             return n;
@@ -121,7 +121,7 @@ namespace Jint.Native.Number
         /// <summary>
         /// https://tc39.es/ecma262/#sec-number-constructor-number-value
         /// </summary>
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget)
         {
             var n = ProcessFirstParameter(arguments);
 
@@ -137,7 +137,7 @@ namespace Jint.Native.Number
             return o;
         }
 
-        private static JsNumber ProcessFirstParameter(JsValue[] arguments)
+        private static JsNumber ProcessFirstParameter(in Arguments arguments)
         {
             var n = JsNumber.PositiveZero;
             if (arguments.Length > 0)

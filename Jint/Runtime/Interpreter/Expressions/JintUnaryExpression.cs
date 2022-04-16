@@ -251,7 +251,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (operand != null)
             {
                 var operandType = operand.GetType();
-                var arguments = new[] { value };
+                var arguments = new Arguments(value);
 
                 var key = new OperatorKey(clrName, operandType);
                 var method = _knownOperators.GetOrAdd(key, _ =>

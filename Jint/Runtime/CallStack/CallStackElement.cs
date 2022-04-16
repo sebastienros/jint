@@ -8,22 +8,8 @@ using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.CallStack
 {
-    internal readonly struct CallStackElement
+    internal readonly record struct CallStackElement(FunctionInstance Function, JintExpression? Expression, ExecutionContext CallingExecutionContext)
     {
-        public CallStackElement(
-            FunctionInstance function,
-            JintExpression? expression,
-            ExecutionContext callingExecutionContext)
-        {
-            Function = function;
-            Expression = expression;
-            CallingExecutionContext = callingExecutionContext;
-        }
-
-        public readonly FunctionInstance Function;
-        public readonly JintExpression? Expression;
-        public readonly ExecutionContext CallingExecutionContext;
-
         public Location Location
         {
             get

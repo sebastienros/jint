@@ -105,7 +105,7 @@ namespace Jint.Runtime
                     _ => JsString.DefaultString
                 };
 
-                var str = exoticToPrim.Call(oi, new JsValue[] { hint });
+                var str = exoticToPrim.Call(oi, new Arguments(hint));
                 if (str.IsPrimitive())
                 {
                     return str;
@@ -1041,7 +1041,7 @@ namespace Jint.Runtime
             }
         }
 
-        internal readonly record struct MethodMatch(MethodDescriptor Method, JsValue[] Arguments, int Score = 0) : IComparable<MethodMatch>
+        internal readonly record struct MethodMatch(MethodDescriptor Method, Arguments Arguments, int Score = 0) : IComparable<MethodMatch>
         {
             public int CompareTo(MethodMatch other) => Score.CompareTo(other.Score);
         }
@@ -1049,7 +1049,7 @@ namespace Jint.Runtime
         internal static IEnumerable<MethodMatch> FindBestMatch(
             Engine engine,
             MethodDescriptor[] methods,
-            Func<MethodDescriptor, JsValue[]> argumentProvider)
+            Func<MethodDescriptor, Arguments> argumentProvider)
         {
             List<MethodMatch> matchingByParameterCount = null;
             foreach (var method in methods)
@@ -1098,7 +1098,7 @@ namespace Jint.Runtime
         /// Method's match score tells how far away it's from ideal candidate. 0 = ideal, bigger the the number,
         /// the farther away the candidate is from ideal match. Negative signals impossible match.
         /// </summary>
-        private static int CalculateMethodScore(Engine engine, MethodDescriptor method, JsValue[] arguments)
+        private static int CalculateMethodScore(Engine engine, MethodDescriptor method, Arguments arguments)
         {
             if (method.Parameters.Length == 0 && arguments.Length == 0)
             {

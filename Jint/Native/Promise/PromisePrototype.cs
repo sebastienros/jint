@@ -50,7 +50,7 @@ namespace Jint.Native.Promise
         // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
         // 4. Let resultCapability be ? NewPromiseCapability(C).
         // 5. Return PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability).
-        private JsValue Then(JsValue thisValue, JsValue[] args)
+        private JsValue Then(JsValue thisValue, in Arguments arguments)
         {
             // 1. Let promise be the this value.
             // 2. If IsPromise(promise) is false, throw a TypeError exception.
@@ -67,7 +67,7 @@ namespace Jint.Native.Promise
             var capability = PromiseConstructor.NewPromiseCapability(_engine, ctor as JsValue);
 
             // 5. Return PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability).
-            return PromiseOperations.PerformPromiseThen(_engine, promise, args.At(0), args.At(1), capability);
+            return PromiseOperations.PerformPromiseThen(_engine, promise, arguments.At(0), arguments.At(1), capability);
         }
 
         // https://tc39.es/ecma262/#sec-promise.prototype.catch
@@ -77,11 +77,11 @@ namespace Jint.Native.Promise
         //
         // 1. Let promise be the this value.
         // 2. Return ? Invoke(promise, "then", « undefined, onRejected »).
-        private JsValue Catch(JsValue thisValue, JsValue[] args) =>
-            _engine.Invoke(thisValue, "then", new[] {Undefined, args.At(0)});
+        private JsValue Catch(JsValue thisValue, in Arguments arguments) =>
+            _engine.Invoke(thisValue, "then", new Arguments(Undefined, arguments.At(0)));
 
         // https://tc39.es/ecma262/#sec-promise.prototype.finally
-        private JsValue Finally(JsValue thisValue, JsValue[] args)
+        private JsValue Finally(JsValue thisValue, in Arguments arguments)
         {
             // 1. Let promise be the this value.
             // 2. If Type(promise) is not Object, throw a TypeError exception.
@@ -97,7 +97,7 @@ namespace Jint.Native.Promise
 
             JsValue thenFinally;
             JsValue catchFinally;
-            var onFinally = args.At(0);
+            var onFinally = arguments.At(0);
 
             // 5. If IsCallable(onFinally) is false, then
             if (onFinally is not ICallable onFinallyFunc)
@@ -114,12 +114,12 @@ namespace Jint.Native.Promise
             }
 
             // 7. Return ? Invoke(promise, "then", « thenFinally, catchFinally »).
-            return _engine.Invoke(promise, "then", new[] {thenFinally, catchFinally});
+            return _engine.Invoke(promise, "then", new Arguments(thenFinally, catchFinally));
         }
 
         // https://tc39.es/ecma262/#sec-thenfinallyfunctions
         private JsValue ThenFinallyFunctions(ICallable onFinally, IConstructor ctor) =>
-            new ClrFunctionInstance(_engine, "", (_, args) =>
+            new ClrFunctionInstance(_engine, "", (JsValue _, in Arguments args) =>
             {
                 var value = args.At(0);
 
@@ -127,18 +127,18 @@ namespace Jint.Native.Promise
                 var result = onFinally.Call(Undefined, Arguments.Empty);
 
                 // 7. Let promise be ? PromiseResolve(C, result).
-                var promise = _realm.Intrinsics.Promise.Resolve(ctor as JsValue, new[] {result});
+                var promise = _realm.Intrinsics.Promise.Resolve(ctor as JsValue, new Arguments(result));
 
                 // 8. Let valueThunk be equivalent to a function that returns value.
-                var valueThunk = new ClrFunctionInstance(_engine, "", (_, _) => value);
+                var valueThunk = new ClrFunctionInstance(_engine, "", (JsValue _, in Arguments _) => value);
 
                 // 9. Return ? Invoke(promise, "then", « valueThunk »).
-                return _engine.Invoke(promise, "then", new JsValue[] {valueThunk});
+                return _engine.Invoke(promise, "then", new Arguments(valueThunk));
             }, 1, PropertyFlag.Configurable);
 
         // https://tc39.es/ecma262/#sec-catchfinallyfunctions
         private JsValue CatchFinallyFunctions(ICallable onFinally, IConstructor ctor) =>
-            new ClrFunctionInstance(_engine, "", (_, args) =>
+            new ClrFunctionInstance(_engine, "", (JsValue _, in Arguments args) =>
             {
                 var reason = args.At(0);
 
@@ -146,13 +146,13 @@ namespace Jint.Native.Promise
                 var result = onFinally.Call(Undefined, Arguments.Empty);
 
                 // 7. Let promise be ? PromiseResolve(C, result).
-                var promise = _realm.Intrinsics.Promise.Resolve(ctor as JsValue, new[] {result});
+                var promise = _realm.Intrinsics.Promise.Resolve(ctor as JsValue, new Arguments(result));
 
                 // 8. Let thrower be equivalent to a function that throws reason.
-                var thrower = new ClrFunctionInstance(_engine, "", (_, _) => throw new JavaScriptException(reason));
+                var thrower = new ClrFunctionInstance(_engine, "", (JsValue _, in Arguments _) => throw new JavaScriptException(reason));
 
                 // 9. Return ? Invoke(promise, "then", « thrower »).
-                return _engine.Invoke(promise, "then", new JsValue[] {thrower});
+                return _engine.Invoke(promise, "then", new Arguments(thrower));
             }, 1, PropertyFlag.Configurable);
     }
 }

@@ -24,7 +24,7 @@ namespace Jint.Native.Boolean
 
         public BooleanPrototype PrototypeObject { get; }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             if (arguments.Length == 0)
             {
@@ -37,7 +37,7 @@ namespace Jint.Native.Boolean
         /// <summary>
         /// https://tc39.es/ecma262/#sec-boolean-constructor-boolean-value
         /// </summary>
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget)
         {
             var b = TypeConverter.ToBoolean(arguments.At(0))
                 ? JsBoolean.True

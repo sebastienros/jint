@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
@@ -85,7 +86,7 @@ namespace Jint.Runtime.Environments
         internal void InitializeParameters(
             Key[] parameterNames,
             bool hasDuplicates,
-            JsValue[] arguments)
+            Arguments? arguments)
         {
             var value = hasDuplicates ? Undefined : null;
             var directSet = !hasDuplicates && _dictionary.Count == 0;
@@ -97,7 +98,7 @@ namespace Jint.Runtime.Environments
                     var parameterValue = value;
                     if (arguments != null)
                     {
-                        parameterValue = (uint) i < (uint) arguments.Length ? arguments[i] : Undefined;
+                        parameterValue = (uint) i < (uint) arguments.Value.Length ? arguments.Value[i] : Undefined;
                     }
 
                     _dictionary[paramName] = new Binding(parameterValue, canBeDeleted: false, mutable: true, strict: false);
@@ -105,7 +106,7 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        internal void AddFunctionParameters(EvaluationContext context, IFunction functionDeclaration, JsValue[] arguments)
+        internal void AddFunctionParameters(EvaluationContext context, IFunction functionDeclaration, Arguments arguments)
         {
             bool empty = _dictionary.Count == 0;
             ref readonly var parameters = ref functionDeclaration.Params;
@@ -120,7 +121,7 @@ namespace Jint.Runtime.Environments
         private void SetFunctionParameter(
             EvaluationContext context,
             Node parameter,
-            JsValue[] arguments,
+            Arguments arguments,
             int index,
             bool initiallyEmpty)
         {
@@ -138,7 +139,7 @@ namespace Jint.Runtime.Environments
         private void SetFunctionParameterUnlikely(
             EvaluationContext context,
             Node parameter,
-            JsValue[] arguments,
+            Arguments arguments,
             int index,
             bool initiallyEmpty)
         {
@@ -185,7 +186,6 @@ namespace Jint.Runtime.Environments
                 ? new HashSet<JsValue>()
                 : null;
 
-            var jsValues = _engine._jsValueArrayPool.RentArray(1);
             foreach (var property in objectPattern.Properties)
             {
                 var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
@@ -218,8 +218,7 @@ namespace Jint.Runtime.Environments
                         }
 
                         processedProperties?.Add(propertyName.ToString());
-                        jsValues[0] = argumentObject.Get(propertyName);
-                        SetFunctionParameter(context, p.Value, jsValues, 0, initiallyEmpty);
+                        SetFunctionParameter(context, p.Value, new Arguments(argumentObject.Get(propertyName)), 0, initiallyEmpty);
                     }
                     else
                     {
@@ -240,8 +239,6 @@ namespace Jint.Runtime.Environments
                     _engine.LeaveExecutionContext();
                 }
             }
-
-            _engine._jsValueArrayPool.ReturnArray(jsValues);
         }
 
         private void HandleArrayPattern(EvaluationContext context, bool initiallyEmpty, JsValue argument, ArrayPattern arrayPattern)
@@ -252,7 +249,7 @@ namespace Jint.Runtime.Environments
             }
 
             ArrayInstance array = null;
-            var arrayContents = System.Array.Empty<JsValue>();
+            var arrayContents = Array.Empty<JsValue>();
             if (argument.IsArray())
             {
                 array = argument.AsArray();
@@ -282,14 +279,14 @@ namespace Jint.Runtime.Environments
 
             for (var i = 0; i < arrayPattern.Elements.Count; i++)
             {
-                SetFunctionParameter(context, arrayPattern.Elements[i], arrayContents, i, initiallyEmpty);
+                SetFunctionParameter(context, arrayPattern.Elements[i], new Arguments(arrayContents, arrayContents.Length), i, initiallyEmpty);
             }
         }
 
         private void HandleRestElementArray(
             EvaluationContext context,
             RestElement restElement,
-            JsValue[] arguments,
+            Arguments arguments,
             int index,
             bool initiallyEmpty)
         {
@@ -311,10 +308,7 @@ namespace Jint.Runtime.Environments
             }
             else if (restElement.Argument is BindingPattern bindingPattern)
             {
-                SetFunctionParameter(context, bindingPattern, new JsValue[]
-                {
-                    rest
-                }, index, initiallyEmpty);
+                SetFunctionParameter(context, bindingPattern, new Arguments(rest), index, initiallyEmpty);
             }
             else
             {
@@ -361,10 +355,7 @@ namespace Jint.Runtime.Environments
                 }
             }
 
-            SetFunctionParameter(context, left, new[]
-            {
-                argument
-            }, 0, initiallyEmpty);
+            SetFunctionParameter(context, left, new Arguments(argument), 0, initiallyEmpty);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -415,7 +406,7 @@ namespace Jint.Runtime.Environments
                 _max = max;
             }
 
-            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
+            protected override void ProcessItem(JsValue currentValue)
             {
                 _index++;
                 _instance.SetIndexValue((uint) _index, currentValue, updateLength: false);

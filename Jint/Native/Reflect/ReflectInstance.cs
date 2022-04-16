@@ -51,7 +51,7 @@ namespace Jint.Native.Reflect
             SetSymbols(symbols);
         }
 
-        private JsValue Apply(JsValue thisObject, JsValue[] arguments)
+        private JsValue Apply(JsValue thisObject, in Arguments arguments)
         {
             var target = arguments.At(0);
             var thisArgument = arguments.At(1);
@@ -66,10 +66,10 @@ namespace Jint.Native.Reflect
 
             // 3. Perform PrepareForTailCall().
 
-            return ((ICallable) target).Call(thisArgument, args);
+            return ((ICallable) target).Call(thisArgument, new Arguments(args, args.Length));
         }
 
-        private JsValue Construct(JsValue thisObject, JsValue[] arguments)
+        private JsValue Construct(JsValue thisObject, in Arguments arguments)
         {
             var targetArgument = arguments.At(0);
             var target = AssertConstructor(_engine, targetArgument);
@@ -79,13 +79,13 @@ namespace Jint.Native.Reflect
 
             var args = FunctionPrototype.CreateListFromArrayLike(_realm, arguments.At(1));
 
-            return target.Construct(args, newTargetArgument);
+            return target.Construct(new Arguments(args, args.Length), newTargetArgument);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-reflect.defineproperty
         /// </summary>
-        private JsValue DefineProperty(JsValue thisObject, JsValue[] arguments)
+        private JsValue DefineProperty(JsValue thisObject, in Arguments arguments)
         {
             var target = arguments.At(0) as ObjectInstance;
             if (target is null)
@@ -102,7 +102,7 @@ namespace Jint.Native.Reflect
             return target.DefineOwnProperty(key, desc);
         }
 
-        private JsValue DeleteProperty(JsValue thisObject, JsValue[] arguments)
+        private JsValue DeleteProperty(JsValue thisObject, in Arguments arguments)
         {
             var o = arguments.At(0) as ObjectInstance;
             if (o is null)
@@ -114,7 +114,7 @@ namespace Jint.Native.Reflect
             return o.Delete(property) ? JsBoolean.True : JsBoolean.False;
         }
 
-        private JsValue Has(JsValue thisObject, JsValue[] arguments)
+        private JsValue Has(JsValue thisObject, in Arguments arguments)
         {
             var o = arguments.At(0) as ObjectInstance;
             if (o is null)
@@ -126,7 +126,7 @@ namespace Jint.Native.Reflect
             return o.HasProperty(property) ? JsBoolean.True : JsBoolean.False;
         }
 
-        private JsValue Set(JsValue thisObject, JsValue[] arguments)
+        private JsValue Set(JsValue thisObject, in Arguments arguments)
         {
             var target = arguments.At(0);
             var property = TypeConverter.ToPropertyKey(arguments.At(1));
@@ -142,7 +142,7 @@ namespace Jint.Native.Reflect
             return o.Set(property, value, receiver);
         }
 
-        private JsValue Get(JsValue thisObject, JsValue[] arguments)
+        private JsValue Get(JsValue thisObject, in Arguments arguments)
         {
             var target = arguments.At(0);
             var o = target as ObjectInstance;
@@ -156,7 +156,7 @@ namespace Jint.Native.Reflect
             return o.Get(property, receiver);
         }
 
-        private JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsValue[] arguments)
+        private JsValue GetOwnPropertyDescriptor(JsValue thisObject, in Arguments arguments)
         {
             if (!arguments.At(0).IsObject())
             {
@@ -165,7 +165,7 @@ namespace Jint.Native.Reflect
             return _realm.Intrinsics.Object.GetOwnPropertyDescriptor(Undefined, arguments);
         }
 
-        private JsValue OwnKeys(JsValue thisObject, JsValue[] arguments)
+        private JsValue OwnKeys(JsValue thisObject, in Arguments arguments)
         {
             var o = arguments.At(0) as ObjectInstance;
             if (o is null)
@@ -177,7 +177,7 @@ namespace Jint.Native.Reflect
             return _realm.Intrinsics.Array.CreateArrayFromList(keys);
         }
 
-        private JsValue IsExtensible(JsValue thisObject, JsValue[] arguments)
+        private JsValue IsExtensible(JsValue thisObject, in Arguments arguments)
         {
             var o = arguments.At(0) as ObjectInstance;
             if (o is null)
@@ -188,7 +188,7 @@ namespace Jint.Native.Reflect
             return o.Extensible;
         }
 
-        private JsValue PreventExtensions(JsValue thisObject, JsValue[] arguments)
+        private JsValue PreventExtensions(JsValue thisObject, in Arguments arguments)
         {
             var o = arguments.At(0) as ObjectInstance;
             if (o is null)
@@ -199,7 +199,7 @@ namespace Jint.Native.Reflect
             return o.PreventExtensions();
         }
 
-        private JsValue GetPrototypeOf(JsValue thisObject, JsValue[] arguments)
+        private JsValue GetPrototypeOf(JsValue thisObject, in Arguments arguments)
         {
             var target = arguments.At(0);
 
@@ -211,7 +211,7 @@ namespace Jint.Native.Reflect
             return _realm.Intrinsics.Object.GetPrototypeOf(Undefined, arguments);
         }
 
-        private JsValue SetPrototypeOf(JsValue thisObject, JsValue[] arguments)
+        private JsValue SetPrototypeOf(JsValue thisObject, in Arguments arguments)
         {
             var target = arguments.At(0);
 

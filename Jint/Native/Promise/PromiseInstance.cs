@@ -61,7 +61,7 @@ namespace Jint.Native.Promise
         internal ResolvingFunctions CreateResolvingFunctions()
         {
             var alreadyResolved = false;
-            var resolve = new ClrFunctionInstance(_engine, "", (thisObj, args) =>
+            var resolve = new ClrFunctionInstance(_engine, "", (JsValue thisObj, in Arguments args) =>
             {
                 if (alreadyResolved)
                 {
@@ -72,7 +72,7 @@ namespace Jint.Native.Promise
                 return Resolve(thisObj, args);
             }, 1, PropertyFlag.Configurable);
 
-            var reject = new ClrFunctionInstance(_engine, "", (thisObj, args) =>
+            var reject = new ClrFunctionInstance(_engine, "", (JsValue thisObj, in Arguments args) =>
             {
                 if (alreadyResolved)
                 {
@@ -87,7 +87,7 @@ namespace Jint.Native.Promise
         }
 
         // https://tc39.es/ecma262/#sec-promise-resolve-functions
-        private JsValue Resolve(JsValue thisObj, JsValue[] arguments)
+        private JsValue Resolve(JsValue thisObj, in Arguments arguments)
         {
             // Note that alreadyResolved logic lives in CreateResolvingFunctions method
 
@@ -126,7 +126,7 @@ namespace Jint.Native.Promise
         }
 
         // https://tc39.es/ecma262/#sec-promise-reject-functions
-        private JsValue Reject(JsValue thisObj, JsValue[] arguments)
+        private JsValue Reject(JsValue thisObj, in Arguments arguments)
         {
             // Note that alreadyResolved logic lives in CreateResolvingFunctions method
 

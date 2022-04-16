@@ -83,7 +83,7 @@ namespace Jint.Runtime.Interop
             return true;
         }
 
-        private MethodBase ResolveMethod(MethodBase method, ParameterInfo[] methodParameters, object thisObj, JsValue[] arguments)
+        private MethodBase ResolveMethod(MethodBase method, ParameterInfo[] methodParameters, object thisObj, Arguments arguments)
         {
             if (!method.IsGenericMethod)
             {
@@ -134,28 +134,26 @@ namespace Jint.Runtime.Interop
             return genericMethodInfo;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
+        public override JsValue Call(JsValue thisObject, in Arguments jsArguments)
         {
-            JsValue[] ArgumentProvider(MethodDescriptor method)
+            var args = jsArguments;
+            Arguments ArgumentProvider(MethodDescriptor method)
             {
                 if (method.IsExtensionMethod)
                 {
-                    var jsArgumentsTemp = new JsValue[1 + jsArguments.Length];
-                    jsArgumentsTemp[0] = thisObject;
-                    Array.Copy(jsArguments, 0, jsArgumentsTemp, 1, jsArguments.Length);
+                    var jsArgumentsTemp = args.WithFirstParameter(thisObject);
                     return method.HasParams
                         ? ProcessParamsArrays(jsArgumentsTemp, method)
                         : jsArgumentsTemp;
                 }
 
                 return method.HasParams
-                    ? ProcessParamsArrays(jsArguments, method)
-                    : jsArguments;
+                    ? ProcessParamsArrays(args, method)
+                    : args;
             }
 
             var converter = Engine.ClrTypeConverter;
             var thisObj = thisObject.ToObject();
-            var thisObjType = thisObj?.GetType();
             object[] parameters = null;
             foreach (var (method, arguments, _) in TypeConverter.FindBestMatch(_engine, _methods, ArgumentProvider))
             {
@@ -254,7 +252,7 @@ namespace Jint.Runtime.Interop
         /// <summary>
         /// Reduces a flat list of parameters to a params array, if needed
         /// </summary>
-        private JsValue[] ProcessParamsArrays(JsValue[] jsArguments, MethodDescriptor methodInfo)
+        private Arguments ProcessParamsArrays(in Arguments jsArguments, MethodDescriptor methodInfo)
         {
             var parameters = methodInfo.Parameters;
 
@@ -281,7 +279,7 @@ namespace Jint.Runtime.Interop
             }
 
             newArgumentsCollection[nonParamsArgumentsCount] = jsArray;
-            return newArgumentsCollection;
+            return new Arguments(newArgumentsCollection, newArgumentsCollection.Length);
         }
     }
 }

@@ -24,7 +24,6 @@ namespace Jint.Native.Iterator
 
         internal bool Execute()
         {
-            var args = _engine._jsValueArrayPool.RentArray(_argCount);
             var done = false;
             try
             {
@@ -38,17 +37,13 @@ namespace Jint.Native.Iterator
 
                     var currentValue = item.Get(CommonProperties.Value);
 
-                    ProcessItem(args, currentValue);
+                    ProcessItem(currentValue);
                 }
             }
             catch
             {
                 IteratorClose(CompletionType.Throw);
                 throw;
-            }
-            finally
-            {
-                _engine._jsValueArrayPool.ReturnArray(args);
             }
 
             IterationEnd();
@@ -66,7 +61,7 @@ namespace Jint.Native.Iterator
         {
         }
 
-        protected abstract void ProcessItem(JsValue[] args, JsValue currentValue);
+        protected abstract void ProcessItem(JsValue currentValue);
 
         internal static void AddEntriesFromIterable(ObjectInstance target, IteratorInstance iterable, object adder)
         {
@@ -75,8 +70,6 @@ namespace Jint.Native.Iterator
             {
                 ExceptionHelper.ThrowTypeError(target.Engine.Realm, "adder must be callable");
             }
-
-            var args = target.Engine._jsValueArrayPool.RentArray(2);
 
             var skipClose = true;
             try
@@ -100,10 +93,7 @@ namespace Jint.Native.Iterator
                     var k = oi.Get(JsString.NumberZeroString);
                     var v = oi.Get(JsString.NumberOneString);
 
-                    args[0] = k;
-                    args[1] = v;
-
-                    callable.Call(target, args);
+                    callable.Call(target, new Arguments(k, v));
                 } while (true);
             }
             catch
@@ -113,10 +103,6 @@ namespace Jint.Native.Iterator
                     iterable.Close(CompletionType.Throw);
                 }
                 throw;
-            }
-            finally
-            {
-                target.Engine._jsValueArrayPool.ReturnArray(args);
             }
         }
     }

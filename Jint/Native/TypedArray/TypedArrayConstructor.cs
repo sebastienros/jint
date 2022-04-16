@@ -44,15 +44,15 @@ namespace Jint.Native.TypedArray
             SetProperties(properties);
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Abstract class TypedArray not directly constructable");
             return Undefined;
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] args, JsValue newTarget) => Construct(args, newTarget);
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget) => Construct(arguments, newTarget);
 
-        internal ObjectInstance Construct(JsValue[] args, JsValue newTarget)
+        internal ObjectInstance Construct(in Arguments arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {
@@ -75,13 +75,13 @@ namespace Jint.Native.TypedArray
                 _ => null
             };
 
-            var numberOfArgs = args.Length;
+            var numberOfArgs = arguments.Length;
             if (numberOfArgs == 0)
             {
                 return AllocateTypedArray(newTarget, proto, 0);
             }
 
-            var firstArgument = args[0];
+            var firstArgument = arguments[0];
             if (firstArgument.IsObject())
             {
                 var o = AllocateTypedArray(newTarget, proto);
@@ -91,8 +91,8 @@ namespace Jint.Native.TypedArray
                 }
                 else if (firstArgument is ArrayBufferInstance arrayBuffer)
                 {
-                    var byteOffset = numberOfArgs > 1 ? args[1] : Undefined;
-                    var length = numberOfArgs > 2 ? args[2] : Undefined;
+                    var byteOffset = numberOfArgs > 1 ? arguments[1] : Undefined;
+                    var length = numberOfArgs > 2 ? arguments[2] : Undefined;
                     InitializeTypedArrayFromArrayBuffer(o, arrayBuffer, byteOffset, length);
                 }
                 else

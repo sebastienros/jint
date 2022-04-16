@@ -93,7 +93,7 @@ namespace Jint
                 engine.Realm.GlobalObject.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunctionInstance(
                         engine,
                         "importNamespace",
-                        (thisObj, arguments) =>
+                        (JsValue _, in Arguments arguments) =>
                             new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))),
                     PropertyFlag.AllForbidden));
             }
@@ -109,7 +109,7 @@ namespace Jint
                 engine.Realm.GlobalObject.SetProperty("require", new PropertyDescriptor(new ClrFunctionInstance(
                         engine,
                         "require",
-                        (thisObj, arguments) =>
+                        (JsValue _, in Arguments arguments) =>
                         {
                             var specifier = TypeConverter.ToString(arguments.At(0));
                             return engine.ImportModule(specifier);

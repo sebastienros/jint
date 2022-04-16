@@ -41,12 +41,12 @@ namespace Jint.Native.Promise
                 {
                     try
                     {
-                        var result = handler.Call(JsValue.Undefined, new[] {value});
-                        promiseCapability.Resolve.Call(JsValue.Undefined, new[] {result});
+                        var result = handler.Call(JsValue.Undefined, new Arguments(value));
+                        promiseCapability.Resolve.Call(JsValue.Undefined, new Arguments(result));
                     }
                     catch (JavaScriptException e)
                     {
-                        promiseCapability.Reject.Call(JsValue.Undefined, new[] {e.Error});
+                        promiseCapability.Reject.Call(JsValue.Undefined, new Arguments(e.Error));
                     }
                 }
                 else
@@ -54,11 +54,11 @@ namespace Jint.Native.Promise
                     switch (reaction.Type)
                     {
                         case ReactionType.Fulfill:
-                            promiseCapability.Resolve.Call(JsValue.Undefined, new[] {value});
+                            promiseCapability.Resolve.Call(JsValue.Undefined, new Arguments(value));
                             break;
 
                         case ReactionType.Reject:
-                            promiseCapability.Reject.Call(JsValue.Undefined, new[] {value});
+                            promiseCapability.Reject.Call(JsValue.Undefined, new Arguments(value));
                             break;
 
                         default:
@@ -91,11 +91,11 @@ namespace Jint.Native.Promise
 
                 try
                 {
-                    thenMethod.Call(thenable, new[] {resolve as JsValue, reject});
+                    thenMethod.Call(thenable, new Arguments(resolve as JsValue, reject));
                 }
                 catch (JavaScriptException e)
                 {
-                    reject.Call(JsValue.Undefined, new[] {e.Error});
+                    reject.Call(JsValue.Undefined, new Arguments(e.Error));
                 }
             };
         }

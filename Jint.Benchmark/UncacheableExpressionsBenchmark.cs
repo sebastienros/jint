@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using BenchmarkDotNet.Attributes;
 using Jint.Native;
+using Jint.Runtime;
 using Newtonsoft.Json;
 using Undefined = Jint.Native.Undefined;
 
@@ -19,7 +20,7 @@ namespace Jint.Benchmark
         private Document doc;
 
         private string targetObject;
-        private JsValue[] targetJsObject;
+        private Arguments targetJsObject;
 
         private const string NonArrowFunctionScript = @"
 function output(d) {
@@ -112,7 +113,7 @@ function output(d) {
             engine = new Engine(InitializeEngine);
             engine.Execute(script);
             engine.Execute(targetObject);
-            targetJsObject = new[] {engine.GetValue("d")};
+            targetJsObject = new Arguments(engine.GetValue("d"));
         }
     }
 }

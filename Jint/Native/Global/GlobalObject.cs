@@ -126,7 +126,7 @@ namespace Jint.Native.Global
             SetProperties(properties);
         }
 
-        private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToStringString(JsValue thisObj, in Arguments arguments)
         {
             return _realm.Intrinsics.Object.PrototypeObject.ToObjectString(thisObj, Arguments.Empty);
         }
@@ -134,7 +134,7 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.2
         /// </summary>
-        public static JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
+        public static JsValue ParseInt(JsValue thisObject, in Arguments arguments)
         {
             string inputString = TypeConverter.ToString(arguments.At(0));
             var s = StringPrototype.TrimEx(inputString);
@@ -235,7 +235,7 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.3
         /// </summary>
-        public static JsValue ParseFloat(JsValue thisObject, JsValue[] arguments)
+        public static JsValue ParseFloat(JsValue thisObject, in Arguments arguments)
         {
             var inputString = TypeConverter.ToString(arguments.At(0));
             var trimmedString = StringPrototype.TrimStartEx(inputString);
@@ -386,7 +386,7 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.4
         /// </summary>
-        public static JsValue IsNaN(JsValue thisObject, JsValue[] arguments)
+        public static JsValue IsNaN(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
             return double.IsNaN(x);
@@ -395,7 +395,7 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.5
         /// </summary>
-        public static JsValue IsFinite(JsValue thisObject, JsValue[] arguments)
+        public static JsValue IsFinite(JsValue thisObject, in Arguments arguments)
         {
             if (arguments.Length != 1)
             {
@@ -438,7 +438,7 @@ namespace Jint.Native.Global
         /// <param name="thisObject"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public JsValue EncodeUri(JsValue thisObject, JsValue[] arguments)
+        public JsValue EncodeUri(JsValue thisObject, in Arguments arguments)
         {
             var uriString = TypeConverter.ToString(arguments.At(0));
 
@@ -452,7 +452,7 @@ namespace Jint.Native.Global
         /// <param name="thisObject"></param>
         /// <param name="arguments"></param>
         /// <returns></returns>
-        public JsValue EncodeUriComponent(JsValue thisObject, JsValue[] arguments)
+        public JsValue EncodeUriComponent(JsValue thisObject, in Arguments arguments)
         {
             var uriString = TypeConverter.ToString(arguments.At(0));
 
@@ -565,14 +565,14 @@ namespace Jint.Native.Global
             return _stringBuilder.ToString();
         }
 
-        public JsValue DecodeUri(JsValue thisObject, JsValue[] arguments)
+        public JsValue DecodeUri(JsValue thisObject, in Arguments arguments)
         {
             var uriString = TypeConverter.ToString(arguments.At(0));
 
             return Decode(uriString, ReservedUriSet);
         }
 
-        public JsValue DecodeUriComponent(JsValue thisObject, JsValue[] arguments)
+        public JsValue DecodeUriComponent(JsValue thisObject, in Arguments arguments)
         {
             var componentString = TypeConverter.ToString(arguments.At(0));
 
@@ -681,7 +681,7 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-B.2.1
         /// </summary>
-        public JsValue Escape(JsValue thisObject, JsValue[] arguments)
+        public JsValue Escape(JsValue thisObject, in Arguments arguments)
         {
             const string whiteList = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_ + -./";
             var uriString = TypeConverter.ToString(arguments.At(0));
@@ -714,7 +714,7 @@ namespace Jint.Native.Global
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-B.2.2
         /// </summary>
-        public JsValue Unescape(JsValue thisObject, JsValue[] arguments)
+        public JsValue Unescape(JsValue thisObject, in Arguments arguments)
         {
             var uriString = TypeConverter.ToString(arguments.At(0));
 
@@ -832,7 +832,7 @@ namespace Jint.Native.Global
                 return false;
             }
 
-            setter.Call(this, new[] {value});
+            setter.Call(this, new Arguments(value));
 
             return true;
         }

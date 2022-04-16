@@ -26,7 +26,7 @@ namespace Jint.Native.Function
             _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             var callerRealm = _engine.ExecutionContext.Realm;
             var x = arguments.At(0);

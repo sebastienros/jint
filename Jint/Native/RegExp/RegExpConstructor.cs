@@ -32,27 +32,27 @@ namespace Jint.Native.RegExp
         {
             var symbols = new SymbolDictionary(1)
             {
-                [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", (thisObj, _) => thisObj, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
+                [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", (JsValue thisObj, in Arguments _) => thisObj, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             return Construct(arguments, thisObject);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(in Arguments arguments)
         {
             return Construct(arguments, this);
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget) => Construct(arguments, newTarget);
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-regexp-pattern-flags
         /// </summary>
-        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        private ObjectInstance Construct(in Arguments arguments, JsValue newTarget)
         {
             var pattern = arguments.At(0);
             var flags = arguments.At(1);

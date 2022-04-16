@@ -58,20 +58,20 @@ namespace Jint.Native.Promise
             var symbols = new SymbolDictionary(1)
             {
                 [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(
-                    get: new ClrFunctionInstance(_engine, "get [Symbol.species]", (thisObj, _) => thisObj, 0,
+                    get: new ClrFunctionInstance(_engine, "get [Symbol.species]", (JsValue thisObj, in Arguments _) => thisObj, 0,
                         PropertyFlag.Configurable),
                     set: Undefined, PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Constructor Promise requires 'new'");
             return null;
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {
@@ -90,7 +90,7 @@ namespace Jint.Native.Promise
                 static(engine, realm, _) => new PromiseInstance(engine));
 
             var (resolve, reject) = instance.CreateResolvingFunctions();
-            promiseExecutor.Call(Undefined, new JsValue[] {resolve, reject});
+            promiseExecutor.Call(Undefined, new Arguments(resolve, reject));
 
             return instance;
         }
@@ -105,7 +105,7 @@ namespace Jint.Native.Promise
         // 3. Let promiseCapability be ? NewPromiseCapability(C).
         //     4. Perform ? Call(promiseCapability.[[Resolve]], undefined, « x »).
         // 5. Return promiseCapability.[[Promise]].
-        internal JsValue Resolve(JsValue thisObj, JsValue[] arguments)
+        internal JsValue Resolve(JsValue thisObj, in Arguments arguments)
         {
             if (!thisObj.IsObject())
             {
@@ -129,12 +129,12 @@ namespace Jint.Native.Promise
 
             var (instance, resolve, _, _) = NewPromiseCapability(_engine, thisObj);
 
-            resolve.Call(Undefined, new[] {x});
+            resolve.Call(Undefined, new Arguments(x));
 
             return instance;
         }
 
-        private JsValue Reject(JsValue thisObj, JsValue[] arguments)
+        private JsValue Reject(JsValue thisObj, in Arguments arguments)
         {
             if (!thisObj.IsObject())
             {
@@ -150,7 +150,7 @@ namespace Jint.Native.Promise
 
             var (instance, _, reject, _) = NewPromiseCapability(_engine, thisObj);
 
-            reject.Call(Undefined, new[] {r});
+            reject.Call(Undefined, new Arguments(r));
 
             return instance;
         }
@@ -170,7 +170,7 @@ namespace Jint.Native.Promise
         //     a. If iteratorRecord.[[Done]] is false, set result to IteratorClose(iteratorRecord, result).
         // b. IfAbruptRejectPromise(result, promiseCapability).
         // 9. Return Completion(result)
-        private JsValue All(JsValue thisObj, JsValue[] arguments)
+        private JsValue All(JsValue thisObj, in Arguments arguments)
         {
             if (!thisObj.IsObject())
             {
@@ -189,7 +189,7 @@ namespace Jint.Native.Promise
             }
             catch (JavaScriptException e)
             {
-                reject.Call(Undefined, new[] {e.Error});
+                reject.Call(Undefined, new Arguments(e.Error));
                 return resultingPromise;
             }
 
@@ -211,7 +211,7 @@ namespace Jint.Native.Promise
             }
             catch (JavaScriptException e)
             {
-                reject.Call(Undefined, new[] {e.Error});
+                reject.Call(Undefined, new Arguments(e.Error));
                 return resultingPromise;
             }
 
@@ -227,7 +227,7 @@ namespace Jint.Native.Promise
                 if (results.TrueForAll(static x => x != null) && doneIterating)
                 {
                     var array = _realm.Intrinsics.Array.ConstructFast(results);
-                    resolve.Call(Undefined, new JsValue[] { array });
+                    resolve.Call(Undefined, new Arguments(array));
                 }
             }
 
@@ -254,7 +254,7 @@ namespace Jint.Native.Promise
                     }
                     catch (JavaScriptException e)
                     {
-                        reject.Call(Undefined, new[] {e.Error});
+                        reject.Call(Undefined, new Arguments(e.Error));
                         return resultingPromise;
                     }
 
@@ -263,7 +263,7 @@ namespace Jint.Native.Promise
                     // In F# it would be Option<JsValue>
                     results.Add(null);
 
-                    var item = promiseResolve.Call(thisObj, new JsValue[] {value});
+                    var item = promiseResolve.Call(thisObj, new Arguments(value));
                     var thenProps = item.Get("then");
                     if (thenProps is ICallable thenFunc)
                     {
@@ -271,7 +271,7 @@ namespace Jint.Native.Promise
 
                         var fulfilled = false;
                         var onSuccess =
-                            new ClrFunctionInstance(_engine, "", (_, args) =>
+                            new ClrFunctionInstance(_engine, "", (JsValue _, in Arguments args) =>
                             {
                                 if (!fulfilled)
                                 {
@@ -283,7 +283,7 @@ namespace Jint.Native.Promise
                                 return Undefined;
                             }, 1, PropertyFlag.Configurable);
 
-                        thenFunc.Call(item, new JsValue[] {onSuccess, rejectObj});
+                        thenFunc.Call(item, new Arguments(onSuccess, rejectObj));
                     }
                     else
                     {
@@ -296,7 +296,7 @@ namespace Jint.Native.Promise
             catch (JavaScriptException e)
             {
                 iterator.Close(CompletionType.Throw);
-                reject.Call(Undefined, new[] {e.Error});
+                reject.Call(Undefined, new Arguments(e.Error));
                 return resultingPromise;
             }
 
@@ -305,14 +305,14 @@ namespace Jint.Native.Promise
             // resolve the promise sync
             if (results.Count == 0)
             {
-                resolve.Call(Undefined, new JsValue[] {_realm.Intrinsics.Array.ArrayCreate(0)});
+                resolve.Call(Undefined, new Arguments(_realm.Intrinsics.Array.ArrayCreate(0)));
             }
 
             return resultingPromise;
         }
 
         // https://tc39.es/ecma262/#sec-promise.race
-        private JsValue Race(JsValue thisObj, JsValue[] arguments)
+        private JsValue Race(JsValue thisObj, in Arguments arguments)
         {
             if (!thisObj.IsObject())
             {
@@ -331,7 +331,7 @@ namespace Jint.Native.Promise
             }
             catch (JavaScriptException e)
             {
-                reject.Call(Undefined, new[] {e.Error});
+                reject.Call(Undefined, new Arguments(e.Error));
                 return resultingPromise;
             }
 
@@ -353,7 +353,7 @@ namespace Jint.Native.Promise
             }
             catch (JavaScriptException e)
             {
-                reject.Call(Undefined, new[] {e.Error});
+                reject.Call(Undefined, new Arguments(e.Error));
                 return resultingPromise;
             }
 
@@ -375,16 +375,16 @@ namespace Jint.Native.Promise
                     }
                     catch (JavaScriptException e)
                     {
-                        reject.Call(Undefined, new[] {e.Error});
+                        reject.Call(Undefined, new Arguments(e.Error));
                         return resultingPromise;
                     }
 
                     // h. Let nextPromise be ? Call(promiseResolve, constructor, « nextValue »).
-                    var nextPromise = promiseResolve.Call(thisObj, new JsValue[] {nextValue});
+                    var nextPromise = promiseResolve.Call(thisObj, new Arguments(nextValue));
 
                     // i. Perform ? Invoke(nextPromise, "then", « resultCapability.[[Resolve]], resultCapability.[[Reject]] »).
 
-                    _engine.Invoke(nextPromise, "then", new[] {resolve as JsValue, rejectObj});
+                    _engine.Invoke(nextPromise, "then", new Arguments((JsValue) resolve, rejectObj));
                 } while (true);
             }
             catch (JavaScriptException e)
@@ -393,7 +393,7 @@ namespace Jint.Native.Promise
                 // a. If iteratorRecord.[[Done]] is false, set result to IteratorClose(iteratorRecord, result).
                 //     b. IfAbruptRejectPromise(result, promiseCapability).
                 iterator.Close(CompletionType.Throw);
-                reject.Call(Undefined, new[] {e.Error});
+                reject.Call(Undefined, new Arguments(e.Error));
                 return resultingPromise;
             }
 
@@ -452,7 +452,7 @@ namespace Jint.Native.Promise
             JsValue resolveArg = null;
             JsValue rejectArg = null;
 
-            JsValue Executor(JsValue thisObj, JsValue[] arguments)
+            JsValue Executor(JsValue thisObj, in Arguments arguments)
             {
                 // 25.4.1.5.1 GetCapabilitiesExecutor Functions
                 // 3. If promiseCapability.[[Resolve]] is not undefined, throw a TypeError exception.
@@ -473,7 +473,7 @@ namespace Jint.Native.Promise
 
             var executor = new ClrFunctionInstance(engine, "", Executor, 2, PropertyFlag.Configurable);
 
-            var instance = ctor.Construct(new JsValue[] {executor}, c);
+            var instance = ctor.Construct(new Arguments(executor), c);
 
             ICallable resolve = null;
             ICallable reject = null;

@@ -177,7 +177,7 @@ public class ModuleTests
         _engine.AddModule("user", "export class UserDefined { constructor(v) { this._v = v; } hello(c) { return `hello ${this._v}${c}`; } }");
         var ctor = _engine.ImportModule("user").Get("UserDefined");
         var instance = _engine.Construct(ctor, JsString.Create("world"));
-        var result = instance.GetMethod("hello").Call(instance, JsString.Create("!"));
+        var result = instance.GetMethod("hello").Call(instance, new Arguments("!"));
 
         Assert.Equal("hello world!", result);
     }

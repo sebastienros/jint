@@ -268,7 +268,7 @@ namespace Jint.Runtime.Interop
             return engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, Factory).CreatePropertyDescriptor(engine, target);
         }
 
-        private static JsValue Iterator(JsValue thisObj, JsValue[] arguments)
+        private static JsValue Iterator(JsValue thisObj, in Arguments arguments)
         {
             var wrapper = (ObjectWrapper) thisObj;
 
@@ -277,7 +277,7 @@ namespace Jint.Runtime.Interop
                 : new EnumerableIterator(wrapper._engine, (IEnumerable) wrapper.Target);
         }
 
-        private static JsValue GetLength(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetLength(JsValue thisObj, in Arguments arguments)
         {
             var wrapper = (ObjectWrapper) thisObj;
             return JsNumber.Create((int) wrapper._typeDescriptor.LengthProperty.GetValue(wrapper.Target));
@@ -316,7 +316,9 @@ namespace Jint.Runtime.Interop
         private sealed class DictionaryIterator : IteratorInstance
         {
             private readonly ObjectWrapper _target;
+#pragma warning disable IDISP006
             private readonly IEnumerator<JsValue> _enumerator;
+#pragma warning restore IDISP006
 
             public DictionaryIterator(Engine engine, ObjectWrapper target) : base(engine)
             {

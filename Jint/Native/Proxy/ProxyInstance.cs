@@ -42,9 +42,9 @@ namespace Jint.Native.Proxy
         /// <summary>
         /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-call-thisargument-argumentslist
         /// </summary>
-        JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments)
+        JsValue ICallable.Call(JsValue thisObject, in Arguments arguments)
         {
-            var jsValues = new[] { _target, thisObject, _engine.Realm.Intrinsics.Array.ConstructFast(arguments) };
+            var jsValues = new Arguments(_target, thisObject, _engine.Realm.Intrinsics.Array.ConstructFast(arguments));
             if (TryCallHandler(TrapApply, jsValues, out var result))
             {
                 return result;
@@ -62,11 +62,11 @@ namespace Jint.Native.Proxy
         /// <summary>
         /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-construct-argumentslist-newtarget
         /// </summary>
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget)
         {
             var argArray = _engine.Realm.Intrinsics.Array.Construct(arguments, _engine.Realm.Intrinsics.Array);
 
-            if (!TryCallHandler(TrapConstruct, new[] { _target, argArray, newTarget }, out var result))
+            if (!TryCallHandler(TrapConstruct, new Arguments(_target, argArray, newTarget), out var result))
             {
                 var constructor = _target as IConstructor;
                 if (constructor is null)
@@ -117,7 +117,7 @@ namespace Jint.Native.Proxy
             AssertTargetNotRevoked(property);
             var target = _target;
 
-            if (property == KeyFunctionRevoke || !TryCallHandler(TrapGet, new[] {target, TypeConverter.ToPropertyKey(property), this }, out var result))
+            if (property == KeyFunctionRevoke || !TryCallHandler(TrapGet, new Arguments(target, TypeConverter.ToPropertyKey(property), this), out var result))
             {
                 return target.Get(property, receiver);
             }
@@ -143,7 +143,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
         {
-            if (!TryCallHandler(TrapOwnKeys, new JsValue[] { _target }, out var result))
+            if (!TryCallHandler(TrapOwnKeys, new Arguments(_target), out var result))
             {
                 return _target.GetOwnPropertyKeys(types);
             }
@@ -210,7 +210,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
-            if (!TryCallHandler(TrapGetOwnPropertyDescriptor, new[] { _target, TypeConverter.ToPropertyKey(property) }, out var trapResultObj))
+            if (!TryCallHandler(TrapGetOwnPropertyDescriptor, new Arguments(_target, TypeConverter.ToPropertyKey(property)), out var trapResultObj))
             {
                 return _target.GetOwnProperty(property);
             }
@@ -301,7 +301,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
-            if (!TryCallHandler(TrapSet, new[] { _target, TypeConverter.ToPropertyKey(property), value, receiver }, out var trapResult))
+            if (!TryCallHandler(TrapSet, new Arguments(_target, TypeConverter.ToPropertyKey(property), value, receiver), out var trapResult))
             {
                 return _target.Set(property, value, receiver);
             }
@@ -340,7 +340,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            var arguments = new[] { _target, TypeConverter.ToPropertyKey(property), PropertyDescriptor.FromPropertyDescriptor(_engine, desc, strictUndefined: true) };
+            var arguments = new Arguments(_target, TypeConverter.ToPropertyKey(property), PropertyDescriptor.FromPropertyDescriptor(_engine, desc, strictUndefined: true));
             if (!TryCallHandler(TrapDefineProperty, arguments, out var result))
             {
                 return _target.DefineOwnProperty(property, desc);
@@ -396,7 +396,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override bool HasProperty(JsValue property)
         {
-            if (!TryCallHandler(TrapHas, new [] { _target, TypeConverter.ToPropertyKey(property) }, out var jsValue))
+            if (!TryCallHandler(TrapHas, new Arguments(_target, TypeConverter.ToPropertyKey(property)), out var jsValue))
             {
                 return _target.HasProperty(property);
             }
@@ -428,7 +428,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override bool Delete(JsValue property)
         {
-            if (!TryCallHandler(TrapDeleteProperty, new[] { _target, TypeConverter.ToPropertyKey(property) }, out var result))
+            if (!TryCallHandler(TrapDeleteProperty, new Arguments(_target, TypeConverter.ToPropertyKey(property)), out var result))
             {
                 return _target.Delete(property);
             }
@@ -465,7 +465,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override bool PreventExtensions()
         {
-            if (!TryCallHandler(TrapPreventExtensions, new JsValue[] { _target }, out var result))
+            if (!TryCallHandler(TrapPreventExtensions, new Arguments(_target), out var result))
             {
                 return _target.PreventExtensions();
             }
@@ -487,7 +487,7 @@ namespace Jint.Native.Proxy
         {
             get
             {
-                if (!TryCallHandler(TrapIsExtensible, new JsValue[] { _target }, out var result))
+                if (!TryCallHandler(TrapIsExtensible, new Arguments(_target), out var result))
                 {
                     return _target.Extensible;
                 }
@@ -507,7 +507,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         protected internal override ObjectInstance GetPrototypeOf()
         {
-            if (!TryCallHandler(TrapGetProtoTypeOf, new JsValue[] { _target }, out var handlerProto ))
+            if (!TryCallHandler(TrapGetProtoTypeOf, new Arguments(_target), out var handlerProto ))
             {
                 return _target.Prototype;
             }
@@ -535,7 +535,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override bool SetPrototypeOf(JsValue value)
         {
-            if (!TryCallHandler(TrapSetProtoTypeOf, new[] { _target, value }, out var result))
+            if (!TryCallHandler(TrapSetProtoTypeOf, new Arguments(_target, value), out var result))
             {
                 return _target.SetPrototypeOf(value);
             }
@@ -562,7 +562,7 @@ namespace Jint.Native.Proxy
 
         internal override bool IsCallable { get; }
 
-        private bool TryCallHandler(JsValue propertyName, JsValue[] arguments, out JsValue result)
+        private bool TryCallHandler(JsValue propertyName, Arguments arguments, out JsValue result)
         {
             AssertNotRevoked(propertyName);
 

@@ -40,15 +40,15 @@ namespace Jint.Runtime.Interop
             return new TypeReference(engine, type);
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             // direct calls on a TypeReference constructor object is equivalent to the new operator
-            return Construct(arguments);
+            return Construct(in arguments);
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments);
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget) => Construct(in arguments);
 
-        private ObjectInstance Construct(JsValue[] arguments)
+        private ObjectInstance Construct(in Arguments arguments)
         {
             ObjectInstance result = null;
             if (arguments.Length == 0 && ReferenceType.IsValueType)
@@ -62,7 +62,8 @@ namespace Jint.Runtime.Interop
                     ReferenceType,
                     t => MethodDescriptor.Build(t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)));
 
-                foreach (var (method, _, _) in TypeConverter.FindBestMatch(_engine, constructors, _ => arguments))
+                var tempArguments = arguments;
+                foreach (var (method, _, _) in TypeConverter.FindBestMatch(_engine, constructors, _ => tempArguments))
                 {
                     var retVal = method.Call(Engine, null, arguments);
                     result = TypeConverter.ToObject(_realm, retVal);

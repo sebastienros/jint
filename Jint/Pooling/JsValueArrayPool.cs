@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 
 namespace Jint.Pooling
@@ -9,69 +10,59 @@ namespace Jint.Pooling
     internal sealed class JsValueArrayPool
     {
         private const int PoolSize = 15;
-        private readonly ObjectPool<JsValue[]> _poolArray1;
-        private readonly ObjectPool<JsValue[]> _poolArray2;
-        private readonly ObjectPool<JsValue[]> _poolArray3;
+        private const int MaxPooledArraySize = 128;
+        private readonly ObjectPool<JsValue[]> _pool;
 
         public JsValueArrayPool()
         {
-            _poolArray1 = new ObjectPool<JsValue[]>(Factory1, PoolSize);
-            _poolArray2 = new ObjectPool<JsValue[]>(Factory2, PoolSize);
-            _poolArray3 = new ObjectPool<JsValue[]>(Factory3, PoolSize);
+            _pool = new ObjectPool<JsValue[]>(Factory, PoolSize);
         }
 
-        private static JsValue[] Factory1()
+        private static JsValue[] Factory()
         {
-            return new JsValue[1];
-        }
-
-        private static JsValue[] Factory2()
-        {
-            return new JsValue[2];
-        }
-
-        private static JsValue[] Factory3()
-        {
-            return new JsValue[3];
+            return new JsValue[MaxPooledArraySize];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public JsValue[] RentArray(int size)
+        public ArrayRentHolder RentArray(int size)
         {
-            if (size == 0)
+            var array = size switch
             {
-                return System.Array.Empty<JsValue>();
-            }
-            if (size == 1)
-            {
-                return _poolArray1.Allocate();
-            }
-            if (size == 2)
-            {
-                return _poolArray2.Allocate();
-            }
-            if (size == 3)
-            {
-                return _poolArray3.Allocate();
-            }
+                0 => Array.Empty<JsValue>(),
+                <= MaxPooledArraySize => _pool.Allocate(),
+                _ => new JsValue[size]
+            };
 
-            return new JsValue[size];
+            return new ArrayRentHolder(_pool, array, size);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void ReturnArray(JsValue[] array)
+        internal readonly struct ArrayRentHolder : IDisposable
         {
-            if (array.Length == 1)
+            private readonly ObjectPool<JsValue[]> _pool;
+            internal readonly JsValue[] _array;
+            private readonly int _size;
+
+            public ArrayRentHolder(ObjectPool<JsValue[]> pool, JsValue[] array, int size)
             {
-                _poolArray1.Free(array);
+                _pool = pool;
+                _array = array;
+                _size = size;
             }
-            else if (array.Length == 2)
+
+            public JsValue this[int i]
             {
-                _poolArray2.Free(array);
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                set { _array[i] = value; }
             }
-            else if (array.Length == 3)
+
+            public Span<JsValue> Span => _array.AsSpan(0, _size);
+
+            public void Dispose()
             {
-                _poolArray3.Free(array);
+                if (_array.Length > 0)
+                {
+                    _pool.Free(_array);
+                }
             }
         }
     }

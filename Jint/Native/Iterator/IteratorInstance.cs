@@ -10,7 +10,9 @@ namespace Jint.Native.Iterator
 {
     internal class IteratorInstance : ObjectInstance
     {
+#pragma warning disable IDISP006
         private readonly IEnumerator<JsValue> _enumerable;
+#pragma warning restore IDISP006
 
         public IteratorInstance(Engine engine)
             : this(engine, Enumerable.Empty<JsValue>())

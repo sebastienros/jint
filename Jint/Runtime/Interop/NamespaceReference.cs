@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interop
             return false;
         }
 
-        JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments)
+        JsValue ICallable.Call(JsValue thisObject, in Arguments arguments)
         {
             // direct calls on a NamespaceReference constructor object is creating a generic type
             var genericTypes = new Type[arguments.Length];
