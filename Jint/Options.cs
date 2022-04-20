@@ -285,6 +285,11 @@ namespace Jint
         /// Defaults to only coercing to string values when writing to string targets.
         /// </summary>
         public ValueCoercionType ValueCoercion { get; set; } = ValueCoercionType.String;
+
+        /// <summary>
+        /// Whether Jint should throw exception when multiple threads are being used to execute
+        /// </summary>
+        public bool EnforceThreadConsistency { get; set; } = false;
     }
 
     /// <summary>

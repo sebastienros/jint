@@ -62,6 +62,8 @@ namespace Jint
         internal Intrinsics _originalIntrinsics;
         internal Host _host;
 
+        public System.Threading.Thread Thread { get; private set; }
+
         /// <summary>
         /// Constructs a new engine instance.
         /// </summary>
@@ -90,6 +92,8 @@ namespace Jint
         /// <remarks>The provided engine instance in callback is not guaranteed to be fully configured</remarks>
         public Engine(Action<Engine, Options> options)
         {
+            Thread = System.Threading.Thread.CurrentThread;
+
             _executionContexts = new ExecutionContextStack(2);
 
             Options = new Options();

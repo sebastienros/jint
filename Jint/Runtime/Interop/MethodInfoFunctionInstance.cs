@@ -222,6 +222,14 @@ namespace Jint.Runtime.Interop
                     continue;
                 }
 
+                if (!ThreadSafety.ValidateThread(Engine))
+                {
+                    var exception = new System.Exception("This instance of the JINT Engine was initialized with a different thread (" + Engine.Thread?.Name + ") than the thread (" + System.Threading.Thread.CurrentThread?.Name + ") being used to call this method (" + method.Method.Name + ")!");
+                    throw exception;
+                    // TPC: not sure if this is the preferred way to throw:
+                    //ExceptionHelper.ThrowMeaningfulException(Engine, exception);
+                }
+
                 // todo: cache method info
                 try
                 {
