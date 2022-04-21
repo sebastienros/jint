@@ -8,6 +8,7 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
+using ExecutionContext = Jint.Runtime.Environments.ExecutionContext;
 
 namespace Jint.Native.Function
 {
@@ -73,10 +74,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// Executed when a function object is used as a function
         /// </summary>
-        /// <param name="thisObject"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
-        public abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
+        public abstract JsValue Call(JsValue thisObject, in Arguments arguments);
 
         public bool Strict => _thisMode == FunctionThisMode.Strict;
 
@@ -324,7 +322,7 @@ namespace Jint.Native.Function
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Completion OrdinaryCallEvaluateBody(
             EvaluationContext context,
-            JsValue[] arguments,
+            Arguments arguments,
             ExecutionContext calleeContext)
         {
             var argumentsInstance = _engine.FunctionDeclarationInstantiation(

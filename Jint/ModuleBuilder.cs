@@ -68,21 +68,21 @@ public sealed class ModuleBuilder
         return this;
     }
 
-    public ModuleBuilder ExportFunction(string name, Func<JsValue[], JsValue> fn)
+    public ModuleBuilder ExportFunction(string name, Func<Arguments, JsValue> fn)
     {
-        _exports.Add(name, new ClrFunctionInstance(_engine, name, (_, args) => fn(args)));
+        _exports.Add(name, new ClrFunctionInstance(_engine, name, (JsValue _, in Arguments args) => fn(args)));
         return this;
     }
 
     public ModuleBuilder ExportFunction(string name, Func<JsValue> fn)
     {
-        _exports.Add(name, new ClrFunctionInstance(_engine, name, (_, _) => fn()));
+        _exports.Add(name, new ClrFunctionInstance(_engine, name, (JsValue _, in Arguments _) => fn()));
         return this;
     }
 
-    public ModuleBuilder ExportFunction(string name, Action<JsValue[]> fn)
+    public ModuleBuilder ExportFunction(string name, Action<Arguments> fn)
     {
-        _exports.Add(name, new ClrFunctionInstance(_engine, name, (_, args) =>
+        _exports.Add(name, new ClrFunctionInstance(_engine, name, (JsValue _, in Arguments args) =>
         {
             fn(args);
             return JsValue.Undefined;
@@ -92,7 +92,7 @@ public sealed class ModuleBuilder
 
     public ModuleBuilder ExportFunction(string name, Action fn)
     {
-        _exports.Add(name, new ClrFunctionInstance(_engine, name, (_, _) =>
+        _exports.Add(name, new ClrFunctionInstance(_engine, name, (JsValue _, in Arguments _) =>
         {
             fn();
             return JsValue.Undefined;

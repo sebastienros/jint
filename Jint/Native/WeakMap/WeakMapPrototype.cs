@@ -45,26 +45,26 @@ namespace Jint.Native.WeakMap
             SetSymbols(symbols);
         }
 
-        private JsValue Get(JsValue thisObj, JsValue[] arguments)
+        private JsValue Get(JsValue thisObj, in Arguments arguments)
         {
             var map = AssertWeakMapInstance(thisObj);
             return map.WeakMapGet(arguments.At(0));
         }
 
-        private JsValue Delete(JsValue thisObj, JsValue[] arguments)
+        private JsValue Delete(JsValue thisObj, in Arguments arguments)
         {
             var map = AssertWeakMapInstance(thisObj);
             return (arguments.Length > 0 && map.WeakMapDelete(arguments.At(0))) ? JsBoolean.True : JsBoolean.False;
         }
 
-        private JsValue Set(JsValue thisObj, JsValue[] arguments)
+        private JsValue Set(JsValue thisObj, in Arguments arguments)
         {
             var map = AssertWeakMapInstance(thisObj);
             map.WeakMapSet(arguments.At(0), arguments.At(1));
             return thisObj;
         }
 
-        private JsValue Has(JsValue thisObj, JsValue[] arguments)
+        private JsValue Has(JsValue thisObj, in Arguments arguments)
         {
             var map = AssertWeakMapInstance(thisObj);
             return map.WeakMapHas(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;

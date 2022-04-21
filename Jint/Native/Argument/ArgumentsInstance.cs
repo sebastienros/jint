@@ -21,7 +21,7 @@ namespace Jint.Native.Argument
 
         private FunctionInstance _func;
         private Key[] _names;
-        private JsValue[] _args;
+        private Arguments _args;
         private DeclarativeEnvironmentRecord _env;
         private bool _canReturnToPool;
         private bool _hasRestParameter;
@@ -35,7 +35,7 @@ namespace Jint.Native.Argument
         internal void Prepare(
             FunctionInstance func,
             Key[] names,
-            JsValue[] args,
+            Arguments args,
             DeclarativeEnvironmentRecord env,
             bool hasRestParameter)
         {
@@ -159,7 +159,7 @@ namespace Jint.Native.Argument
                 {
                     return false;
                 }
-                setter.Call(receiver, new[] {value});
+                setter.Call(receiver, new Arguments(value));
             }
             else
             {
@@ -249,10 +249,8 @@ namespace Jint.Native.Argument
 
             EnsureInitialized();
 
+            // TODO if no longer needed
             var args = _args;
-            var copiedArgs = new JsValue[args.Length];
-            System.Array.Copy(args, copiedArgs, args.Length);
-            _args = copiedArgs;
 
             _canReturnToPool = false;
         }

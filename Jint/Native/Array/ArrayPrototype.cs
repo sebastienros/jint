@@ -105,7 +105,7 @@ namespace Jint.Native.Array
             SetSymbols(symbols);
         }
 
-        private ObjectInstance Keys(JsValue thisObj, JsValue[] arguments)
+        private ObjectInstance Keys(JsValue thisObj, in Arguments arguments)
         {
             if (thisObj is ObjectInstance oi && oi.IsArrayLike)
             {
@@ -116,7 +116,7 @@ namespace Jint.Native.Array
             return null;
         }
 
-        internal ObjectInstance Values(JsValue thisObj, JsValue[] arguments)
+        internal ObjectInstance Values(JsValue thisObj, in Arguments arguments)
         {
             if (thisObj is ObjectInstance oi && oi.IsArrayLike)
             {
@@ -127,7 +127,7 @@ namespace Jint.Native.Array
             return null;
         }
 
-        private ObjectInstance Entries(JsValue thisObj, JsValue[] arguments)
+        private ObjectInstance Entries(JsValue thisObj, in Arguments arguments)
         {
             if (thisObj is ObjectInstance oi && oi.IsArrayLike)
             {
@@ -141,7 +141,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.fill
         /// </summary>
-        private JsValue Fill(JsValue thisObj, JsValue[] arguments)
+        private JsValue Fill(JsValue thisObj, in Arguments arguments)
         {
             var value = arguments.At(0);
             var start = arguments.At(1);
@@ -194,7 +194,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.copywithin
         /// </summary>
-        private JsValue CopyWithin(JsValue thisObj, JsValue[] arguments)
+        private JsValue CopyWithin(JsValue thisObj, in Arguments arguments)
         {
             var o = TypeConverter.ToObject(_realm, thisObj);
 
@@ -277,7 +277,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.lastindexof
         /// </summary>
-        private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
+        private JsValue LastIndexOf(JsValue thisObj, in Arguments arguments)
         {
             var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLongLength();
@@ -330,7 +330,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.reduce
         /// </summary>
-        private JsValue Reduce(JsValue thisObj, JsValue[] arguments)
+        private JsValue Reduce(JsValue thisObj, in Arguments arguments)
         {
             var callbackfn = arguments.At(0);
             var initialValue = arguments.At(1);
@@ -370,17 +370,12 @@ namespace Jint.Native.Array
                 }
             }
 
-            var args = new JsValue[4];
-            args[3] = o.Target;
             while (k < len)
             {
                 var i = (uint) k;
                 if (o.TryGetValue(i, out var kvalue))
                 {
-                    args[0] = accumulator;
-                    args[1] = kvalue;
-                    args[2] = i;
-                    accumulator = callable.Call(Undefined, args);
+                    accumulator = callable.Call(Undefined, new Arguments(accumulator, kvalue, i, o.Target));
                 }
 
                 k++;
@@ -392,7 +387,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.filter
         /// </summary>
-        private JsValue Filter(JsValue thisObj, JsValue[] arguments)
+        private JsValue Filter(JsValue thisObj, in Arguments arguments)
         {
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
@@ -406,15 +401,11 @@ namespace Jint.Native.Array
             var operations = ArrayOperations.For(a);
 
             uint to = 0;
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = o.Target;
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
                 {
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var selected = callable.Call(thisArg, args);
+                    var selected = callable.Call(thisArg, new Arguments(kvalue, k, o.Target));
                     if (TypeConverter.ToBoolean(selected))
                     {
                         operations.CreateDataPropertyOrThrow(to, kvalue);
@@ -424,15 +415,13 @@ namespace Jint.Native.Array
             }
 
             operations.SetLength(to);
-            _engine._jsValueArrayPool.ReturnArray(args);
-
             return a;
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.map
         /// </summary>
-        private JsValue Map(JsValue thisObj, JsValue[] arguments)
+        private JsValue Map(JsValue thisObj, in Arguments arguments)
         {
             if (thisObj is ArrayInstance arrayInstance && !arrayInstance.HasOwnProperty(CommonProperties.Constructor))
             {
@@ -452,26 +441,21 @@ namespace Jint.Native.Array
             var callable = GetCallable(callbackfn);
 
             var a = ArrayOperations.For(_realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObj), (uint) len));
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = o.Target;
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
                 {
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var mappedValue = callable.Call(thisArg, args);
+                    var mappedValue = callable.Call(thisArg, new Arguments(kvalue, k, o.Target));
                     a.CreateDataPropertyOrThrow(k, mappedValue);
                 }
             }
-            _engine._jsValueArrayPool.ReturnArray(args);
             return a.Target;
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.flat
         /// </summary>
-        private JsValue Flat(JsValue thisObj, JsValue[] arguments)
+        private JsValue Flat(JsValue thisObj, in Arguments arguments)
         {
             var O = TypeConverter.ToObject(_realm, thisObj);
             var operations = ArrayOperations.For(O);
@@ -496,7 +480,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.flatmap
         /// </summary>
-        private JsValue FlatMap(JsValue thisObj, JsValue[] arguments)
+        private JsValue FlatMap(JsValue thisObj, in Arguments arguments)
         {
             var O = TypeConverter.ToObject(_realm, thisObj);
             var mapperFunction = arguments.At(0);
@@ -529,12 +513,7 @@ namespace Jint.Native.Array
             var targetIndex = start;
             var sourceIndex = 0;
 
-            var callArguments = System.Array.Empty<JsValue>();
-            if (mapperFunction is not null)
-            {
-                callArguments = _engine._jsValueArrayPool.RentArray(3);
-                callArguments[2] = source;
-            }
+            var sourceArgument = mapperFunction is not null ? source : Undefined;
 
             while (sourceIndex < sourceLen)
             {
@@ -545,9 +524,7 @@ namespace Jint.Native.Array
                     var element = source.Get(P);
                     if (mapperFunction is not null)
                     {
-                        callArguments[0] = element;
-                        callArguments[1] = JsNumber.Create(sourceIndex);
-                        element = mapperFunction.Call(thisArg, callArguments);
+                        element = mapperFunction.Call(thisArg, new Arguments(element, JsNumber.Create(sourceIndex), sourceArgument));
                     }
 
                     var shouldFlatten = false;
@@ -581,15 +558,10 @@ namespace Jint.Native.Array
                 sourceIndex++;
             }
 
-            if (mapperFunction is not null)
-            {
-                _engine._jsValueArrayPool.ReturnArray(callArguments);
-            }
-
             return targetIndex;
         }
 
-        private JsValue ForEach(JsValue thisObj, JsValue[] arguments)
+        private JsValue ForEach(JsValue thisObj, in Arguments arguments)
         {
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
@@ -599,26 +571,21 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
 
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = o.Target;
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
                 {
-                    args[0] = kvalue;
-                    args[1] = k;
-                    callable.Call(thisArg, args);
+                    callable.Call(thisArg, new Arguments(kvalue, k, o.Target));
                 }
             }
-            _engine._jsValueArrayPool.ReturnArray(args);
-
+            
             return Undefined;
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.includes
         /// </summary>
-        private JsValue Includes(JsValue thisObj, JsValue[] arguments)
+        private JsValue Includes(JsValue thisObj, in Arguments arguments)
         {
             var o = ArrayOperations.For(_realm, thisObj);
             var len = (long) o.GetLongLength();
@@ -666,13 +633,13 @@ namespace Jint.Native.Array
             return false;
         }
 
-        private JsValue Some(JsValue thisObj, JsValue[] arguments)
+        private JsValue Some(JsValue thisObj, in Arguments arguments)
         {
             var target = TypeConverter.ToObject(_realm, thisObj);
             return target.FindWithCallback(arguments, out _, out _, false);
         }
 
-        private JsValue Every(JsValue thisObj, JsValue[] arguments)
+        private JsValue Every(JsValue thisObj, in Arguments arguments)
         {
             var o = ArrayOperations.For(_realm, thisObj);
             ulong len = o.GetLongLength();
@@ -686,22 +653,17 @@ namespace Jint.Native.Array
             var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
 
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = o.Target;
             for (uint k = 0; k < len; k++)
             {
                 if (o.TryGetValue(k, out var kvalue))
                 {
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var testResult = callable.Call(thisArg, args);
+                    var testResult = callable.Call(thisArg, new Arguments(kvalue, k, o.Target));
                     if (false == TypeConverter.ToBoolean(testResult))
                     {
                         return JsBoolean.False;
                     }
                 }
             }
-            _engine._jsValueArrayPool.ReturnArray(args);
 
             return JsBoolean.True;
         }
@@ -709,7 +671,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.indexof
         /// </summary>
-        private JsValue IndexOf(JsValue thisObj, JsValue[] arguments)
+        private JsValue IndexOf(JsValue thisObj, in Arguments arguments)
         {
             var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLongLength();
@@ -772,14 +734,14 @@ namespace Jint.Native.Array
             return -1;
         }
 
-        private JsValue Find(JsValue thisObj, JsValue[] arguments)
+        private JsValue Find(JsValue thisObj, in Arguments arguments)
         {
             var target = TypeConverter.ToObject(_realm, thisObj);
             target.FindWithCallback(arguments, out _, out var value, visitUnassigned: true);
             return value;
         }
 
-        private JsValue FindIndex(JsValue thisObj, JsValue[] arguments)
+        private JsValue FindIndex(JsValue thisObj, in Arguments arguments)
         {
             var target = TypeConverter.ToObject(_realm, thisObj);
             if (target.FindWithCallback(arguments, out var index, out _, visitUnassigned: true))
@@ -789,14 +751,14 @@ namespace Jint.Native.Array
             return -1;
         }
 
-        private JsValue FindLast(JsValue thisObj, JsValue[] arguments)
+        private JsValue FindLast(JsValue thisObj, in Arguments arguments)
         {
             var target = TypeConverter.ToObject(_realm, thisObj);
             target.FindWithCallback(arguments, out _, out var value, visitUnassigned: true, fromEnd: true);
             return value;
         }
 
-        private JsValue FindLastIndex(JsValue thisObj, JsValue[] arguments)
+        private JsValue FindLastIndex(JsValue thisObj, in Arguments arguments)
         {
             var target = TypeConverter.ToObject(_realm, thisObj);
             if (target.FindWithCallback(arguments, out var index, out _, visitUnassigned: true, fromEnd: true))
@@ -809,7 +771,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/proposal-relative-indexing-method/#sec-array-prototype-additions
         /// </summary>
-        private JsValue At(JsValue thisObj, JsValue[] arguments)
+        private JsValue At(JsValue thisObj, in Arguments arguments)
         {
             var target = TypeConverter.ToObject(_realm, thisObj);
             var len = target.Length;
@@ -836,7 +798,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.splice
         /// </summary>
-        private JsValue Splice(JsValue thisObj, JsValue[] arguments)
+        private JsValue Splice(JsValue thisObj, in Arguments arguments)
         {
             var start = arguments.At(0);
             var deleteCount = arguments.At(1);
@@ -856,7 +818,7 @@ namespace Jint.Native.Array
                 actualStart = (ulong) System.Math.Min(relativeStart, len);
             }
 
-            var items = System.Array.Empty<JsValue>();
+            var items = Arguments.Empty;
             ulong insertCount;
             ulong actualDeleteCount;
             if (arguments.Length == 0)
@@ -875,11 +837,9 @@ namespace Jint.Native.Array
                 var dc = TypeConverter.ToInteger(deleteCount);
                 actualDeleteCount = (ulong) System.Math.Min(System.Math.Max(dc,0), len - actualStart);
 
-                items = System.Array.Empty<JsValue>();
                 if (arguments.Length > 2)
                 {
-                    items = new JsValue[arguments.Length - 2];
-                    System.Array.Copy(arguments, 2, items, 0, items.Length);
+                    items = arguments.Skip(2);
                 }
             }
 
@@ -945,7 +905,7 @@ namespace Jint.Native.Array
 
             for (uint k = 0; k < items.Length; k++)
             {
-                var e = items[k];
+                var e = items[(int) k];
                 o.Set(k + actualStart, e, throwOnError: true);
             }
 
@@ -953,7 +913,7 @@ namespace Jint.Native.Array
             return a.Target;
         }
 
-        private JsValue Unshift(JsValue thisObj, JsValue[] arguments)
+        private JsValue Unshift(JsValue thisObj, in Arguments arguments)
         {
             var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLongLength();
@@ -980,9 +940,9 @@ namespace Jint.Native.Array
                 }
             }
 
-            for (uint j = 0; j < argCount; j++)
+            for (var j = 0; j < argCount; j++)
             {
-                o.Set(j, arguments[j], true);
+                o.Set((ulong) j, arguments[j], true);
             }
 
             o.SetLength(len + argCount);
@@ -992,7 +952,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.sort
         /// </summary>
-        private JsValue Sort(JsValue thisObj, JsValue[] arguments)
+        private JsValue Sort(JsValue thisObj, in Arguments arguments)
         {
             var obj = ArrayOperations.For(TypeConverter.ToObject(_realm, thisObj));
 
@@ -1056,7 +1016,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.slice
         /// </summary>
-        private JsValue Slice(JsValue thisObj, JsValue[] arguments)
+        private JsValue Slice(JsValue thisObj, in Arguments arguments)
         {
             var start = arguments.At(0);
             var end = arguments.At(1);
@@ -1121,7 +1081,7 @@ namespace Jint.Native.Array
             return a;
         }
 
-        private JsValue Shift(JsValue thisObj, JsValue[] arg2)
+        private JsValue Shift(JsValue thisObj, in Arguments arguments)
         {
             var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLength();
@@ -1154,7 +1114,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.reverse
         /// </summary>
-        private JsValue Reverse(JsValue thisObj, JsValue[] arguments)
+        private JsValue Reverse(JsValue thisObj, in Arguments arguments)
         {
             var o = ArrayOperations.For(_realm, thisObj);
             var len = o.GetLongLength();
@@ -1194,7 +1154,7 @@ namespace Jint.Native.Array
             return o.Target;
         }
 
-        internal JsValue Join(JsValue thisObj, JsValue[] arguments)
+        internal JsValue Join(JsValue thisObj, in Arguments arguments)
         {
             var separator = arguments.At(0);
             var o = ArrayOperations.For(_realm, thisObj);
@@ -1232,7 +1192,7 @@ namespace Jint.Native.Array
             return sb.ToString();
         }
 
-        private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToLocaleString(JsValue thisObj, in Arguments arguments)
         {
             var array = ArrayOperations.For(_realm, thisObj);
             var len = array.GetLength();
@@ -1286,11 +1246,15 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.concat
         /// </summary>
-        private JsValue Concat(JsValue thisObj, JsValue[] arguments)
+        private JsValue Concat(JsValue thisObj, in Arguments arguments)
         {
             var o = TypeConverter.ToObject(_realm, thisObj);
-            var items = new List<JsValue>(arguments.Length + 1) {o};
-            items.AddRange(arguments);
+            var items = new List<JsValue>(arguments.Length + 1);
+            items.Add(o);
+            for (var i = 0; i < arguments.Length; ++i)
+            {
+                items.Add(arguments[i]);
+            }
 
             uint n = 0;
             var a = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObj), 0);
@@ -1337,14 +1301,14 @@ namespace Jint.Native.Array
             return a;
         }
 
-        internal JsValue ToString(JsValue thisObj, JsValue[] arguments)
+        internal JsValue ToString(JsValue thisObj, in Arguments arguments)
         {
             var array = TypeConverter.ToObject(_realm, thisObj);
 
-            Func<JsValue, JsValue[], JsValue> func;
+            ClrCallable func;
             if (array.Get("join") is ICallable joinFunc)
             {
-                func = joinFunc.Call;
+                func = (JsValue thisObject, in Arguments arguments1) => joinFunc.Call(thisObject, arguments1);
             }
             else
             {
@@ -1357,7 +1321,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.reduceright
         /// </summary>
-        private JsValue ReduceRight(JsValue thisObj, JsValue[] arguments)
+        private JsValue ReduceRight(JsValue thisObj, in Arguments arguments)
         {
             var callbackfn = arguments.At(0);
             var initialValue = arguments.At(1);
@@ -1397,16 +1361,11 @@ namespace Jint.Native.Array
                 }
             }
 
-            var jsValues = new JsValue[4];
-            jsValues[3] = o.Target;
             for (; k >= 0; k--)
             {
                 if (o.TryGetValue((ulong) k, out var kvalue))
                 {
-                    jsValues[0] = accumulator;
-                    jsValues[1] = kvalue;
-                    jsValues[2] = k;
-                    accumulator = callable.Call(Undefined, jsValues);
+                    accumulator = callable.Call(Undefined, new Arguments(accumulator, kvalue, k, o.Target));
                 }
             }
 
@@ -1416,7 +1375,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.push
         /// </summary>
-        public JsValue Push(JsValue thisObject, JsValue[] arguments)
+        public JsValue Push(JsValue thisObject, in Arguments arguments)
         {
             if (thisObject is ArrayInstance arrayInstance)
             {
@@ -1431,9 +1390,9 @@ namespace Jint.Native.Array
                 ExceptionHelper.ThrowTypeError(_realm, "Invalid array length");
             }
 
-            foreach (var a in arguments)
+            for (var i = 0; i < arguments.Length; ++i)
             {
-                o.Set(n, a, true);
+                o.Set(n, arguments[i], true);
                 n++;
             }
 
@@ -1441,7 +1400,7 @@ namespace Jint.Native.Array
             return n;
         }
 
-        public JsValue Pop(JsValue thisObject, JsValue[] arguments)
+        public JsValue Pop(JsValue thisObject, in Arguments arguments)
         {
             var o = ArrayOperations.For(_realm, thisObject);
             ulong len = o.GetLongLength();
@@ -1477,7 +1436,6 @@ namespace Jint.Native.Array
 
             private readonly Engine _engine;
             private readonly ICallable _compare;
-            private readonly JsValue[] _comparableArray = new JsValue[2];
 
             private ArrayComparer(Engine engine, ICallable compare)
             {
@@ -1528,10 +1486,7 @@ namespace Jint.Native.Array
                 {
                     _engine.RunBeforeExecuteStatementChecks(null);
 
-                    _comparableArray[0] = x;
-                    _comparableArray[1] = y;
-
-                    var s = TypeConverter.ToNumber(_compare.Call(Undefined, _comparableArray));
+                    var s = TypeConverter.ToNumber(_compare.Call(Undefined, new Arguments(x, y)));
                     if (s < 0)
                     {
                         return -1;

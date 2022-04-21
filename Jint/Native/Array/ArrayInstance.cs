@@ -708,7 +708,7 @@ namespace Jint.Native.Array
             return GetEnumerator();
         }
 
-        internal uint Push(JsValue[] arguments)
+        internal uint Push(in Arguments arguments)
         {
             var initialLength = GetLength();
             var newLength = initialLength + arguments.Length;
@@ -725,8 +725,9 @@ namespace Jint.Native.Array
             var canUseDirectIndexSet = _dense != null && newLength <= _dense.Length;
 
             double n = initialLength;
-            foreach (var argument in arguments)
+            for (var i = 0; i < arguments.Length; ++i)
             {
+                var argument = arguments[i];
                 var desc = new PropertyDescriptor(argument, PropertyFlag.ConfigurableEnumerableWritable);
                 if (canUseDirectIndexSet)
                 {
@@ -779,7 +780,7 @@ namespace Jint.Native.Array
             }
         }
 
-        internal ArrayInstance Map(JsValue[] arguments)
+        internal ArrayInstance Map(in Arguments arguments)
         {
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
@@ -788,15 +789,11 @@ namespace Jint.Native.Array
 
             var callable = GetCallable(callbackfn);
             var a = Engine.Realm.Intrinsics.Array.ArrayCreate(len);
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = this;
             for (uint k = 0; k < len; k++)
             {
                 if (TryGetValue(k, out var kvalue))
                 {
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var mappedValue = callable.Call(thisArg, args);
+                    var mappedValue = callable.Call(thisArg, new Arguments(kvalue, k, this));
                     var desc = new PropertyDescriptor(mappedValue, PropertyFlag.ConfigurableEnumerableWritable);
                     if (a._dense != null && k < (uint) a._dense.Length)
                     {
@@ -809,13 +806,12 @@ namespace Jint.Native.Array
                 }
             }
 
-            _engine._jsValueArrayPool.ReturnArray(args);
             return a;
         }
 
         /// <inheritdoc />
         internal override bool FindWithCallback(
-            JsValue[] arguments,
+            Arguments arguments,
             out uint index,
             out JsValue value,
             bool visitUnassigned,
@@ -833,18 +829,13 @@ namespace Jint.Native.Array
                 return false;
             }
 
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = this;
-
             if (!fromEnd)
             {
                 for (uint k = 0; k < len; k++)
                 {
                     if (TryGetValue(k, out var kvalue) || visitUnassigned)
                     {
-                        args[0] = kvalue;
-                        args[1] = k;
-                        var testResult = callable.Call(thisArg, args);
+                        var testResult = callable.Call(thisArg, new Arguments(kvalue, k, this));
                         if (TypeConverter.ToBoolean(testResult))
                         {
                             index = k;
@@ -861,9 +852,7 @@ namespace Jint.Native.Array
                     var idx = (uint) k;
                     if (TryGetValue(idx, out var kvalue) || visitUnassigned)
                     {
-                        args[0] = kvalue;
-                        args[1] = idx;
-                        var testResult = callable.Call(thisArg, args);
+                        var testResult = callable.Call(thisArg, new Arguments(kvalue, idx, this));
                         if (TypeConverter.ToBoolean(testResult))
                         {
                             index = idx;
@@ -873,8 +862,6 @@ namespace Jint.Native.Array
                     }
                 }
             }
-
-            _engine._jsValueArrayPool.ReturnArray(args);
 
             index = 0;
             value = Undefined;

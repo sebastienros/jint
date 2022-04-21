@@ -27,7 +27,7 @@ namespace Jint.Native.RegExp
         internal static readonly JsString PropertyFlags = new JsString("flags");
 
         private readonly RegExpConstructor _constructor;
-        private readonly Func<JsValue, JsValue[], JsValue> _defaultExec;
+        private readonly ClrCallable _defaultExec;
 
         internal RegExpPrototype(
             Engine engine,
@@ -47,7 +47,7 @@ namespace Jint.Native.RegExp
             GetSetPropertyDescriptor CreateGetAccessorDescriptor(string name, Func<RegExpInstance, JsValue> valueExtractor, JsValue protoValue = null)
             {
                 return new GetSetPropertyDescriptor(
-                    get: new ClrFunctionInstance(Engine, name, (thisObj, arguments) =>
+                    get: new ClrFunctionInstance(Engine, name, (JsValue thisObj, in Arguments _) =>
                     {
                         if (ReferenceEquals(thisObj, this))
                         {
@@ -98,7 +98,7 @@ namespace Jint.Native.RegExp
         /// <summary>
         /// https://tc39.es/ecma262/#sec-get-regexp.prototype.source
         /// </summary>
-        private JsValue Source(JsValue thisObj, JsValue[] arguments)
+        private JsValue Source(JsValue thisObj, in Arguments arguments)
         {
             if (ReferenceEquals(thisObj, this))
             {
@@ -122,7 +122,7 @@ namespace Jint.Native.RegExp
         /// <summary>
         /// https://tc39.es/ecma262/#sec-regexp.prototype-@@replace
         /// </summary>
-        private JsValue Replace(JsValue thisObj, JsValue[] arguments)
+        private JsValue Replace(JsValue thisObj, in Arguments arguments)
         {
             var rx = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.replace");
             var s = TypeConverter.ToString(arguments.At(0));
@@ -285,7 +285,8 @@ namespace Jint.Native.RegExp
 
         private static string CallFunctionalReplace(JsValue replacer, List<JsValue> replacerArgs)
         {
-            var result = ((ICallable) replacer).Call(Undefined, replacerArgs.ToArray());
+            var jsValues = replacerArgs.ToArray();
+            var result = ((ICallable) replacer).Call(Undefined, new Arguments(jsValues, jsValues.Length));
             return TypeConverter.ToString(result);
         }
 
@@ -387,7 +388,7 @@ namespace Jint.Native.RegExp
         /// <summary>
         /// https://tc39.es/ecma262/#sec-regexp.prototype-@@split
         /// </summary>
-        private JsValue Split(JsValue thisObj, JsValue[] arguments)
+        private JsValue Split(JsValue thisObj, in Arguments arguments)
         {
             var rx = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.split");
             var s = TypeConverter.ToString(arguments.At(0));
@@ -396,11 +397,7 @@ namespace Jint.Native.RegExp
             var flags = TypeConverter.ToJsString(rx.Get(PropertyFlags));
             var unicodeMatching = flags.IndexOf('u') > -1;
             var newFlags = flags.IndexOf('y') > -1 ? flags : new JsString(flags.ToString() + 'y');
-            var splitter = Construct(c, new JsValue[]
-            {
-                rx,
-                newFlags
-            });
+            var splitter = Construct(c, new Arguments(rx, newFlags));
             uint lengthA = 0;
             var lim = limit.IsUndefined() ? NumberConstructor.MaxSafeInteger : TypeConverter.ToUint32(limit);
 
@@ -544,7 +541,7 @@ namespace Jint.Native.RegExp
             return a;
         }
 
-        private JsValue Flags(JsValue thisObj, JsValue[] arguments)
+        private JsValue Flags(JsValue thisObj, in Arguments arguments)
         {
             var r = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.flags");
 
@@ -563,7 +560,7 @@ namespace Jint.Native.RegExp
             return result;
         }
 
-        private JsValue ToRegExpString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToRegExpString(JsValue thisObj, in Arguments arguments)
         {
             var r = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.toString");
 
@@ -573,7 +570,7 @@ namespace Jint.Native.RegExp
             return "/" + pattern + "/" + flags;
         }
 
-        private JsValue Test(JsValue thisObj, JsValue[] arguments)
+        private JsValue Test(JsValue thisObj, in Arguments arguments)
         {
             var r = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.test");
             var s = TypeConverter.ToString(arguments.At(0));
@@ -607,7 +604,7 @@ namespace Jint.Native.RegExp
             return !match.IsNull();
         }
 
-        private JsValue Search(JsValue thisObj, JsValue[] arguments)
+        private JsValue Search(JsValue thisObj, in Arguments arguments)
         {
             var rx = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.search");
 
@@ -633,7 +630,7 @@ namespace Jint.Native.RegExp
             return result.Get(PropertyIndex);
         }
 
-        private JsValue Match(JsValue thisObj, JsValue[] arguments)
+        private JsValue Match(JsValue thisObj, in Arguments arguments)
         {
             var rx = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.match");
 
@@ -724,7 +721,7 @@ namespace Jint.Native.RegExp
         /// <summary>
         /// https://tc39.es/ecma262/#sec-regexp-prototype-matchall
         /// </summary>
-        private JsValue MatchAll(JsValue thisObj, JsValue[] arguments)
+        private JsValue MatchAll(JsValue thisObj, in Arguments arguments)
         {
             var r = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.matchAll");
 
@@ -732,11 +729,7 @@ namespace Jint.Native.RegExp
             var c = SpeciesConstructor(r, _realm.Intrinsics.RegExp);
 
             var flags = TypeConverter.ToJsString(r.Get(PropertyFlags));
-            var matcher = Construct(c, new JsValue[]
-            {
-                r,
-                flags
-            });
+            var matcher = Construct(c, new Arguments(r, flags));
 
             var lastIndex = TypeConverter.ToLength(r.Get(RegExpInstance.PropertyLastIndex));
             matcher.Set(RegExpInstance.PropertyLastIndex, lastIndex, true);
@@ -774,7 +767,7 @@ namespace Jint.Native.RegExp
             var exec = r.Get(PropertyExec);
             if (exec is ICallable callable)
             {
-                var result = callable.Call(r, new JsValue[]  { s });
+                var result = callable.Call(r, new Arguments(s));
                 if (!result.IsNull() && !result.IsObject())
                 {
                     ExceptionHelper.ThrowTypeError(r.Engine.Realm);
@@ -792,7 +785,7 @@ namespace Jint.Native.RegExp
             return RegExpBuiltinExec(ri, s);
         }
 
-        internal bool TryGetDefaultExec(ObjectInstance o, out Func<JsValue, JsValue[], JsValue> exec)
+        internal bool TryGetDefaultExec(ObjectInstance o, out ClrCallable exec)
         {
             if (o.Get(PropertyExec) is ClrFunctionInstance functionInstance && functionInstance._func == _defaultExec)
             {
@@ -923,7 +916,7 @@ namespace Jint.Native.RegExp
             return array;
         }
 
-        private JsValue Exec(JsValue thisObj, JsValue[] arguments)
+        private JsValue Exec(JsValue thisObj, in Arguments arguments)
         {
             var r = thisObj as RegExpInstance;
             if (r is null)

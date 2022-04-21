@@ -65,12 +65,12 @@ namespace Jint.Native.Iterator
             return instance;
         }
 
-        private static JsValue ToIterator(JsValue thisObj, JsValue[] arguments)
+        private static JsValue ToIterator(JsValue thisObj, in Arguments arguments)
         {
             return thisObj;
         }
 
-        private JsValue Next(JsValue thisObj, JsValue[] arguments)
+        private JsValue Next(JsValue thisObj, in Arguments arguments)
         {
             var iterator = thisObj as IteratorInstance;
             if (iterator is null)

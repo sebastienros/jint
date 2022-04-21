@@ -92,7 +92,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-get-%typedarray%.prototype.buffer
         /// </summary>
-        private JsValue Buffer(JsValue thisObj, JsValue[] arguments)
+        private JsValue Buffer(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj as TypedArrayInstance;
             if (o is null)
@@ -106,7 +106,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-get-%typedarray%.prototype.bytelength
         /// </summary>
-        private JsValue ByteLength(JsValue thisObj, JsValue[] arguments)
+        private JsValue ByteLength(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj as TypedArrayInstance;
             if (o is null)
@@ -125,7 +125,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-get-%typedarray%.prototype.byteoffset
         /// </summary>
-        private JsValue ByteOffset(JsValue thisObj, JsValue[] arguments)
+        private JsValue ByteOffset(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj as TypedArrayInstance;
             if (o is null)
@@ -144,7 +144,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-get-%typedarray%.prototype.length
         /// </summary>
-        private JsValue GetLength(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetLength(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj as TypedArrayInstance;
             if (o is null)
@@ -164,7 +164,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.copywithin
         /// </summary>
-        private JsValue CopyWithin(JsValue thisObj, JsValue[] arguments)
+        private JsValue CopyWithin(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
 
@@ -265,7 +265,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.entries
         /// </summary>
-        private JsValue Entries(JsValue thisObj, JsValue[] arguments)
+        private JsValue Entries(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
             return _realm.Intrinsics.ArrayIteratorPrototype.Construct(o, ArrayIteratorType.KeyAndValue);
@@ -274,7 +274,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.every
         /// </summary>
-        private JsValue Every(JsValue thisObj, JsValue[] arguments)
+        private JsValue Every(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
             var len = o.Length;
@@ -287,19 +287,13 @@ namespace Jint.Native.TypedArray
             var predicate = GetCallable(arguments.At(0));
             var thisArg = arguments.At(1);
 
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = o;
             for (var k = 0; k < len; k++)
             {
-                args[0] = o[k];
-                args[1] = k;
-                if (!TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
+                if (!TypeConverter.ToBoolean(predicate.Call(thisArg, new Arguments(o[k], k, o))))
                 {
                     return JsBoolean.False;
                 }
             }
-
-            _engine._jsValueArrayPool.ReturnArray(args);
 
             return JsBoolean.True;
         }
@@ -307,7 +301,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.fill
         /// </summary>
-        private JsValue Fill(JsValue thisObj, JsValue[] arguments)
+        private JsValue Fill(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
 
@@ -370,7 +364,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.filter
         /// </summary>
-        private JsValue Filter(JsValue thisObj, JsValue[] arguments)
+        private JsValue Filter(JsValue thisObj, in Arguments arguments)
         {
             var callbackfn = GetCallable(arguments.At(0));
             var thisArg = arguments.At(1);
@@ -381,14 +375,10 @@ namespace Jint.Native.TypedArray
             var kept = new List<JsValue>();
             var captured = 0;
 
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = o;
             for (var k = 0; k < len; k++)
             {
                 var kValue = o[k];
-                args[0] = kValue;
-                args[1] = k;
-                var selected = callbackfn.Call(thisArg, args);
+                var selected = callbackfn.Call(thisArg, new Arguments(kValue, k, o));
                 if (TypeConverter.ToBoolean(selected))
                 {
                     kept.Add(kValue);
@@ -396,9 +386,7 @@ namespace Jint.Native.TypedArray
                 }
             }
 
-            _engine._jsValueArrayPool.ReturnArray(args);
-
-            var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, new JsValue[] { captured });
+            var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, new Arguments(captured));
             for (var n = 0; n < captured; ++n)
             {
                 a[n] = kept[n];
@@ -410,7 +398,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.find
         /// </summary>
-        private JsValue Find(JsValue thisObj, JsValue[] arguments)
+        private JsValue Find(JsValue thisObj, in Arguments arguments)
         {
             return DoFind(thisObj, arguments).Value;
         }
@@ -418,22 +406,22 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.findindex
         /// </summary>
-        private JsValue FindIndex(JsValue thisObj, JsValue[] arguments)
+        private JsValue FindIndex(JsValue thisObj, in Arguments arguments)
         {
             return DoFind(thisObj, arguments).Key;
         }
 
-        private JsValue FindLast(JsValue thisObj, JsValue[] arguments)
+        private JsValue FindLast(JsValue thisObj, in Arguments arguments)
         {
             return DoFind(thisObj, arguments, fromEnd: true).Value;
         }
 
-        private JsValue FindLastIndex(JsValue thisObj, JsValue[] arguments)
+        private JsValue FindLastIndex(JsValue thisObj, in Arguments arguments)
         {
             return DoFind(thisObj, arguments, fromEnd: true).Key;
         }
 
-        private KeyValuePair<JsValue, JsValue> DoFind(JsValue thisObj, JsValue[] arguments, bool fromEnd = false)
+        private KeyValuePair<JsValue, JsValue> DoFind(JsValue thisObj, in Arguments arguments, bool fromEnd = false)
         {
             var o = thisObj.ValidateTypedArray(_realm);
             var len = (int) o.Length;
@@ -441,17 +429,13 @@ namespace Jint.Native.TypedArray
             var predicate = GetCallable(arguments.At(0));
             var thisArg = arguments.At(1);
 
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = o;
             if (!fromEnd)
             {
                 for (var k = 0; k < len; k++)
                 {
                     var kNumber = JsNumber.Create(k);
                     var kValue = o[k];
-                    args[0] = kValue;
-                    args[1] = kNumber;
-                    if (TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
+                    if (TypeConverter.ToBoolean(predicate.Call(thisArg, new Arguments(kValue, kNumber, o))))
                     {
                         return new KeyValuePair<JsValue, JsValue>(kNumber, kValue);
                     }
@@ -463,9 +447,7 @@ namespace Jint.Native.TypedArray
                 {
                     var kNumber = JsNumber.Create(k);
                     var kValue = o[k];
-                    args[0] = kValue;
-                    args[1] = kNumber;
-                    if (TypeConverter.ToBoolean(predicate.Call(thisArg, args)))
+                    if (TypeConverter.ToBoolean(predicate.Call(thisArg, new Arguments(kValue, kNumber, o))))
                     {
                         return new KeyValuePair<JsValue, JsValue>(kNumber, kValue);
                     }
@@ -478,7 +460,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.foreach
         /// </summary>
-        private JsValue ForEach(JsValue thisObj, JsValue[] arguments)
+        private JsValue ForEach(JsValue thisObj, in Arguments arguments)
         {
             var callbackfn = GetCallable(arguments.At(0));
             var thisArg = arguments.At(1);
@@ -486,17 +468,11 @@ namespace Jint.Native.TypedArray
             var o = thisObj.ValidateTypedArray(_realm);
             var len = o.Length;
 
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = o;
             for (var k = 0; k < len; k++)
             {
                 var kValue = o[k];
-                args[0] = kValue;
-                args[1] = k;
-                callbackfn.Call(thisArg, args);
+                callbackfn.Call(thisArg, new Arguments(kValue, k, o));
             }
-
-            _engine._jsValueArrayPool.ReturnArray(args);
 
             return Undefined;
         }
@@ -504,7 +480,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.includes
         /// </summary>
-        private JsValue Includes(JsValue thisObj, JsValue[] arguments)
+        private JsValue Includes(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
             var len = o.Length;
@@ -558,7 +534,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.indexof
         /// </summary>
-        private JsValue IndexOf(JsValue thisObj, JsValue[] arguments)
+        private JsValue IndexOf(JsValue thisObj, in Arguments arguments)
         {
             var searchElement = arguments.At(0);
             var fromIndex = arguments.At(1);
@@ -613,7 +589,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.join
         /// </summary>
-        private JsValue Join(JsValue thisObj, JsValue[] arguments)
+        private JsValue Join(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
 
@@ -654,7 +630,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.keys
         /// </summary>
-        private JsValue Keys(JsValue thisObj, JsValue[] arguments)
+        private JsValue Keys(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
             return _realm.Intrinsics.ArrayIteratorPrototype.Construct(o, ArrayIteratorType.Key);
@@ -663,7 +639,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.lastindexof
         /// </summary>
-        private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
+        private JsValue LastIndexOf(JsValue thisObj, in Arguments arguments)
         {
             var searchElement = arguments.At(0);
 
@@ -711,7 +687,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.map
         /// </summary>
-        private ObjectInstance Map(JsValue thisObj, JsValue[] arguments)
+        private ObjectInstance Map(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
             var len = o.Length;
@@ -719,25 +695,20 @@ namespace Jint.Native.TypedArray
             var thisArg = arguments.At(1);
             var callable = GetCallable(arguments.At(0));
 
-            var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, new JsValue[] { len });
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = o;
+            var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, new Arguments(len));
             for (var k = 0; k < len; k++)
             {
-                args[0] = o[k];
-                args[1] = k;
-                var mappedValue = callable.Call(thisArg, args);
+                var mappedValue = callable.Call(thisArg, new Arguments(o[k], k, o));
                 a[k] = mappedValue;
             }
 
-            _engine._jsValueArrayPool.ReturnArray(args);
             return a;
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.reduce
         /// </summary>
-        private JsValue Reduce(JsValue thisObj, JsValue[] arguments)
+        private JsValue Reduce(JsValue thisObj, in Arguments arguments)
         {
             var callbackfn = GetCallable(arguments.At(0));
             var initialValue = arguments.At(1);
@@ -762,19 +733,12 @@ namespace Jint.Native.TypedArray
                 k++;
             }
 
-            var args = _engine._jsValueArrayPool.RentArray(4);
-            args[3] = o;
             while (k < len)
             {
                 var kValue = o[k];
-                args[0] = accumulator;
-                args[1] = kValue;
-                args[2] = k;
-                accumulator = callbackfn.Call(Undefined, args);
+                accumulator = callbackfn.Call(Undefined, new Arguments(accumulator, kValue, k, o));
                 k++;
             }
-
-            _engine._jsValueArrayPool.ReturnArray(args);
 
             return accumulator;
         }
@@ -782,7 +746,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.reduceright
         /// </summary>
-        private JsValue ReduceRight(JsValue thisObj, JsValue[] arguments)
+        private JsValue ReduceRight(JsValue thisObj, in Arguments arguments)
         {
             var callbackfn = GetCallable(arguments.At(0));
             var initialValue = arguments.At(1);
@@ -807,24 +771,18 @@ namespace Jint.Native.TypedArray
                 k--;
             }
 
-            var jsValues = _engine._jsValueArrayPool.RentArray(4);
-            jsValues[3] = o;
             for (; k >= 0; k--)
             {
-                jsValues[0] = accumulator;
-                jsValues[1] = o[k];
-                jsValues[2] = k;
-                accumulator = callbackfn.Call(Undefined, jsValues);
+                accumulator = callbackfn.Call(Undefined, new Arguments(accumulator, o[k], k, o));
             }
 
-            _engine._jsValueArrayPool.ReturnArray(jsValues);
             return accumulator;
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.reverse
         /// </summary>
-        private ObjectInstance Reverse(JsValue thisObj, JsValue[] arguments)
+        private ObjectInstance Reverse(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
             var len = (int) o.Length;
@@ -849,7 +807,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.set
         /// </summary>
-        private JsValue Set(JsValue thisObj, JsValue[] arguments)
+        private JsValue Set(JsValue thisObj, in Arguments arguments)
         {
             var target = thisObj as TypedArrayInstance;
             if (target is null)
@@ -1017,7 +975,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/proposal-relative-indexing-method/#sec-%typedarray.prototype%-additions
         /// </summary>
-        private JsValue At(JsValue thisObj, JsValue[] arguments)
+        private JsValue At(JsValue thisObj, in Arguments arguments)
         {
             var start = arguments.At(0);
 
@@ -1047,7 +1005,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.slice
         /// </summary>
-        private JsValue Slice(JsValue thisObj, JsValue[] arguments)
+        private JsValue Slice(JsValue thisObj, in Arguments arguments)
         {
             var start = arguments.At(0);
             var end = arguments.At(1);
@@ -1089,7 +1047,7 @@ namespace Jint.Native.TypedArray
             }
 
             var count = System.Math.Max(final - k, 0);
-            var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, new JsValue[] { count });
+            var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, new Arguments(count));
 
             if (count > 0)
             {
@@ -1132,33 +1090,28 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.some
         /// </summary>
-        private JsValue Some(JsValue thisObj, JsValue[] arguments)
+        private JsValue Some(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
             var len = o.Length;
             var callbackfn = GetCallable(arguments.At(0));
             var thisArg = arguments.At(1);
 
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = o;
             for (var k = 0; k < len; k++)
             {
-                args[0] = o[k];
-                args[1] = k;
-                if (TypeConverter.ToBoolean(callbackfn.Call(thisArg, args)))
+                if (TypeConverter.ToBoolean(callbackfn.Call(thisArg, new Arguments(o[k], k, o))))
                 {
                     return JsBoolean.True;
                 }
             }
 
-            _engine._jsValueArrayPool.ReturnArray(args);
             return JsBoolean.False;
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.sort
         /// </summary>
-        private JsValue Sort(JsValue thisObj, JsValue[] arguments)
+        private JsValue Sort(JsValue thisObj, in Arguments arguments)
         {
             /*
              * %TypedArray%.prototype.sort is a distinct function that, except as described below,
@@ -1208,7 +1161,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.subarray
         /// </summary>
-        private JsValue Subarray(JsValue thisObj, JsValue[] arguments)
+        private JsValue Subarray(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj as TypedArrayInstance;
             if (o is null)
@@ -1265,14 +1218,14 @@ namespace Jint.Native.TypedArray
             var elementSize = o._arrayElementType.GetElementSize();
             var srcByteOffset = o._byteOffset;
             var beginByteOffset = srcByteOffset + beginIndex * elementSize;
-            var argumentsList = new JsValue[] { buffer, beginByteOffset, newLength };
+            var argumentsList = new Arguments(buffer, beginByteOffset, newLength);
             return _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, argumentsList);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.tolocalestring
         /// </summary>
-        private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToLocaleString(JsValue thisObj, in Arguments arguments)
         {
             /*
              * %TypedArray%.prototype.toLocaleString is a distinct function that implements the same algorithm as Array.prototype.toLocaleString
@@ -1328,7 +1281,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.values
         /// </summary>
-        private JsValue Values(JsValue thisObj, JsValue[] arguments)
+        private JsValue Values(JsValue thisObj, in Arguments arguments)
         {
             var o = thisObj.ValidateTypedArray(_realm);
             return _realm.Intrinsics.ArrayIteratorPrototype.Construct(o, ArrayIteratorType.Value);
@@ -1337,7 +1290,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-get-%typedarray%.prototype-@@tostringtag
         /// </summary>
-        private static JsValue ToStringTag(JsValue thisObj, JsValue[] arguments)
+        private static JsValue ToStringTag(JsValue thisObj, in Arguments arguments)
         {
             if (thisObj is not TypedArrayInstance o)
             {
@@ -1356,7 +1309,6 @@ namespace Jint.Native.TypedArray
 
             private readonly ArrayBufferInstance _buffer;
             private readonly ICallable _compare;
-            private readonly JsValue[] _comparableArray = new JsValue[2];
 
             private TypedArrayComparer(ArrayBufferInstance buffer, ICallable compare)
             {
@@ -1368,10 +1320,7 @@ namespace Jint.Native.TypedArray
             {
                 if (_compare is not null)
                 {
-                    _comparableArray[0] = x;
-                    _comparableArray[1] = y;
-
-                    var v = TypeConverter.ToNumber(_compare.Call(Undefined, _comparableArray));
+                    var v = TypeConverter.ToNumber(_compare.Call(Undefined, new Arguments(x, y)));
                     _buffer.AssertNotDetached();
 
                     if (double.IsNaN(v))

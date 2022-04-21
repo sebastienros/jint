@@ -18,9 +18,9 @@ namespace Jint.Tests.Runtime.Domain
             });
         }
 
-        private JsValue ToGuidString(JsValue thisObj, JsValue[] arguments) => EnsureUuidInstance(thisObj).PrimitiveValue.ToString();
+        private JsValue ToGuidString(JsValue thisObj, in Arguments arguments) => EnsureUuidInstance(thisObj).PrimitiveValue.ToString();
 
-        private JsValue ValueOf(JsValue thisObj, JsValue[] arguments) => EnsureUuidInstance(thisObj).PrimitiveValue;
+        private JsValue ValueOf(JsValue thisObj, in Arguments arguments) => EnsureUuidInstance(thisObj).PrimitiveValue;
 
         public static UuidPrototype CreatePrototypeObject(Engine engine, UuidConstructor ctor)
         {

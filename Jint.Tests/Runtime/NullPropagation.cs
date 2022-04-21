@@ -29,12 +29,12 @@ namespace Jint.Tests.Runtime
                     var name = reference.GetReferencedName().AsString();
                     if (name == "filter")
                     {
-                        value = new ClrFunctionInstance(engine, "map", (thisObj, values) => engine.Realm.Intrinsics.Array.ArrayCreate(0));
+                        value = new ClrFunctionInstance(engine, "map", (JsValue _, in Arguments _) => engine.Realm.Intrinsics.Array.ArrayCreate(0));
                         return true;
                     }
                 }
 
-                value = new ClrFunctionInstance(engine, "anonymous", (thisObj, values) => thisObj);
+                value = new ClrFunctionInstance(engine, "anonymous", (JsValue thisObj, in Arguments _) => thisObj);
                 return true;
             }
 

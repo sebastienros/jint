@@ -102,7 +102,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype-@@toprimitive
         /// </summary>
-        private JsValue ToPrimitive(JsValue thisObject, JsValue[] arguments)
+        private JsValue ToPrimitive(JsValue thisObject, in Arguments arguments)
         {
             var oi = thisObject as ObjectInstance;
             if (oi is null)
@@ -134,7 +134,7 @@ namespace Jint.Native.Date
             return TypeConverter.OrdinaryToPrimitive(oi, tryFirst);
         }
 
-        private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
+        private JsValue ValueOf(JsValue thisObj, in Arguments arguments)
         {
             return ThisTimeValue(thisObj);
         }
@@ -156,7 +156,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.tostring
         /// </summary>
-        public JsValue ToString(JsValue thisObj, JsValue[] arg2)
+        public JsValue ToString(JsValue thisObj, in Arguments arguments)
         {
             var tv = ThisTimeValue(thisObj);
             return ToDateString(tv);
@@ -165,7 +165,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.todatestring
         /// </summary>
-        private JsValue ToDateString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToDateString(JsValue thisObj, in Arguments arguments)
         {
             var tv = ThisTimeValue(thisObj);
 
@@ -195,7 +195,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.totimestring
         /// </summary>
-        private JsValue ToTimeString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToTimeString(JsValue thisObj, in Arguments arguments)
         {
             var tv = ThisTimeValue(thisObj);
 
@@ -212,7 +212,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.tolocalestring
         /// </summary>
-        private JsValue ToLocaleString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToLocaleString(JsValue thisObj, in Arguments arguments)
         {
             var dateInstance = ThisTimeValue(thisObj);
 
@@ -227,7 +227,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.tolocaledatestring
         /// </summary>
-        private JsValue ToLocaleDateString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToLocaleDateString(JsValue thisObj, in Arguments arguments)
         {
             var dateInstance = ThisTimeValue(thisObj);
 
@@ -242,7 +242,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.tolocaletimestring
         /// </summary>
-        private JsValue ToLocaleTimeString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToLocaleTimeString(JsValue thisObj, in Arguments arguments)
         {
             var dateInstance = ThisTimeValue(thisObj);
 
@@ -254,7 +254,7 @@ namespace Jint.Native.Date
             return ToLocalTime(dateInstance.ToDateTime(), Engine.Options.TimeZone).ToString("T", Engine.Options.Culture);
         }
 
-        private JsValue GetTime(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetTime(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -264,7 +264,7 @@ namespace Jint.Native.Date
             return t;
         }
 
-        private JsValue GetFullYear(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetFullYear(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -274,7 +274,7 @@ namespace Jint.Native.Date
             return YearFromTime(LocalTime(t));
         }
 
-        private JsValue GetYear(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetYear(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -284,7 +284,7 @@ namespace Jint.Native.Date
             return YearFromTime(LocalTime(t)) - 1900;
         }
 
-        private JsValue GetUTCFullYear(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetUTCFullYear(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -294,7 +294,7 @@ namespace Jint.Native.Date
             return YearFromTime(t);
         }
 
-        private JsValue GetMonth(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetMonth(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -307,7 +307,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.getutcmonth
         /// </summary>
-        private JsValue GetUTCMonth(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetUTCMonth(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -320,7 +320,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.getdate
         /// </summary>
-        private JsValue GetDate(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetDate(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -330,7 +330,7 @@ namespace Jint.Native.Date
             return DateFromTime(LocalTime(t));
         }
 
-        private JsValue GetUTCDate(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetUTCDate(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -340,7 +340,7 @@ namespace Jint.Native.Date
             return DateFromTime(t);
         }
 
-        private JsValue GetDay(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetDay(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -350,7 +350,7 @@ namespace Jint.Native.Date
             return WeekDay(LocalTime(t));
         }
 
-        private JsValue GetUTCDay(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetUTCDay(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -360,7 +360,7 @@ namespace Jint.Native.Date
             return WeekDay(t);
         }
 
-        private JsValue GetHours(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetHours(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -370,7 +370,7 @@ namespace Jint.Native.Date
             return HourFromTime(LocalTime(t));
         }
 
-        private JsValue GetUTCHours(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetUTCHours(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -380,7 +380,7 @@ namespace Jint.Native.Date
             return HourFromTime(t);
         }
 
-        private JsValue GetMinutes(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetMinutes(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -390,7 +390,7 @@ namespace Jint.Native.Date
             return MinFromTime(LocalTime(t));
         }
 
-        private JsValue GetUTCMinutes(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetUTCMinutes(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -400,7 +400,7 @@ namespace Jint.Native.Date
             return MinFromTime(t);
         }
 
-        private JsValue GetSeconds(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetSeconds(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -410,7 +410,7 @@ namespace Jint.Native.Date
             return SecFromTime(LocalTime(t));
         }
 
-        private JsValue GetUTCSeconds(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetUTCSeconds(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -420,7 +420,7 @@ namespace Jint.Native.Date
             return SecFromTime(t);
         }
 
-        private JsValue GetMilliseconds(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetMilliseconds(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -430,7 +430,7 @@ namespace Jint.Native.Date
             return MsFromTime(LocalTime(t));
         }
 
-        private JsValue GetUTCMilliseconds(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetUTCMilliseconds(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -440,7 +440,7 @@ namespace Jint.Native.Date
             return MsFromTime(t);
         }
 
-        private JsValue GetTimezoneOffset(JsValue thisObj, JsValue[] arguments)
+        private JsValue GetTimezoneOffset(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             if (double.IsNaN(t))
@@ -453,7 +453,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.settime
         /// </summary>
-        private JsValue SetTime(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetTime(JsValue thisObj, in Arguments arguments)
         {
             ThisTimeValue(thisObj);
             var t = TypeConverter.ToNumber(arguments.At(0));
@@ -466,7 +466,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setmilliseconds
         /// </summary>
-        private JsValue SetMilliseconds(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetMilliseconds(JsValue thisObj, in Arguments arguments)
         {
             var t = LocalTime(ThisTimeValue(thisObj));
             var ms = TypeConverter.ToNumber(arguments.At(0));
@@ -485,7 +485,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setutcmilliseconds
         /// </summary>
-        private JsValue SetUTCMilliseconds(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetUTCMilliseconds(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             var milli = TypeConverter.ToNumber(arguments.At(0));
@@ -504,7 +504,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setseconds
         /// </summary>
-        private JsValue SetSeconds(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetSeconds(JsValue thisObj, in Arguments arguments)
         {
             var t = LocalTime(ThisTimeValue(thisObj));
             var s = TypeConverter.ToNumber(arguments.At(0));
@@ -524,7 +524,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setutcseconds
         /// </summary>
-        private JsValue SetUTCSeconds(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetUTCSeconds(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             var s = TypeConverter.ToNumber(arguments.At(0));
@@ -544,7 +544,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setminutes
         /// </summary>
-        private JsValue SetMinutes(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetMinutes(JsValue thisObj, in Arguments arguments)
         {
             var t = LocalTime(ThisTimeValue(thisObj));
             var m = TypeConverter.ToNumber(arguments.At(0));
@@ -565,7 +565,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setutcminutes
         /// </summary>
-        private JsValue SetUTCMinutes(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetUTCMinutes(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             var m = TypeConverter.ToNumber(arguments.At(0));
@@ -586,7 +586,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.sethours
         /// </summary>
-        private JsValue SetHours(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetHours(JsValue thisObj, in Arguments arguments)
         {
             var t = LocalTime(ThisTimeValue(thisObj));
             var h = TypeConverter.ToNumber(arguments.At(0));
@@ -608,7 +608,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setutchours
         /// </summary>
-        private JsValue SetUTCHours(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetUTCHours(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             var h = TypeConverter.ToNumber(arguments.At(0));
@@ -630,7 +630,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setdate
         /// </summary>
-        private JsValue SetDate(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetDate(JsValue thisObj, in Arguments arguments)
         {
             var t = LocalTime(ThisTimeValue(thisObj));
             var dt = TypeConverter.ToNumber(arguments.At(0));
@@ -650,7 +650,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setutcdate
         /// </summary>
-        private JsValue SetUTCDate(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetUTCDate(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             var dt = TypeConverter.ToNumber(arguments.At(0));
@@ -669,7 +669,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setmonth
         /// </summary>
-        private JsValue SetMonth(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetMonth(JsValue thisObj, in Arguments arguments)
         {
             var t = LocalTime(ThisTimeValue(thisObj));
             var m = TypeConverter.ToNumber(arguments.At(0));
@@ -689,7 +689,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setutcmonth
         /// </summary>
-        private JsValue SetUTCMonth(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetUTCMonth(JsValue thisObj, in Arguments arguments)
         {
             var t = ThisTimeValue(thisObj);
             var m = TypeConverter.ToNumber(arguments.At(0));
@@ -709,7 +709,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setfullyear
         /// </summary>
-        private JsValue SetFullYear(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetFullYear(JsValue thisObj, in Arguments arguments)
         {
             var thisTime = ThisTimeValue(thisObj);
             var t = double.IsNaN(thisTime) ? 0 : LocalTime(thisTime);
@@ -726,7 +726,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setyear
         /// </summary>
-        private JsValue SetYear(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetYear(JsValue thisObj, in Arguments arguments)
         {
             var thisTime = ThisTimeValue(thisObj);
             var t = double.IsNaN(thisTime) ? 0 : LocalTime(thisTime);
@@ -752,7 +752,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.setutcfullyear
         /// </summary>
-        private JsValue SetUTCFullYear(JsValue thisObj, JsValue[] arguments)
+        private JsValue SetUTCFullYear(JsValue thisObj, in Arguments arguments)
         {
             var thisTime = ThisTimeValue(thisObj);
             var t = (long) (double.IsNaN(thisTime) ? 0 : thisTime);
@@ -768,7 +768,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.toutcstring
         /// </summary>
-        private JsValue ToUtcString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToUtcString(JsValue thisObj, in Arguments arguments)
         {
             var thisTime = ThisTimeValue(thisObj);
             if (!IsFinite(thisTime))
@@ -781,7 +781,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.toisostring
         /// </summary>
-        private JsValue ToISOString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToISOString(JsValue thisObj, in Arguments arguments)
         {
             var thisTime = ThisTimeValue(thisObj);
             var t = thisTime;
@@ -810,7 +810,7 @@ namespace Jint.Native.Date
             return $"{year:0000}-{month:00}-{day:00}T{h:00}:{m:00}:{s:00}.{ms:000}Z";
         }
 
-        private JsValue ToJSON(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToJSON(JsValue thisObj, in Arguments arguments)
         {
             var o = TypeConverter.ToObject(_realm, thisObj);
             var tv = TypeConverter.ToPrimitive(o, Types.Number);

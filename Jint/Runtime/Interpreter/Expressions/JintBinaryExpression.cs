@@ -42,7 +42,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var leftType = left.GetType();
                 var rightType = right.GetType();
-                var arguments = new[] { leftValue, rightValue };
+                var arguments = new Arguments(leftValue, rightValue);
 
                 var key = new OperatorKey(clrName, leftType, rightType);
                 var method = _knownOperators.GetOrAdd(key, _ =>

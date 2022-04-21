@@ -33,13 +33,13 @@ namespace Jint.Native.Proxy
             SetProperties(properties);
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Constructor Proxy requires 'new'");
             return null;
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {
@@ -65,18 +65,18 @@ namespace Jint.Native.Proxy
         /// <summary>
         /// https://tc39.es/ecma262/#sec-proxy.revocable
         /// </summary>
-        private JsValue Revocable(JsValue thisObject, JsValue[] arguments)
+        private JsValue Revocable(JsValue thisObject, in Arguments arguments)
         {
             var p = ProxyCreate(arguments.At(0), arguments.At(1));
 
-            JsValue Revoke(JsValue thisObject, JsValue[] arguments)
+            JsValue Revoke(JsValue thisObject, in Arguments arguments)
             {
                 p._handler = null;
                 p._target = null;
                 return Undefined;
             }
 
-            var result = _realm.Intrinsics.Object.Construct(System.Array.Empty<JsValue>());
+            var result = _realm.Intrinsics.Object.Construct(Arguments.Empty);
             result.DefineOwnProperty(PropertyRevoke, new PropertyDescriptor(new ClrFunctionInstance(_engine, name: "", Revoke, 0, PropertyFlag.Configurable), PropertyFlag.ConfigurableEnumerableWritable));
             result.DefineOwnProperty(PropertyProxy, new PropertyDescriptor(p, PropertyFlag.ConfigurableEnumerableWritable));
             return result;

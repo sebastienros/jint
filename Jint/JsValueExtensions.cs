@@ -438,7 +438,7 @@ namespace Jint
             {
                 ExceptionHelper.ThrowArgumentException(value + " is not callable");
             }
-            return ((ICallable) value).Call(JsValue.Undefined, arguments);
+            return ((ICallable) value).Call(JsValue.Undefined, new Arguments(arguments, arguments.Length));
         }
 
         /// <summary>

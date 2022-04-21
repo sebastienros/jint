@@ -87,10 +87,9 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-construct
         /// </summary>
-        internal static ObjectInstance Construct(IConstructor f, JsValue[] argumentsList = null, IConstructor newTarget = null)
+        internal static ObjectInstance Construct(IConstructor f, in Arguments argumentsList, IConstructor newTarget = null)
         {
             newTarget ??= f;
-            argumentsList ??= System.Array.Empty<JsValue>();
             return f.Construct(argumentsList, (JsValue) newTarget);
         }
 
@@ -520,7 +519,7 @@ namespace Jint.Native.Object
                 return false;
             }
 
-            _engine.Call(setter, receiver, new[] { value }, expression: null);
+            _engine.Call(setter, receiver, new Arguments(value), expression: null);
 
             return true;
         }
@@ -961,7 +960,7 @@ namespace Jint.Native.Object
                 case ObjectClass.Function:
                     if (this is ICallable function)
                     {
-                        converted = (Func<JsValue, JsValue[], JsValue>) function.Call;
+                        converted = (Func<JsValue, Arguments, JsValue>) ((thisObject, arguments) => function.Call(thisObject, arguments));
                     }
 
                     break;
@@ -1013,7 +1012,7 @@ namespace Jint.Native.Object
         /// Handles the generic find of (callback[, thisArg])
         /// </summary>
         internal virtual bool FindWithCallback(
-            JsValue[] arguments,
+            Arguments arguments,
             out uint index,
             out JsValue value,
             bool visitUnassigned,
@@ -1066,16 +1065,12 @@ namespace Jint.Native.Object
             var thisArg = arguments.At(1);
             var callable = GetCallable(callbackfn);
 
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = this;
             var length = GetLength();
             for (uint k = 0; k < length; k++)
             {
                 if (TryGetValue(k, out var kvalue) || visitUnassigned)
                 {
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var testResult = callable.Call(thisArg, args);
+                    var testResult = callable.Call(thisArg, new Arguments(kvalue, k, this));
                     if (TypeConverter.ToBoolean(testResult))
                     {
                         index = k;
@@ -1084,8 +1079,6 @@ namespace Jint.Native.Object
                     }
                 }
             }
-
-            _engine._jsValueArrayPool.ReturnArray(args);
 
             index = 0;
             value = Undefined;

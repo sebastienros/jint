@@ -59,7 +59,7 @@ namespace Jint.Native.Symbol
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/index.html#sec-symbol-description
         /// </summary>
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             var description = arguments.At(0);
             var descString = description.IsUndefined()
@@ -73,7 +73,7 @@ namespace Jint.Native.Symbol
         /// <summary>
         /// https://tc39.es/ecma262/#sec-symbol.for
         /// </summary>
-        private JsValue For(JsValue thisObj, JsValue[] arguments)
+        private JsValue For(JsValue thisObj, in Arguments arguments)
         {
             var stringKey = TypeConverter.ToJsString(arguments.At(0));
 
@@ -91,7 +91,7 @@ namespace Jint.Native.Symbol
         /// <summary>
         /// https://tc39.es/ecma262/#sec-symbol.keyfor
         /// </summary>
-        private JsValue KeyFor(JsValue thisObj, JsValue[] arguments)
+        private JsValue KeyFor(JsValue thisObj, in Arguments arguments)
         {
             var symbol = arguments.At(0) as JsSymbol;
             if (symbol is null)
@@ -107,7 +107,7 @@ namespace Jint.Native.Symbol
             return Undefined;
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Symbol is not a constructor");
             return null;

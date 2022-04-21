@@ -25,13 +25,13 @@ namespace Jint.Native.WeakMap
 
         public WeakMapPrototype PrototypeObject { get; }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Constructor WeakMap requires 'new'");
             return null;
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {

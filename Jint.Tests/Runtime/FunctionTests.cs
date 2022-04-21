@@ -88,9 +88,9 @@ assertEqual(booleanCount, 1);
 ";
             var engine = new Engine();
             engine
-                .SetValue("testFunction", new ClrFunctionInstance(engine, "testFunction", (thisValue, args) =>
+                .SetValue("testFunction", new ClrFunctionInstance(engine, "testFunction", (JsValue thisValue, in Arguments args) =>
                 {
-                    return engine.Invoke(thisValue, "then", new[] { Undefined.Instance, args.At(0) });
+                    return engine.Invoke(thisValue, "then", new Arguments(Undefined.Instance, args.At(0)));
                 }))
                 .SetValue("assertEqual", new Action<object, object>((a, b) => Assert.Equal(b, a)))
                 .Execute(script);

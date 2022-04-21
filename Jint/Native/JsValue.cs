@@ -196,7 +196,7 @@ namespace Jint.Native
             var instOfHandler = oi.GetMethod(GlobalSymbolRegistry.HasInstance);
             if (instOfHandler is not null)
             {
-                return TypeConverter.ToBoolean(instOfHandler.Call(target, new[] {this}));
+                return TypeConverter.ToBoolean(instOfHandler.Call(target, new Arguments(this)));
             }
 
             if (!target.IsCallable)

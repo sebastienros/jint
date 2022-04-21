@@ -47,7 +47,7 @@ namespace Jint.Native.Number
             SetProperties(properties);
         }
 
-        private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
+        private JsValue ToLocaleString(JsValue thisObject, in Arguments arguments)
         {
             if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
             {
@@ -84,7 +84,7 @@ namespace Jint.Native.Number
             return m.ToString("n", Engine.Options.Culture);
         }
 
-        private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
+        private JsValue ValueOf(JsValue thisObj, in Arguments arguments)
         {
             if (thisObj is NumberInstance ni)
             {
@@ -102,7 +102,7 @@ namespace Jint.Native.Number
 
         private const double Ten21 = 1e21;
 
-        private JsValue ToFixed(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToFixed(JsValue thisObj, in Arguments arguments)
         {
             var f = (int) TypeConverter.ToInteger(arguments.At(0, 0));
             if (f < 0 || f > 100)
@@ -140,7 +140,7 @@ namespace Jint.Native.Number
         /// <summary>
         /// https://www.ecma-international.org/ecma-262/6.0/#sec-number.prototype.toexponential
         /// </summary>
-        private JsValue ToExponential(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToExponential(JsValue thisObj, in Arguments arguments)
         {
             if (!thisObj.IsNumber() && ReferenceEquals(thisObj.TryCast<NumberInstance>(), null))
             {
@@ -217,7 +217,7 @@ namespace Jint.Native.Number
             return result;
         }
 
-        private JsValue ToPrecision(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToPrecision(JsValue thisObj, in Arguments arguments)
         {
             if (!thisObj.IsNumber() && ReferenceEquals(thisObj.TryCast<NumberInstance>(), null))
             {
@@ -339,7 +339,7 @@ namespace Jint.Native.Number
             }
         }
 
-        private JsValue ToNumberString(JsValue thisObject, JsValue[] arguments)
+        private JsValue ToNumberString(JsValue thisObject, in Arguments arguments)
         {
             if (!thisObject.IsNumber() && (ReferenceEquals(thisObject.TryCast<NumberInstance>(), null)))
             {

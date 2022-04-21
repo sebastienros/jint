@@ -47,7 +47,7 @@ namespace Jint.Native.Symbol
         /// <summary>
         /// https://tc39.es/ecma262/#sec-symbol.prototype.description
         /// </summary>
-        private JsValue Description(JsValue thisObject, JsValue[] arguments)
+        private JsValue Description(JsValue thisObject, in Arguments arguments)
         {
             var sym = ThisSymbolValue(thisObject);
             return sym._value;
@@ -56,7 +56,7 @@ namespace Jint.Native.Symbol
         /// <summary>
         /// https://tc39.es/ecma262/#sec-symbol.prototype.tostring
         /// </summary>
-        private JsValue ToSymbolString(JsValue thisObject, JsValue[] arguments)
+        private JsValue ToSymbolString(JsValue thisObject, in Arguments arguments)
         {
             var sym = ThisSymbolValue(thisObject);
             return new JsString(sym.ToString());
@@ -65,7 +65,7 @@ namespace Jint.Native.Symbol
         /// <summary>
         /// https://tc39.es/ecma262/#sec-symbol.prototype.valueof
         /// </summary>
-        private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
+        private JsValue ValueOf(JsValue thisObject, in Arguments arguments)
         {
             return ThisSymbolValue(thisObject);
         }
@@ -73,7 +73,7 @@ namespace Jint.Native.Symbol
         /// <summary>
         /// https://tc39.es/ecma262/#sec-symbol.prototype-@@toprimitive
         /// </summary>
-        private JsValue ToPrimitive(JsValue thisObject, JsValue[] arguments)
+        private JsValue ToPrimitive(JsValue thisObject, in Arguments arguments)
         {
             return ThisSymbolValue(thisObject);
         }

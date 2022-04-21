@@ -90,7 +90,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.parse
         /// </summary>
-        private JsValue Parse(JsValue thisObj, JsValue[] arguments)
+        private JsValue Parse(JsValue thisObj, in Arguments arguments)
         {
             var date = TypeConverter.ToString(arguments.At(0));
             var negative = date.StartsWith("-");
@@ -126,7 +126,7 @@ namespace Jint.Native.Date
             return FromDateTime(result, negative);
         }
 
-        private static JsValue Utc(JsValue thisObj, JsValue[] arguments)
+        private static JsValue Utc(JsValue thisObj, in Arguments arguments)
         {
             var y = TypeConverter.ToNumber(arguments.At(0));
             var m = TypeConverter.ToNumber(arguments.At(1, JsNumber.PositiveZero));
@@ -149,22 +149,22 @@ namespace Jint.Native.Date
             return TimeClip(finalDate);
         }
 
-        private static JsValue Now(JsValue thisObj, JsValue[] arguments)
+        private static JsValue Now(JsValue thisObj, in Arguments arguments)
         {
             return System.Math.Floor((DateTime.UtcNow - Epoch).TotalMilliseconds);
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             return PrototypeObject.ToString(Construct(Arguments.Empty, thisObject), Arguments.Empty);
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget) => Construct(arguments, newTarget);
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date
         /// </summary>
-        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        private ObjectInstance Construct(in Arguments arguments, JsValue newTarget)
         {
             double dv;
             if (arguments.Length == 0 || newTarget.IsUndefined())
@@ -181,7 +181,7 @@ namespace Jint.Native.Date
                 var v = TypeConverter.ToPrimitive(arguments[0]);
                 if (v.IsString())
                 {
-                    return Construct(((JsNumber) Parse(Undefined, Arguments.From(v)))._value);
+                    return Construct(((JsNumber) Parse(Undefined, new Arguments(v)))._value);
                 }
 
                 dv = TimeClip(TypeConverter.ToNumber(v));

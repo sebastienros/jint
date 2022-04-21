@@ -1,4 +1,6 @@
-﻿using Jint.Native.Object;
+﻿using System;
+using Jint.Native.Object;
+using Jint.Pooling;
 using Jint.Runtime;
 
 namespace Jint.Native.Function
@@ -10,19 +12,21 @@ namespace Jint.Native.Function
     {
         private readonly Realm _realm;
 
-        public BindFunctionInstance(Engine engine,
+        public BindFunctionInstance(
+            Engine engine,
             Realm realm,
             ObjectInstance proto,
             ObjectInstance targetFunction,
             JsValue boundThis,
-            JsValue[] boundArgs)
+            in Arguments boundArgs)
             : base(engine, ObjectClass.Function)
         {
             _realm = realm;
             _prototype = proto;
             BoundTargetFunction = targetFunction;
             BoundThis = boundThis;
-            BoundArguments = boundArgs;
+            BoundArguments = new JsValue[boundArgs.Length];
+            boundArgs.CopyTo(BoundArguments);
         }
 
         /// <summary>
@@ -40,7 +44,7 @@ namespace Jint.Native.Function
         /// </summary>
         public JsValue[] BoundArguments { get; }
 
-        JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments)
+        JsValue ICallable.Call(JsValue thisObject, in Arguments arguments)
         {
             var f = BoundTargetFunction as FunctionInstance;
             if (f is null)
@@ -48,14 +52,12 @@ namespace Jint.Native.Function
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var args = CreateArguments(arguments);
-            var value = f.Call(BoundThis, args);
-            _engine._jsValueArrayPool.ReturnArray(args);
-
+            using var args = CreateArguments(arguments);
+            var value = f.Call(BoundThis, new Arguments(args._array, args.Span.Length));
             return value;
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget)
         {
             var target = BoundTargetFunction as IConstructor;
             if (target is null)
@@ -63,16 +65,14 @@ namespace Jint.Native.Function
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var args = CreateArguments(arguments);
+            using var args = CreateArguments(arguments);
 
             if (ReferenceEquals(this, newTarget))
             {
                 newTarget = BoundTargetFunction;
             }
 
-            var value = target.Construct(args, newTarget);
-            _engine._jsValueArrayPool.ReturnArray(args);
-
+            var value = target.Construct(new Arguments(args._array, args.Span.Length), newTarget);
             return value;
         }
 
@@ -87,11 +87,11 @@ namespace Jint.Native.Function
             return f.OrdinaryHasInstance(v);
         }
 
-        private JsValue[] CreateArguments(JsValue[] arguments)
+        private JsValueArrayPool.ArrayRentHolder CreateArguments(in Arguments arguments)
         {
             var combined = _engine._jsValueArrayPool.RentArray(BoundArguments.Length + arguments.Length);
-            System.Array.Copy(BoundArguments, combined, BoundArguments.Length);
-            System.Array.Copy(arguments, 0, combined, BoundArguments.Length, arguments.Length);
+            System.Array.Copy(BoundArguments, combined._array, BoundArguments.Length);
+            arguments.CopyTo(combined._array.AsSpan(BoundArguments.Length));
             return combined;
         }
 

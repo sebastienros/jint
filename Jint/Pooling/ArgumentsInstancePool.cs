@@ -1,6 +1,6 @@
-﻿using Jint.Native;
-using Jint.Native.Argument;
+﻿using Jint.Native.Argument;
 using Jint.Native.Function;
+using Jint.Runtime;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
@@ -29,12 +29,12 @@ namespace Jint.Pooling
             };
         }
 
-        public ArgumentsInstance Rent(JsValue[] argumentsList) => Rent(null, null, argumentsList, null, false);
+        public ArgumentsInstance Rent(in Arguments argumentsList) => Rent(null, null, argumentsList, null, false);
 
         public ArgumentsInstance Rent(
             FunctionInstance func,
             Key[] formals,
-            JsValue[] argumentsList,
+            Arguments argumentsList,
             DeclarativeEnvironmentRecord env, 
             bool hasRestParameter)
         {

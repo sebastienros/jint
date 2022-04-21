@@ -75,7 +75,7 @@ namespace Jint.Native.Math
             SetSymbols(symbols);
         }
 
-        private static JsValue Abs(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Abs(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -95,7 +95,7 @@ namespace Jint.Native.Math
             return System.Math.Abs(x);
         }
 
-        private static JsValue Acos(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Acos(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -111,7 +111,7 @@ namespace Jint.Native.Math
             return System.Math.Acos(x);
         }
 
-        private static JsValue Acosh(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Acosh(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -123,7 +123,7 @@ namespace Jint.Native.Math
             return System.Math.Log(x + System.Math.Sqrt(x * x - 1.0));
         }
 
-        private static JsValue Asin(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Asin(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -139,7 +139,7 @@ namespace Jint.Native.Math
             return System.Math.Asin(x);
         }
 
-        private static JsValue Asinh(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Asinh(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
             if (double.IsInfinity(x) || NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x))
@@ -150,7 +150,7 @@ namespace Jint.Native.Math
             return System.Math.Log(x + System.Math.Sqrt(x * x + 1.0));
         }
 
-        private static JsValue Atan(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Atan(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -173,7 +173,7 @@ namespace Jint.Native.Math
 
             return System.Math.Atan(x);
         }
-        private static JsValue Atanh(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Atanh(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -190,7 +190,7 @@ namespace Jint.Native.Math
             return 0.5 * System.Math.Log((1.0 + x) / (1.0 - x));
         }
 
-        private static JsValue Atan2(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Atan2(JsValue thisObject, in Arguments arguments)
         {
             var y = TypeConverter.ToNumber(arguments.At(0));
             var x = TypeConverter.ToNumber(arguments.At(1));
@@ -338,7 +338,7 @@ namespace Jint.Native.Math
             return System.Math.Atan2(y, x);
         }
 
-        private static JsValue Ceil(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Ceil(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -373,7 +373,7 @@ namespace Jint.Native.Math
             return System.Math.Ceiling(x);
         }
 
-        private static JsValue Cos(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Cos(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -397,7 +397,7 @@ namespace Jint.Native.Math
             return System.Math.Cos(x);
         }
 
-        private static JsValue Cosh(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Cosh(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -421,7 +421,7 @@ namespace Jint.Native.Math
             return System.Math.Cosh(x);
         }
 
-        private static JsValue Exp(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Exp(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -445,7 +445,7 @@ namespace Jint.Native.Math
             return System.Math.Exp(x);
         }
 
-        private static JsValue Expm1(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Expm1(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -461,7 +461,7 @@ namespace Jint.Native.Math
             return System.Math.Exp(x) - 1.0;
         }
 
-        private static JsValue Floor(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Floor(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -489,7 +489,7 @@ namespace Jint.Native.Math
             return System.Math.Floor(x);
         }
 
-        private static JsValue Log(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Log(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -517,7 +517,7 @@ namespace Jint.Native.Math
             return System.Math.Log(x);
         }
 
-        private static JsValue Log1p(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Log1p(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -544,7 +544,7 @@ namespace Jint.Native.Math
             return System.Math.Log(1 + x);
         }
 
-        private static JsValue Log2(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Log2(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -572,7 +572,7 @@ namespace Jint.Native.Math
             return System.Math.Log(x, 2);
         }
 
-        private static JsValue Log10(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Log10(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -603,7 +603,7 @@ namespace Jint.Native.Math
         /// <summary>
         /// https://tc39.es/ecma262/#sec-math.max
         /// </summary>
-        private static JsValue Max(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Max(JsValue thisObject, in Arguments arguments)
         {
             if (arguments.Length == 0)
             {
@@ -635,7 +635,7 @@ namespace Jint.Native.Math
         /// <summary>
         /// https://tc39.es/ecma262/#sec-math.min
         /// </summary>
-        private static JsValue Min(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Min(JsValue thisObject, in Arguments arguments)
         {
             if (arguments.Length == 0)
             {
@@ -664,7 +664,7 @@ namespace Jint.Native.Math
             return lowest;
         }
 
-        private static JsValue Pow(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Pow(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
             var y = TypeConverter.ToNumber(arguments.At(1));
@@ -818,7 +818,7 @@ namespace Jint.Native.Math
             return System.Math.Pow(x, y);
         }
 
-        private JsValue Random(JsValue thisObject, JsValue[] arguments)
+        private JsValue Random(JsValue thisObject, in Arguments arguments)
         {
             if(_random == null)
             {
@@ -828,7 +828,7 @@ namespace Jint.Native.Math
             return _random.NextDouble();
         }
 
-        private static JsValue Round(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Round(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
             var round = System.Math.Round(x);
@@ -840,13 +840,13 @@ namespace Jint.Native.Math
             return round;
         }
 
-        private static JsValue Fround(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Fround(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
             return (double) (float) x;
         }
 
-        private static JsValue Sin(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Sin(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -870,7 +870,7 @@ namespace Jint.Native.Math
             return System.Math.Sin(x);
         }
 
-        private static JsValue Sinh(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Sinh(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -898,25 +898,25 @@ namespace Jint.Native.Math
             return System.Math.Sinh(x);
         }
 
-        private static JsValue Sqrt(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Sqrt(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
             return System.Math.Sqrt(x);
         }
 
-        private static JsValue Tan(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Tan(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
             return System.Math.Tan(x);
         }
 
-        private static JsValue Tanh(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Tanh(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
             return System.Math.Tanh(x);
         }
 
-        private static JsValue Truncate(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Truncate(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -943,7 +943,7 @@ namespace Jint.Native.Math
             return System.Math.Truncate(x);
         }
 
-        private static JsValue Sign(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Sign(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -970,7 +970,7 @@ namespace Jint.Native.Math
             return System.Math.Sign(x);
         }
 
-        private static JsValue Cbrt(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Cbrt(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -1002,7 +1002,7 @@ namespace Jint.Native.Math
         /// <summary>
         /// https://tc39.es/ecma262/#sec-math.hypot
         /// </summary>
-        private static JsValue Hypot(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Hypot(JsValue thisObject, in Arguments arguments)
         {
             var coerced = Coerced(arguments);
 
@@ -1039,7 +1039,7 @@ namespace Jint.Native.Math
             return System.Math.Sqrt(y);
         }
 
-        private static double[] Coerced(JsValue[] arguments)
+        private static double[] Coerced(in Arguments arguments)
         {
             // TODO stackalloc
             var coerced = new double[arguments.Length];
@@ -1052,7 +1052,7 @@ namespace Jint.Native.Math
             return coerced;
         }
 
-        private static JsValue Imul(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Imul(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToInt32(arguments.At(0));
             var y = TypeConverter.ToInt32(arguments.At(1));
@@ -1060,7 +1060,7 @@ namespace Jint.Native.Math
             return x * y;
         }
 
-        private static JsValue Clz32(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Clz32(JsValue thisObject, in Arguments arguments)
         {
             var x = TypeConverter.ToInt32(arguments.At(0));
             if (x < 0)

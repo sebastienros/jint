@@ -100,7 +100,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _index = startIndex - 1;
             }
 
-            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
+            protected override void ProcessItem(JsValue currentValue)
             {
                 _index++;
                 _addedCount++;

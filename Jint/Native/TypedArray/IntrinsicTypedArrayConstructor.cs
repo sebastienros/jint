@@ -47,7 +47,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.from
         /// </summary>
-        private JsValue From(JsValue thisObj, JsValue[] arguments)
+        private JsValue From(JsValue thisObj, in Arguments arguments)
         {
             var c = thisObj;
             if (!c.IsConstructor)
@@ -73,12 +73,12 @@ namespace Jint.Native.TypedArray
             {
                 var values = TypedArrayConstructor.IterableToList(_realm, source, usingIterator);
                 var iteratorLen = values.Count;
-                var iteratorTarget = TypedArrayCreate((IConstructor) c, new JsValue[] { iteratorLen });
+                var iteratorTarget = TypedArrayCreate((IConstructor) c, new Arguments(iteratorLen));
                 for (var k = 0; k < iteratorLen; ++k)
                 {
                     var kValue = values[k];
                     var mappedValue = mapping
-                        ? ((ICallable) mapFunction).Call(thisArg, new[] { kValue, k })
+                        ? ((ICallable) mapFunction).Call(thisArg, new Arguments(kValue, k))
                         : kValue;
                     iteratorTarget[k] = mappedValue;
                 }
@@ -94,10 +94,8 @@ namespace Jint.Native.TypedArray
             var arrayLike = TypeConverter.ToObject(_realm, source);
             var len = arrayLike.Length;
 
-            var argumentList = new JsValue[] { JsNumber.Create(len) };
-            var targetObj = TypedArrayCreate((IConstructor) c, argumentList);
+            var targetObj = TypedArrayCreate((IConstructor) c, new Arguments(JsNumber.Create(len)));
 
-            var mappingArgs = mapping ? new JsValue[2] : null;
             for (uint k = 0; k < len; ++k)
             {
                 var Pk = JsNumber.Create(k);
@@ -105,9 +103,7 @@ namespace Jint.Native.TypedArray
                 JsValue mappedValue;
                 if (mapping)
                 {
-                    mappingArgs[0] = kValue;
-                    mappingArgs[1] = Pk;
-                    mappedValue = ((ICallable) mapFunction).Call(thisArg, mappingArgs);
+                    mappedValue = ((ICallable) mapFunction).Call(thisArg, new Arguments(kValue, Pk));
                 }
                 else
                 {
@@ -123,7 +119,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-%typedarray%.of
         /// </summary>
-        private JsValue Of(JsValue thisObj, JsValue[] items)
+        private JsValue Of(JsValue thisObj, in Arguments items)
         {
             var len = items.Length;
 
@@ -132,7 +128,7 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var newObj = TypedArrayCreate((IConstructor) thisObj, new JsValue[] { len });
+            var newObj = TypedArrayCreate((IConstructor) thisObj, new Arguments(len));
 
             var k = 0;
             while (k < len)
@@ -148,7 +144,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#typedarray-species-create
         /// </summary>
-        internal TypedArrayInstance TypedArraySpeciesCreate(TypedArrayInstance exemplar, JsValue[] argumentList)
+        internal TypedArrayInstance TypedArraySpeciesCreate(TypedArrayInstance exemplar, in Arguments argumentList)
         {
             var defaultConstructor = exemplar._arrayElementType.GetConstructor(_realm.Intrinsics);
             var constructor = SpeciesConstructor(exemplar, defaultConstructor);
@@ -164,7 +160,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#typedarray-create
         /// </summary>
-        private TypedArrayInstance TypedArrayCreate(IConstructor constructor, JsValue[] argumentList)
+        private TypedArrayInstance TypedArrayCreate(IConstructor constructor, in Arguments argumentList)
         {
             var newTypedArray = Construct(constructor, argumentList).ValidateTypedArray(_realm);
             if (argumentList.Length == 1 && argumentList[0] is JsNumber number)
@@ -178,18 +174,18 @@ namespace Jint.Native.TypedArray
             return newTypedArray;
         }
 
-        private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Species(JsValue thisObject, in Arguments arguments)
         {
             return thisObject;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Abstract class TypedArray not directly constructable");
             return Undefined;
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] args, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(in Arguments args, JsValue newTarget)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Abstract class TypedArray not directly constructable");
             return null;

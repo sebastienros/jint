@@ -52,7 +52,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
         /// </summary>
-        public override JsValue Call(JsValue thisArgument, JsValue[] arguments)
+        public override JsValue Call(JsValue thisArgument, in Arguments arguments)
         {
             var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))
@@ -109,7 +109,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-construct-argumentslist-newtarget
         /// </summary>
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget)
         {
             var callerContext = _engine.ExecutionContext;
             var kind = _constructorKind;

@@ -16,7 +16,7 @@ namespace Jint.Tests.Runtime.Domain
         {
         }
 
-        private JsValue Parse(JsValue @this, JsValue[] arguments)
+        private JsValue Parse(JsValue thisObject, in Arguments arguments)
         {
             switch (arguments.At(0))
             {
@@ -55,7 +55,7 @@ namespace Jint.Tests.Runtime.Domain
             return obj;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments) => Construct(arguments, null);
+        public override JsValue Call(JsValue thisObject, in Arguments arguments) => Construct(arguments, null);
 
         public void Configure()
         {
@@ -65,6 +65,6 @@ namespace Jint.Tests.Runtime.Domain
 
         public UuidInstance Construct(JsUuid uuid) => new UuidInstance(Engine) { PrimitiveValue = uuid, _prototype = PrototypeObject };
 
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget) => Construct(Guid.NewGuid());
+        public ObjectInstance Construct(in Arguments arguments, JsValue newTarget) => Construct(Guid.NewGuid());
     }
 }

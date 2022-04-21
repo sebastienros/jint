@@ -1,9 +1,9 @@
 ﻿using Jint.Native.Object;
+using Jint.Runtime;
 
-namespace Jint.Native
+namespace Jint.Native;
+
+internal interface IConstructor
 {
-    internal interface IConstructor
-    {
-        ObjectInstance Construct(JsValue[] arguments, JsValue newTarget);
-    }
+    ObjectInstance Construct(in Arguments arguments, JsValue newTarget);
 }

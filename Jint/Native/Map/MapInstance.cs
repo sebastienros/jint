@@ -59,17 +59,10 @@ namespace Jint.Native.Map
 
         internal void ForEach(ICallable callable, JsValue thisArg)
         {
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = this;
-
             for (var i = 0; i < _map.Count; i++)
             {
-                args[0] = _map[i];
-                args[1] = _map.GetKey(i);
-                callable.Call(thisArg, args);
+                callable.Call(thisArg, new Arguments(_map[i], _map.GetKey(i), this));
             }
-
-            _engine._jsValueArrayPool.ReturnArray(args);
         }
 
         internal JsValue MapGet(JsValue key)

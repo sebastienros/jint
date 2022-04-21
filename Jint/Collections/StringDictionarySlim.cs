@@ -274,9 +274,9 @@ namespace Jint.Collections
                 return true;
             }
 
-            public KeyValuePair<Key, TValue> Current => _current;
+            public readonly KeyValuePair<Key, TValue> Current => _current;
 
-            object IEnumerator.Current => _current;
+            readonly object IEnumerator.Current => _current;
 
             void IEnumerator.Reset()
             {
@@ -285,7 +285,7 @@ namespace Jint.Collections
                 _current = default;
             }
 
-            public void Dispose() { }
+            public readonly void Dispose() { }
         }
         
         internal static class HashHelpers

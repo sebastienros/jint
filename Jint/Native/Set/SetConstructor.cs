@@ -37,12 +37,12 @@ namespace Jint.Native.Set
             SetSymbols(symbols);
         }
 
-        private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+        private static JsValue Species(JsValue thisObject, in Arguments arguments)
         {
             return thisObject;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             ExceptionHelper.ThrowTypeError(_engine.Realm, "Constructor Set requires 'new'");
             return null;
@@ -51,7 +51,7 @@ namespace Jint.Native.Set
         /// <summary>
         /// https://tc39.es/ecma262/#sec-set-iterable
         /// </summary>
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        ObjectInstance IConstructor.Construct(in Arguments arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {
@@ -75,7 +75,6 @@ namespace Jint.Native.Set
 
                 try
                 {
-                    var args = new JsValue[1];
                     do
                     {
                         if (!iterable.TryIteratorStep(out var next))
@@ -84,8 +83,7 @@ namespace Jint.Native.Set
                         }
 
                         var nextValue = next.Get(CommonProperties.Value);
-                        args[0] = nextValue;
-                        adder.Call(set, args);
+                        adder.Call(set, new Arguments(nextValue));
                     } while (true);
                 }
                 catch

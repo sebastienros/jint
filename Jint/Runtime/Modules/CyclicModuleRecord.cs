@@ -130,7 +130,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
                 m._evalError = result;
             }
 
-            capability.Reject.Call(Undefined, new[] { result.Value });
+            capability.Reject.Call(Undefined, new Arguments(result.Value));
         }
         else
         {
@@ -151,7 +151,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
                     ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
                 }
 
-                capability.Resolve.Call(Undefined, Array.Empty<JsValue>());
+                capability.Resolve.Call(Undefined, in Arguments.Empty);
             }
 
             if (stack.Count > 0)
@@ -431,7 +431,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-module-execution-fulfilled
     /// </summary>
-    private JsValue AsyncModuleExecutionFulfilled(JsValue thisObj, JsValue[] arguments)
+    private JsValue AsyncModuleExecutionFulfilled(JsValue thisObj, in Arguments arguments)
     {
         var module = (CyclicModuleRecord) arguments.At(0);
         if (module.Status == ModuleStatus.Evaluated)
@@ -458,7 +458,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
-            module._topLevelCapability.Resolve.Call(Undefined, Array.Empty<JsValue>());
+            module._topLevelCapability.Resolve.Call(Undefined, Arguments.Empty);
         }
 
         var execList = new List<CyclicModuleRecord>();
@@ -481,7 +481,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
                 var result = m.ExecuteModule();
                 if (result.Type != CompletionType.Normal)
                 {
-                    AsyncModuleExecutionRejected(Undefined, new[] { m, result.Value });
+                    AsyncModuleExecutionRejected(Undefined, new Arguments(m, result.Value));
                 }
                 else
                 {
@@ -493,7 +493,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
                             ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
                         }
 
-                        m._topLevelCapability.Resolve.Call(Undefined, Array.Empty<JsValue>());
+                        m._topLevelCapability.Resolve.Call(Undefined, in Arguments.Empty);
                     }
                 }
             }
@@ -505,7 +505,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-module-execution-rejected
     /// </summary>
-    private static JsValue AsyncModuleExecutionRejected(JsValue thisObj, JsValue[] arguments)
+    private static JsValue AsyncModuleExecutionRejected(JsValue thisObj, in Arguments arguments)
     {
         var module = (SourceTextModuleRecord) arguments.At(0);
         var error = arguments.At(1);
@@ -534,7 +534,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
         for (var i = 0; i < asyncParentModules.Count; i++)
         {
             var m = asyncParentModules[i];
-            AsyncModuleExecutionRejected(thisObj, new[] { m, error });
+            AsyncModuleExecutionRejected(thisObj, new Arguments(m, error));
         }
 
         if (module._topLevelCapability is not null)
@@ -544,7 +544,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
-            module._topLevelCapability.Reject.Call(Undefined, new[] { error });
+            module._topLevelCapability.Reject.Call(Undefined, new Arguments(error));
         }
 
         return Undefined;

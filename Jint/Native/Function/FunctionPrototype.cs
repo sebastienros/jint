@@ -49,7 +49,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-function.prototype-@@hasinstance
         /// </summary>
-        private static JsValue HasInstance(JsValue thisObj, JsValue[] arguments)
+        private static JsValue HasInstance(JsValue thisObj, in Arguments arguments)
         {
             return thisObj.OrdinaryHasInstance(arguments.At(0));
         }
@@ -57,7 +57,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-function.prototype.bind
         /// </summary>
-        private JsValue Bind(JsValue thisObj, JsValue[] arguments)
+        private JsValue Bind(JsValue thisObj, in Arguments arguments)
         {
             if (thisObj is not ICallable)
             {
@@ -65,7 +65,7 @@ namespace Jint.Native.Function
             }
 
             var thisArg = arguments.At(0);
-            var f = BoundFunctionCreate((ObjectInstance) thisObj, thisArg, arguments.Skip(1));
+            var f = BoundFunctionCreate((ObjectInstance) thisObj, thisArg, arguments.SkipFirst());
 
             JsNumber l;
             var targetHasLength = thisObj.HasOwnProperty(CommonProperties.Length);
@@ -116,7 +116,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-boundfunctioncreate
         /// </summary>
-        private BindFunctionInstance BoundFunctionCreate(ObjectInstance targetFunction, JsValue boundThis, JsValue[] boundArgs)
+        private BindFunctionInstance BoundFunctionCreate(ObjectInstance targetFunction, JsValue boundThis, in Arguments boundArgs)
         {
             var proto = targetFunction.GetPrototypeOf();
             var obj = new BindFunctionInstance(_engine, _realm, proto, targetFunction, boundThis, boundArgs);
@@ -126,7 +126,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-function.prototype.tostring
         /// </summary>
-        private JsValue ToString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToString(JsValue thisObj, in Arguments arguments)
         {
             if (thisObj.IsObject() && thisObj.IsCallable)
             {
@@ -140,7 +140,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-function.prototype.apply
         /// </summary>
-        private JsValue Apply(JsValue thisObject, JsValue[] arguments)
+        private JsValue Apply(JsValue thisObject, in Arguments arguments)
         {
             var func = thisObject as ICallable;
             if (func is null)
@@ -157,7 +157,7 @@ namespace Jint.Native.Function
 
             var argList = CreateListFromArrayLike(_realm, argArray);
 
-            var result = func.Call(thisArg, argList);
+            var result = func.Call(thisArg, new Arguments(argList, argList.Length));
 
             return result;
         }
@@ -183,18 +183,17 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-function.prototype.call
         /// </summary>
-        private JsValue CallImpl(JsValue thisObject, JsValue[] arguments)
+        private JsValue CallImpl(JsValue thisObject, in Arguments arguments)
         {
             var func = thisObject as ICallable;
             if (func is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
             }
-            JsValue[] values = System.Array.Empty<JsValue>();
+            var values = Arguments.Empty;
             if (arguments.Length > 1)
             {
-                values = new JsValue[arguments.Length - 1];
-                System.Array.Copy(arguments, 1, values, 0, arguments.Length - 1);
+                values = arguments.SkipFirst();
             }
 
             var result = func.Call(arguments.At(0), values);
@@ -202,7 +201,7 @@ namespace Jint.Native.Function
             return result;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             return Undefined;
         }

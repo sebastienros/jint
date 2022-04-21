@@ -38,18 +38,17 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var expressions = _quasi._expressions;
 
-            var args = engine._jsValueArrayPool.RentArray(expressions.Length + 1);
+            using var args = engine._jsValueArrayPool.RentArray(expressions.Length + 1);
 
             var template = GetTemplateObject(context);
             args[0] = template;
 
-            for (int i = 0; i < expressions.Length; ++i)
+            for (var i = 0; i < expressions.Length; ++i)
             {
                 args[i + 1] = expressions[i].GetValue(context).Value;
             }
 
-            var result = tagger.Call(JsValue.Undefined, args);
-            engine._jsValueArrayPool.ReturnArray(args);
+            var result = tagger.Call(JsValue.Undefined, new Arguments(args._array, args.Span.Length));
 
             return NormalCompletion(result);
         }

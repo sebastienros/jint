@@ -18,7 +18,7 @@ namespace Jint.Runtime.Interop
             _getter = getter;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        public override JsValue Call(JsValue thisObject, in Arguments arguments)
         {
             return _getter(thisObject);
         }

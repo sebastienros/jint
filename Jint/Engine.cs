@@ -324,7 +324,7 @@ namespace Jint
 
             Action<JsValue> SettleWith(FunctionInstance settle) => value =>
             {
-                settle.Call(JsValue.Undefined, new[] {value});
+                settle.Call(JsValue.Undefined, new Arguments(value));
                 RunAvailableContinuations();
             };
 
@@ -602,14 +602,13 @@ namespace Jint
 
             JsValue DoInvoke()
             {
-                var items = _jsValueArrayPool.RentArray(arguments.Length);
+                using var items = _jsValueArrayPool.RentArray(arguments.Length);
                 for (var i = 0; i < arguments.Length; ++i)
                 {
                     items[i] = JsValue.FromObject(this, arguments[i]);
                 }
 
-                var result = callable.Call(JsValue.FromObject(this, thisObj), items);
-                _jsValueArrayPool.ReturnArray(items);
+                var result = callable.Call(JsValue.FromObject(this, thisObj), new Arguments(items._array, arguments.Length));
                 return result;
             }
 
@@ -646,7 +645,7 @@ namespace Jint
         /// <summary>
         /// https://tc39.es/ecma262/#sec-invoke
         /// </summary>
-        internal JsValue Invoke(JsValue v, JsValue p, JsValue[] arguments)
+        internal JsValue Invoke(JsValue v, JsValue p, Arguments arguments)
         {
             var ownsContext = _activeEvaluationContext is null;
             _activeEvaluationContext ??= new EvaluationContext(this);
@@ -876,7 +875,7 @@ namespace Jint
         /// </summary>
         internal ArgumentsInstance FunctionDeclarationInstantiation(
             FunctionInstance functionInstance,
-            JsValue[] argumentsList)
+            Arguments argumentsList)
         {
             var calleeContext = ExecutionContext;
             var func = functionInstance._functionDefinition;
@@ -891,8 +890,7 @@ namespace Jint
             var hasParameterExpressions = configuration.HasParameterExpressions;
 
             var canInitializeParametersOnDeclaration = simpleParameterList && !configuration.HasDuplicates;
-            env.InitializeParameters(parameterNames, hasDuplicates,
-                canInitializeParametersOnDeclaration ? argumentsList : null);
+            env.InitializeParameters(parameterNames, hasDuplicates, canInitializeParametersOnDeclaration ? argumentsList : null);
 
             ArgumentsInstance ao = null;
             if (configuration.ArgumentsObjectNeeded)
@@ -1015,14 +1013,14 @@ namespace Jint
         private ArgumentsInstance CreateMappedArgumentsObject(
             FunctionInstance func,
             Key[] formals,
-            JsValue[] argumentsList,
+            Arguments argumentsList,
             DeclarativeEnvironmentRecord envRec,
             bool hasRestParameter)
         {
             return _argumentsInstancePool.Rent(func, formals, argumentsList, envRec, hasRestParameter);
         }
 
-        private ArgumentsInstance CreateUnmappedArgumentsObject(JsValue[] argumentsList)
+        private ArgumentsInstance CreateUnmappedArgumentsObject(in Arguments argumentsList)
         {
             return _argumentsInstancePool.Rent(argumentsList);
         }
@@ -1211,7 +1209,7 @@ namespace Jint
             _executionContexts.ReplaceTopVariableEnvironment(newEnv);
         }
 
-        internal JsValue Call(ICallable callable, JsValue thisObject, JsValue[] arguments, JintExpression expression)
+        internal JsValue Call(ICallable callable, JsValue thisObject, in Arguments arguments, JintExpression expression)
         {
             if (callable is FunctionInstance functionInstance)
             {
@@ -1248,7 +1246,7 @@ namespace Jint
                     ExceptionHelper.ThrowArgumentException(constructor + " is not a constructor");
                 }
 
-                return Construct(constructor, arguments, constructor, null);
+                return Construct(constructor, new Arguments(arguments, arguments.Length), constructor, null);
             }
 
             return ExecuteWithConstraints(Options.Strict, Callback);
@@ -1256,7 +1254,7 @@ namespace Jint
 
         internal ObjectInstance Construct(
             JsValue constructor,
-            JsValue[] arguments,
+            Arguments arguments,
             JsValue newTarget,
             JintExpression expression)
         {
@@ -1271,7 +1269,7 @@ namespace Jint
         internal JsValue Call(
             FunctionInstance functionInstance,
             JsValue thisObject,
-            JsValue[] arguments,
+            Arguments arguments,
             JintExpression expression)
         {
             var callStackElement = new CallStackElement(functionInstance, expression, ExecutionContext);
@@ -1293,7 +1291,7 @@ namespace Jint
 
         private ObjectInstance Construct(
             FunctionInstance functionInstance,
-            JsValue[] arguments,
+            Arguments arguments,
             JsValue newTarget,
             JintExpression expression)
         {

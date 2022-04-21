@@ -21,13 +21,13 @@ namespace Jint.Runtime
         public JavaScriptException(ErrorConstructor errorConstructor, string? message, Exception? innerException)
             : base(message, innerException)
         {
-            Error = errorConstructor.Construct(new JsValue[] { message });
+            Error = errorConstructor.Construct(new Arguments(message));
         }
 
         public JavaScriptException(ErrorConstructor errorConstructor, string? message)
             : base(message)
         {
-            Error = errorConstructor.Construct(new JsValue[] { message });
+            Error = errorConstructor.Construct(new Arguments(message));
         }
 
         public JavaScriptException(JsValue error)

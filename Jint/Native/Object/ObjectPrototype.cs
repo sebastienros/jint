@@ -36,7 +36,7 @@ namespace Jint.Native.Object
             SetProperties(properties);
         }
 
-        private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue[] arguments)
+        private JsValue PropertyIsEnumerable(JsValue thisObject, in Arguments arguments)
         {
             var p = TypeConverter.ToPropertyKey(arguments[0]);
             var o = TypeConverter.ToObject(_realm, thisObject);
@@ -48,13 +48,13 @@ namespace Jint.Native.Object
             return desc.Enumerable;
         }
 
-        private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
+        private JsValue ValueOf(JsValue thisObject, in Arguments arguments)
         {
             var o = TypeConverter.ToObject(_realm, thisObject);
             return o;
         }
 
-        private JsValue IsPrototypeOf(JsValue thisObject, JsValue[] arguments)
+        private JsValue IsPrototypeOf(JsValue thisObject, in Arguments arguments)
         {
             var arg = arguments[0];
             if (!arg.IsObject())
@@ -81,7 +81,7 @@ namespace Jint.Native.Object
             }
         }
 
-        private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
+        private JsValue ToLocaleString(JsValue thisObject, in Arguments arguments)
         {
             var o = TypeConverter.ToObject(_realm, thisObject);
             var func = o.Get("toString");
@@ -96,7 +96,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-object.prototype.tostring
         /// </summary>
-        public JsValue ToObjectString(JsValue thisObject, JsValue[] arguments)
+        public JsValue ToObjectString(JsValue thisObject, in Arguments arguments)
         {
             if (thisObject.IsUndefined())
             {
@@ -134,7 +134,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.2.4.5
         /// </summary>
-        public JsValue HasOwnProperty(JsValue thisObject, JsValue[] arguments)
+        public JsValue HasOwnProperty(JsValue thisObject, in Arguments arguments)
         {
             var p = TypeConverter.ToPropertyKey(arguments[0]);
             var o = TypeConverter.ToObject(_realm, thisObject);

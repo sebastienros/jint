@@ -82,14 +82,14 @@ namespace Jint.Native.Json
                 }
             }
 
-            return reviver.Call(holder, new[] { name, temp });
+            return reviver.Call(holder, new Arguments(name, temp));
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-json.parse
         /// </summary>
         [Obsolete("Method will be made private, use JsonParser directly")]
-        public JsValue Parse(JsValue thisObject, JsValue[] arguments)
+        public JsValue Parse(JsValue thisObject, in Arguments arguments)
         {
             var jsonString = TypeConverter.ToString(arguments.At(0));
             var reviver = arguments.At(1);
@@ -111,7 +111,7 @@ namespace Jint.Native.Json
         }
 
         [Obsolete("Method will be made private, use JsonSerializer directly")]
-        public JsValue Stringify(JsValue thisObject, JsValue[] arguments)
+        public JsValue Stringify(JsValue thisObject, in Arguments arguments)
         {
             var value = arguments.At(0);
             var replacer = arguments.At(1);

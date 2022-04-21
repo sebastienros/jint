@@ -146,25 +146,25 @@ namespace Jint.Runtime
         /// </summary>
         internal virtual void FinishDynamicImport(IScriptOrModule? referencingModule, string specifier, PromiseCapability promiseCapability, PromiseInstance innerPromise)
         {
-            var onFulfilled = new ClrFunctionInstance(Engine, "", (thisObj, args) =>
+            var onFulfilled = new ClrFunctionInstance(Engine, "", (JsValue _, in Arguments _) =>
             {
                 var moduleRecord = ResolveImportedModule(referencingModule, specifier);
                 try
                 {
                     var ns = ModuleRecord.GetModuleNamespace(moduleRecord);
-                    promiseCapability.Resolve.Call(JsValue.Undefined, new JsValue[] { ns });
+                    promiseCapability.Resolve.Call(JsValue.Undefined, new Arguments(ns));
                 }
                 catch (JavaScriptException ex)
                 {
-                    promiseCapability.Reject.Call(JsValue.Undefined, new [] { ex.Error });
+                    promiseCapability.Reject.Call(JsValue.Undefined, new Arguments(ex.Error));
                 }
                 return JsValue.Undefined;
             }, 0, PropertyFlag.Configurable);
 
-            var onRejected = new ClrFunctionInstance(Engine, "", (thisObj, args) =>
+            var onRejected = new ClrFunctionInstance(Engine, "", (JsValue _, in Arguments args) =>
             {
                 var error = args.At(0);
-                promiseCapability.Reject.Call(JsValue.Undefined, new [] { error });
+                promiseCapability.Reject.Call(JsValue.Undefined, new Arguments(error));
                 return JsValue.Undefined;
             }, 0, PropertyFlag.Configurable);
 
