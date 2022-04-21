@@ -982,7 +982,7 @@ namespace Jint.Native.Object
 
                 case ObjectClass.Arguments:
                 case ObjectClass.Object:
-                    IDictionary<string, object> o = new ExpandoObject();
+                    var o = _engine.Options.Interop.CreateClrObject(this);
                     foreach (var p in GetOwnProperties())
                     {
                         if (!p.Value.Enumerable)
@@ -991,7 +991,7 @@ namespace Jint.Native.Object
                         }
 
                         var key = p.Key.ToString();
-                        var propertyValue = Get(p.Key, this);
+                        var propertyValue = Get(p.Key);
                         var value = propertyValue is ObjectInstance oi
                             ? oi.ToObject(stack)
                             : propertyValue.ToObject();

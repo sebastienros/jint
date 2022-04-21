@@ -919,8 +919,8 @@ namespace Jint.Tests.Runtime
             var name = e.Evaluate("o.values.filter(x => x.age == 12)[0].name").ToString();
             Assert.Equal("John", name);
         }
-        
-                
+
+
         [Fact]
         public void CanSetIsConcatSpreadableForArrays()
         {
@@ -946,7 +946,7 @@ namespace Jint.Tests.Runtime
 
             Assert.True(engine.Evaluate("list1[Symbol.isConcatSpreadable] = true; list1[Symbol.isConcatSpreadable];").AsBoolean());
             Assert.True(engine.Evaluate("list2[Symbol.isConcatSpreadable] = true; list2[Symbol.isConcatSpreadable];").AsBoolean());
-            
+
             Assert.Equal("[\"A\",\"B\",\"C\"]", engine.Evaluate("JSON.stringify(array1);"));
             Assert.Equal("[\"D\",\"E\",\"F\"]", engine.Evaluate("JSON.stringify(array2);"));
             Assert.Equal("[\"A\",\"B\",\"C\"]", engine.Evaluate("JSON.stringify(list1);"));
@@ -957,10 +957,10 @@ namespace Jint.Tests.Runtime
             Assert.Equal(Concatenated, engine.Evaluate("JSON.stringify(array1.concat(list2));"));
             Assert.Equal(Concatenated, engine.Evaluate("JSON.stringify(list1.concat(array2));"));
             Assert.Equal(Concatenated, engine.Evaluate("JSON.stringify(list1.concat(list2));"));
-            
+
             Assert.False(engine.Evaluate("list1[Symbol.isConcatSpreadable] = false; list1[Symbol.isConcatSpreadable];").AsBoolean());
             Assert.False(engine.Evaluate("list2[Symbol.isConcatSpreadable] = false; list2[Symbol.isConcatSpreadable];").AsBoolean());
-            
+
             Assert.Equal("[[\"A\",\"B\",\"C\"]]", engine.Evaluate("JSON.stringify([].concat(list1));"));
             Assert.Equal("[[\"A\",\"B\",\"C\"],[\"D\",\"E\",\"F\"]]", engine.Evaluate("JSON.stringify(list1.concat(list2));"));
         }
@@ -2850,13 +2850,13 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal("x['First']: 1", _engine.Evaluate("\"x['First']: \" + x['First']"));
             Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
-            
+
             Assert.Equal("x['Third']: undefined", _engine.Evaluate("\"x['Third']: \" + x['Third']"));
             Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
-            
+
             Assert.Equal(JsValue.Undefined, _engine.Evaluate("x.length"));
             Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
-            
+
             Assert.Equal(2, _engine.Evaluate("x.Count").AsNumber());
             Assert.Equal("[\"First\",\"Second\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
 
@@ -2868,6 +2868,24 @@ namespace Jint.Tests.Runtime
             Assert.Equal("[\"Fourth\"]", _engine.Evaluate("JSON.stringify(Object.keys(x))"));
 
             Assert.False(_engine.Evaluate("Object.prototype.hasOwnProperty.call(x, 'Third')").AsBoolean());
+        }
+
+        [Fact]
+        public void CanConfigureCustomObjectTypeForJsToClrConversion()
+        {
+            var engine = new Engine(options =>
+            {
+                options.Interop.CreateClrObject = oi => new Dictionary<string, object>((int) oi.Length);
+            });
+
+            object capture = null;
+            var callback = (object value) => capture = value;
+            engine.SetValue("callback", callback);
+            engine.Evaluate("callback(({'a': 'b'}));");
+
+            Assert.IsType<Dictionary<string, object>>(capture);
+            var dictionary = (Dictionary<string, object>) capture;
+            Assert.Equal("b", dictionary["a"]);
         }
 
         private class Profile

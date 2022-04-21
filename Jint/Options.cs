@@ -285,6 +285,11 @@ namespace Jint
         /// Defaults to only coercing to string values when writing to string targets.
         /// </summary>
         public ValueCoercionType ValueCoercion { get; set; } = ValueCoercionType.String;
+
+        /// <summary>
+        /// Strategy to create a CLR object to hold converted <see cref="ObjectInstance"/>.
+        /// </summary>
+        public Func<ObjectInstance, IDictionary<string, object>> CreateClrObject = _ => new ExpandoObject();
     }
 
     /// <summary>
