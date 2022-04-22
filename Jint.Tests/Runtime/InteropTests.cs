@@ -2888,6 +2888,18 @@ namespace Jint.Tests.Runtime
             Assert.Equal("b", dictionary["a"]);
         }
 
+        [Fact]
+        public void ShouldScoreDoubleToDoubleParameterMatchHigherThanDoubleToFloat()
+        {
+            var engine = new Engine();
+            var mathTypeReference = TypeReference.CreateTypeReference(engine, typeof(Math));
+            
+            engine.SetValue("Math2", mathTypeReference);
+            var result = engine.Evaluate("Math2.Max(5.37, 5.56)").AsNumber();
+
+            Assert.Equal(5.56d, result);
+        }
+
         private class Profile
         {
             public int AnyProperty => throw new NotSupportedException("NOT SUPPORTED");

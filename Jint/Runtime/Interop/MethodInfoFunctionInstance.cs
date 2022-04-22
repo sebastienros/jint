@@ -27,7 +27,7 @@ namespace Jint.Runtime.Interop
             _fallbackClrFunctionInstance = fallbackClrFunctionInstance;
         }
 
-        private bool IsGenericParameter(object argObj, Type parameterType, int parameterIndex)
+        private static bool IsGenericParameter(object argObj, Type parameterType, int parameterIndex)
         {
             var result = TypeConverter.IsAssignableToGenericType(argObj?.GetType(), parameterType);
             if (result.Score < 0)
@@ -35,19 +35,19 @@ namespace Jint.Runtime.Interop
                 return false;
             }
 
-            if ((parameterType.IsGenericParameter) || (parameterType.IsGenericType))
+            if (parameterType.IsGenericParameter || parameterType.IsGenericType)
             {
                 return true;
             }
             return false;
         }
 
-        private bool HandleGenericParameter(object argObj, Type parameterType, int parameterIndex, Type[] genericArgTypes)
+        private static void HandleGenericParameter(object argObj, Type parameterType, Type[] genericArgTypes)
         {
             var result = TypeConverter.IsAssignableToGenericType(argObj?.GetType(), parameterType);
             if (result.Score < 0)
             {
-                return false;
+                return;
             }
 
             if (parameterType.IsGenericParameter)
@@ -78,12 +78,11 @@ namespace Jint.Runtime.Interop
             }
             else
             {
-                return false;
+                return;
             }
-            return true;
         }
 
-        private MethodBase ResolveMethod(MethodBase method, ParameterInfo[] methodParameters, object thisObj, JsValue[] arguments)
+        private static MethodBase ResolveMethod(MethodBase method, ParameterInfo[] methodParameters, object thisObj, JsValue[] arguments)
         {
             if (!method.IsGenericMethod)
             {
@@ -102,23 +101,14 @@ namespace Jint.Runtime.Interop
 
             // TPC: we could also && "(method.Method.IsGenericMethodDefinition)" because we won't create a generic method if that isn't the case
             var methodGenericArgs = method.GetGenericArguments();
-            var originalGenericArgTypes = methodGenericArgs;
             var genericArgTypes = new Type[methodGenericArgs.Length];
 
-            for (int i = 0; i < methodParameters.Length; ++i)
+            for (var i = 0; i < methodParameters.Length; ++i)
             {
                 var methodParameter = methodParameters[i];
                 var parameterType = methodParameter.ParameterType;
-                object argObj;
-                if (i < arguments.Length)
-                {
-                    argObj = arguments[i].ToObject();
-                }
-                else
-                {
-                    argObj = typeof(object);
-                }
-                var handled = HandleGenericParameter(argObj, parameterType, i, genericArgTypes);
+                var argObj = i < arguments.Length ? arguments[i].ToObject() : typeof(object);
+                HandleGenericParameter(argObj, parameterType, genericArgTypes);
             }
 
             for (int i = 0; i < genericArgTypes.Length; ++i)
@@ -155,7 +145,6 @@ namespace Jint.Runtime.Interop
 
             var converter = Engine.ClrTypeConverter;
             var thisObj = thisObject.ToObject();
-            var thisObjType = thisObj?.GetType();
             object[] parameters = null;
             foreach (var (method, arguments, _) in TypeConverter.FindBestMatch(_engine, _methods, ArgumentProvider))
             {
@@ -225,16 +214,14 @@ namespace Jint.Runtime.Interop
                 // todo: cache method info
                 try
                 {
-                    if ((method.Method.IsGenericMethodDefinition) && (method.Method is MethodInfo methodInfo))
+                    if (method.Method.IsGenericMethodDefinition && method.Method is MethodInfo)
                     {
                         var genericMethodInfo = resolvedMethod;
                         var result = genericMethodInfo.Invoke(thisObj, parameters);
                         return FromObject(Engine, result);
                     }
-                    else
-                    {
-                        return FromObject(Engine, method.Method.Invoke(thisObj, parameters));
-                    }
+
+                    return FromObject(Engine, method.Method.Invoke(thisObj, parameters));
                 }
                 catch (TargetInvocationException exception)
                 {

@@ -1238,9 +1238,9 @@ namespace Jint.Runtime
                 return 0;
             }
 
-            if (paramType == typeof(float) && objectValueType == typeof(Double))
+            if (paramType == typeof(float) && objectValueType == typeof(double))
             {
-                return jsValue.IsInteger() ? 1 : 0;
+                return jsValue.IsInteger() ? 1 : 2;
             }
 
             if (paramType.IsEnum &&
@@ -1278,7 +1278,7 @@ namespace Jint.Runtime
             if (CanChangeType(objectValue, paramType))
             {
                 // forcing conversion isn't ideal, but works, especially for int -> double for example
-                return 1;
+                return 3;
             }
 
             foreach (var m in objectValueType.GetOperatorOverloadMethods())
@@ -1286,7 +1286,7 @@ namespace Jint.Runtime
                 if (paramType.IsAssignableFrom(m.ReturnType) && m.Name is "op_Implicit" or "op_Explicit")
                 {
                     // implicit/explicit operator conversion is OK, but not ideal
-                    return 1;
+                    return 3;
                 }
             }
 
