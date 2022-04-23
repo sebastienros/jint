@@ -1296,14 +1296,17 @@ namespace Jint.Tests.Runtime
             _engine.SetValue("collection", collection);
 
             RunTest(@"
-                var eventAction;
-                collection.add_CollectionChanged(function(sender, eventArgs) { eventAction = eventArgs.Action; } );
+                var callCount = 0;
+                var handler = function(sender, eventArgs) { callCount++; } ;
+                collection.add_CollectionChanged(handler);
+                collection.Add('test');
+                collection.remove_CollectionChanged(handler);
                 collection.Add('test');
             ");
 
-            var eventAction = _engine.GetValue("eventAction").AsNumber();
-            Assert.True(eventAction == 0);
-            Assert.True(collection.Count == 1);
+            var callCount = (int) _engine.GetValue("callCount").AsNumber();
+            Assert.Equal(1, callCount);
+            Assert.Equal(2, collection.Count);
         }
 
         [Fact]

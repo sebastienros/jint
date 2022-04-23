@@ -18,6 +18,11 @@ namespace Jint.Runtime.Interop
         private static readonly ConcurrentDictionary<TypeConversionKey, bool> _knownConversions = new();
         private static readonly ConcurrentDictionary<TypeConversionKey, MethodInfo> _knownCastOperators = new();
 
+        // cache of delegates built against function functions, cannot be static because engine specific
+        // this way we get same delegate instance for each func being used
+        private readonly record struct DelegateCacheKey(Func<JsValue, JsValue[], JsValue> Call, Type DelegateType);
+        private readonly ConcurrentDictionary<DelegateCacheKey,Delegate> _delegateCompilations = new();
+
         private static readonly Type intType = typeof(int);
         private static readonly Type iCallableType = typeof(Func<JsValue, JsValue[], JsValue>);
         private static readonly Type jsValueType = typeof(JsValue);
@@ -82,65 +87,10 @@ namespace Jint.Runtime.Interop
             // is the javascript value an ICallable instance ?
             if (valueType == iCallableType)
             {
-                var function = (Func<JsValue, JsValue[], JsValue>) value;
-
                 if (typeof(Delegate).IsAssignableFrom(type) && !type.IsAbstract)
                 {
-                    var method = type.GetMethod("Invoke");
-                    var arguments = method.GetParameters();
-
-                    var @params = new ParameterExpression[arguments.Length];
-                    for (var i = 0; i < @params.Length; i++)
-                    {
-                        @params[i] = Expression.Parameter(arguments[i].ParameterType, arguments[i].Name);
-                    }
-
-                    var initializers = new MethodCallExpression[@params.Length];
-                    for (int i = 0; i < @params.Length; i++)
-                    {
-                        var param = @params[i];
-                        if (param.Type.IsValueType)
-                        {
-                            var boxing = Expression.Convert(param, objectType);
-                            initializers[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), boxing);
-                        }
-                        else
-                        {
-                            initializers[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), param);
-                        }
-                    }
-
-                    var @vars = Expression.NewArrayInit(jsValueType, initializers);
-
-                    var callExpression = Expression.Call(
-                        Expression.Constant(function.Target),
-                        function.Method,
-                        Expression.Constant(JsValue.Undefined, jsValueType),
-                        @vars);
-
-                    if (method.ReturnType != typeof(void))
-                    {
-                        return Expression.Lambda(
-                            type,
-                            Expression.Convert(
-                                Expression.Call(
-                                    null,
-                                    convertChangeType,
-                                    Expression.Call(callExpression, jsValueToObject),
-                                    Expression.Constant(method.ReturnType),
-                                    Expression.Constant(System.Globalization.CultureInfo.InvariantCulture, typeof(IFormatProvider))
-                                    ),
-                                method.ReturnType
-                                ),
-                            new ReadOnlyCollection<ParameterExpression>(@params)).Compile();
-                    }
-                    else
-                    {
-                        return Expression.Lambda(
-                            type,
-                            callExpression,
-                            new ReadOnlyCollection<ParameterExpression>(@params)).Compile();
-                    }
+                    var key = new DelegateCacheKey((Func<JsValue, JsValue[], JsValue>) value, type);
+                    return _delegateCompilations.GetOrAdd(key, k => BuildDelegate(k.DelegateType, k.Call));
                 }
             }
 
@@ -236,6 +186,63 @@ namespace Jint.Runtime.Interop
                 ExceptionHelper.ThrowError(_engine, e.Message);
                 return null;
             }
+        }
+
+        private Delegate BuildDelegate(Type type, Func<JsValue, JsValue[], JsValue> function)
+        {
+            var method = type.GetMethod("Invoke");
+            var arguments = method.GetParameters();
+
+            var parameters = new ParameterExpression[arguments.Length];
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                parameters[i] = Expression.Parameter(arguments[i].ParameterType, arguments[i].Name);
+            }
+
+            var initializers = new MethodCallExpression[parameters.Length];
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                var param = parameters[i];
+                if (param.Type.IsValueType)
+                {
+                    var boxing = Expression.Convert(param, objectType);
+                    initializers[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), boxing);
+                }
+                else
+                {
+                    initializers[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), param);
+                }
+            }
+
+            var vars = Expression.NewArrayInit(jsValueType, initializers);
+
+            var callExpression = Expression.Call(
+                Expression.Constant(function.Target),
+                function.Method,
+                Expression.Constant(JsValue.Undefined, jsValueType),
+                vars);
+
+            if (method.ReturnType != typeof(void))
+            {
+                return Expression.Lambda(
+                    type,
+                    Expression.Convert(
+                        Expression.Call(
+                            null,
+                            convertChangeType,
+                            Expression.Call(callExpression, jsValueToObject),
+                            Expression.Constant(method.ReturnType),
+                            Expression.Constant(System.Globalization.CultureInfo.InvariantCulture, typeof(IFormatProvider))
+                        ),
+                        method.ReturnType
+                    ),
+                    new ReadOnlyCollection<ParameterExpression>(parameters)).Compile();
+            }
+
+            return Expression.Lambda(
+                type,
+                callExpression,
+                new ReadOnlyCollection<ParameterExpression>(parameters)).Compile();
         }
 
         private bool TryCastWithOperators(object value, Type type, Type valueType, out object converted)
