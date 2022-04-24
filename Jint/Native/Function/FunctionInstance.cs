@@ -70,13 +70,14 @@ namespace Jint.Native.Function
         // for example RavenDB wants to inspect this
         public IFunction FunctionDeclaration => _functionDefinition.Function;
 
+        internal override bool IsCallable => true;
+
+        JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments) => Call(thisObject, arguments);
+
         /// <summary>
         /// Executed when a function object is used as a function
         /// </summary>
-        /// <param name="thisObject"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
-        public abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
+        protected internal abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
 
         public bool Strict => _thisMode == FunctionThisMode.Strict;
 

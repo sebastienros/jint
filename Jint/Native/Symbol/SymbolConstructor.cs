@@ -59,7 +59,7 @@ namespace Jint.Native.Symbol
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/6.0/index.html#sec-symbol-description
         /// </summary>
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             var description = arguments.At(0);
             var descString = description.IsUndefined()

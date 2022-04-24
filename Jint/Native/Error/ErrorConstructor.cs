@@ -27,7 +27,7 @@ namespace Jint.Native.Error
 
         public ErrorPrototype PrototypeObject { get; }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             return Construct(arguments, this);
         }

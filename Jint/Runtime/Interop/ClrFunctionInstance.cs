@@ -31,7 +31,7 @@ namespace Jint.Runtime.Interop
                 : new PropertyDescriptor(JsNumber.Create(length), lengthFlags);
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments) => _func(thisObject, arguments);
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments) => _func(thisObject, arguments);
 
         public override bool Equals(JsValue obj)
         {

@@ -52,7 +52,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
         /// </summary>
-        public override JsValue Call(JsValue thisArgument, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisArgument, JsValue[] arguments)
         {
             var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))

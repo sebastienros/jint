@@ -28,7 +28,7 @@ namespace Jint.Native.DataView
 
         public DataViewPrototype PrototypeObject { get; }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Constructor DataView requires 'new'");
             return Undefined;

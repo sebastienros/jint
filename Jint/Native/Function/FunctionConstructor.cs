@@ -31,7 +31,7 @@ namespace Jint.Native.Function
 
         public FunctionPrototype PrototypeObject { get; }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             return Construct(arguments, thisObject);
         }

@@ -202,7 +202,7 @@ namespace Jint.Native.Function
             return result;
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             return Undefined;
         }

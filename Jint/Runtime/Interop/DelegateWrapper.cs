@@ -37,7 +37,7 @@ namespace Jint.Runtime.Interop
             }
         }
 
-        public override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
         {
             var parameterInfos = _d.Method.GetParameters();
 

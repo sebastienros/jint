@@ -1,6 +1,7 @@
 using System;
 using Jint.Native;
 using Jint.Native.Array;
+using Jint.Native.Function;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Xunit;
@@ -125,7 +126,6 @@ assertEqual(booleanCount, 1);
             Assert.Equal(123, arrayInstance[1]);
         }
 
-
         [Fact]
         public void FunctionInstancesCanBePassedToHost()
         {
@@ -158,7 +158,6 @@ assertEqual(booleanCount, 1);
             ev(null, new JsValue[] { 20 });
             Assert.Equal(30, engine.Evaluate("a"));
         }
-
 
         [Fact]
         public void BoundFunctionsCanBePassedToHost()
@@ -214,7 +213,6 @@ assertEqual(booleanCount, 1);
             Assert.Equal(false, ev(JsValue.Undefined, new JsValue[] { JsValue.Undefined }));
         }
 
-
         [Fact]
         public void FunctionsShouldResolveToSameReference()
         {
@@ -224,6 +222,52 @@ assertEqual(booleanCount, 1);
                 function testFn() {}
                 equal(testFn, testFn);
             ");
+        }
+        
+        [Fact]
+        public void CanInvokeCallForFunctionInstance()
+        {
+            var engine = new Engine();
+
+            engine.Evaluate(@"
+                (function () {
+                    function foo(a = 123) { return a; }
+                    foo()
+                })")
+                .As<FunctionInstance>().Call();
+
+            var result = engine.Evaluate(@"
+                (function () {
+                    class Foo { test() { return 123 } }
+                    let f = new Foo()
+                    return f.test()
+                })")
+                .As<FunctionInstance>().Call();
+
+            Assert.True(result.IsInteger());
+            Assert.Equal(123, result.AsInteger());
+        }
+
+        [Fact]
+        public void CanInvokeFunctionViaEngineInstance()
+        {
+            var engine = new Engine();
+
+            var function = engine.Evaluate("function bar(a) { return a; }; bar;");
+
+            Assert.Equal(123, engine.Call(function, 123));
+            Assert.Equal(123, engine.Call("bar", 123));
+        }
+
+        [Fact]
+        public void CanInvokeFunctionViaEngineInstanceWithCustomThisObj()
+        {
+            var engine = new Engine();
+
+            var function = engine.Evaluate("function baz() { return this; }; baz;");
+
+            Assert.Equal("I'm this!", TypeConverter.ToString(engine.Call(function, "I'm this!", Arguments.Empty)));
+            Assert.Equal("I'm this!", TypeConverter.ToString(function.Call("I'm this!", Arguments.Empty)));
         }
     }
 }

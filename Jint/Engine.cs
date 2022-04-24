@@ -1211,6 +1211,49 @@ namespace Jint
             _executionContexts.ReplaceTopVariableEnvironment(newEnv);
         }
 
+        /// <summary>
+        /// Invokes the named callable and returns the resulting object.
+        /// </summary>
+        /// <param name="callableName">The name of the callable.</param>
+        /// <param name="arguments">The arguments of the call.</param>
+        /// <returns>The value returned by the call.</returns>
+        public JsValue Call(string callableName, params JsValue[] arguments)
+        {
+            var callable = Evaluate(callableName);
+            return Call(callable, arguments);
+        }
+
+        /// <summary>
+        /// Invokes the callable and returns the resulting object.
+        /// </summary>
+        /// <param name="callable">The callable.</param>
+        /// <param name="arguments">The arguments of the call.</param>
+        /// <returns>The value returned by the call.</returns>
+        public JsValue Call(JsValue callable, params JsValue[] arguments)
+            => Call(callable, thisObject: JsValue.Undefined, arguments);
+
+        /// <summary>
+        /// Invokes the callable and returns the resulting object.
+        /// </summary>
+        /// <param name="callable">The callable.</param>
+        /// <param name="thisObject">Value bound as this.</param>
+        /// <param name="arguments">The arguments of the call.</param>
+        /// <returns>The value returned by the call.</returns>
+        public JsValue Call(JsValue callable, JsValue thisObject, JsValue[] arguments)
+        {
+            JsValue Callback()
+            {
+                if (!callable.IsCallable)
+                {
+                    ExceptionHelper.ThrowArgumentException(callable + " is not callable");
+                }
+
+                return Call((ICallable) callable, thisObject, arguments, null);
+            }
+
+            return ExecuteWithConstraints(Options.Strict, Callback);
+        }
+
         internal JsValue Call(ICallable callable, JsValue thisObject, JsValue[] arguments, JintExpression expression)
         {
             if (callable is FunctionInstance functionInstance)
