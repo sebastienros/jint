@@ -260,7 +260,7 @@ namespace Jint.Native.Array
                 if (fromPresent)
                 {
                     var fromValue = operations.Get((ulong) from);
-                    operations.Set((ulong) to, fromValue, throwOnError: true);
+                    operations.Set((ulong) to, fromValue, updateLength: true, throwOnError: true);
                 }
                 else
                 {
@@ -994,7 +994,8 @@ namespace Jint.Native.Array
         /// </summary>
         private JsValue Sort(JsValue thisObj, JsValue[] arguments)
         {
-            var obj = ArrayOperations.For(TypeConverter.ToObject(_realm, thisObj));
+            var objectInstance = TypeConverter.ToObject(_realm, thisObj);
+            var obj = ArrayOperations.For(objectInstance);
 
             var compareArg = arguments.At(0);
             ICallable compareFn = null;
@@ -1034,12 +1035,11 @@ namespace Jint.Native.Array
                 uint j;
                 for (j = 0; j < itemCount; ++j)
                 {
-                    if (!ReferenceEquals(array[j], null))
-                    {
-                        obj.Set(j, array[j], throwOnError: true);
-                    }
+                    objectInstance.Set(j, array[j], throwOnError: true);
+                    // TODO if we could keep track of data descriptors and whether prototype chain is unchanged
+                    // we could do faster direct write
+                    // obj.Set(j, array[j], updateLength: true, throwOnError: true);
                 }
-
                 for (; j < len; ++j)
                 {
                     obj.DeletePropertyOrThrow(j);
