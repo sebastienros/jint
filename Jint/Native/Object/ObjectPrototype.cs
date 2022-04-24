@@ -26,6 +26,26 @@ namespace Jint.Native.Object
             var properties = new PropertyDictionary(8, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_constructor, propertyFlags),
+                ["__proto__"] = new GetSetPropertyDescriptor(
+                    new ClrFunctionInstance(Engine, "get __proto__", (thisObject, _) => TypeConverter.ToObject(_realm, thisObject).GetPrototypeOf() ?? Null, 0, lengthFlags),
+                    new ClrFunctionInstance(Engine, "set __proto__", (thisObject, arguments) =>
+                    {
+                        TypeConverter.CheckObjectCoercible(_engine, thisObject);
+                        
+                        var proto = arguments.At(0);
+                        if (!proto.IsObject() && !proto.IsNull() || thisObject is not ObjectInstance objectInstance)
+                        {
+                            return Undefined;
+                        }
+
+                        if (!objectInstance.SetPrototypeOf(proto))
+                        {
+                            ExceptionHelper.ThrowTypeError(_realm, "Invalid prototype");
+                        }
+                        
+                        return Undefined;
+                    }, 1, lengthFlags),
+                    enumerable: false, configurable: true),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToObjectString, 0, lengthFlags), propertyFlags),
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, lengthFlags), propertyFlags),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), propertyFlags),

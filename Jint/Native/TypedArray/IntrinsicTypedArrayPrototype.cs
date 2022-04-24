@@ -872,7 +872,7 @@ namespace Jint.Native.TypedArray
             }
             else
             {
-                SetTypedArrayFromArrayLike(target, targetOffset, source);
+                SetTypedArrayFromArrayLike(target, (int) targetOffset, source);
             }
 
             return Undefined;
@@ -930,7 +930,7 @@ namespace Jint.Native.TypedArray
             if (same)
             {
                 var srcByteLength = source._byteLength;
-                srcBuffer = srcBuffer.CloneArrayBuffer(_realm.Intrinsics.ArrayBuffer, srcByteOffset, srcByteLength, _realm.Intrinsics.ArrayBuffer);
+                srcBuffer = srcBuffer.CloneArrayBuffer(_realm.Intrinsics.ArrayBuffer, srcByteOffset, srcByteLength);
                 // %ArrayBuffer% is used to clone srcBuffer because is it known to not have any observable side-effects.
                 srcByteIndex = 0;
             }
@@ -968,15 +968,12 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-settypedarrayfromarraylike
         /// </summary>
-        private void SetTypedArrayFromArrayLike(TypedArrayInstance target, double targetOffset, JsValue source)
+        private void SetTypedArrayFromArrayLike(TypedArrayInstance target, int targetOffset, JsValue source)
         {
             var targetBuffer = target._viewedArrayBuffer;
             targetBuffer.AssertNotDetached();
 
             var targetLength = target._arrayLength;
-            var targetElementSize = target._arrayElementType.GetElementSize();
-            var targetType = target._arrayElementType;
-            var targetByteOffset = target._byteOffset;
             var src = ArrayOperations.For(TypeConverter.ToObject(_realm, source));
             var srcLength = src.GetLength();
 
@@ -990,27 +987,12 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowRangeError(_realm, "Invalid target offset");
             }
 
-            var targetByteIndex = targetOffset * targetElementSize + targetByteOffset;
-            ulong k = 0;
-            var limit = targetByteIndex + targetElementSize * srcLength;
-
-            while (targetByteIndex < limit)
+            var k = 0;
+            while (k < srcLength)
             {
-                if (target._contentType == TypedArrayContentType.BigInt)
-                {
-                    var value = src.Get(k).ToBigInteger(_engine);
-                    targetBuffer.AssertNotDetached();
-                    targetBuffer.SetValueInBuffer((int) targetByteIndex, targetType, value, true, ArrayBufferOrder.Unordered);
-                }
-                else
-                {
-                    var value = TypeConverter.ToNumber(src.Get(k));
-                    targetBuffer.AssertNotDetached();
-                    targetBuffer.SetValueInBuffer((int) targetByteIndex, targetType, value, true, ArrayBufferOrder.Unordered);
-                }
-
+                var jsValue = src.Get((ulong) k);
+                target.IntegerIndexedElementSet(targetOffset + k, jsValue);
                 k++;
-                targetByteIndex += targetElementSize;
             }
         }
 
@@ -1372,7 +1354,6 @@ namespace Jint.Native.TypedArray
                     _comparableArray[1] = y;
 
                     var v = TypeConverter.ToNumber(_compare.Call(Undefined, _comparableArray));
-                    _buffer.AssertNotDetached();
 
                     if (double.IsNaN(v))
                     {

@@ -9,6 +9,7 @@ using Jint.Native.Symbol;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
@@ -36,25 +37,6 @@ namespace Jint.Native.Array
 
         protected override void Initialize()
         {
-            var unscopables = new ObjectInstance(_engine)
-            {
-                _prototype = null
-            };
-
-            unscopables.SetDataProperty("at", JsBoolean.True);
-            unscopables.SetDataProperty("copyWithin", JsBoolean.True);
-            unscopables.SetDataProperty("entries", JsBoolean.True);
-            unscopables.SetDataProperty("fill", JsBoolean.True);
-            unscopables.SetDataProperty("find", JsBoolean.True);
-            unscopables.SetDataProperty("findIndex", JsBoolean.True);
-            unscopables.SetDataProperty("findLast", JsBoolean.True);
-            unscopables.SetDataProperty("findLastIndex", JsBoolean.True);
-            unscopables.SetDataProperty("flat", JsBoolean.True);
-            unscopables.SetDataProperty("flatMap", JsBoolean.True);
-            unscopables.SetDataProperty("includes", JsBoolean.True);
-            unscopables.SetDataProperty("keys", JsBoolean.True);
-            unscopables.SetDataProperty("values", JsBoolean.True);
-
             const PropertyFlag propertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
             var properties = new PropertyDictionary(34, checkExistingKeys: false)
             {
@@ -100,7 +82,31 @@ namespace Jint.Native.Array
             var symbols = new SymbolDictionary(2)
             {
                 [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, propertyFlags),
-                [GlobalSymbolRegistry.Unscopables] = new PropertyDescriptor(unscopables, PropertyFlag.Configurable)
+                [GlobalSymbolRegistry.Unscopables] = new LazyPropertyDescriptor(_engine, static state =>
+                {            
+                    var unscopables = new ObjectInstance((Engine) state)
+                    {
+                        _prototype = null
+                    };
+
+                    unscopables.SetDataProperty("at", JsBoolean.True);
+                    unscopables.SetDataProperty("copyWithin", JsBoolean.True);
+                    unscopables.SetDataProperty("entries", JsBoolean.True);
+                    unscopables.SetDataProperty("fill", JsBoolean.True);
+                    unscopables.SetDataProperty("find", JsBoolean.True);
+                    unscopables.SetDataProperty("findIndex", JsBoolean.True);
+                    unscopables.SetDataProperty("findLast", JsBoolean.True);
+                    unscopables.SetDataProperty("findLastIndex", JsBoolean.True);
+                    unscopables.SetDataProperty("flat", JsBoolean.True);
+                    unscopables.SetDataProperty("flatMap", JsBoolean.True);
+                    unscopables.SetDataProperty("groupBy", JsBoolean.True);
+                    unscopables.SetDataProperty("groupByToMap", JsBoolean.True);
+                    unscopables.SetDataProperty("includes", JsBoolean.True);
+                    unscopables.SetDataProperty("keys", JsBoolean.True);
+                    unscopables.SetDataProperty("values", JsBoolean.True);
+
+                    return unscopables;
+                }, PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
         }

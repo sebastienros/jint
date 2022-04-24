@@ -275,23 +275,15 @@ namespace Jint.Native.TypedArray
 
         // helper tot prevent floating point
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void IntegerIndexedElementSet(int index, JsValue value)
+        internal void IntegerIndexedElementSet(int index, JsValue value)
         {
-            if (_contentType != TypedArrayContentType.BigInt)
+            TypedArrayValue numValue = _contentType != TypedArrayContentType.BigInt 
+                ? TypeConverter.ToNumber(value) 
+                : value.ToBigInteger(_engine);
+
+            if (IsValidIntegerIndex(index))
             {
-                var numValue = TypeConverter.ToNumber(value);
-                if (IsValidIntegerIndex(index))
-                {
-                    DoIntegerIndexedElementSet(index, numValue);
-                }
-            }
-            else
-            {
-                var numValue = value.ToBigInteger(_engine);
-                if (IsValidIntegerIndex(index))
-                {
-                    DoIntegerIndexedElementSet(index, numValue);
-                }
+                DoIntegerIndexedElementSet(index, numValue);
             }
         }
 
