@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -20,6 +21,7 @@ using Jint.Runtime.Interop.Reflection;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
+using Jint.Scheduling;
 
 namespace Jint
 {
@@ -36,6 +38,7 @@ namespace Jint
         internal EvaluationContext _activeEvaluationContext;
 
         private readonly EventLoop _eventLoop = new();
+        private readonly Stack<Scheduler> _schedulers = new Stack<Scheduler>();
 
         // lazy properties
         private DebugHandler _debugHandler;
@@ -50,6 +53,7 @@ namespace Jint
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
         internal readonly ExtensionMethodCache _extensionMethods;
+
 
         public ITypeConverter ClrTypeConverter { get; internal set; }
 
@@ -259,7 +263,53 @@ namespace Jint
             return Execute(script);
         }
 
+        public Task<Engine> ExecuteAsync(string source)
+            => ExecuteAsync(source, DefaultParserOptions);
+
+        public Task<Engine> ExecuteAsync(string source, ParserOptions parserOptions)
+            => ExecuteAsync(new JavaScriptParser(source, parserOptions).ParseScript());
+
         public Engine Execute(Script script)
+        {
+            using (var scheduler = new Scheduler(false))
+            {
+                try
+                {
+                    _schedulers.Push(scheduler);
+
+                    ExecuteWithScheduler(scheduler, script);
+                }
+                finally
+                {
+                    _schedulers.Pop();
+                }
+            }
+
+            return this;
+        }
+
+        public async Task<Engine> ExecuteAsync(Script script)
+        {
+            using (var scheduler = new Scheduler(true))
+            {
+                try
+                {
+                    _schedulers.Push(scheduler);
+
+                    ExecuteWithScheduler(scheduler, script);
+
+                    await scheduler.Completion;
+                }
+                finally
+                {
+                    _schedulers.Pop();
+                }
+            }
+
+            return this;
+        }
+
+        private void ExecuteWithScheduler(Scheduler scheduler, Script script)
         {
             Engine DoInvoke()
             {
@@ -296,10 +346,23 @@ namespace Jint
                 return this;
             }
 
-            var strict = _isStrict || script.Strict;
-            ExecuteWithConstraints(strict, DoInvoke);
+            var task = scheduler.CreateTask();
 
-            return this;
+            task.Invoke(() =>
+            {
+                var strict = _isStrict || script.Strict;
+                ExecuteWithConstraints(strict, DoInvoke);
+            });
+        }
+
+        public IDeferredTask CreateTask()
+        {
+            if (_schedulers.Count == 0)
+            {
+                throw new InvalidOperationException("Not within a script.");
+            }
+
+            return _schedulers.Peek().CreateTask();
         }
 
         /// <summary>
