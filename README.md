@@ -92,6 +92,21 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ❌ `String.prototype.replaceAll`
 - ❌ `WeakRef` and `FinalizationRegistry`
 
+#### ECMAScript 2022
+
+- ❌ Class Fields
+- ❌ RegExp Match Indices
+- ❌ Top-level await
+- ❌ Ergonomic brand checks for Private Fields
+- ✔ `.at()`
+- ✔ Accessible `Object.prototype.hasOwnProperty` (`Object.hasOwn`)
+- ❌ Class Static Block
+- ✔ Error Cause
+
+#### ECMAScript Stage 3 (no version yet)
+
+- ✔ Array find from last
+
 #### Other
 
 - Further refined .NET CLR interop capabilities
