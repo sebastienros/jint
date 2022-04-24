@@ -1041,10 +1041,8 @@ namespace Jint.Native.Array
                 uint j;
                 for (j = 0; j < itemCount; ++j)
                 {
-                    objectInstance.Set(j, array[j], throwOnError: true);
-                    // TODO if we could keep track of data descriptors and whether prototype chain is unchanged
-                    // we could do faster direct write
-                    // obj.Set(j, array[j], updateLength: true, throwOnError: true);
+                    var updateLength = j == itemCount - 1;
+                    obj.Set(j, array[j], updateLength: updateLength, throwOnError: true);
                 }
                 for (; j < len; ++j)
                 {
@@ -1424,7 +1422,7 @@ namespace Jint.Native.Array
         /// </summary>
         public JsValue Push(JsValue thisObject, JsValue[] arguments)
         {
-            if (thisObject is ArrayInstance arrayInstance)
+            if (thisObject is ArrayInstance arrayInstance && arrayInstance.CanUseFastAccess)
             {
                 return arrayInstance.Push(arguments);
             }

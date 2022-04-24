@@ -1,4 +1,5 @@
 ﻿using Jint.Collections;
+using Jint.Native.Array;
 using Jint.Native.Proxy;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -10,6 +11,7 @@ namespace Jint.Native.Object
     public sealed class ObjectPrototype : Prototype
     {
         private readonly ObjectConstructor _constructor;
+        internal ObjectChangeFlags _objectChangeFlags;
 
         internal ObjectPrototype(
             Engine engine,
@@ -54,6 +56,28 @@ namespace Jint.Native.Object
                 ["propertyIsEnumerable"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "propertyIsEnumerable", PropertyIsEnumerable, 1, lengthFlags), propertyFlags)
             };
             SetProperties(properties);
+        }
+        
+        public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
+        {
+            TrackChanges(property);
+            return base.DefineOwnProperty(property, desc);
+        }
+
+        protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
+        {
+            TrackChanges(property);
+            base.SetOwnProperty(property, desc);
+        }
+
+        private void TrackChanges(JsValue property)
+        {
+            EnsureInitialized();
+            _objectChangeFlags |= property.IsSymbol() ? ObjectChangeFlags.Symbol : ObjectChangeFlags.Property;
+            if (ArrayInstance.IsArrayIndex(property, out _))
+            {
+                _objectChangeFlags |= ObjectChangeFlags.ArrayIndex;
+            }
         }
 
         private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue[] arguments)

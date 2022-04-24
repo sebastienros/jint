@@ -18,6 +18,8 @@ namespace Jint.Native.Array
         internal PropertyDescriptor[] _dense;
         private Dictionary<uint, PropertyDescriptor> _sparse;
 
+        private ObjectChangeFlags _objectChangeFlags;
+
         public ArrayInstance(Engine engine, uint capacity = 0) : base(engine, ObjectClass.Array)
         {
             if (capacity > engine.Options.Constraints.MaxArraySize)
@@ -69,8 +71,52 @@ namespace Jint.Native.Array
         internal override bool HasOriginalIterator
             => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _engine.Realm.Intrinsics.Array.PrototypeObject._originalIteratorFunction);
 
+        /// <summary>
+        /// Checks whether there have been changes to object prototype chain which could render fast access patterns impossible.
+        /// </summary>
+        internal bool CanUseFastAccess
+        {
+            get
+            {
+                if ((_objectChangeFlags & ObjectChangeFlags.NonDataDescriptorUsage) != 0)
+                {
+                    // could be a mutating property for example, length might change, not safe anymore
+                    return false;
+                }
+                
+                if (_prototype is not ArrayPrototype arrayPrototype 
+                    || !ReferenceEquals(_prototype, _engine.Realm.Intrinsics.Array.PrototypeObject))
+                {
+                    // somebody has switched prototype
+                    return false;
+                }
+
+                if ((arrayPrototype._objectChangeFlags & ObjectChangeFlags.ArrayIndex) != 0)
+                {
+                    // maybe somebody moved integer property to prototype? not safe anymore
+                    return false;
+                }
+
+                if (arrayPrototype.Prototype is not ObjectPrototype arrayPrototypePrototype 
+                    || !ReferenceEquals(arrayPrototypePrototype, _engine.Realm.Intrinsics.Array.PrototypeObject.Prototype))
+                {
+                    return false;
+                }
+
+                return (arrayPrototypePrototype._objectChangeFlags & ObjectChangeFlags.ArrayIndex) == 0;
+            }
+        }
+
         public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
+            var isArrayIndex = IsArrayIndex(property, out var index);
+            TrackChanges(property, desc, isArrayIndex);
+
+            if (isArrayIndex)
+            {
+                return DefineOwnProperty(index, desc);
+            }
+
             if (property == CommonProperties.Length)
             {
                 var value = desc.Value;
@@ -203,11 +249,6 @@ namespace Jint.Native.Array
                 }
 
                 return true;
-            }
-
-            if (IsArrayIndex(property, out var index))
-            {
-                return DefineOwnProperty(index, desc);
             }
 
             return base.DefineOwnProperty(property, desc);
@@ -392,7 +433,9 @@ namespace Jint.Native.Array
 
         protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            if (IsArrayIndex(property, out var index))
+            var isArrayIndex = IsArrayIndex(property, out var index);
+            TrackChanges(property, desc, isArrayIndex);
+            if (isArrayIndex)
             {
                 WriteArrayValue(index, desc);
             }
@@ -403,6 +446,21 @@ namespace Jint.Native.Array
             else
             {
                 base.SetOwnProperty(property, desc);
+            }
+        }
+
+        private void TrackChanges(JsValue property, PropertyDescriptor desc, bool isArrayIndex)
+        {
+            EnsureInitialized();
+            _objectChangeFlags |= property.IsSymbol() ? ObjectChangeFlags.Symbol : ObjectChangeFlags.Property;
+            if (!desc.IsDataDescriptor())
+            {
+                _objectChangeFlags |= ObjectChangeFlags.NonDataDescriptorUsage;
+            }
+
+            if (isArrayIndex)
+            {
+                _objectChangeFlags |= ObjectChangeFlags.ArrayIndex;
             }
         }
 
@@ -439,7 +497,7 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsArrayIndex(JsValue p, out uint index)
+        internal static bool IsArrayIndex(JsValue p, out uint index)
         {
             if (p is JsNumber number)
             {
