@@ -10,7 +10,7 @@ namespace Jint.Native.Object
 {
     public sealed class ObjectConstructor : FunctionInstance, IConstructor
     {
-        private static readonly JsString _name = new JsString("delegate");
+        private static readonly JsString _name = new JsString("Object");
 
         internal ObjectConstructor(
             Engine engine,

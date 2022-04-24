@@ -87,6 +87,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (!p.Computed && p.Key is Identifier identifier)
                     {
                         propName = identifier.Name;
+                        _canBuildFast &= propName != "__proto__";
                     }
 
                     _properties[i] = new ObjectProperty(propName, p);
@@ -204,6 +205,15 @@ namespace Jint.Runtime.Interpreter.Expressions
                         closure.SetFunctionName(propName);
                     }
 
+                    if (objectProperty._key == "__proto__")
+                    {
+                        if (propValue.IsObject() || propValue.IsNull())
+                        {
+                            obj.SetPrototypeOf(propValue);
+                            continue;
+                        }
+                    }
+                    
                     var propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
                     obj.DefinePropertyOrThrow(propName, propDesc);
                 }

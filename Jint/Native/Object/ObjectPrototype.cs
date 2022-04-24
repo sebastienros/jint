@@ -46,7 +46,7 @@ namespace Jint.Native.Object
                         }
                         
                         return Undefined;
-                    }, 1, lengthFlags),
+                    }, 0, lengthFlags),
                     enumerable: false, configurable: true),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToObjectString, 0, lengthFlags), propertyFlags),
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, lengthFlags), propertyFlags),
