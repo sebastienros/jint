@@ -1302,11 +1302,16 @@ namespace Jint.Tests.Runtime
                 collection.Add('test');
                 collection.remove_CollectionChanged(handler);
                 collection.Add('test');
+
+                var json = JSON.stringify(Object.keys(handler));
             ");
 
             var callCount = (int) _engine.GetValue("callCount").AsNumber();
             Assert.Equal(1, callCount);
             Assert.Equal(2, collection.Count);
+            
+            // make sure our delegate holder is hidden
+            Assert.Equal("[]", _engine.Evaluate("json"));
         }
 
         [Fact]

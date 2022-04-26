@@ -6,6 +6,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Extensions;
 using Jint.Native;
+using Jint.Native.Function;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Interop
 {
@@ -17,11 +19,6 @@ namespace Jint.Runtime.Interop
 
         private static readonly ConcurrentDictionary<TypeConversionKey, bool> _knownConversions = new();
         private static readonly ConcurrentDictionary<TypeConversionKey, MethodInfo> _knownCastOperators = new();
-
-        // cache of delegates built against function functions, cannot be static because engine specific
-        // this way we get same delegate instance for each func being used
-        private readonly record struct DelegateCacheKey(Func<JsValue, JsValue[], JsValue> Call, Type DelegateType);
-        private readonly ConcurrentDictionary<DelegateCacheKey,Delegate> _delegateCompilations = new();
 
         private static readonly Type intType = typeof(int);
         private static readonly Type iCallableType = typeof(Func<JsValue, JsValue[], JsValue>);
@@ -89,8 +86,25 @@ namespace Jint.Runtime.Interop
             {
                 if (typeof(Delegate).IsAssignableFrom(type) && !type.IsAbstract)
                 {
-                    var key = new DelegateCacheKey((Func<JsValue, JsValue[], JsValue>) value, type);
-                    return _delegateCompilations.GetOrAdd(key, k => BuildDelegate(k.DelegateType, k.Call));
+                    // use target function instance as cache holder, this way delegate and target hold same lifetime
+                    var delegatePropertyKey = new JsString("__jint_delegate");
+
+                    var func = (Func<JsValue, JsValue[], JsValue>) value;
+                    var functionInstance = func.Target as FunctionInstance;
+
+                    Delegate d = null;
+                    if (functionInstance is not null)
+                    {
+                        d = (Delegate) (functionInstance.Get(delegatePropertyKey) as IObjectWrapper)?.Target;
+                    }
+
+                    if (d is null)
+                    {
+                        d = BuildDelegate(type, func);
+                        functionInstance?.SetOwnProperty(delegatePropertyKey, new PropertyDescriptor(new ObjectWrapper(_engine, d), PropertyFlag.AllForbidden));
+                    }
+
+                    return d;
                 }
             }
 
