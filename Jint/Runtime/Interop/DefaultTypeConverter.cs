@@ -7,6 +7,7 @@ using System.Reflection;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Interop
@@ -87,21 +88,17 @@ namespace Jint.Runtime.Interop
                 if (typeof(Delegate).IsAssignableFrom(type) && !type.IsAbstract)
                 {
                     // use target function instance as cache holder, this way delegate and target hold same lifetime
-                    var delegatePropertyKey = new JsString("__jint_delegate");
+                    var delegatePropertyKey = "__jint_delegate_" + type.GUID;
 
                     var func = (Func<JsValue, JsValue[], JsValue>) value;
                     var functionInstance = func.Target as FunctionInstance;
 
-                    Delegate d = null;
-                    if (functionInstance is not null)
-                    {
-                        d = (Delegate) (functionInstance.Get(delegatePropertyKey) as IObjectWrapper)?.Target;
-                    }
+                    Delegate d = functionInstance?.GetHiddenClrObjectProperty(delegatePropertyKey) as Delegate;
 
                     if (d is null)
                     {
                         d = BuildDelegate(type, func);
-                        functionInstance?.SetOwnProperty(delegatePropertyKey, new PropertyDescriptor(new ObjectWrapper(_engine, d), PropertyFlag.AllForbidden));
+                        functionInstance?.SetHiddenClrObjectProperty(delegatePropertyKey, d);
                     }
 
                     return d;
@@ -340,6 +337,19 @@ namespace Jint.Runtime.Interop
 
             converted = null;
             return false;
+        }
+    }
+
+    internal static class ObjectExtensions
+    {
+        public static object GetHiddenClrObjectProperty(this ObjectInstance obj, string name)
+        {
+            return (obj.Get(name) as IObjectWrapper)?.Target;
+        }
+
+        public static void SetHiddenClrObjectProperty(this ObjectInstance obj, string name, object value)
+        {
+            obj.SetOwnProperty(name, new PropertyDescriptor(new ObjectWrapper(obj.Engine, value), PropertyFlag.AllForbidden));            
         }
     }
 }
