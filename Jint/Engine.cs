@@ -23,7 +23,7 @@ using Jint.Runtime.References;
 
 namespace Jint
 {
-    public partial class Engine
+    public sealed partial class Engine : IDisposable
     {
         private static readonly ParserOptions DefaultParserOptions = new("<anonymous>")
         {
@@ -1355,6 +1355,11 @@ namespace Jint
             CallStack.Pop();
 
             return result;
+        }
+
+        public void Dispose()
+        {
+            // no-op for now
         }
     }
 }
