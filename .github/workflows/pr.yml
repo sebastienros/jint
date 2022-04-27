@@ -4,9 +4,6 @@ on:
 
   pull_request:
     branches: [ main, release/2.x ]
-    paths-ignore:
-    - 'doc/**'
-    - '**.md'
 
 jobs:
 
