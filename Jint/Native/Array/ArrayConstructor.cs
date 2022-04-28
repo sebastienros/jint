@@ -227,8 +227,6 @@ namespace Jint.Native.Array
                     var kValue = arguments[k];
                     ai.SetIndexValue(k, kValue, updateLength: k == arguments.Length - 1);
                 }
-
-                ai.SetLength((uint) arguments.Length);
             }
             else
             {
