@@ -1218,15 +1218,16 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-createdatapropertyorthrow
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool CreateDataProperty(JsValue p, JsValue v)
         {
-            var newDesc = new PropertyDescriptor(v, PropertyFlag.ConfigurableEnumerableWritable);
-            return DefineOwnProperty(p, newDesc);
+            return DefineOwnProperty(p, new PropertyDescriptor(v, PropertyFlag.ConfigurableEnumerableWritable));
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-createdataproperty
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool CreateDataPropertyOrThrow(JsValue p, JsValue v)
         {
             if (!CreateDataProperty(p, v))

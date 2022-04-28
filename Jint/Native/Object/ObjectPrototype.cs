@@ -73,10 +73,13 @@ namespace Jint.Native.Object
         private void TrackChanges(JsValue property)
         {
             EnsureInitialized();
-            _objectChangeFlags |= property.IsSymbol() ? ObjectChangeFlags.Symbol : ObjectChangeFlags.Property;
             if (ArrayInstance.IsArrayIndex(property, out _))
             {
                 _objectChangeFlags |= ObjectChangeFlags.ArrayIndex;
+            }
+            else
+            {
+                _objectChangeFlags |= property.IsSymbol() ? ObjectChangeFlags.Symbol : ObjectChangeFlags.Property;
             }
         }
 

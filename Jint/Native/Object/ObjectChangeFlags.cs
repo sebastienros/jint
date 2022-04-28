@@ -12,5 +12,5 @@ internal enum ObjectChangeFlags
     Property = 1,
     Symbol = 2,
     ArrayIndex = 4,
-    NonDataDescriptorUsage = 8
+    NonDefaultDataDescriptorUsage = 8
 }
