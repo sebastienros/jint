@@ -959,6 +959,9 @@ namespace Jint.Native.Array
             return a.Target;
         }
 
+        /// <summary>
+        /// /https://tc39.es/ecma262/#sec-array.prototype.unshift
+        /// </summary>
         private JsValue Unshift(JsValue thisObj, JsValue[] arguments)
         {
             var o = ArrayOperations.For(_realm, thisObj);
@@ -978,7 +981,7 @@ namespace Jint.Native.Array
                 var to = k + argCount - 1;
                 if (o.TryGetValue(from, out var fromValue))
                 {
-                    o.Set(to, fromValue, true);
+                    o.Set(to, fromValue, updateLength: false);
                 }
                 else
                 {
@@ -988,7 +991,7 @@ namespace Jint.Native.Array
 
             for (uint j = 0; j < argCount; j++)
             {
-                o.Set(j, arguments[j], true);
+                o.Set(j, arguments[j], updateLength: false);
             }
 
             o.SetLength(len + argCount);

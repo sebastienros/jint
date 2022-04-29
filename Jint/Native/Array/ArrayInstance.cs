@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Jint.Native.Object;
@@ -436,17 +435,18 @@ namespace Jint.Native.Array
         {
             if (ReferenceEquals(receiver, this) && Extensible && IsArrayIndex(property, out var index))
             {
-                if (TryGetDescriptor(index, out var descriptor) && descriptor.IsDefaultArrayValueDescriptor())
+                if (TryGetDescriptor(index, out var descriptor))
                 {
-                    // fast path with direct write without allocations
-                    descriptor.Value = value;
-                    EnsureCorrectLength(index);
-                    return true;
+                    if (descriptor.IsDefaultArrayValueDescriptor())
+                    {
+                        // fast path with direct write without allocations
+                        descriptor.Value = value;
+                        return true;
+                    }
                 }
-
-                if (CanUseFastAccess)
+                else if (CanUseFastAccess)
                 {
-                    // we know it's to be written to own array backing field
+                    // we know it's to be written to own array backing field as new value
                     WriteArrayValue(index, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
                     EnsureCorrectLength(index);
                     return true;
