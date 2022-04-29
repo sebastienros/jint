@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "91356f52f92691abe62c06d00677332212e99dc8",
+  "SuiteGitSha": "28b31c0bf1960878abb36ab8597a0cae224a684d",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -7,7 +7,6 @@
   "ExcludedFeatures": [
     "__getter__",
     "__setter__",
-    "__proto__",
     "AggregateError",
     "async-functions",
     "async-iteration",

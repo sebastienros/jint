@@ -61,10 +61,9 @@ namespace Jint.Native.ArrayBuffer
         internal ArrayBufferInstance CloneArrayBuffer(
             ArrayBufferConstructor constructor,
             int srcByteOffset,
-            uint srcLength,
-            JsValue cloneConstructor)
+            uint srcLength)
         {
-            var targetBuffer = constructor.AllocateArrayBuffer(cloneConstructor, srcLength);
+            var targetBuffer = constructor.AllocateArrayBuffer(_engine.Realm.Intrinsics.ArrayBuffer, srcLength);
             AssertNotDetached();
             var srcBlock = _arrayBufferData;
             var targetBlock = targetBuffer.ArrayBufferData;

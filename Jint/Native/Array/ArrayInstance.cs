@@ -18,6 +18,8 @@ namespace Jint.Native.Array
         internal PropertyDescriptor[] _dense;
         private Dictionary<uint, PropertyDescriptor> _sparse;
 
+        private ObjectChangeFlags _objectChangeFlags;
+
         public ArrayInstance(Engine engine, uint capacity = 0) : base(engine, ObjectClass.Array)
         {
             if (capacity > engine.Options.Constraints.MaxArraySize)
@@ -62,15 +64,59 @@ namespace Jint.Native.Array
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
-        public override bool IsArrayLike => true;
+        public sealed override bool IsArrayLike => true;
 
-        public override bool IsArray() => true;
+        public sealed override bool IsArray() => true;
 
-        internal override bool HasOriginalIterator
+        internal sealed override bool HasOriginalIterator
             => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _engine.Realm.Intrinsics.Array.PrototypeObject._originalIteratorFunction);
 
-        public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
+        /// <summary>
+        /// Checks whether there have been changes to object prototype chain which could render fast access patterns impossible.
+        /// </summary>
+        internal bool CanUseFastAccess
         {
+            get
+            {
+                if ((_objectChangeFlags & ObjectChangeFlags.NonDefaultDataDescriptorUsage) != 0)
+                {
+                    // could be a mutating property for example, length might change, not safe anymore
+                    return false;
+                }
+                
+                if (_prototype is not ArrayPrototype arrayPrototype 
+                    || !ReferenceEquals(_prototype, _engine.Realm.Intrinsics.Array.PrototypeObject))
+                {
+                    // somebody has switched prototype
+                    return false;
+                }
+
+                if ((arrayPrototype._objectChangeFlags & ObjectChangeFlags.ArrayIndex) != 0)
+                {
+                    // maybe somebody moved integer property to prototype? not safe anymore
+                    return false;
+                }
+
+                if (arrayPrototype.Prototype is not ObjectPrototype arrayPrototypePrototype 
+                    || !ReferenceEquals(arrayPrototypePrototype, _engine.Realm.Intrinsics.Array.PrototypeObject.Prototype))
+                {
+                    return false;
+                }
+
+                return (arrayPrototypePrototype._objectChangeFlags & ObjectChangeFlags.ArrayIndex) == 0;
+            }
+        }
+
+        public sealed override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
+        {
+            var isArrayIndex = IsArrayIndex(property, out var index);
+            TrackChanges(property, desc, isArrayIndex);
+
+            if (isArrayIndex)
+            {
+                return DefineOwnProperty(index, desc);
+            }
+
             if (property == CommonProperties.Length)
             {
                 var value = desc.Value;
@@ -205,11 +251,6 @@ namespace Jint.Native.Array
                 return true;
             }
 
-            if (IsArrayIndex(property, out var index))
-            {
-                return DefineOwnProperty(index, desc);
-            }
-
             return base.DefineOwnProperty(property, desc);
         }
 
@@ -249,7 +290,7 @@ namespace Jint.Native.Array
             return (uint) ((JsNumber) _length._value)._value;
         }
 
-        protected override void AddProperty(JsValue property, PropertyDescriptor descriptor)
+        protected sealed override void AddProperty(JsValue property, PropertyDescriptor descriptor)
         {
             if (property == CommonProperties.Length)
             {
@@ -260,7 +301,7 @@ namespace Jint.Native.Array
             base.AddProperty(property, descriptor);
         }
 
-        protected override bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
+        protected sealed override bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
         {
             if (property == CommonProperties.Length)
             {
@@ -271,7 +312,7 @@ namespace Jint.Native.Array
             return base.TryGetProperty(property, out descriptor);
         }
 
-        public override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
+        public sealed override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
         {
             if ((types & Types.String) == 0)
             {
@@ -308,7 +349,7 @@ namespace Jint.Native.Array
             return properties;
         }
 
-        public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
+        public sealed override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
         {
             if (_dense != null)
             {
@@ -340,7 +381,7 @@ namespace Jint.Native.Array
             }
         }
 
-        public override PropertyDescriptor GetOwnProperty(JsValue property)
+        public sealed override PropertyDescriptor GetOwnProperty(JsValue property)
         {
             if (property == CommonProperties.Length)
             {
@@ -390,9 +431,37 @@ namespace Jint.Native.Array
             return Prototype?.GetProperty(JsString.Create(index)) ?? PropertyDescriptor.Undefined;
         }
 
-        protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
+        public sealed override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
-            if (IsArrayIndex(property, out var index))
+            if (ReferenceEquals(receiver, this) && Extensible && IsArrayIndex(property, out var index))
+            {
+                if (TryGetDescriptor(index, out var descriptor))
+                {
+                    if (descriptor.IsDefaultArrayValueDescriptor())
+                    {
+                        // fast path with direct write without allocations
+                        descriptor.Value = value;
+                        return true;
+                    }
+                }
+                else if (CanUseFastAccess)
+                {
+                    // we know it's to be written to own array backing field as new value
+                    WriteArrayValue(index, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
+                    EnsureCorrectLength(index);
+                    return true;
+                }
+            }
+
+            // slow path
+            return base.Set(property, value, receiver);
+        }
+
+        protected internal sealed override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
+        {
+            var isArrayIndex = IsArrayIndex(property, out var index);
+            TrackChanges(property, desc, isArrayIndex);
+            if (isArrayIndex)
             {
                 WriteArrayValue(index, desc);
             }
@@ -406,7 +475,25 @@ namespace Jint.Native.Array
             }
         }
 
-        public override bool HasOwnProperty(JsValue p)
+        private void TrackChanges(JsValue property, PropertyDescriptor desc, bool isArrayIndex)
+        {
+            EnsureInitialized();
+            if (!desc.IsDefaultArrayValueDescriptor())
+            {
+                _objectChangeFlags |= ObjectChangeFlags.NonDefaultDataDescriptorUsage;
+            }
+
+            if (isArrayIndex)
+            {
+                _objectChangeFlags |= ObjectChangeFlags.ArrayIndex;
+            }
+            else
+            {
+                _objectChangeFlags |= property.IsSymbol() ? ObjectChangeFlags.Symbol : ObjectChangeFlags.Property;
+            }
+        }
+
+        public sealed override bool HasOwnProperty(JsValue p)
         {
             if (IsArrayIndex(p, out var index))
             {
@@ -423,7 +510,7 @@ namespace Jint.Native.Array
             return base.HasOwnProperty(p);
         }
 
-        public override void RemoveOwnProperty(JsValue p)
+        public sealed override void RemoveOwnProperty(JsValue p)
         {
             if (IsArrayIndex(p, out var index))
             {
@@ -439,7 +526,7 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsArrayIndex(JsValue p, out uint index)
+        internal static bool IsArrayIndex(JsValue p, out uint index)
         {
             if (p is JsNumber number)
             {
@@ -516,13 +603,19 @@ namespace Jint.Native.Array
         {
             if (updateLength)
             {
-                var length = GetLength();
-                if (index >= length)
-                {
-                    SetLength(index + 1);
-                }
+                EnsureCorrectLength(index);
             }
             WriteArrayValue(index, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void EnsureCorrectLength(uint index)
+        {
+            var length = GetLength();
+            if (index >= length)
+            {
+                SetLength(index + 1);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -814,7 +907,7 @@ namespace Jint.Native.Array
         }
 
         /// <inheritdoc />
-        internal override bool FindWithCallback(
+        internal sealed override bool FindWithCallback(
             JsValue[] arguments,
             out uint index,
             out JsValue value,
@@ -881,9 +974,9 @@ namespace Jint.Native.Array
             return false;
         }
 
-        public override uint Length => GetLength();
+        public sealed override uint Length => GetLength();
 
-        internal override bool IsIntegerIndexedArray => true;
+        internal sealed override bool IsIntegerIndexedArray => true;
 
         public JsValue this[uint index]
         {
@@ -943,7 +1036,7 @@ namespace Jint.Native.Array
             }
         }
 
-        public override string ToString()
+        public sealed override string ToString()
         {
             // debugger can make things hard when evaluates computed values
             return "(" + (_length?._value.AsNumber() ?? 0) + ")[]";
@@ -955,5 +1048,12 @@ namespace Jint.Native.Array
                 $"The array size {capacity} is larger than maximum allowed ({engine.Options.Constraints.MaxArraySize})"
             );
         }
+    }
+
+    internal static class ArrayPropertyDescriptorExtensions
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool IsDefaultArrayValueDescriptor(this PropertyDescriptor propertyDescriptor)
+            => propertyDescriptor.Flags == PropertyFlag.ConfigurableEnumerableWritable && propertyDescriptor.IsDataDescriptor();
     }
 }

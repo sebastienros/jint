@@ -607,7 +607,7 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObj);
             var that = TypeConverter.ToString(arguments.At(0));
 
-            return string.CompareOrdinal(s, that);
+            return string.CompareOrdinal(s.Normalize(NormalizationForm.FormKD), that.Normalize(NormalizationForm.FormKD));
         }
 
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)

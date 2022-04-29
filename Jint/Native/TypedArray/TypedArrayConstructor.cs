@@ -147,18 +147,15 @@ namespace Jint.Native.TypedArray
             var elementSize = elementType.GetElementSize();
             var byteLength = elementSize * elementLength;
 
-            var bufferConstructor = (JsValue) (!srcData.IsSharedArrayBuffer
-                ? SpeciesConstructor(srcData, _realm.Intrinsics.ArrayBuffer)
-                : _realm.Intrinsics.ArrayBuffer);
-
+            var arrayBuffer = _realm.Intrinsics.ArrayBuffer;
             ArrayBufferInstance data;
             if (elementType == srcType)
             {
-                data = srcData.CloneArrayBuffer(_realm.Intrinsics.ArrayBuffer, srcByteOffset, byteLength, bufferConstructor);
+                data = srcData.CloneArrayBuffer(arrayBuffer, srcByteOffset, byteLength);
             }
             else
             {
-                data = _realm.Intrinsics.ArrayBuffer.AllocateArrayBuffer(bufferConstructor, byteLength);
+                data = arrayBuffer.AllocateArrayBuffer(arrayBuffer, byteLength);
                 srcData.AssertNotDetached();
                 if (srcArray._contentType != o._contentType)
                 {

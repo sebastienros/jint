@@ -15,7 +15,7 @@ namespace Jint.Native.Array
 
         public static ArrayOperations For(ObjectInstance instance)
         {
-            if (instance is ArrayInstance arrayInstance)
+            if (instance is ArrayInstance { CanUseFastAccess: true } arrayInstance)
             {
                 return new ArrayInstanceOperations(arrayInstance);
             }
@@ -294,10 +294,10 @@ namespace Jint.Native.Array
             public override void DeletePropertyOrThrow(ulong index)
                 => _target.DeletePropertyOrThrow((uint) index);
 
-            public override void CreateDataPropertyOrThrow(ulong index, JsValue value)
+            public override void CreateDataPropertyOrThrow(ulong index, JsValue value) 
                 => _target.SetIndexValue((uint) index, value, updateLength: false);
 
-            public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
+            public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true) 
                 => _target.SetIndexValue((uint) index, value, updateLength);
         }
 

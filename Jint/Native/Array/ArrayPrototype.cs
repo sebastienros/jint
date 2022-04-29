@@ -9,6 +9,7 @@ using Jint.Native.Symbol;
 using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
@@ -36,25 +37,6 @@ namespace Jint.Native.Array
 
         protected override void Initialize()
         {
-            var unscopables = new ObjectInstance(_engine)
-            {
-                _prototype = null
-            };
-
-            unscopables.SetDataProperty("at", JsBoolean.True);
-            unscopables.SetDataProperty("copyWithin", JsBoolean.True);
-            unscopables.SetDataProperty("entries", JsBoolean.True);
-            unscopables.SetDataProperty("fill", JsBoolean.True);
-            unscopables.SetDataProperty("find", JsBoolean.True);
-            unscopables.SetDataProperty("findIndex", JsBoolean.True);
-            unscopables.SetDataProperty("findLast", JsBoolean.True);
-            unscopables.SetDataProperty("findLastIndex", JsBoolean.True);
-            unscopables.SetDataProperty("flat", JsBoolean.True);
-            unscopables.SetDataProperty("flatMap", JsBoolean.True);
-            unscopables.SetDataProperty("includes", JsBoolean.True);
-            unscopables.SetDataProperty("keys", JsBoolean.True);
-            unscopables.SetDataProperty("values", JsBoolean.True);
-
             const PropertyFlag propertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
             var properties = new PropertyDictionary(34, checkExistingKeys: false)
             {
@@ -100,7 +82,31 @@ namespace Jint.Native.Array
             var symbols = new SymbolDictionary(2)
             {
                 [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, propertyFlags),
-                [GlobalSymbolRegistry.Unscopables] = new PropertyDescriptor(unscopables, PropertyFlag.Configurable)
+                [GlobalSymbolRegistry.Unscopables] = new LazyPropertyDescriptor(_engine, static state =>
+                {            
+                    var unscopables = new ObjectInstance((Engine) state)
+                    {
+                        _prototype = null
+                    };
+
+                    unscopables.SetDataProperty("at", JsBoolean.True);
+                    unscopables.SetDataProperty("copyWithin", JsBoolean.True);
+                    unscopables.SetDataProperty("entries", JsBoolean.True);
+                    unscopables.SetDataProperty("fill", JsBoolean.True);
+                    unscopables.SetDataProperty("find", JsBoolean.True);
+                    unscopables.SetDataProperty("findIndex", JsBoolean.True);
+                    unscopables.SetDataProperty("findLast", JsBoolean.True);
+                    unscopables.SetDataProperty("findLastIndex", JsBoolean.True);
+                    unscopables.SetDataProperty("flat", JsBoolean.True);
+                    unscopables.SetDataProperty("flatMap", JsBoolean.True);
+                    unscopables.SetDataProperty("groupBy", JsBoolean.True);
+                    unscopables.SetDataProperty("groupByToMap", JsBoolean.True);
+                    unscopables.SetDataProperty("includes", JsBoolean.True);
+                    unscopables.SetDataProperty("keys", JsBoolean.True);
+                    unscopables.SetDataProperty("values", JsBoolean.True);
+
+                    return unscopables;
+                }, PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
         }
@@ -953,6 +959,9 @@ namespace Jint.Native.Array
             return a.Target;
         }
 
+        /// <summary>
+        /// /https://tc39.es/ecma262/#sec-array.prototype.unshift
+        /// </summary>
         private JsValue Unshift(JsValue thisObj, JsValue[] arguments)
         {
             var o = ArrayOperations.For(_realm, thisObj);
@@ -972,7 +981,7 @@ namespace Jint.Native.Array
                 var to = k + argCount - 1;
                 if (o.TryGetValue(from, out var fromValue))
                 {
-                    o.Set(to, fromValue, true);
+                    o.Set(to, fromValue, updateLength: false);
                 }
                 else
                 {
@@ -982,7 +991,7 @@ namespace Jint.Native.Array
 
             for (uint j = 0; j < argCount; j++)
             {
-                o.Set(j, arguments[j], true);
+                o.Set(j, arguments[j], updateLength: false);
             }
 
             o.SetLength(len + argCount);
@@ -1035,10 +1044,8 @@ namespace Jint.Native.Array
                 uint j;
                 for (j = 0; j < itemCount; ++j)
                 {
-                    objectInstance.Set(j, array[j], throwOnError: true);
-                    // TODO if we could keep track of data descriptors and whether prototype chain is unchanged
-                    // we could do faster direct write
-                    // obj.Set(j, array[j], updateLength: true, throwOnError: true);
+                    var updateLength = j == itemCount - 1;
+                    obj.Set(j, array[j], updateLength: updateLength, throwOnError: true);
                 }
                 for (; j < len; ++j)
                 {
@@ -1418,7 +1425,7 @@ namespace Jint.Native.Array
         /// </summary>
         public JsValue Push(JsValue thisObject, JsValue[] arguments)
         {
-            if (thisObject is ArrayInstance arrayInstance)
+            if (thisObject is ArrayInstance arrayInstance && arrayInstance.CanUseFastAccess)
             {
                 return arrayInstance.Push(arguments);
             }

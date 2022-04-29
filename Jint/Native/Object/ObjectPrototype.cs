@@ -1,4 +1,5 @@
 ﻿using Jint.Collections;
+using Jint.Native.Array;
 using Jint.Native.Proxy;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -10,6 +11,7 @@ namespace Jint.Native.Object
     public sealed class ObjectPrototype : Prototype
     {
         private readonly ObjectConstructor _constructor;
+        internal ObjectChangeFlags _objectChangeFlags;
 
         internal ObjectPrototype(
             Engine engine,
@@ -26,6 +28,26 @@ namespace Jint.Native.Object
             var properties = new PropertyDictionary(8, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_constructor, propertyFlags),
+                ["__proto__"] = new GetSetPropertyDescriptor(
+                    new ClrFunctionInstance(Engine, "get __proto__", (thisObject, _) => TypeConverter.ToObject(_realm, thisObject).GetPrototypeOf() ?? Null, 0, lengthFlags),
+                    new ClrFunctionInstance(Engine, "set __proto__", (thisObject, arguments) =>
+                    {
+                        TypeConverter.CheckObjectCoercible(_engine, thisObject);
+                        
+                        var proto = arguments.At(0);
+                        if (!proto.IsObject() && !proto.IsNull() || thisObject is not ObjectInstance objectInstance)
+                        {
+                            return Undefined;
+                        }
+
+                        if (!objectInstance.SetPrototypeOf(proto))
+                        {
+                            ExceptionHelper.ThrowTypeError(_realm, "Invalid prototype");
+                        }
+                        
+                        return Undefined;
+                    }, 0, lengthFlags),
+                    enumerable: false, configurable: true),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToObjectString, 0, lengthFlags), propertyFlags),
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, lengthFlags), propertyFlags),
                 ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), propertyFlags),
@@ -34,6 +56,31 @@ namespace Jint.Native.Object
                 ["propertyIsEnumerable"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "propertyIsEnumerable", PropertyIsEnumerable, 1, lengthFlags), propertyFlags)
             };
             SetProperties(properties);
+        }
+        
+        public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
+        {
+            TrackChanges(property);
+            return base.DefineOwnProperty(property, desc);
+        }
+
+        protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
+        {
+            TrackChanges(property);
+            base.SetOwnProperty(property, desc);
+        }
+
+        private void TrackChanges(JsValue property)
+        {
+            EnsureInitialized();
+            if (ArrayInstance.IsArrayIndex(property, out _))
+            {
+                _objectChangeFlags |= ObjectChangeFlags.ArrayIndex;
+            }
+            else
+            {
+                _objectChangeFlags |= property.IsSymbol() ? ObjectChangeFlags.Symbol : ObjectChangeFlags.Property;
+            }
         }
 
         private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue[] arguments)

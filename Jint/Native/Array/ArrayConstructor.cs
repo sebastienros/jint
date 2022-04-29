@@ -213,7 +213,24 @@ namespace Jint.Native.Array
             if (thisObj.IsConstructor)
             {
                 a = ((IConstructor) thisObj).Construct(new JsValue[] { len }, thisObj);
+            }
+            else
+            {
+                a = _realm.Intrinsics.Array.Construct(len);
+            }
 
+            if (a is ArrayInstance ai)
+            {
+                // faster for real arrays
+                for (uint k = 0; k < arguments.Length; k++)
+                {
+                    var kValue = arguments[k];
+                    ai.SetIndexValue(k, kValue, updateLength: k == arguments.Length - 1);
+                }
+            }
+            else
+            {
+                // slower version
                 for (uint k = 0; k < arguments.Length; k++)
                 {
                     var kValue = arguments[k];
@@ -222,20 +239,6 @@ namespace Jint.Native.Array
                 }
 
                 a.Set(CommonProperties.Length, len, true);
-            }
-            else
-            {
-                // faster for real arrays
-                ArrayInstance ai;
-                a = ai = _realm.Intrinsics.Array.Construct(len);
-
-                for (uint k = 0; k < arguments.Length; k++)
-                {
-                    var kValue = arguments[k];
-                    ai.SetIndexValue(k, kValue, updateLength: false);
-                }
-
-                ai.SetLength((uint) arguments.Length);
             }
 
             return a;
