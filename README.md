@@ -89,7 +89,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ✔ Logical Assignment Operators (`&&=` `||=` `??=`)
 - ✔ Numeric Separators (`1_000`)
 - ❌ `Promise.any` and `AggregateError`
-- ❌ `String.prototype.replaceAll`
+- ✔ `String.prototype.replaceAll`
 - ❌ `WeakRef` and `FinalizationRegistry`
 
 #### ECMAScript 2022

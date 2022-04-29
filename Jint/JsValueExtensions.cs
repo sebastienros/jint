@@ -57,7 +57,7 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsRegExp(this JsValue value)
         {
-            if (!(value is ObjectInstance oi))
+            if (value is not ObjectInstance oi)
             {
                 return false;
             }

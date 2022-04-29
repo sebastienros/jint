@@ -1037,7 +1037,7 @@ namespace Jint.Runtime
         {
             if (o._type < InternalTypes.Boolean)
             {
-                ExceptionHelper.ThrowTypeError(engine.Realm);
+                ExceptionHelper.ThrowTypeError(engine.Realm, "Cannot call method on " + o);
             }
         }
 
