@@ -33,7 +33,6 @@
     "resizable-arraybuffer",
     "ShadowRealm",
     "SharedArrayBuffer",
-    "String.prototype.replaceAll",
     "tail-call-optimization",
     "top-level-await",
     "Temporal",
@@ -74,6 +73,9 @@
     // Issue with \r in source string
     "built-ins/RegExp/dotall/without-dotall.js",
     "built-ins/RegExp/dotall/without-dotall-unicode.js",
+    
+    // regex named groups
+    "built-ins/String/prototype/replaceAll/searchValue-replacer-RegExp-call.js",
 
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",

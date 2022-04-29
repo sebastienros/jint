@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -59,6 +60,7 @@ namespace Jint.Native.String
                 ["match"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "match", Match, 1, lengthFlags), propertyFlags),
                 ["matchAll"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "matchAll", MatchAll, 1, lengthFlags), propertyFlags),
                 ["replace"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "replace", Replace, 2, lengthFlags), propertyFlags),
+                ["replaceAll"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "replaceAll", ReplaceAll, 2, lengthFlags), propertyFlags),
                 ["search"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "search", Search, 1, lengthFlags), propertyFlags),
                 ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "slice", Slice, 2, lengthFlags), propertyFlags),
                 ["split"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "split", Split, 2, lengthFlags), propertyFlags),
@@ -501,6 +503,9 @@ namespace Jint.Native.String
             return _engine.Invoke(rx, GlobalSymbolRegistry.Search, new JsValue[] { s });
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-string.prototype.replace
+        /// </summary>
         private JsValue Replace(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
@@ -513,7 +518,7 @@ namespace Jint.Native.String
                 var replacer = GetMethod(_realm, searchValue, GlobalSymbolRegistry.Replace);
                 if (replacer != null)
                 {
-                    return replacer.Call(searchValue, new[] { thisObj, replaceValue});
+                    return replacer.Call(searchValue, thisObj, replaceValue);
                 }
             }
 
@@ -526,9 +531,9 @@ namespace Jint.Native.String
                 replaceValue = TypeConverter.ToJsString(replaceValue);
             }
 
-            var pos = thisString.IndexOf(searchString, StringComparison.Ordinal);
+            var position = thisString.IndexOf(searchString, StringComparison.Ordinal);
             var matched = searchString;
-            if (pos < 0)
+            if (position < 0)
             {
                 return thisString;
             }
@@ -536,19 +541,116 @@ namespace Jint.Native.String
             string replStr;
             if (functionalReplace)
             {
-                var replValue = ((ICallable) replaceValue).Call(Undefined, new JsValue[] {matched, pos, thisString});
+                var replValue = ((ICallable) replaceValue).Call(Undefined, matched, position, thisString);
                 replStr = TypeConverter.ToString(replValue);
             }
             else
             {
                 var captures = System.Array.Empty<string>();
-                replStr =  RegExpPrototype.GetSubstitution(matched, thisString.ToString(), pos, captures, Undefined, TypeConverter.ToString(replaceValue));
+                replStr =  RegExpPrototype.GetSubstitution(matched, thisString.ToString(), position, captures, Undefined, TypeConverter.ToString(replaceValue));
             }
 
-            var tailPos = pos + matched.Length;
-            var newString = thisString.Substring(0, pos) + replStr + thisString.Substring(tailPos);
+            var tailPos = position + matched.Length;
+            var newString = thisString.Substring(0, position) + replStr + thisString.Substring(tailPos);
 
             return newString;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-string.prototype.replaceall
+        /// </summary>
+        private JsValue ReplaceAll(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(Engine, thisObj);
+
+            var searchValue = arguments.At(0);
+            var replaceValue = arguments.At(1);
+
+            if (!searchValue.IsNullOrUndefined())
+            {
+                if (searchValue.IsRegExp())
+                {
+                    var flags = searchValue.Get(RegExpPrototype.PropertyFlags);
+                    TypeConverter.CheckObjectCoercible(_engine, flags);
+                    if (TypeConverter.ToString(flags).IndexOf('g') < 0)
+                    {
+                        ExceptionHelper.ThrowTypeError(_realm, "String.prototype.replaceAll called with a non-global RegExp argument");
+                    }
+                }
+
+                var replacer = GetMethod(_realm, searchValue, GlobalSymbolRegistry.Replace);
+                if (replacer != null)
+                {
+                    return replacer.Call(searchValue, thisObj, replaceValue);
+                }
+            }
+
+            var thisString = TypeConverter.ToString(thisObj);
+            var searchString = TypeConverter.ToString(searchValue);
+
+            var functionalReplace = replaceValue is ICallable;
+
+            if (!functionalReplace)
+            {
+                replaceValue = TypeConverter.ToJsString(replaceValue);
+                
+                // check fast case
+                var newValue = replaceValue.ToString();
+                if (newValue.IndexOf('$') < 0 && searchString.Length > 0)
+                {
+                    // just plain old string replace
+                    return thisString.Replace(searchString, newValue);
+                }
+            }
+
+            // https://tc39.es/ecma262/#sec-stringindexof
+            static int StringIndexOf(string s, string search, int fromIndex)
+            {
+                if (search.Length == 0 && fromIndex <= s.Length)
+                {
+                    return fromIndex;
+                }
+
+                return fromIndex < s.Length 
+                    ? s.IndexOf(search, fromIndex, StringComparison.Ordinal)
+                    : -1;
+            }
+            
+            var searchLength = searchString.Length;
+            var advanceBy = System.Math.Max(1, searchLength);
+
+            var endOfLastMatch = 0;
+            using var pool = StringBuilderPool.Rent();
+            var result = pool.Builder;
+
+            var position = StringIndexOf(thisString, searchString, 0);
+            while (position != -1)
+            {
+                string replacement;
+                var preserved = thisString.Substring(endOfLastMatch, position - endOfLastMatch);
+                if (functionalReplace)
+                {
+                    var replValue = ((ICallable) replaceValue).Call(Undefined, searchString, position, thisString);
+                    replacement = TypeConverter.ToString(replValue);
+                }
+                else
+                {
+                    var captures = System.Array.Empty<string>();
+                    replacement =  RegExpPrototype.GetSubstitution(searchString, thisString, position, captures, Undefined, TypeConverter.ToString(replaceValue));
+                }
+
+                result.Append(preserved).Append(replacement);
+                endOfLastMatch = position + searchLength;
+                
+                position = StringIndexOf(thisString, searchString, position + advanceBy);
+            }
+
+            if (endOfLastMatch < thisString.Length)
+            {
+                result.Append(thisString.Substring(endOfLastMatch));
+            }
+
+            return result.ToString();
         }
 
         private JsValue Match(JsValue thisObj, JsValue[] arguments)
@@ -657,6 +759,9 @@ namespace Jint.Native.String
             return i;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-string.prototype.indexof
+        /// </summary>
         private JsValue IndexOf(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);

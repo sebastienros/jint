@@ -309,29 +309,29 @@ namespace Jint.Native.RegExp
             // $`	Inserts the portion of the string that precedes the matched substring.
             // $'	Inserts the portion of the string that follows the matched substring.
             // $n or $nn	Where n or nn are decimal digits, inserts the nth parenthesized submatch string, provided the first argument was a RegExp object.
-            using (var replacementBuilder = StringBuilderPool.Rent())
+            using var replacementBuilder = StringBuilderPool.Rent();
+            var sb = replacementBuilder.Builder;
+            for (var i = 0; i < replacement.Length; i++)
             {
-                for (int i = 0; i < replacement.Length; i++)
+                char c = replacement[i];
+                if (c == '$' && i < replacement.Length - 1)
                 {
-                    char c = replacement[i];
-                    if (c == '$' && i < replacement.Length - 1)
+                    c = replacement[++i];
+                    switch (c)
                     {
-                        c = replacement[++i];
-                        switch (c)
-                        {
-                            case '$':
-                                replacementBuilder.Builder.Append('$');
-                                break;
-                            case '&':
-                                replacementBuilder.Builder.Append(matched);
-                                break;
-                            case '`':
-                                replacementBuilder.Builder.Append(str.Substring(0, position));
-                                break;
-                            case '\'':
-                                replacementBuilder.Builder.Append(str.Substring(position + matched.Length));
-                                break;
-                            default:
+                        case '$':
+                            sb.Append('$');
+                            break;
+                        case '&':
+                            sb.Append(matched);
+                            break;
+                        case '`':
+                            sb.Append(str.Substring(0, position));
+                            break;
+                        case '\'':
+                            sb.Append(str.Substring(position + matched.Length));
+                            break;
+                        default:
                             {
                                 if (char.IsDigit(c))
                                 {
@@ -348,40 +348,39 @@ namespace Jint.Native.RegExp
                                     if (matchNumber2 > 0 && matchNumber2 <= captures.Length)
                                     {
                                         // Two digit capture replacement.
-                                        replacementBuilder.Builder.Append(TypeConverter.ToString(captures[matchNumber2 - 1]));
+                                        sb.Append(TypeConverter.ToString(captures[matchNumber2 - 1]));
                                         i++;
                                     }
                                     else if (matchNumber1 > 0 && matchNumber1 <= captures.Length)
                                     {
                                         // Single digit capture replacement.
-                                        replacementBuilder.Builder.Append(TypeConverter.ToString(captures[matchNumber1 - 1]));
+                                        sb.Append(TypeConverter.ToString(captures[matchNumber1 - 1]));
                                     }
                                     else
                                     {
                                         // Capture does not exist.
-                                        replacementBuilder.Builder.Append('$');
+                                        sb.Append('$');
                                         i--;
                                     }
                                 }
                                 else
                                 {
                                     // Unknown replacement pattern.
-                                    replacementBuilder.Builder.Append('$');
-                                    replacementBuilder.Builder.Append(c);
+                                    sb.Append('$');
+                                    sb.Append(c);
                                 }
 
                                 break;
                             }
-                        }
-                    }
-                    else
-                    {
-                        replacementBuilder.Builder.Append(c);
                     }
                 }
-
-                return replacementBuilder.ToString();
+                else
+                {
+                    sb.Append(c);
+                }
             }
+
+            return replacementBuilder.ToString();
         }
 
         /// <summary>
