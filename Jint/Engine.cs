@@ -261,11 +261,31 @@ namespace Jint
 
         public Engine Execute(Script script)
         {
-            Engine DoInvoke()
+            var strict = _isStrict || script.Strict;
+            ExecuteWithConstraints(strict, () => ScriptEvaluation(new ScriptRecord(Realm, script, string.Empty)));
+
+            return this;
+        }
+        
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-runtime-semantics-scriptevaluation
+        /// </summary>
+        private Engine ScriptEvaluation(ScriptRecord scriptRecord)
+        {
+            var globalEnv = Realm.GlobalEnv;
+
+            var scriptContext = new ExecutionContext(
+                scriptRecord,
+                lexicalEnvironment: globalEnv,
+                variableEnvironment: globalEnv,
+                privateEnvironment: null,
+                Realm);
+
+            EnterExecutionContext(scriptContext);
+            try
             {
-                GlobalDeclarationInstantiation(
-                    script,
-                    Realm.GlobalEnv);
+                var script = scriptRecord.EcmaScriptCode;
+                GlobalDeclarationInstantiation(script, globalEnv);
 
                 var list = new JintStatementList(null, script.Body);
 
@@ -295,11 +315,10 @@ namespace Jint
 
                 return this;
             }
-
-            var strict = _isStrict || script.Strict;
-            ExecuteWithConstraints(strict, DoInvoke);
-
-            return this;
+            finally
+            {
+                LeaveExecutionContext();
+            }
         }
 
         /// <summary>
@@ -397,7 +416,7 @@ namespace Jint
 
             if (baseValue.IsUndefined())
             {
-                if (_referenceResolver.TryUnresolvableReference(this, reference, out JsValue val))
+                if (_referenceResolver.TryUnresolvableReference(this, reference, out var val))
                 {
                     return val;
                 }
@@ -782,7 +801,7 @@ namespace Jint
                         var fnDefinable = env.CanDeclareGlobalFunction(fn);
                         if (!fnDefinable)
                         {
-                            ExceptionHelper.ThrowTypeError(realm);
+                            ExceptionHelper.ThrowTypeError(realm, "Cannot declare global function " + fn);
                         }
 
                         declaredFunctionNames.Add(fn);
@@ -891,8 +910,8 @@ namespace Jint
             var hasParameterExpressions = configuration.HasParameterExpressions;
 
             var canInitializeParametersOnDeclaration = simpleParameterList && !configuration.HasDuplicates;
-            env.InitializeParameters(parameterNames, hasDuplicates,
-                canInitializeParametersOnDeclaration ? argumentsList : null);
+            var arguments = canInitializeParametersOnDeclaration ? argumentsList : null;
+            env.InitializeParameters(parameterNames, hasDuplicates, arguments);
 
             ArgumentsInstance ao = null;
             if (configuration.ArgumentsObjectNeeded)

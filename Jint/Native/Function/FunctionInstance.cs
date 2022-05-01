@@ -26,6 +26,7 @@ namespace Jint.Native.Function
 
         internal Realm _realm;
         private PrivateEnvironmentRecord _privateEnvironment;
+        private readonly IScriptOrModule _scriptOrModule;
 
         protected FunctionInstance(
             Engine engine,
@@ -65,6 +66,7 @@ namespace Jint.Native.Function
             }
             _realm = realm;
             _thisMode = thisMode;
+            _scriptOrModule = _engine.GetActiveScriptOrModule();
         }
 
         // for example RavenDB wants to inspect this
@@ -349,7 +351,7 @@ namespace Jint.Native.Function
             var calleeRealm = _realm;
 
             var calleeContext = new ExecutionContext(
-                null,
+                _scriptOrModule,
                 localEnv,
                 localEnv,
                 _privateEnvironment,
