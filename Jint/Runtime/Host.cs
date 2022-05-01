@@ -1,5 +1,7 @@
 #nullable enable
 
+using System.Collections;
+using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Global;
 using Jint.Native.Object;
@@ -169,6 +171,21 @@ namespace Jint.Runtime
             }, 0, PropertyFlag.Configurable);
 
             PromiseOperations.PerformPromiseThen(Engine, innerPromise, onFulfilled, onRejected, promiseCapability);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-hostgetimportmetaproperties
+        /// </summary>
+        public virtual List<KeyValuePair<JsValue, JsValue>> GetImportMetaProperties(ModuleRecord moduleRecord)
+        {
+            return new List<KeyValuePair<JsValue, JsValue>>();
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-hostfinalizeimportmeta
+        /// </summary>
+        public virtual void FinalizeImportMeta(ObjectInstance importMeta, ModuleRecord moduleRecord)
+        {
         }
     }
 }

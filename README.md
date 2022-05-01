@@ -78,7 +78,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ✔ `for-in` enhancements
 - ✔ `globalThis` object
 - ✔ `import`
-- ❌ `import.meta`
+- ✔ `import.meta`
 - ✔ Nullish coalescing operator (`??`)
 - ✔ Optional chaining
 - ❌ `Promise.allSettled`

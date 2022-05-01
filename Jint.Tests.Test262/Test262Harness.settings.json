@@ -22,7 +22,6 @@
     "generators",
     "hashbang",
     "import-assertions",
-    "import.meta",
     "numeric-separator-literal",
     "Promise.allSettled",
     "Promise.any",
@@ -69,11 +68,15 @@
     "built-ins/RegExp/unicode_restricted_identity_escape_alpha.js",
     "built-ins/RegExp/unicode_restricted_identity_escape_c.js",
     "built-ins/RegExp/unicode_restricted_identity_escape_u.js",
+    "built-ins/RegExp/unicode_identity_escape.js",
+    "built-ins/RegExp/unicode_character_class_backspace_escape.js",
+    "built-ins/RegExp/unicode_restricted_identity_escape_x.js",
+    "language/literals/regexp/u-astral-char-class-invert.js",
 
     // Issue with \r in source string
     "built-ins/RegExp/dotall/without-dotall.js",
     "built-ins/RegExp/dotall/without-dotall-unicode.js",
-    
+
     // regex named groups
     "built-ins/String/prototype/replaceAll/searchValue-replacer-RegExp-call.js",
 
@@ -218,7 +221,7 @@
 
     // negative years, c'mon...
     "built-ins/Date/prototype/*/negative-year.js",
-    
+
     // failing tests in new test suite (due to updating to latest and using whole set)
     "language/arguments-object/mapped/nonconfigurable-descriptors-define-failure.js",
     "language/destructuring/binding/syntax/destructuring-array-parameters-function-arguments-length.js",

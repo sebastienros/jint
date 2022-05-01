@@ -2,7 +2,6 @@
 using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Native.Promise;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 
@@ -34,7 +33,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
 {
     private readonly Module _source;
     private ExecutionContext _context;
-    private readonly ObjectInstance _importMeta;
+    private ObjectInstance _importMeta;
     private readonly List<ImportEntry> _importEntries;
     internal readonly List<ExportEntry> _localExportEntries;
     private readonly List<ExportEntry> _indirectExportEntries;
@@ -46,8 +45,6 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
         _source = source;
 
         // https://tc39.es/ecma262/#sec-parsemodule
-        _importMeta = _realm.Intrinsics.Object.Construct(1);
-        _importMeta.DefineOwnProperty("url", new PropertyDescriptor(location, PropertyFlag.ConfigurableEnumerableWritable));
 
         HoistingScope.GetImportsAndExports(
             _source,
@@ -58,6 +55,20 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
             out _starExportEntries);
 
         //ToDo async modules
+    }
+
+    internal ObjectInstance ImportMeta
+    {
+        get
+        {
+            if (_importMeta is null)
+            {
+                _importMeta = _realm.Intrinsics.Object.Construct(1);
+                _importMeta.CreateDataProperty("url", Location);
+            }
+            return _importMeta;
+        }
+        set => _importMeta = value;
     }
 
     /// <summary>

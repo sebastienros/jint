@@ -159,21 +159,14 @@ namespace Jint.Native.Json
 
             if (value.IsObject())
             {
-                switch (value)
+                value = value switch
                 {
-                    case NumberInstance:
-                        value = TypeConverter.ToNumber(value);
-                        break;
-                    case StringInstance:
-                        value = TypeConverter.ToString(value);
-                        break;
-                    case BooleanInstance booleanInstance:
-                        value = booleanInstance.BooleanData;
-                        break;
-                    case BigIntInstance bigIntInstance:
-                        value = bigIntInstance.BigIntData;
-                        break;
-                }
+                    NumberInstance => TypeConverter.ToNumber(value),
+                    StringInstance => TypeConverter.ToString(value),
+                    BooleanInstance booleanInstance => booleanInstance.BooleanData,
+                    BigIntInstance bigIntInstance => bigIntInstance.BigIntData,
+                    _ => value
+                };
             }
 
             if (ReferenceEquals(value, Null.Instance))
@@ -244,7 +237,7 @@ namespace Jint.Native.Json
         {
             using var stringBuilder = StringBuilderPool.Rent();
             var sb = stringBuilder.Builder;
-            sb.Append("\"");
+            sb.Append('"');
 
             foreach (var c in value)
             {
@@ -272,18 +265,20 @@ namespace Jint.Native.Json
                         sb.Append("\\t");
                         break;
                     default:
-                        if (c < 0x20)
+                        if (c < 0x20 || (c - 0x10000 >> 10) + 0xD800 == (c - 0x10000) % 0x400 + 0xDC00)
                         {
                             sb.Append("\\u");
                             sb.Append(((int) c).ToString("x4"));
                         }
                         else
+                        {
                             sb.Append(c);
+                        }
                         break;
                 }
             }
 
-            sb.Append("\"");
+            sb.Append('"');
             return sb.ToString();
         }
 
