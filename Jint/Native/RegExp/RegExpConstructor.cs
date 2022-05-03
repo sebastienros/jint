@@ -25,7 +25,7 @@ namespace Jint.Native.RegExp
             _prototype = functionPrototype;
             PrototypeObject = new RegExpPrototype(engine, realm, this, objectPrototype);
             _length = new PropertyDescriptor(2, PropertyFlag.Configurable);
-            _prototypeDescriptor= new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
+            _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
         protected override void Initialize()
@@ -105,7 +105,7 @@ namespace Jint.Native.RegExp
 
             try
             {
-                var scanner = new Scanner("/" + p + "/" + flags , new ParserOptions { AdaptRegexp = true });
+                var scanner = new Scanner("/" + p + "/" + flags, new ParserOptions { AdaptRegexp = true });
 
                 // seems valid
                 r.Value = scanner.ParseRegex(p, f);
@@ -134,7 +134,7 @@ namespace Jint.Native.RegExp
             var r = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.RegExp.PrototypeObject,
-                static(engine, realm, _) => new RegExpInstance(engine));
+                static (engine, realm, _) => new RegExpInstance(engine));
             return r;
         }
 
