@@ -803,6 +803,9 @@ namespace Jint.Native.RegExp
             return false;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-regexpbuiltinexec
+        /// </summary>
         private static JsValue RegExpBuiltinExec(RegExpInstance R, string s)
         {
             var length = (ulong) s.Length;
@@ -859,18 +862,11 @@ namespace Jint.Native.RegExp
                 var success = match.Success && (!sticky || match.Index == (int) lastIndex);
                 if (!success)
                 {
-                    if (sticky)
-                    {
-                        R.Set(RegExpInstance.PropertyLastIndex, JsNumber.PositiveZero, true);
-                        return Null;
-                    }
+                    R.Set(RegExpInstance.PropertyLastIndex, JsNumber.PositiveZero, true);
+                    return Null;
+                }
 
-                    lastIndex = AdvanceStringIndex(s, lastIndex, fullUnicode);
-                }
-                else
-                {
-                    break;
-                }
+                break;
             }
 
             var e = match.Index + match.Length;

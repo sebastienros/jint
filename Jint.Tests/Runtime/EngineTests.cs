@@ -1275,6 +1275,9 @@ namespace Jint.Tests.Runtime
 
                 log(highlighted);
             ");
+
+            _engine.SetValue("input", File.ReadAllText("../../../../Jint/Engine.cs"));
+            RunTest("Prism.highlight(input, Prism.languages.csharp, lang);");
         }
 
         [Fact]
