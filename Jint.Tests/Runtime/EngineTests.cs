@@ -1258,6 +1258,29 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldExecutePrism()
+        {
+            var content = GetEmbeddedFile("prism.js");
+
+            RunTest(content);
+
+            RunTest(@"
+                var input = 'using System; public class Person { public int Name { get; set; } }';
+                var lang = 'csharp';
+                var highlighted = Prism.highlight(input, Prism.languages.csharp, lang);
+
+                assert(highlighted.includes('System'));
+                assert(highlighted.includes('Person'));
+                assert(highlighted.includes('Name'));
+
+                log(highlighted);
+            ");
+
+            _engine.SetValue("input", File.ReadAllText("../../../../Jint/Engine.cs"));
+            RunTest("Prism.highlight(input, Prism.languages.csharp, lang);");
+        }
+
+        [Fact]
         public void ShouldExecuteDromaeoBase64()
         {
             RunTest(@"
