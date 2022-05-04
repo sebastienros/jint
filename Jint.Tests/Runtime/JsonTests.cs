@@ -48,5 +48,19 @@ namespace Jint.Tests.Runtime
             Assert.NotNull(error);
             Assert.Equal("SyntaxError", error.Get("name"));
         }
+
+        [Theory]
+        [InlineData("[[]]", "[\n  []\n]")]
+        [InlineData("[ { a: [{ x: 0 }], b:[]} ]",
+            "[\n  {\n    \"a\": [\n      {\n        \"x\": 0\n      }\n    ],\n    \"b\": []\n  }\n]")]
+        public void ShouldSerializeWithCorrectIndentation(string script, string expectedJson)
+        {
+            var engine = new Engine();
+            engine.SetValue("x", engine.Evaluate(script));
+
+            var result = engine.Evaluate("JSON.stringify(x, null, 2);").AsString();
+
+            Assert.Equal(expectedJson, result);
+        }
     }
 }
