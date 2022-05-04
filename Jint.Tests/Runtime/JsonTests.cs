@@ -1,11 +1,19 @@
 using Jint.Native.Json;
 using Jint.Runtime;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Jint.Tests.Runtime
 {
     public class JsonTests
     {
+        private readonly ITestOutputHelper _outputHelper;
+
+        public JsonTests(ITestOutputHelper outputHelper)
+        {
+            _outputHelper = outputHelper;
+        }
+
         [Fact]
         public void CanParseTabsInProperties()
         {
@@ -47,6 +55,22 @@ namespace Jint.Tests.Runtime
             var error = ex.Error as Native.Error.ErrorInstance;
             Assert.NotNull(error);
             Assert.Equal("SyntaxError", error.Get("name"));
+        }
+
+        [Theory]
+        [InlineData("[[]]", "[\n  []\n]")]
+        [InlineData("[ { a: [{ x: 0 }], b:[]} ]",
+            "[\n  {\n    \"a\": [\n      {\n        \"x\": 0\n      }\n    ],\n    \"b\": []\n  }\n]")]
+        public void ShouldSerializeWithCorrectIndentation(string script, string expectedJson)
+        {
+            var engine = new Engine();
+            engine.SetValue("x", engine.Evaluate(script));
+
+            var result = engine.Evaluate("JSON.stringify(x, null, 2);").AsString();
+
+            _outputHelper.WriteLine(result);
+
+            Assert.Equal(expectedJson, result);
         }
     }
 }

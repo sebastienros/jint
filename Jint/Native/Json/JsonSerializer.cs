@@ -295,6 +295,7 @@ namespace Jint.Native.Json
             if (partial.Count == 0)
             {
                 _stack.Exit();
+                _indent = stepback;
                 return "[]";
             }
 
