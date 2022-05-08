@@ -83,12 +83,11 @@ namespace Jint.Native.Json
                 ;
         }
 
-        private char ScanHexEscape(char prefix)
+        private char ScanHexEscape()
         {
             int code = char.MinValue;
 
-            int len = (prefix == 'u') ? 4 : 2;
-            for (int i = 0; i < len; ++i)
+            for (int i = 0; i < 4; ++i)
             {
                 if (_index < _length && IsHexDigit(_source.CharCodeAt(_index)))
                 {
@@ -100,7 +99,7 @@ namespace Jint.Native.Json
                     ThrowError(_index, Messages.ExpectedHexadecimalDigit);
                 }
             }
-            return (char)code;
+            return (char) code;
         }
 
         private void SkipWhiteSpace()
@@ -320,68 +319,38 @@ namespace Jint.Native.Json
                 {
                     ch = _source.CharCodeAt(_index++);
 
-                    if (ch > 0 || !IsLineTerminator(ch))
+                    switch (ch)
                     {
-                        switch (ch)
-                        {
-                            case 'n':
-                                sb.Append('\n');
-                                break;
-                            case 'r':
-                                sb.Append('\r');
-                                break;
-                            case 't':
-                                sb.Append('\t');
-                                break;
-                            case 'u':
-                            case 'x':
-                                char unescaped = ScanHexEscape(ch);
-                                sb.Append(unescaped);
-                                break;
-                            case 'b':
-                                sb.Append('\b');
-                                break;
-                            case 'f':
-                                sb.Append('\f');
-                                break;
-                            case 'v':
-                                sb.Append('\x0B');
-                                break;
-
-                            default:
-                                if (IsOctalDigit(ch))
-                                {
-                                    int code = "01234567".IndexOf(ch);
-
-                                    if (_index < _length && IsOctalDigit(_source.CharCodeAt(_index)))
-                                    {
-                                        code = code * 8 + "01234567".IndexOf(_source.CharCodeAt(_index++));
-
-                                        // 3 digits are only allowed when string starts
-                                        // with 0, 1, 2, 3
-                                        if ("0123".IndexOf(ch) >= 0 &&
-                                            _index < _length &&
-                                            IsOctalDigit(_source.CharCodeAt(_index)))
-                                        {
-                                            code = code * 8 + "01234567".IndexOf(_source.CharCodeAt(_index++));
-                                        }
-                                    }
-                                    sb.Append(((char)code).ToString());
-                                }
-                                else
-                                {
-                                    sb.Append(ch.ToString());
-                                }
-                                break;
-                        }
-                    }
-                    else
-                    {
-                        ++_lineNumber;
-                        if (ch == '\r' && _source.CharCodeAt(_index) == '\n')
-                        {
-                            ++_index;
-                        }
+                        case '"':
+                            sb.Append('"');
+                            break;
+                        case '\\':
+                            sb.Append('\\');
+                            break;
+                        case '/':
+                            sb.Append('/');
+                            break;
+                        case 'n':
+                            sb.Append('\n');
+                            break;
+                        case 'r':
+                            sb.Append('\r');
+                            break;
+                        case 't':
+                            sb.Append('\t');
+                            break;
+                        case 'u':
+                            sb.Append(ScanHexEscape());
+                            break;
+                        case 'b':
+                            sb.Append('\b');
+                            break;
+                        case 'f':
+                            sb.Append('\f');
+                            break;
+                        default:
+                            ThrowError(_index - 1, Messages.UnexpectedToken, ch);
+                            break;
                     }
                 }
                 else if (IsLineTerminator(ch))

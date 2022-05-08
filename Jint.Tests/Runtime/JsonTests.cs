@@ -45,7 +45,7 @@ namespace Jint.Tests.Runtime
         [InlineData("{true}", "Unexpected token 'true' in JSON at position 1")]
         [InlineData("{null}", "Unexpected token 'null' in JSON at position 1")]
         [InlineData("{:}", "Unexpected token ':' in JSON at position 1")]
-        [InlineData("\"\\xah\"", "Expected hexadecimal digit in JSON at position 4")]
+        [InlineData("\"\\uah\"", "Expected hexadecimal digit in JSON at position 4")]
         [InlineData("0123", "Unexpected token '1' in JSON at position 1")]  // leading 0 (octal number) not allowed
         [InlineData("1e+A", "Unexpected token 'A' in JSON at position 3")]
         [InlineData("truE", "Unexpected token 'tru' in JSON at position 0")]
@@ -55,6 +55,7 @@ namespace Jint.Tests.Runtime
         [InlineData("alpha", "Unexpected token 'a' in JSON at position 0")]
         [InlineData("[1,\na]", "Unexpected token 'a' in JSON at position 4")] // multiline
         [InlineData("\x06", "Unexpected token '\x06' in JSON at position 0")] // control char
+        [InlineData("{\"\\v\":1}", "Unexpected token 'v' in JSON at position 3")] // invalid escape sequence
         public void ShouldReportHelpfulSyntaxErrorForInvalidJson(string json, string expectedMessage)
         {
             var engine = new Engine();
