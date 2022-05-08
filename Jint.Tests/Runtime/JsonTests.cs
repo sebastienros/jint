@@ -16,6 +16,28 @@ namespace Jint.Tests.Runtime
         }
 
         [Theory]
+        [InlineData("{\"a\":\"\\\"\"}", "\"")] // " quotation mark
+        [InlineData("{\"a\":\"\\\\\"}", "\\")] // \ reverse solidus
+        [InlineData("{\"a\":\"\\/\"}", "/")] // / solidus
+        [InlineData("{\"a\":\"\\b\"}", "\b")] // backspace
+        [InlineData("{\"a\":\"\\f\"}", "\f")] // formfeed
+        [InlineData("{\"a\":\"\\n\"}", "\n")] // linefeed
+        [InlineData("{\"a\":\"\\r\"}", "\r")] // carriage return
+        [InlineData("{\"a\":\"\\t\"}", "\t")] // horizontal tab
+        [InlineData("{\"a\":\"\\u0000\"}", "\0")]
+        [InlineData("{\"a\":\"\\u0001\"}", "\x01")]
+        [InlineData("{\"a\":\"\\u0061\"}", "a")]
+        public void ShouldParseEscapedCharactersCorrectly(string json, string expectedCharacter)
+        {
+            var engine = new Engine();
+            var parser = new JsonParser(engine);
+
+            var parsedCharacter = parser.Parse(json).AsObject().Get("a").AsString();
+
+            Assert.Equal(expectedCharacter, parsedCharacter);
+        }
+
+        [Theory]
         [InlineData("{\"a\":1", "Unexpected end of JSON input at position 6")]
         [InlineData("{\"a\":1},", "Unexpected token ',' in JSON at position 7")]
         [InlineData("{1}", "Unexpected number in JSON at position 1")]

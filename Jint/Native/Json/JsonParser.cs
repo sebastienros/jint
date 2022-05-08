@@ -335,26 +335,17 @@ namespace Jint.Native.Json
                                 break;
                             case 'u':
                             case 'x':
-                                int restore = _index;
                                 char unescaped = ScanHexEscape(ch);
-                                if (unescaped > 0)
-                                {
-                                    sb.Append(unescaped.ToString());
-                                }
-                                else
-                                {
-                                    _index = restore;
-                                    sb.Append(ch.ToString());
-                                }
+                                sb.Append(unescaped);
                                 break;
                             case 'b':
-                                sb.Append("\b");
+                                sb.Append('\b');
                                 break;
                             case 'f':
-                                sb.Append("\f");
+                                sb.Append('\f');
                                 break;
                             case 'v':
-                                sb.Append("\x0B");
+                                sb.Append('\x0B');
                                 break;
 
                             default:
