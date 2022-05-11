@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using System.Reflection;
 #endif
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Jint.Native;
@@ -301,6 +302,15 @@ export const count = globals.counter;
 
         Assert.Equal("a", nsA.Get("a").AsString());
         Assert.Equal("b", nsB.Get("b").AsString());
+    }
+    
+    [Fact]
+    public void ShouldSupportConstraints()
+    {
+        var engine = new Engine(opts => opts.TimeoutInterval(TimeSpan.FromTicks(1)));
+        
+        engine.AddModule("my-module", @"for(var i = 0; i < 100000; i++) { } export const result = 'ok';");
+        Assert.Throws<TimeoutException>(() => engine.ImportModule("my-module"));
     }
 
 #if(NET6_0_OR_GREATER)
