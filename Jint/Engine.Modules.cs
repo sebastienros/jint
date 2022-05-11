@@ -119,7 +119,7 @@ namespace Jint
 
                 if (cyclicModule.Status == ModuleStatus.Linked)
                 {
-                    EvaluateModule(specifier, cyclicModule);
+                    ExecuteWithConstraints(true, () => EvaluateModule(specifier, cyclicModule));
                 }
 
                 if (cyclicModule.Status != ModuleStatus.Evaluated)
@@ -133,7 +133,7 @@ namespace Jint
             return ModuleRecord.GetModuleNamespace(module);
         }
 
-        private void EvaluateModule(string specifier, ModuleRecord cyclicModule)
+        private JsValue EvaluateModule(string specifier, ModuleRecord cyclicModule)
         {
             var ownsContext = _activeEvaluationContext is null;
             _activeEvaluationContext ??= new EvaluationContext(this);
@@ -163,6 +163,8 @@ namespace Jint
             {
                 ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a fulfilled promise: {promise.State}");
             }
+
+            return evaluationResult;
         }
     }
 }
