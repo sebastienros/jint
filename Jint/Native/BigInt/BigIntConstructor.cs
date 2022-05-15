@@ -115,7 +115,9 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
         var o = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.BigInt.PrototypeObject,
-            static (engine, realm, state) => new BigIntInstance(engine, (JsBigInt) state), value);
+            static (engine, realm, state) => new BigIntInstance(engine, state),
+            value);
+        
         return o;
     }
 

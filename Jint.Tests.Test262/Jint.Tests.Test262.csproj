@@ -5,6 +5,7 @@
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
     <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CS8002</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
