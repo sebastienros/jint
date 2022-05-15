@@ -1,4 +1,6 @@
-﻿using System;
+﻿#nullable enable
+
+using System;
 using System.Collections.Concurrent;
 using System.Reflection;
 using Jint.Collections;
@@ -14,8 +16,10 @@ namespace Jint.Runtime.Interop
     {
         private static readonly JsString _name = new JsString("typereference");
         private static readonly ConcurrentDictionary<Type, MethodDescriptor[]> _constructorCache = new();
-        private static readonly ConcurrentDictionary<Tuple<Type, string>, ReflectionAccessor> _memberAccessors = new();
+        private static readonly ConcurrentDictionary<MemberAccessorKey, ReflectionAccessor> _memberAccessors = new();
 
+        private readonly record struct MemberAccessorKey(Type Type, string PropertyName); 
+        
         private TypeReference(Engine engine, Type type)
             : base(engine, engine.Realm, _name, FunctionThisMode.Global, ObjectClass.TypeReference)
         {
@@ -43,49 +47,62 @@ namespace Jint.Runtime.Interop
         protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             // direct calls on a TypeReference constructor object is equivalent to the new operator
-            return Construct(arguments);
+            return Construct(arguments, Undefined);
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments);
+        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
 
-        private ObjectInstance Construct(JsValue[] arguments)
+        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            ObjectInstance result = null;
-            if (arguments.Length == 0 && ReferenceType.IsValueType)
+            static ObjectInstance ObjectCreator(Engine engine, Realm realm, ObjectCreateState state)
             {
-                var instance = Activator.CreateInstance(ReferenceType);
-                result = TypeConverter.ToObject(_realm, FromObject(Engine, instance));
-            }
-            else
-            {
-                var constructors = _constructorCache.GetOrAdd(
-                    ReferenceType,
-                    t => MethodDescriptor.Build(t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)));
-
-                foreach (var (method, _, _) in TypeConverter.FindBestMatch(_engine, constructors, _ => arguments))
+                var arguments = state.Arguments;
+                var referenceType = state.TypeReference.ReferenceType;
+                
+                ObjectInstance? result = null;
+                if (arguments.Length == 0 && referenceType.IsValueType)
                 {
-                    var retVal = method.Call(Engine, null, arguments);
-                    result = TypeConverter.ToObject(_realm, retVal);
-
-                    // todo: cache method info
-                    break;
+                    var instance = Activator.CreateInstance(referenceType);
+                    result = TypeConverter.ToObject(realm, FromObject(engine, instance));
                 }
-            }
-
-            if (result is not null)
-            {
-                if (result is ObjectWrapper objectWrapper)
+                else
                 {
-                    // allow class extension
-                    objectWrapper._allowAddingProperties = true;
+                    var constructors = _constructorCache.GetOrAdd(
+                        referenceType,
+                        t => MethodDescriptor.Build(t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)));
+
+                    foreach (var (method, _, _) in TypeConverter.FindBestMatch(engine, constructors, _ => arguments))
+                    {
+                        var retVal = method.Call(engine, null, arguments);
+                        result = TypeConverter.ToObject(realm, retVal);
+
+                        // todo: cache method info
+                        break;
+                    }
                 }
+
+                if (result is null)
+                {
+                    ExceptionHelper.ThrowTypeError(realm, "No public methods with the specified arguments were found.");
+                }
+
+                result.SetPrototypeOf(state.TypeReference);
 
                 return result;
             }
 
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "No public methods with the specified arguments were found.");
-            return null;
+            // TODO should inject prototype that reflects TypeReference's target's layout
+            var thisArgument = OrdinaryCreateFromConstructor(
+                newTarget,
+                static intrinsics => intrinsics.Object.PrototypeObject,
+                ObjectCreator,
+                new ObjectCreateState(this, arguments));
+
+           
+            return thisArgument;
         }
+
+        private readonly record struct ObjectCreateState(TypeReference TypeReference, JsValue[] Arguments);
 
         internal override bool OrdinaryHasInstance(JsValue v)
         {
@@ -115,12 +132,6 @@ namespace Jint.Runtime.Interop
             }
 
             var ownDesc = GetOwnProperty(property);
-
-            if (ownDesc == null)
-            {
-                return false;
-            }
-
             ownDesc.Value = value;
             return true;
         }
@@ -151,14 +162,14 @@ namespace Jint.Runtime.Interop
 
         private PropertyDescriptor CreatePropertyDescriptor(string name)
         {
-            var key = new Tuple<Type, string>(ReferenceType, name);
-            var accessor = _memberAccessors.GetOrAdd(key, x => ResolveMemberAccessor(x.Item1, x.Item2));
+            var key = new MemberAccessorKey(ReferenceType, name);
+            var accessor = _memberAccessors.GetOrAdd(key, x => ResolveMemberAccessor(_engine, x.Type, x.PropertyName));
             return accessor.CreatePropertyDescriptor(_engine, ReferenceType, enumerable: true);
         }
 
-        private ReflectionAccessor ResolveMemberAccessor(Type type, string name)
+        private static ReflectionAccessor ResolveMemberAccessor(Engine engine, Type type, string name)
         {
-            var typeResolver = _engine.Options.Interop.TypeResolver;
+            var typeResolver = engine.Options.Interop.TypeResolver;
 
             if (type.IsEnum)
             {
@@ -186,7 +197,7 @@ namespace Jint.Runtime.Interop
             }
 
             const BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Static;
-            return typeResolver.TryFindMemberAccessor(_engine, type, name, bindingFlags, indexerToTry: null, out var accessor)
+            return typeResolver.TryFindMemberAccessor(engine, type, name, bindingFlags, indexerToTry: null, out var accessor)
                 ? accessor
                 : ConstantValueAccessor.NullAccessor;
         }

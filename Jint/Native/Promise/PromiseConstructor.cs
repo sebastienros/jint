@@ -87,7 +87,7 @@ namespace Jint.Native.Promise
             var instance = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Promise.PrototypeObject,
-                static(engine, realm, _) => new PromiseInstance(engine));
+                static (Engine engine, Realm _, object _) => new PromiseInstance(engine));
 
             var (resolve, reject) = instance.CreateResolvingFunctions();
             promiseExecutor.Call(Undefined, new JsValue[] {resolve, reject});

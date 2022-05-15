@@ -40,7 +40,8 @@ namespace Jint.Native.WeakSet
             var set = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.WeakSet.PrototypeObject,
-                static (engine, realm, _) => new WeakSetInstance(engine));
+                static (Engine engine, Realm _, object _) => new WeakSetInstance(engine));
+            
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adder = set.Get("add") as ICallable;

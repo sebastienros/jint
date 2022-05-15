@@ -79,6 +79,7 @@ public class GenericMethodTests
     // we _may_ be able to address this by simply instantiating generic types using System.Object for the generic arguments
     // This test currently generates the following error:
     // No public methods with the specified arguments were found.
+    [Fact(Skip = "not supported yet")]
     public void TestGenericClassDeriveFromGenericInterface()
     {
         var engine = new Engine(cfg => cfg.AllowClr(typeof(OpenGenericTest<>).Assembly));
@@ -206,17 +207,15 @@ public class GenericMethodTests
             private set;
         }
 
-        TState _stateSubject;
-
         public ReduxStore()
         {
             SelectInvoked = false;
         }
 
-        public IObservable<TResult> Select<TResult>(ISelectorWithoutProps<TState, TResult> selector, string? optionsStr = null)
+        public IObservable<TResult> Select<TResult>(ISelectorWithoutProps<TState, TResult> selector, string optionsStr = null)
         {
             SelectInvoked = true;
-            return selector.Apply(_stateSubject);
+            return selector.Apply(null);
         }
     }
 

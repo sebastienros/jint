@@ -11,7 +11,7 @@ namespace Jint.Native.Function
 {
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
-        internal bool _isClassConstructor;
+        private bool _isClassConstructor;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
@@ -121,7 +121,7 @@ namespace Jint.Native.Function
                 thisArgument = OrdinaryCreateFromConstructor(
                     newTarget,
                     static intrinsics => intrinsics.Object.PrototypeObject,
-                    static (engine, realm, _) => new ObjectInstance(engine));
+                    static (Engine engine, Realm _, object _) => new ObjectInstance(engine));
             }
 
             var calleeContext = PrepareForOrdinaryCall(newTarget);

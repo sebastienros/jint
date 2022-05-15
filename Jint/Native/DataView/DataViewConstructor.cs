@@ -80,7 +80,7 @@ namespace Jint.Native.DataView
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.DataView.PrototypeObject,
-                static (engine, realm, state) => new DataViewInstance(engine));
+                static (Engine engine, Realm _, object _) => new DataViewInstance(engine));
 
             if (buffer.IsDetachedBuffer)
             {

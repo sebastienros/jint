@@ -163,7 +163,7 @@ namespace Jint.Native.Object
                 return OrdinaryCreateFromConstructor(
                     newTarget,
                     static intrinsics => intrinsics.Object.PrototypeObject,
-                    (engine, realm, state) => new ObjectInstance(engine));
+                    static (Engine engine, Realm _, object _) => new ObjectInstance(engine));
             }
 
             if (arguments.Length > 0)

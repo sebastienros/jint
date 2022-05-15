@@ -789,20 +789,64 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void JavaScriptClassCanExtendClrType()
         {
-            var engine = new Engine();
-            engine.SetValue("TestClass", TypeReference.CreateTypeReference<TestClass>(engine));
+            _engine.SetValue("TestClass", TypeReference.CreateTypeReference<TestClass>(_engine));
 
-            engine.Execute("class ExtendedType extends TestClass { constructor() { super(); this.a = 1; } }");
-            engine.Execute("class MyExtendedType extends ExtendedType { constructor() { super(); this.b = 2; } }");
-            engine.Evaluate("let obj = new MyExtendedType();");
+            _engine.Execute("class ExtendedType extends TestClass { constructor() { super(); this.a = 1; } get aProp() { return 'A'; } }");
+            _engine.Execute("class MyExtendedType extends ExtendedType { constructor() { super(); this.b = 2; } get bProp() { return 'B'; } }");
+            _engine.Evaluate("let obj = new MyExtendedType();");
 
-            engine.Evaluate("obj.setString('Hello World!');");
+            _engine.Evaluate("obj.setString('Hello World!');");
 
-            Assert.Equal("Hello World!", engine.Evaluate("obj.string"));
-            Assert.Equal(1, engine.Evaluate("obj.a"));
-            Assert.Equal(2, engine.Evaluate("obj.b"));
+            Assert.Equal("Hello World!", _engine.Evaluate("obj.string"));
+            Assert.Equal(1, _engine.Evaluate("obj.a"));
+            Assert.Equal(2, _engine.Evaluate("obj.b"));
+
+            Assert.Equal("A", _engine.Evaluate("obj.aProp"));
+            Assert.Equal("B", _engine.Evaluate("obj.bProp"));
+            
+            // TODO we should have a special prototype based on wrapped type so we could differentiate between own and type properties 
+            // Assert.Equal("[\"a\"]", _engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(new ExtendedType()))"));
+            // Assert.Equal("[\"a\",\"b\"]", _engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(new MyExtendedType()))"));
         }
+        
+        [Fact]
+        public void ShouldAllowMethodsOnClrExtendedTypes()
+        {
+            _engine.SetValue("ClrBaseType", TypeReference.CreateTypeReference<TestClass>(_engine));
+            _engine.Evaluate(@"
+                class JsBaseType {}
+                class ExtendsFromJs extends JsBaseType {
+                    constructor() {
+                        super();
+                        this.a = 1;
+                    }
 
+                    getA() {
+                        return this.a;
+                    }
+                }
+
+                class ExtendsFromClr extends ClrBaseType {
+                    constructor() {
+                        super();
+                        this.a = 1;
+                    }
+
+                    getA() {
+                        return this.a;
+                    }
+                }
+            ");
+
+            var extendsFromJs = _engine.Construct("ExtendsFromJs");
+            Assert.Equal(1, _engine.Evaluate("new ExtendsFromJs().getA();"));
+            Assert.NotEqual(JsValue.Undefined, extendsFromJs.Get("getA"));
+
+            var extendsFromClr = _engine.Construct("ExtendsFromClr");
+            Assert.Equal(1, _engine.Evaluate("new ExtendsFromClr().getA();"));
+            Assert.NotEqual(JsValue.Undefined, extendsFromClr.Get("getA"));
+        }
+        
         private struct TestStruct
         {
             public int Value;

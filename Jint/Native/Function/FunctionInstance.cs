@@ -227,11 +227,11 @@ namespace Jint.Native.Function
         /// In spec intrinsicDefaultProto is string pointing to intrinsic, but we do a selector.
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal T OrdinaryCreateFromConstructor<T>(
+        internal T OrdinaryCreateFromConstructor<T, TState>(
             JsValue constructor,
             Func<Intrinsics, ObjectInstance> intrinsicDefaultProto,
-            Func<Engine, Realm, JsValue, T> objectCreator,
-            JsValue state = null) where T : ObjectInstance
+            Func<Engine, Realm, TState, T> objectCreator,
+            TState state = default) where T : ObjectInstance
         {
             var proto = GetPrototypeFromConstructor(constructor, intrinsicDefaultProto);
 
