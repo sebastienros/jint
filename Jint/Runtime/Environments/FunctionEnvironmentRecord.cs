@@ -54,7 +54,7 @@ namespace Jint.Runtime.Environments
         {
             if (_thisBindingStatus == ThisBindingStatus.Initialized)
             {
-                ExceptionHelper.ThrowReferenceError(_functionObject._realm, (string) null);
+                ExceptionHelper.ThrowReferenceError(_functionObject._realm, "'this' has already been bound");
             }
             _thisValue = value;
             _thisBindingStatus = ThisBindingStatus.Initialized;
@@ -68,7 +68,14 @@ namespace Jint.Runtime.Environments
                 return _thisValue;
             }
 
-            ExceptionHelper.ThrowReferenceError(_engine.ExecutionContext.Realm, (string) null);
+            var message = "Cannot access uninitialized 'this'";
+            if (NewTarget is ScriptFunctionInstance { _isClassConstructor: true, _constructorKind: ConstructorKind.Derived })
+            {
+                // help with better error message
+                message = "Must call super constructor in derived class before accessing 'this' or returning from derived constructor";
+            }
+
+            ExceptionHelper.ThrowReferenceError(_engine.ExecutionContext.Realm, message);
             return null;
         }
 
@@ -334,7 +341,7 @@ namespace Jint.Runtime.Environments
                 && right is Identifier idRight
                 && idLeft.Name == idRight.Name)
             {
-                ExceptionHelper.ThrowReferenceError(_functionObject._realm, idRight.Name);
+                ExceptionHelper.ThrowReferenceNameError(_functionObject._realm, idRight.Name);
             }
 
             if (argument.IsUndefined())

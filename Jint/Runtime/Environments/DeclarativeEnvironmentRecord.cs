@@ -79,7 +79,7 @@ namespace Jint.Runtime.Environments
             {
                 if (strict)
                 {
-                    ExceptionHelper.ThrowReferenceError(_engine.Realm, key);
+                    ExceptionHelper.ThrowReferenceNameError(_engine.Realm, key);
                 }
                 CreateMutableBindingAndInitialize(key, canBeDeleted: true, value);
                 return;

@@ -2852,6 +2852,16 @@ x.test = {
             Assert.Equal("Delete of an unqualified identifier in strict mode.", ex.Message);
         }
 
+        [Fact]
+        public void ShouldSupportThisInSubclass()
+        {
+            var engine = new Engine();
+            var script = "class MyClass1 { } class MyClass2 extends MyClass1 { constructor() { } } const x = new MyClass2();";
+
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(script));
+            Assert.Equal("Must call super constructor in derived class before accessing 'this' or returning from derived constructor", ex.Message);
+        }
+        
         private class Wrapper
         {
             public Testificate Test { get; set; }
