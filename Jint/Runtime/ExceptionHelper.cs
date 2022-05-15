@@ -39,13 +39,19 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowReferenceError(Realm realm, Reference reference)
         {
-            ThrowReferenceError(realm, reference?.GetReferencedName()?.ToString());
+            ThrowReferenceNameError(realm, reference?.GetReferencedName()?.ToString());
         }
 
         [DoesNotReturn]
-        public static void ThrowReferenceError(Realm realm, string name)
+        public static void ThrowReferenceNameError(Realm realm, string name)
         {
             var message = name != null ? name + " is not defined" : null;
+            ThrowReferenceError(realm, message);
+        }
+
+        [DoesNotReturn]
+        public static void ThrowReferenceError(Realm realm, string message)
+        {
             throw new JavaScriptException(realm.Intrinsics.ReferenceError, message);
         }
 

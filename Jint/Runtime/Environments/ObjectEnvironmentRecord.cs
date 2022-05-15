@@ -140,7 +140,7 @@ namespace Jint.Runtime.Environments
         {
             if (strict && !_bindingObject.HasProperty(name.StringValue))
             {
-                ExceptionHelper.ThrowReferenceError(_engine.Realm, name.Key);
+                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Key);
             }
                 
             _bindingObject.Set(name.StringValue, value);
@@ -151,7 +151,7 @@ namespace Jint.Runtime.Environments
             var desc = _bindingObject.GetProperty(name);
             if (strict && desc == PropertyDescriptor.Undefined)
             {
-                ExceptionHelper.ThrowReferenceError(_engine.Realm, name);
+                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
             }
 
             return ObjectInstance.UnwrapJsValue(desc, _bindingObject);

@@ -134,7 +134,7 @@ namespace Jint.Runtime.Environments
                 var property = JsString.Create(name);
                 if (strict && !_global.HasProperty(property))
                 {
-                    ExceptionHelper.ThrowReferenceError(_engine.Realm, name);
+                    ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
                 }
 
                 _global.Set(property, value);
