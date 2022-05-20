@@ -76,7 +76,7 @@ var b = function(v) {
             Assert.Equal(15, e.Location.Start.Column);
             Assert.Equal("custom.js", e.Location.Source);
 
-            var stack = e.StackTrace;
+            var stack = e.JavaScriptStackTrace;
             EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:3:16
    at b (v) custom.js:7:10
    at main.js:1:9", stack);
@@ -218,7 +218,7 @@ var b = function(v) {
    at recursive (folderInstance) <anonymous>:8:32
    at recursive (folderInstance) <anonymous>:8:32
    at recursive (folderInstance) <anonymous>:8:32
-   at <anonymous>:12:17", javaScriptException.StackTrace);
+   at <anonymous>:12:17", javaScriptException.JavaScriptStackTrace);
 
             var expected = new List<string>
             {
@@ -248,7 +248,7 @@ var x = b(7);";
    at b (v) <anonymous>:6:12
    at <anonymous>:9:9";
 
-            EqualIgnoringNewLineDifferences(expected, ex.ToString());
+            EqualIgnoringNewLineDifferences(expected, ex.JavaScriptToString());
         }
 
         [Fact]
@@ -281,7 +281,7 @@ var x = b(7);";
    at (anonymous) (getItem) get-item.js:9:16
    at get-item.js:13:2";
 
-            EqualIgnoringNewLineDifferences(expected, ex.ToString());
+            EqualIgnoringNewLineDifferences(expected, ex.JavaScriptToString());
         }
 
         [Fact]

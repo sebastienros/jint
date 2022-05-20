@@ -87,7 +87,7 @@ namespace Jint.Runtime
         /// Returns the call stack of the exception. Requires that engine was built using
         /// <see cref="Options.CollectStackTrace"/>.
         /// </summary>
-        public override string? StackTrace
+        public string? JavaScriptStackTrace
         {
             get
             {
@@ -115,14 +115,14 @@ namespace Jint.Runtime
 
         public int Column => Location.Start.Column;
 
-        public override string ToString()
+        public string JavaScriptToString()
         {
             // adapted custom version as logic differs between full framework and .NET Core
             var className = GetType().ToString();
             var message = Message;
             var innerExceptionString = InnerException?.ToString() ?? "";
             const string endOfInnerExceptionResource = "--- End of inner exception stack trace ---";
-            var stackTrace = StackTrace;
+            var stackTrace = JavaScriptStackTrace;
 
             using var rent = StringBuilderPool.Rent();
             var sb = rent.Builder;
