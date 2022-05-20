@@ -115,34 +115,20 @@ namespace Jint.Runtime
 
         public int Column => Location.Start.Column;
 
-        public string JavaScriptToString()
+        public string ToJavaScriptErrorString()
         {
-            // adapted custom version as logic differs between full framework and .NET Core
-            var className = GetType().ToString();
-            var message = Message;
-            var innerExceptionString = InnerException?.ToString() ?? "";
-            const string endOfInnerExceptionResource = "--- End of inner exception stack trace ---";
-            var stackTrace = JavaScriptStackTrace;
-
             using var rent = StringBuilderPool.Rent();
             var sb = rent.Builder;
-            sb.Append(className);
+            
+            sb.Append("Error");
+            var message = Message;
             if (!string.IsNullOrEmpty(message))
             {
                 sb.Append(": ");
                 sb.Append(message);
             }
 
-            if (InnerException != null)
-            {
-                sb.Append(Environment.NewLine);
-                sb.Append(" ---> ");
-                sb.Append(innerExceptionString);
-                sb.Append(Environment.NewLine);
-                sb.Append("   ");
-                sb.Append(endOfInnerExceptionResource);
-            }
-
+            var stackTrace = JavaScriptStackTrace;
             if (stackTrace != null)
             {
                 sb.Append(Environment.NewLine);

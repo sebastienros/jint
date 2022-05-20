@@ -243,12 +243,12 @@ var x = b(7);";
 
             var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
 
-            const string expected = @"Jint.Runtime.JavaScriptException: Cannot read property 'yyy' of undefined
+            const string expected = @"Error: Cannot read property 'yyy' of undefined
    at a (v) <anonymous>:2:18
    at b (v) <anonymous>:6:12
    at <anonymous>:9:9";
 
-            EqualIgnoringNewLineDifferences(expected, ex.JavaScriptToString());
+            EqualIgnoringNewLineDifferences(expected, ex.ToJavaScriptErrorString());
         }
 
         [Fact]
@@ -276,12 +276,12 @@ var x = b(7);";
             };
             var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script, parserOptions));
 
-            const string expected = @"Jint.Runtime.JavaScriptException: Cannot read property '5' of null
+            const string expected = @"Error: Cannot read property '5' of null
    at getItem (items, itemIndex) get-item.js:2:22
    at (anonymous) (getItem) get-item.js:9:16
    at get-item.js:13:2";
 
-            EqualIgnoringNewLineDifferences(expected, ex.JavaScriptToString());
+            EqualIgnoringNewLineDifferences(expected, ex.ToJavaScriptErrorString());
         }
 
         [Fact]
