@@ -21,7 +21,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         // and don't require duplicate checking
         private bool _canBuildFast;
 
-        private class ObjectProperty
+        private sealed class ObjectProperty
         {
             internal readonly string? _key;
             private JsString? _keyJsString;
@@ -186,7 +186,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                 JsValue? propName = objectProperty.KeyJsString;
                 if (propName is null)
                 {
-                    propName = TypeConverter.ToPropertyKey(property.GetKey(engine));
+                    var completion = property.TryGetKey(engine);
+                    if (completion.IsAbrupt())
+                    {
+                        return completion;
+                    }
+
+                    propName = TypeConverter.ToPropertyKey(completion.Value);
                 }
 
                 if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)

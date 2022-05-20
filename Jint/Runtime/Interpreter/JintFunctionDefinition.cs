@@ -35,18 +35,62 @@ namespace Jint.Runtime.Interpreter
 
         public FunctionThisMode ThisMode => Strict || _engine._isStrict ? FunctionThisMode.Strict : FunctionThisMode.Global;
 
-        internal Completion Execute(EvaluationContext context)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-runtime-semantics-evaluatebody
+        /// </summary>
+        internal Completion EvaluateBody(EvaluationContext context, FunctionInstance functionObject, JsValue[] argumentsList)
         {
+            Completion result;
             if (Function.Expression)
             {
-                _bodyExpression ??= JintExpression.Build(_engine, (Expression) Function.Body);
-                var jsValue = _bodyExpression?.GetValue(context).Value ?? Undefined.Instance;
-                return new Completion(CompletionType.Return, jsValue, Function.Body.Location);
+                result = EvaluateConciseBody(context, functionObject, argumentsList);
+            }
+            else if (Function.Generator)
+            {
+                result = EvaluateFunctionBody(context, functionObject, argumentsList);
+                // TODO generators
+                // result = EvaluateGeneratorBody(functionObject, argumentsList);
+            }
+            else
+            {
+                result = EvaluateFunctionBody(context, functionObject, argumentsList);
             }
 
-            var blockStatement = (BlockStatement) Function.Body;
-            _bodyStatementList ??= new JintStatementList(blockStatement, blockStatement.Body);
-            return _bodyStatementList.Execute(context);
+            return new Completion(result.Type, result.GetValueOrDefault().Clone(), result.Target, result.Location);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-runtime-semantics-evaluategeneratorbody
+        /// </summary>
+        private Completion EvaluateGeneratorBody(FunctionInstance functionObject, JsValue[] argumentsList)
+        {
+            ExceptionHelper.ThrowNotImplementedException("generators not implemented");
+            return default;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody
+        /// </summary>
+        private Completion EvaluateConciseBody(EvaluationContext context, FunctionInstance functionObject, JsValue[] argumentsList)
+        {
+            var argumentsInstance = _engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+            _bodyExpression ??= JintExpression.Build(_engine, (Expression) Function.Body);
+            var jsValue = _bodyExpression?.GetValue(context).Value ?? Undefined.Instance;
+            argumentsInstance?.FunctionWasCalled();
+            return new Completion(CompletionType.Return, jsValue, null, Function.Body.Location);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-runtime-semantics-evaluatefunctionbody
+        /// </summary>
+        private Completion EvaluateFunctionBody(EvaluationContext context, FunctionInstance functionObject, JsValue[] argumentsList)
+        {
+            var argumentsInstance = _engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+            _bodyStatementList ??= new JintStatementList(Function);
+            var completion = _bodyStatementList.Execute(context);
+            argumentsInstance?.FunctionWasCalled();
+
+            return completion;
         }
 
         internal State Initialize(FunctionInstance functionInstance)
@@ -65,7 +109,7 @@ namespace Jint.Runtime.Interpreter
             public bool ArgumentsObjectNeeded;
             public List<Key> VarNames;
             public LinkedList<JintFunctionDefinition> FunctionsToInitialize;
-            public readonly HashSet<Key> FunctionNames = new HashSet<Key>();
+            public readonly HashSet<Key> FunctionNames = new();
             public LexicalVariableDeclaration[] LexicalDeclarations = Array.Empty<LexicalVariableDeclaration>();
             public HashSet<Key> ParameterBindings;
             public List<VariableValuePair> VarsToInitialize;

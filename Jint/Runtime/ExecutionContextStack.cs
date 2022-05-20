@@ -2,6 +2,7 @@
 
 using System.Runtime.CompilerServices;
 using Jint.Collections;
+using Jint.Native.Generator;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime
@@ -29,8 +30,18 @@ namespace Jint.Runtime
             array[size - 1] = array[size - 1].UpdateVariableEnvironment(newEnv);
         }
 
+        public void ReplaceTopPrivateEnvironment(PrivateEnvironmentRecord newEnv)
+        {
+            var array = _stack._array;
+            var size = _stack._size;
+            array[size - 1] = array[size - 1].UpdatePrivateEnvironment(newEnv);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref readonly ExecutionContext Peek() => ref _stack.Peek();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref readonly ExecutionContext Peek(int fromTop) => ref _stack.Peek(fromTop);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Push(in ExecutionContext context) => _stack.Push(in context);

@@ -80,7 +80,8 @@ namespace Jint.Native.Iterator
 
         internal sealed class ValueIteratorPosition : ObjectInstance
         {
-            internal static ObjectInstance Done(Engine engine) => new ValueIteratorPosition(engine, Undefined, true);
+            internal static ObjectInstance Done(Engine engine, JsValue value = null)
+                => new ValueIteratorPosition(engine, value ?? Undefined, true);
 
             public ValueIteratorPosition(Engine engine, JsValue value, bool? done = null) : base(engine)
             {

@@ -69,10 +69,12 @@ namespace Jint.Native.Reflect
             return ((ICallable) target).Call(thisArgument, args);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-reflect.construct
+        /// </summary>
         private JsValue Construct(JsValue thisObject, JsValue[] arguments)
         {
-            var targetArgument = arguments.At(0);
-            var target = AssertConstructor(_engine, targetArgument);
+            var target = AssertConstructor(_engine, arguments.At(0));
 
             var newTargetArgument = arguments.At(2, arguments[0]);
             AssertConstructor(_engine, newTargetArgument);

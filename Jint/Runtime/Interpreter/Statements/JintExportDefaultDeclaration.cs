@@ -49,7 +49,7 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
         JsValue value;
         if (_classDefinition is not null)
         {
-            value = _classDefinition.BuildConstructor(context, env);
+            value = _classDefinition.BuildConstructor(context, env).GetValueOrDefault();
             var classBinding = _classDefinition._className;
             if (classBinding != null)
             {

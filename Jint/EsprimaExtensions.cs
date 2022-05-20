@@ -22,31 +22,51 @@ namespace Jint
 
         public static JsValue GetKey(this Expression expression, Engine engine, bool resolveComputed = false)
         {
+            var completion = TryGetKey(expression, engine, resolveComputed);
+            if (completion.Value is not null)
+            {
+                return TypeConverter.ToPropertyKey(completion.Value);
+            }
+
+            ExceptionHelper.ThrowArgumentException("Unable to extract correct key, node type: " + expression.Type);
+            return JsValue.Undefined;
+        }
+
+        internal static Completion TryGetKey(this ClassProperty property, Engine engine)
+        {
+            return TryGetKey(property.Key, engine, property.Computed);
+        }
+
+        internal static Completion TryGetKey(this Expression expression, Engine engine, bool resolveComputed)
+        {
+            JsValue key;
             if (expression is Literal literal)
             {
                 if (literal.TokenType == TokenType.NullLiteral)
                 {
-                    return JsValue.Null;
+                    key = JsValue.Null;
                 }
-
-                return LiteralKeyToString(literal);
+                else
+                {
+                    key = LiteralKeyToString(literal);
+                }
             }
-
-            if (!resolveComputed && expression is Identifier identifier)
+            else if (!resolveComputed && expression is Identifier identifier)
             {
-                return identifier.Name;
+                key = identifier.Name;
             }
-
-            if (!resolveComputed || !TryGetComputedPropertyKey(expression, engine, out var propertyKey))
+            else if (resolveComputed)
             {
-                ExceptionHelper.ThrowArgumentException("Unable to extract correct key, node type: " + expression.Type);
-                return null;
+                return TryGetComputedPropertyKey(expression, engine);
             }
-
-            return propertyKey;
+            else
+            {
+                key = JsValue.Undefined;
+            }
+            return new Completion(CompletionType.Normal, key, expression.Location);
         }
 
-        private static bool TryGetComputedPropertyKey<T>(T expression, Engine engine, out JsValue propertyKey)
+        private static Completion TryGetComputedPropertyKey<T>(T expression, Engine engine)
             where T : Expression
         {
             if (expression.Type is Nodes.Identifier
@@ -59,15 +79,14 @@ namespace Jint
                 or Nodes.LogicalExpression
                 or Nodes.ConditionalExpression
                 or Nodes.ArrowFunctionExpression
-                or Nodes.FunctionExpression)
+                or Nodes.FunctionExpression
+                or Nodes.YieldExpression)
             {
                 var context = engine._activeEvaluationContext;
-                propertyKey = TypeConverter.ToPropertyKey(JintExpression.Build(engine, expression).GetValue(context).Value);
-                return true;
+                return JintExpression.Build(engine, expression).GetValue(context);
             }
 
-            propertyKey = string.Empty;
-            return false;
+            return new Completion(CompletionType.Normal, JsValue.Undefined, expression.Location);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -266,25 +285,25 @@ namespace Jint
         internal static Record DefineMethod(this ClassProperty m, ObjectInstance obj, ObjectInstance? functionPrototype = null)
         {
             var engine = obj.Engine;
-            var property = TypeConverter.ToPropertyKey(m.GetKey(engine));
-            var prototype = functionPrototype ?? engine.Realm.Intrinsics.Function.PrototypeObject;
+            var propKey = TypeConverter.ToPropertyKey(m.GetKey(engine));
+            var intrinsics = engine.Realm.Intrinsics;
+
+            var runningExecutionContext = engine.ExecutionContext;
+            var scope = runningExecutionContext.LexicalEnvironment;
+            var privateScope= runningExecutionContext.PrivateEnvironment;
+
+            var prototype = functionPrototype ?? intrinsics.Function.PrototypeObject;
             var function = m.Value as IFunction;
             if (function is null)
             {
                 ExceptionHelper.ThrowSyntaxError(engine.Realm);
             }
 
-            var functionDefinition = new JintFunctionDefinition(engine, function);
-            var closure = new ScriptFunctionInstance(
-                engine,
-                functionDefinition,
-                engine.ExecutionContext.LexicalEnvironment,
-                functionDefinition.ThisMode,
-                prototype);
-
+            var definition = new JintFunctionDefinition(engine, function);
+            var closure = intrinsics.Function.OrdinaryFunctionCreate(prototype, definition, definition.ThisMode, scope, privateScope);
             closure.MakeMethod(obj);
 
-            return new Record(property, closure);
+            return new Record(propKey, closure);
         }
 
         internal static void GetImportEntries(this ImportDeclaration import, List<ImportEntry> importEntries, HashSet<string> requestedModules)

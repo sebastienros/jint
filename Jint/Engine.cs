@@ -841,6 +841,7 @@ namespace Jint
                 }
             }
 
+            PrivateEnvironmentRecord privateEnv = null;
             if (lexDeclarations != null)
             {
                 for (var i = 0; i < lexDeclarations.Count; i++)
@@ -879,7 +880,7 @@ namespace Jint
                     ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{fn}' has already been declared");
                 }
 
-                var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, env);
+                var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, env, privateEnv);
                 env.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: false);
             }
 
@@ -1023,7 +1024,7 @@ namespace Jint
                 foreach (var f in configuration.FunctionsToInitialize)
                 {
                     var fn = f.Name;
-                    var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv);
+                    var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv, privateEnv);
                     varEnv.SetMutableBinding(fn, fo, strict: false);
                 }
             }
@@ -1180,7 +1181,7 @@ namespace Jint
             foreach (var f in functionsToInitialize)
             {
                 var fn = f.Name;
-                var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv);
+                var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv, privateEnv);
                 if (varEnvRec is GlobalEnvironmentRecord ger)
                 {
                     ger.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: true);
@@ -1228,6 +1229,12 @@ namespace Jint
         internal void UpdateVariableEnvironment(EnvironmentRecord newEnv)
         {
             _executionContexts.ReplaceTopVariableEnvironment(newEnv);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void UpdatePrivateEnvironment(PrivateEnvironmentRecord newEnv)
+        {
+            _executionContexts.ReplaceTopPrivateEnvironment(newEnv);
         }
 
         /// <summary>

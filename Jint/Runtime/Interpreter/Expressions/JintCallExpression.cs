@@ -251,7 +251,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return arguments;
         }
 
-        private class CachedArgumentsHolder
+        private sealed class CachedArgumentsHolder
         {
             internal JintExpression[] JintArguments;
             internal JsValue[] CachedArguments;

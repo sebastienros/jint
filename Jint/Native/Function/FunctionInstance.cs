@@ -25,7 +25,7 @@ namespace Jint.Native.Function
         internal ConstructorKind _constructorKind = ConstructorKind.Base;
 
         internal Realm _realm;
-        private PrivateEnvironmentRecord _privateEnvironment;
+        internal PrivateEnvironmentRecord _privateEnvironment;
         private readonly IScriptOrModule _scriptOrModule;
 
         protected FunctionInstance(
@@ -198,6 +198,9 @@ namespace Jint.Native.Function
             base.RemoveOwnProperty(property);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-setfunctionname
+        /// </summary>
         internal void SetFunctionName(JsValue name, string prefix = null, bool force = false)
         {
             if (!force && _nameDescriptor != null && UnwrapJsValue(_nameDescriptor) != JsString.Empty)
@@ -283,9 +286,24 @@ namespace Jint.Native.Function
             return _engine.ExecutionContext.Realm;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-makemethod
+        /// </summary>
         internal void MakeMethod(ObjectInstance homeObject)
         {
             _homeObject = homeObject;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-ordinaryobjectcreate
+        /// </summary>
+        internal ObjectInstance OrdinaryObjectCreate(ObjectInstance proto)
+        {
+            var prototype = new ObjectInstance(_engine)
+            {
+                _prototype = proto
+            };
+            return prototype;
         }
 
         /// <summary>
@@ -293,8 +311,7 @@ namespace Jint.Native.Function
         /// </summary>
         internal void OrdinaryCallBindThis(ExecutionContext calleeContext, JsValue thisArgument)
         {
-            var thisMode = _thisMode;
-            if (thisMode == FunctionThisMode.Lexical)
+            if (_thisMode == FunctionThisMode.Lexical)
             {
                 return;
             }
@@ -302,7 +319,6 @@ namespace Jint.Native.Function
             var calleeRealm = _realm;
 
             var localEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment;
-
             JsValue thisValue;
             if (_thisMode == FunctionThisMode.Strict)
             {
@@ -324,20 +340,12 @@ namespace Jint.Native.Function
             localEnv.BindThisValue(thisValue);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal Completion OrdinaryCallEvaluateBody(
-            EvaluationContext context,
-            JsValue[] arguments,
-            ExecutionContext calleeContext)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-ordinarycallevaluatebody
+        /// </summary>
+        internal Completion OrdinaryCallEvaluateBody(EvaluationContext context, JsValue[] arguments)
         {
-            var argumentsInstance = _engine.FunctionDeclarationInstantiation(
-                functionInstance: this,
-                arguments);
-
-            var result = _functionDefinition.Execute(context);
-            argumentsInstance?.FunctionWasCalled();
-
-            return result;
+            return _functionDefinition.EvaluateBody(context, this, arguments);
         }
 
         /// <summary>
@@ -352,11 +360,11 @@ namespace Jint.Native.Function
 
             var calleeContext = new ExecutionContext(
                 _scriptOrModule,
-                localEnv,
-                localEnv,
+                lexicalEnvironment: localEnv,
+                variableEnvironment: localEnv,
                 _privateEnvironment,
                 calleeRealm,
-                this);
+                function: this);
 
             // If callerContext is not already suspended, suspend callerContext.
             // Push calleeContext onto the execution context stack; calleeContext is now the running execution context.
@@ -364,6 +372,20 @@ namespace Jint.Native.Function
             // Return calleeContext.
 
             return _engine.EnterExecutionContext(calleeContext);
+        }
+
+        internal void MakeConstructor(bool writableProperty = true, ObjectInstance prototype = null)
+        {
+            _constructorKind = ConstructorKind.Base;
+            if (prototype is null)
+            {
+                prototype = new ObjectInstanceWithConstructor(_engine, this)
+                {
+                    _prototype = _realm.Intrinsics.Object.PrototypeObject
+                };
+            }
+
+            _prototypeDescriptor = new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false);
         }
 
         public override string ToString()
@@ -376,6 +398,73 @@ namespace Jint.Native.Function
                 name = TypeConverter.ToString(nameValue);
             }
             return "function " + name + "() { [native code] }";
+        }
+
+        private sealed class ObjectInstanceWithConstructor : ObjectInstance
+        {
+            private PropertyDescriptor _constructor;
+
+            public ObjectInstanceWithConstructor(Engine engine, ObjectInstance thisObj) : base(engine)
+            {
+                _constructor = new PropertyDescriptor(thisObj, PropertyFlag.NonEnumerable);
+            }
+
+            public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
+            {
+                if (_constructor != null)
+                {
+                    yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Constructor, _constructor);
+                }
+
+                foreach (var entry in base.GetOwnProperties())
+                {
+                    yield return entry;
+                }
+            }
+
+            public override PropertyDescriptor GetOwnProperty(JsValue property)
+            {
+                if (property == CommonProperties.Constructor)
+                {
+                    return _constructor ?? PropertyDescriptor.Undefined;
+                }
+
+                return base.GetOwnProperty(property);
+            }
+
+            protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
+            {
+                if (property == CommonProperties.Constructor)
+                {
+                    _constructor = desc;
+                }
+                else
+                {
+                    base.SetOwnProperty(property, desc);
+                }
+            }
+
+            public override bool HasOwnProperty(JsValue property)
+            {
+                if (property == CommonProperties.Constructor)
+                {
+                    return _constructor != null;
+                }
+
+                return base.HasOwnProperty(property);
+            }
+
+            public override void RemoveOwnProperty(JsValue property)
+            {
+                if (property == CommonProperties.Constructor)
+                {
+                    _constructor = null;
+                }
+                else
+                {
+                    base.RemoveOwnProperty(property);
+                }
+            }
         }
     }
 }

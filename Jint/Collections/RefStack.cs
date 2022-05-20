@@ -28,12 +28,14 @@ namespace Jint.Collections
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref readonly T Peek()
         {
-            if (_size == 0)
-            {
-                ExceptionHelper.ThrowInvalidOperationException("stack is empty");
-            }
-
             return ref _array[_size - 1];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref readonly T Peek(int fromTop)
+        {
+            var index = _size - 1 - fromTop;
+            return ref _array[index];
         }
 
         public T this[int index] => _array[index];
@@ -155,7 +157,7 @@ namespace Jint.Collections
             {
                 bool returnValue;
                 if (_index == -2)
-                { 
+                {
                     // First call to enumerator.
                     _index = _stack._size - 1;
                     returnValue = (_index >= 0);
@@ -167,7 +169,7 @@ namespace Jint.Collections
                 }
 
                 if (_index == -1)
-                { 
+                {
                     // End of enumeration.
                     return false;
                 }
@@ -192,7 +194,7 @@ namespace Jint.Collections
             {
                 _index = -2;
                 _currentElement = default;
-            }        
+            }
         }
     }
 }

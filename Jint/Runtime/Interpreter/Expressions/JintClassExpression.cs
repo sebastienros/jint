@@ -15,7 +15,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected override ExpressionResult EvaluateInternal(EvaluationContext context)
         {
             var env = context.Engine.ExecutionContext.LexicalEnvironment;
-            return NormalCompletion(_classDefinition.BuildConstructor(context, env));
+            return _classDefinition.BuildConstructor(context, env);
         }
     }
 }

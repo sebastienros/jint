@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Esprima.Ast;
+﻿using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -42,7 +41,10 @@ namespace Jint.Native.Function
             _prototype = proto ?? _engine.Realm.Intrinsics.Function.PrototypeObject;
             _length = new LazyPropertyDescriptor(null, _ => JsNumber.Create(function.Initialize(this).Length), PropertyFlag.Configurable);
 
-            if (!function.Strict && !engine._isStrict && function.Function is not ArrowFunctionExpression)
+            if (!function.Strict
+                && !engine._isStrict
+                && function.Function is not ArrowFunctionExpression
+                && !function.Function.Generator)
             {
                 DefineOwnProperty(CommonProperties.Arguments, new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(engine, PropertyFlag.Configurable | PropertyFlag.CustomJsValue));
                 DefineOwnProperty(CommonProperties.Caller, new PropertyDescriptor(Undefined, PropertyFlag.Configurable));
@@ -70,7 +72,7 @@ namespace Jint.Native.Function
 
                     // actual call
                     var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
-                    var result = OrdinaryCallEvaluateBody(context, arguments, calleeContext);
+                    var result = OrdinaryCallEvaluateBody(context, arguments);
 
                     if (result.Type == CompletionType.Throw)
                     {
@@ -104,7 +106,8 @@ namespace Jint.Native.Function
 
         internal override bool IsConstructor =>
             (_homeObject.IsUndefined() || _isClassConstructor)
-            && _functionDefinition?.Function is not ArrowFunctionExpression;
+            && _functionDefinition?.Function is not ArrowFunctionExpression
+            && _functionDefinition?.Function.Generator != true;
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-construct-argumentslist-newtarget
@@ -129,16 +132,18 @@ namespace Jint.Native.Function
             if (kind == ConstructorKind.Base)
             {
                 OrdinaryCallBindThis(calleeContext, thisArgument);
+                InitializeInstanceElements(thisArgument, this);
             }
 
             var constructorEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment;
 
-            var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
+            var strict = _thisMode == FunctionThisMode.Strict;
             using (new StrictModeScope(strict, force: true))
             {
                 try
                 {
-                    var result = OrdinaryCallEvaluateBody(_engine._activeEvaluationContext, arguments, calleeContext);
+                    var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+                    var result = OrdinaryCallEvaluateBody(context, arguments);
 
                     // The DebugHandler needs the current execution context before the return for stepping through the return point
                     if (_engine._activeEvaluationContext.DebugMode && result.Type != CompletionType.Throw)
@@ -182,90 +187,17 @@ namespace Jint.Native.Function
             return (ObjectInstance) constructorEnv.GetThisBinding();
         }
 
-        internal void MakeConstructor(bool writableProperty = true, ObjectInstance prototype = null)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-initializeinstanceelements
+        /// </summary>
+        private void InitializeInstanceElements(JsValue o, JsValue constructor)
         {
-            _constructorKind = ConstructorKind.Base;
-            if (prototype is null)
-            {
-                prototype = new ObjectInstanceWithConstructor(_engine, this)
-                {
-                    _prototype = _realm.Intrinsics.Object.PrototypeObject
-                };
-            }
-
-            _prototypeDescriptor = new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false);
+            // TODO private fields
         }
 
         internal void MakeClassConstructor()
         {
             _isClassConstructor = true;
-        }
-
-        private class ObjectInstanceWithConstructor : ObjectInstance
-        {
-            private PropertyDescriptor _constructor;
-
-            public ObjectInstanceWithConstructor(Engine engine, ObjectInstance thisObj) : base(engine)
-            {
-                _constructor = new PropertyDescriptor(thisObj, PropertyFlag.NonEnumerable);
-            }
-
-            public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-            {
-                if (_constructor != null)
-                {
-                    yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Constructor, _constructor);
-                }
-
-                foreach (var entry in base.GetOwnProperties())
-                {
-                    yield return entry;
-                }
-            }
-
-            public override PropertyDescriptor GetOwnProperty(JsValue property)
-            {
-                if (property == CommonProperties.Constructor)
-                {
-                    return _constructor ?? PropertyDescriptor.Undefined;
-                }
-
-                return base.GetOwnProperty(property);
-            }
-
-            protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
-            {
-                if (property == CommonProperties.Constructor)
-                {
-                    _constructor = desc;
-                }
-                else
-                {
-                    base.SetOwnProperty(property, desc);
-                }
-            }
-
-            public override bool HasOwnProperty(JsValue property)
-            {
-                if (property == CommonProperties.Constructor)
-                {
-                    return _constructor != null;
-                }
-
-                return base.HasOwnProperty(property);
-            }
-
-            public override void RemoveOwnProperty(JsValue property)
-            {
-                if (property == CommonProperties.Constructor)
-                {
-                    _constructor = null;
-                }
-                else
-                {
-                    base.RemoveOwnProperty(property);
-                }
-            }
         }
     }
 }

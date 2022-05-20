@@ -28,7 +28,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
         }
 
-        protected override bool SupportsResume => true;
+        internal override bool SupportsResume => true;
 
         protected override Completion ExecuteInternal(EvaluationContext context)
         {

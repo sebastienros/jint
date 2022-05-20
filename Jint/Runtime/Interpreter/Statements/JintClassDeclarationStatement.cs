@@ -1,6 +1,7 @@
 #nullable enable
 
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Native.Function;
 
 namespace Jint.Runtime.Interpreter.Statements
@@ -18,15 +19,20 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             var engine = context.Engine;
             var env = engine.ExecutionContext.LexicalEnvironment;
-            var F = _classDefinition.BuildConstructor(context, env);
+            var completion = _classDefinition.BuildConstructor(context, env);
+
+            if (completion.IsAbrupt())
+            {
+                return completion;
+            }
 
             var classBinding = _classDefinition._className;
             if (classBinding != null)
             {
-                env.InitializeBinding(classBinding, F);
+                env.InitializeBinding(classBinding, completion.Value!);
             }
 
-            return Completion.Empty();
+            return new Completion(CompletionType.Normal, null!, null, Location);
         }
     }
 }

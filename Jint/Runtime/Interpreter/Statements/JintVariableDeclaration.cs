@@ -100,7 +100,7 @@ namespace Jint.Runtime.Interpreter.Statements
                             declaration.LeftPattern,
                             completion.Value,
                             environment,
-                            checkObjectPatternPropertyReference: _statement.Kind != VariableDeclarationKind.Var);
+                            checkPatternPropertyReference: _statement.Kind != VariableDeclarationKind.Var);
                     }
                     else if (declaration.LeftIdentifierExpression == null
                              || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
