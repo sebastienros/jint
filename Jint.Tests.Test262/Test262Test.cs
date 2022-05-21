@@ -23,12 +23,11 @@ public abstract partial class Test262Test
         engine.Execute(State.Sources["assert.js"]);
         engine.Execute(State.Sources["sta.js"]);
 
-        engine.SetValue("print",
-            new ClrFunctionInstance(engine, "print", (thisObj, args) => TypeConverter.ToString(args.At(0))));
+        engine.SetValue("print", new ClrFunctionInstance(engine, "print", (_, args) => TypeConverter.ToString(args.At(0))));
 
         var o = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
         o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunctionInstance(engine, "evalScript",
-            (thisObj, args) =>
+            (_, args) =>
             {
                 if (args.Length > 1)
                 {
@@ -43,7 +42,7 @@ public abstract partial class Test262Test
             }), true, true, true));
 
         o.FastSetProperty("createRealm", new PropertyDescriptor(new ClrFunctionInstance(engine, "createRealm",
-            (thisObj, args) =>
+            (_, args) =>
             {
                 var realm = engine._host.CreateRealm();
                 realm.GlobalObject.Set("global", realm.GlobalObject);
@@ -51,7 +50,7 @@ public abstract partial class Test262Test
             }), true, true, true));
 
         o.FastSetProperty("detachArrayBuffer", new PropertyDescriptor(new ClrFunctionInstance(engine, "detachArrayBuffer",
-            (thisObj, args) =>
+            (_, args) =>
             {
                 var buffer = (ArrayBufferInstance) args.At(0);
                 buffer.DetachArrayBuffer();

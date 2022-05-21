@@ -132,9 +132,9 @@ namespace Jint.Native.Function
             var classBody = _body.Body;
             for (var i = 0; i < classBody.Count; ++i)
             {
-                if (classBody[i].Kind == PropertyKind.Constructor)
+                if (classBody[i] is MethodDefinition { Kind: PropertyKind.Constructor } c)
                 {
-                    constructor = (MethodDefinition) classBody[i];
+                    constructor = c;
                     break;
                 }
             }

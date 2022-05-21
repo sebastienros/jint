@@ -10,9 +10,9 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintTryStatement : JintStatement<TryStatement>
     {
-        private JintStatement _block;
+        private JintBlockStatement _block;
         private JintStatement _catch;
-        private JintStatement _finalizer;
+        private JintBlockStatement _finalizer;
 
         public JintTryStatement(TryStatement statement) : base(statement)
         {
@@ -21,10 +21,10 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override void Initialize(EvaluationContext context)
         {
-            _block = Build(_statement.Block);
+            _block = new JintBlockStatement(_statement.Block);
             if (_statement.Finalizer != null)
             {
-                _finalizer = Build(_statement.Finalizer);
+                _finalizer = new JintBlockStatement(_statement.Finalizer);
             }
         }
 
