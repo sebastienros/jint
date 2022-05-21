@@ -14,7 +14,7 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class FunctionConstructor : FunctionInstance, IConstructor
     {
-        private static readonly ParserOptions ParserOptions = new ParserOptions { AdaptRegexp = true, Tolerant = false };
+        private static readonly ParserOptions ParserOptions = new ParserOptions { Tolerant = false };
         private static readonly JsString _functionName = new JsString("Function");
         private static readonly JsString _functionNameAnonymous = new JsString("anonymous");
 

@@ -105,7 +105,7 @@ namespace Jint.Native.RegExp
 
             try
             {
-                var parserOptions = new ParserOptions { AdaptRegexp = true };
+                var parserOptions = new ParserOptions();
                 var scanner = new Scanner("/" + p + "/" + flags, parserOptions);
 
                 // seems valid

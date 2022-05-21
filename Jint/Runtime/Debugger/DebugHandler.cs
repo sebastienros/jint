@@ -111,7 +111,7 @@ namespace Jint.Runtime.Debugger
         /// <inheritdoc cref="Evaluate(Script)" />
         public JsValue Evaluate(string source, ParserOptions options = null)
         {
-            options ??= new ParserOptions("evaluation") { AdaptRegexp = true, Tolerant = true };
+            options ??= new ParserOptions("evaluation");
             var parser = new JavaScriptParser(source, options);
             try
             {

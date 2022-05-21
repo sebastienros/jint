@@ -162,24 +162,6 @@ namespace Jint.Native.Function
             }
         }
 
-        public override bool HasOwnProperty(JsValue property)
-        {
-            if (property == CommonProperties.Prototype)
-            {
-                return _prototypeDescriptor != null;
-            }
-            if (property == CommonProperties.Length)
-            {
-                return _length != null;
-            }
-            if (property == CommonProperties.Name)
-            {
-                return _nameDescriptor != null;
-            }
-
-            return base.HasOwnProperty(property);
-        }
-
         public override void RemoveOwnProperty(JsValue property)
         {
             if (property == CommonProperties.Prototype)
@@ -388,6 +370,11 @@ namespace Jint.Native.Function
             _prototypeDescriptor = new PropertyDescriptor(prototype, writableProperty, enumerable: false, configurable: false);
         }
 
+        internal void SetFunctionLength(JsNumber length)
+        {
+            DefinePropertyOrThrow(CommonProperties.Length, new PropertyDescriptor(length, writable: false, enumerable: false, configurable: true));
+        }
+
         public override string ToString()
         {
             // TODO no way to extract SourceText from Esprima at the moment, just returning native code
@@ -442,16 +429,6 @@ namespace Jint.Native.Function
                 {
                     base.SetOwnProperty(property, desc);
                 }
-            }
-
-            public override bool HasOwnProperty(JsValue property)
-            {
-                if (property == CommonProperties.Constructor)
-                {
-                    return _constructor != null;
-                }
-
-                return base.HasOwnProperty(property);
             }
 
             public override void RemoveOwnProperty(JsValue property)

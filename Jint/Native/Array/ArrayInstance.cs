@@ -83,8 +83,8 @@ namespace Jint.Native.Array
                     // could be a mutating property for example, length might change, not safe anymore
                     return false;
                 }
-                
-                if (_prototype is not ArrayPrototype arrayPrototype 
+
+                if (_prototype is not ArrayPrototype arrayPrototype
                     || !ReferenceEquals(_prototype, _engine.Realm.Intrinsics.Array.PrototypeObject))
                 {
                     // somebody has switched prototype
@@ -97,7 +97,7 @@ namespace Jint.Native.Array
                     return false;
                 }
 
-                if (arrayPrototype.Prototype is not ObjectPrototype arrayPrototypePrototype 
+                if (arrayPrototype.Prototype is not ObjectPrototype arrayPrototypePrototype
                     || !ReferenceEquals(arrayPrototypePrototype, _engine.Realm.Intrinsics.Array.PrototypeObject.Prototype))
                 {
                     return false;
@@ -491,23 +491,6 @@ namespace Jint.Native.Array
             {
                 _objectChangeFlags |= property.IsSymbol() ? ObjectChangeFlags.Symbol : ObjectChangeFlags.Property;
             }
-        }
-
-        public sealed override bool HasOwnProperty(JsValue p)
-        {
-            if (IsArrayIndex(p, out var index))
-            {
-                return index < GetLength()
-                       && (_sparse == null || _sparse.ContainsKey(index))
-                       && (_dense == null || (index < (uint) _dense.Length && _dense[index] != null));
-            }
-
-            if (p == CommonProperties.Length)
-            {
-                return _length != null;
-            }
-
-            return base.HasOwnProperty(p);
         }
 
         public sealed override void RemoveOwnProperty(JsValue p)

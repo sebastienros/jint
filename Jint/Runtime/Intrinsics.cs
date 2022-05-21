@@ -18,6 +18,7 @@ using Jint.Native.Proxy;
 using Jint.Native.Reflect;
 using Jint.Native.RegExp;
 using Jint.Native.Set;
+using Jint.Native.ShadowRealm;
 using Jint.Native.String;
 using Jint.Native.Symbol;
 using Jint.Native.TypedArray;
@@ -87,6 +88,8 @@ namespace Jint.Runtime
         private BigUint64ArrayConstructor _bigUint64Array;
         private Float32ArrayConstructor _float32Array;
         private Float64ArrayConstructor _float64Array;
+
+        private ShadowRealmConstructor _shadowRealm;
 
         internal Intrinsics(Engine engine, Realm realm)
         {
@@ -217,6 +220,9 @@ namespace Jint.Runtime
 
         public SymbolConstructor Symbol =>
             _symbol ??= new SymbolConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        public ShadowRealmConstructor ShadowRealm =>
+            _shadowRealm ??= new ShadowRealmConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
         public EvalFunctionInstance Eval =>
             _eval ??= new EvalFunctionInstance(_engine, _realm, Function.PrototypeObject);

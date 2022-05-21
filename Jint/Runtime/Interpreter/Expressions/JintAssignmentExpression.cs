@@ -398,7 +398,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     if (strict && hasEvalOrArguments)
                     {
-                        ExceptionHelper.ThrowSyntaxError(engine.Realm);
+                        ExceptionHelper.ThrowSyntaxError(engine.Realm, "Invalid assignment target");
                     }
 
                     var completion = right.GetValue(context);

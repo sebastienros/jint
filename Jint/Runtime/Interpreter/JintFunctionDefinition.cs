@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interpreter
             Strict = function.Strict;
         }
 
-        public FunctionThisMode ThisMode => Strict || _engine._isStrict ? FunctionThisMode.Strict : FunctionThisMode.Global;
+        public FunctionThisMode ThisMode => Strict ? FunctionThisMode.Strict : FunctionThisMode.Global;
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-evaluatebody

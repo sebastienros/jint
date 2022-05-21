@@ -116,16 +116,6 @@ namespace Jint.Native.String
             }
         }
 
-        public override bool HasOwnProperty(JsValue property)
-        {
-            if (property == CommonProperties.Length)
-            {
-                return _length != null;
-            }
-
-            return base.HasOwnProperty(property);
-        }
-
         public override void RemoveOwnProperty(JsValue property)
         {
             if (property == CommonProperties.Length)

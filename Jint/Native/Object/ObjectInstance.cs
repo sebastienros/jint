@@ -288,17 +288,10 @@ namespace Jint.Native.Object
             return _symbols?.TryGetValue((JsSymbol) key, out descriptor) == true;
         }
 
-        public override bool HasOwnProperty(JsValue property)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool HasOwnProperty(JsValue property)
         {
-            EnsureInitialized();
-
-            var key = TypeConverter.ToPropertyKey(property);
-            if (!key.IsSymbol())
-            {
-                return _properties?.ContainsKey(TypeConverter.ToString(key)) == true;
-            }
-
-            return _symbols?.ContainsKey((JsSymbol) key) == true;
+            return !ReferenceEquals(GetOwnProperty(property), PropertyDescriptor.Undefined);
         }
 
         public virtual void RemoveOwnProperty(JsValue property)
@@ -964,7 +957,7 @@ namespace Jint.Native.Object
 
                 case ObjectClass.Arguments:
                 case ObjectClass.Object:
-                    
+
                     if (this is ArrayInstance arrayInstance)
                     {
                         var result = new object[arrayInstance.Length];
@@ -983,7 +976,7 @@ namespace Jint.Native.Object
                         converted = result;
                         break;
                     }
-                    
+
                     var o = _engine.Options.Interop.CreateClrObject(this);
                     foreach (var p in GetOwnProperties())
                     {

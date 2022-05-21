@@ -187,5 +187,12 @@ namespace Jint.Runtime
         public virtual void FinalizeImportMeta(ObjectInstance importMeta, ModuleRecord moduleRecord)
         {
         }
+
+        /// <summary>
+        /// https://tc39.es/proposal-shadowrealm/#sec-host-initialize-shadow-shadowrealm
+        /// </summary>
+        public virtual void InitializeShadowRealm(Realm realm)
+        {
+        }
     }
 }

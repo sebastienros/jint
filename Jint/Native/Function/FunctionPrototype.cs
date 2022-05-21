@@ -59,19 +59,20 @@ namespace Jint.Native.Function
         /// </summary>
         private JsValue Bind(JsValue thisObj, JsValue[] arguments)
         {
-            if (thisObj is not ICallable)
+            if (thisObj is not (ICallable and ObjectInstance oi))
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Bind must be called on a function");
+                return default;
             }
 
             var thisArg = arguments.At(0);
-            var f = BoundFunctionCreate((ObjectInstance) thisObj, thisArg, arguments.Skip(1));
+            var f = BoundFunctionCreate(oi, thisArg, arguments.Skip(1));
 
             JsNumber l;
-            var targetHasLength = thisObj.HasOwnProperty(CommonProperties.Length);
+            var targetHasLength = oi.HasOwnProperty(CommonProperties.Length) == true;
             if (targetHasLength)
             {
-                var targetLen = thisObj.Get(CommonProperties.Length);
+                var targetLen = oi.Get(CommonProperties.Length);
                 if (targetLen is not JsNumber number)
                 {
                     l = JsNumber.PositiveZero;
@@ -102,7 +103,7 @@ namespace Jint.Native.Function
 
             f.DefinePropertyOrThrow(CommonProperties.Length, new PropertyDescriptor(l, PropertyFlag.Configurable));
 
-            var targetName = thisObj.Get(CommonProperties.Name);
+            var targetName = oi.Get(CommonProperties.Name);
             if (!targetName.IsString())
             {
                 targetName = JsString.Empty;
