@@ -16,7 +16,7 @@ namespace Jint.Native.Json
             Engine engine,
             Realm realm,
             ObjectPrototype objectPrototype)
-            : base(engine, objectClass: ObjectClass.JSON)
+            : base(engine, objectClass: ObjectClass.Object)
         {
             _realm = realm;
             _prototype = objectPrototype;

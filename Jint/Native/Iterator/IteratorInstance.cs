@@ -19,7 +19,7 @@ namespace Jint.Native.Iterator
 
         public IteratorInstance(
             Engine engine,
-            IEnumerable<JsValue> enumerable) : base(engine, ObjectClass.Iterator)
+            IEnumerable<JsValue> enumerable) : base(engine)
         {
             _enumerable = enumerable.GetEnumerator();
             _prototype = engine.Realm.Intrinsics.IteratorPrototype;

@@ -21,7 +21,7 @@ namespace Jint.Runtime.Interop
         private readonly record struct MemberAccessorKey(Type Type, string PropertyName); 
         
         private TypeReference(Engine engine, Type type)
-            : base(engine, engine.Realm, _name, FunctionThisMode.Global, ObjectClass.TypeReference)
+            : base(engine, engine.Realm, _name, FunctionThisMode.Global)
         {
             ReferenceType = type;
 

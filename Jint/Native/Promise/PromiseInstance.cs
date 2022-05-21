@@ -51,7 +51,7 @@ namespace Jint.Native.Promise
         internal List<PromiseReaction> PromiseRejectReactions = new();
         internal List<PromiseReaction> PromiseFulfillReactions = new();
 
-        internal PromiseInstance(Engine engine) : base(engine, ObjectClass.Promise)
+        internal PromiseInstance(Engine engine) : base(engine)
         {
         }
 

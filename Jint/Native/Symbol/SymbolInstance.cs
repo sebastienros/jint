@@ -5,8 +5,10 @@ namespace Jint.Native.Symbol
 {
     public sealed class SymbolInstance : ObjectInstance, IPrimitiveInstance
     {
-        internal SymbolInstance(Engine engine, SymbolPrototype prototype, JsSymbol symbol)
-            : base(engine, ObjectClass.Symbol)
+        internal SymbolInstance(
+            Engine engine,
+            SymbolPrototype prototype,
+            JsSymbol symbol) : base(engine)
         {
             _prototype = prototype;
             SymbolData = symbol;

@@ -18,7 +18,7 @@ namespace Jint.Native.Reflect
         internal ReflectInstance(
             Engine engine,
             Realm realm,
-            ObjectPrototype objectPrototype) : base(engine, ObjectClass.Reflect)
+            ObjectPrototype objectPrototype) : base(engine)
         {
             _realm = realm;
             _prototype = objectPrototype;
