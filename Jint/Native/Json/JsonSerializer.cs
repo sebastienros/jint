@@ -1,10 +1,12 @@
 ﻿using System.Collections.Generic;
 using Jint.Collections;
+using Jint.Native.Array;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;
 using Jint.Native.Global;
 using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.Proxy;
 using Jint.Native.String;
 using Jint.Pooling;
 using Jint.Runtime;
@@ -205,21 +207,34 @@ namespace Jint.Native.Json
                 ExceptionHelper.ThrowTypeError(_engine.Realm, "Do not know how to serialize a BigInt");
             }
 
-            var isCallable = value.IsObject() && value.IsCallable;
-
-            if (value.IsObject() && isCallable == false)
+            if (value is ObjectInstance { IsCallable: false } objectInstance)
             {
-                return SerializesAsArray(value)
-                    ? SerializeJSONArray(value)
-                    : SerializeJSONObject(value.AsObject());
+                return SerializesAsArray(objectInstance)
+                    ? SerializeJSONArray(objectInstance)
+                    : SerializeJSONObject(objectInstance);
             }
 
             return JsValue.Undefined;
         }
 
-        private static bool SerializesAsArray(JsValue value)
+        private static bool SerializesAsArray(ObjectInstance value)
         {
-            return value.AsObject().Class == ObjectClass.Array || value is ObjectWrapper { IsArrayLike: true };
+            if (value is ArrayInstance)
+            {
+                return true;
+            }
+
+            if (value is ProxyInstance proxyInstance && SerializesAsArray(proxyInstance._target))
+            {
+                return true;
+            }
+
+            if (value is ObjectWrapper { IsArrayLike: true })
+            {
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -275,11 +290,11 @@ namespace Jint.Native.Json
         /// <summary>
         /// https://tc39.es/ecma262/#sec-serializejsonarray
         /// </summary>
-        private string SerializeJSONArray(JsValue value)
+        private string SerializeJSONArray(ObjectInstance value)
         {
             _stack.Enter(value);
             var stepback = _indent;
-            _indent = _indent + _gap;
+            _indent += _gap;
             var partial = new List<string>();
             var len = TypeConverter.ToUint32(value.Get(CommonProperties.Length, value));
             for (int i = 0; i < len; i++)

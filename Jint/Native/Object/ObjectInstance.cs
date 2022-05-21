@@ -33,7 +33,10 @@ namespace Jint.Native.Object
         {
         }
 
-        internal ObjectInstance(Engine engine, ObjectClass objectClass, InternalTypes type = InternalTypes.Object)
+        internal ObjectInstance(
+            Engine engine,
+            ObjectClass objectClass = ObjectClass.Object,
+            InternalTypes type = InternalTypes.Object)
             : base(type)
         {
             _engine = engine;
@@ -914,26 +917,6 @@ namespace Jint.Native.Object
             object converted = null;
             switch (Class)
             {
-                case ObjectClass.Array:
-                    if (this is ArrayInstance arrayInstance)
-                    {
-                        var result = new object[arrayInstance.Length];
-                        for (uint i = 0; i < result.Length; i++)
-                        {
-                            var value = arrayInstance[i];
-                            object valueToSet = null;
-                            if (!value.IsUndefined())
-                            {
-                                valueToSet = value is ObjectInstance oi
-                                    ? oi.ToObject(stack)
-                                    : value.ToObject();
-                            }
-                            result[i] = valueToSet;
-                        }
-                        converted = result;
-                    }
-                    break;
-
                 case ObjectClass.String:
                     if (this is StringInstance stringInstance)
                     {
@@ -981,6 +964,26 @@ namespace Jint.Native.Object
 
                 case ObjectClass.Arguments:
                 case ObjectClass.Object:
+                    
+                    if (this is ArrayInstance arrayInstance)
+                    {
+                        var result = new object[arrayInstance.Length];
+                        for (uint i = 0; i < result.Length; i++)
+                        {
+                            var value = arrayInstance[i];
+                            object valueToSet = null;
+                            if (!value.IsUndefined())
+                            {
+                                valueToSet = value is ObjectInstance oi
+                                    ? oi.ToObject(stack)
+                                    : value.ToObject();
+                            }
+                            result[i] = valueToSet;
+                        }
+                        converted = result;
+                        break;
+                    }
+                    
                     var o = _engine.Options.Interop.CreateClrObject(this);
                     foreach (var p in GetOwnProperties())
                     {

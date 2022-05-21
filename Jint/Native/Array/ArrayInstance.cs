@@ -20,7 +20,7 @@ namespace Jint.Native.Array
 
         private ObjectChangeFlags _objectChangeFlags;
 
-        public ArrayInstance(Engine engine, uint capacity = 0) : base(engine, ObjectClass.Array)
+        public ArrayInstance(Engine engine, uint capacity = 0) : base(engine)
         {
             if (capacity > engine.Options.Constraints.MaxArraySize)
             {
@@ -40,7 +40,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// Possibility to construct valid array fast, requires that supplied array does not have holes.
         /// </summary>
-        public ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine, ObjectClass.Array)
+        public ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine)
         {
             int length = 0;
             if (items == null || items.Length == 0)
@@ -57,7 +57,7 @@ namespace Jint.Native.Array
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
-        public ArrayInstance(Engine engine, Dictionary<uint, PropertyDescriptor> items) : base(engine, ObjectClass.Array)
+        public ArrayInstance(Engine engine, Dictionary<uint, PropertyDescriptor> items) : base(engine)
         {
             _sparse = items;
             var length = items?.Count ?? 0;

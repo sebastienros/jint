@@ -42,12 +42,13 @@ namespace Jint.Runtime.Interop
                 var genericTypeReference = arguments[i];
                 if (genericTypeReference.IsUndefined()
                     || !genericTypeReference.IsObject()
-                    || genericTypeReference.AsObject().Class != ObjectClass.TypeReference)
+                    || genericTypeReference.AsObject() is not TypeReference tr)
                 {
                     ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?");
+                    return default;
                 }
 
-                genericTypes[i] = ((TypeReference) genericTypeReference).ReferenceType;
+                genericTypes[i] = tr.ReferenceType;
             }
 
             var typeReference = GetPath(_path + "`" + arguments.Length.ToString(CultureInfo.InvariantCulture)).As<TypeReference>();
