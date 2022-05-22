@@ -1,4 +1,5 @@
 using Jint.Native;
+using Jint.Native.AggregateError;
 using Jint.Native.Array;
 using Jint.Native.ArrayBuffer;
 using Jint.Native.BigInt;
@@ -42,6 +43,7 @@ namespace Jint.Runtime
 
         // lazy properties
         private ThrowTypeError _throwTypeError;
+        private AggregateErrorConstructor _aggregateError;
         private ErrorConstructor _error;
         private ErrorConstructor _evalError;
         private ErrorConstructor _rangeError;
@@ -112,6 +114,9 @@ namespace Jint.Runtime
 
         public ArrayConstructor Array =>
             _array ??= new ArrayConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        internal AggregateErrorConstructor AggregateError =>
+            _aggregateError ??= new AggregateErrorConstructor(_engine, _realm, Error);
 
         internal ArrayIteratorPrototype ArrayIteratorPrototype =>
             _arrayIteratorPrototype ??= new ArrayIteratorPrototype(_engine, _realm, this.IteratorPrototype);

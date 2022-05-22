@@ -7,7 +7,6 @@
   "ExcludedFeatures": [
     "__getter__",
     "__setter__",
-    "AggregateError",
     "async-functions",
     "async-iteration",
     "Atomics",
