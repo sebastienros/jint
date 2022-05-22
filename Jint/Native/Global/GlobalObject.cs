@@ -35,7 +35,7 @@ namespace Jint.Native.Global
 
             var properties = new PropertyDictionary(55, checkExistingKeys: false)
             {
-                ["AggregateError"] = new LazyPropertyDescriptor(this, static state => Undefined, propertyFlags),
+                ["AggregateError"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state)._realm.Intrinsics.AggregateError, propertyFlags),
                 ["Array"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state)._realm.Intrinsics.Array, propertyFlags),
                 ["ArrayBuffer"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state)._realm.Intrinsics.ArrayBuffer, propertyFlags),
                 ["Atomics"] = new LazyPropertyDescriptor(this, static state => Undefined, propertyFlags),

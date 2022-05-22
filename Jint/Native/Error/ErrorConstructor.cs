@@ -20,7 +20,7 @@ namespace Jint.Native.Error
         {
             _intrinsicDefaultProto = intrinsicDefaultProto;
             _prototype = functionPrototype;
-            PrototypeObject = new ErrorPrototype(engine, realm, this, objectPrototype, name, ObjectClass.Object);
+            PrototypeObject = new ErrorPrototype(engine, realm, this, objectPrototype, name);
             _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
@@ -64,12 +64,7 @@ namespace Jint.Native.Error
 
             var options = arguments.At(1);
 
-            if (options is ObjectInstance oi && oi.HasProperty("cause"))
-            {
-                var cause = oi.Get("cause");
-                var causeDesc = new PropertyDescriptor(cause, PropertyFlag.NonEnumerable);
-                o.DefinePropertyOrThrow("cause", causeDesc);
-            }
+            o.InstallErrorCause(options);
 
             return o;
         }

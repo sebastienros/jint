@@ -1234,6 +1234,15 @@ namespace Jint.Native.Object
             return true;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-createnonenumerabledatapropertyorthrow
+        /// </summary>
+        internal void CreateNonEnumerableDataPropertyOrThrow(JsValue p, JsValue v)
+        {
+            var newDesc = new PropertyDescriptor(v, true, false, true);
+            DefinePropertyOrThrow(p, newDesc);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ICallable GetMethod(JsValue property)
         {

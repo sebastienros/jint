@@ -119,7 +119,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-iterabletolist
         /// </summary>
-        internal static List<JsValue> IterableToList(Realm realm, JsValue items, ICallable usingIterator)
+        internal static List<JsValue> IterableToList(Realm realm, JsValue items, ICallable method = null)
         {
             var iteratorRecord = items.GetIterator(realm);
             var values = new List<JsValue>();

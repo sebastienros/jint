@@ -88,7 +88,8 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 
 - ✔ Logical Assignment Operators (`&&=` `||=` `??=`)
 - ✔ Numeric Separators (`1_000`)
-- ❌ `Promise.any` and `AggregateError`
+- ✔ `AggregateError`
+- ❌ `Promise.any` 
 - ✔ `String.prototype.replaceAll`
 - ❌ `WeakRef` and `FinalizationRegistry`
 
