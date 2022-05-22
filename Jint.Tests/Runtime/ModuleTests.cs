@@ -1,7 +1,5 @@
-#if(NET6_0_OR_GREATER)
 using System.IO;
 using System.Reflection;
-#endif
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -302,17 +300,15 @@ export const count = globals.counter;
         Assert.Equal("a", nsA.Get("a").AsString());
         Assert.Equal("b", nsB.Get("b").AsString());
     }
-    
+
     [Fact]
     public void ShouldSupportConstraints()
     {
         var engine = new Engine(opts => opts.TimeoutInterval(TimeSpan.FromTicks(1)));
-        
+
         engine.AddModule("my-module", @"for(var i = 0; i < 100000; i++) { } export const result = 'ok';");
         Assert.Throws<TimeoutException>(() => engine.ImportModule("my-module"));
     }
-
-#if(NET6_0_OR_GREATER)
 
     [Fact]
     public void CanLoadModuleImportsFromFiles()
@@ -333,16 +329,22 @@ export const count = globals.counter;
 
         Assert.Equal("John Doe", result);
     }
-    
-    private static string GetBasePath()
-    {
-        var assemblyPath = new Uri(typeof(ModuleTests).GetTypeInfo().Assembly.Location).LocalPath;
-        var assemblyDirectory = new FileInfo(assemblyPath).Directory;
-        return Path.Combine(
-            assemblyDirectory?.Parent?.Parent?.Parent?.FullName ?? throw new NullReferenceException("Could not find tests base path"),
-            "Runtime",
-            "Scripts");
-    }
 
-#endif
+    internal static string GetBasePath()
+    {
+        var assemblyDirectory = new DirectoryInfo(AppDomain.CurrentDomain.RelativeSearchPath ?? AppDomain.CurrentDomain.BaseDirectory);
+
+        var current = assemblyDirectory;
+        while (current is not null && current.Name != "Jint.Tests")
+        {
+            current = current.Parent;
+        }
+
+        if (current is null)
+        {
+            throw new NullReferenceException($"Could not find tests base path, assemblyPath: {assemblyDirectory}");
+        }
+
+        return Path.Combine(current.FullName, "Runtime", "Scripts");
+    }
 }

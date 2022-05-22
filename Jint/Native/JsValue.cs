@@ -157,8 +157,6 @@ namespace Jint.Native
             return engine.Invoke(this, arguments);
         }
 
-        public virtual bool HasOwnProperty(JsValue property) => false;
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue Get(JsValue property)
         {

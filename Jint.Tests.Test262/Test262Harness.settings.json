@@ -22,7 +22,6 @@
     "generators",
     "hashbang",
     "import-assertions",
-    "numeric-separator-literal",
     "Promise.allSettled",
     "Promise.any",
     "regexp-match-indices",
@@ -30,7 +29,6 @@
     "regexp-lookbehind",
     "regexp-unicode-property-escapes",
     "resizable-arraybuffer",
-    "ShadowRealm",
     "SharedArrayBuffer",
     "tail-call-optimization",
     "top-level-await",
@@ -215,6 +213,8 @@
     "language/statements/async-function/*.js",
     "language/expressions/async-function/*.js",
     "language/expressions/async-generator/*.js",
+    "built-ins/ShadowRealm/prototype/evaluate/wrapped-functions-share-no-properties-extended.js",
+    "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-from-return-values-share-no-identity.js",
 
     // special casing data
     "built-ins/**/special_casing*.js",

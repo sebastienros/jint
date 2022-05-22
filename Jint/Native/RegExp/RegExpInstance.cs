@@ -109,15 +109,5 @@ namespace Jint.Native.RegExp
             keys.AddRange(base.GetOwnPropertyKeys(types));
             return keys;
         }
-
-        public override bool HasOwnProperty(JsValue property)
-        {
-            if (property == PropertyLastIndex)
-            {
-                return _prototypeDescriptor != null;
-            }
-
-            return base.HasOwnProperty(property);
-        }
     }
 }

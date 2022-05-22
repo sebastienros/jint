@@ -132,12 +132,7 @@ public sealed class DefaultModuleLoader : IModuleLoader
         Module module;
         try
         {
-            var parserOptions = new ParserOptions(resolved.Uri.LocalPath)
-            {
-                AdaptRegexp = true,
-                Tolerant = true
-            };
-
+            var parserOptions = new ParserOptions(resolved.Uri.LocalPath);
             module = new JavaScriptParser(code, parserOptions).ParseModule();
         }
         catch (ParserException ex)
