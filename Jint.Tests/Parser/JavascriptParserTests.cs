@@ -170,7 +170,7 @@ namespace Jint.Tests.Parser
         [Fact]
         public void ShouldThrowErrorForInvalidLeftHandOperation()
         {
-            Assert.Throws<JavaScriptException>(() => new Engine().Execute("~ (WE0=1)--- l('1');"));
+            Assert.Throws<JintScriptExecutionException>(() => new Engine().Execute("~ (WE0=1)--- l('1');"));
         }
 
 

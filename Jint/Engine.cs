@@ -616,7 +616,7 @@ namespace Jint
             var callable = value as ICallable;
             if (callable is null)
             {
-                ExceptionHelper.ThrowTypeError(Realm, "Can only invoke functions");
+                ExceptionHelper.ThrowJintExecutionException(new JavaScriptException(Realm.Intrinsics.TypeError, "Can only invoke functions"));
             }
 
             JsValue DoInvoke()

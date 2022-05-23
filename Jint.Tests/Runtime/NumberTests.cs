@@ -44,7 +44,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ToFixedWith100FractionDigitsThrows()
         {
-            var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate($"(3).toFixed(100)"));
+            var ex = Assert.Throws<JintScriptExecutionException>(() => _engine.Evaluate($"(3).toFixed(100)"));
             Assert.Equal("100 fraction digits is not supported due to .NET format specifier limitation", ex.Message);
         }
 

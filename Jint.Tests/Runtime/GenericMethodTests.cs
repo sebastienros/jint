@@ -60,7 +60,7 @@ public class GenericMethodTests
         var testGenericObj = new TestGenericClass();
         engine.SetValue("testGenericObj", testGenericObj);
 
-        var argException = Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
+        var argException = Assert.Throws<Jint.Runtime.JintScriptExecutionException>(() =>
         {
             engine.Execute(@"
                     testGenericObj.Fancy('test', 'foo', 42);

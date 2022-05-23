@@ -569,7 +569,7 @@ namespace Jint.Tests.Runtime
             var o = new { A = 1, B = 2 };
             _engine.SetValue("anonymous", o);
 
-            var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("for (var x of anonymous) {}"));
+            var ex = Assert.Throws<JintScriptExecutionException>(() => _engine.Evaluate("for (var x of anonymous) {}"));
             Assert.Equal("The value is not iterable", ex.Message);
         }
 
@@ -1432,7 +1432,7 @@ namespace Jint.Tests.Runtime
                 var x= 10;
             ");
 
-            Assert.Throws<JavaScriptException>(() => _engine.Invoke("x", 1, 2));
+            Assert.Throws<JintScriptExecutionException>(() => _engine.Invoke("x", 1, 2));
         }
 
         [Fact]
@@ -2695,11 +2695,14 @@ namespace Jint.Tests.Runtime
             engine.Realm.GlobalObject.FastAddProperty("global", engine.Realm.GlobalObject, true, true, true);
             engine.Realm.GlobalObject.FastAddProperty("test", new DelegateWrapper(engine, (Action<string, object>) Test), true, true, true);
 
-            var ex = Assert.Throws<JavaScriptException>(() => engine.Realm.GlobalObject.ToObject());
-            Assert.Equal("Cyclic reference detected.", ex.Message);
+            {
+                var ex = Assert.Throws<JavaScriptException>(() => engine.Realm.GlobalObject.ToObject());
+                Assert.Equal("Cyclic reference detected.", ex.Message);
+            }
 
-            ex = Assert.Throws<JavaScriptException>(() =>
-                engine.Execute(@"
+            {
+                var ex = Assert.Throws<JintScriptExecutionException>(() =>
+                    engine.Execute(@"
                     var demo={};
                     demo.value=1;
                     test('Test 1', demo.value===1);
@@ -2707,10 +2710,10 @@ namespace Jint.Tests.Runtime
                     demo.demo=demo;
                     test('Test 3', demo);
                     test('Test 4', global);"
-                )
-            );
-
-            Assert.Equal("Cyclic reference detected.", ex.Message);
+                    )
+                );
+                Assert.Equal("Cyclic reference detected.", ex.Message);
+            }
         }
 
         [Fact]
@@ -2850,7 +2853,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine(cfg => cfg.CatchClrExceptions());
             engine.SetValue("a", new Person());
-            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("a.age = \"It won't work, but it's normal\""));
+            var ex = Assert.Throws<JintScriptExecutionException>(() => engine.Execute("a.age = \"It won't work, but it's normal\""));
             Assert.Equal("Input string was not in a correct format.", ex.Message);
         }
 

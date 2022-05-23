@@ -16,14 +16,14 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void WeakMapShouldThrowWhenCalledWithoutNew()
         {
-            var e = Assert.Throws<JavaScriptException>(() => _engine.Execute("{ const m = new WeakMap(); WeakMap.call(m,[]); }"));
+            var e = Assert.Throws<JintScriptExecutionException>(() => _engine.Execute("{ const m = new WeakMap(); WeakMap.call(m,[]); }"));
             Assert.Equal("Constructor WeakMap requires 'new'", e.Message);
         }
 
         [Fact]
         public void WeakSetShouldThrowWhenCalledWithoutNew()
         {
-            var e = Assert.Throws<JavaScriptException>(() => _engine.Execute("{ const s = new WeakSet(); WeakSet.call(s,[]); }"));
+            var e = Assert.Throws<JintScriptExecutionException>(() => _engine.Execute("{ const s = new WeakSet(); WeakSet.call(s,[]); }"));
             Assert.Equal("Constructor WeakSet requires 'new'", e.Message);
         }
 

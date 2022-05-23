@@ -8,7 +8,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldThrowWhenCalledWithoutNew()
         {
-            var e = Assert.Throws<JavaScriptException>(() => new Engine().Execute("const m = new Set(); Set.call(m,[]);"));
+            var e = Assert.Throws<JintScriptExecutionException>(() => new Engine().Execute("const m = new Set(); Set.call(m,[]);"));
             Assert.Equal("Constructor Set requires 'new'", e.Message);
         }
     }

@@ -13,24 +13,24 @@ namespace Jint.Runtime
     {
         private string? _callStack;
 
-        public JavaScriptException(ErrorConstructor errorConstructor) : base("")
+        internal JavaScriptException(ErrorConstructor errorConstructor) : base("")
         {
             Error = errorConstructor.Construct(Arguments.Empty);
         }
 
-        public JavaScriptException(ErrorConstructor errorConstructor, string? message, Exception? innerException)
+        internal JavaScriptException(ErrorConstructor errorConstructor, string? message, Exception? innerException)
             : base(message, innerException)
         {
             Error = errorConstructor.Construct(new JsValue[] { message });
         }
 
-        public JavaScriptException(ErrorConstructor errorConstructor, string? message)
+        internal JavaScriptException(ErrorConstructor errorConstructor, string? message)
             : base(message)
         {
             Error = errorConstructor.Construct(new JsValue[] { message });
         }
 
-        public JavaScriptException(JsValue error)
+        internal JavaScriptException(JsValue error)
         {
             Error = error;
         }
