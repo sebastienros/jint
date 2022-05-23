@@ -117,6 +117,7 @@ public class ModuleTests
 
         var exc = Assert.Throws<JintScriptExecutionException>(() => _engine.ImportModule("my-module"));
         Assert.Equal("Error while loading module: error in module 'imported': Line 1: Missing initializer in const declaration", exc.Message);
+        Assert.Equal("imported", exc.Location.Source);
     }
 
     [Fact]
@@ -127,7 +128,7 @@ public class ModuleTests
 
         var exc = Assert.Throws<JintScriptExecutionException>(() => _engine.ImportModule("my-module"));
         Assert.Equal("Error while loading module: error in module 'imported': Line 1: Unexpected identifier", exc.Message);
-        Assert.Equal("my-module", exc.Location.Source);
+        Assert.Equal("imported", exc.Location.Source);
     }
 
     [Fact]
