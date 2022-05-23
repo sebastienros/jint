@@ -137,7 +137,7 @@ namespace Jint.Runtime.Environments
         [MethodImpl(MethodImplOptions.NoInlining)]
         private void ThrowUninitializedBindingError(string name)
         {
-            throw new JavaScriptException(_engine.Realm.Intrinsics.ReferenceError, $"Cannot access '{name}' before initialization");
+            ExceptionHelper.ThrowReferenceError(_engine.Realm, $"Cannot access '{name}' before initialization");
         }
 
         public sealed override bool DeleteBinding(string name)

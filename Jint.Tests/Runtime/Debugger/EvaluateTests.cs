@@ -53,7 +53,7 @@ namespace Jint.Tests.Runtime.Debugger
             TestHelpers.TestAtBreak(script, (engine, info) =>
             {
                 var exception = Assert.Throws<DebugEvaluationException>(() => engine.DebugHandler.Evaluate("y"));
-                Assert.IsType<JavaScriptException>(exception.InnerException);
+                Assert.IsType<JavaScriptInternalException>(exception.InnerException);
             });
         }
 

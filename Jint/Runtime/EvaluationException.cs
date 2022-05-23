@@ -4,15 +4,15 @@ using Jint.Native;
 
 namespace Jint.Runtime;
 
-public class JintScriptExecutionException : JintException
+public class EvaluationException : JavaScriptException
 {
     private readonly JavaScriptException _javaScriptException;
 
     public string? JavaScriptStackTrace => _javaScriptException.StackTrace;
-    public Location Location => _javaScriptException.Location;
-    public JsValue Error => _javaScriptException.Error;
+    public override Location Location => _javaScriptException.Location;
+    public override JsValue Error => _javaScriptException.Error;
 
-    public JintScriptExecutionException(JavaScriptException innerException)
+    internal EvaluationException(JavaScriptException innerException)
         : base(innerException.Message, innerException)
     {
         _javaScriptException = innerException;

@@ -1030,7 +1030,7 @@ namespace Jint.Runtime
         {
             referencedName ??= "unknown";
             var message = $"Cannot read property '{referencedName}' of {o}";
-            throw new JavaScriptException(engine.Realm.Intrinsics.TypeError, message).SetCallstack(engine, sourceNode.Location);
+            throw new JavaScriptInternalException(engine.Realm.Intrinsics.TypeError, message).SetCallstack(engine, sourceNode.Location);
         }
 
         public static void CheckObjectCoercible(Engine engine, JsValue o)

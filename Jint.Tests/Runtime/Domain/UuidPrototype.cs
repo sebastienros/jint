@@ -14,7 +14,7 @@ namespace Jint.Tests.Runtime.Domain
         {
             return thisObj.TryCast<UuidInstance>(value =>
             {
-                throw new JavaScriptException(Engine.Realm.Intrinsics.TypeError, "Invalid Uuid");
+                throw new JavaScriptInternalException(Engine.Realm.Intrinsics.TypeError, "Invalid Uuid");
             });
         }
 

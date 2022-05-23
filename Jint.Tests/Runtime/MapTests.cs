@@ -8,7 +8,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldThrowWhenCalledWithoutNew()
         {
-            var e = Assert.Throws<JintScriptExecutionException>(() => new Engine().Execute("const m = new Map(); Map.call(m,[]);"));
+            var e = Assert.Throws<EvaluationException>(() => new Engine().Execute("const m = new Map(); Map.call(m,[]);"));
             Assert.Equal("Constructor Map requires 'new'", e.Message);
         }
     }

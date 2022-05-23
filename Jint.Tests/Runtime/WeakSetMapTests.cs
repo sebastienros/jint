@@ -16,14 +16,14 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void WeakMapShouldThrowWhenCalledWithoutNew()
         {
-            var e = Assert.Throws<JintScriptExecutionException>(() => _engine.Execute("{ const m = new WeakMap(); WeakMap.call(m,[]); }"));
+            var e = Assert.Throws<EvaluationException>(() => _engine.Execute("{ const m = new WeakMap(); WeakMap.call(m,[]); }"));
             Assert.Equal("Constructor WeakMap requires 'new'", e.Message);
         }
 
         [Fact]
         public void WeakSetShouldThrowWhenCalledWithoutNew()
         {
-            var e = Assert.Throws<JintScriptExecutionException>(() => _engine.Execute("{ const s = new WeakSet(); WeakSet.call(s,[]); }"));
+            var e = Assert.Throws<EvaluationException>(() => _engine.Execute("{ const s = new WeakSet(); WeakSet.call(s,[]); }"));
             Assert.Equal("Constructor WeakSet requires 'new'", e.Message);
         }
 
@@ -44,7 +44,7 @@ namespace Jint.Tests.Runtime
         public void WeakSetAddShouldThrowForPrimitiveKey(JsValue key) {
             var weakSet = new WeakSetInstance(_engine);
 
-            var e = Assert.Throws<JavaScriptException>(() => weakSet.WeakSetAdd(key));
+            var e = Assert.Throws<JavaScriptInternalException>(() => weakSet.WeakSetAdd(key));
             Assert.StartsWith("WeakSet value must be an object, got ", e.Message);
 
             Assert.False(weakSet.WeakSetHas(key));
@@ -55,7 +55,7 @@ namespace Jint.Tests.Runtime
         public void WeakMapSetShouldThrowForPrimitiveKey(JsValue key) {
             var weakMap = new WeakMapInstance(_engine);
 
-            var e = Assert.Throws<JavaScriptException>(() => weakMap.WeakMapSet(key, new ObjectInstance(_engine)));
+            var e = Assert.Throws<JavaScriptInternalException>(() => weakMap.WeakMapSet(key, new ObjectInstance(_engine)));
             Assert.StartsWith("WeakMap key must be an object, got ", e.Message);
 
             Assert.False(weakMap.WeakMapHas(key));

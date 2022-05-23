@@ -149,7 +149,7 @@ namespace Jint.Native.Promise
                 var promise = _realm.Intrinsics.Promise.Resolve(ctor as JsValue, new[] {result});
 
                 // 8. Let thrower be equivalent to a function that throws reason.
-                var thrower = new ClrFunctionInstance(_engine, "", (_, _) => throw new JavaScriptException(reason));
+                var thrower = new ClrFunctionInstance(_engine, "", (_, _) => throw new JavaScriptInternalException(reason));
 
                 // 9. Return ? Invoke(promise, "then", « thrower »).
                 return _engine.Invoke(promise, "then", new JsValue[] {thrower});

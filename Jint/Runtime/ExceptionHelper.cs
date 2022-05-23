@@ -15,13 +15,13 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowSyntaxError(Realm realm, string message = null)
         {
-            throw new JavaScriptException(realm.Intrinsics.SyntaxError, message);
+            throw new JavaScriptInternalException(realm.Intrinsics.SyntaxError, message);
         }
 
         [DoesNotReturn]
         public static void ThrowSyntaxError(Realm realm, string message, Location location)
         {
-            throw new JavaScriptException(realm.Intrinsics.SyntaxError, message).SetLocation(location);
+            throw new JavaScriptInternalException(realm.Intrinsics.SyntaxError, message).SetLocation(location);
         }
 
         [DoesNotReturn]
@@ -52,7 +52,7 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowReferenceError(Realm realm, string message)
         {
-            throw new JavaScriptException(realm.Intrinsics.ReferenceError, message);
+            throw new JavaScriptInternalException(realm.Intrinsics.ReferenceError, message);
         }
 
         [DoesNotReturn]
@@ -64,19 +64,19 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowTypeError(Realm realm, string message = null, Exception exception = null)
         {
-            throw new JavaScriptException(realm.Intrinsics.TypeError, message, exception);
+            throw new JavaScriptInternalException(realm.Intrinsics.TypeError, message, exception);
         }
 
         [DoesNotReturn]
         public static void ThrowRangeError(Realm realm, string message = null)
         {
-            throw new JavaScriptException(realm.Intrinsics.RangeError, message);
+            throw new JavaScriptInternalException(realm.Intrinsics.RangeError, message);
         }
 
         [DoesNotReturn]
         public static void ThrowUriError(Realm realm)
         {
-            throw new JavaScriptException(realm.Intrinsics.UriError);
+            throw new JavaScriptInternalException(realm.Intrinsics.UriError);
         }
 
         [DoesNotReturn]
@@ -130,19 +130,19 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowJavaScriptException(Engine engine, JsValue value, in Completion result)
         {
-            throw new JavaScriptException(value).SetCallstack(engine, result.Location);
+            throw new JavaScriptInternalException(value).SetCallstack(engine, result.Location);
         }
         
         [DoesNotReturn]
         public static void ThrowJintExecutionException(Engine engine, JsValue value, in Completion result)
         {
-            throw new JintScriptExecutionException(new JavaScriptException(value).SetCallstack(engine, result.Location));
+            ThrowJintExecutionException(new JavaScriptInternalException(value).SetCallstack(engine, result.Location));
         }
         
         [DoesNotReturn]
         public static void ThrowJintExecutionException(JavaScriptException ex)
         {
-            throw new JintScriptExecutionException(ex);
+            throw new EvaluationException(ex);
         }
 
         [DoesNotReturn]
@@ -174,7 +174,7 @@ namespace Jint.Runtime
         [DoesNotReturn]
         internal static void ThrowError(Engine engine, string message)
         {
-            throw new JavaScriptException(engine.Realm.Intrinsics.Error, message);
+            throw new JavaScriptInternalException(engine.Realm.Intrinsics.Error, message);
         }
 
         [DoesNotReturn]

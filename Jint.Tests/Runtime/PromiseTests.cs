@@ -115,7 +115,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            Assert.Throws<JintScriptExecutionException>(() => { engine.Execute("new Promise();"); });
+            Assert.Throws<EvaluationException>(() => { engine.Execute("new Promise();"); });
         }
 
         [Fact(Timeout = 5000)]
@@ -123,7 +123,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
 
-            Assert.Throws<JintScriptExecutionException>(() => { engine.Execute("new Promise({});"); });
+            Assert.Throws<EvaluationException>(() => { engine.Execute("new Promise({});"); });
         }
 
         [Fact(Timeout = 5000)]

@@ -109,12 +109,6 @@ namespace Jint.Runtime.Interpreter
                 var completion = new Completion(CompletionType.Throw, v.Error, null, location);
                 return completion;
             }
-            catch (JintScriptExecutionException v)
-            {
-                var location = v.Location == default ? s.Location : v.Location;
-                var completion = new Completion(CompletionType.Throw, v.Error, null, location);
-                return completion;
-            }
             catch (TypeErrorException e)
             {
                 var error = engine.Realm.Intrinsics.TypeError.Construct(new JsValue[]

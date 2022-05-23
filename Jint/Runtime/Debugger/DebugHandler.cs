@@ -101,7 +101,7 @@ namespace Jint.Runtime.Debugger
                 // TODO: Should we return an error here? (avoid exception overhead, since e.g. breakpoint
                 // evaluation may be high volume.
                 var error = result.GetValueOrDefault();
-                var ex = new JavaScriptException(error).SetCallstack(_engine, result.Location);
+                var ex = new JavaScriptInternalException(error).SetCallstack(_engine, result.Location);
                 throw new DebugEvaluationException("An error occurred during debugger evaluation", ex);
             }
 
