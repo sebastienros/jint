@@ -648,7 +648,15 @@ namespace Jint
                 _isStrict = strict;
                 using (new StrictModeScope(_isStrict))
                 {
-                    return callback();
+                    try
+                    {
+                        return callback();
+                    }
+                    catch (JavaScriptException ex)
+                    {
+                        ExceptionHelper.ThrowJintExecutionException(ex);
+                        throw;
+                    }
                 }
             }
             finally

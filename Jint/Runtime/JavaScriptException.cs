@@ -35,19 +35,6 @@ namespace Jint.Runtime
             Error = error;
         }
 
-        // Copy constructors
-        public JavaScriptException(JavaScriptException exception, Exception? innerException) : base(exception.Message, exception.InnerException)
-        {
-            Error = exception.Error;
-            Location = exception.Location;
-        }
-
-        public JavaScriptException(JavaScriptException exception) : base(exception.Message)
-        {
-            Error = exception.Error;
-            Location = exception.Location;
-        }
-
         internal JavaScriptException SetLocation(Location location)
         {
             Location = location;
@@ -84,10 +71,9 @@ namespace Jint.Runtime
         public override string Message => GetErrorMessage() ?? TypeConverter.ToString(Error);
 
         /// <summary>
-        /// Returns the call stack of the exception. Requires that engine was built using
-        /// <see cref="Options.CollectStackTrace"/>.
+        /// Returns the call stack of the JavaScript exception.
         /// </summary>
-        public string? JavaScriptStackTrace
+        public override string? StackTrace
         {
             get
             {
@@ -115,7 +101,7 @@ namespace Jint.Runtime
 
         public int Column => Location.Start.Column;
 
-        public string ToJavaScriptErrorString()
+        public override string ToString()
         {
             using var rent = StringBuilderPool.Rent();
             var sb = rent.Builder;
@@ -128,7 +114,7 @@ namespace Jint.Runtime
                 sb.Append(message);
             }
 
-            var stackTrace = JavaScriptStackTrace;
+            var stackTrace = StackTrace;
             if (stackTrace != null)
             {
                 sb.Append(Environment.NewLine);

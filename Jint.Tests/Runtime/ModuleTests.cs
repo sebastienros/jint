@@ -115,7 +115,7 @@ public class ModuleTests
         _engine.AddModule("imported", @"export const invalid;");
         _engine.AddModule("my-module", @"import { invalid } from 'imported';");
 
-        var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
+        var exc = Assert.Throws<JintScriptExecutionException>(() => _engine.ImportModule("my-module"));
         Assert.Equal("Error while loading module: error in module 'imported': Line 1: Missing initializer in const declaration", exc.Message);
     }
 
@@ -125,7 +125,7 @@ public class ModuleTests
         _engine.AddModule("imported", @"export invalid;");
         _engine.AddModule("my-module", @"import { value } from 'imported';");
 
-        var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
+        var exc = Assert.Throws<JintScriptExecutionException>(() => _engine.ImportModule("my-module"));
         Assert.Equal("Error while loading module: error in module 'imported': Line 1: Unexpected identifier", exc.Message);
         Assert.Equal("my-module", exc.Location.Source);
     }
@@ -135,7 +135,7 @@ public class ModuleTests
     {
         _engine.AddModule("my-module", @"throw new Error('imported successfully');");
 
-        var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
+        var exc = Assert.Throws<JintScriptExecutionException>(() => _engine.ImportModule("my-module"));
         Assert.Equal("imported successfully", exc.Message);
         Assert.Equal("my-module", exc.Location.Source);
     }
@@ -146,7 +146,7 @@ public class ModuleTests
         _engine.AddModule("imported-module", @"throw new Error('imported successfully');");
         _engine.AddModule("my-module", @"import 'imported-module';");
 
-        var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
+        var exc = Assert.Throws<JintScriptExecutionException>(() => _engine.ImportModule("my-module"));
         Assert.Equal("imported successfully", exc.Message);
     }
 

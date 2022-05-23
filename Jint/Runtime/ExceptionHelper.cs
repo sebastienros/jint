@@ -132,6 +132,18 @@ namespace Jint.Runtime
         {
             throw new JavaScriptException(value).SetCallstack(engine, result.Location);
         }
+        
+        [DoesNotReturn]
+        public static void ThrowJintExecutionException(Engine engine, JsValue value, in Completion result)
+        {
+            throw new JintScriptExecutionException(new JavaScriptException(value).SetCallstack(engine, result.Location));
+        }
+        
+        [DoesNotReturn]
+        public static void ThrowJintExecutionException(JavaScriptException ex)
+        {
+            throw new JintScriptExecutionException(ex);
+        }
 
         [DoesNotReturn]
         public static void ThrowRecursionDepthOverflowException(JintCallStack currentStack,

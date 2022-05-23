@@ -101,14 +101,14 @@ namespace Jint
 
             if (module is not CyclicModuleRecord cyclicModule)
             {
-                module.Link();
+                LinkModule(module);
                 EvaluateModule(specifier, module);
             }
             else if (cyclicModule.Status == ModuleStatus.Unlinked)
             {
                 try
                 {
-                    cyclicModule.Link();
+                    LinkModule(cyclicModule);
                 }
                 catch (JavaScriptException ex)
                 {
@@ -133,6 +133,18 @@ namespace Jint
             return ModuleRecord.GetModuleNamespace(module);
         }
 
+        private static void LinkModule(ModuleRecord module)
+        {
+            try
+            {
+                module.Link();
+            }
+            catch (JavaScriptException ex)
+            {
+                ExceptionHelper.ThrowJintExecutionException(ex);
+            }
+        }
+
         private JsValue EvaluateModule(string specifier, ModuleRecord cyclicModule)
         {
             var ownsContext = _activeEvaluationContext is null;
@@ -141,6 +153,11 @@ namespace Jint
             try
             {
                 evaluationResult = cyclicModule.Evaluate();
+            }
+            catch (JavaScriptException ex)
+            {
+                ExceptionHelper.ThrowJintExecutionException(ex);
+                throw;
             }
             finally
             {
@@ -157,7 +174,7 @@ namespace Jint
             }
             else if (promise.State == PromiseState.Rejected)
             {
-                ExceptionHelper.ThrowJavaScriptException(this, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, new Location(new Position(), new Position(), specifier)));
+                ExceptionHelper.ThrowJintExecutionException(this, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, new Location(new Position(), new Position(), specifier)));
             }
             else if (promise.State != PromiseState.Fulfilled)
             {
