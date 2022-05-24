@@ -3,6 +3,7 @@ using System.Reflection;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Jint.Native;
 using Jint.Runtime;
 using Xunit;
@@ -307,7 +308,8 @@ export const count = globals.counter;
     {
         var engine = new Engine(opts => opts.TimeoutInterval(TimeSpan.FromTicks(1)));
 
-        engine.AddModule("my-module", @"for(var i = 0; i < 100000; i++) { } export const result = 'ok';");
+        engine.AddModule("sleep", builder => builder.ExportFunction("sleep", () => Thread.Sleep(100)));
+        engine.AddModule("my-module", @"import { sleep } from 'sleep'; for(var i = 0; i < 100; i++) { sleep(); } export const result = 'ok';");
         Assert.Throws<TimeoutException>(() => engine.ImportModule("my-module"));
     }
 
