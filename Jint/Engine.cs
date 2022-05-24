@@ -303,7 +303,7 @@ namespace Jint
 
                 if (result.Type == CompletionType.Throw)
                 {
-                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
+                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetJavaScriptCallstack(this, result.Location);
                     ResetCallStack();
                     throw ex;
                 }

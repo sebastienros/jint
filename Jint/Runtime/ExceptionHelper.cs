@@ -22,7 +22,7 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowSyntaxError(Realm realm, string message, Location location)
         {
-            throw new JavaScriptException(realm.Intrinsics.SyntaxError, message).SetLocation(location);
+            throw new JavaScriptException(realm.Intrinsics.SyntaxError, message).SetJavaScriptLocation(location);
         }
 
         [DoesNotReturn]
@@ -137,7 +137,7 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowJavaScriptException(Engine engine, JsValue value, in Completion result)
         {
-            throw new JavaScriptException(value).SetCallstack(engine, result.Location);
+            throw new JavaScriptException(value).SetJavaScriptCallstack(engine, result.Location);
         }
         
         [DoesNotReturn]
@@ -149,7 +149,7 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowJavaScriptException(ErrorConstructor errorConstructor, string message, Engine engine, Location location)
         {
-            throw new JavaScriptException(errorConstructor, message).SetCallstack(engine, location);
+            throw new JavaScriptException(errorConstructor, message).SetJavaScriptCallstack(engine, location);
         }
 
         [DoesNotReturn]

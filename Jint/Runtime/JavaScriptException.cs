@@ -11,101 +11,86 @@ namespace Jint.Runtime;
 
 public class JavaScriptException : JintException
 {
+    private static string GetMessage(JsValue error)
+    {
+        string? ret;
+        if (error is ObjectInstance oi)
+        {
+            ret = oi.Get(CommonProperties.Message).ToString();
+        }
+        else
+        {
+            ret = null;
+        }
+
+        return ret ?? TypeConverter.ToString(error);
+    }
+
     private readonly JavaScriptErrorWrapperException _jsErrorException;
 
     public string? JavaScriptStackTrace => _jsErrorException.StackTrace;
     public Location Location => _jsErrorException.Location;
-    public int LineNumber => Location.Start.Line;
-    public int Column => Location.Start.Column;
-    public JsValue? Error => _jsErrorException.Error;
+    public JsValue Error => _jsErrorException.Error;
     
     internal JavaScriptException(ErrorConstructor errorConstructor)
-        : base("", new JavaScriptErrorWrapperException(errorConstructor.Construct(Arguments.Empty)))
+        : base("", new JavaScriptErrorWrapperException(errorConstructor.Construct(Arguments.Empty), ""))
     {
         _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
     }
 
     internal JavaScriptException(ErrorConstructor errorConstructor, string? message)
-        : base(message, new JavaScriptErrorWrapperException(errorConstructor.Construct(new JsValue[] { message })))
+        : base(message, new JavaScriptErrorWrapperException(errorConstructor.Construct(new JsValue[] { message }), message))
     {
         _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
     }
     
     internal JavaScriptException(JsValue error)
-        : base(JavaScriptErrorWrapperException.GetMessage(error), new JavaScriptErrorWrapperException(error))
+        : base(GetMessage(error), new JavaScriptErrorWrapperException(error, GetMessage(error)))
     {
         _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
     }
     
     public string GetJavaScriptErrorString() => _jsErrorException.ToString();
     
-    public JavaScriptException SetCallstack(Engine engine, Location location)
+    public JavaScriptException SetJavaScriptCallstack(Engine engine, Location location)
     {
         _jsErrorException.SetCallstack(engine, location);
         return this;
     }
     
-    public JavaScriptException SetLocation(Location location)
+    public JavaScriptException SetJavaScriptLocation(Location location)
     {
         _jsErrorException.SetLocation(location);
         return this;
     }
 
-    internal class JavaScriptErrorWrapperException : JintException
+    private class JavaScriptErrorWrapperException : JintException
     {
-        internal static string GetMessage(JsValue error)
-        {
-            string? ret;
-            if (error is ObjectInstance oi)
-            {
-                ret = oi.Get(CommonProperties.Message).ToString();
-            }
-            else
-            {
-                ret = null;
-            }
-
-            return ret ?? TypeConverter.ToString(error);
-        }
-
         private string? _callStack;
 
-        private Location _location;
+        public JsValue Error { get; }
+        public Location Location { get; private set; }
 
-        internal JavaScriptErrorWrapperException(JsValue error)
-            : base(GetMessage(error))
+        internal JavaScriptErrorWrapperException(JsValue error, string? message = null)
+            : base(message ?? GetMessage(error))
         {
             Error = error;
         }
 
-        internal JavaScriptErrorWrapperException SetLocation(Location location)
+        internal void SetLocation(Location location)
         {
-            _location = location;
-
-            return this;
+            Location = location;
         }
 
-        internal JavaScriptErrorWrapperException SetCallstack(Engine engine, Location location)
+        internal void SetCallstack(Engine engine, Location location)
         {
-            _location = location;
+            Location = location;
             var value = engine.CallStack.BuildCallStackString(location);
             _callStack = value;
             if (Error.IsObject())
             {
                 Error.AsObject()
                     .FastAddProperty(CommonProperties.Stack, new JsString(value), false, false, false);
-            }
-
-            return this;
-        }
-
-        public JsValue Error { get; }
-
-        public override string Message
-        {
-            get
-            {
-                return GetMessage(Error);
             }
         }
 
@@ -133,8 +118,6 @@ public class JavaScriptException : JintException
                     : callstack.AsString();
             }
         }
-
-        public Location Location => _location;
 
         public override string ToString()
         {
