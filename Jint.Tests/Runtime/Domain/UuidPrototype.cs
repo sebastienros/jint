@@ -4,7 +4,10 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime.Domain
 {
-    internal sealed class UuidPrototype : UuidInstance
+    /// <summary>
+    /// Needs to be public, https://github.com/sebastienros/jint/issues/1144
+    /// </summary>
+    public sealed class UuidPrototype : UuidInstance
     {
         private UuidPrototype(Engine engine) : base(engine)
         {

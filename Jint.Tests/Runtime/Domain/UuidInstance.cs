@@ -3,7 +3,10 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime.Domain
 {
-    internal class UuidInstance : ObjectInstance, IObjectWrapper
+    /// <summary>
+    /// Needs to be public, https://github.com/sebastienros/jint/issues/1144
+    /// </summary>
+    public class UuidInstance : ObjectInstance, IObjectWrapper
     {
         protected internal override ObjectInstance GetPrototypeOf() => _prototype;
 
