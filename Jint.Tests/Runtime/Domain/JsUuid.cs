@@ -3,6 +3,9 @@ using Jint.Native;
 
 namespace Jint.Tests.Runtime.Domain
 {
+    /// <summary>
+    /// Needs to be public, https://github.com/sebastienros/jint/issues/1144
+    /// </summary>
     public sealed class JsUuid : JsValue, IEquatable<JsUuid>
     {
         internal readonly Guid _value;
