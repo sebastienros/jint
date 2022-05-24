@@ -858,7 +858,7 @@ namespace Jint.Tests.Runtime
 
             var x = _engine.GetValue("x");
 
-            var exception = Assert.Throws<EvaluationException>(() => x.Invoke(_engine, 1, 2));
+            var exception = Assert.Throws<JavaScriptException>(() => x.Invoke(_engine, 1, 2));
             Assert.Equal("Can only invoke functions", exception.Message);
         }
 
@@ -885,7 +885,7 @@ namespace Jint.Tests.Runtime
             var obj = _engine.GetValue("obj").AsObject();
             var foo = obj.Get("foo", obj);
 
-            Assert.Throws<EvaluationException>(() => _engine.Invoke(foo, obj, new object[] { }));
+            Assert.Throws<JavaScriptException>(() => _engine.Invoke(foo, obj, new object[] { }));
         }
 
         [Fact]
@@ -1022,7 +1022,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void JsonParserShouldHandleEmptyString()
         {
-            var ex = Assert.Throws<EvaluationException>(() => _engine.Evaluate("JSON.parse('');"));
+            var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("JSON.parse('');"));
             Assert.Equal("Unexpected end of JSON input at position 0", ex.Message);
         }
 
@@ -1319,10 +1319,10 @@ var prep = function (fn) { fn(); };
             Exception ex = Assert.Throws<ParserException>(() => _engine.Execute(code, new ParserOptions { Tolerant = false }));
             Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
 
-            ex = Assert.Throws<EvaluationException>(() => _engine.Execute($"eval('{code}')"));
+            ex = Assert.Throws<JavaScriptException>(() => _engine.Execute($"eval('{code}')"));
             Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
 
-            Assert.Throws<EvaluationException>(() => _engine.Execute($"new Function('{code}')"));
+            Assert.Throws<JavaScriptException>(() => _engine.Execute($"new Function('{code}')"));
             Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
         }
 
@@ -1990,7 +1990,7 @@ var prep = function (fn) { fn(); };
                 test('arg');
             ";
             
-            var ex = Assert.Throws<EvaluationException>(() => engine.Evaluate(source));
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(source));
             Assert.Equal(3, ex.Location.Start.Line);
         }
 
@@ -2440,7 +2440,7 @@ var prep = function (fn) { fn(); };
         public void ShouldAllowNonStringMessage(string source, string expected)
         {
             var engine = new Engine();
-            var ex = Assert.Throws<EvaluationException>(() => engine.Execute(source));
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(source));
             Assert.Equal(expected, ex.Message);
         }
 
@@ -2698,7 +2698,7 @@ function output(x) {
         public void ShouldReportErrorForInvalidJson()
         {
             var engine = new Engine();
-            var ex = Assert.Throws<EvaluationException>(() => engine.Evaluate("JSON.parse('[01]')"));
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("JSON.parse('[01]')"));
             Assert.Equal("Unexpected token '1' in JSON at position 2", ex.Message);
 
             var voidCompletion = engine.Evaluate("try { JSON.parse('01') } catch (e) {}");
@@ -2732,7 +2732,7 @@ x.test = {
             );
             Assert.IsType<TestTypeConverter>(engine.ClrTypeConverter);
             engine.SetValue("x", new Testificate());
-            Assert.Throws<EvaluationException>(() => engine.Evaluate("c.Name"));
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate("c.Name"));
         }
 
         [Fact]
@@ -2831,7 +2831,7 @@ x.test = {
         [Fact]
         public void ClassDeclarationHoisting()
         {
-            var ex = Assert.Throws<EvaluationException>(() => _engine.Evaluate("typeof MyClass; class MyClass {}"));
+            var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("typeof MyClass; class MyClass {}"));
             Assert.Equal("Cannot access 'MyClass' before initialization", ex.Message);
         }
 
@@ -2840,11 +2840,11 @@ x.test = {
         {
             var engine = new Engine();
             const string source = "'use strict'; var x = () => { delete Boolean.prototype; }; x();";
-            var ex = Assert.Throws<EvaluationException>(() => engine.Evaluate(source));
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(source));
             Assert.Equal("Cannot delete property 'prototype' of function Boolean() { [native code] }", ex.Message);
 
             const string source2 = "'use strict'; delete foobar;";
-            ex = Assert.Throws<EvaluationException>(() => engine.Evaluate(source2));
+            ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(source2));
             Assert.Equal("Delete of an unqualified identifier in strict mode.", ex.Message);
         }
 
@@ -2854,7 +2854,7 @@ x.test = {
             var engine = new Engine();
             var script = "class MyClass1 { } class MyClass2 extends MyClass1 { constructor() { } } const x = new MyClass2();";
 
-            var ex = Assert.Throws<EvaluationException>(() => engine.Evaluate(script));
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(script));
             Assert.Equal("Must call super constructor in derived class before accessing 'this' or returning from derived constructor", ex.Message);
         }
 

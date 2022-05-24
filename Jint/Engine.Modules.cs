@@ -126,14 +126,7 @@ namespace Jint
 
         private static void LinkModule(string specifier, ModuleRecord module)
         {
-            try
-            {
-                module.Link();
-            }
-            catch (JavaScriptException ex)
-            {
-                ExceptionHelper.ThrowJintExecutionException(ex);
-            }
+            module.Link();
         }
 
         private JsValue EvaluateModule(string specifier, ModuleRecord cyclicModule)
@@ -144,11 +137,6 @@ namespace Jint
             try
             {
                 evaluationResult = cyclicModule.Evaluate();
-            }
-            catch (JavaScriptException ex)
-            {
-                ExceptionHelper.ThrowJintExecutionException(ex);
-                throw;
             }
             finally
             {
@@ -165,7 +153,7 @@ namespace Jint
             }
             else if (promise.State == PromiseState.Rejected)
             {
-                ExceptionHelper.ThrowJintExecutionException(this, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, new Location(new Position(), new Position(), specifier)));
+                ExceptionHelper.ThrowJavaScriptException(this, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, new Location(new Position(), new Position(), specifier)));
             }
             else if (promise.State != PromiseState.Fulfilled)
             {

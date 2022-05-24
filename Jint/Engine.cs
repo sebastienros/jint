@@ -303,7 +303,7 @@ namespace Jint
 
                 if (result.Type == CompletionType.Throw)
                 {
-                    var ex = new JavaScriptInternalException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
+                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
                     ResetCallStack();
                     throw ex;
                 }
@@ -616,7 +616,7 @@ namespace Jint
             var callable = value as ICallable;
             if (callable is null)
             {
-                ExceptionHelper.ThrowJintExecutionException(new JavaScriptInternalException(Realm.Intrinsics.TypeError, "Can only invoke functions"));
+                ExceptionHelper.ThrowJavaScriptException(Realm.Intrinsics.TypeError, "Can only invoke functions");
             }
 
             JsValue DoInvoke()
@@ -648,15 +648,7 @@ namespace Jint
                 _isStrict = strict;
                 using (new StrictModeScope(_isStrict))
                 {
-                    try
-                    {
-                        return callback();
-                    }
-                    catch (JavaScriptException ex)
-                    {
-                        ExceptionHelper.ThrowJintExecutionException(ex);
-                        throw;
-                    }
+                    return callback();
                 }
             }
             finally
