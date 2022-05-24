@@ -8,7 +8,10 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime.Domain
 {
-    internal sealed class UuidConstructor : FunctionInstance, IConstructor
+    /// <summary>
+    /// Needs to be public, https://github.com/sebastienros/jint/issues/1144
+    /// </summary>
+    public sealed class UuidConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new JsString("Uuid");
 
