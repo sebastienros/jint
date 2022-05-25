@@ -1,5 +1,6 @@
 ﻿using Jint.Tests.Runtime.Domain;
 using System;
+using Jint.Runtime.Interop;
 using Xunit;
 
 namespace Jint.Tests.Runtime
@@ -9,11 +10,10 @@ namespace Jint.Tests.Runtime
         private readonly Engine _engine;
 
         public UuidTests()
-        {
-            _engine = new Engine(o => o.AddObjectConverter(new UuidConverter()))
-                .SetValue("copy", new Func<Guid, Guid>(v => new Guid(v.ToByteArray())))
-                ;
-            UuidConstructor.CreateUuidConstructor(_engine);
+        {;
+            _engine = new Engine(options => options.AllowOperatorOverloading());
+            _engine.SetValue("copy", new Func<Guid, Guid>(v => new Guid(v.ToByteArray())));
+            _engine.SetValue("Uuid", TypeReference.CreateTypeReference<JsUuid>(_engine));
         }
 
         void IDisposable.Dispose()
@@ -28,16 +28,16 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void Empty()
         {
-            Assert.Equal(Guid.Empty, RunTest($"Uuid.parse('{Guid.Empty}')"));
-            Assert.Equal(Guid.Empty, RunTest($"Uuid.Empty"));
+            Assert.Equal(JsUuid.Empty, RunTest($"Uuid.parse('{Guid.Empty}')"));
+            Assert.Equal(JsUuid.Empty, RunTest($"Uuid.Empty"));
         }
 
         [Fact]
         public void Random()
         {
             var actual = RunTest($"new Uuid()");
-            Assert.NotEqual(Guid.Empty, actual);
-            Assert.IsType<Guid>(actual);
+            var jsUuid = Assert.IsType<JsUuid>(actual);
+            Assert.Equal(JsUuid.Empty, jsUuid);
         }
 
         [Fact]
