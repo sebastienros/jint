@@ -143,18 +143,20 @@ namespace Jint.Native
             }
 
             var i = (uint) value[0];
-            if (i < (uint) _charToStringJsValue.Length)
+            var temp = _charToStringJsValue;
+            if (i < (uint) temp.Length)
             {
-                return _charToStringJsValue[i];
+                return temp[i];
             }
             return new JsString(value);
         }
 
         internal static JsString Create(char value)
         {
-            if (value < (uint) _charToJsValue.Length)
+            var temp = _charToJsValue;
+            if (value < (uint) temp.Length)
             {
-                return _charToJsValue[value];
+                return temp[value];
             }
 
             return new JsString(value);
@@ -162,9 +164,10 @@ namespace Jint.Native
 
         internal static JsString Create(int value)
         {
-            if (value < (uint) _intToStringJsValue.Length)
+            var temp = _intToStringJsValue;
+            if (value < (uint) temp.Length)
             {
-                return _intToStringJsValue[value];
+                return temp[value];
             }
 
             return new JsString(TypeConverter.ToString(value));
@@ -172,9 +175,10 @@ namespace Jint.Native
 
         internal static JsValue Create(uint value)
         {
-            if (value < (uint) _intToStringJsValue.Length)
+            var temp = _intToStringJsValue;
+            if (value < (uint) temp.Length)
             {
-                return _intToStringJsValue[value];
+                return temp[value];
             }
 
             return new JsString(TypeConverter.ToString(value));
@@ -182,9 +186,10 @@ namespace Jint.Native
 
         internal static JsValue Create(ulong value)
         {
-            if (value < (uint) _intToStringJsValue.Length)
+            var temp = _intToStringJsValue;
+            if (value < (uint) temp.Length)
             {
-                return _intToStringJsValue[value];
+                return temp[value];
             }
 
             return new JsString(TypeConverter.ToString(value));

@@ -526,7 +526,7 @@ namespace Jint.Native.Array
             // return TypeConverter.ToString(index) == TypeConverter.ToString(p) && index != uint.MaxValue;
         }
 
-        private static uint ParseArrayIndex(string p)
+        internal static uint ParseArrayIndex(string p)
         {
             if (p.Length == 0)
             {

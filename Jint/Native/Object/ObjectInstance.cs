@@ -236,14 +236,16 @@ namespace Jint.Native.Object
             {
                 foreach (var pair in _properties)
                 {
-                    var isArrayIndex = ulong.TryParse(pair.Key, out var index) && index < ArrayOperations.MaxArrayLength;
-                    if (isArrayIndex)
+                    var propertyName = pair.Key.Name;
+                    var arrayIndex = ArrayInstance.ParseArrayIndex(propertyName);
+
+                    if (arrayIndex < ArrayOperations.MaxArrayLength)
                     {
-                        keys.Add(JsString.Create(index));
+                        keys.Add(JsString.Create(arrayIndex));
                     }
                     else
                     {
-                        propertyKeys.Add(new JsString(pair.Key));
+                        propertyKeys.Add(new JsString(propertyName));
                     }
                 }
             }

@@ -2861,7 +2861,16 @@ x.test = {
             var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(script));
             Assert.Equal("Must call super constructor in derived class before accessing 'this' or returning from derived constructor", ex.Message);
         }
-        
+
+        [Fact]
+        public void ShouldGetZeroPrefixedNumericKeys()
+        {
+            var engine = new Engine();
+            engine.Evaluate("const testObj = { '02100' : true };");
+            Assert.Equal(1, engine.Evaluate("Object.keys(testObj).length;").AsNumber());
+            Assert.Equal("[\"02100\"]", engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(testObj));").AsString());
+        }
+
         private class Wrapper
         {
             public Testificate Test { get; set; }
