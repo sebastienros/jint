@@ -20,6 +20,12 @@ public abstract partial class Test262Test
             cfg.EnableModules(new Test262ModuleLoader(State.Test262Stream.Options.FileSystem, relativePath));
         });
 
+        if (file.Flags.Contains("raw"))
+        {
+            // nothing should be loaded
+            return engine;
+        }
+
         engine.Execute(State.Sources["assert.js"]);
         engine.Execute(State.Sources["sta.js"]);
 
@@ -79,7 +85,7 @@ public abstract partial class Test262Test
             engine.Execute(new JavaScriptParser(file.Program, new ParserOptions(file.FileName)).ParseScript());
         }
     }
-    
+
     private partial bool ShouldThrow(Test262File testCase, bool strict)
     {
         return testCase.Negative;
