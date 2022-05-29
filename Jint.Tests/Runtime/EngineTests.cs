@@ -1982,20 +1982,16 @@ var prep = function (fn) { fn(); };
         [Fact]
         public void ExceptionShouldHaveLocationOfInnerFunction()
         {
-            try
-            {
-                new Engine()
-                    .Evaluate(@"
-                    function test(s) {
-                        o.boom();
-                    }
-                    test('arg');
-                ");
-            }
-            catch (JavaScriptException ex)
-            {
-                Assert.Equal(3, ex.LineNumber);
-            }
+            var engine = new Engine();
+            const string source = @"
+                function test(s) {
+                    o.boom();
+                }
+                test('arg');
+            ";
+            
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(source));
+            Assert.Equal(3, ex.Location.Start.Line);
         }
 
         [Fact]

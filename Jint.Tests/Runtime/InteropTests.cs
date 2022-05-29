@@ -2695,11 +2695,14 @@ namespace Jint.Tests.Runtime
             engine.Realm.GlobalObject.FastAddProperty("global", engine.Realm.GlobalObject, true, true, true);
             engine.Realm.GlobalObject.FastAddProperty("test", new DelegateWrapper(engine, (Action<string, object>) Test), true, true, true);
 
-            var ex = Assert.Throws<JavaScriptException>(() => engine.Realm.GlobalObject.ToObject());
-            Assert.Equal("Cyclic reference detected.", ex.Message);
+            {
+                var ex = Assert.Throws<JavaScriptException>(() => engine.Realm.GlobalObject.ToObject());
+                Assert.Equal("Cyclic reference detected.", ex.Message);
+            }
 
-            ex = Assert.Throws<JavaScriptException>(() =>
-                engine.Execute(@"
+            {
+                var ex = Assert.Throws<JavaScriptException>(() =>
+                    engine.Execute(@"
                     var demo={};
                     demo.value=1;
                     test('Test 1', demo.value===1);
@@ -2707,10 +2710,10 @@ namespace Jint.Tests.Runtime
                     demo.demo=demo;
                     test('Test 3', demo);
                     test('Test 4', global);"
-                )
-            );
-
-            Assert.Equal("Cyclic reference detected.", ex.Message);
+                    )
+                );
+                Assert.Equal("Cyclic reference detected.", ex.Message);
+            }
         }
 
         [Fact]

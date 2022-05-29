@@ -101,21 +101,12 @@ namespace Jint
 
             if (module is not CyclicModuleRecord cyclicModule)
             {
-                module.Link();
+                LinkModule(specifier, module);
                 EvaluateModule(specifier, module);
             }
             else if (cyclicModule.Status == ModuleStatus.Unlinked)
             {
-                try
-                {
-                    cyclicModule.Link();
-                }
-                catch (JavaScriptException ex)
-                {
-                    if (ex.Location.Source == null)
-                        ex.SetLocation(new Location(new Position(), new Position(), specifier));
-                    throw;
-                }
+                LinkModule(specifier, cyclicModule);
 
                 if (cyclicModule.Status == ModuleStatus.Linked)
                 {
@@ -131,6 +122,11 @@ namespace Jint
             RunAvailableContinuations();
 
             return ModuleRecord.GetModuleNamespace(module);
+        }
+
+        private static void LinkModule(string specifier, ModuleRecord module)
+        {
+            module.Link();
         }
 
         private JsValue EvaluateModule(string specifier, ModuleRecord cyclicModule)

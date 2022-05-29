@@ -76,7 +76,7 @@ var b = function(v) {
             Assert.Equal(15, e.Location.Start.Column);
             Assert.Equal("custom.js", e.Location.Source);
 
-            var stack = e.StackTrace;
+            var stack = e.JavaScriptStackTrace;
             EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:3:16
    at b (v) custom.js:7:10
    at main.js:1:9", stack);
@@ -218,7 +218,7 @@ var b = function(v) {
    at recursive (folderInstance) <anonymous>:8:32
    at recursive (folderInstance) <anonymous>:8:32
    at recursive (folderInstance) <anonymous>:8:32
-   at <anonymous>:12:17", javaScriptException.StackTrace);
+   at <anonymous>:12:17", javaScriptException.JavaScriptStackTrace);
 
             var expected = new List<string>
             {
@@ -243,12 +243,12 @@ var x = b(7);";
 
             var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
 
-            const string expected = @"Jint.Runtime.JavaScriptException: Cannot read property 'yyy' of undefined
+            const string expected = @"Error: Cannot read property 'yyy' of undefined
    at a (v) <anonymous>:2:18
    at b (v) <anonymous>:6:12
    at <anonymous>:9:9";
 
-            EqualIgnoringNewLineDifferences(expected, ex.ToString());
+            EqualIgnoringNewLineDifferences(expected, ex.GetJavaScriptErrorString());
         }
 
         [Fact]
@@ -276,12 +276,12 @@ var x = b(7);";
             };
             var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script, parserOptions));
 
-            const string expected = @"Jint.Runtime.JavaScriptException: Cannot read property '5' of null
+            const string expected = @"Error: Cannot read property '5' of null
    at getItem (items, itemIndex) get-item.js:2:22
    at (anonymous) (getItem) get-item.js:9:16
    at get-item.js:13:2";
 
-            EqualIgnoringNewLineDifferences(expected, ex.ToString());
+            EqualIgnoringNewLineDifferences(expected, ex.GetJavaScriptErrorString());
         }
 
         [Fact]
@@ -326,95 +326,5 @@ var x = b(7);";
             actualString = actualString.Replace("\r\n", "\n");
             Assert.Contains(expectedSubstring, actualString);
         }
-
-        [Fact]
-        public void CustomException()
-        {
-            var engine = new Engine();
-            const string filename = "someFile.js";
-            JintJsException jsException = Assert.Throws<JintJsException>(() =>
-            {
-                try
-                {
-                    const string script = @"
-                        var test = 42; // just adding a line for a non zero line offset
-                        throw new Error('blah');
-                    ";
-
-                    engine.Execute(script);
-                }
-                catch (JavaScriptException ex)
-                {
-                    throw new JintJsException(filename, ex);
-                }
-            });
-
-            Assert.Equal(24, jsException.Column);
-            Assert.Equal(3, jsException.LineNumber);
-            Assert.Equal(filename, jsException.Module);
-        }
-
-        [Fact]
-        public void CustomExceptionUsesCopyConstructor()
-        {
-            var engine = new Engine();
-            const string filename = "someFile.js";
-            JintJsException2 jsException = Assert.Throws<JintJsException2>(() =>
-            {
-                try
-                {
-                    const string script = @"
-                        var test = 42; // just adding a line for a non zero line offset
-                        throw new Error('blah');
-                    ";
-
-                    engine.Execute(script);
-                }
-                catch (JavaScriptException ex)
-                {
-                    throw new JintJsException2(filename, ex);
-                }
-            });
-
-            Assert.Equal(24, jsException.Column);
-            Assert.Equal(3, jsException.LineNumber);
-            Assert.Equal(filename, jsException.Module);
-        }
-    }
-
-    public class JintJsException : JavaScriptException
-    {
-        private readonly JavaScriptException _jsException;
-
-        public JintJsException(string moduleName, JavaScriptException jsException) : base(jsException.Error)
-        {
-            Module = moduleName;
-            _jsException = jsException;
-            Location = jsException.Location;
-        }
-
-        public string Module { get; }
-        
-        public override string Message
-        {
-            get
-            {
-                var scriptFilename = (Module != null) ? "Filepath: " + Module + " " : "";
-                var errorMsg = $"{scriptFilename}{_jsException.Message}";
-                return errorMsg;
-            }
-        }
-
-        public override string StackTrace => _jsException.StackTrace;
-    }
-
-    public class JintJsException2 : JavaScriptException
-    {
-        public JintJsException2(string moduleName, JavaScriptException jsException) : base(jsException)
-        {
-            Module = moduleName;
-        }
-
-        public string Module { get; }
     }
 }

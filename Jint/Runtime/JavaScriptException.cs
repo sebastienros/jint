@@ -7,55 +7,82 @@ using Jint.Native.Error;
 using Jint.Native.Object;
 using Jint.Pooling;
 
-namespace Jint.Runtime
+namespace Jint.Runtime;
+
+public class JavaScriptException : JintException
 {
-    public class JavaScriptException : JintException
+    private static string GetMessage(JsValue error)
+    {
+        string? ret;
+        if (error is ObjectInstance oi)
+        {
+            ret = oi.Get(CommonProperties.Message).ToString();
+        }
+        else
+        {
+            ret = null;
+        }
+
+        return ret ?? TypeConverter.ToString(error);
+    }
+
+    private readonly JavaScriptErrorWrapperException _jsErrorException;
+
+    public string? JavaScriptStackTrace => _jsErrorException.StackTrace;
+    public Location Location => _jsErrorException.Location;
+    public JsValue Error => _jsErrorException.Error;
+    
+    internal JavaScriptException(ErrorConstructor errorConstructor)
+        : base("", new JavaScriptErrorWrapperException(errorConstructor.Construct(Arguments.Empty), ""))
+    {
+        _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
+    }
+
+    internal JavaScriptException(ErrorConstructor errorConstructor, string? message)
+        : base(message, new JavaScriptErrorWrapperException(errorConstructor.Construct(new JsValue[] { message }), message))
+    {
+        _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
+    }
+    
+    internal JavaScriptException(JsValue error)
+        : base(GetMessage(error), new JavaScriptErrorWrapperException(error, GetMessage(error)))
+    {
+        _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
+    }
+    
+    public string GetJavaScriptErrorString() => _jsErrorException.ToString();
+    
+    public JavaScriptException SetJavaScriptCallstack(Engine engine, Location location)
+    {
+        _jsErrorException.SetCallstack(engine, location);
+        return this;
+    }
+    
+    public JavaScriptException SetJavaScriptLocation(Location location)
+    {
+        _jsErrorException.SetLocation(location);
+        return this;
+    }
+
+    private class JavaScriptErrorWrapperException : JintException
     {
         private string? _callStack;
 
-        public JavaScriptException(ErrorConstructor errorConstructor) : base("")
-        {
-            Error = errorConstructor.Construct(Arguments.Empty);
-        }
+        public JsValue Error { get; }
+        public Location Location { get; private set; }
 
-        public JavaScriptException(ErrorConstructor errorConstructor, string? message, Exception? innerException)
-            : base(message, innerException)
-        {
-            Error = errorConstructor.Construct(new JsValue[] { message });
-        }
-
-        public JavaScriptException(ErrorConstructor errorConstructor, string? message)
-            : base(message)
-        {
-            Error = errorConstructor.Construct(new JsValue[] { message });
-        }
-
-        public JavaScriptException(JsValue error)
+        internal JavaScriptErrorWrapperException(JsValue error, string? message = null)
+            : base(message ?? GetMessage(error))
         {
             Error = error;
         }
 
-        // Copy constructors
-        public JavaScriptException(JavaScriptException exception, Exception? innerException) : base(exception.Message, exception.InnerException)
-        {
-            Error = exception.Error;
-            Location = exception.Location;
-        }
-
-        public JavaScriptException(JavaScriptException exception) : base(exception.Message)
-        {
-            Error = exception.Error;
-            Location = exception.Location;
-        }
-
-        internal JavaScriptException SetLocation(Location location)
+        internal void SetLocation(Location location)
         {
             Location = location;
-
-            return this;
         }
 
-        internal JavaScriptException SetCallstack(Engine engine, Location location)
+        internal void SetCallstack(Engine engine, Location location)
         {
             Location = location;
             var value = engine.CallStack.BuildCallStackString(location);
@@ -65,27 +92,10 @@ namespace Jint.Runtime
                 Error.AsObject()
                     .FastAddProperty(CommonProperties.Stack, new JsString(value), false, false, false);
             }
-
-            return this;
         }
-
-        private string? GetErrorMessage()
-        {
-            if (Error is ObjectInstance oi)
-            {
-                return oi.Get(CommonProperties.Message).ToString();
-            }
-
-            return null;
-        }
-
-        public JsValue Error { get; }
-
-        public override string Message => GetErrorMessage() ?? TypeConverter.ToString(Error);
 
         /// <summary>
-        /// Returns the call stack of the exception. Requires that engine was built using
-        /// <see cref="Options.CollectStackTrace"/>.
+        /// Returns the call stack of the JavaScript exception.
         /// </summary>
         public override string? StackTrace
         {
@@ -109,40 +119,20 @@ namespace Jint.Runtime
             }
         }
 
-        public Location Location { get; protected set; }
-
-        public int LineNumber => Location.Start.Line;
-
-        public int Column => Location.Start.Column;
-
         public override string ToString()
         {
-            // adapted custom version as logic differs between full framework and .NET Core
-            var className = GetType().ToString();
-            var message = Message;
-            var innerExceptionString = InnerException?.ToString() ?? "";
-            const string endOfInnerExceptionResource = "--- End of inner exception stack trace ---";
-            var stackTrace = StackTrace;
-
             using var rent = StringBuilderPool.Rent();
             var sb = rent.Builder;
-            sb.Append(className);
+
+            sb.Append("Error");
+            var message = Message;
             if (!string.IsNullOrEmpty(message))
             {
                 sb.Append(": ");
                 sb.Append(message);
             }
 
-            if (InnerException != null)
-            {
-                sb.Append(Environment.NewLine);
-                sb.Append(" ---> ");
-                sb.Append(innerExceptionString);
-                sb.Append(Environment.NewLine);
-                sb.Append("   ");
-                sb.Append(endOfInnerExceptionResource);
-            }
-
+            var stackTrace = StackTrace;
             if (stackTrace != null)
             {
                 sb.Append(Environment.NewLine);

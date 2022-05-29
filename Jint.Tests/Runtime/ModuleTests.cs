@@ -3,6 +3,7 @@ using System.Reflection;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Jint.Native;
 using Jint.Runtime;
 using Xunit;
@@ -117,6 +118,7 @@ public class ModuleTests
 
         var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
         Assert.Equal("Error while loading module: error in module 'imported': Line 1: Missing initializer in const declaration", exc.Message);
+        Assert.Equal("imported", exc.Location.Source);
     }
 
     [Fact]
@@ -127,7 +129,7 @@ public class ModuleTests
 
         var exc = Assert.Throws<JavaScriptException>(() => _engine.ImportModule("my-module"));
         Assert.Equal("Error while loading module: error in module 'imported': Line 1: Unexpected identifier", exc.Message);
-        Assert.Equal("my-module", exc.Location.Source);
+        Assert.Equal("imported", exc.Location.Source);
     }
 
     [Fact]
@@ -306,7 +308,8 @@ export const count = globals.counter;
     {
         var engine = new Engine(opts => opts.TimeoutInterval(TimeSpan.FromTicks(1)));
 
-        engine.AddModule("my-module", @"for(var i = 0; i < 100000; i++) { } export const result = 'ok';");
+        engine.AddModule("sleep", builder => builder.ExportFunction("sleep", () => Thread.Sleep(100)));
+        engine.AddModule("my-module", @"import { sleep } from 'sleep'; for(var i = 0; i < 100; i++) { sleep(); } export const result = 'ok';");
         Assert.Throws<TimeoutException>(() => engine.ImportModule("my-module"));
     }
 

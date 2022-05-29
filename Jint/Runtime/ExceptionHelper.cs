@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.ExceptionServices;
 using Esprima;
 using Jint.Native;
+using Jint.Native.Error;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.Modules;
 using Jint.Runtime.References;
@@ -21,7 +22,7 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowSyntaxError(Realm realm, string message, Location location)
         {
-            throw new JavaScriptException(realm.Intrinsics.SyntaxError, message).SetLocation(location);
+            throw new JavaScriptException(realm.Intrinsics.SyntaxError, message).SetJavaScriptLocation(location);
         }
 
         [DoesNotReturn]
@@ -56,15 +57,15 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowTypeErrorNoEngine(string message = null, Exception exception = null)
+        public static void ThrowTypeErrorNoEngine(string message = null)
         {
             throw new TypeErrorException(message);
         }
 
         [DoesNotReturn]
-        public static void ThrowTypeError(Realm realm, string message = null, Exception exception = null)
+        public static void ThrowTypeError(Realm realm, string message = null)
         {
-            throw new JavaScriptException(realm.Intrinsics.TypeError, message, exception);
+            throw new JavaScriptException(realm.Intrinsics.TypeError, message);
         }
 
         [DoesNotReturn]
@@ -116,9 +117,9 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowInvalidOperationException(string message = null)
+        public static void ThrowInvalidOperationException(string message = null, Exception exception = null)
         {
-            throw new InvalidOperationException(message);
+            throw new InvalidOperationException(message, exception);
         }
 
         [DoesNotReturn]
@@ -126,11 +127,29 @@ namespace Jint.Runtime
         {
             throw new PromiseRejectedException(error);
         }
+        
+        [DoesNotReturn]
+        public static void ThrowJavaScriptException(JsValue value)
+        {
+            throw new JavaScriptException(value);
+        }
 
         [DoesNotReturn]
         public static void ThrowJavaScriptException(Engine engine, JsValue value, in Completion result)
         {
-            throw new JavaScriptException(value).SetCallstack(engine, result.Location);
+            throw new JavaScriptException(value).SetJavaScriptCallstack(engine, result.Location);
+        }
+        
+        [DoesNotReturn]
+        public static void ThrowJavaScriptException(ErrorConstructor errorConstructor, string message)
+        {
+            throw new JavaScriptException(errorConstructor, message);
+        }
+        
+        [DoesNotReturn]
+        public static void ThrowJavaScriptException(ErrorConstructor errorConstructor, string message, Engine engine, Location location)
+        {
+            throw new JavaScriptException(errorConstructor, message).SetJavaScriptCallstack(engine, location);
         }
 
         [DoesNotReturn]

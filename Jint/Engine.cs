@@ -303,7 +303,7 @@ namespace Jint
 
                 if (result.Type == CompletionType.Throw)
                 {
-                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetCallstack(this, result.Location);
+                    var ex = new JavaScriptException(result.GetValueOrDefault()).SetJavaScriptCallstack(this, result.Location);
                     ResetCallStack();
                     throw ex;
                 }
@@ -616,7 +616,7 @@ namespace Jint
             var callable = value as ICallable;
             if (callable is null)
             {
-                ExceptionHelper.ThrowTypeError(Realm, "Can only invoke functions");
+                ExceptionHelper.ThrowJavaScriptException(Realm.Intrinsics.TypeError, "Can only invoke functions");
             }
 
             JsValue DoInvoke()
