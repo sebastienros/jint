@@ -1380,5 +1380,36 @@ namespace Jint.Native.Object
         {
             return TypeConverter.ToString(this);
         }
+
+        internal virtual ulong GetSmallestIndex(ulong length)
+        {
+            // there are some evil tests that iterate a lot with unshift..
+            if (Properties == null)
+            {
+                return 0;
+            }
+
+            var min = length;
+            foreach (var entry in Properties)
+            {
+                if (ulong.TryParse(entry.Key.ToString(), out var index))
+                {
+                    min = System.Math.Min(index, min);
+                }
+            }
+
+            if (Prototype?.Properties != null)
+            {
+                foreach (var entry in Prototype.Properties)
+                {
+                    if (ulong.TryParse(entry.Key.ToString(), out var index))
+                    {
+                        min = System.Math.Min(index, min);
+                    }
+                }
+            }
+
+            return min;
+        }
     }
 }

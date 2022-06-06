@@ -73,7 +73,7 @@ namespace Jint.Runtime.Interop
             }
             else if (property is JsSymbol jsSymbol)
             {
-                // symbol addition will never hit any known CLR object properties, so if write is allowed, allow writing symbols too 
+                // symbol addition will never hit any known CLR object properties, so if write is allowed, allow writing symbols too
                 if (_engine.Options.Interop.AllowWrite)
                 {
                     return base.Set(jsSymbol, value, receiver);
@@ -201,7 +201,7 @@ namespace Jint.Runtime.Interop
 
             // if type is dictionary, we cannot enumerate anything other than keys
             // and we cannot store accessors as dictionary can change dynamically
-            
+
             var isDictionary = _typeDescriptor.IsStringKeyedGenericDictionary;
             if (isDictionary)
             {
@@ -257,6 +257,11 @@ namespace Jint.Runtime.Interop
         {
             var wrapper = (ObjectWrapper) thisObj;
             return JsNumber.Create((int) wrapper._typeDescriptor.LengthProperty.GetValue(wrapper.Target));
+        }
+
+        internal override ulong GetSmallestIndex(ulong length)
+        {
+            return Target is ICollection ? 0 : base.GetSmallestIndex(length);
         }
 
         public override bool Equals(JsValue? obj)
