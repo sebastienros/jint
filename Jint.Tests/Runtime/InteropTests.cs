@@ -803,12 +803,12 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal("A", _engine.Evaluate("obj.aProp"));
             Assert.Equal("B", _engine.Evaluate("obj.bProp"));
-            
-            // TODO we should have a special prototype based on wrapped type so we could differentiate between own and type properties 
+
+            // TODO we should have a special prototype based on wrapped type so we could differentiate between own and type properties
             // Assert.Equal("[\"a\"]", _engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(new ExtendedType()))"));
             // Assert.Equal("[\"a\",\"b\"]", _engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(new MyExtendedType()))"));
         }
-        
+
         [Fact]
         public void ShouldAllowMethodsOnClrExtendedTypes()
         {
@@ -846,7 +846,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal(1, _engine.Evaluate("new ExtendsFromClr().getA();"));
             Assert.NotEqual(JsValue.Undefined, extendsFromClr.Get("getA"));
         }
-        
+
         private struct TestStruct
         {
             public int Value;
@@ -1353,7 +1353,7 @@ namespace Jint.Tests.Runtime
             var callCount = (int) _engine.GetValue("callCount").AsNumber();
             Assert.Equal(1, callCount);
             Assert.Equal(2, collection.Count);
-            
+
             // make sure our delegate holder is hidden
             Assert.Equal("[]", _engine.Evaluate("json"));
         }
@@ -2948,11 +2948,25 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
             var mathTypeReference = TypeReference.CreateTypeReference(engine, typeof(Math));
-            
+
             engine.SetValue("Math2", mathTypeReference);
             var result = engine.Evaluate("Math2.Max(5.37, 5.56)").AsNumber();
 
             Assert.Equal(5.56d, result);
+        }
+
+        [Fact]
+        public void ArrayPrototypeIndexOfWithInteropList()
+        {
+            var engine = new Jint.Engine();
+
+            engine.SetValue("list", new List<string> { "A", "B", "C" });
+
+            Assert.Equal(1, engine.Evaluate("list.indexOf('B')"));
+            Assert.Equal(1, engine.Evaluate("list.lastIndexOf('B')"));
+
+            Assert.Equal(1, engine.Evaluate("Array.prototype.indexOf.call(list, 'B')"));
+            Assert.Equal(1, engine.Evaluate("Array.prototype.lastIndexOf.call(list, 'B')"));
         }
 
         private class Profile

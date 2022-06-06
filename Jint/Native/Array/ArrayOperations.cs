@@ -158,33 +158,7 @@ namespace Jint.Native.Array
 
             public override ulong GetSmallestIndex(ulong length)
             {
-                // there are some evil tests that iterate a lot with unshift..
-                if (_target.Properties == null)
-                {
-                    return 0;
-                }
-
-                var min = length;
-                foreach (var entry in _target.Properties)
-                {
-                    if (ulong.TryParse(entry.Key.ToString(), out var index))
-                    {
-                        min = System.Math.Min(index, min);
-                    }
-                }
-
-                if (_target.Prototype?.Properties != null)
-                {
-                    foreach (var entry in _target.Prototype.Properties)
-                    {
-                        if (ulong.TryParse(entry.Key.ToString(), out var index))
-                        {
-                            min = System.Math.Min(index, min);
-                        }
-                    }
-                }
-
-                return min;
+                return _target.GetSmallestIndex(length);
             }
 
             public override uint GetLength()
@@ -294,10 +268,10 @@ namespace Jint.Native.Array
             public override void DeletePropertyOrThrow(ulong index)
                 => _target.DeletePropertyOrThrow((uint) index);
 
-            public override void CreateDataPropertyOrThrow(ulong index, JsValue value) 
+            public override void CreateDataPropertyOrThrow(ulong index, JsValue value)
                 => _target.SetIndexValue((uint) index, value, updateLength: false);
 
-            public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true) 
+            public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
                 => _target.SetIndexValue((uint) index, value, updateLength);
         }
 
