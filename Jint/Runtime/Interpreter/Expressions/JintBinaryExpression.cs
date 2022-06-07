@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Numerics;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Extensions;
@@ -63,8 +64,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                         result = method.Call(context.Engine, null, arguments);
                         return true;
                     }
-                    catch
+                    catch (Exception e)
                     {
+                        ExceptionHelper.ThrowMeaningfulException(context.Engine, new TargetInvocationException(e.InnerException));
                         result = null;
                         return false;
                     }
