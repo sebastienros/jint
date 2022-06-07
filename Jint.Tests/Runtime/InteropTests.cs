@@ -2969,6 +2969,29 @@ namespace Jint.Tests.Runtime
             Assert.Equal(1, engine.Evaluate("Array.prototype.lastIndexOf.call(list, 'B')"));
         }
 
+        [Fact]
+        public void ShouldBeJavaScriptException()
+        {
+            var engine = new Engine(cfg => cfg.AllowClr().AllowOperatorOverloading().CatchClrExceptions());
+            engine.SetValue("Dimensional", typeof(Dimensional));
+
+            engine.Execute(@"	
+				function Eval(param0, param1)
+				{ 
+					var result = param0 + param1;
+					return result;
+				}");
+            //Checking working cusom type
+            Assert.Equal(new Dimensional("kg", 90), (new Dimensional("kg", 30) + new Dimensional("kg", 60)));
+            Assert.Equal(new Dimensional("kg", 90), engine.Invoke("Eval", new object[] { new Dimensional("kg", 30), new Dimensional("kg", 60) }).ToObject());
+            Assert.Throws<InvalidOperationException>(() => new Dimensional("kg", 30) + new Dimensional("piece", 70));
+
+            //Checking throwing exception in ovveride operator
+            string errorMsg = string.Empty;
+            errorMsg = Assert.Throws<JavaScriptException>(() => engine.Invoke("Eval", new object[] {new Dimensional("kg", 30), new Dimensional("piece", 70)})).Message;
+            Assert.Equal("Dimensionals with different measure types are non-summable", errorMsg);
+        }
+
         private class Profile
         {
             public int AnyProperty => throw new NotSupportedException("NOT SUPPORTED");
