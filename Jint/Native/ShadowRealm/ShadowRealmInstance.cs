@@ -322,9 +322,10 @@ public sealed class ShadowRealmInstance : ObjectInstance
             _realm = realm;
         }
 
-        protected override void VisitSuper(Super super)
+        protected override object? VisitSuper(Super super)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Shadow realm code cannot contain super");
+            return null;
         }
     }
 }

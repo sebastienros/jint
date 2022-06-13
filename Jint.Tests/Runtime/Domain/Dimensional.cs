@@ -39,7 +39,7 @@ namespace Jint.Tests.Runtime.Domain
             return PossibleMeasureUnits.FirstOrDefault(mu => mu.Name == name);
         }
 
-        public int CompareTo(Dimensional? obj)
+        public int CompareTo(Dimensional obj)
         {
             if (MeasureUnit.MeasureType != obj.MeasureUnit.MeasureType)
                 throw new InvalidOperationException("Dimensionals with different measure types are non-comparable");
@@ -48,7 +48,7 @@ namespace Jint.Tests.Runtime.Domain
 
         public override string ToString()
         {
-            return Value.ToString() + " " + MeasureUnit.Name;
+            return Value + " " + MeasureUnit.Name;
         }
     }
 
