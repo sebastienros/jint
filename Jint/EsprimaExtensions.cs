@@ -18,7 +18,7 @@ namespace Jint
 {
     public static class EsprimaExtensions
     {
-        public static JsValue GetKey<T>(this T property, Engine engine) where T : ClassProperty => GetKey(property.Key, engine, property.Computed);
+        public static JsValue GetKey<T>(this T property, Engine engine) where T : IProperty => GetKey(property.Key, engine, property.Computed);
 
         public static JsValue GetKey(this Expression expression, Engine engine, bool resolveComputed = false)
         {
@@ -32,12 +32,12 @@ namespace Jint
             return JsValue.Undefined;
         }
 
-        internal static Completion TryGetKey(this ClassProperty property, Engine engine)
+        internal static Completion TryGetKey<T>(this T property, Engine engine) where T : IProperty
         {
             return TryGetKey(property.Key, engine, property.Computed);
         }
 
-        internal static Completion TryGetKey(this Expression expression, Engine engine, bool resolveComputed)
+        internal static Completion TryGetKey<T>(this T expression, Engine engine, bool resolveComputed) where T : Expression
         {
             JsValue key;
             if (expression is Literal literal)
@@ -108,7 +108,7 @@ namespace Jint
         {
             return d is VariableDeclaration { Kind: VariableDeclarationKind.Const };
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool HasName<T>(this T node) where T : Node
         {
@@ -282,7 +282,7 @@ namespace Jint
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-definemethod
         /// </summary>
-        internal static Record DefineMethod(this ClassProperty m, ObjectInstance obj, ObjectInstance? functionPrototype = null)
+        internal static Record DefineMethod<T>(this T m, ObjectInstance obj, ObjectInstance? functionPrototype = null) where T : IProperty
         {
             var engine = obj.Engine;
             var propKey = TypeConverter.ToPropertyKey(m.GetKey(engine));

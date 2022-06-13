@@ -2,7 +2,6 @@
 
 using System.Runtime.CompilerServices;
 using Jint.Collections;
-using Jint.Native.Generator;
 using Jint.Runtime.Environments;
 
 namespace Jint.Runtime

@@ -19,7 +19,6 @@
     "class-static-methods-private",
     "FinalizationRegistry",
     "generators",
-    "hashbang",
     "import-assertions",
     "Promise.allSettled",
     "Promise.any",
