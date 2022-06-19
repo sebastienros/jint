@@ -20,12 +20,8 @@ jobs:
     - name: Checkout source code
       uses: actions/checkout@v2
 
-    - name: Generate test cases
-      working-directory: ./Jint.Tests.Test262
-      run: dotnet tool restore && dotnet test262 generate
-
     - name: Test
-      run: dotnet test --configuration Release --logger:"console;verbosity=quiet"
+      run: dotnet test --configuration Release --logger GitHubActions
 
     - name: Pack with dotnet
       run: dotnet pack --output artifacts --configuration Release -p:PackageVersion=3.0.0-preview-$GITHUB_RUN_NUMBER

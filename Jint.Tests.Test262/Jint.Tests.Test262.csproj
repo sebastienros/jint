@@ -1,4 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <!--<TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net461</TargetFrameworks>-->
@@ -6,20 +7,48 @@
     <SignAssembly>true</SignAssembly>
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);CS8002</NoWarn>
+    <GeneratedTestSuiteDir>Generated</GeneratedTestSuiteDir>
   </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
   </ItemGroup>
+
   <ItemGroup>
+    <PackageReference Include="GitHubActionsTestLogger" Version="2.0.1" PrivateAssets="all" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
     <PackageReference Include="NUnit" Version="3.13.3" />
     <PackageReference Include="NUnit3TestAdapter" Version="4.2.1" />
     <PackageReference Include="Test262Harness" Version="0.0.17" />
   </ItemGroup>
+
   <ItemGroup>
     <Using Include="NUnit.Framework" />
   </ItemGroup>
+
   <ItemGroup>
-    <Content Include=".config\*" />
+    <Content Include=".config\dotnet-tools.json" />
   </ItemGroup>
+
+  <!-- Based on the idea presented at https://mhut.ch/journal/2015/06/30/build-time-code-generation-in-msbuild -->
+  <Target Name="GenerateTestSuite" DependsOnTargets="_GenerateTestSuite" BeforeTargets="BeforeBuild" Condition="!Exists($([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(GeneratedTestSuiteDir))))">
+    <ItemGroup>
+      <Compile Include="$(GeneratedTestSuiteDir)\**\*.cs" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_GenerateTestSuite">
+    <Exec Command="dotnet tool restore" />
+    <Exec Command="dotnet test262 generate" />
+  </Target>
+
+  <Target Name="DeleteTestSuite" DependsOnTargets="_DeleteTestSuite" AfterTargets="AfterClean" Condition="Exists($([System.IO.Path]::Combine($(MSBuildThisFileDirectory), $(GeneratedTestSuiteDir))))">
+    <RemoveDir Directories="$(GeneratedTestSuiteDir)" />
+  </Target>
+
+  <Target Name="_DeleteTestSuite">
+    <ItemGroup>
+      <Compile Remove="$(GeneratedTestSuiteDir)\**\*.cs" />
+    </ItemGroup>
+  </Target>
 </Project>
