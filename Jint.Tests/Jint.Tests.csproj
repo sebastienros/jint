@@ -1,4 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFrameworks>net6.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net462</TargetFrameworks>
@@ -8,21 +9,27 @@
     <LangVersion>latest</LangVersion>
     <NoWarn>612</NoWarn>
   </PropertyGroup>
+
   <ItemGroup>
     <EmbeddedResource Include="Runtime\Scripts\*.*;Parser\Scripts\*.*" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
   </ItemGroup>
+
   <ItemGroup>
     <Reference Include="Microsoft.CSharp" Condition=" '$(TargetFramework)' == 'net462' " />
   </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Flurl.Http.Signed" Version="3.2.0" />
+    <PackageReference Include="GitHubActionsTestLogger" Version="2.0.1" PrivateAssets="all" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
     <PackageReference Include="MongoDB.Bson.signed" Version="2.14.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5" />
   </ItemGroup>
+
 </Project>
