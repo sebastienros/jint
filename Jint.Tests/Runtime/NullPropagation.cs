@@ -135,9 +135,9 @@ this.is_notnullfield_not_null = this.NotNullField !== null;
 this.has_emptyfield_not_null = this.EmptyField !== null;
 ";
 
-            var wrapperScript = string.Format(@"function ExecutePatchScript(docInner){{ (function(doc){{ {0} }}).apply(docInner); }};", script);
+            var wrapperScript = $@"function ExecutePatchScript(docInner){{ (function(doc){{ {script} }}).apply(docInner); }};";
 
-            engine.Execute(wrapperScript, new ParserOptions("main.js"));
+            engine.Execute(wrapperScript, "main.js");
 
             engine.Invoke("ExecutePatchScript", jsObject);
 

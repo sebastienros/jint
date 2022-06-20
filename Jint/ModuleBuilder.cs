@@ -19,7 +19,7 @@ public sealed class ModuleBuilder
     {
         _engine = engine;
         _specifier = specifier;
-        _options = new ParserOptions(specifier);
+        _options = new ParserOptions();
     }
 
     public ModuleBuilder AddSource(string code)
@@ -109,11 +109,11 @@ public sealed class ModuleBuilder
             return new Module(NodeList.Create(Array.Empty<Statement>()));
         }
 
-        var javaScriptParser = new JavaScriptParser(_sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw), _options);
-
+        var javaScriptParser = new JavaScriptParser(_options);
         try
         {
-            return javaScriptParser.ParseModule();
+            var source = _sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw);
+            return javaScriptParser.ParseModule(source, _specifier);
         }
         catch (ParserException ex)
         {

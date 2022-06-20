@@ -12,7 +12,7 @@ public partial class TestHarness
         foreach (var file in State.HarnessFiles)
         {
             var source = file.Program;
-            State.Sources[Path.GetFileName(file.FileName)] = new JavaScriptParser(source, new ParserOptions(file.FileName)).ParseScript();
+            State.Sources[Path.GetFileName(file.FileName)] = new JavaScriptParser().ParseScript(source, source: file.FileName);
         }
 
         return Task.CompletedTask;

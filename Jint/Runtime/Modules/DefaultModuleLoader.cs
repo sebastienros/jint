@@ -128,8 +128,7 @@ public sealed class DefaultModuleLoader : IModuleLoader
         Module module;
         try
         {
-            var parserOptions = new ParserOptions(resolved.Uri.LocalPath);
-            module = new JavaScriptParser(code, parserOptions).ParseModule();
+            module = new JavaScriptParser().ParseModule(code, source: resolved.Uri.LocalPath);
         }
         catch (ParserException ex)
         {

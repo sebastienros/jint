@@ -9,8 +9,9 @@ namespace Jint.Native.Function
 {
     public sealed class EvalFunctionInstance : FunctionInstance
     {
-        private static readonly ParserOptions ParserOptions = new ParserOptions { Tolerant = false };
-        private static readonly JsString _functionName = new JsString("eval");
+        private static readonly JsString _functionName = new("eval");
+
+        private readonly JavaScriptParser _parser = new(new ParserOptions { Tolerant = false });
 
         public EvalFunctionInstance(
             Engine engine,
@@ -66,11 +67,10 @@ namespace Jint.Native.Function
                 }
             }
 
-            var parser = new JavaScriptParser(x.ToString(), ParserOptions);
             Script? script = null;
             try
             {
-                script = parser.ParseScript(strictCaller);
+                script = _parser.ParseScript(x.ToString(), strict: strictCaller);
             }
             catch (ParserException e)
             {

@@ -11,8 +11,8 @@ namespace Jint.Benchmark
 
         public EngineConstructionBenchmark()
         {
-            var parser = new JavaScriptParser("return [].length + ''.length");
-            _program = parser.ParseScript();
+            var parser = new JavaScriptParser();
+            _program = parser.ParseScript("return [].length + ''.length");
         }
 
         [Benchmark]
