@@ -1,7 +1,9 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native.Object;
+using Jint.Pooling;
 using Jint.Runtime;
 
 using Range = Esprima.Range;
@@ -89,9 +91,9 @@ namespace Jint.Native.Json
 
             for (int i = 0; i < 4; ++i)
             {
-                if (_index < _length && IsHexDigit(_source.CharCodeAt(_index)))
+                if (_index < _length + 1 && IsHexDigit(_source[_index]))
                 {
-                    char ch = _source.CharCodeAt(_index++);
+                    char ch = _source[_index++];
                     code = code * 16 + "0123456789abcdef".IndexOf(ch.ToString(), StringComparison.OrdinalIgnoreCase);
                 }
                 else
@@ -104,25 +106,16 @@ namespace Jint.Native.Json
 
         private void SkipWhiteSpace()
         {
-            while (_index < _length)
+            while (_index < _length && IsWhiteSpace(_source[_index]))
             {
-                char ch = _source.CharCodeAt(_index);
-
-                if (IsWhiteSpace(ch))
-                {
-                    ++_index;
-                }
-                else
-                {
-                    break;
-                }
+                ++_index;
             }
         }
 
         private Token ScanPunctuator()
         {
             int start = _index;
-            char code = _source.CharCodeAt(_index);
+            char code = start < _source.Length ? _source[_index] : char.MinValue;
 
             switch ((int) code)
             {
@@ -239,47 +232,62 @@ namespace Jint.Native.Json
 
         private Token ScanBooleanLiteral()
         {
-            int start = _index;
-            string s = "";
+            var start = _index;
+            var s = "";
 
-            while (IsTrueOrFalseChar(_source.CharCodeAt(_index)))
+            var boolTrue = false;
+            var boolFalse = false;
+            if (ConsumeMatch("true"))
             {
-                s += _source.CharCodeAt(_index++).ToString();
+                boolTrue = true;
+                s = "true";
+            }
+            else if (ConsumeMatch("false"))
+            {
+                boolFalse = true;
+                s = "false";
             }
 
-            if (s == "true" || s == "false")
+            if (boolTrue || boolFalse)
             {
                 return new Token
                 {
                     Type = Tokens.BooleanLiteral,
                     Text = s,
-                    Value = s == "true",
+                    Value = boolTrue,
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
                     Range = new[] { start, _index }
                 };
             }
 
-            ThrowError(start, Messages.UnexpectedToken, s);
+            ThrowError(start, Messages.UnexpectedTokenIllegal);
             return null!;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool ConsumeMatch(string text)
+        {
+            var start = _index;
+            var length = text.Length;
+            if (start + length - 1 < _source.Length && _source.AsSpan(start, length).SequenceEqual(text.AsSpan()))
+            {
+                _index += length;
+                return true;
+            }
+
+            return false;
         }
 
         private Token ScanNullLiteral()
         {
             int start = _index;
-            string s = "";
-
-            while (IsNullChar(_source.CharCodeAt(_index)))
-            {
-                s += _source.CharCodeAt(_index++).ToString();
-            }
-
-            if (s == Null.Text)
+            if (ConsumeMatch(Null.Text))
             {
                 return new Token
                 {
                     Type = Tokens.NullLiteral,
-                    Text = s,
+                    Text = Null.Text,
                     Value = Null.Instance,
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
@@ -287,15 +295,16 @@ namespace Jint.Native.Json
                 };
             }
 
-            ThrowError(start, Messages.UnexpectedToken, s);
+            ThrowError(start, Messages.UnexpectedTokenIllegal);
             return null!;
         }
 
         private Token ScanStringLiteral()
         {
-            var sb = new System.Text.StringBuilder();
+            using var wrapper = StringBuilderPool.Rent();
+            var sb = wrapper.Builder;
 
-            char quote = _source.CharCodeAt(_index);
+            char quote = _source[_index];
 
             int start = _index;
             ++_index;
@@ -451,22 +460,22 @@ namespace Jint.Native.Json
 
         private Token CollectToken()
         {
-            var start = new Position(
+            var start = Position.From(
                 line: _lineNumber,
                 column: _index - _lineStart);
 
             Token token = Advance();
 
-            var end = new Position(
+            var end = Position.From(
                 line: _lineNumber,
                 column: _index - _lineStart);
 
-            _location = new Location(start, end, _source);
+            _location = Location.From(start, end, _source);
 
             if (token.Type != Tokens.EOF)
             {
                 var range = new[] {token.Range[0], token.Range[1]};
-                string value = _source.Slice(token.Range[0], token.Range[1]);
+                var value = _source.Substring(token.Range[0], token.Range[1]);
                 _extra.Tokens.Add(new Token
                     {
                         Type = token.Type,
@@ -523,18 +532,13 @@ namespace Jint.Native.Json
         {
             if (_extra.Range != null)
             {
-                node.Range = new Range(_state.MarkerStack.Pop(), _index);
+                node.Range = Range.From(_state.MarkerStack.Pop(), _index);
             }
             if (_extra.Loc.HasValue)
             {
-                node.Location = new Location(
-                    start: new Position(
-                        line: _state.MarkerStack.Pop(),
-                        column: _state.MarkerStack.Pop()),
-                    end: new Position(
-                        line: _lineNumber,
-                        column: _index - _lineStart),
-                    source: _source);
+                var start = Position.From(line: _state.MarkerStack.Pop(), column: _state.MarkerStack.Pop());
+                var end = Position.From(line: _lineNumber, column: _index - _lineStart);
+                node.Location = Location.From(start: start, end: end, source: _source);
                 PostProcess(node);
             }
             return node;
@@ -837,6 +841,7 @@ namespace Jint.Native.Json
             public const string InvalidCharacter = "Invalid character in JSON";
             public const string ExpectedHexadecimalDigit = "Expected hexadecimal digit in JSON";
             public const string UnexpectedToken = "Unexpected token '{0}' in JSON";
+            public const string UnexpectedTokenIllegal = "Unexpected token ILLEGAL in JSON";
             public const string UnexpectedNumber = "Unexpected number in JSON";
             public const string UnexpectedString = "Unexpected string in JSON";
             public const string UnexpectedEOS = "Unexpected end of JSON input";
@@ -851,6 +856,20 @@ namespace Jint.Native.Json
             public bool InIteration;
             public bool InSwitch;
             public Stack<int> MarkerStack;
+        }
+    }
+
+    internal static class StringExtensions
+    {
+        public static char CharCodeAt(this string source, int index)
+        {
+            if (index > source.Length - 1)
+            {
+                // char.MinValue is used as the null value
+                return char.MinValue;
+            }
+
+            return source[index];
         }
     }
 }

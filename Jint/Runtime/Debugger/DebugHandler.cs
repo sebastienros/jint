@@ -150,7 +150,7 @@ namespace Jint.Runtime.Debugger
 
             var bodyLocation = functionBody.Location;
             var functionBodyEnd = bodyLocation.End;
-            var location = new Location(functionBodyEnd, functionBodyEnd, bodyLocation.Source);
+            var location = Location.From(functionBodyEnd, functionBodyEnd, bodyLocation.Source);
 
             CheckBreakPointAndPause(
                 new BreakLocation(bodyLocation.Source!, bodyLocation.End),
