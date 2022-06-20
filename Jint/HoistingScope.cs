@@ -287,7 +287,7 @@ namespace Jint
                         && childNode.Type != Nodes.ArrowFunctionExpression
                         && childNode.Type != Nodes.ArrowParameterPlaceHolder
                         && childNode.Type != Nodes.FunctionExpression
-                        && childNode.ChildNodes.Count > 0)
+                        && !childNode.ChildNodes.IsEmpty())
                     {
                         Visit(childNode, node);
                     }
@@ -327,7 +327,7 @@ namespace Jint
                         export.GetExportEntries(_exportEntries, _requestedModules);
                     }
 
-                    if (childNode.ChildNodes.Count > 0)
+                    if (!childNode.ChildNodes.IsEmpty())
                     {
                         Visit(childNode);
                     }

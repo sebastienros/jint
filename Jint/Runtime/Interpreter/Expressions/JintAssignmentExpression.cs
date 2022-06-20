@@ -73,7 +73,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     case AssignmentOperator.BitwiseOrAssign:
                         operatorClrName = "op_BitwiseOr";
                         break;
-                    case AssignmentOperator.BitwiseXOrAssign:
+                    case AssignmentOperator.BitwiseXorAssign:
                         operatorClrName = "op_ExclusiveOr";
                         break;
                     case AssignmentOperator.LeftShiftAssign:
@@ -222,7 +222,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         break;
                     }
 
-                    case AssignmentOperator.BitwiseXOrAssign:
+                    case AssignmentOperator.BitwiseXorAssign:
                     {
                         var rval = _right.GetValue(context).Value;
                         lval = TypeConverter.ToInt32(lval) ^ TypeConverter.ToInt32(rval);
