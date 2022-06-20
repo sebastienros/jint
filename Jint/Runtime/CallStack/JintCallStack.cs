@@ -152,7 +152,7 @@ namespace Jint.Runtime.CallStack
         /// <summary>
         /// A version of <see cref="EsprimaExtensions.GetKey"/> that cannot get into loop as we are already building a stack.
         /// </summary>
-        private static string GetPropertyKey(Expression expression)
+        private static string GetPropertyKey(Node expression)
         {
             if (expression is Literal literal)
             {

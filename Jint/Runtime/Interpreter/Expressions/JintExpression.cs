@@ -31,7 +31,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public static implicit operator ExpressionResult(in Completion result)
         {
-            return new ExpressionResult((ExpressionCompletionType) result.Type, result.Value!, result.Location);
+            return new ExpressionResult((ExpressionCompletionType) result.Type, result.Value, result.Location);
         }
     }
 
@@ -465,7 +465,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             for (var i = 0; i < jintExpressions.Length; i++)
             {
                 var completion = jintExpressions[i].GetValue(context);
-                targetArray[i] = completion.Value!.Clone();
+                targetArray[i] = completion.Value.Clone();
             }
         }
 
@@ -499,7 +499,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 else
                 {
                     var completion = jintExpression.GetValue(context);
-                    args.Add(completion.Value!.Clone());
+                    args.Add(completion.Value.Clone());
                 }
             }
 

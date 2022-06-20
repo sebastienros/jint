@@ -1360,7 +1360,7 @@ namespace Jint.Native.TypedArray
                     return (int) v;
                 }
 
-                if (x!.Type == Types.BigInt || y!.Type == Types.BigInt)
+                if (x.Type == Types.BigInt || y.Type == Types.BigInt)
                 {
                     var xBigInt = TypeConverter.ToBigInt(x);
                     var yBigInt = TypeConverter.ToBigInt(y);

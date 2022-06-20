@@ -7,15 +7,12 @@ namespace Jint.Tests.Runtime.Debugger
     {
         public static bool IsLiteral(this Node node, string requiredValue = null)
         {
-            switch (node)
+            return node switch
             {
-                case Directive directive:
-                    return requiredValue == null || directive.Directiv == requiredValue;
-                case ExpressionStatement expr:
-                    return requiredValue == null || (expr.Expression is Literal literal && literal.StringValue == requiredValue);
-            }
-
-            return false;
+                Directive directive => requiredValue == null || directive.Value == requiredValue,
+                ExpressionStatement expr => requiredValue == null || (expr.Expression is Literal literal && literal.StringValue == requiredValue),
+                _ => false
+            };
         }
 
         public static bool ReachedLiteral(this DebugInformation info, string requiredValue)

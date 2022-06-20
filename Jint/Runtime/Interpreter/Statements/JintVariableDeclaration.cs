@@ -43,7 +43,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
                 else
                 {
-                    left = JintExpression.Build(engine, declaration.Id);
+                    left = JintExpression.Build(engine, (Identifier) declaration.Id);
                 }
 
                 if (declaration.Init != null)

@@ -804,7 +804,7 @@ namespace Jint
                 for (var i = functionDeclarations.Count - 1; i >= 0; i--)
                 {
                     var d = functionDeclarations[i];
-                    var fn = d.Id!.Name!;
+                    var fn = d.Id!.Name;
                     if (!declaredFunctionNames.Contains(fn))
                     {
                         var fnDefinable = env.CanDeclareGlobalFunction(fn);
@@ -1084,7 +1084,7 @@ namespace Jint
                     {
                         var variablesDeclaration = nodes[i];
                         var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
-                        if (globalEnvironmentRecord.HasLexicalDeclaration(identifier.Name!))
+                        if (globalEnvironmentRecord.HasLexicalDeclaration(identifier.Name))
                         {
                             ExceptionHelper.ThrowSyntaxError(realm, "Identifier '" + identifier.Name + "' has already been declared");
                         }
@@ -1102,7 +1102,7 @@ namespace Jint
                         {
                             var variablesDeclaration = nodes[i];
                             var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
-                            if (thisEnvRec!.HasBinding(identifier.Name!))
+                            if (thisEnvRec!.HasBinding(identifier.Name))
                             {
                                 ExceptionHelper.ThrowSyntaxError(realm);
                             }
@@ -1122,7 +1122,7 @@ namespace Jint
                 for (var i = functionDeclarations.Count - 1; i >= 0; i--)
                 {
                     var d = functionDeclarations[i];
-                    var fn = d.Id!.Name!;
+                    var fn = d.Id!.Name;
                     if (!declaredFunctionNames.Contains(fn))
                     {
                         if (varEnvRec is GlobalEnvironmentRecord ger)

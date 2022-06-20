@@ -8,8 +8,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly JintFunctionDefinition _function;
 
-        public JintFunctionExpression(Engine engine, FunctionExpression function)
-            : base(ArrowParameterPlaceHolder.Empty)
+        public JintFunctionExpression(Engine engine, FunctionExpression function) : base(function)
         {
             _function = new JintFunctionDefinition(engine, function);
         }
