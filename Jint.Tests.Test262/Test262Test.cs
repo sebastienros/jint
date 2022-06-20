@@ -38,7 +38,7 @@ public abstract partial class Test262Test
                     throw new Exception("only script parsing supported");
                 }
 
-                var options = new ParserOptions { AdaptRegexp = true, Tolerant = false };
+                var options = new ParserOptions { RegExpParseMode = RegExpParseMode.AdaptToInterpreted, Tolerant = false };
                 var parser = new JavaScriptParser(options);
                 var script = parser.ParseScript(args.At(0).AsString());
 

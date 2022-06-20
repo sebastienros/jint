@@ -297,7 +297,7 @@ var x = b(7);";
 
             var parserOptions = new ParserOptions
             {
-                AdaptRegexp = true,
+                RegExpParseMode = RegExpParseMode.AdaptToInterpreted,
                 Tolerant = true
             };
             var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script, "get-item.js", parserOptions));
@@ -388,7 +388,7 @@ try {
             {
                 return new ParserOptions
                 {
-                    AdaptRegexp = true,
+                    RegExpParseMode = RegExpParseMode.AdaptToInterpreted,
                     Tolerant = true
                 };
             }

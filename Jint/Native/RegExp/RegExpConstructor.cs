@@ -104,17 +104,14 @@ namespace Jint.Native.RegExp
 
             try
             {
-                var options = new ScannerOptions();
-                var scanner = new Scanner("/" + p + "/" + flags, options);
+                var regExp = Scanner.AdaptRegExp(p, f, compiled: false, _engine.Options.Constraints.RegexTimeout);
 
-                // seems valid
-                r.Value = scanner.ParseRegex(p, f, options.RegexTimeout);
-
-                var timeout = _engine.Options.Constraints.RegexTimeout;
-                if (timeout.Ticks > 0)
+                if (regExp is null)
                 {
-                    r.Value = new Regex(r.Value.ToString(), r.Value.Options, timeout);
+                    ExceptionHelper.ThrowSyntaxError(_realm, $"Could not parse regex '/{p}/{flags}'");
                 }
+
+                r.Value = regExp;
             }
             catch (Exception ex)
             {

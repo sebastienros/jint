@@ -48,7 +48,7 @@ namespace Jint.Repl
             var parserOptions = new ParserOptions
             {
                 Tolerant = true,
-                AdaptRegexp = true
+                RegExpParseMode = RegExpParseMode.AdaptToInterpreted
             };
 
             var serializer = new JsonSerializer(engine);
