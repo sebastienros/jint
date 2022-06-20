@@ -118,7 +118,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JsValue? UpdateIdentifier(EvaluationContext context)
         {
             var strict = StrictModeScope.IsStrictModeCode;
-            var name = _leftIdentifier!._expressionName;
+            var name = _leftIdentifier!.Identifier;
             var engine = context.Engine;
             var env = engine.ExecutionContext.LexicalEnvironment;
             if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(

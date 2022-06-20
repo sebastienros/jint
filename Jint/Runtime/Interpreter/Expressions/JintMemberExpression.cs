@@ -50,12 +50,12 @@ namespace Jint.Runtime.Interpreter.Expressions
             var engine = context.Engine;
             if (_objectExpression is JintIdentifierExpression identifierExpression)
             {
-                baseReferenceName = identifierExpression._expressionName.Key.Name;
+                baseReferenceName = identifierExpression.Identifier.Key.Name;
                 var strict = isStrictModeCode;
                 var env = engine.ExecutionContext.LexicalEnvironment;
                 JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                     env,
-                    identifierExpression._expressionName,
+                    identifierExpression.Identifier,
                     strict,
                     out _,
                     out baseValue);

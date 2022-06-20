@@ -1,11 +1,12 @@
 ﻿using BenchmarkDotNet.Attributes;
+using Esprima.Ast;
 
 namespace Jint.Benchmark;
 
 [MemoryDiagnoser]
 public class DromaeoBenchmark
 {
-    public static readonly Dictionary<string, string> files = new Dictionary<string, string>
+    private static readonly Dictionary<string, string> _files = new()
     {
         {"dromaeo-3d-cube", null},
         {"dromaeo-core-eval", null},
@@ -15,14 +16,18 @@ public class DromaeoBenchmark
         {"dromaeo-string-base64", null}
     };
 
+    private Dictionary<string, Script> _prepared = new();
+
     private Engine engine;
 
     [GlobalSetup]
     public void Setup()
     {
-        foreach (var fileName in files.Keys.ToList())
+        foreach (var fileName in _files.Keys)
         {
-            files[fileName] = File.ReadAllText($"Scripts/{fileName}.js");
+            var script = File.ReadAllText($"Scripts/{fileName}.js");
+            _files[fileName] = script;
+            _prepared[fileName] = Engine.PrepareScript(script);
         }
 
         engine = new Engine()
@@ -40,9 +45,12 @@ var prep = function (fn) { fn(); };
     [ParamsSource(nameof(FileNames))]
     public string FileName { get; set; }
 
+    [Params(true, false)]
+    public bool Prepared { get; set; }
+
     public IEnumerable<string> FileNames()
     {
-        foreach (var entry in files)
+        foreach (var entry in _files)
         {
             yield return entry.Key;
         }
@@ -51,6 +59,13 @@ var prep = function (fn) { fn(); };
     [Benchmark]
     public void Run()
     {
-        engine.Execute(files[FileName]);
+        if (Prepared)
+        {
+            engine.Execute(_prepared[FileName]);
+        }
+        else
+        {
+            engine.Execute(_files[FileName]);
+        }
     }
 }

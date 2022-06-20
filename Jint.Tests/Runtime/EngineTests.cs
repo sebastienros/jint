@@ -1050,7 +1050,7 @@ namespace Jint.Tests.Runtime
             {
                 Assert.Equal(1, e.LineNumber);
                 Assert.Equal(9, e.Column);
-                Assert.Equal("jQuery.js", e.SourceText);
+                Assert.Equal("jQuery.js", e.SourceLocation);
             }
         }
         #region DateParsingAndStrings

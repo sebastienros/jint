@@ -1,5 +1,3 @@
-using Esprima;
-
 namespace Jint.Tests.Test262;
 
 /// <summary>
@@ -12,7 +10,8 @@ public partial class TestHarness
         foreach (var file in State.HarnessFiles)
         {
             var source = file.Program;
-            State.Sources[Path.GetFileName(file.FileName)] = new JavaScriptParser().ParseScript(source, source: file.FileName);
+            var script = Engine.PrepareScript(source, source: file.FileName);
+            State.Sources[Path.GetFileName(file.FileName)] = script;
         }
 
         return Task.CompletedTask;

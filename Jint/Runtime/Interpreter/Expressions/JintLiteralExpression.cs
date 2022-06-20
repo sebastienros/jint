@@ -7,16 +7,19 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintLiteralExpression : JintExpression
     {
+        private static readonly object _nullMarker = new();
+
         private JintLiteralExpression(Literal expression) : base(expression)
         {
         }
 
         internal static JintExpression Build(Literal expression)
         {
-            var constantValue = ConvertToJsValue(expression);
-            if (constantValue is not null)
+            var value = expression.AssociatedData ??= ConvertToJsValue(expression) ?? _nullMarker;
+
+            if (value is JsValue constant)
             {
-                return new JintConstantExpression(expression, constantValue);
+                return new JintConstantExpression(expression, constant);
             }
 
             return new JintLiteralExpression(expression);

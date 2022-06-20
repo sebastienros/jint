@@ -187,7 +187,7 @@ namespace Jint.Native.Function
             var scope = realmF.GlobalEnv;
             PrivateEnvironmentRecord? privateScope = null;
 
-            var definition = new JintFunctionDefinition(_engine, function);
+            var definition = new JintFunctionDefinition(function);
             FunctionInstance F = OrdinaryFunctionCreate(proto, definition, function.Strict ? FunctionThisMode.Strict : FunctionThisMode.Global, scope, privateScope);
             F.SetFunctionName(_functionNameAnonymous, force: true);
 

@@ -25,10 +25,10 @@ namespace Jint.Runtime.Environments
         /// <returns><c>true</c> if it does and <c>false</c> if it does not.</returns>
         public abstract bool HasBinding(string name);
 
-        internal abstract bool HasBinding(in BindingName name);
+        internal abstract bool HasBinding(BindingName name);
 
         internal abstract bool TryGetBinding(
-            in BindingName name,
+            BindingName name,
             bool strict,
             out Binding binding,
             [NotNullWhen(true)] out JsValue? value);
@@ -62,7 +62,7 @@ namespace Jint.Runtime.Environments
         /// <param name="strict">The identify strict mode references.</param>
         public abstract void SetMutableBinding(string name, JsValue value, bool strict);
 
-        internal abstract void SetMutableBinding(in BindingName name, JsValue value, bool strict);
+        internal abstract void SetMutableBinding(BindingName name, JsValue value, bool strict);
 
         /// <summary>
         /// Returns the value of an already existing binding from an environment record.
@@ -122,15 +122,23 @@ namespace Jint.Runtime.Environments
         /// Helper to cache JsString/Key when environments use different lookups.
         /// </summary>
         [DebuggerDisplay("\"{Key.Name}\"")]
-        internal readonly struct BindingName
+        internal sealed class BindingName
         {
             public readonly Key Key;
             public readonly JsString StringValue;
+            public readonly bool HasEvalOrArguments;
+            public readonly JsValue? CalculatedValue;
 
             public BindingName(string value)
             {
-                Key = (Key) value;
+                var key = (Key) value;
+                Key = key;
                 StringValue = JsString.Create(value);
+                HasEvalOrArguments = key == KnownKeys.Eval || key == KnownKeys.Arguments;
+                if (key == KnownKeys.Undefined)
+                {
+                    CalculatedValue = Undefined;
+                }
             }
         }
     }

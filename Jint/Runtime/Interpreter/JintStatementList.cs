@@ -188,7 +188,7 @@ namespace Jint.Runtime.Interpreter
 
                 if (d is FunctionDeclaration functionDeclaration)
                 {
-                    var definition = new JintFunctionDefinition(engine, functionDeclaration);
+                    var definition = new JintFunctionDefinition(functionDeclaration);
                     var fn = definition.Name!;
                     var fo = env._engine.Realm.Intrinsics.Function.InstantiateFunctionObject(definition, env, privateEnv);
                     env.InitializeBinding(fn, fo);

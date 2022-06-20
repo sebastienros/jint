@@ -30,7 +30,7 @@ namespace Jint.Native.Function
             Engine engine,
             Realm realm,
             JsString? name)
-            : this(engine, realm, name, FunctionThisMode.Global, ObjectClass.Function)
+            : this(engine, realm, name, FunctionThisMode.Global)
         {
         }
 

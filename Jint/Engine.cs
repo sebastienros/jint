@@ -832,7 +832,7 @@ namespace Jint
                         }
 
                         declaredFunctionNames.Add(fn);
-                        functionToInitialize.AddFirst(new JintFunctionDefinition(this, d));
+                        functionToInitialize.AddFirst(new JintFunctionDefinition(d));
                     }
                 }
             }
@@ -931,7 +931,7 @@ namespace Jint
             var env = (FunctionEnvironmentRecord) ExecutionContext.LexicalEnvironment;
             var strict = _isStrict || StrictModeScope.IsStrictModeCode;
 
-            var configuration = func.Initialize(functionInstance);
+            var configuration = func.Initialize();
             var parameterNames = configuration.ParameterNames;
             var hasDuplicates = configuration.HasDuplicates;
             var simpleParameterList = configuration.IsSimpleParameterList;
@@ -942,7 +942,7 @@ namespace Jint
             env.InitializeParameters(parameterNames, hasDuplicates, arguments);
 
             ArgumentsInstance? ao = null;
-            if (configuration.ArgumentsObjectNeeded)
+            if (configuration.ArgumentsObjectNeeded || _isDebugMode)
             {
                 if (strict || !simpleParameterList)
                 {
@@ -1153,7 +1153,7 @@ namespace Jint
                         }
 
                         declaredFunctionNames.Add(fn);
-                        functionsToInitialize.AddFirst(new JintFunctionDefinition(this, d));
+                        functionsToInitialize.AddFirst(new JintFunctionDefinition(d));
                     }
                 }
             }
