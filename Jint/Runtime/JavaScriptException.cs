@@ -52,7 +52,7 @@ namespace Jint.Runtime
                             sb.Builder.Append(", ");
                         var arg = cse.CallExpression.Arguments[index];
                         if (arg is Expression pke)
-                            sb.Builder.Append(pke.GetKey(engine, computed: false));
+                            sb.Builder.Append(GetPropertyKey(pke));
                         else
                             sb.Builder.Append(arg);
                     }
@@ -70,6 +70,30 @@ namespace Jint.Runtime
             }
 
             return this;
+        }
+
+        /// <summary>
+        /// A version of <see cref="EsprimaExtensions.GetKey"/> that cannot get into loop as we are already building a stack.
+        /// </summary>
+        private static string GetPropertyKey(Expression expression)
+        {
+            if (expression is Literal literal)
+            {
+                return EsprimaExtensions.LiteralKeyToString(literal);
+            }
+
+            if (expression is Identifier identifier)
+            {
+                return identifier.Name ?? "";
+            }
+
+            if (expression is StaticMemberExpression staticMemberExpression)
+            {
+                return GetPropertyKey(staticMemberExpression.Object) + "." +
+                       GetPropertyKey(staticMemberExpression.Property);
+            }
+
+            return "?";
         }
 
         private static string GetErrorMessage(JsValue error)

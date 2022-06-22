@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -23,7 +24,7 @@ namespace Jint.Tests.Runtime
         public EngineTests(ITestOutputHelper output)
         {
             _engine = new Engine()
-                .SetValue("log", new Action<object>( o => output.WriteLine(o.ToString())))
+                .SetValue("log", new Action<object>(o => output.WriteLine(o.ToString())))
                 .SetValue("assert", new Action<bool>(Assert.True))
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
                 ;
@@ -2832,6 +2833,30 @@ x.test = {
 
             _engine.Execute("equal(false, str.hasOwnProperty('$foo'));");
             _engine.Execute("equal(false, str.hasOwnProperty('foo'));");
+        }
+
+        [Fact]
+        public void ShouldHaveCallstackExceptionWithNullMemeberExpressionArgumentValue()
+        {
+            var engine = new Engine(options => options
+                .LimitRecursion(50)
+                .MaxStatements(1000)
+            );
+            engine.SetValue("assert", new Action<bool>(Assert.True));
+
+            engine.Execute(@"'use strict';
+                function run(arg) {
+                    var object1 = null;
+                    try {
+                        var object2 = object1.test;
+                    } catch(ex) {
+                        assert(true);
+                    }
+                }
+
+                var arg = { 'item': null };
+                run(arg.nonExistentItem);
+            ");
         }
 
         private class Wrapper
