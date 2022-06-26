@@ -124,7 +124,7 @@ Join the chat on [Gitter](https://gitter.im/sebastienros/jint) or post your ques
 
 Here is a short video of how Jint works and some sample usage
 
-https://channel9.msdn.com/Shows/Code-Conversations/Sebastien-Ros-on-jint-a-Javascript-Interpreter-for-NET
+https://docs.microsoft.com/shows/code-conversations/sebastien-ros-on-jint-javascript-interpreter-net
 
 
 ## Examples
