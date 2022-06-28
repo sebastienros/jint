@@ -120,14 +120,14 @@ public sealed class DefaultModuleLoader : IModuleLoader
         {
             ExceptionHelper.ThrowInvalidOperationException($"Module '{resolved.Specifier}' of type '{resolved.Type}' has no resolved URI.");
         }
-        var file_name = Uri.UnescapeDataString(resolved.Uri.AbsolutePath);
-        if (!File.Exists(file_name))
+        var fileName = Uri.UnescapeDataString(resolved.Uri.AbsolutePath);
+        if (!File.Exists(fileName))
         {
             ExceptionHelper.ThrowArgumentException("Module Not Found: ", resolved.Specifier);
             return default;
         }
 
-        var code = File.ReadAllText(file_name);
+        var code = File.ReadAllText(fileName);
 
         Module module;
         try

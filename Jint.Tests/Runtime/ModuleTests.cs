@@ -332,6 +332,16 @@ export const count = globals.counter;
         Assert.Equal("John Doe", result);
     }
 
+    [Fact]
+    public void CanImportFromFileWithSpacesInPath()
+    {
+        var engine = new Engine(options => options.EnableModules(GetBasePath()));
+        var ns = engine.ImportModule("./dir with spaces/format name.js");
+        var result = engine.Invoke(ns.Get("formatName"), "John", "Doe").AsString();
+
+        Assert.Equal("John Doe", result);
+    }
+
     internal static string GetBasePath()
     {
         var assemblyDirectory = new DirectoryInfo(AppDomain.CurrentDomain.RelativeSearchPath ?? AppDomain.CurrentDomain.BaseDirectory);
