@@ -16,7 +16,7 @@ pool:
 variables:
   framework: dotnet
 
-name: Take.Jint.Unnoficial.4.0.$(Rev:.r)
+name: 4.0$(Rev:.r)
 
 resources:
   repositories:   
