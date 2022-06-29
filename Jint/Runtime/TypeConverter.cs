@@ -1124,17 +1124,9 @@ namespace Jint.Runtime
             return score;
         }
 
-        internal class AssignableResult
+        internal readonly record struct AssignableResult(int Score, Type MatchingGivenType)
         {
-            public int Score = -1;
-            public bool IsAssignable { get { return Score >= 0; } }
-            public Type MatchingGivenType;
-
-            public AssignableResult(int score, Type matchingGivenType)
-            {
-                Score = score;
-                MatchingGivenType = matchingGivenType;
-            }
+            public bool IsAssignable => Score >= 0;
         }
 
         /// <summary>
@@ -1147,11 +1139,13 @@ namespace Jint.Runtime
         /// and array handling - i.e.
         /// GetElementType()
         /// </summary>
-        /// <param name="givenType"></param>
-        /// <param name="genericType"></param>
-        /// <returns></returns>
         internal static AssignableResult IsAssignableToGenericType(Type givenType, Type genericType)
         {
+            if (givenType is null)
+            {
+                return new AssignableResult(-1, null);
+            }
+
             if (!genericType.IsConstructedGenericType)
             {
                 // as mentioned here:
@@ -1190,8 +1184,7 @@ namespace Jint.Runtime
                 return new AssignableResult(-1, givenType);
             }
 
-            var result = IsAssignableToGenericType(baseType, genericType);
-            return result;
+            return IsAssignableToGenericType(baseType, genericType);
         }
 
         /// <summary>
