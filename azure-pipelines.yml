@@ -33,7 +33,7 @@ extends:
     type: dotnet
     to: nuget
     nugetServiceConnection: Nuget.org Take
-    dotnetVersion: "2.x"
+    dotnetVersion: "3.1.x"
     testProjects: Jint.sln
     testPermission: true
     skipSonarBranch: true
