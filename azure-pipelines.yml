@@ -36,5 +36,6 @@ extends:
     testProjects: Jint.sln
     testPermission: true
     skipSonarBranch: true
+    skipDecorator: true
     csprojToPack:
     - 'Jint.csproj'
