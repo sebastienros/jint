@@ -11,7 +11,7 @@ trigger:
     - hotfix/*
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: windows-latest
 
 variables:
   framework: dotnet
