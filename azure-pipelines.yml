@@ -15,6 +15,7 @@ pool:
 
 variables:
   framework: dotnet
+  SkipDecorator: true
 
 name: 4.0$(Rev:.r)
 
@@ -36,6 +37,5 @@ extends:
     testProjects: Jint.sln
     testPermission: true
     skipSonarBranch: true
-    skipDecorator: true
     csprojToPack:
     - 'Jint.csproj'
