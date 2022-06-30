@@ -11,7 +11,7 @@ trigger:
     - hotfix/*
 
 pool:
-  vmImage: windows-latest
+  vmImage: windows-2022
 
 variables:
   framework: dotnet
