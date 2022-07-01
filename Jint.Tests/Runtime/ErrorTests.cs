@@ -56,7 +56,7 @@ var c = a(b().Length);
         }
 
         [Fact]
-        public void CanProduceCorrectStackTrace()
+        public void CanProduceCorrectStackTraceForInternalError()
         {
             var engine = new Engine();
 
@@ -83,6 +83,33 @@ var b = function(v) {
         }
 
         [Fact]
+        public void CanProduceCorrectStackTraceForScriptError()
+        {
+            var engine = new Engine();
+
+            engine.Execute(@"
+var a = function(v) {
+  throw new Error('Error thrown from script');
+}
+
+var b = function(v) {
+  return a(v);
+}
+            ", new ParserOptions("custom.js"));
+
+            var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", new ParserOptions("main.js")));
+            Assert.Equal("Error thrown from script", e.Message);
+            Assert.Equal(3, e.Location.Start.Line);
+            Assert.Equal(8, e.Location.Start.Column);
+            Assert.Equal("custom.js", e.Location.Source);
+
+            var stack = e.JavaScriptStackTrace;
+            EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:3:9
+   at b (v) custom.js:7:10
+   at main.js:1:9", stack);
+        }
+
+        [Fact]
         public void ErrorObjectHasTheStackTraceImmediately()
         {
             var engine = new Engine();
@@ -100,8 +127,7 @@ var b = function(v) {
             var e = engine.Evaluate(@"b(7)", new ParserOptions("main.js")).AsString();
 
             var stack = e;
-            EqualIgnoringNewLineDifferences(@"   at Error custom.js:3:10
-   at a (v) custom.js:3:10
+            EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:3:10
    at b (v) custom.js:7:10
    at main.js:1:1", stack);
         }
@@ -128,8 +154,7 @@ var b = function(v) {
             var e = engine.Evaluate(@"b(7)", new ParserOptions("main.js")).AsString();
 
             var stack = e;
-            EqualIgnoringNewLineDifferences(@"   at Error custom.js:4:11
-   at a (v) custom.js:4:11
+            EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:4:11
    at b (v) custom.js:11:10
    at main.js:1:1", stack);
         }
@@ -249,6 +274,8 @@ var x = b(7);";
    at <anonymous>:9:9";
 
             EqualIgnoringNewLineDifferences(expected, ex.GetJavaScriptErrorString());
+            Assert.Equal(2, ex.Location.Start.Line);
+            Assert.Equal(17, ex.Location.Start.Column);
         }
 
         [Fact]
@@ -282,6 +309,9 @@ var x = b(7);";
    at get-item.js:13:2";
 
             EqualIgnoringNewLineDifferences(expected, ex.GetJavaScriptErrorString());
+
+            Assert.Equal(2, ex.Location.Start.Line);
+            Assert.Equal(21, ex.Location.Start.Column);
         }
 
         // Verify #1202
@@ -307,8 +337,7 @@ try {
 }
 ";
             var stack = engine.Evaluate(Script).AsString();
-            EqualIgnoringNewLineDifferences(@"   at Error <anonymous>:3:21
-   at throwIt (message) <anonymous>:3:15
+            EqualIgnoringNewLineDifferences(@"   at throwIt (message) <anonymous>:3:11
    at <anonymous>:11:5", stack);
 
             static void Handler(Action callback)

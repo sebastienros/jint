@@ -58,9 +58,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                 BuildArguments(context, _jintArguments, arguments);
             }
 
+            // Reset the location to the "new" keyword so that if an Error object is
+            // constructed below, the stack trace will capture the correct location.
+            context.LastSyntaxNode = _expression;
+
             if (!jsValue.IsConstructor)
             {
-                ExceptionHelper.ThrowTypeError(engine.Realm,  _calleeExpression.SourceText + " is not a constructor");
+                ExceptionHelper.ThrowTypeError(engine.Realm, _calleeExpression.SourceText + " is not a constructor");
             }
 
             // construct the new instance using the Function's constructor method
