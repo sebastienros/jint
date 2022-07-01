@@ -284,6 +284,46 @@ var x = b(7);";
             EqualIgnoringNewLineDifferences(expected, ex.GetJavaScriptErrorString());
         }
 
+        // Verify #1202
+        [Fact]
+        public void StackIsUnwoundWhenExceptionHandledByInteropCode()
+        {
+            var engine = new Engine()
+                .SetValue("handle", new Action<Action>(Handler));
+
+            const string Script = @"
+function throwIt(message) {
+    throw new Error(message);
+}
+
+handle(() => throwIt('e1'));
+handle(() => throwIt('e2'));
+handle(() => throwIt('e3'));
+    
+try {
+    throwIt('e4');
+} catch(x){
+    x.stack; // return stack trace string
+}
+";
+            var stack = engine.Evaluate(Script).AsString();
+            EqualIgnoringNewLineDifferences(@"   at Error <anonymous>:3:21
+   at throwIt (message) <anonymous>:3:15
+   at <anonymous>:11:5", stack);
+
+            static void Handler(Action callback)
+            {
+                try
+                {
+                    callback();
+                }
+                catch (JavaScriptException)
+                {
+                    // handle JS error
+                }
+            }
+        }
+
         [Fact]
         public void StackTraceIsForOriginalException()
         {

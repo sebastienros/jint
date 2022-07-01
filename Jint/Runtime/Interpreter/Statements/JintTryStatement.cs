@@ -48,16 +48,6 @@ namespace Jint.Runtime.Interpreter.Statements
                 // execute catch
                 if (_statement.Handler is not null)
                 {
-                    // Quick-patch for call stack not being unwinded when an exception is caught.
-                    // Ideally, this should instead be solved by always popping the stack when returning
-                    // from a call, regardless of whether it throws (i.e. CallStack.Pop() in finally clause
-                    // in Engine.Call/Engine.Construct - however, that method currently breaks stack traces
-                    // in error messages.
-                    while (callStackSizeBeforeExecution < engine.CallStack.Count)
-                    {
-                        engine.CallStack.Pop();
-                    }
-
                     // https://tc39.es/ecma262/#sec-runtime-semantics-catchclauseevaluation
 
                     var thrownValue = b.Value;

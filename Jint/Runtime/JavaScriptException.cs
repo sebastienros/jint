@@ -31,7 +31,7 @@ public class JavaScriptException : JintException
     public string? JavaScriptStackTrace => _jsErrorException.StackTrace;
     public Location Location => _jsErrorException.Location;
     public JsValue Error => _jsErrorException.Error;
-    
+
     internal JavaScriptException(ErrorConstructor errorConstructor)
         : base("", new JavaScriptErrorWrapperException(errorConstructor.Construct(Arguments.Empty), ""))
     {
@@ -43,21 +43,21 @@ public class JavaScriptException : JintException
     {
         _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
     }
-    
+
     internal JavaScriptException(JsValue error)
         : base(GetMessage(error), new JavaScriptErrorWrapperException(error, GetMessage(error)))
     {
         _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
     }
-    
+
     public string GetJavaScriptErrorString() => _jsErrorException.ToString();
-    
-    public JavaScriptException SetJavaScriptCallstack(Engine engine, Location location)
+
+    public JavaScriptException SetJavaScriptCallstack(Engine engine, Location location, bool overwriteExisting = false)
     {
-        _jsErrorException.SetCallstack(engine, location);
+        _jsErrorException.SetCallstack(engine, location, overwriteExisting);
         return this;
     }
-    
+
     public JavaScriptException SetJavaScriptLocation(Location location)
     {
         _jsErrorException.SetLocation(location);
@@ -82,15 +82,26 @@ public class JavaScriptException : JintException
             Location = location;
         }
 
-        internal void SetCallstack(Engine engine, Location location)
+        internal void SetCallstack(Engine engine, Location location, bool overwriteExisting)
         {
             Location = location;
-            var value = engine.CallStack.BuildCallStackString(location);
-            _callStack = value;
-            if (Error.IsObject())
+
+            var errObj = Error.IsObject() ? Error.AsObject() : null;
+            if (errObj == null)
             {
-                Error.AsObject()
-                    .FastAddProperty(CommonProperties.Stack, new JsString(value), false, false, false);
+                _callStack = engine.CallStack.BuildCallStackString(location);
+                return;
+            }
+
+            // Does the Error object already have a stack property?
+            if (errObj.HasProperty(CommonProperties.Stack) && !overwriteExisting)
+            {
+                _callStack = errObj.Get(CommonProperties.Stack).AsString();
+            }
+            else
+            {
+                _callStack = engine.CallStack.BuildCallStackString(location);
+                errObj.FastAddProperty(CommonProperties.Stack, _callStack, false, false, false);
             }
         }
 
