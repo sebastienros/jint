@@ -27,9 +27,14 @@ namespace Jint.Runtime.Interop
             _fallbackClrFunctionInstance = fallbackClrFunctionInstance;
         }
 
-        private static bool IsGenericParameter(object argObj, Type parameterType, int parameterIndex)
+        private static bool IsGenericParameter(object argObj, Type parameterType)
         {
-            var result = TypeConverter.IsAssignableToGenericType(argObj?.GetType(), parameterType);
+            if (argObj is null)
+            {
+                return false;
+            }
+
+            var result = TypeConverter.IsAssignableToGenericType(argObj.GetType(), parameterType);
             if (result.Score < 0)
             {
                 return false;
@@ -44,7 +49,12 @@ namespace Jint.Runtime.Interop
 
         private static void HandleGenericParameter(object argObj, Type parameterType, Type[] genericArgTypes)
         {
-            var result = TypeConverter.IsAssignableToGenericType(argObj?.GetType(), parameterType);
+            if (argObj is null)
+            {
+                return;
+            }
+
+            var result = TypeConverter.IsAssignableToGenericType(argObj.GetType(), parameterType);
             if (result.Score < 0)
             {
                 return;
@@ -173,7 +183,7 @@ namespace Jint.Runtime.Interop
                         // optional
                         parameters[i] = System.Type.Missing;
                     }
-                    else if (IsGenericParameter(argument.ToObject(), parameterType, i)) // don't think we need the condition preface of (argument == null) because of earlier condition
+                    else if (IsGenericParameter(argument.ToObject(), parameterType)) // don't think we need the condition preface of (argument == null) because of earlier condition
                     {
                         parameters[i] = argument.ToObject();
                     }

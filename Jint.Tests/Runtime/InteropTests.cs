@@ -2981,12 +2981,12 @@ namespace Jint.Tests.Runtime
 					var result = param0 + param1;
 					return result;
 				}");
-            //Checking working cusom type
+            // checking working custom type
             Assert.Equal(new Dimensional("kg", 90), (new Dimensional("kg", 30) + new Dimensional("kg", 60)));
             Assert.Equal(new Dimensional("kg", 90), engine.Invoke("Eval", new object[] { new Dimensional("kg", 30), new Dimensional("kg", 60) }).ToObject());
             Assert.Throws<InvalidOperationException>(() => new Dimensional("kg", 30) + new Dimensional("piece", 70));
 
-            //Checking throwing exception in ovveride operator
+            // checking throwing exception in override operator
             string errorMsg = string.Empty;
             errorMsg = Assert.Throws<JavaScriptException>(() => engine.Invoke("Eval", new object[] {new Dimensional("kg", 30), new Dimensional("piece", 70)})).Message;
             Assert.Equal("Dimensionals with different measure types are non-summable", errorMsg);
@@ -2995,6 +2995,22 @@ namespace Jint.Tests.Runtime
         private class Profile
         {
             public int AnyProperty => throw new NotSupportedException("NOT SUPPORTED");
+        }
+
+        [Fact]
+        public void GenericParameterResolutionShouldWorkWithNulls()
+        {
+            var result =new Engine()
+                .SetValue("JintCommon", new JintCommon())
+                .Evaluate("JintCommon.sum(1, null)")
+                .AsNumber();
+
+            Assert.Equal(2, result);
+        }
+
+        public class JintCommon
+        {
+            public int Sum(int a, int? b) => a + b.GetValueOrDefault(1);
         }
     }
 }

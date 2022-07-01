@@ -146,7 +146,7 @@ namespace Jint.Native.Function
                     var result = OrdinaryCallEvaluateBody(context, arguments);
 
                     // The DebugHandler needs the current execution context before the return for stepping through the return point
-                    if (_engine._activeEvaluationContext.DebugMode && result.Type != CompletionType.Throw)
+                    if (context.DebugMode && result.Type != CompletionType.Throw)
                     {
                         // We don't have a statement, but we still need a Location for debuggers. DebugHandler will infer one from
                         // the function body:
