@@ -3012,5 +3012,31 @@ namespace Jint.Tests.Runtime
         {
             public int Sum(int a, int? b) => a + b.GetValueOrDefault(1);
         }
+
+        private delegate void ParamsTestDelegate(params Action[] callbacks);
+
+        [Fact]
+        public void CanUseParamsActions()
+        {
+            var engine = new Engine();
+            engine.SetValue("print", new Action<string>(_ => { }));
+            engine.SetValue("callAll", new DelegateWrapper(engine, new ParamsTestDelegate(ParamsTest)));
+
+            engine.Execute(@"
+                callAll(
+                    function() { print('a'); },
+                    function() { print('b'); },
+                    function() { print('c'); }
+                );
+            ");
+        }
+
+        private static void ParamsTest(params Action[] callbacks)
+        {
+            foreach (var callback in callbacks)
+            {
+                callback.Invoke();
+            }
+        }
     }
 }

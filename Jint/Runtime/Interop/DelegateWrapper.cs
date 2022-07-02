@@ -102,8 +102,8 @@ namespace Jint.Runtime.Interop
                 int paramsArgumentIndex = delegateArgumentsCount - 1;
                 int paramsCount = Math.Max(0, jsArgumentsCount - delegateNonParamsArgumentsCount);
 
-                object[] paramsParameter = new object[paramsCount];
                 var paramsParameterType = parameterInfos[paramsArgumentIndex].ParameterType.GetElementType();
+                var paramsParameter = Array.CreateInstance(paramsParameterType!, paramsCount);
 
                 for (var i = paramsArgumentIndex; i < jsArgumentsCount; i++)
                 {
@@ -123,7 +123,7 @@ namespace Jint.Runtime.Interop
                             CultureInfo.InvariantCulture);
                     }
 
-                    paramsParameter[paramsIndex] = converted;
+                    paramsParameter.SetValue(converted, paramsIndex);
                 }
 
                 parameters[paramsArgumentIndex] = paramsParameter;
