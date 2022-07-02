@@ -1353,9 +1353,15 @@ namespace Jint
                 ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
             }
 
-            var result = functionInstance.Call(thisObject, arguments);
-
-            CallStack.Pop();
+            JsValue result;
+            try
+            {
+                result = functionInstance.Call(thisObject, arguments);
+            }
+            finally
+            {
+                CallStack.Pop();
+            }
 
             return result;
         }
@@ -1376,9 +1382,15 @@ namespace Jint
                 ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
             }
 
-            var result = ((IConstructor) functionInstance).Construct(arguments, newTarget);
-
-            CallStack.Pop();
+            ObjectInstance result;
+            try
+            {
+                result = ((IConstructor) functionInstance).Construct(arguments, newTarget);
+            }
+            finally
+            {
+                CallStack.Pop();
+            }
 
             return result;
         }
