@@ -1,6 +1,7 @@
 ﻿#nullable enable
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using Esprima;
@@ -63,6 +64,11 @@ namespace Jint.Runtime.CallStack
             return item;
         }
 
+        public bool TryPeek([NotNullWhen(true)] out CallStackElement item)
+        {
+            return _stack.TryPeek(out item);
+        }
+
         public int Count => _stack._size;
 
         public void Clear()
@@ -76,7 +82,7 @@ namespace Jint.Runtime.CallStack
             return string.Join("->", _stack.Select(cse => cse.ToString()).Reverse());
         }
 
-        internal string BuildCallStackString(Location location)
+        internal string BuildCallStackString(Location location, int excludeTop = 0)
         {
             static void AppendLocation(
                 StringBuilder sb,
@@ -124,7 +130,7 @@ namespace Jint.Runtime.CallStack
             using var sb = StringBuilderPool.Rent();
 
             // stack is one frame behind function-wise when we start to process it from expression level
-            var index = _stack._size - 1;
+            var index = _stack._size - 1 - excludeTop;
             var element = index >= 0 ? _stack[index] : (CallStackElement?) null;
             var shortDescription = element?.ToString() ?? "";
 

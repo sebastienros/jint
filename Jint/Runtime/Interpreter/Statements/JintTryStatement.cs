@@ -33,7 +33,6 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override Completion ExecuteInternal(EvaluationContext context)
         {
             var engine = context.Engine;
-            int callStackSizeBeforeExecution = engine.CallStack.Count;
 
             var b = _block.Execute(context);
 

@@ -57,8 +57,7 @@ namespace Jint.Native.Error
                 o.DefinePropertyOrThrow("message", msgDesc);
             }
 
-            var lastSyntaxNode = _engine.GetLastSyntaxNode();
-            var stackString = lastSyntaxNode == null ? Undefined : _engine.CallStack.BuildCallStackString(lastSyntaxNode.Location);
+            var stackString = BuildStackString();
             var stackDesc = new PropertyDescriptor(stackString, PropertyFlag.NonEnumerable);
             o.DefinePropertyOrThrow(CommonProperties.Stack, stackDesc);
 
@@ -67,6 +66,20 @@ namespace Jint.Native.Error
             o.InstallErrorCause(options);
 
             return o;
+
+            JsValue BuildStackString()
+            {
+                var lastSyntaxNode = _engine.GetLastSyntaxNode();
+                if (lastSyntaxNode == null)
+                    return Undefined;
+
+                var callStack = _engine.CallStack;
+                var currentFunction = callStack.TryPeek(out var element) ? element.Function : null;
+
+                // If the current function is the ErrorConstructor itself (i.e. "throw new Error(...)" was called
+                // from script), exclude it from the stack trace, because the trace should begin at the throw point.
+                return callStack.BuildCallStackString(lastSyntaxNode.Location, currentFunction == this ? 1 : 0);
+            }
         }
     }
 }
