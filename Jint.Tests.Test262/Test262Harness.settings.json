@@ -30,8 +30,7 @@
     "top-level-await",
     "Temporal",
     "u180e",
-    "WeakRef",
-    "well-formed-json-stringify"
+    "WeakRef"
   ],
   "ExcludedFlags": [
     "async"
