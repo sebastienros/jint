@@ -239,8 +239,9 @@ namespace Jint.Native.Json
             var sb = stringBuilder.Builder;
             sb.Append('"');
 
-            foreach (var c in value)
+            for (var i = 0; i < value.Length; i++)
             {
+                var c = value[i];
                 switch (c)
                 {
                     case '\"':
@@ -265,7 +266,13 @@ namespace Jint.Native.Json
                         sb.Append("\\t");
                         break;
                     default:
-                        if (c < 0x20 || (c - 0x10000 >> 10) + 0xD800 == (c - 0x10000) % 0x400 + 0xDC00)
+                        if (char.IsSurrogatePair(value, i))
+                        {
+                            sb.Append(value[i]);
+                            i++;
+                            sb.Append(value[i]);
+                        }
+                        else if (c < 0x20 || char.IsSurrogate(c))
                         {
                             sb.Append("\\u");
                             sb.Append(((int) c).ToString("x4"));
@@ -274,6 +281,7 @@ namespace Jint.Native.Json
                         {
                             sb.Append(c);
                         }
+
                         break;
                 }
             }
