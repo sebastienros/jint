@@ -18,6 +18,7 @@ namespace Jint.Native.Global
     {
         private readonly Realm _realm;
         private readonly StringBuilder _stringBuilder = new();
+        private const int LengthLimitForParserInt = 200;
 
         internal GlobalObject(
             Engine engine,
@@ -203,7 +204,7 @@ namespace Jint.Native.Global
 
         private static double Parse(string number, int radix)
         {
-            if (number == "")
+            if ((number == "") || (number.Length > LengthLimitForParserInt))
             {
                 return double.NaN;
             }
