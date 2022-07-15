@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -3037,6 +3038,37 @@ namespace Jint.Tests.Runtime
             {
                 callback.Invoke();
             }
+        }
+
+        [Fact]
+        public void ObjectWrapperIdentityIsMaintained()
+        {
+            // run in separate method so stack won't keep reference
+            var reference = RunWeakReferenceTest();
+
+            GC.Collect();
+
+            // make sure no dangling reference is left
+            Assert.False(reference.IsAlive);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static WeakReference RunWeakReferenceTest()
+        {
+            var o = new object();
+
+            var engine = new Engine()
+                .SetValue("o", o);
+
+            var wrapper1 = (ObjectWrapper) engine.GetValue("o");
+            var reference = new WeakReference(wrapper1);
+
+            Assert.Same(wrapper1, engine.GetValue("o"));
+            Assert.Same(o, wrapper1.Target);
+
+            // reset
+            engine.Realm.GlobalObject.RemoveOwnProperty("o");
+            return reference;
         }
     }
 }

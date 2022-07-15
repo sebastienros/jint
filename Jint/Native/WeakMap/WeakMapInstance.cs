@@ -3,51 +3,50 @@
 using Jint.Native.Object;
 using Jint.Runtime;
 
-namespace Jint.Native.WeakMap
+namespace Jint.Native.WeakMap;
+
+public sealed class WeakMapInstance : ObjectInstance
 {
-    public class WeakMapInstance : ObjectInstance
+    private readonly ConditionalWeakTable<JsValue, JsValue> _table;
+
+    public WeakMapInstance(Engine engine) : base(engine)
     {
-        private readonly ConditionalWeakTable<JsValue, JsValue> _table;
+        _table = new ConditionalWeakTable<JsValue, JsValue>();
+    }
 
-        public WeakMapInstance(Engine engine) : base(engine)
+    internal bool WeakMapHas(JsValue key)
+    {
+        return _table.TryGetValue(key, out _);
+    }
+
+    internal bool WeakMapDelete(JsValue key)
+    {
+        return _table.Remove(key);
+    }
+
+    internal void WeakMapSet(JsValue key, JsValue value)
+    {
+        if (key.IsPrimitive())
         {
-            _table = new ConditionalWeakTable<JsValue, JsValue>();
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakMap key must be an object, got " + key);
         }
-
-        internal bool WeakMapHas(JsValue key)
-        {
-            return _table.TryGetValue(key, out _);
-        }
-
-        internal bool WeakMapDelete(JsValue key)
-        {
-            return _table.Remove(key);
-        }
-
-        internal void WeakMapSet(JsValue key, JsValue value)
-        {
-            if (key.IsPrimitive())
-            {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakMap key must be an object, got " + key);
-            }
 
 #if NETSTANDARD2_1
-            _table.AddOrUpdate(key, value);
+         _table.AddOrUpdate(key, value);
 #else
-            _table.Remove(key);
-            _table.Add(key, value);
+        _table.Remove(key);
+        _table.Add(key, value);
 #endif
-        }
-
-        internal JsValue WeakMapGet(JsValue key)
-        {
-            if (!_table.TryGetValue(key, out var value))
-            {
-                return Undefined;
-            }
-
-            return value;
-        }
-
     }
+
+    internal JsValue WeakMapGet(JsValue key)
+    {
+        if (!_table.TryGetValue(key, out var value))
+        {
+            return Undefined;
+        }
+
+        return value;
+    }
+
 }
