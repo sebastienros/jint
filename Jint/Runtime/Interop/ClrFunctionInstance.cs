@@ -35,17 +35,7 @@ namespace Jint.Runtime.Interop
 
         public override bool Equals(JsValue obj)
         {
-            if (ReferenceEquals(null, obj))
-            {
-                return false;
-            }
-
-            if (!(obj is ClrFunctionInstance s))
-            {
-                return false;
-            }
-
-            return Equals(s);
+            return Equals(obj as ClrFunctionInstance);
         }
 
         public bool Equals(ClrFunctionInstance other)
