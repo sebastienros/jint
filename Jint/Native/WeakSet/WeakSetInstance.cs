@@ -3,43 +3,40 @@
 using Jint.Native.Object;
 using Jint.Runtime;
 
-namespace Jint.Native.WeakSet
+namespace Jint.Native.WeakSet;
+
+public sealed class WeakSetInstance : ObjectInstance
 {
-    public class WeakSetInstance : ObjectInstance
+    private readonly ConditionalWeakTable<JsValue, JsValue> _table;
+
+    public WeakSetInstance(Engine engine) : base(engine)
     {
-        private static readonly object _tableValue = new object();
+        _table = new ConditionalWeakTable<JsValue, JsValue>();
+    }
 
-        private readonly ConditionalWeakTable<JsValue, object> _table;
+    internal bool WeakSetHas(JsValue value)
+    {
+        return _table.TryGetValue(value, out _);
+    }
 
-        public WeakSetInstance(Engine engine) : base(engine)
+    internal bool WeakSetDelete(JsValue value)
+    {
+        return _table.Remove(value);
+    }
+
+    internal void WeakSetAdd(JsValue value)
+    {
+        if (value.IsPrimitive())
         {
-            _table = new ConditionalWeakTable<JsValue, object>();
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakSet value must be an object, got " + value);
         }
-
-        internal bool WeakSetHas(JsValue value)
-        {
-            return _table.TryGetValue(value, out _);
-        }
-
-        internal bool WeakSetDelete(JsValue value)
-        {
-            return _table.Remove(value);
-        }
-
-        internal void WeakSetAdd(JsValue value)
-        {
-            if (value.IsPrimitive())
-            {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakSet value must be an object, got " + value.ToString());
-            }
 
 #if NETSTANDARD2_1
-            _table.AddOrUpdate(value, _tableValue);
+        _table.AddOrUpdate(value, Undefined);
 #else
-            _table.Remove(value);
-            _table.Add(value, _tableValue);
+        _table.Remove(value);
+        _table.Add(value, Undefined);
 #endif
-        }
-
     }
+
 }

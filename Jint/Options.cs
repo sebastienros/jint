@@ -247,16 +247,36 @@ namespace Jint
         public List<IObjectConverter> ObjectConverters { get; } = new();
 
         /// <summary>
+        /// Whether identity map is persisted for object wrappers in order to maintain object identity.
+        /// Defaults to true.
+        /// </summary>
+        public bool TrackObjectWrapperIdentity { get; set; } = true;
+
+        /// <summary>
         /// If no known type could be guessed, objects are by default wrapped as an
         /// ObjectInstance using class ObjectWrapper. This function can be used to
         /// change the behavior.
         /// </summary>
-        public WrapObjectDelegate WrapObjectHandler { get; set; } = (engine, target) => new ObjectWrapper(engine, target);
+        public WrapObjectDelegate WrapObjectHandler { get; set; } = static (engine, target) =>
+        {
+            // check global cache, have we already wrapped the value?
+            if (engine._objectWrapperCache.TryGetValue(target, out var wrapped))
+            {
+                return wrapped;
+            }
+
+            wrapped = new ObjectWrapper(engine, target);
+            if (engine.Options.Interop.TrackObjectWrapperIdentity)
+            {
+                engine._objectWrapperCache.Add(target, wrapped);
+            }
+            return wrapped;
+        };
 
         /// <summary>
         ///
         /// </summary>
-        public MemberAccessorDelegate MemberAccessor { get; set; } = (engine, target, member) => null;
+        public MemberAccessorDelegate MemberAccessor { get; set; } = static (engine, target, member) => null;
 
         /// <summary>
         /// Exceptions that thrown from CLR code are converted to JavaScript errors and
@@ -264,7 +284,7 @@ namespace Jint
         /// to the CLR host and interrupt the script execution. If handler returns true these exceptions are converted
         /// to JS errors that can be caught by the script.
         /// </summary>
-        public ExceptionHandlerDelegate ExceptionHandler { get; set; } = exception => false;
+        public ExceptionHandlerDelegate ExceptionHandler { get; set; } = static exception => false;
 
         /// <summary>
         /// Assemblies to allow scripts to call CLR types directly like <example>System.IO.File</example>.

@@ -56,6 +56,9 @@ namespace Jint
         // cache of types used when resolving CLR type names
         internal readonly Dictionary<string, Type> TypeCache = new();
 
+        // cache for already wrapped CLR objects to keep object identity
+        internal readonly ConditionalWeakTable<object, ObjectWrapper> _objectWrapperCache = new();
+
         internal readonly JintCallStack CallStack;
 
         // needed in initial engine setup, for example CLR function construction
@@ -266,7 +269,7 @@ namespace Jint
 
             return this;
         }
-        
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-scriptevaluation
         /// </summary>
