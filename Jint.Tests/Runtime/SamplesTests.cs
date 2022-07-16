@@ -1,7 +1,4 @@
-﻿using System;
-using Xunit;
-
-namespace Jint.Tests.Runtime
+﻿namespace Jint.Tests.Runtime
 {
     public class SamplesTests : IDisposable
     {

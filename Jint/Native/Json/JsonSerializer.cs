@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Jint.Collections;
+﻿using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;

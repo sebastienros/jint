@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Jint.Native.Date;
 using Jint.Runtime;
 using Newtonsoft.Json.Linq;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

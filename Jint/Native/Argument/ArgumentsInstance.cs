@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Threading;
+﻿using System.Threading;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;

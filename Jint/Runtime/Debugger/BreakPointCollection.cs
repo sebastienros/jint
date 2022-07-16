@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections;
 
 namespace Jint.Runtime.Debugger
 {
@@ -9,7 +7,7 @@ namespace Jint.Runtime.Debugger
     /// </summary>
     /// <remarks>
     /// Only allows a single breakpoint at the same location (source, column and line).
-    /// Adding a new breakpoint at the same location <i>replaces</i> the old one - this allows replacing e.g. a 
+    /// Adding a new breakpoint at the same location <i>replaces</i> the old one - this allows replacing e.g. a
     /// conditional breakpoint with a new condition (or remove the condition).
     /// </remarks>
     public sealed class BreakPointCollection : IEnumerable<BreakPoint>

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Globalization;
+﻿using System.Globalization;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -26,7 +25,7 @@ namespace Jint.Native.Date
             "yyyy-MM-ddTHH:mm:ss.FFF",
             "yyyy-MM-ddTHH:mm:ss",
             "yyyy-MM-ddTHH:mm",
-            
+
             // Formats used in DatePrototype toString methods
             "ddd MMM dd yyyy HH:mm:ss 'GMT'K",
             "ddd MMM dd yyyy",

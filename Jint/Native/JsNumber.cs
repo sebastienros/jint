@@ -1,6 +1,5 @@
 ﻿#nullable enable
 
-using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Native.Number;

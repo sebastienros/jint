@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using Jint.Native;
 using Jint.Runtime;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {
@@ -54,7 +51,7 @@ namespace Jint.Tests.Runtime
             { (Math.Pow(2, 53) - 1.0) * Math.Pow(2, 32), 0 },
             { -(Math.Pow(2, 53) - 1.0) * Math.Pow(2, 32), 0 },
             { (Math.Pow(2, 53) - 1.0) * Math.Pow(2, 36), 0 },
-    
+
             { double.MaxValue, 0 },
             { double.MinValue, 0 },
             { double.PositiveInfinity, 0 },

@@ -1,5 +1,4 @@
-﻿using System;
-using Jint.Tests.Runtime.Domain;
+﻿using Jint.Tests.Runtime.Domain;
 
 namespace Shapes
 {

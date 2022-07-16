@@ -1,6 +1,5 @@
 ﻿using BenchmarkDotNet.Attributes;
 using Jint.Constraints;
-using System;
 
 namespace Jint.Benchmark
 {

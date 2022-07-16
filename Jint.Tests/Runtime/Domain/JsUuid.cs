@@ -1,4 +1,3 @@
-using System;
 using Jint.Native;
 
 namespace Jint.Tests.Runtime.Domain

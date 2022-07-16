@@ -1,6 +1,5 @@
 ﻿using Jint.Runtime.Environments;
 using System.Collections;
-using System.Collections.Generic;
 
 namespace Jint.Runtime.Debugger
 {

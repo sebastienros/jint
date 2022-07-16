@@ -1,6 +1,5 @@
 ﻿#nullable enable
 
-using System;
 using System.Collections.Concurrent;
 using System.Reflection;
 using Jint.Collections;
@@ -18,8 +17,8 @@ namespace Jint.Runtime.Interop
         private static readonly ConcurrentDictionary<Type, MethodDescriptor[]> _constructorCache = new();
         private static readonly ConcurrentDictionary<MemberAccessorKey, ReflectionAccessor> _memberAccessors = new();
 
-        private readonly record struct MemberAccessorKey(Type Type, string PropertyName); 
-        
+        private readonly record struct MemberAccessorKey(Type Type, string PropertyName);
+
         private TypeReference(Engine engine, Type type)
             : base(engine, engine.Realm, _name, FunctionThisMode.Global)
         {
@@ -58,7 +57,7 @@ namespace Jint.Runtime.Interop
             {
                 var arguments = state.Arguments;
                 var referenceType = state.TypeReference.ReferenceType;
-                
+
                 ObjectInstance? result = null;
                 if (arguments.Length == 0 && referenceType.IsValueType)
                 {
@@ -98,7 +97,7 @@ namespace Jint.Runtime.Interop
                 ObjectCreator,
                 new ObjectCreateState(this, arguments));
 
-           
+
             return thisArgument;
         }
 

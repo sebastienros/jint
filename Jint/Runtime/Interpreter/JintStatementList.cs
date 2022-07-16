@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Esprima.Ast;
+﻿using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Statements;

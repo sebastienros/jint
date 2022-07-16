@@ -1,7 +1,5 @@
-using System.Linq;
 using Jint.Native;
 using Jint.Native.Object;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

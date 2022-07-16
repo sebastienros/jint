@@ -1,8 +1,5 @@
 using Jint.Native;
 using Jint.Tests.Runtime.Domain;
-using System.Collections.Generic;
-using System.Linq;
-using Xunit;
 
 namespace Jint.Tests.Runtime.ExtensionMethods
 {

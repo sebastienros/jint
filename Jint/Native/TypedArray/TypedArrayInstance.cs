@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Esprima;
 using Jint.Native.ArrayBuffer;

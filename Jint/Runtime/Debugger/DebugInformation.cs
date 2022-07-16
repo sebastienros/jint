@@ -1,5 +1,4 @@
-﻿using System;
-using Esprima;
+﻿using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 
@@ -71,7 +70,7 @@ namespace Jint.Runtime.Debugger
 
         /// <summary>
         /// The return value of the currently executing call frame.
-        /// This is null if execution is not at a return point. 
+        /// This is null if execution is not at a return point.
         /// </summary>
         public JsValue ReturnValue => CurrentCallFrame.ReturnValue;
     }

@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Jint.Runtime.Descriptors
+﻿namespace Jint.Runtime.Descriptors
 {
     [Flags]
     public enum PropertyFlag

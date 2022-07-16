@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Jint.Runtime.Interop
+﻿namespace Jint.Runtime.Interop
 {
     public interface ITypeConverter
     {

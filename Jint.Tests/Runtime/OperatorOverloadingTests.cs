@@ -1,7 +1,5 @@
-﻿using System;
-using Jint.Native.String;
+﻿using Jint.Native.String;
 using Jint.Runtime.Interop;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

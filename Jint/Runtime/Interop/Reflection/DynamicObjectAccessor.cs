@@ -1,4 +1,3 @@
-using System;
 using System.Dynamic;
 using System.Reflection;
 using Jint.Native;

@@ -1,7 +1,6 @@
 ﻿using Esprima;
 using Esprima.Ast;
 using Jint.Runtime.Debugger;
-using Xunit;
 
 namespace Jint.Tests.Runtime.Debugger
 {

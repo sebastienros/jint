@@ -1,4 +1,3 @@
-using System;
 using Jint.Native.Object;
 
 namespace Jint.Native.RegExp

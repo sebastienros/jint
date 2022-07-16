@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Jint.Tests.Runtime.Domain
+﻿namespace Jint.Tests.Runtime.Domain
 {
     public class Company : ICompany, IComparable<ICompany>
     {

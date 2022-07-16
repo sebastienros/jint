@@ -1,6 +1,4 @@
-﻿using System;
-using System.Globalization;
-using System.IO;
+﻿using System.Globalization;
 using System.Reflection;
 using Esprima;
 using Jint.Native;
@@ -8,7 +6,6 @@ using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
-using Xunit;
 using Xunit.Abstractions;
 
 #pragma warning disable 618

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;

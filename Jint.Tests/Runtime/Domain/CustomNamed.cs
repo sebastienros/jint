@@ -1,5 +1,3 @@
-using System;
-
 namespace Jint.Tests.Runtime.Domain
 {
     [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]

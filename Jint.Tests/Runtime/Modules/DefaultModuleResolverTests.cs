@@ -1,5 +1,4 @@
 ﻿using Jint.Runtime.Modules;
-using Xunit;
 
 namespace Jint.Tests.Runtime.Modules;
 

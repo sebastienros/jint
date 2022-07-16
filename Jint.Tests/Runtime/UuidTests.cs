@@ -1,6 +1,4 @@
 ﻿using Jint.Tests.Runtime.Domain;
-using System;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Esprima.Ast;
+﻿using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;

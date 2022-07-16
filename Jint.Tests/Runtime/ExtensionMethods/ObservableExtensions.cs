@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace Jint.Tests.Runtime.ExtensionMethods
 {
     internal class Subscribe<T> : IObserver<T>

@@ -3,7 +3,6 @@ using Jint.Native.Array;
 using Jint.Native.Date;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

@@ -1,8 +1,6 @@
 ﻿using Jint.Native;
-using System;
 using System.Dynamic;
 using Jint.Runtime.Interop;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

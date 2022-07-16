@@ -1,6 +1,5 @@
 ﻿#nullable enable
 
-using System;
 using Jint.Runtime;
 
 namespace Jint.Native

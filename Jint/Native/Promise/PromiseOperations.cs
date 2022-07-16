@@ -1,7 +1,5 @@
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using Jint.Native.Object;
 using Jint.Runtime;
 

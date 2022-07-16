@@ -1,13 +1,11 @@
 ﻿#nullable enable
 
-using System.Collections.Generic;
-
 namespace Jint.Runtime.CallStack
 {
     internal sealed class CallStackElementComparer: IEqualityComparer<CallStackElement>
     {
         public static readonly CallStackElementComparer Instance = new();
-        
+
         private CallStackElementComparer()
         {
         }
@@ -18,12 +16,12 @@ namespace Jint.Runtime.CallStack
             {
                 return ReferenceEquals(x.Function._functionDefinition, y.Function._functionDefinition);
             }
-            
+
             return ReferenceEquals(x.Function, y.Function);
         }
 
         public int GetHashCode(CallStackElement obj)
-        {           
+        {
             if (obj.Function._functionDefinition is not null)
             {
                 return obj.Function._functionDefinition.GetHashCode();

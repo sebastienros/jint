@@ -3,7 +3,6 @@ using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Runtime.References;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

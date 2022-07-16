@@ -1,6 +1,5 @@
 #nullable enable
 
-using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Global;
 using Jint.Native.Object;

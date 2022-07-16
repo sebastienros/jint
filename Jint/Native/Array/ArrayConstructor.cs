@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Iterator;

@@ -1,7 +1,5 @@
 #nullable enable
 
-using System;
-using System.IO;
 using Esprima;
 using Esprima.Ast;
 using Jint.Runtime;
@@ -38,7 +36,7 @@ internal sealed class Test262ModuleLoader : IModuleLoader
                 using var stream = new StreamReader(_fileSystem.OpenFile(fileName, FileMode.Open, FileAccess.Read));
                 code = stream.ReadToEnd();
             }
-            
+
             var parserOptions = new ParserOptions(resolved.Uri?.LocalPath!)
             {
                 AdaptRegexp = true,

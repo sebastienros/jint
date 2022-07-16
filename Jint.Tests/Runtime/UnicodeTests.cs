@@ -1,7 +1,4 @@
-﻿using System;
-using Xunit;
-
-namespace Jint.Tests.Runtime
+﻿namespace Jint.Tests.Runtime
 {
     public class UnicodeTests
     {
@@ -61,6 +58,6 @@ namespace Jint.Tests.Runtime
             var value = _engine.Evaluate(@"return /a\u0041/.source").AsString();
             Assert.Equal("a\\u0041", value);
         }
-        
+
     }
 }

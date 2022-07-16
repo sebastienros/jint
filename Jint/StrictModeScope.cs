@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Jint
+﻿namespace Jint
 {
     public readonly struct StrictModeScope : IDisposable
     {

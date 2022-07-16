@@ -1,6 +1,4 @@
-﻿using System.Linq;
-
-namespace Jint.Tests.Runtime.ExtensionMethods
+﻿namespace Jint.Tests.Runtime.ExtensionMethods
 {
     public static class OverrideStringPrototypeExtensions
     {

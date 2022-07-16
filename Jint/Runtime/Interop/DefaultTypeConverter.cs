@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Extensions;
@@ -188,7 +186,7 @@ namespace Jint.Runtime.Interop
                 {
                     return invoke;
                 }
-                
+
                 if (!_engine.Options.Interop.ExceptionHandler(e))
                 {
                     throw;
@@ -349,7 +347,7 @@ namespace Jint.Runtime.Interop
 
         public static void SetHiddenClrObjectProperty(this ObjectInstance obj, string name, object value)
         {
-            obj.SetOwnProperty(name, new PropertyDescriptor(new ObjectWrapper(obj.Engine, value), PropertyFlag.AllForbidden));            
+            obj.SetOwnProperty(name, new PropertyDescriptor(new ObjectWrapper(obj.Engine, value), PropertyFlag.AllForbidden));
         }
     }
 }

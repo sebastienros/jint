@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Jint.Tests.Runtime.Domain
+﻿namespace Jint.Tests.Runtime.Domain
 {
     [Flags]
     public enum Colors

@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.TypedArray;

@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using Esprima;
 using Jint.Native;
 using Jint.Runtime.CallStack;

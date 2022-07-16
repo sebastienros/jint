@@ -1,6 +1,5 @@
 #nullable enable
 
-using System;
 using Esprima;
 using Jint.Native;
 using Jint.Native.Error;

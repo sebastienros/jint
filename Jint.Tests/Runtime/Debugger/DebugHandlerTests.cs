@@ -1,6 +1,5 @@
 ﻿using Jint.Native.Object;
 using Jint.Runtime.Debugger;
-using Xunit;
 
 #pragma warning disable 618
 

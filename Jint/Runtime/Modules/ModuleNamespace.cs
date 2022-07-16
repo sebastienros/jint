@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Jint.Collections;
+﻿using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
@@ -212,7 +211,7 @@ internal sealed class ModuleNamespace : ObjectInstance
             }
             result.Sort(ArrayPrototype.ArrayComparer.Default);
         }
-        
+
         result.AddRange(base.GetOwnPropertyKeys(types));
 
         return result;

@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using Jint.Runtime;
 
@@ -226,7 +225,7 @@ namespace Jint.Native.Number.Dtoa
                 }
             }
         }
-        
+
         // Let v = numerator / denominator < 10.
         // Then we generate 'count' digits of d = x.xxxxx... (without the decimal point)
         // from left to right. Once 'count' digits have been produced we decide wether
@@ -234,9 +233,9 @@ namespace Jint.Native.Number.Dtoa
         // as 9.999999 propagate a carry all the way, and change the
         // exponent (decimal_point), when rounding upwards.
         static void GenerateCountedDigits(
-            int count, 
+            int count,
             ref int decimal_point,
-            Bignum numerator, 
+            Bignum numerator,
             Bignum denominator,
             DtoaBuilder buffer)
         {
@@ -436,11 +435,11 @@ namespace Jint.Native.Number.Dtoa
         // See comments for InitialScaledStartValues
         private static void InitialScaledStartValuesNegativeExponentPositivePower(
             double v,
-            int estimated_power, 
+            int estimated_power,
             bool need_boundary_deltas,
-            Bignum numerator, 
+            Bignum numerator,
             Bignum denominator,
-            Bignum delta_minus, 
+            Bignum delta_minus,
             Bignum delta_plus)
         {
             var bits = (ulong) BitConverter.DoubleToInt64Bits(v);
