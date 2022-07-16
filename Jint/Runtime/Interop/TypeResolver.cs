@@ -338,7 +338,7 @@ namespace Jint.Runtime.Interop
 
                 if (equals && x.Length > 1)
                 {
-#if NETSTANDARD2_1
+#if NETSTANDARD2_1_OR_GREATER
                     equals = x.AsSpan(1).SequenceEqual(y.AsSpan(1));
 #else
                     equals = x.Substring(1) == y.Substring(1);

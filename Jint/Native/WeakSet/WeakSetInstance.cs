@@ -31,7 +31,7 @@ public sealed class WeakSetInstance : ObjectInstance
             ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakSet value must be an object, got " + value);
         }
 
-#if NETSTANDARD2_1
+#if NETSTANDARD2_1_OR_GREATER
         _table.AddOrUpdate(value, Undefined);
 #else
         _table.Remove(value);

@@ -140,41 +140,21 @@ namespace Jint.Native.Global
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.2
+        /// https://tc39.es/ecma262/#sec-parseint-string-radix
         /// </summary>
         public static JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
         {
-            string inputString = TypeConverter.ToString(arguments.At(0));
-            var s = StringPrototype.TrimEx(inputString);
+            var inputString = TypeConverter.ToString(arguments.At(0));
+            var trimmed = StringPrototype.TrimEx(inputString);
+            var s = trimmed.AsSpan();
 
-            var sign = 1;
-            if (!System.String.IsNullOrEmpty(s))
-            {
-                if (s[0] == '-')
-                {
-                    sign = -1;
-                }
-
-                if (s[0] == '-' || s[0] == '+')
-                {
-                    s = s.Substring(1);
-                }
-            }
+            var radix = arguments.Length > 1 ? TypeConverter.ToInt32(arguments[1]) : 0;
+            var hexStart = s.Length > 1 && trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase);
 
             var stripPrefix = true;
-
-            int radix = arguments.Length > 1 ? TypeConverter.ToInt32(arguments[1]) : 0;
-
             if (radix == 0)
             {
-                if (s.Length >= 2 && s.StartsWith("0x") || s.StartsWith("0X"))
-                {
-                    radix = 16;
-                }
-                else
-                {
-                    radix = 10;
-                }
+                radix = hexStart ? 16 : 10;
             }
             else if (radix < 2 || radix > 36)
             {
@@ -185,59 +165,67 @@ namespace Jint.Native.Global
                 stripPrefix = false;
             }
 
-            if (stripPrefix && s.Length >= 2 && s.StartsWith("0x") || s.StartsWith("0X"))
+            // check fast case
+            if (radix == 10 && int.TryParse(trimmed, out var number))
             {
-                s = s.Substring(2);
+                return JsNumber.Create(number);
             }
 
-            try
+            var sign = 1;
+            if (s.Length > 0)
             {
-                return sign * Parse(s, radix);
-            }
-            catch
-            {
-                return JsNumber.DoubleNaN;
+                var c = s[0];
+                if (c == '-')
+                {
+                    sign = -1;
+                }
+
+                if (c is '-' or '+')
+                {
+                    s = s.Slice(1);
+                }
             }
 
-        }
+            if (stripPrefix && hexStart)
+            {
+                s = s.Slice(2);
+            }
 
-        private static double Parse(string number, int radix)
-        {
-            if (number == "")
+            if (s.Length == 0)
             {
                 return double.NaN;
             }
 
+            var hasResult = false;
             double result = 0;
             double pow = 1;
-            for (int i = number.Length - 1; i >= 0; i--)
+            for (var i = s.Length - 1; i >= 0; i--)
             {
-                double index = double.NaN;
-                char digit = number[i];
+                var digit = s[i];
 
-                if (digit >= '0' && digit <= '9')
+                var index = digit switch
                 {
-                    index = digit - '0';
-                }
-                else if (digit >= 'a' && digit <= 'z')
-                {
-                    index = digit - 'a' + 10;
-                }
-                else if (digit >= 'A' && digit <= 'Z')
-                {
-                    index = digit - 'A' + 10;
-                }
+                    >= '0' and <= '9' => digit - '0',
+                    >= 'a' and <= 'z' => digit - 'a' + 10,
+                    >= 'A' and <= 'Z' => digit - 'A' + 10,
+                    _ => -1
+                };
 
-                if (double.IsNaN(index) || index >= radix)
+                if (index == -1 || index >= radix)
                 {
-                    return Parse(number.Substring(0, i), radix);
+                    // reset
+                    hasResult = false;
+                    result = 0;
+                    pow = 1;
+                    continue;
                 }
 
+                hasResult = true;
                 result += index * pow;
-                pow = pow * radix;
+                pow *= radix;
             }
 
-            return result;
+            return hasResult ? JsNumber.Create(sign  * result) : JsNumber.DoubleNaN;
         }
 
         /// <summary>
@@ -396,7 +384,14 @@ namespace Jint.Native.Global
         /// </summary>
         public static JsValue IsNaN(JsValue thisObject, JsValue[] arguments)
         {
-            var x = TypeConverter.ToNumber(arguments.At(0));
+            var value = arguments.At(0);
+
+            if (ReferenceEquals(value, JsNumber.DoubleNaN))
+            {
+                return true;
+            }
+
+            var x = TypeConverter.ToNumber(value);
             return double.IsNaN(x);
         }
 
