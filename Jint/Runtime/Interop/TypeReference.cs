@@ -13,7 +13,7 @@ namespace Jint.Runtime.Interop
 {
     public sealed class TypeReference : FunctionInstance, IConstructor, IObjectWrapper
     {
-        private static readonly JsString _name = new JsString("typereference");
+        private static readonly JsString _name = new("typereference");
         private static readonly ConcurrentDictionary<Type, MethodDescriptor[]> _constructorCache = new();
         private static readonly ConcurrentDictionary<MemberAccessorKey, ReflectionAccessor> _memberAccessors = new();
 
@@ -26,7 +26,9 @@ namespace Jint.Runtime.Interop
 
             _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
-            _prototypeDescriptor = new PropertyDescriptor(engine.Realm.Intrinsics.Object.PrototypeObject, PropertyFlag.AllForbidden);
+
+            var proto = new ObjectInstance(engine);
+            _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.AllForbidden);
 
             PreventExtensions();
         }

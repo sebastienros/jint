@@ -3066,5 +3066,25 @@ namespace Jint.Tests.Runtime
             engine.Realm.GlobalObject.RemoveOwnProperty("o");
             return reference;
         }
+
+        [Fact]
+        public void TypeReferenceShouldGetIntermediaryPrototype()
+        {
+            var engine = new Engine();
+            engine.SetValue("Person", TypeReference.CreateTypeReference<Person>(engine));
+
+            var calls = new List<string>();
+            engine.SetValue("log", new Action<string>(calls.Add));
+
+            engine.Execute("Person.prototype.__defineGetter__('bar', function() { log('called'); return 5 });");
+            engine.Execute("var instance = new Person();");
+            engine.Execute("log(instance.bar)");
+
+            engine.Execute("var z = {};");
+            engine.Execute("z['bar'] = 20;");
+            engine.Execute("log(z['bar']);");
+
+            Assert.Equal("called#5#20", string.Join("#", calls));
+        }
     }
 }
