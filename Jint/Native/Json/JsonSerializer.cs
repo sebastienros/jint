@@ -201,9 +201,12 @@ namespace Jint.Native.Json
 
             if (value is ObjectInstance { IsCallable: false } objectInstance)
             {
-                return SerializesAsArray(objectInstance)
-                    ? SerializeJSONArray(objectInstance)
-                    : SerializeJSONObject(objectInstance);
+                if (SerializesAsArray(objectInstance))
+                    return SerializeJSONArray(objectInstance);
+                if (objectInstance is IObjectWrapper wrapper
+                    && _engine.Options.Interop.SerializeToJson is { } serialize)
+                    return serialize(wrapper.Target);
+                return SerializeJSONObject(objectInstance);
             }
 
             return JsValue.Undefined;

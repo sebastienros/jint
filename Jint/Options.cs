@@ -307,6 +307,11 @@ namespace Jint
         /// Strategy to create a CLR object to hold converted <see cref="ObjectInstance"/>.
         /// </summary>
         public Func<ObjectInstance, IDictionary<string, object>> CreateClrObject = _ => new ExpandoObject();
+        
+        /// <summary>
+        /// When provided, invoke to serialize any CLR object in <see cref="IObjectWrapper"/>.
+        /// </summary>
+        public Func<object, string>? SerializeToJson { get; set; }
     }
 
     /// <summary>

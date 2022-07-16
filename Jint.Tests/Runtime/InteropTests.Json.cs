@@ -102,4 +102,40 @@ public partial class InteropTests
 
         Assert.Equal(expected, value);
     }
+    
+    [Fact]
+    public void CanStringifyUsingSerializeToJson()
+    {
+        Func<object, string> serialize = (o) => Newtonsoft.Json.JsonConvert.SerializeObject(o,
+            new Newtonsoft.Json.JsonSerializerSettings
+            {
+                ContractResolver = new Newtonsoft.Json.Serialization.DefaultContractResolver
+                {
+                    NamingStrategy = new Newtonsoft.Json.Serialization.SnakeCaseNamingStrategy()
+                }
+            });
+        var engine = new Engine(options =>
+        {
+            options.Interop.SerializeToJson = serialize;
+        });
+
+        string expected;
+        Native.JsValue value;
+        
+        expected = serialize(TimeSpan.FromSeconds(3));
+        engine.SetValue("TimeSpan", TypeReference.CreateTypeReference<TimeSpan>(engine));
+        value = engine.Evaluate("JSON.stringify(TimeSpan.FromSeconds(3));");
+        Assert.Equal(expected, value);
+
+        engine.Evaluate("JSON.stringify({ something: 'hi' })");
+        
+        object testObject = new { Foo = "bar", FooBar = new { Foo = 123.45, Foobar = new DateTime(2022, 7, 16) } };
+        expected = serialize(testObject);
+        engine.SetValue("TestObject", testObject);
+        value = engine.Evaluate("JSON.stringify(TestObject)");
+        Assert.Equal(expected, value);
+
+        value = engine.Evaluate("JSON.stringify({ nested: TestObject })");
+        Assert.Equal($@"{{""nested"":{expected}}}", value);
+    }
 }
