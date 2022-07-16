@@ -756,6 +756,7 @@ namespace Jint.Tests.Runtime
         [InlineData(double.NaN, "parseInt(Infinity)")]
         [InlineData(-1d, "parseInt(-1)")]
         [InlineData(-1d, "parseInt('-1')")]
+        [InlineData(double.NaN, "parseInt(new Array(100000).join('Z'))")]
         public void ShouldEvaluateParseInt(object expected, string source)
         {
             var engine = new Engine();
@@ -1989,7 +1990,7 @@ var prep = function (fn) { fn(); };
                 }
                 test('arg');
             ";
-            
+
             var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(source));
             Assert.Equal(3, ex.Location.Start.Line);
         }
