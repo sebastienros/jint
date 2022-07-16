@@ -1,11 +1,8 @@
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Domain;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

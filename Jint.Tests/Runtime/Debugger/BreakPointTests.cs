@@ -1,6 +1,5 @@
 ﻿using Esprima;
 using Jint.Runtime.Debugger;
-using Xunit;
 
 namespace Jint.Tests.Runtime.Debugger
 {
@@ -153,7 +152,7 @@ return x + 2;
 test(z);";
 
             var engine = new Engine(options => { options.DebugMode(); });
-            
+
             engine.DebugHandler.BreakPoints.Set(new BreakPoint("script2", 3, 0));
 
             bool didBreak = false;
@@ -172,7 +171,7 @@ test(z);";
             Assert.False(didBreak);
 
             engine.Execute(script2, new ParserOptions("script2"));
-            Assert.False(didBreak); 
+            Assert.False(didBreak);
 
             // Note that it's actually script3 that executes the function in script2
             // and triggers the breakpoint

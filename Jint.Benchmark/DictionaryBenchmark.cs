@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Jint.Collections;
 using BenchmarkDotNet.Attributes;
 

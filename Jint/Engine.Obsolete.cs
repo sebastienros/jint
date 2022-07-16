@@ -1,4 +1,3 @@
-using System;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Date;

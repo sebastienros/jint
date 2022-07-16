@@ -1,4 +1,3 @@
-using System;
 using Esprima.Ast;
 using Jint.Native;
 

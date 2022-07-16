@@ -1,10 +1,8 @@
-using System;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

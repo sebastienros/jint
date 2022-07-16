@@ -1,8 +1,6 @@
-﻿using System;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Jint.Native;
 using Jint.Native.Array;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

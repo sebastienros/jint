@@ -1,8 +1,5 @@
-﻿using System;
-using System.IO;
-using System.Reflection;
+﻿using System.Reflection;
 using Jint.Runtime;
-using NUnit.Framework;
 
 namespace Jint.Tests.CommonScripts
 {

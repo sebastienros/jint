@@ -1,6 +1,3 @@
-using System;
-using Xunit;
-
 namespace Jint.Tests.Runtime
 {
     public class DateTests

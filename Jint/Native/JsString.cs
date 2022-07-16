@@ -1,6 +1,5 @@
 ﻿#nullable enable
 
-using System;
 using System.Text;
 using Jint.Native.Array;
 using Jint.Runtime;

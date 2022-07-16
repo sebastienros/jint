@@ -1,6 +1,4 @@
-﻿using Xunit;
-
-namespace Jint.Tests.Runtime
+﻿namespace Jint.Tests.Runtime
 {
     public class CallStackTests
     {

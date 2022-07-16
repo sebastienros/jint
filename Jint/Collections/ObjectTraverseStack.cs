@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Jint.Native;
 using Jint.Runtime;
 

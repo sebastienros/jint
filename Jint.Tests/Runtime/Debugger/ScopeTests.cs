@@ -1,7 +1,5 @@
 ﻿using Jint.Native;
 using Jint.Runtime.Debugger;
-using System.Linq;
-using Xunit;
 
 namespace Jint.Tests.Runtime.Debugger
 {

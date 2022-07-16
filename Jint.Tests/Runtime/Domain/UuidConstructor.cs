@@ -1,4 +1,3 @@
-using System;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;

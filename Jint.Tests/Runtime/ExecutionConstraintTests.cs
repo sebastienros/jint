@@ -1,10 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
 using Jint.Native.Function;
 using Jint.Runtime;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

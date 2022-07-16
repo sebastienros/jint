@@ -1,7 +1,5 @@
 ﻿#nullable enable
 
-using System;
-using System.IO;
 using Esprima;
 using Esprima.Ast;
 

@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace Jint.Native.Symbol
+﻿namespace Jint.Native.Symbol
 {
     public class GlobalSymbolRegistry
     {

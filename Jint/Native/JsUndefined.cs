@@ -1,5 +1,4 @@
-﻿using System;
-using Jint.Runtime;
+﻿using Jint.Runtime;
 
 namespace Jint.Native
 {

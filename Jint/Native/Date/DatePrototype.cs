@@ -1,5 +1,4 @@
-﻿using System;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Object;

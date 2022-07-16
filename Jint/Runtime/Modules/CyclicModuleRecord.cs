@@ -1,6 +1,4 @@
-﻿using System;
-using Esprima.Ast;
-using System.Collections.Generic;
+﻿using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime.Descriptors;

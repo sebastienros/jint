@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Jint.Collections;
+﻿using Jint.Collections;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;

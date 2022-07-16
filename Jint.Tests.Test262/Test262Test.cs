@@ -1,6 +1,4 @@
-﻿using System;
-using System.IO;
-using Esprima;
+﻿using Esprima;
 using Jint.Native;
 using Jint.Native.ArrayBuffer;
 using Jint.Runtime;

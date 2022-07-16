@@ -1,6 +1,5 @@
 ﻿using Jint.Native;
 using Jint.Runtime.Interop;
-using System;
 
 namespace Jint.Tests.Runtime.Converters
 {

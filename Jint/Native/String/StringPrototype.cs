@@ -1,6 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Collections;
 using Jint.Native.Object;
@@ -592,7 +590,7 @@ namespace Jint.Native.String
             if (!functionalReplace)
             {
                 replaceValue = TypeConverter.ToJsString(replaceValue);
-                
+
                 // check fast case
                 var newValue = replaceValue.ToString();
                 if (newValue.IndexOf('$') < 0 && searchString.Length > 0)
@@ -610,11 +608,11 @@ namespace Jint.Native.String
                     return fromIndex;
                 }
 
-                return fromIndex < s.Length 
+                return fromIndex < s.Length
                     ? s.IndexOf(search, fromIndex, StringComparison.Ordinal)
                     : -1;
             }
-            
+
             var searchLength = searchString.Length;
             var advanceBy = System.Math.Max(1, searchLength);
 
@@ -640,7 +638,7 @@ namespace Jint.Native.String
 
                 result.Append(preserved).Append(replacement);
                 endOfLastMatch = position + searchLength;
-                
+
                 position = StringIndexOf(thisString, searchString, position + advanceBy);
             }
 

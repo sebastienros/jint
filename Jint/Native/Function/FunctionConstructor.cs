@@ -1,5 +1,4 @@
-﻿using System;
-using Esprima;
+﻿using Esprima;
 using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;

@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Jint.Collections;
+﻿using Jint.Collections;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -83,7 +80,7 @@ namespace Jint.Native.Array
             {
                 [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, propertyFlags),
                 [GlobalSymbolRegistry.Unscopables] = new LazyPropertyDescriptor(_engine, static state =>
-                {            
+                {
                     var unscopables = new ObjectInstance((Engine) state)
                     {
                         _prototype = null

@@ -1,5 +1,3 @@
-using System;
-
 namespace Jint.Native.Object;
 
 /// <summary>

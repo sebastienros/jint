@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using Esprima;
@@ -127,7 +126,7 @@ namespace Jint.Runtime
         {
             throw new PromiseRejectedException(error);
         }
-        
+
         [DoesNotReturn]
         public static void ThrowJavaScriptException(JsValue value)
         {
@@ -139,13 +138,13 @@ namespace Jint.Runtime
         {
             throw new JavaScriptException(value).SetJavaScriptCallstack(engine, result.Location);
         }
-        
+
         [DoesNotReturn]
         public static void ThrowJavaScriptException(ErrorConstructor errorConstructor, string message)
         {
             throw new JavaScriptException(errorConstructor, message);
         }
-        
+
         [DoesNotReturn]
         public static void ThrowJavaScriptException(ErrorConstructor errorConstructor, string message, Engine engine, Location location)
         {

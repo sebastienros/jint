@@ -1,6 +1,5 @@
 using Jint.Native.Json;
 using Jint.Runtime;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

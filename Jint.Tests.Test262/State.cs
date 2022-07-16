@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using Esprima.Ast;
 
 namespace Jint.Tests.Test262;

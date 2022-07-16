@@ -1,10 +1,8 @@
-using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.WeakMap;
 using Jint.Native.WeakSet;
 using Jint.Runtime;
-using Xunit;
 
 namespace Jint.Tests.Runtime;
 

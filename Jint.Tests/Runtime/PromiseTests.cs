@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime;
-using Xunit;
 
 // obsolete GetCompletionValue
 #pragma warning disable 618

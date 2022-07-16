@@ -1,6 +1,5 @@
 #nullable enable
 
-using System;
 using Jint.Native.Date;
 
 namespace Jint.Tests.Runtime.TestClasses;

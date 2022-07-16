@@ -1,7 +1,5 @@
 ﻿#nullable enable
 
-using System;
-using System.Collections.Generic;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;

@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections;
 using System.Globalization;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Native;
@@ -15,7 +12,6 @@ using Jint.Tests.Runtime.Domain;
 using Jint.Tests.Runtime.TestClasses;
 using MongoDB.Bson;
 using Shapes;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

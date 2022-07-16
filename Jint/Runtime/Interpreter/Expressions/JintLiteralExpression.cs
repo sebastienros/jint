@@ -1,4 +1,3 @@
-using System;
 using System.Numerics;
 using Esprima;
 using Esprima.Ast;

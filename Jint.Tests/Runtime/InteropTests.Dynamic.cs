@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.Dynamic;
-using Xunit;
 
 namespace Jint.Tests.Runtime
 {

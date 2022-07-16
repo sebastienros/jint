@@ -1,4 +1,3 @@
-using System;
 using Jint.Native.Object;
 using Jint.Native.TypedArray;
 using Jint.Runtime;

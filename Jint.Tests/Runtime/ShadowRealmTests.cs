@@ -1,5 +1,4 @@
 using Jint.Native.Object;
-using Xunit;
 
 namespace Jint.Tests.Runtime;
 

@@ -1,5 +1,4 @@
 ﻿using Jint.Runtime;
-using System;
 using System.Threading;
 
 namespace Jint.Constraints

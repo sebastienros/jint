@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Runtime;

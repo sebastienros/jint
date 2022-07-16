@@ -1,5 +1,4 @@
-﻿using System;
-using Jint.Native;
+﻿using Jint.Native;
 
 namespace Jint.Tests.Runtime.Domain
 {

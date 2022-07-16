@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;

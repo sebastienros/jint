@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Jint.Native.Function;
+﻿using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;

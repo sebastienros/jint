@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Esprima.Ast;
+﻿using Esprima.Ast;
 using Jint.Native;
 
 namespace Jint.Runtime.Modules;

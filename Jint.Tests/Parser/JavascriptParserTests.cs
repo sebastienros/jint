@@ -1,9 +1,6 @@
-﻿using System;
-using System.Linq;
-using Esprima;
+﻿using Esprima;
 using Esprima.Ast;
 using Jint.Runtime;
-using Xunit;
 
 namespace Jint.Tests.Parser
 {

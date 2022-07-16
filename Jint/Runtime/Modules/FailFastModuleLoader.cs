@@ -1,6 +1,5 @@
 #nullable enable
 
-using System;
 using Esprima.Ast;
 
 namespace Jint.Runtime.Modules;
