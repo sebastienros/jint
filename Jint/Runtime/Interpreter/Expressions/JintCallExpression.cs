@@ -119,6 +119,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             var engine = context.Engine;
             var func = engine.GetValue(reference, false);
 
+            if (func.IsNullOrUndefined() && _expression.IsOptional())
+            {
+                return Undefined.Instance;
+            }
+
             if (reference is Reference referenceRecord
                 && !referenceRecord.IsPropertyReference()
                 && referenceRecord.GetReferencedName() == CommonProperties.Eval
@@ -134,7 +139,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var evalArg = argList[0];
                 var strictCaller = StrictModeScope.IsStrictModeCode;
                 var evalRealm = evalFunctionInstance._realm;
-                var direct = !((CallExpression) _expression).Optional;
+                var direct = !_expression.IsOptional();
                 var value = evalFunctionInstance.PerformEval(evalArg, evalRealm, strictCaller, direct);
                 engine._referencePool.Return(referenceRecord);
                 return value;
@@ -172,7 +177,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     else
                     {
                         var refEnv = (EnvironmentRecord) baseValue;
-                        thisValue = refEnv.WithBaseObject();   
+                        thisValue = refEnv.WithBaseObject();
                     }
                 }
             }

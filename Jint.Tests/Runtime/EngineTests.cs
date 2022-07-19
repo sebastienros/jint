@@ -2865,6 +2865,23 @@ x.test = {
             Assert.Equal("[\"02100\"]", engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(testObj));").AsString());
         }
 
+        [Fact]
+        public void ShouldAllowOptionalChainingForMemberCall()
+        {
+            var engine = new Engine();
+            const string Script = @"
+                const adventurer = {  name: 'Alice', cat: { name: 'Dinah' } };
+                const dogName = adventurer.dog?.name;
+                const methodResult = adventurer.someNonExistentMethod?.();
+                return [ dogName, methodResult ];
+            ";
+            var array = engine.Evaluate(Script).AsArray();
+
+            Assert.Equal(2L, array.Length);
+            Assert.True(array[0].IsUndefined());
+            Assert.True(array[1].IsUndefined());
+        }
+
         private class Wrapper
         {
             public Testificate Test { get; set; }
