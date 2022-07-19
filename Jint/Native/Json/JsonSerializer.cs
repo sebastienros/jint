@@ -202,10 +202,16 @@ namespace Jint.Native.Json
             if (value is ObjectInstance { IsCallable: false } objectInstance)
             {
                 if (SerializesAsArray(objectInstance))
+                {
                     return SerializeJSONArray(objectInstance);
+                }
+
                 if (objectInstance is IObjectWrapper wrapper
                     && _engine.Options.Interop.SerializeToJson is { } serialize)
+                {
                     return serialize(wrapper.Target);
+                }
+
                 return SerializeJSONObject(objectInstance);
             }
 

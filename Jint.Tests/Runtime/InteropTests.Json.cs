@@ -106,36 +106,43 @@ public partial class InteropTests
     [Fact]
     public void CanStringifyUsingSerializeToJson()
     {
-        Func<object, string> serialize = (o) => Newtonsoft.Json.JsonConvert.SerializeObject(o,
-            new Newtonsoft.Json.JsonSerializerSettings
-            {
-                ContractResolver = new Newtonsoft.Json.Serialization.DefaultContractResolver
-                {
-                    NamingStrategy = new Newtonsoft.Json.Serialization.SnakeCaseNamingStrategy()
-                }
-            });
+        object testObject = new { Foo = "bar", FooBar = new { Foo = 123.45, Foobar = new DateTime(2022, 7, 16) } };
+        
+        // without interop
+        
+        var engineNoInterop = new Engine();
+        engineNoInterop.SetValue("TimeSpan", TypeReference.CreateTypeReference<TimeSpan>(engineNoInterop));
+        Assert.Throws<Jint.Runtime.JavaScriptException>(
+            () => engineNoInterop.Evaluate("JSON.stringify(TimeSpan.FromSeconds(3))"));
+        
+        engineNoInterop.SetValue("TestObject", testObject);
+        Assert.Equal(
+            "{\"Foo\":\"bar\",\"FooBar\":{\"Foo\":123.45,\"Foobar\":\"2022-07-16T07:00:00.000Z\"}}",
+            engineNoInterop.Evaluate("JSON.stringify(TestObject)"));
+        
+        // interop using Newtonsoft serializer, for example with snake case naming
+        
+        string Serialize(object o) =>
+            Newtonsoft.Json.JsonConvert.SerializeObject(o,
+                new Newtonsoft.Json.JsonSerializerSettings {
+                    ContractResolver = new Newtonsoft.Json.Serialization.DefaultContractResolver {
+                        NamingStrategy = new Newtonsoft.Json.Serialization.SnakeCaseNamingStrategy() } });
         var engine = new Engine(options =>
         {
-            options.Interop.SerializeToJson = serialize;
+            options.Interop.SerializeToJson = Serialize;
         });
-
-        string expected;
-        Native.JsValue value;
-        
-        expected = serialize(TimeSpan.FromSeconds(3));
         engine.SetValue("TimeSpan", TypeReference.CreateTypeReference<TimeSpan>(engine));
-        value = engine.Evaluate("JSON.stringify(TimeSpan.FromSeconds(3));");
-        Assert.Equal(expected, value);
-
-        engine.Evaluate("JSON.stringify({ something: 'hi' })");
-        
-        object testObject = new { Foo = "bar", FooBar = new { Foo = 123.45, Foobar = new DateTime(2022, 7, 16) } };
-        expected = serialize(testObject);
         engine.SetValue("TestObject", testObject);
-        value = engine.Evaluate("JSON.stringify(TestObject)");
-        Assert.Equal(expected, value);
 
-        value = engine.Evaluate("JSON.stringify({ nested: TestObject })");
-        Assert.Equal($@"{{""nested"":{expected}}}", value);
+        var expected = Serialize(TimeSpan.FromSeconds(3));
+        var actual = engine.Evaluate("JSON.stringify(TimeSpan.FromSeconds(3));");
+        Assert.Equal(expected, actual);
+        
+        expected = Serialize(testObject);
+        actual = engine.Evaluate("JSON.stringify(TestObject)");
+        Assert.Equal(expected, actual);
+
+        actual = engine.Evaluate("JSON.stringify({ nestedValue: TestObject })");
+        Assert.Equal($@"{{""nestedValue"":{expected}}}", actual);
     }
 }

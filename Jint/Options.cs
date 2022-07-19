@@ -309,7 +309,8 @@ namespace Jint
         public Func<ObjectInstance, IDictionary<string, object>> CreateClrObject = _ => new ExpandoObject();
         
         /// <summary>
-        /// When provided, invoke to serialize any CLR object in <see cref="IObjectWrapper"/>.
+        /// When not null, is used to serialize any CLR object in an
+        /// <see cref="IObjectWrapper"/> passing through 'JSON.stringify'.
         /// </summary>
         public Func<object, string>? SerializeToJson { get; set; }
     }
