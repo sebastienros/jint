@@ -106,7 +106,7 @@ public partial class InteropTests
     [Fact]
     public void CanStringifyUsingSerializeToJson()
     {
-        object testObject = new { Foo = "bar", FooBar = new { Foo = 123.45, Foobar = new DateTime(2022, 7, 16) } };
+        object testObject = new { Foo = "bar", FooBar = new { Foo = 123.45, Foobar = new DateTime(2022, 7, 16, 0, 0, 0, DateTimeKind.Utc) } };
         
         // without interop
         
@@ -117,7 +117,7 @@ public partial class InteropTests
         
         engineNoInterop.SetValue("TestObject", testObject);
         Assert.Equal(
-            "{\"Foo\":\"bar\",\"FooBar\":{\"Foo\":123.45,\"Foobar\":\"2022-07-16T07:00:00.000Z\"}}",
+            "{\"Foo\":\"bar\",\"FooBar\":{\"Foo\":123.45,\"Foobar\":\"2022-07-16T00:00:00.000Z\"}}",
             engineNoInterop.Evaluate("JSON.stringify(TestObject)"));
         
         // interop using Newtonsoft serializer, for example with snake case naming
