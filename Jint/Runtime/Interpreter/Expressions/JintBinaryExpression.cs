@@ -118,7 +118,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     break;
                 case BinaryOperator.BitwiseAnd:
                 case BinaryOperator.BitwiseOr:
-                case BinaryOperator.BitwiseXOr:
+                case BinaryOperator.BitwiseXor:
                 case BinaryOperator.LeftShift:
                 case BinaryOperator.RightShift:
                 case BinaryOperator.UnsignedRightShift:
@@ -715,7 +715,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         BinaryOperator.BitwiseAnd => "op_BitwiseAnd",
                         BinaryOperator.BitwiseOr => "op_BitwiseOr",
-                        BinaryOperator.BitwiseXOr => "op_ExclusiveOr",
+                        BinaryOperator.BitwiseXor => "op_ExclusiveOr",
                         BinaryOperator.LeftShift => "op_LeftShift",
                         BinaryOperator.RightShift => "op_RightShift",
                         BinaryOperator.UnsignedRightShift => "op_UnsignedRightShift",
@@ -764,7 +764,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         case BinaryOperator.BitwiseOr:
                             result = JsNumber.Create(leftValue | rightValue);
                             break;
-                        case BinaryOperator.BitwiseXOr:
+                        case BinaryOperator.BitwiseXor:
                             result = JsNumber.Create(leftValue ^ rightValue);
                             break;
                         case BinaryOperator.LeftShift:
@@ -810,7 +810,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return JsBigInt.Create(TypeConverter.ToBigInt(left) | TypeConverter.ToBigInt(right));
                     }
 
-                    case BinaryOperator.BitwiseXOr:
+                    case BinaryOperator.BitwiseXor:
                     {
                         if (!left.IsBigInt())
                         {
