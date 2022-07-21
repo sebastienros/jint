@@ -9,10 +9,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintCallExpression : JintExpression
     {
-        private CachedArgumentsHolder _cachedArguments;
+        private CachedArgumentsHolder _cachedArguments = null!;
         private bool _cached;
 
-        private JintExpression _calleeExpression;
+        private JintExpression _calleeExpression = null!;
         private bool _hasSpreads;
 
         public JintCallExpression(CallExpression expression) : base(expression)
@@ -30,10 +30,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                 JintArguments = new JintExpression[expression.Arguments.Count]
             };
 
-            static bool CanSpread(Node e)
+            static bool CanSpread(Node? e)
             {
-                return e?.Type == Nodes.SpreadElement
-                    || e is AssignmentExpression ae && ae.Right?.Type == Nodes.SpreadElement;
+                return e?.Type == Nodes.SpreadElement || e is AssignmentExpression { Right.Type: Nodes.SpreadElement };
             }
 
             bool cacheable = true;
@@ -82,13 +81,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             var thisEnvironment = (FunctionEnvironmentRecord) engine.ExecutionContext.GetThisEnvironment();
             var newTarget = engine.GetNewTarget(thisEnvironment);
             var func = GetSuperConstructor(thisEnvironment);
-            if (!func.IsConstructor)
+            if (func is null || !func.IsConstructor)
             {
                 ExceptionHelper.ThrowTypeError(engine.Realm, "Not a constructor");
             }
 
             var argList = ArgumentListEvaluation(context);
-            var result = ((IConstructor) func).Construct(argList, newTarget);
+            var result = ((IConstructor) func).Construct(argList, newTarget ?? JsValue.Undefined);
             var thisER = (FunctionEnvironmentRecord) engine.ExecutionContext.GetThisEnvironment();
             return thisER.BindThisValue(result);
         }
@@ -96,7 +95,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// https://tc39.es/ecma262/#sec-getsuperconstructor
         /// </summary>
-        private static ObjectInstance GetSuperConstructor(FunctionEnvironmentRecord thisEnvironment)
+        private static ObjectInstance? GetSuperConstructor(FunctionEnvironmentRecord thisEnvironment)
         {
             var envRec = thisEnvironment;
             var activeFunction = envRec._functionObject;
@@ -232,7 +231,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JsValue[] ArgumentListEvaluation(EvaluationContext context)
         {
             var cachedArguments = _cachedArguments;
-            var arguments = System.Array.Empty<JsValue>();
+            var arguments = Array.Empty<JsValue>();
             if (_cached)
             {
                 arguments = cachedArguments.CachedArguments;
@@ -258,8 +257,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class CachedArgumentsHolder
         {
-            internal JintExpression[] JintArguments;
-            internal JsValue[] CachedArguments;
+            internal JintExpression[] JintArguments = Array.Empty<JintExpression>();
+            internal JsValue[] CachedArguments = Array.Empty<JsValue>();
         }
     }
 }

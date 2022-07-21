@@ -1,5 +1,3 @@
-﻿#nullable enable
-
 using Esprima;
 using Esprima.Ast;
 using Jint.Native.Function;

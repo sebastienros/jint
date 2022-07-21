@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using Esprima;
+﻿using Esprima;
 using Esprima.Ast;
 using Esprima.Utils;
 using Jint.Native.Function;
@@ -152,6 +150,7 @@ public sealed class ShadowRealmInstance : ObjectInstance
         {
             ThrowCrossRealmError(throwerRealm, ex.Message);
         }
+
         return wrapped;
     }
 
@@ -180,7 +179,6 @@ public sealed class ShadowRealmInstance : ObjectInstance
                     var targetLenAsInt = TypeConverter.ToIntegerOrInfinity(targetLen);
                     L = JsNumber.Create(System.Math.Max(targetLenAsInt - argCount, 0));
                 }
-
             }
         }
 

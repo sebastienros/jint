@@ -28,7 +28,7 @@ namespace Jint.Runtime.Debugger
         /// still be paused by a debugger statement or breakpoint, but these will trigger the
         /// <see cref="Break"/> event.
         /// </remarks>
-        public event DebugEventHandler Step;
+        public event DebugEventHandler? Step;
 
         /// <summary>
         /// The Break event is triggered when a breakpoint or debugger statement is hit.
@@ -37,7 +37,7 @@ namespace Jint.Runtime.Debugger
         /// This is event is not triggered if the current script location was reached by stepping. In that case, only
         /// the <see cref="Step"/> event is triggered.
         /// </remarks>
-        public event DebugEventHandler Break;
+        public event DebugEventHandler? Break;
 
         internal DebugHandler(Engine engine, StepMode initialStepMode)
         {
@@ -108,7 +108,7 @@ namespace Jint.Runtime.Debugger
         }
 
         /// <inheritdoc cref="Evaluate(Script)" />
-        public JsValue Evaluate(string source, ParserOptions options = null)
+        public JsValue Evaluate(string source, ParserOptions? options = null)
         {
             options ??= new ParserOptions("evaluation");
             var parser = new JavaScriptParser(source, options);
@@ -133,7 +133,7 @@ namespace Jint.Runtime.Debugger
             _paused = true;
 
             CheckBreakPointAndPause(
-                new BreakLocation(node.Location.Source, node.Location.Start),
+                new BreakLocation(node.Location.Source!, node.Location.Start),
                 node: node,
                 location: null,
                 returnValue: null);
@@ -153,7 +153,7 @@ namespace Jint.Runtime.Debugger
             var location = new Location(functionBodyEnd, functionBodyEnd, bodyLocation.Source);
 
             CheckBreakPointAndPause(
-                new BreakLocation(bodyLocation.Source, bodyLocation.End),
+                new BreakLocation(bodyLocation.Source!, bodyLocation.End),
                 node: null,
                 location: location,
                 returnValue: returnValue);
@@ -180,11 +180,14 @@ namespace Jint.Runtime.Debugger
             _paused = false;
         }
 
-        private void CheckBreakPointAndPause(BreakLocation breakLocation, Node node = null, Location? location = null,
-            JsValue returnValue = null)
+        private void CheckBreakPointAndPause(
+            BreakLocation breakLocation,
+            Node? node,
+            Location? location = null,
+            JsValue? returnValue = null)
         {
             CurrentLocation = location ?? node?.Location;
-            BreakPoint breakpoint = BreakPoints.FindMatch(this, breakLocation);
+            var breakpoint = BreakPoints.FindMatch(this, breakLocation);
 
             bool isStepping = _engine.CallStack.Count <= _steppingDepth;
 
@@ -193,19 +196,23 @@ namespace Jint.Runtime.Debugger
                 // Even if we matched a breakpoint, if we're stepping, the reason we're pausing is the step.
                 // Still, we need to include the breakpoint at this location, in case the debugger UI needs to update
                 // e.g. a hit count.
-                Pause(isStepping ? PauseType.Step : PauseType.Break, node, location, returnValue, breakpoint);
+                Pause(isStepping ? PauseType.Step : PauseType.Break, node!, location, returnValue, breakpoint);
             }
 
             _paused = false;
         }
 
-        private void Pause(PauseType type, Node node = null, Location? location = null, JsValue returnValue = null,
-            BreakPoint breakPoint = null)
+        private void Pause(
+            PauseType type,
+            Node node,
+            Location? location = null,
+            JsValue? returnValue = null,
+            BreakPoint? breakPoint = null)
         {
             var info = new DebugInformation(
                 engine: _engine,
                 currentNode: node,
-                currentLocation: location ?? node.Location,
+                currentLocation: location ?? node!.Location,
                 returnValue: returnValue,
                 currentMemoryUsage: _engine.CurrentMemoryUsage,
                 pauseType: type,

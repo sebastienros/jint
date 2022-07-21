@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 
 namespace Jint.Runtime.Interop.Reflection
 {
@@ -9,7 +9,7 @@ namespace Jint.Runtime.Interop.Reflection
         public PropertyAccessor(
             string memberName,
             PropertyInfo propertyInfo,
-            PropertyInfo indexerToTry = null) 
+            PropertyInfo? indexerToTry = null)
             : base(propertyInfo.PropertyType, memberName, indexerToTry)
         {
             _propertyInfo = propertyInfo;
@@ -22,7 +22,7 @@ namespace Jint.Runtime.Interop.Reflection
             return _propertyInfo.GetValue(target, index: null);
         }
 
-        protected override void DoSetValue(object target, object value)
+        protected override void DoSetValue(object target, object? value)
         {
             _propertyInfo.SetValue(target, value, index: null);
         }

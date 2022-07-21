@@ -16,11 +16,11 @@ namespace Jint.Runtime
         {
         }
 
-        protected JintException(string message) : base(message)
+        protected JintException(string? message) : base(message)
         {
         }
 
-        protected JintException(string message, Exception innerException) : base(message, innerException)
+        protected JintException(string? message, Exception? innerException) : base(message, innerException)
         {
         }
     }

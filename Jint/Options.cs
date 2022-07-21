@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using System.Dynamic;
+﻿using System.Dynamic;
 using System.Globalization;
 using System.Reflection;
 using Jint.Native;
@@ -307,7 +305,7 @@ namespace Jint
         /// Strategy to create a CLR object to hold converted <see cref="ObjectInstance"/>.
         /// </summary>
         public Func<ObjectInstance, IDictionary<string, object>> CreateClrObject = _ => new ExpandoObject();
-        
+
         /// <summary>
         /// When not null, is used to serialize any CLR object in an
         /// <see cref="IObjectWrapper"/> passing through 'JSON.stringify'.

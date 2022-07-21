@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native;
@@ -12,7 +12,7 @@ namespace Jint.Runtime.Descriptors
         public static readonly PropertyDescriptor Undefined = new UndefinedPropertyDescriptor();
 
         internal PropertyFlag _flags;
-        internal JsValue _value;
+        internal JsValue? _value;
 
         public PropertyDescriptor() : this(PropertyFlag.None)
         {
@@ -23,7 +23,7 @@ namespace Jint.Runtime.Descriptors
             _flags = flags;
         }
 
-        protected internal PropertyDescriptor(JsValue value, PropertyFlag flags) : this(flags)
+        protected internal PropertyDescriptor(JsValue? value, PropertyFlag flags) : this(flags)
         {
             if ((_flags & PropertyFlag.CustomJsValue) != 0)
             {
@@ -32,7 +32,7 @@ namespace Jint.Runtime.Descriptors
             _value = value;
         }
 
-        public PropertyDescriptor(JsValue value, bool? writable, bool? enumerable, bool? configurable)
+        public PropertyDescriptor(JsValue? value, bool? writable, bool? enumerable, bool? configurable)
         {
             if ((_flags & PropertyFlag.CustomJsValue) != 0)
             {
@@ -73,8 +73,8 @@ namespace Jint.Runtime.Descriptors
             WritableSet = descriptor.WritableSet;
         }
 
-        public virtual JsValue Get => null;
-        public virtual JsValue Set => null;
+        public virtual JsValue? Get => null;
+        public virtual JsValue? Set => null;
 
         public bool Enumerable
         {
@@ -194,10 +194,10 @@ namespace Jint.Runtime.Descriptors
             {
                 if ((_flags & PropertyFlag.CustomJsValue) != 0)
                 {
-                    return CustomValue;
+                    return CustomValue!;
                 }
 
-                return _value;
+                return _value!;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
@@ -210,7 +210,7 @@ namespace Jint.Runtime.Descriptors
             }
         }
 
-        protected internal virtual JsValue CustomValue
+        protected internal virtual JsValue? CustomValue
         {
             get => null;
             set => ExceptionHelper.ThrowNotImplementedException();
@@ -405,7 +405,7 @@ namespace Jint.Runtime.Descriptors
             if (!ReferenceEquals(getter, null) && !getter.IsUndefined())
             {
                 // if getter is not undefined it must be ICallable
-                var callable = getter.TryCast<ICallable>();
+                var callable = (ICallable) getter;
                 value = callable.Call(thisArg, Arguments.Empty);
             }
 
@@ -418,7 +418,7 @@ namespace Jint.Runtime.Descriptors
             {
             }
 
-            protected internal override JsValue CustomValue
+            protected internal override JsValue? CustomValue
             {
                 set => ExceptionHelper.ThrowInvalidOperationException("making changes to undefined property's descriptor is not allowed");
             }

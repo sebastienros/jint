@@ -102,16 +102,16 @@ namespace Jint.Native.Array
                 {
                     if (!_initialized)
                     {
-                        return null;
+                        return JsValue.Undefined;
                     }
                     else
                     {
-                        return _obj.TryGetValue(_current, out var temp) ? temp : null;
+                        return _obj.TryGetValue(_current, out var temp) ? temp : JsValue.Undefined;
                     }
                 }
             }
 
-            object IEnumerator.Current => Current;
+            object? IEnumerator.Current => Current;
 
             public void Dispose()
             {
@@ -216,10 +216,10 @@ namespace Jint.Native.Array
                 => _target.GetSmallestIndex();
 
             public override uint GetLength()
-                => (uint) ((JsNumber) _target._length._value)._value;
+                => (uint) ((JsNumber) _target._length!._value!)._value;
 
             public override ulong GetLongLength()
-                => (ulong) ((JsNumber) _target._length._value)._value;
+                => (ulong) ((JsNumber) _target._length!._value!)._value;
 
             public override void SetLength(ulong length)
                 => _target.Set(CommonProperties.Length, length, true);

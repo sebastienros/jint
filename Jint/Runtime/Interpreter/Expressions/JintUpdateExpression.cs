@@ -7,11 +7,11 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintUpdateExpression : JintExpression
     {
-        private JintExpression _argument;
+        private JintExpression _argument = null!;
         private int _change;
         private bool _prefix;
 
-        private JintIdentifierExpression _leftIdentifier;
+        private JintIdentifierExpression? _leftIdentifier;
         private bool _evalOrArguments;
 
         public JintUpdateExpression(UpdateExpression expression) : base(expression)
@@ -64,7 +64,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var value = engine.GetValue(reference, false);
             var isInteger = value._type == InternalTypes.Integer;
 
-            JsValue newValue = null;
+            JsValue? newValue = null;
 
             var operatorOverloaded = false;
             if (context.OperatorOverloadingAllowed)
@@ -92,12 +92,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            engine.PutValue(reference, newValue);
+            engine.PutValue(reference, newValue!);
             engine._referencePool.Return(reference);
 
             if (_prefix)
             {
-                return newValue;
+                return newValue!;
             }
             else
             {
@@ -115,10 +115,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        private JsValue UpdateIdentifier(EvaluationContext context)
+        private JsValue? UpdateIdentifier(EvaluationContext context)
         {
             var strict = StrictModeScope.IsStrictModeCode;
-            var name = _leftIdentifier._expressionName;
+            var name = _leftIdentifier!._expressionName;
             var engine = context.Engine;
             var env = engine.ExecutionContext.LexicalEnvironment;
             if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
@@ -135,7 +135,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 var isInteger = value._type == InternalTypes.Integer;
 
-                JsValue newValue = null;
+                JsValue? newValue = null;
 
                 var operatorOverloaded = false;
                 if (context.OperatorOverloadingAllowed)
@@ -163,7 +163,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                 }
 
-                environmentRecord.SetMutableBinding(name.Key.Name, newValue, strict);
+                environmentRecord.SetMutableBinding(name.Key.Name, newValue!, strict);
                 if (_prefix)
                 {
                     return newValue;

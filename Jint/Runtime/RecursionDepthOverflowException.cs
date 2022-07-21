@@ -1,4 +1,4 @@
-﻿using Jint.Runtime.CallStack;
+using Jint.Runtime.CallStack;
 
 namespace Jint.Runtime
 {

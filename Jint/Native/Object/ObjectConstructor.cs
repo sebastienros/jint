@@ -1,4 +1,4 @@
-﻿using Jint.Collections;
+using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Runtime;
@@ -162,7 +162,7 @@ namespace Jint.Native.Object
                 return OrdinaryCreateFromConstructor(
                     newTarget,
                     static intrinsics => intrinsics.Object.PrototypeObject,
-                    static (Engine engine, Realm _, object _) => new ObjectInstance(engine));
+                    static (Engine engine, Realm _, object? _) => new ObjectInstance(engine));
             }
 
             if (arguments.Length > 0)
@@ -174,7 +174,7 @@ namespace Jint.Native.Object
                 }
 
                 var type = value.Type;
-                if (type == Types.String || type == Types.Number || type == Types.Boolean)
+                if (type is Types.String or Types.Number or Types.Boolean)
                 {
                     return TypeConverter.ToObject(_realm, value);
                 }

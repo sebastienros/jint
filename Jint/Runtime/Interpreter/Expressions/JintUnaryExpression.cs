@@ -5,6 +5,7 @@ using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.References;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Reflection;
 
@@ -13,7 +14,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class JintUnaryExpression : JintExpression
     {
         private readonly record struct OperatorKey(string OperatorName, Type Operand);
-        private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor> _knownOperators = new();
+        private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor?> _knownOperators = new();
 
         private readonly JintExpression _argument;
         private readonly UnaryOperator _operator;
@@ -159,7 +160,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         ExceptionHelper.ThrowSyntaxError(engine.Realm);
                     }
 
-                    var bindings = r.GetBase().TryCast<EnvironmentRecord>();
+                    var bindings = (EnvironmentRecord) r.GetBase();
                     var property = referencedName;
                     engine._referencePool.Return(r);
 
@@ -243,7 +244,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return JsBigInt.Create(BigInteger.Negate(bigInt));
         }
 
-        internal static bool TryOperatorOverloading(EvaluationContext context, JsValue value, string clrName, out JsValue result)
+        internal static bool TryOperatorOverloading(EvaluationContext context, JsValue value, string clrName, [NotNullWhen(true)] out JsValue? result)
         {
             var operand = value.ToObject();
 
@@ -255,7 +256,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var key = new OperatorKey(clrName, operandType);
                 var method = _knownOperators.GetOrAdd(key, _ =>
                 {
-                    MethodInfo foundMethod = null;
+                    MethodInfo? foundMethod = null;
                     foreach (var x in operandType.GetOperatorOverloadMethods())
                     {
                         if (x.Name == clrName && x.GetParameters().Length == 1)

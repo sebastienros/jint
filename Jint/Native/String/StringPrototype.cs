@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Collections;
 using Jint.Native.Object;
@@ -24,10 +24,9 @@ namespace Jint.Native.String
             Realm realm,
             StringConstructor constructor,
             ObjectPrototype objectPrototype)
-            : base(engine)
+            : base(engine, JsString.Empty)
         {
             _prototype = objectPrototype;
-            StringData = JsString.Empty;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
             _realm = realm;
             _constructor = constructor;

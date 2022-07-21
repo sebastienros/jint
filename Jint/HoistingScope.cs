@@ -5,20 +5,20 @@ namespace Jint
 {
     internal readonly struct HoistingScope
     {
-        internal readonly List<FunctionDeclaration> _functionDeclarations;
+        internal readonly List<FunctionDeclaration>? _functionDeclarations;
 
-        internal readonly List<VariableDeclaration> _variablesDeclarations;
-        internal readonly List<Key> _varNames;
+        internal readonly List<VariableDeclaration>? _variablesDeclarations;
+        internal readonly List<Key>? _varNames;
 
-        internal readonly List<Declaration> _lexicalDeclarations;
-        internal readonly List<string> _lexicalNames;
+        internal readonly List<Declaration>? _lexicalDeclarations;
+        internal readonly List<string>? _lexicalNames;
 
         private HoistingScope(
-            List<FunctionDeclaration> functionDeclarations,
-            List<Key> varNames,
-            List<VariableDeclaration> variableDeclarations,
-            List<Declaration> lexicalDeclarations,
-            List<string> lexicalNames)
+            List<FunctionDeclaration>? functionDeclarations,
+            List<Key>? varNames,
+            List<VariableDeclaration>? variableDeclarations,
+            List<Declaration>? lexicalDeclarations,
+            List<string>? lexicalNames)
         {
             _functionDeclarations = functionDeclarations;
             _varNames = varNames;
@@ -74,9 +74,9 @@ namespace Jint
                 treeWalker._lexicalNames);
         }
 
-        public static List<Declaration> GetLexicalDeclarations(BlockStatement statement)
+        public static List<Declaration>? GetLexicalDeclarations(BlockStatement statement)
         {
-            List<Declaration> lexicalDeclarations = null;
+            List<Declaration>? lexicalDeclarations = null;
             ref readonly var statementListItems = ref statement.Body;
             for (var i = 0; i < statementListItems.Count; i++)
             {
@@ -98,9 +98,9 @@ namespace Jint
             return lexicalDeclarations;
         }
 
-        public static List<Declaration> GetLexicalDeclarations(SwitchCase statement)
+        public static List<Declaration>? GetLexicalDeclarations(SwitchCase statement)
         {
-            List<Declaration> lexicalDeclarations = null;
+            List<Declaration>? lexicalDeclarations = null;
             ref readonly var statementListItems = ref statement.Consequent;
             for (var i = 0; i < statementListItems.Count; i++)
             {
@@ -126,7 +126,7 @@ namespace Jint
         public static void GetImportsAndExports(
             Module module,
             out HashSet<string> requestedModules,
-            out List<ImportEntry> importEntries,
+            out List<ImportEntry>? importEntries,
             out List<ExportEntry> localExportEntries,
             out List<ExportEntry> indirectExportEntries,
             out List<ExportEntry> starExportEntries)
@@ -203,16 +203,16 @@ namespace Jint
 
         private sealed class ScriptWalker
         {
-            internal List<FunctionDeclaration> _functions;
+            internal List<FunctionDeclaration>? _functions;
 
             private readonly bool _strict;
             private readonly bool _collectVarNames;
-            internal List<VariableDeclaration> _variableDeclarations;
-            internal List<Key> _varNames;
+            internal List<VariableDeclaration>? _variableDeclarations;
+            internal List<Key>? _varNames;
 
             private readonly bool _collectLexicalNames;
-            internal List<Declaration> _lexicalDeclarations;
-            internal List<string> _lexicalNames;
+            internal List<Declaration>? _lexicalDeclarations;
+            internal List<string>? _lexicalNames;
 
             public ScriptWalker(bool strict, bool collectVarNames, bool collectLexicalNames)
             {
@@ -221,7 +221,7 @@ namespace Jint
                 _collectLexicalNames = collectLexicalNames;
             }
 
-            public void Visit(Node node, Node parent)
+            public void Visit(Node node, Node? parent)
             {
                 foreach (var childNode in node.ChildNodes)
                 {
@@ -246,7 +246,7 @@ namespace Jint
                                 {
                                     if (declaration.Id is Identifier identifier)
                                     {
-                                        _varNames.Add(identifier.Name);
+                                        _varNames.Add(identifier.Name!);
                                     }
                                 }
                             }
@@ -264,7 +264,7 @@ namespace Jint
                                 {
                                     if (declaration.Id is Identifier identifier)
                                     {
-                                        _lexicalNames.Add(identifier.Name);
+                                        _lexicalNames.Add(identifier.Name!);
                                     }
                                 }
                             }
@@ -297,9 +297,9 @@ namespace Jint
 
         private sealed class ModuleWalker
         {
-            internal List<ImportEntry> _importEntries;
-            internal List<ExportEntry> _exportEntries;
-            internal HashSet<string> _requestedModules;
+            internal List<ImportEntry>? _importEntries;
+            internal List<ExportEntry>? _exportEntries;
+            internal HashSet<string>? _requestedModules;
 
             internal void Visit(Node node)
             {
@@ -314,7 +314,7 @@ namespace Jint
                     {
                         _importEntries ??= new();
                         _requestedModules ??= new();
-                        var import = childNode as ImportDeclaration;
+                        var import = (ImportDeclaration) childNode;
                         import.GetImportEntries(_importEntries, _requestedModules);
                     }
                     else if (childNode.Type == Nodes.ExportAllDeclaration ||

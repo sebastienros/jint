@@ -49,7 +49,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (context.OperatorOverloadingAllowed)
             {
-                string operatorClrName = null;
+                string? operatorClrName = null;
                 switch (_operator)
                 {
                     case AssignmentOperator.PlusAssign:
@@ -331,10 +331,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal sealed class SimpleAssignmentExpression : JintExpression
         {
-            private JintExpression _left;
-            private JintExpression _right;
+            private JintExpression _left = null!;
+            private JintExpression _right = null!;
 
-            private JintIdentifierExpression _leftIdentifier;
+            private JintIdentifierExpression? _leftIdentifier;
             private bool _evalOrArguments;
 
             public SimpleAssignmentExpression(AssignmentExpression expression) : base(expression)

@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using Esprima;
 using Jint.Collections;
 using Jint.Native.Function;
@@ -113,7 +113,7 @@ namespace Jint.Native.RegExp
                 var timeout = _engine.Options.Constraints.RegexTimeout;
                 if (timeout.Ticks > 0)
                 {
-                    r.Value = r.Value != null ? new Regex(r.Value.ToString(), r.Value.Options, timeout) : null;
+                    r.Value = new Regex(r.Value.ToString(), r.Value.Options, timeout);
                 }
             }
             catch (Exception ex)
@@ -134,7 +134,7 @@ namespace Jint.Native.RegExp
             var r = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.RegExp.PrototypeObject,
-                static (Engine engine, Realm _, object _) => new RegExpInstance(engine));
+                static (Engine engine, Realm _, object? _) => new RegExpInstance(engine));
             return r;
         }
 
@@ -149,7 +149,7 @@ namespace Jint.Native.RegExp
             var timeout = _engine.Options.Constraints.RegexTimeout;
             if (timeout.Ticks > 0)
             {
-                r.Value = regExp != null ? new Regex(regExp.ToString(), regExp.Options, timeout) : null;
+                r.Value = new Regex(regExp.ToString(), regExp.Options, timeout);
             }
             else
             {

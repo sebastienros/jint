@@ -1,4 +1,4 @@
-﻿namespace Jint.Runtime
+namespace Jint.Runtime
 {
     /// <summary>
     /// Workaround for situation where engine is not easily accessible.

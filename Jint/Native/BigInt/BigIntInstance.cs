@@ -1,17 +1,12 @@
-﻿using Jint.Native.Object;
+using Jint.Native.Object;
 using Jint.Runtime;
 
 namespace Jint.Native.BigInt;
 
 public sealed class BigIntInstance : ObjectInstance, IPrimitiveInstance
 {
-    public BigIntInstance(Engine engine)
-        : base(engine, ObjectClass.Object)
-    {
-    }
-
     public BigIntInstance(Engine engine, JsBigInt value)
-        : this(engine)
+        : base(engine, ObjectClass.Object)
     {
         BigIntData = value;
     }
@@ -20,5 +15,5 @@ public sealed class BigIntInstance : ObjectInstance, IPrimitiveInstance
 
     JsValue IPrimitiveInstance.PrimitiveValue => BigIntData;
 
-    public JsBigInt BigIntData { get; internal init; }
+    public JsBigInt BigIntData { get; }
 }

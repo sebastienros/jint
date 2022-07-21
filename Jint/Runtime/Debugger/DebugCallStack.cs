@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using Esprima;
 using Jint.Native;
 using Jint.Runtime.CallStack;
@@ -9,7 +9,7 @@ namespace Jint.Runtime.Debugger
     {
         private readonly List<CallFrame> _stack;
 
-        internal DebugCallStack(Engine engine, Location location, JintCallStack callStack, JsValue returnValue)
+        internal DebugCallStack(Engine engine, Location location, JintCallStack callStack, JsValue? returnValue)
         {
             _stack = new List<CallFrame>(callStack.Count + 1);
             var executionContext = engine.ExecutionContext;

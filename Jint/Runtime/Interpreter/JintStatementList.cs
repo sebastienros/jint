@@ -1,4 +1,4 @@
-﻿using Esprima.Ast;
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Statements;
@@ -9,14 +9,14 @@ namespace Jint.Runtime.Interpreter
     {
         private sealed class Pair
         {
-            internal JintStatement Statement;
+            internal JintStatement Statement = null!;
             internal Completion? Value;
         }
 
-        private readonly Statement _statement;
+        private readonly Statement? _statement;
         private readonly NodeList<Statement> _statements;
 
-        private Pair[] _jintStatements;
+        private Pair[]? _jintStatements;
         private bool _initialized;
         private uint _index;
         private readonly bool _generator;
@@ -37,7 +37,7 @@ namespace Jint.Runtime.Interpreter
         {
         }
 
-        public JintStatementList(Statement statement, in NodeList<Statement> statements)
+        public JintStatementList(Statement? statement, in NodeList<Statement> statements)
         {
             _statement = statement;
             _statements = statements;
@@ -77,15 +77,15 @@ namespace Jint.Runtime.Interpreter
                 engine.RunBeforeExecuteStatementChecks(_statement);
             }
 
-            JintStatement s = null;
-            var c = new Completion(CompletionType.Normal, null, null, context.LastSyntaxNode?.Location ?? default);
+            JintStatement? s = null;
+            var c = new Completion(CompletionType.Normal, null!, null, context.LastSyntaxNode?.Location ?? default);
             Completion sl = c;
 
             // The value of a StatementList is the value of the last value-producing item in the StatementList
-            JsValue lastValue = null;
+            JsValue? lastValue = null;
             try
             {
-                foreach (var pair in _jintStatements)
+                foreach (var pair in _jintStatements!)
                 {
                     s = pair.Statement;
                     c = pair.Value ?? s.Execute(context);
@@ -104,7 +104,7 @@ namespace Jint.Runtime.Interpreter
             }
             catch (JavaScriptException v)
             {
-                var location = v.Location == default ? s.Location : v.Location;
+                var location = v.Location == default ? s!.Location : v.Location;
                 var completion = new Completion(CompletionType.Throw, v.Error, null, location);
                 return completion;
             }
@@ -114,7 +114,7 @@ namespace Jint.Runtime.Interpreter
                 {
                     e.Message
                 });
-                return new Completion(CompletionType.Throw, error, null, s.Location);
+                return new Completion(CompletionType.Throw, error, null, s!.Location);
             }
             catch (RangeErrorException e)
             {
@@ -122,7 +122,7 @@ namespace Jint.Runtime.Interpreter
                 {
                     e.Message
                 });
-                c = new Completion(CompletionType.Throw, error, null, s.Location);
+                c = new Completion(CompletionType.Throw, error, null, s!.Location);
             }
             return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Target, c.Location);
         }
@@ -158,7 +158,7 @@ namespace Jint.Runtime.Interpreter
                 if (d is FunctionDeclaration functionDeclaration)
                 {
                     var definition = new JintFunctionDefinition(engine, functionDeclaration);
-                    var fn = definition.Name;
+                    var fn = definition.Name!;
                     var fo = env._engine.Realm.Intrinsics.Function.InstantiateFunctionObject(definition, env, privateEnv);
                     env.InitializeBinding(fn, fo);
                 }

@@ -44,7 +44,7 @@ namespace Jint.Native.Promise
         internal PromiseState State { get; private set; }
 
         // valid only in settled state (Fulfilled or Rejected)
-        internal JsValue Value { get; private set; }
+        internal JsValue Value { get; private set; } = null!;
 
         internal List<PromiseReaction> PromiseRejectReactions = new();
         internal List<PromiseReaction> PromiseFulfillReactions = new();

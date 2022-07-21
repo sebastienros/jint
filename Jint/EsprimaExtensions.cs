@@ -1,5 +1,3 @@
-#nullable enable
-
 using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
@@ -81,7 +79,7 @@ namespace Jint
                 or Nodes.YieldExpression)
             {
                 var context = engine._activeEvaluationContext;
-                return JintExpression.Build(engine, expression).GetValue(context);
+                return JintExpression.Build(engine, expression).GetValue(context!);
             }
 
             return new Completion(CompletionType.Normal, JsValue.Undefined, expression.Location);
@@ -265,7 +263,7 @@ namespace Jint
             if (expression is Identifier identifier)
             {
                 var catchEnvRecord = (DeclarativeEnvironmentRecord) env;
-                catchEnvRecord.CreateMutableBindingAndInitialize(identifier.Name, canBeDeleted: false, value);
+                catchEnvRecord.CreateMutableBindingAndInitialize(identifier.Name!, canBeDeleted: false, value);
             }
             else if (expression is BindingPattern bindingPattern)
             {

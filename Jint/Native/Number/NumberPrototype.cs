@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using Jint.Collections;
@@ -24,10 +24,9 @@ namespace Jint.Native.Number
             Realm realm,
             NumberConstructor constructor,
             ObjectPrototype objectPrototype)
-            : base(engine)
+            : base(engine, JsNumber.PositiveZero)
         {
             _prototype = objectPrototype;
-            NumberData = JsNumber.Create(0);
             _realm = realm;
             _constructor = constructor;
         }

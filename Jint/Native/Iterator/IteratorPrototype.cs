@@ -1,4 +1,4 @@
-﻿using Jint.Collections;
+using Jint.Collections;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -11,12 +11,12 @@ namespace Jint.Native.Iterator
     /// </summary>
     internal class IteratorPrototype : Prototype
     {
-        private readonly string _name;
+        private readonly string? _name;
 
         internal IteratorPrototype(
             Engine engine,
             Realm realm,
-            string name,
+            string? name,
             Prototype objectPrototype) : base(engine, realm)
         {
             _prototype = objectPrototype;

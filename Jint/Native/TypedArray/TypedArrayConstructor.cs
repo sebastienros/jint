@@ -70,7 +70,7 @@ namespace Jint.Native.TypedArray
                 TypedArrayElementType.Uint16 => static intrinsics => intrinsics.Uint16Array.PrototypeObject,
                 TypedArrayElementType.Uint32 => static intrinsics => intrinsics.Uint32Array.PrototypeObject,
                 TypedArrayElementType.BigUint64 => static intrinsics => intrinsics.BigUint64Array.PrototypeObject,
-                _ => null
+                _ => null!
             };
 
             var numberOfArgs = args.Length;
@@ -117,7 +117,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-iterabletolist
         /// </summary>
-        internal static List<JsValue> IterableToList(Realm realm, JsValue items, ICallable method = null)
+        internal static List<JsValue> IterableToList(Realm realm, JsValue items, ICallable? method = null)
         {
             var iteratorRecord = items.GetIterator(realm);
             var values = new List<JsValue>();

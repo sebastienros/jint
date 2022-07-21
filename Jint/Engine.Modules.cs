@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using Esprima;
+﻿using Esprima;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -12,7 +10,7 @@ namespace Jint
 {
     public partial class Engine
     {
-        internal IModuleLoader ModuleLoader { get; set; }
+        internal IModuleLoader ModuleLoader { get; set; } = null!;
 
         private readonly Dictionary<string, ModuleRecord> _modules = new();
         private readonly Dictionary<string, ModuleBuilder> _builders = new();
@@ -140,7 +138,7 @@ namespace Jint
             {
                 if (ownsContext)
                 {
-                    _activeEvaluationContext = null;
+                    _activeEvaluationContext = null!;
                 }
             }
 
@@ -151,7 +149,7 @@ namespace Jint
             }
             else if (promise.State == PromiseState.Rejected)
             {
-                ExceptionHelper.ThrowJavaScriptException(this, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, new Location(new Position(), new Position(), specifier)));
+                ExceptionHelper.ThrowJavaScriptException(this, promise.Value, new Completion(CompletionType.Throw, promise.Value!, null, new Location(new Position(), new Position(), specifier)));
             }
             else if (promise.State != PromiseState.Fulfilled)
             {

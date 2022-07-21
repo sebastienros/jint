@@ -9,7 +9,7 @@ namespace Jint.Runtime.Interpreter.Statements
     internal sealed class JintSwitchBlock
     {
         private readonly NodeList<SwitchCase> _switchBlock;
-        private JintSwitchCase[] _jintSwitchBlock;
+        private JintSwitchCase[] _jintSwitchBlock = Array.Empty<JintSwitchCase>();
         private bool _initialized;
 
         public JintSwitchBlock(NodeList<SwitchCase> switchBlock)
@@ -38,14 +38,14 @@ namespace Jint.Runtime.Interpreter.Statements
             var engine = context.Engine;
             JsValue v = Undefined.Instance;
             Location l = context.LastSyntaxNode.Location;
-            JintSwitchCase defaultCase = null;
+            JintSwitchCase? defaultCase = null;
             bool hit = false;
 
             for (var i = 0; i < (uint) _jintSwitchBlock.Length; i++)
             {
                 var clause = _jintSwitchBlock[i];
 
-                EnvironmentRecord oldEnv = null;
+                EnvironmentRecord? oldEnv = null;
                 if (clause.LexicalDeclarations != null)
                 {
                     oldEnv = engine.ExecutionContext.LexicalEnvironment;
@@ -89,7 +89,7 @@ namespace Jint.Runtime.Interpreter.Statements
             // do we need to execute the default case ?
             if (hit == false && defaultCase != null)
             {
-                EnvironmentRecord oldEnv = null;
+                EnvironmentRecord? oldEnv = null;
                 if (defaultCase.LexicalDeclarations != null)
                 {
                     oldEnv = engine.ExecutionContext.LexicalEnvironment;
@@ -119,8 +119,8 @@ namespace Jint.Runtime.Interpreter.Statements
         private sealed class JintSwitchCase
         {
             internal readonly JintStatementList Consequent;
-            internal readonly JintExpression Test;
-            internal readonly List<Declaration> LexicalDeclarations;
+            internal readonly JintExpression? Test;
+            internal readonly List<Declaration>? LexicalDeclarations;
 
             public JintSwitchCase(Engine engine, SwitchCase switchCase)
             {

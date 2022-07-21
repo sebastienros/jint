@@ -30,8 +30,8 @@ namespace Jint.Native.Array
         private sealed class ArrayLikeIterator : IteratorInstance
         {
             private readonly ArrayIteratorType _kind;
-            private readonly TypedArrayInstance _typedArray;
-            private readonly ArrayOperations _operations;
+            private readonly TypedArrayInstance? _typedArray;
+            private readonly ArrayOperations? _operations;
             private uint _position;
             private bool _closed;
 
@@ -57,12 +57,11 @@ namespace Jint.Native.Array
                 }
                 else
                 {
-                    len = _operations.GetLength();
+                    len = _operations!.GetLength();
                 }
 
                 if (!_closed && _position < len)
                 {
-                    JsValue value;
                     if (_typedArray is not null)
                     {
                         nextItem = _kind switch
@@ -74,7 +73,7 @@ namespace Jint.Native.Array
                     }
                     else
                     {
-                        _operations.TryGetValue(_position, out value);
+                        _operations!.TryGetValue(_position, out var value);
                         if (_kind == ArrayIteratorType.Key)
                         {
                             nextItem = new ValueIteratorPosition(_engine, _position);

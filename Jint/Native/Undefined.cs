@@ -1,4 +1,4 @@
-﻿namespace Jint.Native
+namespace Jint.Native
 {
     public static class Undefined
     {

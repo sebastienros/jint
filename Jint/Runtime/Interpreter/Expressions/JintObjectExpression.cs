@@ -1,5 +1,3 @@
-#nullable enable
-
 using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native;
@@ -14,8 +12,8 @@ namespace Jint.Runtime.Interpreter.Expressions
     /// </summary>
     internal sealed class JintObjectExpression : JintExpression
     {
-        private JintExpression[] _valueExpressions = System.Array.Empty<JintExpression>();
-        private ObjectProperty?[] _properties = System.Array.Empty<ObjectProperty>();
+        private JintExpression[] _valueExpressions = Array.Empty<JintExpression>();
+        private ObjectProperty?[] _properties = Array.Empty<ObjectProperty>();
 
         // check if we can do a shortcut when all are object properties
         // and don't require duplicate checking
@@ -142,7 +140,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var objectProperty = _properties[i];
                 var valueExpression = _valueExpressions[i];
                 var propValue = valueExpression.GetValue(context).Value!.Clone();
-                properties[objectProperty!._key] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
+                properties[objectProperty!._key!] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
             obj.SetProperties(properties);
@@ -219,7 +217,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             continue;
                         }
                     }
-                    
+
                     var propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
                     obj.DefinePropertyOrThrow(propName, propDesc);
                 }

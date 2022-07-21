@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Jint.Native.Object;
 using Jint.Runtime;
 

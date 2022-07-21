@@ -1,5 +1,3 @@
-﻿#nullable enable
-
 using Jint.Runtime;
 
 namespace Jint.Native
@@ -39,7 +37,7 @@ namespace Jint.Native
             return !value.IsNullOrUndefined() && base.IsLooselyEqual(value);
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             return Equals(obj as JsBoolean);
         }

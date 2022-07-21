@@ -1,4 +1,4 @@
-﻿using Esprima;
+using Esprima;
 using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -70,7 +70,7 @@ namespace Jint.Native.Function
                 newTarget = constructor;
             }
 
-            Func<Intrinsics, ObjectInstance> fallbackProto = null;
+            Func<Intrinsics, ObjectInstance>? fallbackProto = null;
             switch (kind)
             {
                 case FunctionKind.Normal:
@@ -105,10 +105,10 @@ namespace Jint.Native.Function
                 body = TypeConverter.ToString(args[argCount - 1]);
             }
 
-            IFunction function = null;
+            IFunction? function = null;
             try
             {
-                string functionExpression = null;
+                string? functionExpression = null;
                 if (argCount == 0)
                 {
                     switch (kind)
@@ -185,7 +185,7 @@ namespace Jint.Native.Function
             var proto = GetPrototypeFromConstructor(newTarget, fallbackProto);
             var realmF = _realm;
             var scope = realmF.GlobalEnv;
-            PrivateEnvironmentRecord privateScope = null;
+            PrivateEnvironmentRecord? privateScope = null;
 
             var definition = new JintFunctionDefinition(_engine, function);
             FunctionInstance F = OrdinaryFunctionCreate(proto, definition, function.Strict ? FunctionThisMode.Strict : FunctionThisMode.Global, scope, privateScope);
@@ -218,7 +218,7 @@ namespace Jint.Native.Function
             JintFunctionDefinition function,
             FunctionThisMode thisMode,
             EnvironmentRecord scope,
-            PrivateEnvironmentRecord privateScope)
+            PrivateEnvironmentRecord? privateScope)
         {
             return new ScriptFunctionInstance(
                 _engine,
@@ -238,7 +238,7 @@ namespace Jint.Native.Function
         internal FunctionInstance InstantiateFunctionObject(
             JintFunctionDefinition functionDeclaration,
             EnvironmentRecord scope,
-            PrivateEnvironmentRecord privateScope)
+            PrivateEnvironmentRecord? privateScope)
         {
             return !functionDeclaration.Function.Generator
                 ? InstantiateOrdinaryFunctionObject(functionDeclaration, scope, privateScope)
@@ -251,7 +251,7 @@ namespace Jint.Native.Function
         private FunctionInstance InstantiateOrdinaryFunctionObject(
             JintFunctionDefinition functionDeclaration,
             EnvironmentRecord scope,
-            PrivateEnvironmentRecord privateScope)
+            PrivateEnvironmentRecord? privateScope)
         {
             var F = OrdinaryFunctionCreate(
                 _realm.Intrinsics.Function.PrototypeObject,
@@ -272,7 +272,7 @@ namespace Jint.Native.Function
         private FunctionInstance InstantiateGeneratorFunctionObject(
             JintFunctionDefinition functionDeclaration,
             EnvironmentRecord scope,
-            PrivateEnvironmentRecord privateScope)
+            PrivateEnvironmentRecord? privateScope)
         {
             // TODO generators
             return InstantiateOrdinaryFunctionObject(functionDeclaration, scope, privateScope);

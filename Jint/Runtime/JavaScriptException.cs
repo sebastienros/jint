@@ -1,5 +1,3 @@
-#nullable enable
-
 using Esprima;
 using Jint.Native;
 using Jint.Native.Error;
@@ -10,19 +8,19 @@ namespace Jint.Runtime;
 
 public class JavaScriptException : JintException
 {
-    private static string GetMessage(JsValue error)
+    private static string? GetMessage(JsValue? error)
     {
-        string? ret;
+        string? ret = null;
         if (error is ObjectInstance oi)
         {
             ret = oi.Get(CommonProperties.Message).ToString();
         }
-        else
+        else if (error is not null)
         {
-            ret = null;
+            ret = TypeConverter.ToString(error);
         }
 
-        return ret ?? TypeConverter.ToString(error);
+        return ret;
     }
 
     private readonly JavaScriptErrorWrapperException _jsErrorException;
@@ -86,7 +84,7 @@ public class JavaScriptException : JintException
             Location = location;
 
             var errObj = Error.IsObject() ? Error.AsObject() : null;
-            if (errObj == null)
+            if (errObj is null)
             {
                 _callStack = engine.CallStack.BuildCallStackString(location);
                 return;

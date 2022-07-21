@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Runtime.Environments;
@@ -14,9 +14,9 @@ namespace Jint.Runtime.References
         private JsValue _baseValue;
         private JsValue _property;
         internal bool _strict;
-        private JsValue _thisValue;
+        private JsValue? _thisValue;
 
-        public Reference(JsValue baseValue, JsValue property, bool strict, JsValue thisValue = null)
+        public Reference(JsValue baseValue, JsValue property, bool strict, JsValue? thisValue = null)
         {
             _baseValue = baseValue;
             _property = property;
@@ -60,13 +60,13 @@ namespace Jint.Runtime.References
         {
             if (IsSuperReference())
             {
-                return _thisValue;
+                return _thisValue!;
             }
 
             return GetBase();
         }
 
-        internal Reference Reassign(JsValue baseValue, JsValue name, bool strict, JsValue thisValue)
+        internal Reference Reassign(JsValue baseValue, JsValue name, bool strict, JsValue? thisValue)
         {
             _baseValue = baseValue;
             _property = name;

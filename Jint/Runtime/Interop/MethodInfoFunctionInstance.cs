@@ -11,7 +11,7 @@ namespace Jint.Runtime.Interop
     {
         private static readonly JsString _name = new JsString("Function");
         private readonly MethodDescriptor[] _methods;
-        private readonly ClrFunctionInstance _fallbackClrFunctionInstance;
+        private readonly ClrFunctionInstance? _fallbackClrFunctionInstance;
 
         public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods)
             : base(engine, engine.Realm, _name)
@@ -101,7 +101,7 @@ namespace Jint.Runtime.Interop
             {
                 return method;
             }
-            MethodInfo methodInfo = method as MethodInfo;
+            var methodInfo = method as MethodInfo;
             if (methodInfo == null)
             {
                 // probably should issue at least a warning here
@@ -154,7 +154,7 @@ namespace Jint.Runtime.Interop
 
             var converter = Engine.ClrTypeConverter;
             var thisObj = thisObject.ToObject();
-            object[] parameters = null;
+            object?[]? parameters = null;
             foreach (var (method, arguments, _) in TypeConverter.FindBestMatch(_engine, _methods, ArgumentProvider))
             {
                 var methodParameters = method.Parameters;

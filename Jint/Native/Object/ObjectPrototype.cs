@@ -1,4 +1,4 @@
-﻿using Jint.Collections;
+using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Proxy;
 using Jint.Native.Symbol;

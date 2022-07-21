@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Native.Symbol;

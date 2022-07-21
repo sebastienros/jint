@@ -4,8 +4,8 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintLabeledStatement : JintStatement<LabeledStatement>
     {
-        private JintStatement _body;
-        private string _labelName;
+        private JintStatement _body = null!;
+        private string? _labelName;
 
         public JintLabeledStatement(LabeledStatement statement) : base(statement)
         {

@@ -1,5 +1,3 @@
-﻿#nullable enable
-
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Native.Number;
@@ -263,7 +261,7 @@ namespace Jint.Native
             return base.IsLooselyEqual(value);
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             return Equals(obj as JsNumber);
         }

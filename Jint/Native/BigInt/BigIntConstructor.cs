@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -115,9 +115,9 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
         var o = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.BigInt.PrototypeObject,
-            static (engine, realm, state) => new BigIntInstance(engine, state),
+            static (engine, realm, state) => new BigIntInstance(engine, state!),
             value);
-        
+
         return o;
     }
 
@@ -125,10 +125,9 @@ public sealed class BigIntConstructor : FunctionInstance, IConstructor
 
     public BigIntInstance Construct(JsBigInt value)
     {
-        var instance = new BigIntInstance(Engine)
+        var instance = new BigIntInstance(Engine, value)
         {
-            _prototype = PrototypeObject,
-            BigIntData = value
+            _prototype = PrototypeObject
         };
 
         return instance;

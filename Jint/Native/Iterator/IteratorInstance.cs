@@ -29,7 +29,7 @@ namespace Jint.Native.Iterator
             return null;
         }
 
-        public override bool Equals(JsValue other)
+        public override bool Equals(JsValue? other)
         {
             return false;
         }
@@ -62,14 +62,14 @@ namespace Jint.Native.Iterator
         {
             internal static ObjectInstance Done(Engine engine) => new KeyValueIteratorPosition(engine, null, null);
 
-            public KeyValueIteratorPosition(Engine engine, JsValue key, JsValue value) : base(engine)
+            public KeyValueIteratorPosition(Engine engine, JsValue? key, JsValue? value) : base(engine)
             {
                 var done = ReferenceEquals(null, key) && ReferenceEquals(null, value);
                 if (!done)
                 {
                     var arrayInstance = engine.Realm.Intrinsics.Array.ArrayCreate(2);
-                    arrayInstance.SetIndexValue(0, key, false);
-                    arrayInstance.SetIndexValue(1, value, false);
+                    arrayInstance.SetIndexValue(0, key!, false);
+                    arrayInstance.SetIndexValue(1, value!, false);
                     SetProperty("value", new PropertyDescriptor(arrayInstance, PropertyFlag.AllForbidden));
                 }
                 SetProperty("done", done ? PropertyDescriptor.AllForbiddenDescriptor.BooleanTrue : PropertyDescriptor.AllForbiddenDescriptor.BooleanFalse);
@@ -78,7 +78,7 @@ namespace Jint.Native.Iterator
 
         internal sealed class ValueIteratorPosition : ObjectInstance
         {
-            internal static ObjectInstance Done(Engine engine, JsValue value = null)
+            internal static ObjectInstance Done(Engine engine, JsValue? value = null)
                 => new ValueIteratorPosition(engine, value ?? Undefined, true);
 
             public ValueIteratorPosition(Engine engine, JsValue value, bool? done = null) : base(engine)
@@ -127,11 +127,12 @@ namespace Jint.Native.Iterator
             public ObjectIterator(ObjectInstance target) : base(target.Engine)
             {
                 _target = target;
-                _nextMethod = target.Get(CommonProperties.Next, target) as ICallable;
-                if (_nextMethod is null)
+                if (target.Get(CommonProperties.Next, target) is not ICallable callable)
                 {
                     ExceptionHelper.ThrowTypeError(target.Engine.Realm);
+                    return;
                 }
+                _nextMethod = callable;
             }
 
             public override bool TryIteratorStep(out ObjectInstance result)

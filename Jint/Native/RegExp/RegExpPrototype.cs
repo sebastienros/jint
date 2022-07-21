@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Jint.Collections;
 using Jint.Native.Array;
@@ -42,7 +43,7 @@ namespace Jint.Native.RegExp
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
 
-            GetSetPropertyDescriptor CreateGetAccessorDescriptor(string name, Func<RegExpInstance, JsValue> valueExtractor, JsValue protoValue = null)
+            GetSetPropertyDescriptor CreateGetAccessorDescriptor(string name, Func<RegExpInstance, JsValue> valueExtractor, JsValue? protoValue = null)
             {
                 return new GetSetPropertyDescriptor(
                     get: new ClrFunctionInstance(Engine, name, (thisObj, arguments) =>
@@ -789,7 +790,7 @@ namespace Jint.Native.RegExp
             return RegExpBuiltinExec(ri, s);
         }
 
-        internal bool TryGetDefaultExec(ObjectInstance o, out Func<JsValue, JsValue[], JsValue> exec)
+        internal bool TryGetDefaultExec(ObjectInstance o, [NotNullWhen((true))] out Func<JsValue, JsValue[], JsValue>? exec)
         {
             if (o.Get(PropertyExec) is ClrFunctionInstance functionInstance && functionInstance._func == _defaultExec)
             {
@@ -893,7 +894,7 @@ namespace Jint.Native.RegExp
             array.CreateDataProperty(PropertyIndex, match.Index);
             array.CreateDataProperty(PropertyInput, inputValue);
 
-            ObjectInstance groups = null;
+            ObjectInstance? groups = null;
             for (uint i = 0; i < match.Groups.Count; i++)
             {
                 var capture = i < match.Groups.Count ? match.Groups[(int) i] : null;

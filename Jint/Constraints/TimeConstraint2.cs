@@ -1,4 +1,4 @@
-﻿using Jint.Runtime;
+using Jint.Runtime;
 using System.Threading;
 
 namespace Jint.Constraints
@@ -6,7 +6,7 @@ namespace Jint.Constraints
     internal sealed class TimeConstraint2 : IConstraint
     {
         private readonly TimeSpan _timeout;
-        private CancellationTokenSource cts;
+        private CancellationTokenSource? _cts;
 
         public TimeConstraint2(TimeSpan timeout)
         {
@@ -15,7 +15,7 @@ namespace Jint.Constraints
 
         public void Check()
         {
-            if (cts.IsCancellationRequested)
+            if (_cts?.IsCancellationRequested == true)
             {
                 ExceptionHelper.ThrowTimeoutException();
             }
@@ -23,12 +23,12 @@ namespace Jint.Constraints
 
         public void Reset()
         {
-            cts?.Dispose();
+            _cts?.Dispose();
 
             // This cancellation token source is very likely not disposed property, but it only allocates a timer, so not a big deal.
             // But using the cancellation token source is faster because we do not have to check the current time for each statement,
             // which means less system calls.
-            cts = new CancellationTokenSource(_timeout);
+            _cts = new CancellationTokenSource(_timeout);
         }
     }
 }

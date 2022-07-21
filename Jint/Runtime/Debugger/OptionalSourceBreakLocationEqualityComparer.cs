@@ -1,5 +1,3 @@
-﻿#nullable enable
-
 namespace Jint.Runtime.Debugger;
 
 /// <summary>
@@ -13,7 +11,7 @@ internal sealed class OptionalSourceBreakLocationEqualityComparer : IEqualityCom
 {
     public bool Equals(BreakLocation? x, BreakLocation? y)
     {
-        if (Object.ReferenceEquals(x, y))
+        if (ReferenceEquals(x, y))
         {
             return true;
         }

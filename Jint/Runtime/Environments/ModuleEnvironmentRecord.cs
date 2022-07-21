@@ -1,4 +1,5 @@
-﻿using Jint.Collections;
+﻿using System.Diagnostics.CodeAnalysis;
+using Jint.Collections;
 using Jint.Native;
 using Jint.Runtime.Modules;
 
@@ -47,7 +48,7 @@ internal sealed class ModuleEnvironmentRecord : DeclarativeEnvironmentRecord
         return base.GetBindingValue(name, strict);
     }
 
-    internal override bool TryGetBinding(in BindingName name, bool strict, out Binding binding, out JsValue value)
+    internal override bool TryGetBinding(in BindingName name, bool strict, out Binding binding, [NotNullWhen(true)] out JsValue? value)
     {
         if (_importBindings.TryGetValue(name.Key, out var indirectBinding))
         {

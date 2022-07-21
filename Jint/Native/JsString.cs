@@ -1,5 +1,3 @@
-﻿#nullable enable
-
 using System.Text;
 using Jint.Native.Array;
 using Jint.Runtime;
@@ -230,7 +228,7 @@ namespace Jint.Native
             return ToString().Substring(startIndex);
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             return Equals(obj as JsString);
         }
@@ -336,7 +334,7 @@ namespace Jint.Native
 
             public override object ToObject() => ToString();
 
-            public override bool Equals(JsValue other)
+            public override bool Equals(JsValue? other)
             {
                 if (other is ConcatenatedString cs)
                 {

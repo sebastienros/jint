@@ -1,4 +1,4 @@
-﻿using Jint.Collections;
+using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Global;
 using Jint.Native.Object;
@@ -133,7 +133,7 @@ namespace Jint.Native.Number
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Number.PrototypeObject,
-                static (engine, realm, state) => new NumberInstance(engine, (JsNumber) state), n);
+                static (engine, realm, state) => new NumberInstance(engine, state!), n);
             return o;
         }
 
@@ -156,14 +156,13 @@ namespace Jint.Native.Number
             return n;
         }
 
-        public NumberPrototype PrototypeObject { get; private set; }
+        public NumberPrototype PrototypeObject { get; }
 
         public NumberInstance Construct(JsNumber value)
         {
-            var instance = new NumberInstance(Engine)
+            var instance = new NumberInstance(Engine, value)
             {
-                _prototype = PrototypeObject,
-                NumberData = value
+                _prototype = PrototypeObject
             };
 
             return instance;

@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -37,11 +38,12 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal IteratorInstance GetIterator(Realm realm, GeneratorKind hint = GeneratorKind.Sync, ICallable method = null)
+        internal IteratorInstance GetIterator(Realm realm, GeneratorKind hint = GeneratorKind.Sync, ICallable? method = null)
         {
             if (!TryGetIterator(realm, out var iterator, hint, method))
             {
                 ExceptionHelper.ThrowTypeError(realm, "The value is not iterable");
+                return null!;
             }
 
             return iterator;
@@ -49,7 +51,7 @@ namespace Jint.Native
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool TryGetIterator(Realm realm, out IteratorInstance iterator, GeneratorKind hint = GeneratorKind.Sync, ICallable method = null)
+        internal bool TryGetIterator(Realm realm, [NotNullWhen(true)] out IteratorInstance? iterator, GeneratorKind hint = GeneratorKind.Sync, ICallable? method = null)
         {
             var obj = TypeConverter.ToObject(realm, this);
 
@@ -107,7 +109,7 @@ namespace Jint.Native
         /// <summary>
         /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance
         /// </summary>
-        public static JsValue FromObject(Engine engine, object value)
+        public static JsValue FromObject(Engine engine, object? value)
         {
             if (value is null)
             {
@@ -135,7 +137,7 @@ namespace Jint.Native
                 return defaultConversion;
             }
 
-            return null;
+            return null!;
         }
 
         /// <summary>
@@ -209,7 +211,7 @@ namespace Jint.Native
             return "None";
         }
 
-        public static bool operator ==(JsValue a, JsValue b)
+        public static bool operator ==(JsValue? a, JsValue? b)
         {
             if (a is null)
             {
@@ -219,7 +221,7 @@ namespace Jint.Native
             return b is not null && a.Equals(b);
         }
 
-        public static bool operator !=(JsValue a, JsValue b)
+        public static bool operator !=(JsValue? a, JsValue? b)
         {
             return !(a == b);
         }
@@ -265,14 +267,9 @@ namespace Jint.Native
         }
 
         [DebuggerStepThrough]
-        public static implicit operator JsValue(string value)
+        public static implicit operator JsValue(string? value)
         {
-            if (value == null)
-            {
-                return Null;
-            }
-
-            return JsString.Create(value);
+            return value == null ? Null : JsString.Create(value);
         }
 
         /// <summary>
@@ -334,7 +331,7 @@ namespace Jint.Native
         /// <summary>
         /// Strict equality.
         /// </summary>
-        public virtual bool Equals(JsValue other)
+        public virtual bool Equals(JsValue? other)
         {
             return ReferenceEquals(this, other);
         }
@@ -416,7 +413,8 @@ namespace Jint.Native
                 return false;
             }
 
-            if (v is not ObjectInstance o)
+            var o = v as ObjectInstance;
+            if (o is null)
             {
                 return false;
             }

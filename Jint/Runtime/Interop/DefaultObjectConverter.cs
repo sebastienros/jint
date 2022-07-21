@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using Jint.Native;
 using Jint.Native.Array;
@@ -33,7 +34,7 @@ namespace Jint
             }
         };
 
-        public static bool TryConvert(Engine engine, object value, out JsValue result)
+        public static bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
         {
             result = null;
             var valueType = value.GetType();
@@ -111,7 +112,7 @@ namespace Jint
             return result is not null;
         }
 
-        private static bool TryConvertConvertible(Engine engine, IConvertible convertible, out JsValue result)
+        private static bool TryConvertConvertible(Engine engine, IConvertible convertible, [NotNullWhen(true)] out JsValue? result)
         {
             result = convertible.GetTypeCode() switch
             {

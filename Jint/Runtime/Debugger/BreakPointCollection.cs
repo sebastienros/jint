@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 
 namespace Jint.Runtime.Debugger
 {
@@ -61,7 +61,7 @@ namespace Jint.Runtime.Debugger
             _breakPoints.Clear();
         }
 
-        internal BreakPoint FindMatch(DebugHandler debugger, BreakLocation location)
+        internal BreakPoint? FindMatch(DebugHandler debugger, BreakLocation location)
         {
             if (!Active)
             {
@@ -77,7 +77,7 @@ namespace Jint.Runtime.Debugger
             {
                 try
                 {
-                    var completionValue = debugger.Evaluate(breakPoint.Condition);
+                    var completionValue = debugger.Evaluate(breakPoint.Condition!);
 
                     // Truthiness check:
                     if (!TypeConverter.ToBoolean(completionValue))

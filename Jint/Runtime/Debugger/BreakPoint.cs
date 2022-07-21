@@ -1,5 +1,3 @@
-﻿#nullable enable
-
 namespace Jint.Runtime.Debugger;
 
 // BreakPoint is not sealed. It's useful to be able to add additional properties on a derived BreakPoint class (e.g. a breakpoint ID

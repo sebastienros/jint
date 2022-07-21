@@ -1,4 +1,4 @@
-﻿using Jint.Native.Object;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -6,18 +6,20 @@ namespace Jint.Native.String
 {
     public class StringInstance : ObjectInstance, IPrimitiveInstance
     {
-        internal PropertyDescriptor _length;
+        internal PropertyDescriptor? _length;
 
-        public StringInstance(Engine engine)
+        public StringInstance(Engine engine, JsString value)
             : base(engine, ObjectClass.String)
         {
+            StringData = value;
+            _length = PropertyDescriptor.AllForbiddenDescriptor.ForNumber(value.Length);
         }
 
         Types IPrimitiveInstance.Type => Types.String;
 
         JsValue IPrimitiveInstance.PrimitiveValue => StringData;
 
-        public JsString StringData { get; internal init; }
+        public JsString StringData { get; }
 
         private static bool IsInt32(double d, out int intValue)
         {

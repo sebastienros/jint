@@ -1,4 +1,4 @@
-﻿using Esprima;
+using Esprima;
 using Esprima.Ast;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -67,7 +67,7 @@ namespace Jint.Native.Function
             }
 
             var parser = new JavaScriptParser(x.ToString(), ParserOptions);
-            Script script = null;
+            Script? script = null;
             try
             {
                 script = parser.ParseScript(strictCaller);
@@ -76,7 +76,7 @@ namespace Jint.Native.Function
             {
                 if (e.Description == Messages.InvalidLHSInAssignment)
                 {
-                    ExceptionHelper.ThrowReferenceError(callerRealm, (string) null);
+                    ExceptionHelper.ThrowReferenceError(callerRealm, (string?) null);
                 }
                 else
                 {
@@ -110,7 +110,7 @@ namespace Jint.Native.Function
             {
                 EnvironmentRecord lexEnv;
                 EnvironmentRecord varEnv;
-                PrivateEnvironmentRecord privateEnv;
+                PrivateEnvironmentRecord? privateEnv;
                 if (direct)
                 {
                     lexEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, ctx.LexicalEnvironment);
@@ -138,7 +138,7 @@ namespace Jint.Native.Function
                     Engine.EvalDeclarationInstantiation(script, varEnv, lexEnv, privateEnv, strictEval);
 
                     var statement = new JintScript(script);
-                    var result = statement.Execute(_engine._activeEvaluationContext);
+                    var result = statement.Execute(_engine._activeEvaluationContext!);
                     var value = result.GetValueOrDefault();
 
                     if (result.Type == CompletionType.Throw)

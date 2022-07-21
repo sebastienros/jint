@@ -1,5 +1,3 @@
-﻿#nullable enable
-
 using Jint.Runtime;
 
 namespace Jint.Native
@@ -10,9 +8,9 @@ namespace Jint.Native
         {
         }
 
-        public override object? ToObject()
+        public override object ToObject()
         {
-            return null;
+            return null!;
         }
 
         public override string ToString()
@@ -25,7 +23,7 @@ namespace Jint.Native
             return ReferenceEquals(Null, value) || ReferenceEquals(Undefined, value);
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             return Equals(obj as JsNull);
         }

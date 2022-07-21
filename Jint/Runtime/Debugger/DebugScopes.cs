@@ -1,4 +1,4 @@
-﻿using Jint.Runtime.Environments;
+using Jint.Runtime.Environments;
 using System.Collections;
 
 namespace Jint.Runtime.Debugger
@@ -20,7 +20,7 @@ namespace Jint.Runtime.Debugger
         /// Note that this only includes the object environment record of the Global scope - i.e. it doesn't
         /// include block scope bindings (let/const).
         /// </remarks>
-        public DebugScope Global { get; private set; }
+        public DebugScope? Global { get; private set; }
 
         /// <summary>
         /// Shortcut to Local scope.
@@ -28,17 +28,17 @@ namespace Jint.Runtime.Debugger
         /// <remarks>
         /// Note that this is only present inside functions, and doesn't include block scope bindings (let/const)
         /// </remarks>
-        public DebugScope Local { get; private set; }
+        public DebugScope? Local { get; private set; }
 
         public DebugScope this[int index] => _scopes[index];
         public int Count => _scopes.Count;
 
-        private void Populate(EnvironmentRecord environment)
+        private void Populate(EnvironmentRecord? environment)
         {
             bool inLocalScope = true;
             while (environment != null)
             {
-                EnvironmentRecord record = environment;
+                var record = environment;
                 switch (record)
                 {
                     case GlobalEnvironmentRecord global:

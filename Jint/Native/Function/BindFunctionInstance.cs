@@ -1,4 +1,4 @@
-﻿using Jint.Native.Object;
+using Jint.Native.Object;
 using Jint.Runtime;
 
 namespace Jint.Native.Function
@@ -12,7 +12,7 @@ namespace Jint.Native.Function
 
         public BindFunctionInstance(Engine engine,
             Realm realm,
-            ObjectInstance proto,
+            ObjectInstance? proto,
             ObjectInstance targetFunction,
             JsValue boundThis,
             JsValue[] boundArgs)

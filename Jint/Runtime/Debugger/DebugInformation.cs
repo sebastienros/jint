@@ -8,12 +8,18 @@ namespace Jint.Runtime.Debugger
     {
         private readonly Engine _engine;
         private readonly Location _currentLocation;
-        private readonly JsValue _returnValue;
+        private readonly JsValue? _returnValue;
 
-        private DebugCallStack _callStack;
+        private DebugCallStack? _callStack;
 
-        internal DebugInformation(Engine engine, Node currentNode, Location currentLocation, JsValue returnValue,
-            long currentMemoryUsage, PauseType pauseType, BreakPoint breakPoint)
+        internal DebugInformation(
+            Engine engine,
+            Node currentNode,
+            Location currentLocation,
+            JsValue? returnValue,
+            long currentMemoryUsage,
+            PauseType pauseType,
+            BreakPoint? breakPoint)
         {
             _engine = engine;
             CurrentNode = currentNode;
@@ -32,7 +38,7 @@ namespace Jint.Runtime.Debugger
         /// <summary>
         /// Breakpoint at the current location. This will be set even if the pause wasn't caused by the breakpoint.
         /// </summary>
-        public BreakPoint BreakPoint { get; }
+        public BreakPoint? BreakPoint { get; }
 
         /// <summary>
         /// The current call stack.
@@ -72,6 +78,6 @@ namespace Jint.Runtime.Debugger
         /// The return value of the currently executing call frame.
         /// This is null if execution is not at a return point.
         /// </summary>
-        public JsValue ReturnValue => CurrentCallFrame.ReturnValue;
+        public JsValue? ReturnValue => CurrentCallFrame.ReturnValue;
     }
 }

@@ -1,4 +1,6 @@
-﻿namespace Jint.Native.Symbol
+using System.Diagnostics.CodeAnalysis;
+
+namespace Jint.Native.Symbol
 {
     public class GlobalSymbolRegistry
     {
@@ -17,9 +19,9 @@
         public static readonly JsSymbol Unscopables = new JsSymbol("Symbol.unscopables");
 
         // engine-specific created by scripts
-        private Dictionary<JsValue, JsSymbol> _customSymbolLookup;
+        private Dictionary<JsValue, JsSymbol>? _customSymbolLookup;
 
-        internal bool TryGetSymbol(JsValue key, out JsSymbol symbol)
+        internal bool TryGetSymbol(JsValue key, [NotNullWhen(true)] out JsSymbol? symbol)
         {
             symbol = null;
             return _customSymbolLookup != null

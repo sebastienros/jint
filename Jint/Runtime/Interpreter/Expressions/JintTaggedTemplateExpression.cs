@@ -10,8 +10,8 @@ namespace Jint.Runtime.Interpreter.Expressions
         internal static  readonly JsString PropertyRaw = new JsString("raw");
 
         private readonly TaggedTemplateExpression _taggedTemplateExpression;
-        private JintExpression _tagIdentifier;
-        private JintTemplateLiteralExpression _quasi;
+        private JintExpression _tagIdentifier = null!;
+        private JintTemplateLiteralExpression _quasi = null!;
 
         public JintTaggedTemplateExpression(TaggedTemplateExpression expression) : base(expression)
         {

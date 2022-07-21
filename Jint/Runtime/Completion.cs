@@ -1,5 +1,3 @@
-﻿#nullable enable
-
 using System.Runtime.CompilerServices;
 using Esprima;
 using Jint.Native;

@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintArrayExpression : JintExpression
     {
-        private JintExpression[] _expressions;
+        private JintExpression[] _expressions = Array.Empty<JintExpression>();
         private bool _hasSpreads;
 
         public JintArrayExpression(ArrayExpression expression) : base(expression)
@@ -64,7 +64,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else
                     {
-                        var protocol = new ArraySpreadProtocol(engine, a, iterator, arrayIndexCounter);
+                        var protocol = new ArraySpreadProtocol(engine, a, iterator!, arrayIndexCounter);
                         protocol.Execute();
                         arrayIndexCounter += protocol._addedCount;
                     }

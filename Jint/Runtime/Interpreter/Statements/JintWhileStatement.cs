@@ -9,9 +9,9 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintWhileStatement : JintStatement<WhileStatement>
     {
-        private string _labelSetName;
-        private JintStatement _body;
-        private JintExpression _test;
+        private string? _labelSetName;
+        private JintStatement _body = null!;
+        private JintExpression _test = null!;
 
         public JintWhileStatement(WhileStatement statement) : base(statement)
         {

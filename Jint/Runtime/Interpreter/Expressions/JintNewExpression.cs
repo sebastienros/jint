@@ -5,7 +5,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintNewExpression : JintExpression
     {
-        private JintExpression _calleeExpression;
+        private JintExpression _calleeExpression = null!;
         private JintExpression[] _jintArguments = Array.Empty<JintExpression>();
         private bool _hasSpreads;
 

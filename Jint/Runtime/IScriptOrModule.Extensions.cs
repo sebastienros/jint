@@ -1,5 +1,3 @@
-#nullable enable
-
 using Esprima;
 using Jint.Runtime.Modules;
 

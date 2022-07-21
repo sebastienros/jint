@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 
 namespace Jint.Runtime.Interop.Reflection
 {
@@ -6,7 +6,7 @@ namespace Jint.Runtime.Interop.Reflection
     {
         private readonly FieldInfo _fieldInfo;
 
-        public FieldAccessor(FieldInfo fieldInfo, string memberName = null, PropertyInfo indexer = null)
+        public FieldAccessor(FieldInfo fieldInfo, string? memberName = null, PropertyInfo? indexer = null)
             : base(fieldInfo.FieldType, memberName, indexer)
         {
             _fieldInfo = fieldInfo;
@@ -19,7 +19,7 @@ namespace Jint.Runtime.Interop.Reflection
             return _fieldInfo.GetValue(target);
         }
 
-        protected override void DoSetValue(object target, object value)
+        protected override void DoSetValue(object target, object? value)
         {
             _fieldInfo.SetValue(target, value);
         }

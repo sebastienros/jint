@@ -1,5 +1,3 @@
-#nullable enable
-
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Runtime.Environments;
@@ -29,7 +27,7 @@ namespace Jint.Runtime
             array[size - 1] = array[size - 1].UpdateVariableEnvironment(newEnv);
         }
 
-        public void ReplaceTopPrivateEnvironment(PrivateEnvironmentRecord newEnv)
+        public void ReplaceTopPrivateEnvironment(PrivateEnvironmentRecord? newEnv)
         {
             var array = _stack._array;
             var size = _stack._size;

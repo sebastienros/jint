@@ -1,4 +1,6 @@
-﻿using Jint.Native;
+#nullable disable
+
+using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Environments;
 

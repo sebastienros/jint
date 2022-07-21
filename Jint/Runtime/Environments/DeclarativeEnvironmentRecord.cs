@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native;
 
@@ -28,7 +29,7 @@ namespace Jint.Runtime.Environments
             in BindingName name,
             bool strict,
             out Binding binding,
-            out JsValue value)
+            [NotNullWhen(true)] out JsValue? value)
         {
             binding = default;
             var success = _dictionary.TryGetValue(name.Key, out binding);
@@ -51,13 +52,13 @@ namespace Jint.Runtime.Environments
         public sealed override void CreateMutableBinding(string name, bool canBeDeleted = false)
         {
             _hasBindings = true;
-            _dictionary[name] = new Binding(null, canBeDeleted, mutable: true, strict: false);
+            _dictionary[name] = new Binding(null!, canBeDeleted, mutable: true, strict: false);
         }
 
         public sealed override void CreateImmutableBinding(string name, bool strict = true)
         {
             _hasBindings = true;
-            _dictionary[name] = new Binding(null, canBeDeleted: false, mutable: false, strict);
+            _dictionary[name] = new Binding(null!, canBeDeleted: false, mutable: false, strict);
         }
 
         public sealed override void InitializeBinding(string name, JsValue value)
@@ -119,10 +120,10 @@ namespace Jint.Runtime.Environments
             }
 
             ThrowUninitializedBindingError(name);
-            return null;
+            return null!;
         }
 
-        internal override bool TryGetBindingValue(string name, bool strict, out JsValue value)
+        internal override bool TryGetBindingValue(string name, bool strict, [NotNullWhen(true)] out JsValue? value)
         {
             _dictionary.TryGetValue(name, out var binding);
             if (binding.IsInitialized())

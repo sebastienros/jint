@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Array;
@@ -20,10 +21,10 @@ namespace Jint.Native.Object
         private bool _initialized;
         private readonly ObjectClass _class;
 
-        internal PropertyDictionary _properties;
-        internal SymbolDictionary _symbols;
+        internal PropertyDictionary? _properties;
+        internal SymbolDictionary? _symbols;
 
-        internal ObjectInstance _prototype;
+        internal ObjectInstance? _prototype;
         protected readonly Engine _engine;
 
         public ObjectInstance(Engine engine) : this(engine, ObjectClass.Object)
@@ -52,7 +53,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// The prototype of this object.
         /// </summary>
-        public ObjectInstance Prototype
+        public ObjectInstance? Prototype
         {
             [DebuggerStepThrough]
             get => GetPrototypeOf();
@@ -64,7 +65,7 @@ namespace Jint.Native.Object
         /// </summary>
         public virtual bool Extensible { get; private set; }
 
-        internal PropertyDictionary Properties
+        internal PropertyDictionary? Properties
         {
             [DebuggerStepThrough]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -86,7 +87,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-construct
         /// </summary>
-        internal static ObjectInstance Construct(IConstructor f, JsValue[] argumentsList = null, IConstructor newTarget = null)
+        internal static ObjectInstance Construct(IConstructor f, JsValue[]? argumentsList = null, IConstructor? newTarget = null)
         {
             newTarget ??= f;
             argumentsList ??= System.Array.Empty<JsValue>();
@@ -125,7 +126,7 @@ namespace Jint.Native.Object
             return null;
         }
 
-        internal void SetProperties(PropertyDictionary properties)
+        internal void SetProperties(PropertyDictionary? properties)
         {
             if (properties != null)
             {
@@ -134,7 +135,7 @@ namespace Jint.Native.Object
             _properties = properties;
         }
 
-        internal void SetSymbols(SymbolDictionary symbols)
+        internal void SetSymbols(SymbolDictionary? symbols)
         {
             _symbols = symbols;
         }
@@ -227,7 +228,7 @@ namespace Jint.Native.Object
             }
 
             var keys = new List<JsValue>(_properties?.Count ?? 0 + _symbols?.Count ?? 0 + propertyKeys.Count);
-            List<JsValue> symbolKeys = null;
+            List<JsValue>? symbolKeys = null;
 
             if ((types & Types.String) != 0 && _properties != null)
             {
@@ -274,7 +275,7 @@ namespace Jint.Native.Object
             SetProperty(property, descriptor);
         }
 
-        protected virtual bool TryGetProperty(JsValue property, out PropertyDescriptor descriptor)
+        protected virtual bool TryGetProperty(JsValue property, [NotNullWhen(true)] out PropertyDescriptor? descriptor)
         {
             descriptor = null;
 
@@ -366,7 +367,7 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            PropertyDescriptor descriptor = null;
+            PropertyDescriptor? descriptor = null;
             var key = TypeConverter.ToPropertyKey(property);
             if (!key.IsSymbol())
             {
@@ -428,7 +429,7 @@ namespace Jint.Native.Object
                 }
 
                 // if getter is not undefined it must be ICallable
-                var callable = getter.TryCast<ICallable>();
+                var callable = (ICallable) getter;
                 value = callable.Call(this, Arguments.Empty);
                 return true;
             }
@@ -662,7 +663,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-validateandapplypropertydescriptor
         /// </summary>
-        protected static bool ValidateAndApplyPropertyDescriptor(ObjectInstance o, JsValue property, bool extensible, PropertyDescriptor desc, PropertyDescriptor current)
+        protected static bool ValidateAndApplyPropertyDescriptor(ObjectInstance? o, JsValue property, bool extensible, PropertyDescriptor desc, PropertyDescriptor current)
         {
             var descValue = desc.Value;
             if (current == PropertyDescriptor.Undefined)
@@ -792,7 +793,7 @@ namespace Jint.Native.Object
 
                         if (!current.Writable)
                         {
-                            if (!ReferenceEquals(descValue, null) && !SameValue(descValue, currentValue))
+                            if (!ReferenceEquals(descValue, null) && !SameValue(descValue, currentValue!))
                             {
                                 return false;
                             }
@@ -835,7 +836,7 @@ namespace Jint.Native.Object
                     current.Configurable = desc.Configurable;
                 }
 
-                PropertyDescriptor mutable = null;
+                PropertyDescriptor? mutable = null;
                 if (!ReferenceEquals(descGet, null))
                 {
                     mutable = new GetSetPropertyDescriptor(mutable ?? current);
@@ -906,7 +907,7 @@ namespace Jint.Native.Object
             }
 
             stack.Enter(this);
-            object converted = null;
+            object? converted = null;
             switch (Class)
             {
                 case ObjectClass.String:
@@ -959,11 +960,11 @@ namespace Jint.Native.Object
 
                     if (this is ArrayInstance arrayInstance)
                     {
-                        var result = new object[arrayInstance.Length];
+                        var result = new object?[arrayInstance.Length];
                         for (uint i = 0; i < result.Length; i++)
                         {
                             var value = arrayInstance[i];
-                            object valueToSet = null;
+                            object? valueToSet = null;
                             if (!value.IsUndefined())
                             {
                                 valueToSet = value is ObjectInstance oi
@@ -1000,7 +1001,7 @@ namespace Jint.Native.Object
             }
 
             stack.Exit();
-            return converted;
+            return converted!;
         }
 
         /// <summary>
@@ -1127,7 +1128,7 @@ namespace Jint.Native.Object
             return true;
         }
 
-        protected internal virtual ObjectInstance GetPrototypeOf()
+        protected internal virtual ObjectInstance? GetPrototypeOf()
         {
             return _prototype;
         }
@@ -1185,7 +1186,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-setfunctionname
         /// </summary>
-        internal void SetFunctionName(JsValue name, string prefix = null)
+        internal void SetFunctionName(JsValue name, string? prefix = null)
         {
             if (name is JsSymbol symbol)
             {
@@ -1243,12 +1244,12 @@ namespace Jint.Native.Object
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal ICallable GetMethod(JsValue property)
+        internal ICallable? GetMethod(JsValue property)
         {
             return GetMethod(_engine.Realm, this, property);
         }
 
-        internal static ICallable GetMethod(Realm realm, JsValue v, JsValue p)
+        internal static ICallable? GetMethod(Realm realm, JsValue v, JsValue p)
         {
             var jsValue = v.Get(p);
             if (jsValue.IsNullOrUndefined())
@@ -1266,7 +1267,7 @@ namespace Jint.Native.Object
 
         internal void CopyDataProperties(
             ObjectInstance target,
-            HashSet<JsValue> excludedItems)
+            HashSet<JsValue>? excludedItems)
         {
             var keys = GetOwnPropertyKeys();
             for (var i = 0; i < keys.Count; i++)
@@ -1344,7 +1345,7 @@ namespace Jint.Native.Object
             {
                 ThrowIncompatibleReceiver(value, methodName);
             }
-            return instance;
+            return instance!;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1353,12 +1354,12 @@ namespace Jint.Native.Object
             ExceptionHelper.ThrowTypeError(_engine.Realm, $"Method {methodName} called on incompatible receiver {value}");
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             return Equals(obj as ObjectInstance);
         }
 
-        public bool Equals(ObjectInstance other)
+        public bool Equals(ObjectInstance? other)
         {
             if (other is null)
             {

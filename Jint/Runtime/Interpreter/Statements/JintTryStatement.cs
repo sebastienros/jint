@@ -9,9 +9,9 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintTryStatement : JintStatement<TryStatement>
     {
-        private JintBlockStatement _block;
-        private JintStatement _catch;
-        private JintBlockStatement _finalizer;
+        private JintBlockStatement _block = null!;
+        private JintStatement? _catch;
+        private JintBlockStatement? _finalizer;
 
         public JintTryStatement(TryStatement statement) : base(statement)
         {
@@ -37,15 +37,15 @@ namespace Jint.Runtime.Interpreter.Statements
 
             if (b.Type == CompletionType.Throw)
             {
-                // initialize lazily
-                if (_statement.Handler is not null && _catch is null)
-                {
-                    _catch = Build(_statement.Handler.Body);
-                }
-
                 // execute catch
                 if (_statement.Handler is not null)
                 {
+                    // initialize lazily
+                    if (_catch is null)
+                    {
+                        _catch = Build(_statement.Handler.Body);
+                    }
+
                     // https://tc39.es/ecma262/#sec-runtime-semantics-catchclauseevaluation
 
                     var thrownValue = b.Value;

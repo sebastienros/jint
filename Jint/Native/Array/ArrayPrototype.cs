@@ -1,4 +1,4 @@
-﻿using Jint.Collections;
+using Jint.Collections;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -18,7 +18,7 @@ namespace Jint.Native.Array
     {
         private readonly Realm _realm;
         private readonly ArrayConstructor _constructor;
-        internal ClrFunctionInstance _originalIteratorFunction;
+        internal ClrFunctionInstance? _originalIteratorFunction;
 
         internal ArrayPrototype(
             Engine engine,
@@ -81,7 +81,7 @@ namespace Jint.Native.Array
                 [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, propertyFlags),
                 [GlobalSymbolRegistry.Unscopables] = new LazyPropertyDescriptor(_engine, static state =>
                 {
-                    var unscopables = new ObjectInstance((Engine) state)
+                    var unscopables = new ObjectInstance((Engine) state!)
                     {
                         _prototype = null
                     };
@@ -526,8 +526,8 @@ namespace Jint.Native.Array
             uint sourceLen,
             long start,
             double depth,
-            ICallable mapperFunction = null,
-            JsValue thisArg = null)
+            ICallable? mapperFunction = null,
+            JsValue? thisArg = null)
         {
             var targetIndex = start;
             var sourceIndex = 0;
@@ -550,7 +550,7 @@ namespace Jint.Native.Array
                     {
                         callArguments[0] = element;
                         callArguments[1] = JsNumber.Create(sourceIndex);
-                        element = mapperFunction.Call(thisArg, callArguments);
+                        element = mapperFunction.Call(thisArg ?? Undefined, callArguments);
                     }
 
                     var shouldFlatten = false;
@@ -1004,7 +1004,7 @@ namespace Jint.Native.Array
             var obj = ArrayOperations.For(objectInstance);
 
             var compareArg = arguments.At(0);
-            ICallable compareFn = null;
+            ICallable? compareFn = null;
             if (!compareArg.IsUndefined())
             {
                 if (compareArg is not ICallable callable)
@@ -1036,7 +1036,7 @@ namespace Jint.Native.Array
             // don't eat inner exceptions
             try
             {
-                var array = items.OrderBy(x => x, ArrayComparer.WithFunction(_engine, compareFn)).ToArray();
+                var array = items.OrderBy(x => x, ArrayComparer.WithFunction(_engine, compareFn!)).ToArray();
 
                 uint j;
                 for (j = 0; j < itemCount; ++j)
@@ -1176,20 +1176,20 @@ namespace Jint.Native.Array
 
                 if (lowerExists && upperExists)
                 {
-                    o.Set(lower, upperValue, throwOnError: true);
-                    o.Set(upper, lowerValue, throwOnError: true);
+                    o.Set(lower, upperValue!, throwOnError: true);
+                    o.Set(upper, lowerValue!, throwOnError: true);
                 }
 
                 if (!lowerExists && upperExists)
                 {
-                    o.Set(lower, upperValue, throwOnError: true);
+                    o.Set(lower, upperValue!, throwOnError: true);
                     o.DeletePropertyOrThrow(upper);
                 }
 
                 if (lowerExists && !upperExists)
                 {
                     o.DeletePropertyOrThrow(lower);
-                    o.Set(upper, lowerValue, throwOnError: true);
+                    o.Set(upper, lowerValue!, throwOnError: true);
                 }
 
                 lower++;
@@ -1479,11 +1479,11 @@ namespace Jint.Native.Array
                 return new ArrayComparer(engine, compare);
             }
 
-            private readonly Engine _engine;
-            private readonly ICallable _compare;
+            private readonly Engine? _engine;
+            private readonly ICallable? _compare;
             private readonly JsValue[] _comparableArray = new JsValue[2];
 
-            private ArrayComparer(Engine engine, ICallable compare)
+            private ArrayComparer(Engine? engine, ICallable? compare)
             {
                 _engine = engine;
                 _compare = compare;
@@ -1511,8 +1511,8 @@ namespace Jint.Native.Array
                     }
                 }
 
-                var xUndefined = x.IsUndefined();
-                var yUndefined = y.IsUndefined();
+                var xUndefined = x!.IsUndefined();
+                var yUndefined = y!.IsUndefined();
                 if (xUndefined && yUndefined)
                 {
                     return 0;
@@ -1530,10 +1530,10 @@ namespace Jint.Native.Array
 
                 if (_compare != null)
                 {
-                    _engine.RunBeforeExecuteStatementChecks(null);
+                    _engine!.RunBeforeExecuteStatementChecks(null);
 
-                    _comparableArray[0] = x;
-                    _comparableArray[1] = y;
+                    _comparableArray[0] = x!;
+                    _comparableArray[1] = y!;
 
                     var s = TypeConverter.ToNumber(_compare.Call(Undefined, _comparableArray));
                     if (s < 0)
@@ -1549,8 +1549,8 @@ namespace Jint.Native.Array
                     return 0;
                 }
 
-                var xString = TypeConverter.ToString(x);
-                var yString = TypeConverter.ToString(y);
+                var xString = TypeConverter.ToString(x!);
+                var yString = TypeConverter.ToString(y!);
 
                 return string.CompareOrdinal(xString, yString);
             }

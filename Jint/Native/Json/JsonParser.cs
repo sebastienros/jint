@@ -15,15 +15,15 @@ namespace Jint.Native.Json
             _engine = engine;
         }
 
-        private Extra _extra;
+        private Extra _extra = null!;
 
         private int _index; // position in the stream
         private int _length; // length of the stream
         private int _lineNumber;
         private int _lineStart;
         private Location _location;
-        private Token _lookahead;
-        private string _source;
+        private Token _lookahead = null!;
+        private string _source = null!;
 
         private State _state;
 
@@ -152,7 +152,7 @@ namespace Jint.Native.Json
             }
 
             ThrowError(start, Messages.UnexpectedToken, code);
-            return null;
+            return null!;
         }
 
         private Token ScanNumericLiteral()
@@ -259,7 +259,7 @@ namespace Jint.Native.Json
             }
 
             ThrowError(start, Messages.UnexpectedToken, s);
-            return null;
+            return null!;
         }
 
         private Token ScanNullLiteral()
@@ -286,7 +286,7 @@ namespace Jint.Native.Json
             }
 
             ThrowError(start, Messages.UnexpectedToken, s);
-            return null;
+            return null!;
         }
 
         private Token ScanStringLiteral()
@@ -465,7 +465,7 @@ namespace Jint.Native.Json
             {
                 var range = new[] {token.Range[0], token.Range[1]};
                 string value = _source.Slice(token.Range[0], token.Range[1]);
-                _extra.Tokens.Add(new Token
+                _extra!.Tokens.Add(new Token
                     {
                         Type = token.Type,
                         Text = value,
@@ -479,7 +479,7 @@ namespace Jint.Native.Json
 
         private Token Lex()
         {
-            Token token = _lookahead;
+            Token token = _lookahead!;
             _index = token.Range[1];
             _lineNumber = token.LineNumber.HasValue ? token.LineNumber.Value : 0;
             _lineStart = token.LineStart;
@@ -659,7 +659,7 @@ namespace Jint.Native.Json
 
             while (!Match("}"))
             {
-                Tokens type = _lookahead.Type;
+                Tokens type = _lookahead!.Type;
                 if (type != Tokens.String)
                 {
                     ThrowUnexpected(Lex());
@@ -747,14 +747,14 @@ namespace Jint.Native.Json
             return Parse(code, null);
         }
 
-        public JsValue Parse(string code, ParserOptions options)
+        public JsValue Parse(string code, ParserOptions? options)
         {
             _source = code;
             _index = 0;
             _lineNumber = 1;
             _lineStart = 0;
             _length = _source.Length;
-            _lookahead = null;
+            _lookahead = null!;
             _state = new State
             {
                 AllowIn = true,
@@ -790,7 +790,7 @@ namespace Jint.Native.Json
 
                 Peek();
 
-                if(_lookahead.Type != Tokens.EOF)
+                if(_lookahead!.Type != Tokens.EOF)
                 {
                     ThrowError(_lookahead, Messages.UnexpectedToken, _lookahead.Text);
                 }
@@ -805,9 +805,9 @@ namespace Jint.Native.Json
         private sealed class Extra
         {
             public int? Loc;
-            public int[] Range;
+            public int[]? Range;
 
-            public List<Token> Tokens;
+            public List<Token> Tokens = null!;
         }
 
         private enum Tokens
@@ -823,9 +823,9 @@ namespace Jint.Native.Json
         class Token
         {
             public Tokens Type;
-            public object Value;
-            public string Text;
-            public int[] Range;
+            public object Value = null!;
+            public string Text = null!;
+            public int[] Range = null!;
             public int? LineNumber;
             public int LineStart;
         }

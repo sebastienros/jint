@@ -1,4 +1,5 @@
-﻿using Jint.Native;
+using System.Diagnostics.CodeAnalysis;
+using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
@@ -53,7 +54,7 @@ namespace Jint.Runtime.Environments
             in BindingName name,
             bool strict,
             out Binding binding,
-            out JsValue value)
+            [NotNullWhen(true)] out JsValue? value)
         {
             // we unwrap by name
             binding = default;
@@ -141,7 +142,7 @@ namespace Jint.Runtime.Environments
             {
                 ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Key);
             }
-                
+
             _bindingObject.Set(name.StringValue, value);
         }
 
@@ -156,7 +157,7 @@ namespace Jint.Runtime.Environments
             return ObjectInstance.UnwrapJsValue(desc, _bindingObject);
         }
 
-        internal override bool TryGetBindingValue(string name, bool strict, out JsValue value)
+        internal override bool TryGetBindingValue(string name, bool strict, [NotNullWhen(true)] out JsValue? value)
         {
             var desc = _bindingObject.GetProperty(name);
             if (strict && desc == PropertyDescriptor.Undefined)
@@ -188,17 +189,17 @@ namespace Jint.Runtime.Environments
                 return _bindingObject.GetOwnProperties().Select( x=> x.Key.ToString()).ToArray();
             }
 
-            return System.Array.Empty<string>();
+            return Array.Empty<string>();
         }
 
-        public override bool Equals(JsValue other)
+        public override bool Equals(JsValue? other)
         {
             return ReferenceEquals(_bindingObject, other);
         }
 
         public override JsValue GetThisBinding()
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
     }
 }

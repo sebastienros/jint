@@ -105,7 +105,7 @@ namespace Jint.Native.TypedArray
                 JsValue mappedValue;
                 if (mapping)
                 {
-                    mappingArgs[0] = kValue;
+                    mappingArgs![0] = kValue;
                     mappingArgs[1] = Pk;
                     mappedValue = ((ICallable) mapFunction).Call(thisArg, mappingArgs);
                 }
@@ -150,7 +150,7 @@ namespace Jint.Native.TypedArray
         /// </summary>
         internal TypedArrayInstance TypedArraySpeciesCreate(TypedArrayInstance exemplar, JsValue[] argumentList)
         {
-            var defaultConstructor = exemplar._arrayElementType.GetConstructor(_realm.Intrinsics);
+            var defaultConstructor = exemplar._arrayElementType.GetConstructor(_realm.Intrinsics)!;
             var constructor = SpeciesConstructor(exemplar, defaultConstructor);
             var result = TypedArrayCreate(constructor, argumentList);
             if (result._contentType != exemplar._contentType)

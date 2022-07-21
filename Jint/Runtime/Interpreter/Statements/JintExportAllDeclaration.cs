@@ -1,5 +1,3 @@
-﻿#nullable enable
-
 using Esprima.Ast;
 
 namespace Jint.Runtime.Interpreter.Statements;

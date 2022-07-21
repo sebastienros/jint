@@ -1,4 +1,4 @@
-﻿using Jint.Native.Function;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -46,7 +46,7 @@ namespace Jint.Native.Error
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
                 _intrinsicDefaultProto,
-                static (Engine engine, Realm _, object _) => new ErrorInstance(engine));
+                static (Engine engine, Realm _, object? _) => new ErrorInstance(engine));
 
             var jsValue = arguments.At(0);
             if (!jsValue.IsUndefined())

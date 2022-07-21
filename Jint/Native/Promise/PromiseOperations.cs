@@ -1,5 +1,3 @@
-#nullable enable
-
 using Jint.Native.Object;
 using Jint.Runtime;
 

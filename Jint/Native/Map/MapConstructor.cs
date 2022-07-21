@@ -1,4 +1,4 @@
-﻿using Jint.Collections;
+using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
@@ -61,8 +61,8 @@ namespace Jint.Native.Map
             var map = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Map.PrototypeObject,
-                static (Engine engine, Realm realm, object _) => new MapInstance(engine, realm));
-            
+                static (Engine engine, Realm realm, object? _) => new MapInstance(engine, realm));
+
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adder = map.Get("set");

@@ -12,7 +12,7 @@ namespace Jint.Native.ArrayBuffer
         // so that we don't need to allocate while or reading setting values
         private readonly byte[] _workBuffer = new byte[8];
 
-        private byte[] _arrayBufferData;
+        private byte[]? _arrayBufferData;
         private readonly JsValue _arrayBufferDetachKey = Undefined;
 
         internal ArrayBufferInstance(
@@ -33,8 +33,8 @@ namespace Jint.Native.ArrayBuffer
             return new byte[byteLength];
         }
 
-        internal int ArrayBufferByteLength => _arrayBufferData.Length;
-        internal byte[] ArrayBufferData => _arrayBufferData;
+        internal int ArrayBufferByteLength => _arrayBufferData?.Length ?? 0;
+        internal byte[]? ArrayBufferData => _arrayBufferData;
 
         internal bool IsDetachedBuffer => _arrayBufferData is null;
         internal bool IsSharedArrayBuffer => false; // TODO SharedArrayBuffer
@@ -42,7 +42,7 @@ namespace Jint.Native.ArrayBuffer
         /// <summary>
         /// https://tc39.es/ecma262/#sec-detacharraybuffer
         /// </summary>
-        internal void DetachArrayBuffer(JsValue key = null)
+        internal void DetachArrayBuffer(JsValue? key = null)
         {
             key ??= Undefined;
 
@@ -111,7 +111,7 @@ namespace Jint.Native.ArrayBuffer
         internal TypedArrayValue RawBytesToNumeric(TypedArrayElementType type, int byteIndex, bool isLittleEndian)
         {
             var elementSize = type.GetElementSize();
-            var rawBytes = _arrayBufferData;
+            var rawBytes = _arrayBufferData!;
 
             // 8 byte values require a little more at the moment
             var needsReverse = !isLittleEndian

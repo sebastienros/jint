@@ -58,14 +58,14 @@ namespace Jint.Runtime.Interop
 
             var clrTypeConverter = Engine.ClrTypeConverter;
             var valueCoercionType = Engine.Options.Interop.ValueCoercion;
-            var parameters = new object[delegateArgumentsCount];
+            var parameters = new object?[delegateArgumentsCount];
 
             // convert non params parameter to expected types
             for (var i = 0; i < jsArgumentsWithoutParamsCount; i++)
             {
                 var parameterType = parameterInfos[i].ParameterType;
                 var value = jsArguments[i];
-                object converted;
+                object? converted;
 
                 if (parameterType == typeof(JsValue))
                 {
@@ -108,7 +108,7 @@ namespace Jint.Runtime.Interop
                 {
                     var paramsIndex = i - paramsArgumentIndex;
                     var value = jsArguments[i];
-                    object converted;
+                    object? converted;
 
                     if (paramsParameterType == typeof(JsValue))
                     {

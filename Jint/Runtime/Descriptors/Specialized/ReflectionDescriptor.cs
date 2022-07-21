@@ -24,7 +24,7 @@ namespace Jint.Runtime.Descriptors.Specialized
         }
 
 
-        protected internal override JsValue CustomValue
+        protected internal override JsValue? CustomValue
         {
             get
             {
@@ -35,7 +35,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             {
                 try
                 {
-                    _reflectionAccessor.SetValue(_engine, _target, value);
+                    _reflectionAccessor.SetValue(_engine, _target, value!);
                 }
                 catch (TargetInvocationException exception)
                 {

@@ -22,7 +22,7 @@ namespace Jint.Runtime.Environments
             Uninitialized
         }
 
-        private JsValue _thisValue;
+        private JsValue? _thisValue;
         private ThisBindingStatus _thisBindingStatus;
         internal readonly FunctionInstance _functionObject;
 
@@ -64,7 +64,7 @@ namespace Jint.Runtime.Environments
         {
             if (_thisBindingStatus != ThisBindingStatus.Uninitialized)
             {
-                return _thisValue;
+                return _thisValue!;
             }
 
             var message = "Cannot access uninitialized 'this'";
@@ -91,7 +91,7 @@ namespace Jint.Runtime.Environments
         internal void InitializeParameters(
             Key[] parameterNames,
             bool hasDuplicates,
-            JsValue[] arguments)
+            JsValue[]? arguments)
         {
             var value = hasDuplicates ? Undefined : null;
             var directSet = !hasDuplicates && _dictionary.Count == 0;
@@ -106,7 +106,7 @@ namespace Jint.Runtime.Environments
                         parameterValue = (uint) i < (uint) arguments.Length ? arguments[i] : Undefined;
                     }
 
-                    _dictionary[paramName] = new Binding(parameterValue, canBeDeleted: false, mutable: true, strict: false);
+                    _dictionary[paramName] = new Binding(parameterValue!, canBeDeleted: false, mutable: true, strict: false);
                 }
             }
         }
@@ -125,7 +125,7 @@ namespace Jint.Runtime.Environments
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetFunctionParameter(
             EvaluationContext context,
-            Node parameter,
+            Node? parameter,
             JsValue[] arguments,
             int index,
             bool initiallyEmpty)
@@ -133,7 +133,7 @@ namespace Jint.Runtime.Environments
             if (parameter is Identifier identifier)
             {
                 var argument = (uint) index < (uint) arguments.Length ? arguments[index] : Undefined;
-                SetItemSafely(identifier.Name, argument, initiallyEmpty);
+                SetItemSafely(identifier.Name!, argument, initiallyEmpty);
             }
             else
             {
@@ -143,7 +143,7 @@ namespace Jint.Runtime.Environments
 
         private void SetFunctionParameterUnlikely(
             EvaluationContext context,
-            Node parameter,
+            Node? parameter,
             JsValue[] arguments,
             int index,
             bool initiallyEmpty)
@@ -186,8 +186,7 @@ namespace Jint.Runtime.Environments
 
             var argumentObject = argument.AsObject();
 
-            var processedProperties = objectPattern.Properties.Count > 0 &&
-                                      objectPattern.Properties[objectPattern.Properties.Count - 1] is RestElement
+            var processedProperties = objectPattern.Properties.Count > 0 && objectPattern.Properties[objectPattern.Properties.Count - 1] is RestElement
                 ? new HashSet<JsValue>()
                 : null;
 
@@ -196,7 +195,7 @@ namespace Jint.Runtime.Environments
             {
                 var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                 var paramVarEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                PrivateEnvironmentRecord privateEnvironment = null; // TODO PRIVATE check when implemented
+                PrivateEnvironmentRecord? privateEnvironment = null; // TODO PRIVATE check when implemented
                 _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.Realm, privateEnvironment);
 
                 try
@@ -206,7 +205,7 @@ namespace Jint.Runtime.Environments
                         JsString propertyName = JsString.Empty;
                         if (p.Key is Identifier propertyIdentifier)
                         {
-                            propertyName = JsString.Create(propertyIdentifier.Name);
+                            propertyName = JsString.Create(propertyIdentifier.Name!);
                         }
                         else if (p.Key is Literal propertyLiteral)
                         {
@@ -231,9 +230,9 @@ namespace Jint.Runtime.Environments
                     {
                         if (((RestElement) property).Argument is Identifier restIdentifier)
                         {
-                            var rest = _engine.Realm.Intrinsics.Object.Construct(argumentObject.Properties.Count - processedProperties.Count);
+                            var rest = _engine.Realm.Intrinsics.Object.Construct(argumentObject.Properties!.Count - processedProperties!.Count);
                             argumentObject.CopyDataProperties(rest, processedProperties);
-                            SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
+                            SetItemSafely(restIdentifier.Name!, rest, initiallyEmpty);
                         }
                         else
                         {
@@ -257,7 +256,7 @@ namespace Jint.Runtime.Environments
                 ExceptionHelper.ThrowTypeError(_functionObject._realm, "Destructed parameter is null");
             }
 
-            ArrayInstance array = null;
+            ArrayInstance? array = null;
             var arrayContents = System.Array.Empty<JsValue>();
             if (argument.IsArray())
             {
@@ -313,7 +312,7 @@ namespace Jint.Runtime.Environments
 
             if (restElement.Argument is Identifier restIdentifier)
             {
-                SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
+                SetItemSafely(restIdentifier.Name!, rest, initiallyEmpty);
             }
             else if (restElement.Argument is BindingPattern bindingPattern)
             {

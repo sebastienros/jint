@@ -19,7 +19,7 @@ namespace Jint.Native.TypedArray
     {
         private readonly Realm _realm;
         private readonly IntrinsicTypedArrayConstructor _constructor;
-        private ClrFunctionInstance _originalIteratorFunction;
+        private ClrFunctionInstance? _originalIteratorFunction;
 
         internal IntrinsicTypedArrayPrototype(
             Engine engine,
@@ -1151,7 +1151,7 @@ namespace Jint.Native.TypedArray
             var len = obj.Length;
 
             var compareArg = arguments.At(0);
-            ICallable compareFn = null;
+            ICallable? compareFn = null;
             if (!compareArg.IsUndefined())
             {
                 compareFn = GetCallable(compareArg);
@@ -1328,16 +1328,16 @@ namespace Jint.Native.TypedArray
 
         private sealed class TypedArrayComparer : IComparer<JsValue>
         {
-            public static TypedArrayComparer WithFunction(ArrayBufferInstance buffer, ICallable compare)
+            public static TypedArrayComparer WithFunction(ArrayBufferInstance buffer, ICallable? compare)
             {
                 return new TypedArrayComparer(buffer, compare);
             }
 
             private readonly ArrayBufferInstance _buffer;
-            private readonly ICallable _compare;
+            private readonly ICallable? _compare;
             private readonly JsValue[] _comparableArray = new JsValue[2];
 
-            private TypedArrayComparer(ArrayBufferInstance buffer, ICallable compare)
+            private TypedArrayComparer(ArrayBufferInstance buffer, ICallable? compare)
             {
                 _buffer = buffer;
                 _compare = compare;
@@ -1360,7 +1360,7 @@ namespace Jint.Native.TypedArray
                     return (int) v;
                 }
 
-                if (x.Type == Types.BigInt || y.Type == Types.BigInt)
+                if (x!.Type == Types.BigInt || y!.Type == Types.BigInt)
                 {
                     var xBigInt = TypeConverter.ToBigInt(x);
                     var yBigInt = TypeConverter.ToBigInt(y);

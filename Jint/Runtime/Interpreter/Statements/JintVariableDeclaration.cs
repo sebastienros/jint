@@ -10,14 +10,14 @@ namespace Jint.Runtime.Interpreter.Statements
     {
         private static readonly Completion VoidCompletion = new(CompletionType.Normal, null!, default);
 
-        private ResolvedDeclaration[] _declarations;
+        private ResolvedDeclaration[] _declarations = Array.Empty<ResolvedDeclaration>();
 
         private sealed class ResolvedDeclaration
         {
-            internal JintExpression Left;
-            internal BindingPattern LeftPattern;
-            internal JintExpression Init;
-            internal JintIdentifierExpression LeftIdentifierExpression;
+            internal JintExpression? Left;
+            internal BindingPattern? LeftPattern;
+            internal JintExpression? Init;
+            internal JintIdentifierExpression? LeftIdentifierExpression;
             internal bool EvalOrArguments;
         }
 
@@ -33,9 +33,9 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 var declaration = _statement.Declarations[i];
 
-                JintExpression left = null;
-                JintExpression init = null;
-                BindingPattern bindingPattern = null;
+                JintExpression? left = null;
+                JintExpression? init = null;
+                BindingPattern? bindingPattern = null;
 
                 if (declaration.Id is BindingPattern bp)
                 {
@@ -110,7 +110,7 @@ namespace Jint.Runtime.Interpreter.Statements
                                  declaration.EvalOrArguments) is null)
                     {
                         // slow path
-                        var lhs = (Reference) declaration.Left.Evaluate(context).Value;
+                        var lhs = (Reference) declaration.Left!.Evaluate(context).Value;
                         lhs.AssertValid(engine.Realm);
 
                         var completion = declaration.Init.GetValue(context);

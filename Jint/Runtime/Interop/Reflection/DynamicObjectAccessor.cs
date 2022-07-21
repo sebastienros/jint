@@ -7,13 +7,13 @@ namespace Jint.Runtime.Interop.Reflection
     internal sealed class DynamicObjectAccessor : ReflectionAccessor
     {
         private readonly string _memberName;
-        private JintSetMemberBinder _setter;
-        private JintGetMemberBinder _getter;
+        private JintSetMemberBinder? _setter;
+        private JintGetMemberBinder? _getter;
 
         public DynamicObjectAccessor(
             Type memberType,
             string memberName,
-            PropertyInfo indexer = null) : base(memberType, memberName, indexer)
+            PropertyInfo? indexer = null) : base(memberType, memberName, indexer)
         {
             _memberName = memberName;
         }
@@ -28,14 +28,14 @@ namespace Jint.Runtime.Interop.Reflection
             return result;
         }
 
-        protected override void DoSetValue(object target, object value)
+        protected override void DoSetValue(object target, object? value)
         {
             var dynamicObject = (DynamicObject) target;
             var setter = _setter ??= new JintSetMemberBinder(_memberName, ignoreCase: true);
             dynamicObject.TrySetMember(setter, value);
         }
 
-        protected override object ConvertValueToSet(Engine engine, object value)
+        protected override object? ConvertValueToSet(Engine engine, object value)
         {
             // we expect value to be generally CLR type, convert when possible
             return value switch

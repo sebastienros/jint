@@ -9,9 +9,9 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
     {
-        private JintStatement _body;
-        private string _labelSetName;
-        private JintExpression _test;
+        private JintStatement _body = null!;
+        private string? _labelSetName;
+        private JintExpression _test = null!;
 
         public JintDoWhileStatement(DoWhileStatement statement) : base(statement)
         {

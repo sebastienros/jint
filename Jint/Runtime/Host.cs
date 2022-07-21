@@ -1,5 +1,3 @@
-#nullable enable
-
 using Jint.Native;
 using Jint.Native.Global;
 using Jint.Native.Object;
@@ -91,7 +89,7 @@ namespace Jint.Runtime
             realmRec.GlobalEnv = globalEnv;
             realmRec.GlobalObject = globalObject;
 
-            Engine._realmInConstruction = null;
+            Engine._realmInConstruction = null!;
 
             return realmRec;
         }
@@ -156,7 +154,7 @@ namespace Jint.Runtime
                 }
                 catch (JavaScriptException ex)
                 {
-                    promiseCapability.Reject.Call(JsValue.Undefined, new [] { ex.Error });
+                    promiseCapability.Reject.Call(JsValue.Undefined, new [] { ex.Error! });
                 }
                 return JsValue.Undefined;
             }, 0, PropertyFlag.Configurable);
