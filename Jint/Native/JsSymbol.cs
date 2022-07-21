@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using Jint.Runtime;
 
 namespace Jint.Native
@@ -33,12 +33,12 @@ namespace Jint.Native
             return "Symbol(" + value + ")";
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             return Equals(obj as JsSymbol);
         }
 
-        public bool Equals(JsSymbol other)
+        public bool Equals(JsSymbol? other)
         {
             return ReferenceEquals(this, other);
         }

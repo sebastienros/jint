@@ -1,4 +1,4 @@
-﻿using Jint.Native.Function;
+using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -41,7 +41,7 @@ namespace Jint.Native.WeakMap
             var map = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics =>  intrinsics.WeakMap.PrototypeObject,
-                static (Engine engine, Realm _, object _) => new WeakMapInstance(engine));
+                static (Engine engine, Realm _, object? _) => new WeakMapInstance(engine));
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adder = map.Get("set");

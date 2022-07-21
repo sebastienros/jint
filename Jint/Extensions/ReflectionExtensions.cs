@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Native;
@@ -9,7 +10,7 @@ namespace Jint.Extensions
     {
         private static readonly Type nullableType = typeof(Nullable<>);
 
-        internal static void SetValue(this MemberInfo memberInfo, object forObject, object value)
+        internal static void SetValue(this MemberInfo memberInfo, object forObject, object? value)
         {
             if (memberInfo.MemberType == MemberTypes.Field)
             {
@@ -35,7 +36,7 @@ namespace Jint.Extensions
             {
                 PropertyInfo propertyInfo => propertyInfo.PropertyType,
                 FieldInfo fieldInfo => fieldInfo.FieldType,
-                _ => null
+                _ => null!
             };
         }
 
@@ -125,18 +126,18 @@ namespace Jint.Extensions
         }
 
         public static bool TryConvertViaTypeCoercion(
-            Type _memberType,
+            Type memberType,
             ValueCoercionType valueCoercionType,
             JsValue value,
-            out object converted)
+            [NotNullWhen(true)] out object? converted)
         {
-            if (_memberType == typeof(bool) && (valueCoercionType & ValueCoercionType.Boolean) != 0)
+            if (memberType == typeof(bool) && (valueCoercionType & ValueCoercionType.Boolean) != 0)
             {
                 converted = TypeConverter.ToBoolean(value);
                 return true;
             }
 
-            if (_memberType == typeof(string)
+            if (memberType == typeof(string)
                 && !value.IsNullOrUndefined()
                 && (valueCoercionType & ValueCoercionType.String) != 0)
             {
@@ -146,12 +147,12 @@ namespace Jint.Extensions
                 return true;
             }
 
-            if (_memberType.IsClrNumericCoercible() && (valueCoercionType & ValueCoercionType.Number) != 0)
+            if (memberType.IsClrNumericCoercible() && (valueCoercionType & ValueCoercionType.Number) != 0)
             {
                 // we know how to print out correct string presentation for primitives
                 // that are non-null and non-undefined
                 var number = TypeConverter.ToNumber(value);
-                converted = number.AsNumberOfType(Type.GetTypeCode(_memberType));
+                converted = number.AsNumberOfType(Type.GetTypeCode(memberType));
                 return true;
             }
 

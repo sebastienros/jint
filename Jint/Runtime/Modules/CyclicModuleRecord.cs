@@ -1,4 +1,6 @@
-﻿using Esprima.Ast;
+﻿#nullable disable
+
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime.Descriptors;

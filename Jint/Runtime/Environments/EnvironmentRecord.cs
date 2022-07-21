@@ -1,6 +1,5 @@
-﻿#nullable enable
-
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
 
 namespace Jint.Runtime.Environments
@@ -30,7 +29,7 @@ namespace Jint.Runtime.Environments
             in BindingName name,
             bool strict,
             out Binding binding,
-            out JsValue value);
+            [NotNullWhen(true)] out JsValue? value);
 
         /// <summary>
         /// Creates a new mutable binding in an environment record.
@@ -80,7 +79,7 @@ namespace Jint.Runtime.Environments
         /// <param name="value">The value of an already existing binding from an environment record.</param>
         /// <returns>True if the value is initialized, otherwise false.</returns>
         /// <remarks>This is used for debugger inspection. Note that this will currently still throw if the binding cannot be retrieved (e.g. because it doesn't exist).</remarks>
-        internal abstract bool TryGetBindingValue(string name, bool strict, out JsValue value);
+        internal abstract bool TryGetBindingValue(string name, bool strict, [NotNullWhen(true)] out JsValue? value);
 
         /// <summary>
         /// Delete a binding from an environment record. The String value N is the text of the bound name If a binding for N exists, remove the binding and return true. If the binding exists but cannot be removed return false. If the binding does not exist return true.
@@ -107,7 +106,7 @@ namespace Jint.Runtime.Environments
             return null;
         }
 
-        public override bool Equals(JsValue other)
+        public override bool Equals(JsValue? other)
         {
             ExceptionHelper.ThrowNotSupportedException();
             return false;

@@ -1,4 +1,4 @@
-﻿using Jint.Native;
+using Jint.Native;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 
@@ -10,8 +10,8 @@ namespace Jint.Runtime.Descriptors.Specialized
         private readonly Engine _engine;
         private readonly EnvironmentRecord.BindingName _name;
 
-        private GetterFunctionInstance _get;
-        private SetterFunctionInstance _set;
+        private GetterFunctionInstance? _get;
+        private SetterFunctionInstance? _set;
 
         public ClrAccessDescriptor(
             DeclarativeEnvironmentRecord env,

@@ -101,11 +101,11 @@ namespace Jint.Runtime.Interop
             return descriptors;
         }
 
-        public JsValue Call(Engine _engine, object instance, JsValue[] arguments)
+        public JsValue Call(Engine engine, object? instance, JsValue[] arguments)
         {
-            var parameters = new object[arguments.Length];
+            var parameters = new object?[arguments.Length];
             var methodParameters = Parameters;
-            var valueCoercionType = _engine.Options.Interop.ValueCoercion;
+            var valueCoercionType = engine.Options.Interop.ValueCoercion;
 
             try
             {
@@ -113,7 +113,7 @@ namespace Jint.Runtime.Interop
                 {
                     var parameterType = methodParameters[i].ParameterType;
                     var value = arguments[i];
-                    object converted;
+                    object? converted;
 
                     if (typeof(JsValue).IsAssignableFrom(parameterType))
                     {
@@ -121,7 +121,7 @@ namespace Jint.Runtime.Interop
                     }
                     else if (!ReflectionExtensions.TryConvertViaTypeCoercion(parameterType, valueCoercionType, value, out converted))
                     {
-                        converted = _engine.ClrTypeConverter.Convert(
+                        converted = engine.ClrTypeConverter.Convert(
                             value.ToObject(),
                             parameterType,
                             System.Globalization.CultureInfo.InvariantCulture);
@@ -133,12 +133,12 @@ namespace Jint.Runtime.Interop
                 if (Method is MethodInfo m)
                 {
                     var retVal = m.Invoke(instance, parameters);
-                    return JsValue.FromObject(_engine, retVal);
+                    return JsValue.FromObject(engine, retVal);
                 }
                 else if (Method is ConstructorInfo c)
                 {
                     var retVal = c.Invoke(parameters);
-                    return JsValue.FromObject(_engine, retVal);
+                    return JsValue.FromObject(engine, retVal);
                 }
                 else
                 {
@@ -147,7 +147,7 @@ namespace Jint.Runtime.Interop
             }
             catch (TargetInvocationException exception)
             {
-                ExceptionHelper.ThrowMeaningfulException(_engine, exception);
+                ExceptionHelper.ThrowMeaningfulException(engine, exception);
                 return null;
             }
         }

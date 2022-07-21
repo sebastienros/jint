@@ -1,4 +1,4 @@
-﻿using Jint.Collections;
+using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -61,8 +61,8 @@ namespace Jint.Native.Set
             var set = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Set.PrototypeObject,
-                static (Engine engine, Realm _, object _) => new SetInstance(engine));
-            
+                static (Engine engine, Realm _, object? _) => new SetInstance(engine));
+
             if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
             {
                 var adderValue = set.Get("add");

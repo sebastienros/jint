@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Iterator;
@@ -19,11 +20,11 @@ namespace Jint.Runtime.Interpreter.Statements
         private readonly Expression _rightExpression;
         private readonly IterationKind _iterationKind;
 
-        private JintStatement _body;
-        private JintExpression _expr;
-        private BindingPattern _assignmentPattern;
-        private JintExpression _right;
-        private List<string> _tdzNames;
+        private JintStatement _body = null!;
+        private JintExpression? _expr;
+        private BindingPattern? _assignmentPattern;
+        private JintExpression _right = null!;
+        private List<string>? _tdzNames;
         private bool _destructuring;
         private LhsKind _lhsKind;
 
@@ -103,7 +104,7 @@ namespace Jint.Runtime.Interpreter.Statements
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-forin-div-ofheadevaluation-tdznames-expr-iterationkind
         /// </summary>
-        private bool HeadEvaluation(EvaluationContext context, out IteratorInstance result)
+        private bool HeadEvaluation(EvaluationContext context, [NotNullWhen(true)] out IteratorInstance? result)
         {
             var engine = context.Engine;
             var oldEnv = engine.ExecutionContext.LexicalEnvironment;
@@ -145,7 +146,7 @@ namespace Jint.Runtime.Interpreter.Statements
         /// </summary>
         private Completion BodyEvaluation(
             EvaluationContext context,
-            JintExpression lhs,
+            JintExpression? lhs,
             JintStatement stmt,
             IteratorInstance iteratorRecord,
             IterationKind iterationKind,
@@ -156,7 +157,7 @@ namespace Jint.Runtime.Interpreter.Statements
             var oldEnv = engine.ExecutionContext.LexicalEnvironment;
             var v = Undefined.Instance;
             var destructuring = _destructuring;
-            string lhsName = null;
+            string? lhsName = null;
 
             var completionType = CompletionType.Normal;
             var close = false;
@@ -165,7 +166,7 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 while (true)
                 {
-                    EnvironmentRecord iterationEnv = null;
+                    EnvironmentRecord? iterationEnv = null;
                     if (!iteratorRecord.TryIteratorStep(out var nextResult))
                     {
                         close = true;
@@ -186,7 +187,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     {
                         if (!destructuring)
                         {
-                            lhsRef = lhs.Evaluate(context);
+                            lhsRef = lhs!.Evaluate(context);
                         }
                     }
                     else
@@ -201,7 +202,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         if (!destructuring)
                         {
                             var identifier = (Identifier) ((VariableDeclaration) _leftNode).Declarations[0].Id;
-                            lhsName ??= identifier.Name;
+                            lhsName ??= identifier.Name!;
                             lhsRef = new ExpressionResult(ExpressionCompletionType.Normal, engine.ResolveBinding(lhsName), identifier.Location);
                         }
                     }
@@ -221,18 +222,18 @@ namespace Jint.Runtime.Interpreter.Statements
                         }
                         else if (lhsKind == LhsKind.LexicalBinding)
                         {
-                            ((Reference) lhsRef.Value).InitializeReferencedBinding(nextValue);
+                            ((Reference) lhsRef.Value!).InitializeReferencedBinding(nextValue);
                         }
                         else
                         {
-                            engine.PutValue((Reference) lhsRef.Value, nextValue);
+                            engine.PutValue((Reference) lhsRef.Value!, nextValue);
                         }
                     }
                     else
                     {
                         status = BindingPatternAssignmentExpression.ProcessPatterns(
                             context,
-                            _assignmentPattern,
+                            _assignmentPattern!,
                             nextValue,
                             iterationEnv,
                             checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);

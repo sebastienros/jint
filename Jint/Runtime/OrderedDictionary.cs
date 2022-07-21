@@ -1,3 +1,5 @@
+#nullable disable
+
 // based on https://github.com/jehugaleahsa/truncon.collections.OrderedDictionary
 // https://github.com/jehugaleahsa/truncon.collections.OrderedDictionary/blob/master/UNLICENSE.txt
 

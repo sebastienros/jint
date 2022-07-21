@@ -86,7 +86,7 @@ namespace Jint.Native.Promise
             var instance = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Promise.PrototypeObject,
-                static (Engine engine, Realm _, object _) => new PromiseInstance(engine));
+                static (Engine engine, Realm _, object? _) => new PromiseInstance(engine));
 
             var (resolve, reject) = instance.CreateResolvingFunctions();
             promiseExecutor.Call(Undefined, new JsValue[] {resolve, reject});
@@ -260,7 +260,7 @@ namespace Jint.Native.Promise
                     // note that null here is important
                     // it will help to detect if all inner promises were resolved
                     // In F# it would be Option<JsValue>
-                    results.Add(null);
+                    results.Add(null!);
 
                     var item = promiseResolve.Call(thisObj, new JsValue[] {value});
                     var thenProps = item.Get("then");
@@ -383,7 +383,7 @@ namespace Jint.Native.Promise
 
                     // i. Perform ? Invoke(nextPromise, "then", « resultCapability.[[Resolve]], resultCapability.[[Reject]] »).
 
-                    _engine.Invoke(nextPromise, "then", new[] {resolve as JsValue, rejectObj});
+                    _engine.Invoke(nextPromise, "then", new[] { (JsValue) resolve, rejectObj });
                 } while (true);
             }
             catch (JavaScriptException e)
@@ -448,8 +448,8 @@ namespace Jint.Native.Promise
         {
             var ctor = AssertConstructor(engine, c);
 
-            JsValue resolveArg = null;
-            JsValue rejectArg = null;
+            JsValue? resolveArg = null;
+            JsValue? rejectArg = null;
 
             JsValue Executor(JsValue thisObj, JsValue[] arguments)
             {
@@ -474,8 +474,8 @@ namespace Jint.Native.Promise
 
             var instance = ctor.Construct(new JsValue[] {executor}, c);
 
-            ICallable resolve = null;
-            ICallable reject = null;
+            ICallable? resolve = null;
+            ICallable? reject = null;
 
             if (resolveArg is ICallable resFunc)
             {

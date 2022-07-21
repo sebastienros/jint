@@ -55,11 +55,11 @@ namespace Jint.Native.TypedArray
                 TypedArrayElementType.BigUint64 => "BigUint64Array",
                 TypedArrayElementType.Float32 => "Float32Array",
                 TypedArrayElementType.Float64 => "Float64Array",
-                _ => null
+                _ => ""
             };
         }
 
-        internal static IConstructor GetConstructor(this TypedArrayElementType type, Intrinsics intrinsics)
+        internal static IConstructor? GetConstructor(this TypedArrayElementType type, Intrinsics intrinsics)
         {
             return type switch
             {

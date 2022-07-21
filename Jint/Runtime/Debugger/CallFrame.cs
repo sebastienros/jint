@@ -1,4 +1,4 @@
-﻿using Esprima;
+using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.CallStack;
@@ -12,7 +12,7 @@ namespace Jint.Runtime.Debugger
         private readonly CallStackElement? _element;
         private readonly Lazy<DebugScopes> _scopeChain;
 
-        internal CallFrame(CallStackElement? element, ExecutionContext context, Location location, JsValue returnValue)
+        internal CallFrame(CallStackElement? element, ExecutionContext context, Location location, JsValue? returnValue)
         {
             _element = element;
             _context = context;
@@ -62,6 +62,6 @@ namespace Jint.Runtime.Debugger
         /// The return value of this call frame. Will be null for call frames that aren't at the top of the stack,
         /// as well as if execution is not at a return point.
         /// </summary>
-        public JsValue ReturnValue { get; }
+        public JsValue? ReturnValue { get; }
     }
 }

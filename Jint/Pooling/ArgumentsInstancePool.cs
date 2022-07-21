@@ -1,4 +1,4 @@
-﻿using Jint.Native;
+using Jint.Native;
 using Jint.Native.Argument;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
@@ -32,14 +32,14 @@ namespace Jint.Pooling
         public ArgumentsInstance Rent(JsValue[] argumentsList) => Rent(null, null, argumentsList, null, false);
 
         public ArgumentsInstance Rent(
-            FunctionInstance func,
-            Key[] formals,
+            FunctionInstance? func,
+            Key[]? formals,
             JsValue[] argumentsList,
-            DeclarativeEnvironmentRecord env, 
+            DeclarativeEnvironmentRecord? env,
             bool hasRestParameter)
         {
             var obj = _pool.Allocate();
-            obj.Prepare(func, formals, argumentsList, env, hasRestParameter);
+            obj.Prepare(func!, formals!, argumentsList, env!, hasRestParameter);
             return obj;
         }
 

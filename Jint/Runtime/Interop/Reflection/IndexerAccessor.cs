@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
 using Jint.Native;
@@ -14,11 +15,11 @@ namespace Jint.Runtime.Interop.Reflection
         private readonly PropertyInfo _indexer;
         private readonly MethodInfo _getter;
         private readonly MethodInfo _setter;
-        private readonly MethodInfo _containsKey;
+        private readonly MethodInfo? _containsKey;
 
         private static readonly PropertyInfo _iListIndexer = typeof(IList).GetProperty("Item");
 
-        private IndexerAccessor(PropertyInfo indexer, MethodInfo containsKey, object key)
+        private IndexerAccessor(PropertyInfo indexer, MethodInfo? containsKey, object key)
             : base(indexer.PropertyType, key)
         {
             _indexer = indexer;
@@ -33,14 +34,14 @@ namespace Jint.Runtime.Interop.Reflection
             Engine engine,
             Type targetType,
             string propertyName,
-            out IndexerAccessor indexerAccessor,
-            out PropertyInfo indexer)
+            [NotNullWhen(true)] out IndexerAccessor? indexerAccessor,
+            [NotNullWhen(true)] out PropertyInfo? indexer)
         {
             var paramTypeArray = new Type[1];
 
-            IndexerAccessor ComposeIndexerFactory(PropertyInfo candidate, Type paramType)
+            IndexerAccessor? ComposeIndexerFactory(PropertyInfo candidate, Type paramType)
             {
-                object key = null;
+                object? key = null;
                 // int key is quite common case
                 if (paramType == typeof(int))
                 {
@@ -141,15 +142,15 @@ namespace Jint.Runtime.Interop.Reflection
             return _getter.Invoke(target, parameters);
         }
 
-        protected override void DoSetValue(object target, object value)
+        protected override void DoSetValue(object target, object? value)
         {
             if (_setter is null)
             {
                 ExceptionHelper.ThrowInvalidOperationException("Indexer has no public setter.");
             }
 
-            object[] parameters = { _key, value };
-            _setter!.Invoke(target, parameters);
+            object?[] parameters = { _key, value };
+            _setter.Invoke(target, parameters);
         }
 
         public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, bool enumerable = true)

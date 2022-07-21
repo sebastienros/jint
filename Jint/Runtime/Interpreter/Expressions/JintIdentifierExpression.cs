@@ -8,11 +8,11 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class JintIdentifierExpression : JintExpression
     {
         internal readonly EnvironmentRecord.BindingName _expressionName;
-        private readonly JsValue _calculatedValue;
+        private readonly JsValue? _calculatedValue;
 
         public JintIdentifierExpression(Identifier expression) : base(expression)
         {
-            _expressionName = new EnvironmentRecord.BindingName(expression.Name);
+            _expressionName = new EnvironmentRecord.BindingName(expression.Name!);
             if (expression.Name == "undefined")
             {
                 _calculatedValue = JsValue.Undefined;

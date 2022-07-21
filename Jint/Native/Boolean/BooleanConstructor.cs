@@ -1,4 +1,4 @@
-﻿using Jint.Native.Function;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -51,16 +51,15 @@ namespace Jint.Native.Boolean
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Boolean.PrototypeObject,
-                static (engine, realm, state) => new BooleanInstance(engine, (JsBoolean) state), b);
+                static (engine, realm, state) => new BooleanInstance(engine, (JsBoolean) state!), b);
             return o;
         }
 
         public BooleanInstance Construct(JsBoolean value)
         {
-            var instance = new BooleanInstance(Engine)
+            var instance = new BooleanInstance(Engine, value)
             {
-                _prototype = PrototypeObject,
-                BooleanData = value,
+                _prototype = PrototypeObject
             };
 
             return instance;

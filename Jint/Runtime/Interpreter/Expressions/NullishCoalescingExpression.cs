@@ -7,8 +7,8 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class NullishCoalescingExpression : JintExpression
     {
         private readonly JintExpression _left;
-        private readonly JintExpression _right;
-        private readonly JsValue _constant;
+        private readonly JintExpression? _right;
+        private readonly JsValue? _constant;
 
         public NullishCoalescingExpression(Engine engine, BinaryExpression expression) : base(expression)
         {
@@ -44,7 +44,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             return !left.IsNullOrUndefined()
                 ? left
-                : _constant ?? _right.GetValue(context).Value;
+                : _constant ?? _right!.GetValue(context).Value;
         }
     }
 }

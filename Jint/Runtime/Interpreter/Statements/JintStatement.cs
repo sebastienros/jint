@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
@@ -66,7 +66,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected internal static JintStatement Build(Statement statement)
         {
-            JintStatement result = statement.Type switch
+            JintStatement? result = statement.Type switch
             {
                 Nodes.BlockStatement => new JintBlockStatement((BlockStatement) statement),
                 Nodes.ReturnStatement => new JintReturnStatement((ReturnStatement) statement),

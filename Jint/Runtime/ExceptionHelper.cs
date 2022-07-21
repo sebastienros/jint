@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using Esprima;
@@ -13,7 +13,7 @@ namespace Jint.Runtime
     internal static class ExceptionHelper
     {
         [DoesNotReturn]
-        public static void ThrowSyntaxError(Realm realm, string message = null)
+        public static void ThrowSyntaxError(Realm realm, string? message = null)
         {
             throw new JavaScriptException(realm.Intrinsics.SyntaxError, message);
         }
@@ -25,13 +25,13 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowArgumentException(string message = null)
+        public static void ThrowArgumentException(string? message = null)
         {
             ThrowArgumentException(message, null);
         }
 
         [DoesNotReturn]
-        public static void ThrowArgumentException(string message, string paramName)
+        public static void ThrowArgumentException(string? message, string? paramName)
         {
             throw new ArgumentException(message, paramName);
         }
@@ -43,32 +43,32 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowReferenceNameError(Realm realm, string name)
+        public static void ThrowReferenceNameError(Realm realm, string? name)
         {
             var message = name != null ? name + " is not defined" : null;
             ThrowReferenceError(realm, message);
         }
 
         [DoesNotReturn]
-        public static void ThrowReferenceError(Realm realm, string message)
+        public static void ThrowReferenceError(Realm realm, string? message)
         {
             throw new JavaScriptException(realm.Intrinsics.ReferenceError, message);
         }
 
         [DoesNotReturn]
-        public static void ThrowTypeErrorNoEngine(string message = null)
+        public static void ThrowTypeErrorNoEngine(string? message = null)
         {
             throw new TypeErrorException(message);
         }
 
         [DoesNotReturn]
-        public static void ThrowTypeError(Realm realm, string message = null)
+        public static void ThrowTypeError(Realm realm, string? message = null)
         {
             throw new JavaScriptException(realm.Intrinsics.TypeError, message);
         }
 
         [DoesNotReturn]
-        public static void ThrowRangeError(Realm realm, string message = null)
+        public static void ThrowRangeError(Realm realm, string? message = null)
         {
             throw new JavaScriptException(realm.Intrinsics.RangeError, message);
         }
@@ -80,7 +80,7 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowNotImplementedException(string message = null)
+        public static void ThrowNotImplementedException(string? message = null)
         {
             throw new NotImplementedException(message);
         }
@@ -110,13 +110,13 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowNotSupportedException(string message = null)
+        public static void ThrowNotSupportedException(string? message = null)
         {
             throw new NotSupportedException(message);
         }
 
         [DoesNotReturn]
-        public static void ThrowInvalidOperationException(string message = null, Exception exception = null)
+        public static void ThrowInvalidOperationException(string? message = null, Exception? exception = null)
         {
             throw new InvalidOperationException(message, exception);
         }
@@ -175,7 +175,9 @@ namespace Jint.Runtime
             }
 
             ExceptionDispatchInfo.Capture(meaningfulException).Throw();
+#pragma warning disable CS8763
         }
+#pragma warning restore CS8763
 
         [DoesNotReturn]
         internal static void ThrowError(Engine engine, string message)
@@ -202,7 +204,7 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowModuleResolutionException(string resolverAlgorithmError, string specifier, string parent)
+        public static void ThrowModuleResolutionException(string resolverAlgorithmError, string specifier, string? parent)
         {
             throw new ModuleResolutionException(resolverAlgorithmError, specifier, parent);
         }

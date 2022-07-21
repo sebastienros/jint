@@ -1,5 +1,3 @@
-﻿#nullable enable
-
 namespace Jint.Runtime.CallStack
 {
     internal sealed class CallStackElementComparer: IEqualityComparer<CallStackElement>

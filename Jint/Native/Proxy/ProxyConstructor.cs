@@ -1,4 +1,4 @@
-﻿using Jint.Collections;
+using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -49,7 +49,7 @@ namespace Jint.Native.Proxy
             return Construct(arguments.At(0), arguments.At(1));
         }
 
-        protected internal override ObjectInstance GetPrototypeOf()
+        protected internal override ObjectInstance? GetPrototypeOf()
         {
             return _realm.Intrinsics.Function.Prototype;
         }
@@ -72,7 +72,7 @@ namespace Jint.Native.Proxy
             JsValue Revoke(JsValue thisObject, JsValue[] arguments)
             {
                 p._handler = null;
-                p._target = null;
+                p._target = null!;
                 return Undefined;
             }
 

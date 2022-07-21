@@ -1,4 +1,4 @@
-﻿namespace Jint.Runtime
+namespace Jint.Runtime
 {
     public sealed class ExecutionCanceledException : JintException
     {

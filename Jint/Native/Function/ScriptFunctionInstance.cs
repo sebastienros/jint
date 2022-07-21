@@ -1,4 +1,4 @@
-﻿using Esprima.Ast;
+using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -20,7 +20,7 @@ namespace Jint.Native.Function
             IFunction functionDeclaration,
             EnvironmentRecord scope,
             bool strict,
-            ObjectInstance proto = null)
+            ObjectInstance? proto = null)
             : this(
                 engine,
                 new JintFunctionDefinition(engine, functionDeclaration),
@@ -35,7 +35,7 @@ namespace Jint.Native.Function
             JintFunctionDefinition function,
             EnvironmentRecord scope,
             FunctionThisMode thisMode,
-            ObjectInstance proto = null)
+            ObjectInstance? proto = null)
             : base(engine, engine.Realm, function, scope, thisMode)
         {
             _prototype = proto ?? _engine.Realm.Intrinsics.Function.PrototypeObject;
@@ -107,7 +107,7 @@ namespace Jint.Native.Function
         internal override bool IsConstructor =>
             (_homeObject.IsUndefined() || _isClassConstructor)
             && _functionDefinition?.Function is not ArrowFunctionExpression
-            && _functionDefinition?.Function.Generator != true;
+            && _functionDefinition?.Function?.Generator != true;
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-construct-argumentslist-newtarget
@@ -124,7 +124,7 @@ namespace Jint.Native.Function
                 thisArgument = OrdinaryCreateFromConstructor(
                     newTarget,
                     static intrinsics => intrinsics.Object.PrototypeObject,
-                    static (Engine engine, Realm _, object _) => new ObjectInstance(engine));
+                    static (Engine engine, Realm _, object? _) => new ObjectInstance(engine));
             }
 
             var calleeContext = PrepareForOrdinaryCall(newTarget);

@@ -1,4 +1,4 @@
-﻿using Jint.Native;
+using Jint.Native;
 using Jint.Runtime.References;
 
 namespace Jint.Pooling
@@ -21,12 +21,12 @@ namespace Jint.Pooling
             return new Reference(JsValue.Undefined, JsString.Empty, false, null);
         }
 
-        public Reference Rent(JsValue baseValue, JsValue name, bool strict, JsValue thisValue)
+        public Reference Rent(JsValue baseValue, JsValue name, bool strict, JsValue? thisValue)
         {
             return _pool.Allocate().Reassign(baseValue, name, strict, thisValue);
         }
 
-        public void Return(Reference reference)
+        public void Return(Reference? reference)
         {
             if (reference == null)
             {

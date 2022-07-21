@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -211,7 +211,7 @@ namespace Jint.Native.Date
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Date.PrototypeObject,
-                static (Engine engine, Realm _, object _) => new DateInstance(engine));
+                static (Engine engine, Realm _, object? _) => new DateInstance(engine));
             o.DateValue = dv;
             return o;
         }

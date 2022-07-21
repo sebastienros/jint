@@ -1,4 +1,4 @@
-﻿namespace Jint
+namespace Jint
 {
     public enum DeclarationBindingType
     {

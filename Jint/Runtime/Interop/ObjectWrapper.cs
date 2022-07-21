@@ -1,5 +1,3 @@
-#nullable enable
-
 using System.Collections;
 using System.Globalization;
 using System.Reflection;
@@ -146,7 +144,7 @@ namespace Jint.Runtime.Interop
                     if (stringKey is not null
                         || _engine.ClrTypeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out stringKey))
                     {
-                        var jsString = JsString.Create((string) stringKey);
+                        var jsString = JsString.Create((string) stringKey!);
                         yield return jsString;
                     }
                 }
@@ -254,7 +252,7 @@ namespace Jint.Runtime.Interop
         private static JsValue GetLength(JsValue thisObj, JsValue[] arguments)
         {
             var wrapper = (ObjectWrapper) thisObj;
-            return JsNumber.Create((int) wrapper._typeDescriptor.LengthProperty.GetValue(wrapper.Target));
+            return JsNumber.Create((int) (wrapper._typeDescriptor.LengthProperty?.GetValue(wrapper.Target) ?? 0));
         }
 
         internal override ulong GetSmallestIndex(ulong length)

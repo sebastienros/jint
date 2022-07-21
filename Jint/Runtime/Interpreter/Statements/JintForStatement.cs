@@ -10,14 +10,14 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintForStatement : JintStatement<ForStatement>
     {
-        private JintVariableDeclaration _initStatement;
-        private JintExpression _initExpression;
+        private JintVariableDeclaration? _initStatement;
+        private JintExpression? _initExpression;
 
-        private JintExpression _test;
-        private JintExpression _increment;
+        private JintExpression? _test;
+        private JintExpression? _increment;
 
-        private JintStatement _body;
-        private List<string> _boundNames;
+        private JintStatement _body = null!;
+        private List<string>? _boundNames;
 
         private bool _shouldCreatePerIterationEnvironment;
 
@@ -62,15 +62,15 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            EnvironmentRecord oldEnv = null;
-            EnvironmentRecord loopEnv = null;
+            EnvironmentRecord? oldEnv = null;
+            EnvironmentRecord? loopEnv = null;
             var engine = context.Engine;
             if (_boundNames != null)
             {
                 oldEnv = engine.ExecutionContext.LexicalEnvironment;
                 loopEnv = JintEnvironment.NewDeclarativeEnvironment(engine, oldEnv);
                 var loopEnvRec = loopEnv;
-                var kind = _initStatement._statement.Kind;
+                var kind = _initStatement!._statement.Kind;
                 for (var i = 0; i < _boundNames.Count; i++)
                 {
                     var name = _boundNames[i];
@@ -144,7 +144,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                 if (result.Type == CompletionType.Break && (result.Target == null || result.Target == _statement?.LabelSet?.Name))
                 {
-                    return NormalCompletion(result.Value);
+                    return NormalCompletion(result.Value!);
                 }
 
                 if (result.Type != CompletionType.Continue || (result.Target != null && result.Target != _statement?.LabelSet?.Name))

@@ -1,4 +1,4 @@
-﻿namespace Jint.Runtime.Debugger
+namespace Jint.Runtime.Debugger
 {
     /// <summary>
     /// Variable scope type.

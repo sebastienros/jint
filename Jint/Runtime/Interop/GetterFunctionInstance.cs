@@ -1,4 +1,4 @@
-﻿using Jint.Native;
+using Jint.Native;
 using Jint.Native.Function;
 
 namespace Jint.Runtime.Interop

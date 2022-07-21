@@ -8,7 +8,7 @@ namespace Jint.Native.DataView
     /// </summary>
     public sealed class DataViewInstance : ObjectInstance
     {
-        internal ArrayBufferInstance _viewedArrayBuffer;
+        internal ArrayBufferInstance? _viewedArrayBuffer;
         internal uint _byteLength;
         internal uint _byteOffset;
 

@@ -5,9 +5,9 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintIfStatement : JintStatement<IfStatement>
     {
-        private JintStatement _statementConsequent;
-        private JintExpression _test;
-        private JintStatement _alternate;
+        private JintStatement _statementConsequent = null!;
+        private JintExpression _test = null!;
+        private JintStatement? _alternate;
 
         public JintIfStatement(IfStatement statement) : base(statement)
         {
@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
             else
             {
-                return new Completion(CompletionType.Normal, null, Location);
+                return new Completion(CompletionType.Normal, null!, Location);
             }
 
             return result;

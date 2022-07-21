@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace Jint.Runtime.Interop
@@ -10,9 +11,9 @@ namespace Jint.Runtime.Interop
         private static readonly Type _genericDictionaryType = typeof(IDictionary<,>);
         private static readonly Type _stringType = typeof(string);
 
-        private readonly MethodInfo _tryGetValueMethod;
-        private readonly PropertyInfo _keysAccessor;
-        private readonly Type _valueType;
+        private readonly MethodInfo? _tryGetValueMethod;
+        private readonly PropertyInfo? _keysAccessor;
+        private readonly Type? _valueType;
 
         private TypeDescriptor(Type type)
         {
@@ -49,7 +50,7 @@ namespace Jint.Runtime.Interop
         public bool IsDictionary { get; }
         public bool IsStringKeyedGenericDictionary => _tryGetValueMethod is not null;
         public bool IsEnumerable { get; }
-        public PropertyInfo LengthProperty { get; }
+        public PropertyInfo? LengthProperty { get; }
 
         public bool Iterable => IsArrayLike || IsDictionary || IsEnumerable;
 
@@ -82,7 +83,7 @@ namespace Jint.Runtime.Interop
             return false;
         }
 
-        public bool TryGetValue(object target, string member, out object o)
+        public bool TryGetValue(object target, string member, [NotNullWhen(true)] out object? o)
         {
             if (!IsStringKeyedGenericDictionary)
             {
@@ -92,8 +93,8 @@ namespace Jint.Runtime.Interop
             // we could throw when indexing with an invalid key
             try
             {
-                var parameters = new[] { member, _valueType.IsValueType ? Activator.CreateInstance(_valueType) : null };
-                var result = (bool) _tryGetValueMethod.Invoke(target, parameters);
+                var parameters = new[] { member, _valueType!.IsValueType ? Activator.CreateInstance(_valueType) : null };
+                var result = (bool) _tryGetValueMethod!.Invoke(target, parameters);
                 o = parameters[1];
                 return result;
             }
@@ -111,7 +112,7 @@ namespace Jint.Runtime.Interop
                 ExceptionHelper.ThrowInvalidOperationException("Not a string-keyed dictionary");
             }
 
-            return (ICollection<string>) _keysAccessor.GetValue(target);
+            return (ICollection<string>) _keysAccessor!.GetValue(target);
         }
     }
 }

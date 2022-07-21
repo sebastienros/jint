@@ -14,7 +14,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var envRec = (FunctionEnvironmentRecord) context.Engine.ExecutionContext.GetThisEnvironment();
             var activeFunction = envRec._functionObject;
             var superConstructor = activeFunction.GetPrototypeOf();
-            return NormalCompletion(superConstructor);
+            return NormalCompletion(superConstructor!);
         }
     }
 }

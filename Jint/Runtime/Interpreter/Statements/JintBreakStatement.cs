@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintBreakStatement : JintStatement<BreakStatement>
     {
-        private readonly string _label;
+        private readonly string? _label;
 
         public JintBreakStatement(BreakStatement statement) : base(statement)
         {
@@ -16,7 +16,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            return new Completion(CompletionType.Break, null, _label, Location);
+            return new Completion(CompletionType.Break, null!, _label, Location);
         }
     }
 }

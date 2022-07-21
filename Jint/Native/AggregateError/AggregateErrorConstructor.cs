@@ -1,5 +1,3 @@
-﻿#nullable enable
-
 using Jint.Native.Error;
 using Jint.Native.Function;
 using Jint.Native.Object;

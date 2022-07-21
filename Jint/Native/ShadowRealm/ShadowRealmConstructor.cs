@@ -1,5 +1,3 @@
-﻿#nullable enable
-
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -52,7 +50,7 @@ public sealed class ShadowRealmConstructor : FunctionInstance, IConstructor
             {
                 var context = new ExecutionContext(
                     scriptOrModule: null,
-                    lexicalEnvironment: realmRec.GlobalEnv,
+                    lexicalEnvironment: realmRec!.GlobalEnv,
                     variableEnvironment: realmRec.GlobalEnv,
                     privateEnvironment: null,
                     realm: realmRec,

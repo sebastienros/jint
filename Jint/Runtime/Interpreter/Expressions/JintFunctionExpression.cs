@@ -22,8 +22,8 @@ namespace Jint.Runtime.Interpreter.Expressions
         public override Completion GetValue(EvaluationContext context)
         {
             var closure = !_function.Function.Generator
-                ? InstantiateOrdinaryFunctionExpression(context, _function.Name)
-                : InstantiateGeneratorFunctionExpression(context, _function.Name);
+                ? InstantiateOrdinaryFunctionExpression(context, _function.Name!)
+                : InstantiateGeneratorFunctionExpression(context, _function.Name!);
 
             return Completion.Normal(closure, _expression.Location);
         }
@@ -31,17 +31,17 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-instantiateordinaryfunctionexpression
         /// </summary>
-        private ScriptFunctionInstance InstantiateOrdinaryFunctionExpression(EvaluationContext context, string name = "")
+        private ScriptFunctionInstance InstantiateOrdinaryFunctionExpression(EvaluationContext context, string? name = "")
         {
             var engine = context.Engine;
             var runningExecutionContext = engine.ExecutionContext;
             var scope = runningExecutionContext.LexicalEnvironment;
 
-            DeclarativeEnvironmentRecord funcEnv = null;
+            DeclarativeEnvironmentRecord? funcEnv = null;
             if (!string.IsNullOrWhiteSpace(name))
             {
                 funcEnv = JintEnvironment.NewDeclarativeEnvironment(engine, engine.ExecutionContext.LexicalEnvironment);
-                funcEnv.CreateImmutableBinding(name, strict: false);
+                funcEnv.CreateImmutableBinding(name!, strict: false);
             }
 
             var privateScope = runningExecutionContext.PrivateEnvironment;
@@ -65,7 +65,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             closure.MakeConstructor();
 
-            funcEnv?.InitializeBinding(name, closure);
+            funcEnv?.InitializeBinding(name!, closure);
 
             return closure;
         }

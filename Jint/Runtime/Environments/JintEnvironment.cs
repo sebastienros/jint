@@ -1,5 +1,4 @@
-﻿#nullable enable
-
+﻿using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -11,7 +10,7 @@ namespace Jint.Runtime.Environments
         internal static bool TryGetIdentifierEnvironmentWithBinding(
             EnvironmentRecord env,
             in EnvironmentRecord.BindingName name,
-            out EnvironmentRecord? record)
+            [NotNullWhen(true)] out EnvironmentRecord? record)
         {
             record = env;
 
@@ -38,8 +37,8 @@ namespace Jint.Runtime.Environments
             EnvironmentRecord env,
             in EnvironmentRecord.BindingName name,
             bool strict,
-            out EnvironmentRecord? record,
-            out JsValue? value)
+            [NotNullWhen(true)] out EnvironmentRecord? record,
+            [NotNullWhen(true)] out JsValue? value)
         {
             record = env;
             value = default;
@@ -69,7 +68,7 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// https://tc39.es/ecma262/#sec-newdeclarativeenvironment
         /// </summary>
-        internal static DeclarativeEnvironmentRecord NewDeclarativeEnvironment(Engine engine, EnvironmentRecord outer, bool catchEnvironment = false)
+        internal static DeclarativeEnvironmentRecord NewDeclarativeEnvironment(Engine engine, EnvironmentRecord? outer, bool catchEnvironment = false)
         {
             return new DeclarativeEnvironmentRecord(engine, catchEnvironment)
             {

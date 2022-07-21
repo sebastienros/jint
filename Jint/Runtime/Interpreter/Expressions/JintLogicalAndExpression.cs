@@ -5,8 +5,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintLogicalAndExpression : JintExpression
     {
-        private JintExpression _left;
-        private JintExpression _right;
+        private JintExpression _left = null!;
+        private JintExpression _right = null!;
 
         public JintLogicalAndExpression(BinaryExpression expression) : base(expression)
         {

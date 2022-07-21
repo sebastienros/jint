@@ -9,8 +9,8 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintWithStatement : JintStatement<WithStatement>
     {
-        private JintStatement _body;
-        private JintExpression _object;
+        private JintStatement _body = null!;
+        private JintExpression _object = null!;
 
         public JintWithStatement(WithStatement statement) : base(statement)
         {

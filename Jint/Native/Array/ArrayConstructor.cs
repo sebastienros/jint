@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
@@ -105,7 +105,7 @@ namespace Jint.Native.Array
         private ObjectInstance ConstructArrayFromArrayLike(
             JsValue thisObj,
             ObjectInstance objectInstance,
-            ICallable callable,
+            ICallable? callable,
             JsValue thisArg)
         {
             var source = ArrayOperations.For(objectInstance);
@@ -137,7 +137,7 @@ namespace Jint.Native.Array
                 source.TryGetValue(i, out var value);
                 if (!ReferenceEquals(callable, null))
                 {
-                    args[0] = value;
+                    args![0] = value;
                     args[1] = i;
                     jsValue = callable.Call(thisArg, args);
 
@@ -155,7 +155,7 @@ namespace Jint.Native.Array
 
             if (!ReferenceEquals(callable, null))
             {
-                _engine._jsValueArrayPool.ReturnArray(args);
+                _engine._jsValueArrayPool.ReturnArray(args!);
             }
 
             target.SetLength(length);
@@ -166,7 +166,7 @@ namespace Jint.Native.Array
         {
             private readonly JsValue _thisArg;
             private readonly ArrayOperations _instance;
-            private readonly ICallable _callable;
+            private readonly ICallable? _callable;
             private long _index = -1;
 
             public ArrayProtocol(
@@ -174,7 +174,7 @@ namespace Jint.Native.Array
                 JsValue thisArg,
                 ObjectInstance instance,
                 IteratorInstance iterator,
-                ICallable callable) : base(engine, iterator, 2)
+                ICallable? callable) : base(engine, iterator, 2)
             {
                 _thisArg = thisArg;
                 _instance = ArrayOperations.For(instance);
@@ -351,7 +351,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-arraycreate
         /// </summary>
-        internal ArrayInstance ArrayCreate(ulong length, ObjectInstance proto = null)
+        internal ArrayInstance ArrayCreate(ulong length, ObjectInstance? proto = null)
         {
             if (length > ArrayOperations.MaxArrayLength)
             {

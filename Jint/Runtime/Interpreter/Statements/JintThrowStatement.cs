@@ -8,7 +8,7 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintThrowStatement : JintStatement<ThrowStatement>
     {
-        private JintExpression _argument;
+        private JintExpression _argument = null!;
 
         public JintThrowStatement(ThrowStatement statement) : base(statement)
         {

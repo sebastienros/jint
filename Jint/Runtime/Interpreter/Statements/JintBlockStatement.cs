@@ -5,8 +5,8 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintBlockStatement : JintStatement<BlockStatement>
     {
-        private JintStatementList _statementList;
-        private List<Declaration> _lexicalDeclarations;
+        private JintStatementList _statementList = null!;
+        private List<Declaration>? _lexicalDeclarations;
 
         public JintBlockStatement(BlockStatement blockStatement) : base(blockStatement)
         {
@@ -22,7 +22,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            EnvironmentRecord oldEnv = null;
+            EnvironmentRecord? oldEnv = null;
             var engine = context.Engine;
             if (_lexicalDeclarations != null)
             {

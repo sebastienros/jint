@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Dynamic;
 using System.Reflection;
 using System.Threading;
@@ -44,7 +45,7 @@ namespace Jint.Runtime.Interop
         /// </summary>
         public StringComparer MemberNameComparer { get; set; } = DefaultMemberNameComparer.Instance;
 
-        internal ReflectionAccessor GetAccessor(Engine engine, Type type, string member, Func<ReflectionAccessor> accessorFactory = null)
+        internal ReflectionAccessor GetAccessor(Engine engine, Type type, string member, Func<ReflectionAccessor?>? accessorFactory = null)
         {
             var key = new ClrPropertyDescriptorFactoriesKey(type, member);
 
@@ -96,7 +97,7 @@ namespace Jint.Runtime.Interop
             }
 
             // try to find a single explicit property implementation
-            List<PropertyInfo> list = null;
+            List<PropertyInfo>? list = null;
             var typeResolverMemberNameComparer = MemberNameComparer;
             var typeResolverMemberNameCreator = MemberNameCreator;
             foreach (var iface in type.GetInterfaces())
@@ -131,7 +132,7 @@ namespace Jint.Runtime.Interop
             }
 
             // try to find explicit method implementations
-            List<MethodInfo> explicitMethods = null;
+            List<MethodInfo>? explicitMethods = null;
             foreach (var iface in type.GetInterfaces())
             {
                 foreach (var imethod in iface.GetMethods())
@@ -199,11 +200,11 @@ namespace Jint.Runtime.Interop
             Type type,
             string memberName,
             BindingFlags bindingFlags,
-            PropertyInfo indexerToTry,
-            out ReflectionAccessor accessor)
+            PropertyInfo? indexerToTry,
+            [NotNullWhen(true)] out ReflectionAccessor? accessor)
         {
             // look for a property, bit be wary of indexers, we don't want indexers which have name "Item" to take precedence
-            PropertyInfo property = null;
+            PropertyInfo? property = null;
             var memberNameComparer = MemberNameComparer;
             var typeResolverMemberNameCreator = MemberNameCreator;
             foreach (var p in type.GetProperties(bindingFlags))
@@ -235,7 +236,7 @@ namespace Jint.Runtime.Interop
             }
 
             // look for a field
-            FieldInfo field = null;
+            FieldInfo? field = null;
             foreach (var f in type.GetFields(bindingFlags))
             {
                 if (!Filter(engine, f))
@@ -260,7 +261,7 @@ namespace Jint.Runtime.Interop
             }
 
             // if no properties were found then look for a method
-            List<MethodInfo> methods = null;
+            List<MethodInfo>? methods = null;
             foreach (var m in type.GetMethods(bindingFlags))
             {
                 if (!Filter(engine, m))

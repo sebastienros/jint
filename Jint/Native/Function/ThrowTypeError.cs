@@ -1,4 +1,4 @@
-﻿using Jint.Runtime;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Function

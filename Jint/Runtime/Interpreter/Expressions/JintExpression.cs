@@ -1,5 +1,3 @@
-#nullable enable
-
 using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -389,7 +387,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             return false;
                         }
 
-                        var normalized = new BigInteger(System.Math.Ceiling(numberB));
+                        var normalized = new BigInteger(Math.Ceiling(numberB));
                         return TypeConverter.ToBigInt(px) < normalized;
                     }
 
@@ -418,7 +416,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return true;
                     }
 
-                    var normalizedA = new BigInteger(System.Math.Floor(numberA));
+                    var normalizedA = new BigInteger(Math.Floor(numberA));
                     return normalizedA < TypeConverter.ToBigInt(py);
                 }
 
@@ -473,7 +471,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected static JsValue[] BuildArgumentsWithSpreads(EvaluationContext context, JintExpression[] jintExpressions)
         {
-            var args = new System.Collections.Generic.List<JsValue>(jintExpressions.Length);
+            var args = new List<JsValue>(jintExpressions.Length);
             for (var i = 0; i < jintExpressions.Length; i++)
             {
                 var jintExpression = jintExpressions[i];
@@ -494,7 +492,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else
                     {
-                        var protocol = new ArraySpreadProtocol(context.Engine, args, iterator);
+                        var protocol = new ArraySpreadProtocol(context.Engine, args, iterator!);
                         protocol.Execute();
                     }
                 }
@@ -510,11 +508,11 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class ArraySpreadProtocol : IteratorProtocol
         {
-            private readonly System.Collections.Generic.List<JsValue> _instance;
+            private readonly List<JsValue> _instance;
 
             public ArraySpreadProtocol(
                 Engine engine,
-                System.Collections.Generic.List<JsValue> instance,
+                List<JsValue> instance,
                 IteratorInstance iterator) : base(engine, iterator, 0)
             {
                 _instance = instance;

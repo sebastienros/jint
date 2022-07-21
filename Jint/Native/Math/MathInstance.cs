@@ -1,4 +1,4 @@
-﻿using Jint.Collections;
+using Jint.Collections;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -10,7 +10,7 @@ namespace Jint.Native.Math
 {
     public sealed class MathInstance : ObjectInstance
     {
-        private Random _random;
+        private Random? _random;
 
         internal MathInstance(Engine engine, ObjectPrototype objectPrototype) : base(engine)
         {

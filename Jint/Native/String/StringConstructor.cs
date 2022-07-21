@@ -46,7 +46,7 @@ namespace Jint.Native.String
         /// <summary>
         /// https://tc39.es/ecma262/#sec-string.fromcharcode
         /// </summary>
-        private static JsValue FromCharCode(JsValue thisObj, JsValue[] arguments)
+        private static JsValue FromCharCode(JsValue? thisObj, JsValue[] arguments)
         {
             var length = arguments.Length;
 
@@ -196,11 +196,9 @@ namespace Jint.Native.String
         /// </summary>
         private StringInstance StringCreate(JsString value, ObjectInstance prototype)
         {
-            var instance = new StringInstance(Engine)
+            var instance = new StringInstance(Engine, value)
             {
-                _prototype = prototype,
-                StringData = value,
-                _length = PropertyDescriptor.AllForbiddenDescriptor.ForNumber(value.Length)
+                _prototype = prototype
             };
 
             return instance;

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Extensions;
@@ -17,7 +18,7 @@ namespace Jint.Runtime.Interop
         private readonly record struct TypeConversionKey(Type Source, Type Target);
 
         private static readonly ConcurrentDictionary<TypeConversionKey, bool> _knownConversions = new();
-        private static readonly ConcurrentDictionary<TypeConversionKey, MethodInfo> _knownCastOperators = new();
+        private static readonly ConcurrentDictionary<TypeConversionKey, MethodInfo?> _knownCastOperators = new();
 
         private static readonly Type intType = typeof(int);
         private static readonly Type iCallableType = typeof(Func<JsValue, JsValue[], JsValue>);
@@ -36,7 +37,7 @@ namespace Jint.Runtime.Interop
             _engine = engine;
         }
 
-        public virtual object Convert(object value, Type type, IFormatProvider formatProvider)
+        public virtual object? Convert(object? value, Type type, IFormatProvider formatProvider)
         {
             if (value == null)
             {
@@ -91,7 +92,7 @@ namespace Jint.Runtime.Interop
                     var func = (Func<JsValue, JsValue[], JsValue>) value;
                     var functionInstance = func.Target as FunctionInstance;
 
-                    Delegate d = functionInstance?.GetHiddenClrObjectProperty(delegatePropertyKey) as Delegate;
+                    var d = functionInstance?.GetHiddenClrObjectProperty(delegatePropertyKey) as Delegate;
 
                     if (d is null)
                     {
@@ -112,7 +113,7 @@ namespace Jint.Runtime.Interop
                 }
 
                 var targetElementType = type.GetElementType();
-                var itemsConverted = new object[source.Length];
+                var itemsConverted = new object?[source.Length];
                 for (var i = 0; i < source.Length; i++)
                 {
                     itemsConverted[i] = Convert(source[i], targetElementType, formatProvider);
@@ -254,11 +255,11 @@ namespace Jint.Runtime.Interop
                 new ReadOnlyCollection<ParameterExpression>(parameters)).Compile();
         }
 
-        private bool TryCastWithOperators(object value, Type type, Type valueType, out object converted)
+        private bool TryCastWithOperators(object value, Type type, Type valueType, [NotNullWhen(true)] out object? converted)
         {
             var key = new TypeConversionKey(valueType, type);
 
-            static MethodInfo CreateValueFactory(TypeConversionKey k)
+            static MethodInfo? CreateValueFactory(TypeConversionKey k)
             {
                 var (source, target) = k;
                 foreach (var m in source.GetOperatorOverloadMethods().Concat(target.GetOperatorOverloadMethods()))
@@ -301,9 +302,9 @@ namespace Jint.Runtime.Interop
             return false;
         }
 
-        public virtual bool TryConvert(object value, Type type, IFormatProvider formatProvider, out object converted)
+        public virtual bool TryConvert(object? value, Type type, IFormatProvider formatProvider, out object? converted)
         {
-            var key = new TypeConversionKey(value?.GetType(), type);
+            var key = new TypeConversionKey(value?.GetType() ?? typeof(void), type);
 
             // string conversion is not stable, "filter" -> int is invalid, "0" -> int is valid
             var canConvert = value is string || _knownConversions.GetOrAdd(key, _ =>
@@ -340,7 +341,7 @@ namespace Jint.Runtime.Interop
 
     internal static class ObjectExtensions
     {
-        public static object GetHiddenClrObjectProperty(this ObjectInstance obj, string name)
+        public static object? GetHiddenClrObjectProperty(this ObjectInstance obj, string name)
         {
             return (obj.Get(name) as IObjectWrapper)?.Target;
         }

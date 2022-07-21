@@ -13,13 +13,13 @@ namespace Jint.Runtime.Interop.Reflection
     internal abstract class ReflectionAccessor
     {
         private readonly Type _memberType;
-        private readonly object _memberName;
-        private readonly PropertyInfo _indexer;
+        private readonly object? _memberName;
+        private readonly PropertyInfo? _indexer;
 
         protected ReflectionAccessor(
             Type memberType,
-            object memberName,
-            PropertyInfo indexer = null)
+            object? memberName,
+            PropertyInfo? indexer = null)
         {
             _memberType = memberType;
             _memberName = memberName;
@@ -28,11 +28,11 @@ namespace Jint.Runtime.Interop.Reflection
 
         public abstract bool Writable { get; }
 
-        protected abstract object DoGetValue(object target);
+        protected abstract object? DoGetValue(object target);
 
-        protected abstract void DoSetValue(object target, object value);
+        protected abstract void DoSetValue(object target, object? value);
 
-        public object GetValue(Engine engine, object target)
+        public object? GetValue(Engine engine, object target)
         {
             var constantValue = ConstantValue;
             if (constantValue is not null)
@@ -58,9 +58,9 @@ namespace Jint.Runtime.Interop.Reflection
             return value;
         }
 
-        protected virtual JsValue ConstantValue => null;
+        protected virtual JsValue? ConstantValue => null;
 
-        private object TryReadFromIndexer(object target)
+        private object? TryReadFromIndexer(object target)
         {
             var getter = _indexer?.GetGetMethod();
             if (getter is null)
@@ -70,7 +70,7 @@ namespace Jint.Runtime.Interop.Reflection
 
             try
             {
-                object[] parameters = { _memberName };
+                object[] parameters = { _memberName! };
                 return getter.Invoke(target, parameters);
             }
             catch
@@ -81,7 +81,7 @@ namespace Jint.Runtime.Interop.Reflection
 
         public void SetValue(Engine engine, object target, JsValue value)
         {
-            object converted = null;
+            object? converted;
             if (_memberType == typeof(JsValue))
             {
                 converted = value;
@@ -106,7 +106,7 @@ namespace Jint.Runtime.Interop.Reflection
             }
         }
 
-        protected virtual object ConvertValueToSet(Engine engine, object value)
+        protected virtual object? ConvertValueToSet(Engine engine, object value)
         {
             return engine.ClrTypeConverter.Convert(value, _memberType, CultureInfo.InvariantCulture);
         }

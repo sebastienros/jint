@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Statements
     /// </summary>
     internal sealed class JintContinueStatement : JintStatement<ContinueStatement>
     {
-        private readonly string _labelName;
+        private readonly string? _labelName;
 
         public JintContinueStatement(ContinueStatement statement) : base(statement)
         {
@@ -16,7 +16,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            return new Completion(CompletionType.Continue, _labelName, Location);
+            return new Completion(CompletionType.Continue, _labelName!, Location);
         }
     }
 }

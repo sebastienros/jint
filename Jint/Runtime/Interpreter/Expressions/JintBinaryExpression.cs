@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -13,7 +14,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal abstract class JintBinaryExpression : JintExpression
     {
-        private readonly record struct OperatorKey(string OperatorName, Type Left, Type Right);
+        private readonly record struct OperatorKey(string? OperatorName, Type Left, Type Right);
         private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor> _knownOperators = new();
 
         private readonly JintExpression _left;
@@ -31,8 +32,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             EvaluationContext context,
             JsValue leftValue,
             JsValue rightValue,
-            string clrName,
-            out object result)
+            string? clrName,
+            [NotNullWhen(true)] out object? result)
         {
             var left = leftValue.ToObject();
             var right = rightValue.ToObject();
@@ -77,7 +78,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal static JintExpression Build(Engine engine, BinaryExpression expression)
         {
-            JintBinaryExpression result = null;
+            JintBinaryExpression? result = null;
             switch (expression.Operator)
             {
                 case BinaryOperator.StrictlyEqual:
@@ -707,7 +708,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class BitwiseBinaryExpression : JintBinaryExpression
         {
-            private string OperatorClrName
+            private string? OperatorClrName
             {
                 get
                 {
@@ -755,7 +756,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     int leftValue = lnum.AsInteger();
                     int rightValue = rnum.AsInteger();
 
-                    JsValue result = null;
+                    JsValue? result = null;
                     switch (_operator)
                     {
                         case BinaryOperator.BitwiseAnd:

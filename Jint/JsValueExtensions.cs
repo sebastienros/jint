@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.Contracts;
+using System.Diagnostics.Contracts;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Esprima;
@@ -135,7 +135,7 @@ namespace Jint
                 ExceptionHelper.ThrowArgumentException("The value is not a date");
             }
 
-            return value as DateInstance;
+            return (DateInstance) value;
         }
 
         [Pure]
@@ -146,7 +146,7 @@ namespace Jint
                 ExceptionHelper.ThrowArgumentException("The value is not a regex");
             }
 
-            return value as RegExpInstance;
+            return (RegExpInstance) value;
         }
 
         [Pure]
@@ -158,7 +158,7 @@ namespace Jint
                 ExceptionHelper.ThrowArgumentException("The value is not an object");
             }
 
-            return value as ObjectInstance;
+            return (ObjectInstance) value;
         }
 
         [Pure]
@@ -170,7 +170,7 @@ namespace Jint
                 ExceptionHelper.ThrowArgumentException("The value is not an object");
             }
 
-            return value as TInstance;
+            return (value as TInstance)!;
         }
 
         [Pure]
@@ -182,7 +182,7 @@ namespace Jint
                 ExceptionHelper.ThrowArgumentException("The value is not an array");
             }
 
-            return value as ArrayInstance;
+            return (ArrayInstance) value;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -385,14 +385,14 @@ namespace Jint
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T TryCast<T>(this JsValue value) where T : class
+        public static T? TryCast<T>(this JsValue value) where T : class
         {
             return value as T;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T TryCast<T>(this JsValue value, Action<JsValue> fail) where T : class
+        public static T? TryCast<T>(this JsValue value, Action<JsValue> fail) where T : class
         {
             if (value is T o)
             {
@@ -406,7 +406,7 @@ namespace Jint
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T As<T>(this JsValue value) where T : ObjectInstance
+        public static T? As<T>(this JsValue value) where T : ObjectInstance
         {
             if (value.IsObject())
             {
@@ -423,7 +423,7 @@ namespace Jint
             if (value is not FunctionInstance instance)
             {
                 ThrowWrongTypeException(value, "FunctionInstance");
-                return null;
+                return null!;
             }
 
             return instance;

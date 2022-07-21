@@ -1,4 +1,4 @@
-﻿using Jint.Runtime;
+using Jint.Runtime;
 
 namespace Jint.Native
 {
@@ -10,7 +10,7 @@ namespace Jint.Native
 
         public override object ToObject()
         {
-            return null;
+            return null!;
         }
 
         public override string ToString()
@@ -23,12 +23,12 @@ namespace Jint.Native
             return ReferenceEquals(Undefined, value) || ReferenceEquals(Null, value);
         }
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             return Equals(obj as JsUndefined);
         }
 
-        public bool Equals(JsUndefined other)
+        public bool Equals(JsUndefined? other)
         {
             return !ReferenceEquals(null, other);
         }

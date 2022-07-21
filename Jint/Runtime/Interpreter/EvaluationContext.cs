@@ -19,7 +19,7 @@ namespace Jint.Runtime.Interpreter
         public Completion ResumedCompletion { get; }
         public bool DebugMode { get; }
 
-        public Node LastSyntaxNode { get; set; }
+        public Node LastSyntaxNode { get; set; } = null!;
         public bool OperatorOverloadingAllowed { get; }
     }
 }

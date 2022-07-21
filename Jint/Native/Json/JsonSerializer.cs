@@ -1,4 +1,4 @@
-﻿using Jint.Collections;
+using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;
@@ -17,9 +17,10 @@ namespace Jint.Native.Json
     public class JsonSerializer
     {
         private readonly Engine _engine;
-        private ObjectTraverseStack _stack;
-        private string _indent, _gap;
-        private List<JsValue> _propertyList;
+        private ObjectTraverseStack _stack = null!;
+        private string? _indent;
+        private string? _gap;
+        private List<JsValue>? _propertyList;
         private JsValue _replacerFunction = Undefined.Instance;
 
         private static readonly JsString toJsonProperty = new("toJSON");
@@ -355,7 +356,7 @@ namespace Jint.Native.Json
             var stepback = _indent;
             _indent += _gap;
 
-            var k = (IEnumerable<JsValue>) _propertyList ?? value.EnumerableOwnPropertyNames(ObjectInstance.EnumerableOwnPropertyNamesKind.Key);
+            var k = (IEnumerable<JsValue>?) _propertyList ?? value.EnumerableOwnPropertyNames(ObjectInstance.EnumerableOwnPropertyNamesKind.Key);
 
             var partial = new List<string>();
             foreach (var p in k)

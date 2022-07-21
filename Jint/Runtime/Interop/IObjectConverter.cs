@@ -1,4 +1,5 @@
-﻿using Jint.Native;
+using System.Diagnostics.CodeAnalysis;
+using Jint.Native;
 
 namespace Jint.Runtime.Interop
 {
@@ -7,6 +8,6 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public interface IObjectConverter
     {
-        bool TryConvert(Engine engine, object value, out JsValue result);
+        bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result);
     }
 }

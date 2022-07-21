@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class JintSpreadExpression : JintExpression
     {
         private readonly JintExpression _argument;
-        private readonly string _argumentName;
+        private readonly string? _argumentName;
 
         public JintSpreadExpression(Engine engine, SpreadElement expression) : base(expression)
         {
@@ -30,7 +30,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return Completion.Normal(objectInstance, _expression.Location);
         }
 
-        internal void GetValueAndCheckIterator(EvaluationContext context, out JsValue instance, out IteratorInstance iterator)
+        internal void GetValueAndCheckIterator(EvaluationContext context, out JsValue instance, out IteratorInstance? iterator)
         {
             instance = _argument.GetValue(context).Value;
             if (instance is null || !instance.TryGetIterator(context.Engine.Realm, out iterator))

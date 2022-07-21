@@ -1,4 +1,4 @@
-﻿using Jint.Native;
+using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Descriptors;
 
@@ -9,7 +9,7 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public sealed class ClrFunctionInstance : FunctionInstance, IEquatable<ClrFunctionInstance>
     {
-        private readonly string _name;
+        private readonly string? _name;
         internal readonly Func<JsValue, JsValue[], JsValue> _func;
 
         public ClrFunctionInstance(
@@ -32,12 +32,12 @@ namespace Jint.Runtime.Interop
 
         protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments) => _func(thisObject, arguments);
 
-        public override bool Equals(JsValue obj)
+        public override bool Equals(JsValue? obj)
         {
             return Equals(obj as ClrFunctionInstance);
         }
 
-        public bool Equals(ClrFunctionInstance other)
+        public bool Equals(ClrFunctionInstance? other)
         {
             if (ReferenceEquals(null, other))
             {

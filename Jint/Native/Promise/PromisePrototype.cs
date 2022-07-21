@@ -64,7 +64,7 @@ namespace Jint.Native.Promise
             var ctor = SpeciesConstructor(promise, _realm.Intrinsics.Promise);
 
             // 4. Let resultCapability be ? NewPromiseCapability(C).
-            var capability = PromiseConstructor.NewPromiseCapability(_engine, ctor as JsValue);
+            var capability = PromiseConstructor.NewPromiseCapability(_engine, (JsValue) ctor);
 
             // 5. Return PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability).
             return PromiseOperations.PerformPromiseThen(_engine, promise, args.At(0), args.At(1), capability);
@@ -127,7 +127,7 @@ namespace Jint.Native.Promise
                 var result = onFinally.Call(Undefined, Arguments.Empty);
 
                 // 7. Let promise be ? PromiseResolve(C, result).
-                var promise = _realm.Intrinsics.Promise.Resolve(ctor as JsValue, new[] {result});
+                var promise = _realm.Intrinsics.Promise.Resolve((JsValue) ctor, new[] {result});
 
                 // 8. Let valueThunk be equivalent to a function that returns value.
                 var valueThunk = new ClrFunctionInstance(_engine, "", (_, _) => value);
@@ -146,7 +146,7 @@ namespace Jint.Native.Promise
                 var result = onFinally.Call(Undefined, Arguments.Empty);
 
                 // 7. Let promise be ? PromiseResolve(C, result).
-                var promise = _realm.Intrinsics.Promise.Resolve(ctor as JsValue, new[] {result});
+                var promise = _realm.Intrinsics.Promise.Resolve((JsValue) ctor, new[] {result});
 
                 // 8. Let thrower be equivalent to a function that throws reason.
                 var thrower = new ClrFunctionInstance(_engine, "", (_, _) => throw new JavaScriptException(reason));

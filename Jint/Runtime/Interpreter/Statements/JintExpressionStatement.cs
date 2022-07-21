@@ -6,7 +6,7 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintExpressionStatement : JintStatement<ExpressionStatement>
     {
-        private JintExpression _expression;
+        private JintExpression _expression = null!;
 
         public JintExpressionStatement(ExpressionStatement statement) : base(statement)
         {

@@ -12,14 +12,14 @@ namespace Jint.Runtime.Interpreter
     {
         private readonly Engine _engine;
 
-        private JintExpression _bodyExpression;
-        private JintStatementList _bodyStatementList;
+        private JintExpression? _bodyExpression;
+        private JintStatementList? _bodyStatementList;
 
-        public readonly string Name;
+        public readonly string? Name;
         public readonly bool Strict;
         public readonly IFunction Function;
 
-        private State _state;
+        private State? _state;
 
         public JintFunctionDefinition(
             Engine engine,
@@ -27,7 +27,7 @@ namespace Jint.Runtime.Interpreter
         {
             _engine = engine;
             Function = function;
-            Name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id.Name : null;
+            Name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id!.Name : null;
             Strict = function.Strict;
         }
 
@@ -100,22 +100,22 @@ namespace Jint.Runtime.Interpreter
         {
             public bool HasRestParameter;
             public int Length;
-            public Key[] ParameterNames;
+            public Key[] ParameterNames = null!;
             public bool HasDuplicates;
             public bool IsSimpleParameterList;
             public bool HasParameterExpressions;
             public bool ArgumentsObjectNeeded;
-            public List<Key> VarNames;
-            public LinkedList<JintFunctionDefinition> FunctionsToInitialize;
+            public List<Key>? VarNames;
+            public LinkedList<JintFunctionDefinition>? FunctionsToInitialize;
             public readonly HashSet<Key> FunctionNames = new();
             public LexicalVariableDeclaration[] LexicalDeclarations = Array.Empty<LexicalVariableDeclaration>();
-            public HashSet<Key> ParameterBindings;
-            public List<VariableValuePair> VarsToInitialize;
+            public HashSet<Key>? ParameterBindings;
+            public List<VariableValuePair>? VarsToInitialize;
 
             internal struct VariableValuePair
             {
                 public Key Name;
-                public JsValue InitialValue;
+                public JsValue? InitialValue;
             }
 
             internal struct LexicalVariableDeclaration
@@ -136,7 +136,7 @@ namespace Jint.Runtime.Interpreter
             var lexicalNames = hoistingScope._lexicalNames;
             state.VarNames = hoistingScope._varNames;
 
-            LinkedList<JintFunctionDefinition> functionsToInitialize = null;
+            LinkedList<JintFunctionDefinition>? functionsToInitialize = null;
 
             if (functionDeclarations != null)
             {
@@ -144,7 +144,7 @@ namespace Jint.Runtime.Interpreter
                 for (var i = functionDeclarations.Count - 1; i >= 0; i--)
                 {
                     var d = functionDeclarations[i];
-                    var fn = d.Id.Name;
+                    var fn = d.Id!.Name!;
                     if (state.FunctionNames.Add(fn))
                     {
                         functionsToInitialize.AddFirst(new JintFunctionDefinition(_engine, d));
@@ -211,9 +211,9 @@ namespace Jint.Runtime.Interpreter
                 for (var i = 0; i < state.VarNames?.Count; i++)
                 {
                     var n = state.VarNames[i];
-                    if (instantiatedVarNames.Add(n))
+                    if (instantiatedVarNames!.Add(n))
                     {
-                        JsValue initialValue = null;
+                        JsValue? initialValue = null;
                         if (!state.ParameterBindings.Contains(n) || state.FunctionNames.Contains(n))
                         {
                             initialValue = JsValue.Undefined;
@@ -253,7 +253,7 @@ namespace Jint.Runtime.Interpreter
         }
 
         private static void GetBoundNames(
-            Expression parameter,
+            Node? parameter,
             List<Key> target,
             bool checkDuplicates,
             ref bool _hasRestParameter,
@@ -263,8 +263,8 @@ namespace Jint.Runtime.Interpreter
         {
             if (parameter is Identifier identifier)
             {
-                _hasDuplicates |= checkDuplicates && target.Contains(identifier.Name);
-                target.Add(identifier.Name);
+                _hasDuplicates |= checkDuplicates && target.Contains(identifier.Name!);
+                target.Add(identifier.Name!);
                 hasArguments |= identifier.Name == "arguments";
                 return;
             }
@@ -350,9 +350,9 @@ namespace Jint.Runtime.Interpreter
                 var parameter = functionDeclarationParams[i];
                 if (parameter is Identifier id)
                 {
-                    state.HasDuplicates |= parameterNames.Contains(id.Name);
+                    state.HasDuplicates |= parameterNames.Contains(id.Name!);
                     hasArguments = id.Name == "arguments";
-                    parameterNames.Add(id.Name);
+                    parameterNames.Add(id.Name!);
                     if (state.IsSimpleParameterList)
                     {
                         state.Length++;

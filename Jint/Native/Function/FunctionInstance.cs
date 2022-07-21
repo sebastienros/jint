@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Native.Proxy;
@@ -11,25 +11,25 @@ namespace Jint.Native.Function
 {
     public abstract class FunctionInstance : ObjectInstance, ICallable
     {
-        protected PropertyDescriptor _prototypeDescriptor;
+        protected PropertyDescriptor? _prototypeDescriptor;
 
-        protected internal PropertyDescriptor _length;
-        internal PropertyDescriptor _nameDescriptor;
+        protected internal PropertyDescriptor? _length;
+        internal PropertyDescriptor? _nameDescriptor;
 
-        protected internal EnvironmentRecord _environment;
-        internal readonly JintFunctionDefinition _functionDefinition;
+        protected internal EnvironmentRecord? _environment;
+        internal readonly JintFunctionDefinition _functionDefinition = null!;
         internal readonly FunctionThisMode _thisMode;
         internal JsValue _homeObject = Undefined;
         internal ConstructorKind _constructorKind = ConstructorKind.Base;
 
         internal Realm _realm;
-        internal PrivateEnvironmentRecord _privateEnvironment;
-        private readonly IScriptOrModule _scriptOrModule;
+        internal PrivateEnvironmentRecord? _privateEnvironment;
+        private readonly IScriptOrModule? _scriptOrModule;
 
         protected FunctionInstance(
             Engine engine,
             Realm realm,
-            JsString name)
+            JsString? name)
             : this(engine, realm, name, FunctionThisMode.Global, ObjectClass.Function)
         {
         }
@@ -43,7 +43,7 @@ namespace Jint.Native.Function
             : this(
                 engine,
                 realm,
-                !string.IsNullOrWhiteSpace(function.Name) ? new JsString(function.Name) : null,
+                !string.IsNullOrWhiteSpace(function.Name) ? new JsString(function.Name!) : null,
                 thisMode)
         {
             _functionDefinition = function;
@@ -53,7 +53,7 @@ namespace Jint.Native.Function
         internal FunctionInstance(
             Engine engine,
             Realm realm,
-            JsString name,
+            JsString? name,
             FunctionThisMode thisMode = FunctionThisMode.Global,
             ObjectClass objectClass = ObjectClass.Function)
             : base(engine, objectClass)
@@ -181,7 +181,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-setfunctionname
         /// </summary>
-        internal void SetFunctionName(JsValue name, string prefix = null, bool force = false)
+        internal void SetFunctionName(JsValue name, string? prefix = null, bool force = false)
         {
             if (!force && _nameDescriptor != null && UnwrapJsValue(_nameDescriptor) != JsString.Empty)
             {
@@ -213,8 +213,8 @@ namespace Jint.Native.Function
         internal T OrdinaryCreateFromConstructor<T, TState>(
             JsValue constructor,
             Func<Intrinsics, ObjectInstance> intrinsicDefaultProto,
-            Func<Engine, Realm, TState, T> objectCreator,
-            TState state = default) where T : ObjectInstance
+            Func<Engine, Realm, TState?, T> objectCreator,
+            TState? state = default) where T : ObjectInstance
         {
             var proto = GetPrototypeFromConstructor(constructor, intrinsicDefaultProto);
 
@@ -229,8 +229,7 @@ namespace Jint.Native.Function
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ObjectInstance GetPrototypeFromConstructor(JsValue constructor, Func<Intrinsics, ObjectInstance> intrinsicDefaultProto)
         {
-            var proto = constructor.Get(CommonProperties.Prototype, constructor) as ObjectInstance;
-            if (proto is null)
+            if (constructor.Get(CommonProperties.Prototype, constructor) is not ObjectInstance proto)
             {
                 var realm = GetFunctionRealm(constructor);
                 proto = intrinsicDefaultProto(realm.Intrinsics);
@@ -354,7 +353,7 @@ namespace Jint.Native.Function
             return _engine.EnterExecutionContext(calleeContext);
         }
 
-        internal void MakeConstructor(bool writableProperty = true, ObjectInstance prototype = null)
+        internal void MakeConstructor(bool writableProperty = true, ObjectInstance? prototype = null)
         {
             _constructorKind = ConstructorKind.Base;
             if (prototype is null)
@@ -387,7 +386,7 @@ namespace Jint.Native.Function
 
         private sealed class ObjectInstanceWithConstructor : ObjectInstance
         {
-            private PropertyDescriptor _constructor;
+            private PropertyDescriptor? _constructor;
 
             public ObjectInstanceWithConstructor(Engine engine, ObjectInstance thisObj) : base(engine)
             {

@@ -1,10 +1,11 @@
+using System.Diagnostics.CodeAnalysis;
 using Jint.Native.Object;
 
 namespace Jint.Native.RegExp
 {
     internal static class RegExpExtensions
     {
-        internal static bool TryGetDefaultRegExpExec(this ObjectInstance o, out Func<JsValue, JsValue[], JsValue> exec)
+        internal static bool TryGetDefaultRegExpExec(this ObjectInstance? o, [NotNullWhen(true)] out Func<JsValue, JsValue[], JsValue>? exec)
         {
             if (o is RegExpPrototype prototype)
             {

@@ -1,4 +1,4 @@
-﻿using Jint.Native.Function;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -8,7 +8,7 @@ namespace Jint.Native.Proxy
     public sealed class ProxyInstance : ObjectInstance, IConstructor, ICallable
     {
         internal ObjectInstance _target;
-        internal ObjectInstance _handler;
+        internal ObjectInstance? _handler;
 
         private static readonly JsString TrapApply = new JsString("apply");
         private static readonly JsString TrapGet = new JsString("get");
@@ -128,7 +128,7 @@ namespace Jint.Native.Proxy
                 {
                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
-                if (targetDesc.IsAccessorDescriptor() && !targetDesc.Configurable && targetDesc.Get.IsUndefined() && !result.IsUndefined())
+                if (targetDesc.IsAccessorDescriptor() && !targetDesc.Configurable && targetDesc.Get!.IsUndefined() && !result.IsUndefined())
                 {
                    ExceptionHelper.ThrowTypeError(_engine.Realm, $"'get' on proxy: property '{property}' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined' (got '{result}')");
                 }
@@ -324,7 +324,7 @@ namespace Jint.Native.Proxy
 
                 if (targetDesc.IsAccessorDescriptor() && !targetDesc.Configurable)
                 {
-                    if (targetDesc.Set.IsUndefined())
+                    if (targetDesc.Set!.IsUndefined())
                     {
                         ExceptionHelper.ThrowTypeError(_engine.Realm);
                     }
@@ -504,7 +504,7 @@ namespace Jint.Native.Proxy
         /// <summary>
         /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-getprototypeof
         /// </summary>
-        protected internal override ObjectInstance GetPrototypeOf()
+        protected internal override ObjectInstance? GetPrototypeOf()
         {
             if (!TryCallHandler(TrapGetProtoTypeOf, new JsValue[] { _target }, out var handlerProto ))
             {
@@ -566,7 +566,7 @@ namespace Jint.Native.Proxy
             AssertNotRevoked(propertyName);
 
             result = Undefined;
-            var handlerFunction = _handler.Get(propertyName);
+            var handlerFunction = _handler!.Get(propertyName);
             if (!handlerFunction.IsNullOrUndefined())
             {
                 var callable = handlerFunction as ICallable;

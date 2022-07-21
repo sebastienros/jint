@@ -1,4 +1,4 @@
-﻿using Jint.Native;
+using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Environments;
 
@@ -48,14 +48,14 @@ namespace Jint.Runtime.Debugger
         /// This is mainly useful as an optimization for devtools, allowing the BindingObject to be serialized directly rather than
         /// building a new transient object in response to e.g. Runtime.getProperties.
         /// </remarks>
-        public ObjectInstance BindingObject { get; }
+        public ObjectInstance? BindingObject { get; }
 
         /// <summary>
         /// Retrieves the value of a specific binding. Note that some bindings (e.g. uninitialized let/const) may return null.
         /// </summary>
         /// <param name="name">Binding name</param>
         /// <returns>Value of the binding</returns>
-        public JsValue GetBindingValue(string name)
+        public JsValue? GetBindingValue(string name)
         {
             _record.TryGetBindingValue(name, strict: true, out var result);
             return result;

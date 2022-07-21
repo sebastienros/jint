@@ -101,12 +101,12 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
         return Equals(other as JsBigInt);
     }
 
-    public override bool Equals(JsValue other)
+    public override bool Equals(JsValue? other)
     {
         return Equals(other as JsBigInt);
     }
 
-    public bool Equals(JsBigInt other)
+    public bool Equals(JsBigInt? other)
     {
         if (ReferenceEquals(null, other))
         {

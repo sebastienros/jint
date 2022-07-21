@@ -1,4 +1,4 @@
-﻿using Esprima.Ast;
+using Esprima.Ast;
 using Jint.Native;
 
 namespace Jint.Runtime.Modules;
@@ -10,7 +10,7 @@ internal sealed class BuilderModuleRecord : SourceTextModuleRecord
 {
     private List<KeyValuePair<string, JsValue>> _exportBuilderDeclarations = new();
 
-    internal BuilderModuleRecord(Engine engine, Realm realm, Module source, string location, bool async)
+    internal BuilderModuleRecord(Engine engine, Realm realm, Module source, string? location, bool async)
         : base(engine, realm, source, location, async)
     {
     }

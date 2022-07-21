@@ -952,7 +952,7 @@ namespace Jint.Runtime
                 case InternalTypes.Null:
                     return Null.Text;
                 case InternalTypes.Object when o is IObjectWrapper p:
-                    return p.Target?.ToString();
+                    return p.Target?.ToString()!;
                 default:
                     return ToString(ToPrimitive(o, Types.String));
             }
@@ -1050,7 +1050,7 @@ namespace Jint.Runtime
             MethodDescriptor[] methods,
             Func<MethodDescriptor, JsValue[]> argumentProvider)
         {
-            List<MethodMatch> matchingByParameterCount = null;
+            List<MethodMatch>? matchingByParameterCount = null;
             foreach (var method in methods)
             {
                 var parameterInfos = method.Parameters;
@@ -1142,7 +1142,7 @@ namespace Jint.Runtime
         {
             if (givenType is null)
             {
-                return new AssignableResult(-1, null);
+                return new AssignableResult(-1, typeof(void));
             }
 
             if (!genericType.IsConstructedGenericType)
@@ -1251,7 +1251,7 @@ namespace Jint.Runtime
                 return 1;
             }
 
-            if (jsValue.IsArray() && objectValueType.IsArray)
+            if (jsValue.IsArray() && objectValueType!.IsArray)
             {
                 // we have potential, TODO if we'd know JS array's internal type we could have exact match
                 return 2;
@@ -1260,7 +1260,7 @@ namespace Jint.Runtime
             // not sure the best point to start generic type tests
             if (paramType.IsGenericParameter)
             {
-                var genericTypeAssignmentScore = IsAssignableToGenericType(objectValueType, paramType);
+                var genericTypeAssignmentScore = IsAssignableToGenericType(objectValueType!, paramType);
                 if (genericTypeAssignmentScore.Score != -1)
                 {
                     return genericTypeAssignmentScore.Score;
@@ -1273,7 +1273,7 @@ namespace Jint.Runtime
                 return 3;
             }
 
-            foreach (var m in objectValueType.GetOperatorOverloadMethods())
+            foreach (var m in objectValueType!.GetOperatorOverloadMethods())
             {
                 if (paramType.IsAssignableFrom(m.ReturnType) && m.Name is "op_Implicit" or "op_Explicit")
                 {

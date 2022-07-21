@@ -22,7 +22,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return new JintLiteralExpression(expression);
         }
 
-        internal static JsValue ConvertToJsValue(Literal literal)
+        internal static JsValue? ConvertToJsValue(Literal literal)
         {
             if (literal.TokenType == TokenType.BooleanLiteral)
             {
@@ -45,12 +45,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (literal.TokenType == TokenType.StringLiteral)
             {
-                return JsString.Create((string) literal.Value);
+                return JsString.Create((string) literal.Value!);
             }
 
             if (literal.TokenType == TokenType.BigIntLiteral)
             {
-                return JsBigInt.Create((BigInteger) literal.Value);
+                return JsBigInt.Create((BigInteger) literal.Value!);
             }
 
             return null;
@@ -71,7 +71,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var expression = (Literal) _expression;
             if (expression.TokenType == TokenType.RegularExpression)
             {
-                return context.Engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex) expression.Value, expression.Regex.Pattern, expression.Regex.Flags);
+                return context.Engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex) expression.Value!, expression.Regex!.Pattern, expression.Regex.Flags);
             }
 
             return JsValue.FromObject(context.Engine, expression.Value);

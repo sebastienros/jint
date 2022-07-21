@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using Jint.Native.Object;
 using Jint.Runtime;
 
@@ -7,11 +7,6 @@ namespace Jint.Native.Number
     public class NumberInstance : ObjectInstance, IPrimitiveInstance
     {
         private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
-
-        public NumberInstance(Engine engine)
-            : base(engine, ObjectClass.Number)
-        {
-        }
 
         public NumberInstance(Engine engine, JsNumber value)
             : base(engine, ObjectClass.Number)
@@ -23,7 +18,7 @@ namespace Jint.Native.Number
 
         JsValue IPrimitiveInstance.PrimitiveValue => NumberData;
 
-        public JsNumber NumberData { get; internal init; }
+        public JsNumber NumberData { get; }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsNegativeZero(double x)

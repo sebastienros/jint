@@ -5,7 +5,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintSequenceExpression : JintExpression
     {
-        private JintExpression[] _expressions;
+        private JintExpression[] _expressions = Array.Empty<JintExpression>();
 
         public JintSequenceExpression(SequenceExpression expression) : base(expression)
         {

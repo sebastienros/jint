@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
@@ -153,13 +153,13 @@ namespace Jint.Runtime.Interop
         /// <param name="typeName"> Name of the type. </param>
         ///
         /// <returns>   The type. </returns>
-        private static Type GetType(Assembly assembly, string typeName)
+        private static Type? GetType(Assembly assembly, string typeName)
         {
             var compared = typeName.Replace("+", ".");
             Type[] types = assembly.GetTypes();
             foreach (Type t in types)
             {
-                if (t.FullName.Replace("+", ".") == compared)
+                if (t.FullName?.Replace("+", ".") == compared)
                 {
                     return t;
                 }

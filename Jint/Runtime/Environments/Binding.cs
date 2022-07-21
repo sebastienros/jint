@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Jint.Native;
 
 namespace Jint.Runtime.Environments
