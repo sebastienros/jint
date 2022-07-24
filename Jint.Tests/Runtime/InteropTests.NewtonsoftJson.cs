@@ -102,5 +102,43 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2,\"Null\":null,\"Date\":\"2015-06-25T00:00:00.000Z\"}]", result);
         }
+        
+        [Fact]
+        public void EngineShouldMapJObjectFromObjectArrayWithValuesCorrectly()
+        {
+            var engine = new Engine();
+
+            var source = new dynamic[]
+            {
+                new { Text = "Text1" },
+                new { Text = "Text2" }
+            };
+
+              engine.SetValue("testSubject", source.Select(x => JObject.FromObject(x)).ToArray());
+
+            var fromEngine = engine.Evaluate("var testArray= testSubject.map(x=>x.Text);  return testArray.toString();");
+            var result = fromEngine.ToString();
+
+            Assert.Equal("Text1,Text2", result);
+        }
+
+        [Fact]
+        public void EngineShouldMapJObjectFromObjectListWithValuesCorrectly()
+        {
+            var engine = new Engine();
+
+            var source = new dynamic[]
+            {
+                new { Text = "Text1" },
+                new { Text = "Text2" }
+            };
+
+            engine.SetValue("testSubject", source.Select(x => JObject.FromObject(x)).ToList());
+
+            var fromEngine = engine.Evaluate("var testArray= testSubject.map(x=>x.Text);  return testArray.toString();");
+            var result = fromEngine.ToString();
+            
+            Assert.Equal("Text1,Text2", result);
+        }
     }
 }
