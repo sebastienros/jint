@@ -1371,7 +1371,11 @@ namespace Jint
             }
             finally
             {
-                CallStack.Pop();
+                // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
+                if (CallStack.Count > 0)
+                {
+                    CallStack.Pop();
+                }
             }
 
             return result;
