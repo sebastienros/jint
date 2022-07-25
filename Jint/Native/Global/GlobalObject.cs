@@ -76,7 +76,7 @@ namespace Jint.Native.Global
                 ["Uint8Array"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Uint8Array, propertyFlags),
                 ["Uint8ClampedArray"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Uint8ClampedArray, propertyFlags),
                 ["WeakMap"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.WeakMap, propertyFlags),
-                ["WeakRef"] = new LazyPropertyDescriptor(this, static state => Undefined, propertyFlags),
+                ["WeakRef"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.WeakRef, propertyFlags),
                 ["WeakSet"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.WeakSet, propertyFlags),
 
 

@@ -24,6 +24,7 @@ using Jint.Native.String;
 using Jint.Native.Symbol;
 using Jint.Native.TypedArray;
 using Jint.Native.WeakMap;
+using Jint.Native.WeakRef;
 using Jint.Native.WeakSet;
 
 namespace Jint.Runtime
@@ -53,6 +54,7 @@ namespace Jint.Runtime
         private ErrorConstructor? _uriError;
         private WeakMapConstructor? _weakMap;
         private WeakSetConstructor? _weakSet;
+        private WeakRefConstructor? _weakRef;
         private PromiseConstructor? _promise;
         private ProxyConstructor? _proxy;
         private ReflectInstance? _reflect;
@@ -180,6 +182,9 @@ namespace Jint.Runtime
 
         public WeakSetConstructor WeakSet =>
             _weakSet ??= new WeakSetConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        internal WeakRefConstructor WeakRef =>
+            _weakRef ??= new WeakRefConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
         public PromiseConstructor Promise =>
             _promise ??= new PromiseConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);

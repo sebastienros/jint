@@ -61,6 +61,13 @@ public abstract partial class Test262Test
                 return JsValue.Undefined;
             }), true, true, true));
 
+        o.FastSetProperty("gc", new PropertyDescriptor(new ClrFunctionInstance(engine, "gc",
+            (_, _) =>
+            {
+                GC.Collect();
+                return JsValue.Undefined;
+            }), true, true, true));
+
         engine.SetValue("$262", o);
 
         foreach (var include in file.Includes)
