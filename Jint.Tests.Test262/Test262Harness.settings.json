@@ -29,8 +29,7 @@
     "tail-call-optimization",
     "top-level-await",
     "Temporal",
-    "u180e",
-    "WeakRef"
+    "u180e"
   ],
   "ExcludedFlags": [
     "async"
