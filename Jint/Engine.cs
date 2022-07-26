@@ -35,6 +35,8 @@ namespace Jint
 
         private readonly EventLoop _eventLoop = new();
 
+        private readonly Agent _agent = new Agent();
+
         // lazy properties
         private DebugHandler? _debugHandler;
 
@@ -356,6 +358,11 @@ namespace Jint
             _eventLoop.Events.Enqueue(continuation);
         }
 
+        internal void AddToKeptObjects(JsValue target)
+        {
+            _agent.AddToKeptObjects(target);
+        }
+
         internal void RunAvailableContinuations()
         {
             var queue = _eventLoop.Events;
@@ -660,6 +667,7 @@ namespace Jint
                 }
                 _isStrict = oldStrict;
                 ResetConstraints();
+                _agent.ClearKeptObjects();
             }
         }
 
@@ -1363,7 +1371,11 @@ namespace Jint
             }
             finally
             {
-                CallStack.Pop();
+                // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
+                if (CallStack.Count > 0)
+                {
+                    CallStack.Pop();
+                }
             }
 
             return result;

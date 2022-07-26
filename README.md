@@ -91,7 +91,8 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ✔ `AggregateError`
 - ❌ `Promise.any` 
 - ✔ `String.prototype.replaceAll`
-- ❌ `WeakRef` and `FinalizationRegistry`
+- ✔ `WeakRef` 
+- ❌ `FinalizationRegistry`
 
 #### ECMAScript 2022
 

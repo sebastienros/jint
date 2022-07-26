@@ -379,6 +379,49 @@ try {
             Assert.Equal(type, engine.Evaluate("o.constructor.name").AsString());
         }
 
+        [Fact]
+        public void CallStackWorksWithRecursiveCalls()
+        {
+            static ParserOptions CreateParserOptions(string filePath)
+            {
+                return new ParserOptions(filePath)
+                {
+                    AdaptRegexp = true,
+                    Tolerant = true
+                };
+            }
+
+            var e = Assert.Throws<JavaScriptException>(() =>
+            {
+                var engine = new Engine();
+
+                engine.SetValue("executeFile", (Action<string>) (path =>
+                {
+                    var content = path switch
+                    {
+                        "first-file.js" => @"num = num * 3;
+executeFile(""second-file.js"");",
+                        "second-file.js" => @"// Intentionally making a mistake in the variable name
+nuм -= 3;",
+                        _ => throw new FileNotFoundException($"File '{path}' not exist.", path)
+                    };
+                    engine.Execute(content, CreateParserOptions(path));
+                }));
+                engine.Execute(
+                    @"var num = 5;
+executeFile(""first-file.js"");",
+                    CreateParserOptions("main-file.js")
+                );
+            });
+
+            Assert.Equal("nuм is not defined", e.Message);
+
+            const string Expected = @"   at delegate second-file.js:2:1
+   at delegate first-file.js:2:1
+   at main-file.js:2:1";
+            EqualIgnoringNewLineDifferences(Expected, e.JavaScriptStackTrace);
+        }
+
         private static void EqualIgnoringNewLineDifferences(string expected, string actual)
         {
             expected = expected.Replace("\r\n", "\n");
