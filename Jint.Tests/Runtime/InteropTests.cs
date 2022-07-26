@@ -3086,5 +3086,64 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal("called#5#20", string.Join("#", calls));
         }
+
+        [Fact]
+        public void CanUseClrFunction()
+        {
+            var engine = new Engine();
+            engine.SetValue("fn", new ClrFunctionInstance(engine, "fn", (_, args) => (JsValue) (args[0].AsInteger() + 1)));
+
+            var result = engine.Evaluate("fn(1)");
+            
+            Assert.Equal(2, result);
+        }
+
+        [Fact]
+        public void ShouldAllowClrExceptionsThrough()
+        {
+            var engine = new Engine(opts => opts.CatchClrExceptions(exc => false));
+            engine.SetValue("fn", new ClrFunctionInstance(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
+            const string Source = @"
+function wrap() {
+  fn();
+}
+wrap();
+";
+            
+            Assert.Throws<InvalidOperationException>(() => engine.Execute(Source));
+        }
+
+        [Fact]
+        public void ShouldConvertClrExceptionsToErrors()
+        {
+            var engine = new Engine(opts => opts.CatchClrExceptions(exc => exc is InvalidOperationException));
+            engine.SetValue("fn", new ClrFunctionInstance(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
+            const string Source = @"
+function wrap() {
+  fn();
+}
+wrap();
+";
+            
+            var exc = Assert.Throws<JavaScriptException>(() => engine.Execute(Source));
+            Assert.Equal(exc.Message, "This is a C# error");
+        }
+        
+        [Fact]
+        public void ShouldAllowCatchingConvertedClrExceptions()
+        {
+            var engine = new Engine(opts => opts.CatchClrExceptions(exc => exc is InvalidOperationException));
+            engine.SetValue("fn", new ClrFunctionInstance(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
+            const string Source = @"
+try {
+  fn();
+} catch (e) {
+  throw new Error('Caught: ' + e.message);
+}
+";
+            
+            var exc = Assert.Throws<JavaScriptException>(() => engine.Execute(Source));
+            Assert.Equal(exc.Message, "Caught: This is a C# error");
+        }
     }
 }

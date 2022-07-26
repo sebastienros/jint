@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Descriptors;
@@ -30,7 +31,26 @@ namespace Jint.Runtime.Interop
                 : new PropertyDescriptor(JsNumber.Create(length), lengthFlags);
         }
 
-        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments) => _func(thisObject, arguments);
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        {
+            try
+            {
+                return _func(thisObject, arguments);
+            }
+            catch (Exception exc)
+            {
+                if (_engine.Options.Interop.ExceptionHandler(exc))
+                {
+                    ExceptionHelper.ThrowJavaScriptException(_realm.Intrinsics.NativeError, exc.Message);
+                }
+                else
+                {
+                    ExceptionDispatchInfo.Capture(exc).Throw();
+                }
+
+                return Undefined;
+            }
+        }
 
         public override bool Equals(JsValue? obj)
         {
