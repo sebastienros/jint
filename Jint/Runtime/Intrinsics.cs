@@ -38,7 +38,6 @@ namespace Jint.Runtime
         private static readonly JsString _syntaxErrorFunctionName = new("SyntaxError");
         private static readonly JsString _typeErrorFunctionName = new("TypeError");
         private static readonly JsString _uriErrorFunctionName = new("URIError");
-        private static readonly JsString _nativeErrorFunctionName = new("NativeError");
 
         private readonly Engine _engine;
         private readonly Realm _realm;
@@ -53,7 +52,6 @@ namespace Jint.Runtime
         private ErrorConstructor? _syntaxError;
         private ErrorConstructor? _typeError;
         private ErrorConstructor? _uriError;
-        private ErrorConstructor? _nativeError;
         private WeakMapConstructor? _weakMap;
         private WeakSetConstructor? _weakSet;
         private WeakRefConstructor? _weakRef;
@@ -262,8 +260,5 @@ namespace Jint.Runtime
 
         public ThrowTypeError ThrowTypeError =>
             _throwTypeError ??= new ThrowTypeError(_engine, _engine.Realm) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject };
-        
-        public ErrorConstructor NativeError =>
-            _nativeError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _nativeErrorFunctionName, static intrinsics => intrinsics.NativeError.PrototypeObject);
     }
 }

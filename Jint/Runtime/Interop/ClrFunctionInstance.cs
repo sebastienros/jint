@@ -41,7 +41,7 @@ namespace Jint.Runtime.Interop
             {
                 if (_engine.Options.Interop.ExceptionHandler(exc))
                 {
-                    ExceptionHelper.ThrowJavaScriptException(_realm.Intrinsics.NativeError, exc.Message);
+                    ExceptionHelper.ThrowJavaScriptException(_realm.Intrinsics.Error, exc.Message);
                 }
                 else
                 {
