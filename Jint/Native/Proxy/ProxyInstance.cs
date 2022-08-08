@@ -597,7 +597,5 @@ namespace Jint.Native.Proxy
                 ExceptionHelper.ThrowTypeError(_engine.Realm, $"Cannot perform '{key}' on a proxy that has been revoked");
             }
         }
-
-        public override string ToString() => "function () { [native code] }";
     }
 }
