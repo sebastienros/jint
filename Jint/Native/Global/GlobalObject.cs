@@ -29,7 +29,7 @@ namespace Jint.Native.Global
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
 
-            var properties = new PropertyDictionary(55, checkExistingKeys: false)
+            var properties = new PropertyDictionary(56, checkExistingKeys: false)
             {
                 ["AggregateError"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.AggregateError, propertyFlags),
                 ["Array"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Array, propertyFlags),
@@ -50,6 +50,7 @@ namespace Jint.Native.Global
                 ["Int16Array"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Int16Array, propertyFlags),
                 ["Int32Array"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Int32Array, propertyFlags),
                 ["Int8Array"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Int8Array, propertyFlags),
+                // TODO ["Intl"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Intl, propertyFlags),
                 ["JSON"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Json, propertyFlags),
                 ["Map"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Map, propertyFlags),
                 ["Math"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Math, propertyFlags),

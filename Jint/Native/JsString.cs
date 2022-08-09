@@ -3,7 +3,7 @@ using Jint.Runtime;
 
 namespace Jint.Native;
 
-public class JsString : JsValue, IEquatable<JsString>
+public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 {
     private const int AsciiMax = 126;
     private static readonly JsString[] _charToJsValue;
@@ -255,6 +255,11 @@ public class JsString : JsValue, IEquatable<JsString>
         return Equals(obj as JsString);
     }
 
+    public virtual bool Equals(string? s)
+    {
+        return s != null && ToString() == s;
+    }
+
     public virtual bool Equals(JsString? other)
     {
         if (other is null)
@@ -347,6 +352,30 @@ public class JsString : JsValue, IEquatable<JsString>
         }
 
         public override int Length => _stringBuilder?.Length ?? _value?.Length ?? 0;
+
+        public override bool Equals(string? s)
+        {
+            if (s is null || Length != s.Length)
+            {
+                return false;
+            }
+
+            // we cannot use StringBuilder.Equals as it also checks Capacity on full framework / pre .NET Core 3
+            if (_stringBuilder != null)
+            {
+                for (var i = 0; i < _stringBuilder.Length; ++i)
+                {
+                    if (_stringBuilder[i] != s[i])
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            return _value == s;
+        }
 
         public override bool Equals(JsString? other)
         {
