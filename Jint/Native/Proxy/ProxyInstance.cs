@@ -598,6 +598,6 @@ namespace Jint.Native.Proxy
             }
         }
 
-        public override string ToString() => "function () { [native code] }";
+        public override string ToString() => IsCallable ? "function () { [native code] }" : base.ToString();
     }
 }
