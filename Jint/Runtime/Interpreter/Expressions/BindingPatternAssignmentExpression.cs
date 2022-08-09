@@ -140,7 +140,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             ConsumeFromIterator(iterator!, out value, out done);
                         }
 
-                        AssignToIdentifier(engine, identifier.Name!, value, environment, checkReference);
+                        AssignToIdentifier(engine, identifier.Name, value, environment, checkReference);
                     }
                     else if (left is MemberExpression me)
                     {
@@ -214,7 +214,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         if (restElement.Argument is Identifier leftIdentifier)
                         {
-                            AssignToIdentifier(engine, leftIdentifier.Name!, array, environment, checkReference);
+                            AssignToIdentifier(engine, leftIdentifier.Name, array, environment, checkReference);
                         }
                         else if (restElement.Argument is BindingPattern bp)
                         {
@@ -252,10 +252,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             if (assignmentPattern.Right.IsFunctionDefinition())
                             {
-                                ((FunctionInstance) value).SetFunctionName(new JsString(leftIdentifier.Name!));
+                                ((FunctionInstance) value).SetFunctionName(new JsString(leftIdentifier.Name));
                             }
 
-                            AssignToIdentifier(engine, leftIdentifier.Name!, value, environment, checkReference);
+                            AssignToIdentifier(engine, leftIdentifier.Name, value, environment, checkReference);
                         }
                         else if (assignmentPattern.Left is BindingPattern bp)
                         {
@@ -349,7 +349,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             ((FunctionInstance) value).SetFunctionName(target!.Name);
                         }
 
-                        AssignToIdentifier(context.Engine, target!.Name!, value, environment, checkReference);
+                        AssignToIdentifier(context.Engine, target!.Name, value, environment, checkReference);
                     }
                     else if (p.Value is BindingPattern bindingPattern)
                     {
@@ -367,7 +367,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         var identifierReference = p.Value as Identifier;
                         var target = identifierReference ?? identifier;
                         source.TryGetValue(sourceKey, out var v);
-                        AssignToIdentifier(context.Engine, target!.Name!, v, environment, checkReference);
+                        AssignToIdentifier(context.Engine, target!.Name, v, environment, checkReference);
                     }
                 }
                 else
@@ -378,7 +378,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         var count = Math.Max(0, source.Properties?.Count ?? 0) - processedProperties!.Count;
                         var rest = context.Engine.Realm.Intrinsics.Object.Construct(count);
                         source.CopyDataProperties(rest, processedProperties);
-                        AssignToIdentifier(context.Engine, leftIdentifier.Name!, rest, environment, checkReference);
+                        AssignToIdentifier(context.Engine, leftIdentifier.Name, rest, environment, checkReference);
                     }
                     else if (restElement.Argument is BindingPattern bp)
                     {

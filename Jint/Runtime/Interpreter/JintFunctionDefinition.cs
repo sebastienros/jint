@@ -144,7 +144,7 @@ namespace Jint.Runtime.Interpreter
                 for (var i = functionDeclarations.Count - 1; i >= 0; i--)
                 {
                     var d = functionDeclarations[i];
-                    var fn = d.Id!.Name!;
+                    var fn = d.Id!.Name;
                     if (state.FunctionNames.Add(fn))
                     {
                         functionsToInitialize.AddFirst(new JintFunctionDefinition(_engine, d));
@@ -263,8 +263,8 @@ namespace Jint.Runtime.Interpreter
         {
             if (parameter is Identifier identifier)
             {
-                _hasDuplicates |= checkDuplicates && target.Contains(identifier.Name!);
-                target.Add(identifier.Name!);
+                _hasDuplicates |= checkDuplicates && target.Contains(identifier.Name);
+                target.Add(identifier.Name);
                 hasArguments |= identifier.Name == "arguments";
                 return;
             }
@@ -350,9 +350,9 @@ namespace Jint.Runtime.Interpreter
                 var parameter = functionDeclarationParams[i];
                 if (parameter is Identifier id)
                 {
-                    state.HasDuplicates |= parameterNames.Contains(id.Name!);
+                    state.HasDuplicates |= parameterNames.Contains(id.Name);
                     hasArguments = id.Name == "arguments";
-                    parameterNames.Add(id.Name!);
+                    parameterNames.Add(id.Name);
                     if (state.IsSimpleParameterList)
                     {
                         state.Length++;

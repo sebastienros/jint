@@ -36,8 +36,7 @@ namespace Jint.Runtime.CallStack
             }
         }
 
-        public NodeList<Expression>? Arguments =>
-            Function._functionDefinition?.Function.Params;
+        public NodeList<Node>? Arguments => Function._functionDefinition?.Function.Params;
 
         public override string ToString()
         {

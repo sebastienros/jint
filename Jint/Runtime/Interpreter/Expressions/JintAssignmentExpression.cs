@@ -15,7 +15,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private JintAssignmentExpression(Engine engine, AssignmentExpression expression) : base(expression)
         {
-            _left = Build(engine, expression.Left);
+            _left = Build(engine, (Expression) expression.Left);
             _right = Build(engine, expression.Right);
             _operator = expression.Operator;
         }
@@ -344,8 +344,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override void Initialize(EvaluationContext context)
             {
-                var assignmentExpression = ((AssignmentExpression) _expression);
-                _left = Build(context.Engine, assignmentExpression.Left);
+                var assignmentExpression = (AssignmentExpression) _expression;
+                _left = Build(context.Engine, (Expression) assignmentExpression.Left);
                 _leftIdentifier = _left as JintIdentifierExpression;
                 _evalOrArguments = _leftIdentifier?.HasEvalOrArguments == true;
 

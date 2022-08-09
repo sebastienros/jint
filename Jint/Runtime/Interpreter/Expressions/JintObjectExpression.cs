@@ -90,10 +90,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     _properties[i] = new ObjectProperty(propName, p);
 
-                    if (p.Kind == PropertyKind.Init || p.Kind == PropertyKind.Data)
+                    if (p.Kind is PropertyKind.Init or PropertyKind.Data)
                     {
                         var propertyValue = p.Value;
-                        _valueExpressions[i] = Build(engine, propertyValue);
+                        _valueExpressions[i] = Build(engine, (Expression) propertyValue);
                         _canBuildFast &= !propertyValue.IsFunctionDefinition();
                     }
                     else
@@ -139,7 +139,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var objectProperty = _properties[i];
                 var valueExpression = _valueExpressions[i];
-                var propValue = valueExpression.GetValue(context).Value!.Clone();
+                var propValue = valueExpression.GetValue(context).Value.Clone();
                 properties[objectProperty!._key!] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
@@ -202,7 +202,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return completion;
                     }
 
-                    var propValue = completion.Value!.Clone();
+                    var propValue = completion.Value.Clone();
                     if (expr._expression.IsFunctionDefinition())
                     {
                         var closure = (FunctionInstance) propValue;

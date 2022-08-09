@@ -4,6 +4,8 @@ using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
 
+using Range = Esprima.Range;
+
 namespace Jint.Native.Json
 {
     public class JsonParser
@@ -465,7 +467,7 @@ namespace Jint.Native.Json
             {
                 var range = new[] {token.Range[0], token.Range[1]};
                 string value = _source.Slice(token.Range[0], token.Range[1]);
-                _extra!.Tokens.Add(new Token
+                _extra.Tokens.Add(new Token
                     {
                         Type = token.Type,
                         Text = value,
@@ -479,7 +481,7 @@ namespace Jint.Native.Json
 
         private Token Lex()
         {
-            Token token = _lookahead!;
+            Token token = _lookahead;
             _index = token.Range[1];
             _lineNumber = token.LineNumber.HasValue ? token.LineNumber.Value : 0;
             _lineStart = token.LineStart;
@@ -521,7 +523,7 @@ namespace Jint.Native.Json
         {
             if (_extra.Range != null)
             {
-                node.Range = new Esprima.Ast.Range(_state.MarkerStack.Pop(), _index);
+                node.Range = new Range(_state.MarkerStack.Pop(), _index);
             }
             if (_extra.Loc.HasValue)
             {
@@ -659,7 +661,7 @@ namespace Jint.Native.Json
 
             while (!Match("}"))
             {
-                Tokens type = _lookahead!.Type;
+                Tokens type = _lookahead.Type;
                 if (type != Tokens.String)
                 {
                     ThrowUnexpected(Lex());
@@ -790,7 +792,7 @@ namespace Jint.Native.Json
 
                 Peek();
 
-                if(_lookahead!.Type != Tokens.EOF)
+                if(_lookahead.Type != Tokens.EOF)
                 {
                     ThrowError(_lookahead, Messages.UnexpectedToken, _lookahead.Text);
                 }

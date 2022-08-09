@@ -212,7 +212,7 @@ namespace Jint.Runtime.Debugger
             var info = new DebugInformation(
                 engine: _engine,
                 currentNode: node,
-                currentLocation: location ?? node!.Location,
+                currentLocation: location ?? node.Location,
                 returnValue: returnValue,
                 currentMemoryUsage: _engine.CurrentMemoryUsage,
                 pauseType: type,

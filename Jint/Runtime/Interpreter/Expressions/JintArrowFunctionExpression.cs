@@ -8,8 +8,7 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly JintFunctionDefinition _function;
 
-        public JintArrowFunctionExpression(Engine engine, ArrowFunctionExpression function)
-            : base(ArrowParameterPlaceHolder.Empty)
+        public JintArrowFunctionExpression(Engine engine, ArrowFunctionExpression function) : base(function)
         {
             _function = new JintFunctionDefinition(engine, function);
         }

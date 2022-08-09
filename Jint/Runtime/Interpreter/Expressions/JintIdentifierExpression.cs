@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public JintIdentifierExpression(Identifier expression) : base(expression)
         {
-            _expressionName = new EnvironmentRecord.BindingName(expression.Name!);
+            _expressionName = new EnvironmentRecord.BindingName(expression.Name);
             if (expression.Name == "undefined")
             {
                 _calculatedValue = JsValue.Undefined;
