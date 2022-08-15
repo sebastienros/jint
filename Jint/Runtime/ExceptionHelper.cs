@@ -128,12 +128,6 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowJavaScriptException(JsValue value)
-        {
-            throw new JavaScriptException(value);
-        }
-
-        [DoesNotReturn]
         public static void ThrowJavaScriptException(Engine engine, JsValue value, in Completion result)
         {
             throw new JavaScriptException(value).SetJavaScriptCallstack(engine, result.Location);
