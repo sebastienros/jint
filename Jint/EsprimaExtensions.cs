@@ -38,14 +38,7 @@ namespace Jint
             JsValue key;
             if (expression is Literal literal)
             {
-                if (literal.TokenType == TokenType.NullLiteral)
-                {
-                    key = JsValue.Null;
-                }
-                else
-                {
-                    key = LiteralKeyToString(literal);
-                }
+                key = literal.TokenType == TokenType.NullLiteral ? JsValue.Null : LiteralKeyToString(literal);
             }
             else if (!resolveComputed && expression is Identifier identifier)
             {

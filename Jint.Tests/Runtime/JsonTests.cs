@@ -47,8 +47,8 @@ namespace Jint.Tests.Runtime
         [InlineData("\"\\uah\"", "Expected hexadecimal digit in JSON at position 4")]
         [InlineData("0123", "Unexpected token '1' in JSON at position 1")]  // leading 0 (octal number) not allowed
         [InlineData("1e+A", "Unexpected token 'A' in JSON at position 3")]
-        [InlineData("truE", "Unexpected token 'tru' in JSON at position 0")]
-        [InlineData("nul", "Unexpected token 'nul' in JSON at position 0")]
+        [InlineData("truE", "Unexpected token ILLEGAL in JSON at position 0")]
+        [InlineData("nul", "Unexpected token ILLEGAL in JSON at position 0")]
         [InlineData("\"ab\t\"", "Invalid character in JSON at position 3")] // invalid char in string literal
         [InlineData("\"ab", "Unexpected end of JSON input at position 3")] // unterminated string literal
         [InlineData("alpha", "Unexpected token 'a' in JSON at position 0")]
