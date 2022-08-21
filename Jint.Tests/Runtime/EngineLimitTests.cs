@@ -9,6 +9,12 @@ public class EngineLimitTests
     [Fact]
     public void ShouldAllowReasonableCallStackDepth()
     {
+        if (OperatingSystem.IsMacOS())
+        {
+            // stack limit differ quite a lot
+            return;
+        }
+
 #if RELEASE
         const int FunctionNestingCount = 960;
 #else
