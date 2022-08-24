@@ -165,7 +165,7 @@ namespace Jint.Native.Function
 
                         if (kind == ConstructorKind.Base)
                         {
-                            return (ObjectInstance) thisArgument!;
+                            return (ObjectInstance) thisArgument;
                         }
 
                         if (!result.Value.IsUndefined())

@@ -246,7 +246,7 @@ namespace Jint
                                 {
                                     if (declaration.Id is Identifier identifier)
                                     {
-                                        _varNames.Add(identifier.Name!);
+                                        _varNames.Add(identifier.Name);
                                     }
                                 }
                             }
@@ -264,7 +264,7 @@ namespace Jint
                                 {
                                     if (declaration.Id is Identifier identifier)
                                     {
-                                        _lexicalNames.Add(identifier.Name!);
+                                        _lexicalNames.Add(identifier.Name);
                                     }
                                 }
                             }

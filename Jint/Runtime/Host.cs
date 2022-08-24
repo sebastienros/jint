@@ -154,7 +154,7 @@ namespace Jint.Runtime
                 }
                 catch (JavaScriptException ex)
                 {
-                    promiseCapability.Reject.Call(JsValue.Undefined, new [] { ex.Error! });
+                    promiseCapability.Reject.Call(JsValue.Undefined, new [] { ex.Error });
                 }
                 return JsValue.Undefined;
             }, 0, PropertyFlag.Configurable);

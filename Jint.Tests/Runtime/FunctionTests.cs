@@ -19,17 +19,6 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void ProxyCanBeRevokedWithoutContext()
-        {
-            new Engine()
-                .Execute(@"
-                    var revocable = Proxy.revocable({}, {});
-                    var revoke = revocable.revoke;
-                    revoke.call(null);
-                ");
-        }
-
-        [Fact]
         public void ArrowFunctionShouldBeExtensible()
         {
             new Engine()

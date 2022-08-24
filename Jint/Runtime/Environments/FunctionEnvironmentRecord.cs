@@ -133,7 +133,7 @@ namespace Jint.Runtime.Environments
             if (parameter is Identifier identifier)
             {
                 var argument = (uint) index < (uint) arguments.Length ? arguments[index] : Undefined;
-                SetItemSafely(identifier.Name!, argument, initiallyEmpty);
+                SetItemSafely(identifier.Name, argument, initiallyEmpty);
             }
             else
             {
@@ -205,7 +205,7 @@ namespace Jint.Runtime.Environments
                         JsString propertyName = JsString.Empty;
                         if (p.Key is Identifier propertyIdentifier)
                         {
-                            propertyName = JsString.Create(propertyIdentifier.Name!);
+                            propertyName = JsString.Create(propertyIdentifier.Name);
                         }
                         else if (p.Key is Literal propertyLiteral)
                         {
@@ -232,7 +232,7 @@ namespace Jint.Runtime.Environments
                         {
                             var rest = _engine.Realm.Intrinsics.Object.Construct(argumentObject.Properties!.Count - processedProperties!.Count);
                             argumentObject.CopyDataProperties(rest, processedProperties);
-                            SetItemSafely(restIdentifier.Name!, rest, initiallyEmpty);
+                            SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
                         }
                         else
                         {
@@ -312,7 +312,7 @@ namespace Jint.Runtime.Environments
 
             if (restElement.Argument is Identifier restIdentifier)
             {
-                SetItemSafely(restIdentifier.Name!, rest, initiallyEmpty);
+                SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
             }
             else if (restElement.Argument is BindingPattern bindingPattern)
             {

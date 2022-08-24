@@ -26,7 +26,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             if (literal.TokenType == TokenType.BooleanLiteral)
             {
-                return literal.NumericValue > 0.0 ? JsBoolean.True : JsBoolean.False;
+                return literal.BooleanValue!.Value ? JsBoolean.True : JsBoolean.False;
             }
 
             if (literal.TokenType == TokenType.NullLiteral)
@@ -36,11 +36,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (literal.TokenType == TokenType.NumericLiteral)
             {
-                var intValue = (int) literal.NumericValue;
-                return literal.NumericValue == intValue
-                       && (intValue != 0 || BitConverter.DoubleToInt64Bits(literal.NumericValue) != JsNumber.NegativeZeroBits)
+                // unbox only once
+                var numericValue = (double) literal.Value!;
+                var intValue = (int) numericValue;
+                return numericValue == intValue
+                       && (intValue != 0 || BitConverter.DoubleToInt64Bits(numericValue) != JsNumber.NegativeZeroBits)
                     ? JsNumber.Create(intValue)
-                    : JsNumber.Create(literal.NumericValue);
+                    : JsNumber.Create(numericValue);
             }
 
             if (literal.TokenType == TokenType.StringLiteral)

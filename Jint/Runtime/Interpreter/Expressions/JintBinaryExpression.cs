@@ -84,7 +84,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 case BinaryOperator.StrictlyEqual:
                     result = new StrictlyEqualBinaryExpression(engine, expression);
                     break;
-                case BinaryOperator.StricltyNotEqual:
+                case BinaryOperator.StrictlyNotEqual:
                     result = new StrictlyNotEqualBinaryExpression(engine, expression);
                     break;
                 case BinaryOperator.Less:

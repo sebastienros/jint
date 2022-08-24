@@ -202,7 +202,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         if (!destructuring)
                         {
                             var identifier = (Identifier) ((VariableDeclaration) _leftNode).Declarations[0].Id;
-                            lhsName ??= identifier.Name!;
+                            lhsName ??= identifier.Name;
                             lhsRef = new ExpressionResult(ExpressionCompletionType.Normal, engine.ResolveBinding(lhsName), identifier.Location);
                         }
                     }

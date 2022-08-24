@@ -38,14 +38,7 @@ namespace Jint
             JsValue key;
             if (expression is Literal literal)
             {
-                if (literal.TokenType == TokenType.NullLiteral)
-                {
-                    key = JsValue.Null;
-                }
-                else
-                {
-                    key = LiteralKeyToString(literal);
-                }
+                key = literal.TokenType == TokenType.NullLiteral ? JsValue.Null : LiteralKeyToString(literal);
             }
             else if (!resolveComputed && expression is Identifier identifier)
             {
@@ -187,7 +180,7 @@ namespace Jint
             // try to get away without a loop
             if (parameter is Identifier id)
             {
-                target.Add(id.Name!);
+                target.Add(id.Name);
                 return;
             }
 
@@ -201,7 +194,7 @@ namespace Jint
             {
                 if (parameter is Identifier identifier)
                 {
-                    target.Add(identifier.Name!);
+                    target.Add(identifier.Name);
                     return;
                 }
 
@@ -255,7 +248,7 @@ namespace Jint
         }
 
         internal static void BindingInitialization(
-            this Expression? expression,
+            this Node? expression,
             EvaluationContext context,
             JsValue value,
             EnvironmentRecord env)
@@ -263,7 +256,7 @@ namespace Jint
             if (expression is Identifier identifier)
             {
                 var catchEnvRecord = (DeclarativeEnvironmentRecord) env;
-                catchEnvRecord.CreateMutableBindingAndInitialize(identifier.Name!, canBeDeleted: false, value);
+                catchEnvRecord.CreateMutableBindingAndInitialize(identifier.Name, canBeDeleted: false, value);
             }
             else if (expression is BindingPattern bindingPattern)
             {
@@ -306,7 +299,7 @@ namespace Jint
         {
             var source = import.Source.StringValue!;
             var specifiers = import.Specifiers;
-            requestedModules.Add(source!);
+            requestedModules.Add(source);
 
             foreach (var specifier in specifiers)
             {

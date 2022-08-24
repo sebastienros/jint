@@ -117,7 +117,7 @@ public sealed class ModuleBuilder
         }
         catch (ParserException ex)
         {
-            ExceptionHelper.ThrowSyntaxError(_engine.Realm, $"Error while loading module: error in module '{_specifier}': {ex.Error}", new Location(new Position(ex.LineNumber, ex.Column), new Position(ex.LineNumber, ex.Column), _specifier));
+            ExceptionHelper.ThrowSyntaxError(_engine.Realm, $"Error while loading module: error in module '{_specifier}': {ex.Error}", Location.From(Position.From(ex.LineNumber, ex.Column), Position.From(ex.LineNumber, ex.Column), _specifier));
             return null!;
         }
     }

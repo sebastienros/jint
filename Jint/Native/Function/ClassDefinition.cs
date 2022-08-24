@@ -26,7 +26,7 @@ namespace Jint.Native.Function
                 var parser = new JavaScriptParser(source);
                 var script = parser.ParseScript();
                 var classDeclaration = (ClassDeclaration) script.Body[0];
-                return (MethodDefinition) classDeclaration.Body.Body[0]!;
+                return (MethodDefinition) classDeclaration.Body.Body[0];
             }
 
             _superConstructor = CreateConstructorMethodDefinition("class temp { constructor(...args) { super(...args); } }");
