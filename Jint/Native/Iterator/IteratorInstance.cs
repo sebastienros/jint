@@ -270,7 +270,7 @@ namespace Jint.Native.Iterator
                 }
 
                 nextItem = CreateIterResultObject(match, false);
-                return false;
+                return true;
             }
         }
     }
