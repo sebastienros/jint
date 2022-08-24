@@ -59,6 +59,14 @@ namespace Jint.Tests.Runtime
             Assert.Equal("/a/b", result);
         }
 
+        [Fact]
+        public void MatchAllIteratorReturnsCorrectNumberOfElements()
+        {
+            var engine = new Engine();
+            var result = engine.Evaluate("[...'one two three'.matchAll(/t/g)].length").AsInteger();
+            
+            Assert.Equal(2, result);
+        }
 
         [Fact]
         public void ToStringWithRealRegExpInstance()
