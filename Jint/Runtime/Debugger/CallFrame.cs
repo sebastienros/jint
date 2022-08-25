@@ -8,11 +8,15 @@ namespace Jint.Runtime.Debugger
 {
     public sealed class CallFrame
     {
-        private readonly ExecutionContext _context;
+        private readonly CallStackExecutionContext _context;
         private readonly CallStackElement? _element;
         private readonly Lazy<DebugScopes> _scopeChain;
 
-        internal CallFrame(CallStackElement? element, ExecutionContext context, Location location, JsValue? returnValue)
+        internal CallFrame(
+            CallStackElement? element,
+            in CallStackExecutionContext context,
+            Location location,
+            JsValue? returnValue)
         {
             _element = element;
             _context = context;

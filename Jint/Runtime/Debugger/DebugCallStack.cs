@@ -12,7 +12,7 @@ namespace Jint.Runtime.Debugger
         internal DebugCallStack(Engine engine, Location location, JintCallStack callStack, JsValue? returnValue)
         {
             _stack = new List<CallFrame>(callStack.Count + 1);
-            var executionContext = engine.ExecutionContext;
+            var executionContext = new CallStackExecutionContext(engine.ExecutionContext);
             foreach (var element in callStack.Stack)
             {
                 _stack.Add(new CallFrame(element, executionContext, location, returnValue));

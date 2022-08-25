@@ -1,17 +1,16 @@
 using Esprima;
 using Esprima.Ast;
 using Jint.Native.Function;
-using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.CallStack
 {
-    internal readonly struct CallStackElement
+    internal readonly struct CallStackElement : IEquatable<CallStackElement>
     {
         public CallStackElement(
             FunctionInstance function,
             JintExpression? expression,
-            ExecutionContext callingExecutionContext)
+            in CallStackExecutionContext callingExecutionContext)
         {
             Function = function;
             Expression = expression;
@@ -20,7 +19,7 @@ namespace Jint.Runtime.CallStack
 
         public readonly FunctionInstance Function;
         public readonly JintExpression? Expression;
-        public readonly ExecutionContext CallingExecutionContext;
+        public readonly CallStackExecutionContext CallingExecutionContext;
 
         public Location Location
         {
@@ -51,6 +50,24 @@ namespace Jint.Runtime.CallStack
             }
 
             return name ?? "(anonymous)";
+        }
+
+        public bool Equals(CallStackElement other)
+        {
+            return Function.Equals(other.Function) && Equals(Expression, other.Expression);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is CallStackElement other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (Function.GetHashCode() * 397) ^ (Expression != null ? Expression.GetHashCode() : 0);
+            }
         }
     }
 }

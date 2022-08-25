@@ -152,9 +152,9 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowRecursionDepthOverflowException(JintCallStack currentStack,
-            string currentExpressionReference)
+        public static void ThrowRecursionDepthOverflowException(JintCallStack currentStack)
         {
+            var currentExpressionReference = currentStack.Pop().ToString();
             throw new RecursionDepthOverflowException(currentStack, currentExpressionReference);
         }
 

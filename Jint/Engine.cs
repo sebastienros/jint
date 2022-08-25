@@ -171,7 +171,7 @@ namespace Jint
             return context;
         }
 
-        internal ExecutionContext EnterExecutionContext(ExecutionContext context)
+        internal ExecutionContext EnterExecutionContext(in ExecutionContext context)
         {
             _executionContexts.Push(context);
             return context;
@@ -1291,6 +1291,7 @@ namespace Jint
             return ExecuteWithConstraints(Options.Strict, Callback);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal JsValue Call(ICallable callable, JsValue thisObject, JsValue[] arguments, JintExpression? expression)
         {
             if (callable is FunctionInstance functionInstance)
@@ -1354,14 +1355,12 @@ namespace Jint
             JsValue[] arguments,
             JintExpression? expression)
         {
-            var callStackElement = new CallStackElement(functionInstance, expression, ExecutionContext);
-            var recursionDepth = CallStack.Push(callStackElement);
+            var recursionDepth = CallStack.Push(functionInstance, expression, ExecutionContext);
 
             if (recursionDepth > Options.Constraints.MaxRecursionDepth)
             {
-                // pop the current element as it was never reached
-                CallStack.Pop();
-                ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
+                // automatically pops the current element as it was never reached
+                ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack);
             }
 
             JsValue result;
@@ -1387,14 +1386,12 @@ namespace Jint
             JsValue newTarget,
             JintExpression? expression)
         {
-            var callStackElement = new CallStackElement(functionInstance, expression, ExecutionContext);
-            var recursionDepth = CallStack.Push(callStackElement);
+            var recursionDepth = CallStack.Push(functionInstance, expression, ExecutionContext);
 
             if (recursionDepth > Options.Constraints.MaxRecursionDepth)
             {
-                // pop the current element as it was never reached
-                CallStack.Pop();
-                ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack, callStackElement.ToString());
+                // automatically pops the current element as it was never reached
+                ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack);
             }
 
             ObjectInstance result;
