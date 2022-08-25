@@ -105,16 +105,7 @@ namespace Jint.Tests.Runtime.Debugger
                 var frameAfter = engine.CallStack.Stack[0];
                 // Stack frames and some of their properties are structs - can't check reference equality
                 // Besides, even if we could, it would be no guarantee. Neither is the following, but it'll do for now.
-                Assert.Equal(frameBefore.CallingExecutionContext.Function,
-                    frameAfter.CallingExecutionContext.Function);
-                Assert.Equal(frameBefore.CallingExecutionContext.LexicalEnvironment,
-                    frameAfter.CallingExecutionContext.LexicalEnvironment);
-                Assert.Equal(frameBefore.CallingExecutionContext.PrivateEnvironment,
-                    frameAfter.CallingExecutionContext.PrivateEnvironment);
-                Assert.Equal(frameBefore.CallingExecutionContext.VariableEnvironment,
-                    frameAfter.CallingExecutionContext.VariableEnvironment);
-                Assert.Equal(frameBefore.CallingExecutionContext.Realm, frameAfter.CallingExecutionContext.Realm);
-
+                Assert.Equal(frameBefore.CallingExecutionContext.LexicalEnvironment, frameAfter.CallingExecutionContext.LexicalEnvironment);
                 Assert.Equal(frameBefore.Arguments, frameAfter.Arguments);
                 Assert.Equal(frameBefore.Expression, frameAfter.Expression);
                 Assert.Equal(frameBefore.Location, frameAfter.Location);

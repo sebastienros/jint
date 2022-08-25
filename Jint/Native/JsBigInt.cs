@@ -113,7 +113,7 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
             return false;
         }
 
-        return ReferenceEquals(this, other) || _value.Equals(other._value);
+        return ReferenceEquals(this, other) || _value == other._value;
     }
 
     public override int GetHashCode()

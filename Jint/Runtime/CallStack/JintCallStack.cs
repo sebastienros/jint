@@ -3,10 +3,42 @@ using System.Text;
 using Esprima;
 using Esprima.Ast;
 using Jint.Collections;
+using Jint.Native.Function;
 using Jint.Pooling;
+using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.CallStack
 {
+    // smaller version with only required info
+    internal readonly record struct CallStackExecutionContext
+    {
+        public CallStackExecutionContext(in ExecutionContext context)
+        {
+            LexicalEnvironment = context.LexicalEnvironment;
+        }
+
+        internal readonly EnvironmentRecord LexicalEnvironment;
+
+        internal EnvironmentRecord GetThisEnvironment()
+        {
+            var lex = LexicalEnvironment;
+            while (true)
+            {
+                if (lex != null)
+                {
+                    if (lex.HasThisBinding())
+                    {
+                        return lex;
+
+                    }
+
+                    lex = lex._outerEnv;
+                }
+            }
+        }
+    }
+
     internal sealed class JintCallStack
     {
         private readonly RefStack<CallStackElement> _stack = new();
@@ -23,8 +55,9 @@ namespace Jint.Runtime.CallStack
             }
         }
 
-        public int Push(in CallStackElement item)
+        public int Push(FunctionInstance functionInstance, JintExpression? expression, in ExecutionContext executionContext)
         {
+            var item = new CallStackElement(functionInstance, expression, new CallStackExecutionContext(executionContext));
             _stack.Push(item);
             if (_statistics is not null)
             {
@@ -172,5 +205,6 @@ namespace Jint.Runtime.CallStack
 
             return "?";
         }
+
     }
 }
