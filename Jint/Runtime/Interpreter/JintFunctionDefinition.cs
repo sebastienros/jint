@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
@@ -36,6 +37,7 @@ namespace Jint.Runtime.Interpreter
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-evaluatebody
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Completion EvaluateBody(EvaluationContext context, FunctionInstance functionObject, JsValue[] argumentsList)
         {
             Completion result;

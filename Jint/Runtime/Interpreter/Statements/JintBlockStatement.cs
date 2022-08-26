@@ -20,8 +20,17 @@ namespace Jint.Runtime.Interpreter.Statements
 
         internal override bool SupportsResume => true;
 
-        protected override Completion ExecuteInternal(EvaluationContext context)
+        /// <summary>
+        /// Optimized for direct access without virtual dispatch.
+        /// </summary>
+        public Completion ExecuteBlock(EvaluationContext context)
         {
+            if (_statementList is null)
+            {
+                _statementList = new JintStatementList(_statement, _statement.Body);
+                _lexicalDeclarations = HoistingScope.GetLexicalDeclarations(_statement);
+            }
+
             EnvironmentRecord? oldEnv = null;
             var engine = context.Engine;
             if (_lexicalDeclarations != null)
@@ -40,6 +49,11 @@ namespace Jint.Runtime.Interpreter.Statements
             }
 
             return blockValue;
+        }
+
+        protected override Completion ExecuteInternal(EvaluationContext context)
+        {
+            return ExecuteBlock(context);
         }
     }
 }

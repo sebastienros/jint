@@ -10,7 +10,7 @@ namespace Jint.Runtime.Interpreter.Statements
     internal sealed class JintWhileStatement : JintStatement<WhileStatement>
     {
         private string? _labelSetName;
-        private JintStatement _body = null!;
+        private ProbablyBlockStatement _body;
         private JintExpression _test = null!;
 
         public JintWhileStatement(WhileStatement statement) : base(statement)
@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override void Initialize(EvaluationContext context)
         {
             _labelSetName = _statement.LabelSet?.Name;
-            _body = Build(_statement.Body);
+            _body = new ProbablyBlockStatement(_statement.Body);
             _test = JintExpression.Build(context.Engine, _statement.Test);
         }
 

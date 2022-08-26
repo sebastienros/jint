@@ -16,7 +16,7 @@ namespace Jint.Runtime.Interpreter.Statements
         private JintExpression? _test;
         private JintExpression? _increment;
 
-        private JintStatement _body = null!;
+        private ProbablyBlockStatement _body;
         private List<string>? _boundNames;
 
         private bool _shouldCreatePerIterationEnvironment;
@@ -28,7 +28,7 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override void Initialize(EvaluationContext context)
         {
             var engine = context.Engine;
-            _body = Build(_statement.Body);
+            _body = new ProbablyBlockStatement(_statement.Body);
 
             if (_statement.Init != null)
             {

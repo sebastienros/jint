@@ -5,9 +5,9 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintIfStatement : JintStatement<IfStatement>
     {
-        private JintStatement _statementConsequent = null!;
+        private ProbablyBlockStatement _statementConsequent;
         private JintExpression _test = null!;
-        private JintStatement? _alternate;
+        private ProbablyBlockStatement? _alternate;
 
         public JintIfStatement(IfStatement statement) : base(statement)
         {
@@ -15,9 +15,9 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override void Initialize(EvaluationContext context)
         {
-            _statementConsequent = Build(_statement.Consequent);
+            _statementConsequent = new ProbablyBlockStatement(_statement.Consequent);
             _test = JintExpression.Build(context.Engine, _statement.Test);
-            _alternate = _statement.Alternate != null ? Build(_statement.Alternate) : null;
+            _alternate = _statement.Alternate != null ? new ProbablyBlockStatement(_statement.Alternate) : null;
         }
 
         protected override Completion ExecuteInternal(EvaluationContext context)
@@ -29,7 +29,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
             else if (_alternate != null)
             {
-                result = _alternate.Execute(context);
+                result = _alternate.Value.Execute(context);
             }
             else
             {
