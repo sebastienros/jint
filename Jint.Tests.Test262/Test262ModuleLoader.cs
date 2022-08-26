@@ -37,13 +37,13 @@ internal sealed class Test262ModuleLoader : IModuleLoader
                 code = stream.ReadToEnd();
             }
 
-            var parserOptions = new ParserOptions(resolved.Uri?.LocalPath!)
+            var parserOptions = new ParserOptions
             {
                 AdaptRegexp = true,
                 Tolerant = true
             };
 
-            module = new JavaScriptParser(code, parserOptions).ParseModule();
+            module = new JavaScriptParser(parserOptions).ParseModule(code, source: resolved.Uri?.LocalPath!);
         }
         catch (ParserException ex)
         {

@@ -13,9 +13,10 @@ namespace Jint.Native.Function
     /// </summary>
     public sealed class FunctionConstructor : FunctionInstance, IConstructor
     {
-        private static readonly ParserOptions ParserOptions = new ParserOptions { Tolerant = false };
         private static readonly JsString _functionName = new JsString("Function");
         private static readonly JsString _functionNameAnonymous = new JsString("anonymous");
+
+        private readonly JavaScriptParser _parser = new(new ParserOptions { Tolerant = false });
 
         internal FunctionConstructor(
             Engine engine,
@@ -174,8 +175,7 @@ namespace Jint.Native.Function
                     }
                 }
 
-                var parser = new JavaScriptParser(functionExpression, ParserOptions);
-                function = (IFunction) parser.ParseScript().Body[0];
+                function = (IFunction) _parser.ParseScript(functionExpression).Body[0];
             }
             catch (ParserException ex)
             {

@@ -30,7 +30,7 @@ namespace Jint.Repl
                 }
 
                 var script = File.ReadAllText(filename);
-                engine.Evaluate(script);
+                engine.Evaluate(script, "repl");
                 return;
             }
 
@@ -45,7 +45,7 @@ namespace Jint.Repl
             Console.WriteLine();
 
             var defaultColor = Console.ForegroundColor;
-            var parserOptions = new ParserOptions("repl")
+            var parserOptions = new ParserOptions
             {
                 Tolerant = true,
                 AdaptRegexp = true

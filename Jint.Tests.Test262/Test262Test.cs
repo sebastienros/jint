@@ -18,7 +18,7 @@ public abstract partial class Test262Test
             cfg.EnableModules(new Test262ModuleLoader(State.Test262Stream.Options.FileSystem, relativePath));
         });
 
-        if (file.Flags.Contains("raw"))
+        if (file.Flags.IndexOf("raw") != -1)
         {
             // nothing should be loaded
             return engine;
@@ -39,8 +39,8 @@ public abstract partial class Test262Test
                 }
 
                 var options = new ParserOptions { AdaptRegexp = true, Tolerant = false };
-                var parser = new JavaScriptParser(args.At(0).AsString(), options);
-                var script = parser.ParseScript();
+                var parser = new JavaScriptParser(options);
+                var script = parser.ParseScript(args.At(0).AsString());
 
                 return engine.Evaluate(script);
             }), true, true, true));
@@ -87,7 +87,7 @@ public abstract partial class Test262Test
         }
         else
         {
-            engine.Execute(new JavaScriptParser(file.Program, new ParserOptions(file.FileName)).ParseScript());
+            engine.Execute(new JavaScriptParser().ParseScript(file.Program, source: file.FileName));
         }
     }
 

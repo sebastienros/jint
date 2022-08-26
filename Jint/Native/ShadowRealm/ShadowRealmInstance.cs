@@ -17,8 +17,7 @@ namespace Jint.Native.ShadowRealm;
 /// </summary>
 public sealed class ShadowRealmInstance : ObjectInstance
 {
-    private static readonly ParserOptions ParserOptions = new() { Tolerant = false };
-
+    private readonly JavaScriptParser _parser = new(new ParserOptions { Tolerant = false });
     internal readonly Realm _shadowRealm;
     internal readonly ExecutionContext _executionContext;
 
@@ -49,12 +48,10 @@ public sealed class ShadowRealmInstance : ObjectInstance
 
         _engine._host.EnsureCanCompileStrings(callerRealm, evalRealm);
 
-        var parser = new JavaScriptParser(sourceText, ParserOptions);
-
         Script script;
         try
         {
-            script = parser.ParseScript();
+            script = _parser.ParseScript(sourceText);
         }
         catch (ParserException e)
         {

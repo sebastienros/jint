@@ -23,11 +23,7 @@ namespace Jint
 {
     public sealed partial class Engine : IDisposable
     {
-        private static readonly ParserOptions DefaultParserOptions = new("<anonymous>")
-        {
-            AdaptRegexp = true,
-            Tolerant = true
-        };
+        private readonly JavaScriptParser _defaultParser = new(ParserOptions.Default);
 
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
@@ -242,22 +238,42 @@ namespace Jint
             CallStack.Clear();
         }
 
-        public JsValue Evaluate(string source)
-            => Evaluate(source, DefaultParserOptions);
+        public JsValue Evaluate(string code)
+            => Evaluate(code, "<anonymous>", ParserOptions.Default);
 
-        public JsValue Evaluate(string source, ParserOptions parserOptions)
-            => Evaluate(new JavaScriptParser(source, parserOptions).ParseScript());
+        public JsValue Evaluate(string code, string source)
+            => Evaluate(code, source, ParserOptions.Default);
+
+        public JsValue Evaluate(string code, ParserOptions parserOptions)
+            => Evaluate(code, "<anonymous>", parserOptions);
+
+        public JsValue Evaluate(string code, string source, ParserOptions parserOptions)
+        {
+            var parser = ReferenceEquals(ParserOptions.Default, parserOptions)
+                ? _defaultParser
+                : new JavaScriptParser(parserOptions);
+
+            var script = parser.ParseScript(code, source);
+
+            return Evaluate(script);
+        }
 
         public JsValue Evaluate(Script script)
             => Execute(script)._completionValue;
 
-        public Engine Execute(string source)
-            => Execute(source, DefaultParserOptions);
+        public Engine Execute(string code, string? source = null)
+            => Execute(code, source ?? "<anonymous>", ParserOptions.Default);
 
-        public Engine Execute(string source, ParserOptions parserOptions)
+        public Engine Execute(string code, ParserOptions parserOptions)
+            => Execute(code, "<anonymous>", parserOptions);
+
+        public Engine Execute(string code, string source, ParserOptions parserOptions)
         {
-            var parser = new JavaScriptParser(source, parserOptions);
-            var script = parser.ParseScript();
+            var parser = ReferenceEquals(ParserOptions.Default, parserOptions)
+                ? _defaultParser
+                : new JavaScriptParser(parserOptions);
+
+            var script = parser.ParseScript(code, source);
 
             return Execute(script);
         }

@@ -65,9 +65,9 @@ var a = function(v) {
 var b = function(v) {
   return a(v);
 }
-            ", new ParserOptions("custom.js"));
+            ", "custom.js");
 
-            var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", new ParserOptions("main.js")));
+            var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", "main.js"));
             Assert.Equal("Cannot read property 'yyy' of undefined", e.Message);
             Assert.Equal(3, e.Location.Start.Line);
             Assert.Equal(15, e.Location.Start.Column);
@@ -92,9 +92,9 @@ var a = function(v) {
 var b = function(v) {
   return a(v);
 }
-            ", new ParserOptions("custom.js"));
+            ", "custom.js");
 
-            var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", new ParserOptions("main.js")));
+            var e = Assert.Throws<JavaScriptException>(() => engine.Execute("var x = b(7);", "main.js"));
             Assert.Equal("Error thrown from script", e.Message);
             Assert.Equal(3, e.Location.Start.Line);
             Assert.Equal(8, e.Location.Start.Column);
@@ -119,9 +119,9 @@ var a = function(v) {
 var b = function(v) {
   return a(v);
 }
-            ", new ParserOptions("custom.js"));
+            ", "custom.js");
 
-            var e = engine.Evaluate(@"b(7)", new ParserOptions("main.js")).AsString();
+            var e = engine.Evaluate(@"b(7)", "main.js").AsString();
 
             var stack = e;
             EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:3:10
@@ -146,9 +146,9 @@ var a = function(v) {
 var b = function(v) {
   return a(v);
 }
-            ", new ParserOptions("custom.js"));
+            ", "custom.js");
 
-            var e = engine.Evaluate(@"b(7)", new ParserOptions("main.js")).AsString();
+            var e = engine.Evaluate(@"b(7)", "main.js").AsString();
 
             var stack = e;
             EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:4:11
@@ -174,9 +174,9 @@ var a = function(v) {
 var b = function(v) {
   return a(v);
 }
-            ", new ParserOptions("custom.js"));
+            ", "custom.js");
 
-            var e = engine.Evaluate(@"b(7)", new ParserOptions("main.js")).AsString();
+            var e = engine.Evaluate(@"b(7)", "main.js").AsString();
 
             var stack = e;
             EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:4:13
@@ -293,12 +293,12 @@ var x = b(7);";
     return item;
 })(getItem);";
 
-            var parserOptions = new ParserOptions("get-item.js")
+            var parserOptions = new ParserOptions
             {
                 AdaptRegexp = true,
                 Tolerant = true
             };
-            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script, parserOptions));
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script, "get-item.js", parserOptions));
 
             const string expected = @"Error: Cannot read property '5' of null
    at getItem (items, itemIndex) get-item.js:2:22
@@ -382,9 +382,9 @@ try {
         [Fact]
         public void CallStackWorksWithRecursiveCalls()
         {
-            static ParserOptions CreateParserOptions(string filePath)
+            static ParserOptions CreateParserOptions()
             {
-                return new ParserOptions(filePath)
+                return new ParserOptions
                 {
                     AdaptRegexp = true,
                     Tolerant = true
@@ -405,12 +405,13 @@ executeFile(""second-file.js"");",
 nuм -= 3;",
                         _ => throw new FileNotFoundException($"File '{path}' not exist.", path)
                     };
-                    engine.Execute(content, CreateParserOptions(path));
+                    engine.Execute(content, path, CreateParserOptions());
                 }));
                 engine.Execute(
                     @"var num = 5;
 executeFile(""first-file.js"");",
-                    CreateParserOptions("main-file.js")
+                    "main-file.js",
+                    CreateParserOptions()
                 );
             });
 
