@@ -1371,6 +1371,8 @@ namespace Jint
             JsValue[] arguments,
             JintExpression? expression)
         {
+            // ensure logic is in sync between Call, Construct and JintCallExpression!
+
             var recursionDepth = CallStack.Push(functionInstance, expression, ExecutionContext);
 
             if (recursionDepth > Options.Constraints.MaxRecursionDepth)
@@ -1402,6 +1404,8 @@ namespace Jint
             JsValue newTarget,
             JintExpression? expression)
         {
+            // ensure logic is in sync between Call, Construct and JintCallExpression!
+
             var recursionDepth = CallStack.Push(functionInstance, expression, ExecutionContext);
 
             if (recursionDepth > Options.Constraints.MaxRecursionDepth)

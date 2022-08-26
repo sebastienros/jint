@@ -93,7 +93,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return NormalCompletion(Undefined.Instance);
             }
 
-            if (reference is Reference referenceRecord
+            var referenceRecord = reference as Reference;
+            if (referenceRecord != null
                 && !referenceRecord.IsPropertyReference()
                 && referenceRecord.GetReferencedName() == CommonProperties.Eval
                 && ReferenceEquals(func, engine.Realm.Intrinsics.Eval))
@@ -106,47 +107,46 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             // https://tc39.es/ecma262/#sec-evaluatecall
 
-            JsValue thisValue;
-            var referenceRecord1 = reference as Reference;
-            if (referenceRecord1 is not null)
+            JsValue thisObject;
+            if (referenceRecord is not null)
             {
-                if (referenceRecord1.IsPropertyReference())
+                if (referenceRecord.IsPropertyReference())
                 {
-                    thisValue = referenceRecord1.GetThisValue();
+                    thisObject = referenceRecord.GetThisValue();
                 }
                 else
                 {
-                    var baseValue = referenceRecord1.GetBase();
+                    var baseValue = referenceRecord.GetBase();
 
                     // deviation from the spec to support null-propagation helper
                     if (baseValue.IsNullOrUndefined()
-                        && engine._referenceResolver.TryUnresolvableReference(engine, referenceRecord1, out var value))
+                        && engine._referenceResolver.TryUnresolvableReference(engine, referenceRecord, out var value))
                     {
-                        thisValue = value;
+                        thisObject = value;
                     }
                     else
                     {
                         var refEnv = (EnvironmentRecord) baseValue;
-                        thisValue = refEnv.WithBaseObject();
+                        thisObject = refEnv.WithBaseObject();
                     }
                 }
             }
             else
             {
-                thisValue = Undefined.Instance;
+                thisObject = Undefined.Instance;
             }
 
-            var argList = ArgumentListEvaluation(context);
+            var arguments = ArgumentListEvaluation(context);
 
             if (!func.IsObject() && !engine._referenceResolver.TryGetCallable(engine, reference, out func))
             {
-                ThrowMemberisNotFunction(referenceRecord1, reference, engine);
+                ThrowMemberisNotFunction(referenceRecord, reference, engine);
             }
 
             var callable = func as ICallable;
             if (callable is null)
             {
-                ThrowReferenceNotFunction(referenceRecord1, reference, engine);
+                ThrowReferenceNotFunction(referenceRecord, reference, engine);
             }
 
             if (tailCall)
@@ -155,14 +155,44 @@ namespace Jint.Runtime.Interpreter.Expressions
                 // PrepareForTailCall();
             }
 
-            var result = engine.Call(callable, thisValue, argList, _calleeExpression);
+            // ensure logic is in sync between Call, Construct and JintCallExpression!
 
-            if (!_cached && argList.Length > 0)
+            JsValue result;
+            if (callable is FunctionInstance functionInstance)
             {
-                engine._jsValueArrayPool.ReturnArray(argList);
+                var callStack = engine.CallStack;
+                var recursionDepth = callStack.Push(functionInstance, _calleeExpression, engine.ExecutionContext);
+
+                if (recursionDepth > engine.Options.Constraints.MaxRecursionDepth)
+                {
+                    // automatically pops the current element as it was never reached
+                    ExceptionHelper.ThrowRecursionDepthOverflowException(callStack);
+                }
+
+                try
+                {
+                    result = functionInstance.Call(thisObject, arguments);
+                }
+                finally
+                {
+                    // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
+                    if (callStack.Count > 0)
+                    {
+                        callStack.Pop();
+                    }
+                }
+            }
+            else
+            {
+                result = callable.Call(thisObject, arguments);
             }
 
-            engine._referencePool.Return(referenceRecord1);
+            if (!_cached && arguments.Length > 0)
+            {
+                engine._jsValueArrayPool.ReturnArray(arguments);
+            }
+
+            engine._referencePool.Return(referenceRecord);
             return NormalCompletion(result);
         }
 
