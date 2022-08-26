@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interpreter.Statements
         private readonly Expression _rightExpression;
         private readonly IterationKind _iterationKind;
 
-        private JintStatement _body = null!;
+        private ProbablyBlockStatement _body;
         private JintExpression? _expr;
         private BindingPattern? _assignmentPattern;
         private JintExpression _right = null!;
@@ -87,7 +87,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 _expr = new JintIdentifierExpression((Identifier) _leftNode);
             }
 
-            _body = Build(_forBody);
+            _body = new ProbablyBlockStatement(_forBody);
             _right = JintExpression.Build(engine, _rightExpression);
         }
 
@@ -147,7 +147,7 @@ namespace Jint.Runtime.Interpreter.Statements
         private Completion BodyEvaluation(
             EvaluationContext context,
             JintExpression? lhs,
-            JintStatement stmt,
+            in ProbablyBlockStatement stmt,
             IteratorInstance iteratorRecord,
             IterationKind iterationKind,
             LhsKind lhsKind,
