@@ -9,7 +9,7 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal abstract class JintStatement<T> : JintStatement where T : Statement
     {
-        internal readonly T _statement;
+        internal new readonly T _statement;
 
         protected JintStatement(T statement) : base(statement)
         {
@@ -19,7 +19,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
     internal abstract class JintStatement
     {
-        private readonly Statement _statement;
+        internal readonly Statement _statement;
         private bool _initialized;
 
         protected JintStatement(Statement statement)
@@ -32,7 +32,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             if (_statement.Type != Nodes.BlockStatement)
             {
-                context.LastSyntaxNode = _statement;
+                context.LastSyntaxElement = _statement;
                 context.Engine.RunBeforeExecuteStatementChecks(_statement);
             }
 
@@ -54,7 +54,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected abstract Completion ExecuteInternal(EvaluationContext context);
 
-        public Location Location => _statement.Location;
+        public ref readonly Location Location => ref _statement.Location;
 
         /// <summary>
         /// Opportunity to build one-time structures and caching based on lexical context.
@@ -111,7 +111,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 var jsValue = JintLiteralExpression.ConvertToJsValue(l);
                 if (jsValue is not null)
                 {
-                    return new Completion(CompletionType.Return, jsValue, null, rs.Location);
+                    return new Completion(CompletionType.Return, jsValue, null, rs);
                 }
             }
 
@@ -128,7 +128,7 @@ namespace Jint.Runtime.Interpreter.Statements
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected Completion NormalCompletion(JsValue value)
         {
-            return new Completion(CompletionType.Normal, value, _statement.Location);
+            return new Completion(CompletionType.Normal, value, _statement);
         }
     }
 }

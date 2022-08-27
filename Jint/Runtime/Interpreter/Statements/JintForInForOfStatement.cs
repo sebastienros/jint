@@ -95,7 +95,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             if (!HeadEvaluation(context, out var keyResult))
             {
-                return new Completion(CompletionType.Normal, JsValue.Undefined, null, Location);
+                return new Completion(CompletionType.Normal, JsValue.Undefined, null, _statement);
             }
 
             return BodyEvaluation(context, _expr, _body, keyResult, IterationKind.Enumerate, _lhsKind);
@@ -170,7 +170,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     if (!iteratorRecord.TryIteratorStep(out var nextResult))
                     {
                         close = true;
-                        return new Completion(CompletionType.Normal, v, null, Location);
+                        return new Completion(CompletionType.Normal, v, null, _statement!);
                     }
 
                     if (iteratorKind == IteratorKind.Async)
@@ -203,7 +203,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         {
                             var identifier = (Identifier) ((VariableDeclaration) _leftNode).Declarations[0].Id;
                             lhsName ??= identifier.Name;
-                            lhsRef = new ExpressionResult(ExpressionCompletionType.Normal, engine.ResolveBinding(lhsName), identifier.Location);
+                            lhsRef = new ExpressionResult(ExpressionCompletionType.Normal, engine.ResolveBinding(lhsName), identifier);
                         }
                     }
 
@@ -281,7 +281,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     if (result.Type == CompletionType.Break && (result.Target == null || result.Target == _statement?.LabelSet?.Name))
                     {
                         completionType = CompletionType.Normal;
-                        return new Completion(CompletionType.Normal, v, null, Location);
+                        return new Completion(CompletionType.Normal, v, null, _statement!);
                     }
 
                     if (result.Type != CompletionType.Continue || (result.Target != null && result.Target != _statement?.LabelSet?.Name))

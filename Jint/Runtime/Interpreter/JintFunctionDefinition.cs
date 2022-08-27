@@ -56,7 +56,7 @@ namespace Jint.Runtime.Interpreter
                 result = EvaluateFunctionBody(context, functionObject, argumentsList);
             }
 
-            return new Completion(result.Type, result.GetValueOrDefault().Clone(), result.Target, result.Location);
+            return new Completion(result.Type, result.GetValueOrDefault().Clone(), result.Target, result._source);
         }
 
         /// <summary>
@@ -77,7 +77,7 @@ namespace Jint.Runtime.Interpreter
             _bodyExpression ??= JintExpression.Build(_engine, (Expression) Function.Body);
             var jsValue = _bodyExpression?.GetValue(context).Value ?? Undefined.Instance;
             argumentsInstance?.FunctionWasCalled();
-            return new Completion(CompletionType.Return, jsValue, null, Function.Body.Location);
+            return new Completion(CompletionType.Return, jsValue, null, Function.Body);
         }
 
         /// <summary>

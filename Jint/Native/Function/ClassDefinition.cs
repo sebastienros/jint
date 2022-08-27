@@ -198,7 +198,7 @@ namespace Jint.Native.Function
 
             engine.UpdatePrivateEnvironment(outerPrivateEnvironment);
 
-            return new Completion(CompletionType.Normal, F, _body.Location);
+            return new Completion(CompletionType.Normal, F, _body);
         }
 
         /// <summary>
@@ -247,7 +247,7 @@ namespace Jint.Native.Function
                 obj.DefinePropertyOrThrow(propKey, propDesc);
             }
 
-            return new Completion(CompletionType.Normal, obj, method.Location);
+            return new Completion(CompletionType.Normal, obj, method);
         }
     }
 }

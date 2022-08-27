@@ -52,7 +52,7 @@ namespace Jint
             {
                 key = JsValue.Undefined;
             }
-            return new Completion(CompletionType.Normal, key, expression.Location);
+            return new Completion(CompletionType.Normal, key, expression);
         }
 
         private static Completion TryGetComputedPropertyKey<T>(T expression, Engine engine)
@@ -75,7 +75,7 @@ namespace Jint
                 return JintExpression.Build(engine, expression).GetValue(context!);
             }
 
-            return new Completion(CompletionType.Normal, JsValue.Undefined, expression.Location);
+            return new Completion(CompletionType.Normal, JsValue.Undefined, expression);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -429,5 +429,21 @@ namespace Jint
         }
 
         internal readonly record struct Record(JsValue Key, ScriptFunctionInstance Closure);
+
+        /// <summary>
+        /// Creates a dummy node that can be used when only location available and node is required.
+        /// </summary>
+        internal static SyntaxElement CreateLocationNode(in Location location)
+        {
+            return new MinimalSyntaxElement(location);
+        }
+    }
+
+    internal sealed class MinimalSyntaxElement : SyntaxElement
+    {
+        public MinimalSyntaxElement(in Location location)
+        {
+            Location = location;
+        }
     }
 }

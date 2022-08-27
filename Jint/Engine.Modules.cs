@@ -1,4 +1,5 @@
 ﻿using Esprima;
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -149,7 +150,8 @@ namespace Jint
             }
             else if (promise.State == PromiseState.Rejected)
             {
-                ExceptionHelper.ThrowJavaScriptException(this, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, Location.From(new Position(), new Position(), specifier)));
+                var node = EsprimaExtensions.CreateLocationNode(Location.From(new Position(), new Position(), specifier));
+                ExceptionHelper.ThrowJavaScriptException(this, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, node));
             }
             else if (promise.State != PromiseState.Fulfilled)
             {

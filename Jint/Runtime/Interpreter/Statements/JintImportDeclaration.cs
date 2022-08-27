@@ -15,7 +15,7 @@ internal sealed class JintImportDeclaration : JintStatement<ImportDeclaration>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         // just to ensure module context or valid
-        context.Engine.GetActiveScriptOrModule().AsModule(context.Engine, context.LastSyntaxNode.Location);
+        context.Engine.GetActiveScriptOrModule().AsModule(context.Engine, context.LastSyntaxElement.Location);
         return Completion.Empty();
     }
 }

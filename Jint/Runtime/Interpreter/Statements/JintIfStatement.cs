@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
             else
             {
-                return new Completion(CompletionType.Normal, null!, Location);
+                return new Completion(CompletionType.Normal, null!, _statement);
             }
 
             return result;

@@ -38,7 +38,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
             catch (JavaScriptException e)
             {
-                c = new Completion(CompletionType.Throw, e.Error, _statement.Location);
+                c = new Completion(CompletionType.Throw, e.Error, _statement);
             }
             finally
             {

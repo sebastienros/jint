@@ -37,11 +37,11 @@ namespace Jint.Runtime.Interpreter.Expressions
         public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
-            context.LastSyntaxNode = _expression;
+            context.LastSyntaxElement = _expression;
 
             if (_calculatedValue is not null)
             {
-                return Completion.Normal(_calculatedValue, _expression.Location);
+                return Completion.Normal(_calculatedValue, _expression);
             }
 
             var strict = StrictModeScope.IsStrictModeCode;
@@ -72,7 +72,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 argumentsInstance.Materialize();
             }
 
-            return Completion.Normal(value, _expression.Location);
+            return Completion.Normal(value, _expression);
         }
     }
 }

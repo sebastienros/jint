@@ -41,7 +41,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 {
                     if (completion.Type == CompletionType.Break && (completion.Target == null || completion.Target == _labelSetName))
                     {
-                        return new Completion(CompletionType.Normal, v, null, Location);
+                        return new Completion(CompletionType.Normal, v, null, _statement);
                     }
 
                     if (completion.Type != CompletionType.Normal)

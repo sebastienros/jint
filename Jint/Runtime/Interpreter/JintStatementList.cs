@@ -73,12 +73,12 @@ namespace Jint.Runtime.Interpreter
             var engine = context.Engine;
             if (_statement != null)
             {
-                context.LastSyntaxNode = _statement;
+                context.LastSyntaxElement = _statement;
                 engine.RunBeforeExecuteStatementChecks(_statement);
             }
 
             JintStatement? s = null;
-            var c = new Completion(CompletionType.Normal, null!, null, context.LastSyntaxNode?.Location ?? default);
+            var c = new Completion(CompletionType.Normal, null!, null, context.LastSyntaxElement);
             Completion sl = c;
 
             // The value of a StatementList is the value of the last value-producing item in the StatementList
@@ -96,7 +96,7 @@ namespace Jint.Runtime.Interpreter
                             c.Type,
                             c.Value ?? sl.Value,
                             c.Target,
-                            c.Location);
+                            c._source);
                     }
                     sl = c;
                     lastValue = c.Value ?? lastValue;
@@ -104,8 +104,12 @@ namespace Jint.Runtime.Interpreter
             }
             catch (JavaScriptException v)
             {
-                var location = v.Location == default ? s!.Location : v.Location;
-                var completion = new Completion(CompletionType.Throw, v.Error, null, location);
+                SyntaxElement source = s!._statement;
+                if (v.Location != default)
+                {
+                    source = EsprimaExtensions.CreateLocationNode(v.Location);
+                }
+                var completion = new Completion(CompletionType.Throw, v.Error, null, source);
                 return completion;
             }
             catch (TypeErrorException e)
@@ -114,7 +118,7 @@ namespace Jint.Runtime.Interpreter
                 {
                     e.Message
                 });
-                return new Completion(CompletionType.Throw, error, null, s!.Location);
+                return new Completion(CompletionType.Throw, error, null, s!._statement);
             }
             catch (RangeErrorException e)
             {
@@ -122,9 +126,9 @@ namespace Jint.Runtime.Interpreter
                 {
                     e.Message
                 });
-                c = new Completion(CompletionType.Throw, error, null, s!.Location);
+                c = new Completion(CompletionType.Throw, error, null, s!._statement);
             }
-            return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Target, c.Location);
+            return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Target, c._source);
         }
 
         /// <summary>

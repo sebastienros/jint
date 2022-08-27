@@ -29,7 +29,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     break;
             }
 
-            return new Completion(CompletionType.Normal, null!, null, Location);
+            return new Completion(CompletionType.Normal, null!, null, _statement);
         }
     }
 }

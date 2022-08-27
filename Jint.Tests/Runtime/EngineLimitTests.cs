@@ -1,3 +1,5 @@
+#if !NETFRAMEWORK
+
 using System.Text;
 
 namespace Jint.Tests.Runtime;
@@ -8,9 +10,9 @@ public class EngineLimitTests
     public void ShouldAllowReasonableCallStackDepth()
     {
 #if RELEASE
-        const int FunctionNestingCount = 350;
+        const int FunctionNestingCount = 650;
 #else
-        const int FunctionNestingCount = 170;
+        const int FunctionNestingCount = 340;
 #endif
 
         // generate call tree
@@ -41,3 +43,5 @@ public class EngineLimitTests
         Assert.Equal(123, engine.Evaluate("func1(123);").AsNumber());
     }
 }
+
+#endif

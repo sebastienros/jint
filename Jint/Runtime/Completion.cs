@@ -1,11 +1,13 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Esprima;
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime
 {
-    public enum CompletionType
+    public enum CompletionType : byte
     {
         Normal = 0,
         Return = 1,
@@ -17,23 +19,29 @@ namespace Jint.Runtime
     /// <summary>
     /// https://tc39.es/ecma262/#sec-completion-record-specification-type
     /// </summary>
+    [StructLayout(LayoutKind.Auto)]
     public readonly struct Completion
     {
-        internal Completion(CompletionType type, JsValue value, string? target, in Location location)
+        internal static readonly Node _emptyNode = new Identifier("");
+        private static readonly Completion _emptyCompletion = new(CompletionType.Normal, null!, _emptyNode);
+
+        internal readonly SyntaxElement _source;
+
+        internal Completion(CompletionType type, JsValue value, string? target, SyntaxElement source)
         {
             Type = type;
             Value = value;
             Target = target;
-            Location = location;
+            _source = source;
         }
 
-        public Completion(CompletionType type, JsValue value, in Location location)
-            : this(type, value, null, location)
+        public Completion(CompletionType type, JsValue value, SyntaxElement source)
+            : this(type, value, null, source)
         {
         }
 
-        public Completion(CompletionType type, string target, in Location location)
-            : this(type, null!, target, location)
+        public Completion(CompletionType type, string target, SyntaxElement source)
+            : this(type, null!, target, source)
         {
         }
 
@@ -43,19 +51,18 @@ namespace Jint.Runtime
             // this cast protects us from getting from type
             Value = (JsValue) result.Value;
             Target = null;
-            Location = result.Location;
+            _source = result._source;
         }
 
         public readonly CompletionType Type;
         public readonly JsValue Value;
         public readonly string? Target;
-        public readonly Location Location;
+        public ref readonly Location Location => ref _source.Location;
 
-        public static Completion Normal(JsValue value, in Location location)
-            => new Completion(CompletionType.Normal, value, location);
+        public static Completion Normal(JsValue value, Node source)
+            => new Completion(CompletionType.Normal, value, source);
 
-        public static Completion Empty()
-            => new Completion(CompletionType.Normal, null!, default);
+        public static ref readonly Completion Empty() => ref _emptyCompletion;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue GetValueOrDefault()
@@ -79,7 +86,7 @@ namespace Jint.Runtime
                 return this;
             }
 
-            return new Completion(Type, value, Target, Location);
+            return new Completion(Type, value, Target, _source);
         }
     }
 }
