@@ -61,20 +61,20 @@ public class JavaScriptException : JintException
         return this;
     }
 
-    private class JavaScriptErrorWrapperException : JintException
+    private sealed class JavaScriptErrorWrapperException : JintException
     {
         private string? _callStack;
         private Location _location;
-
-        public JsValue Error { get; }
-
-        public ref readonly Location Location => ref _location;
 
         internal JavaScriptErrorWrapperException(JsValue error, string? message = null)
             : base(message ?? GetMessage(error))
         {
             Error = error;
         }
+
+        public JsValue Error { get; }
+
+        public ref readonly Location Location => ref _location;
 
         internal void SetLocation(Location location)
         {

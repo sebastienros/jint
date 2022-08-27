@@ -52,7 +52,8 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowReferenceError(Realm realm, string? message)
         {
-            throw new JavaScriptException(realm.Intrinsics.ReferenceError, message);
+            var location = realm.GlobalObject.Engine.GetLastSyntaxElement()?.Location ?? default;
+            throw new JavaScriptException(realm.Intrinsics.ReferenceError, message).SetJavaScriptLocation(location);
         }
 
         [DoesNotReturn]
@@ -64,19 +65,22 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowTypeError(Realm realm, string? message = null)
         {
-            throw new JavaScriptException(realm.Intrinsics.TypeError, message);
+            var location = realm.GlobalObject.Engine.GetLastSyntaxElement()?.Location ?? default;
+            throw new JavaScriptException(realm.Intrinsics.TypeError, message).SetJavaScriptLocation(location);
         }
 
         [DoesNotReturn]
         public static void ThrowRangeError(Realm realm, string? message = null)
         {
-            throw new JavaScriptException(realm.Intrinsics.RangeError, message);
+            var location = realm.GlobalObject.Engine.GetLastSyntaxElement()?.Location ?? default;
+            throw new JavaScriptException(realm.Intrinsics.RangeError, message).SetJavaScriptLocation(location);
         }
 
         [DoesNotReturn]
         public static void ThrowUriError(Realm realm)
         {
-            throw new JavaScriptException(realm.Intrinsics.UriError);
+            var location = realm.GlobalObject.Engine.GetLastSyntaxElement()?.Location ?? default;
+            throw new JavaScriptException(realm.Intrinsics.UriError).SetJavaScriptLocation(location);
         }
 
         [DoesNotReturn]

@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Error;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Statements;
 
@@ -104,31 +105,34 @@ namespace Jint.Runtime.Interpreter
             }
             catch (JavaScriptException v)
             {
-                SyntaxElement source = s!._statement;
-                if (v.Location != default)
-                {
-                    source = EsprimaExtensions.CreateLocationNode(v.Location);
-                }
-                var completion = new Completion(CompletionType.Throw, v.Error, null, source);
-                return completion;
+                return CreateThrowCompletion(s, v);
             }
             catch (TypeErrorException e)
             {
-                var error = engine.Realm.Intrinsics.TypeError.Construct(new JsValue[]
-                {
-                    e.Message
-                });
-                return new Completion(CompletionType.Throw, error, null, s!._statement);
+                return CreateThrowCompletion(engine.Realm.Intrinsics.TypeError, e, s!);
             }
             catch (RangeErrorException e)
             {
-                var error = engine.Realm.Intrinsics.RangeError.Construct(new JsValue[]
-                {
-                    e.Message
-                });
-                c = new Completion(CompletionType.Throw, error, null, s!._statement);
+                return CreateThrowCompletion(engine.Realm.Intrinsics.RangeError, e, s!);
             }
             return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Target, c._source);
+        }
+
+        private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, Exception e, JintStatement s)
+        {
+            var error = errorConstructor.Construct(new JsValue[] { e.Message });
+            return new Completion(CompletionType.Throw, error, null, s._statement);
+        }
+
+        private static Completion CreateThrowCompletion(JintStatement? s, JavaScriptException v)
+        {
+            SyntaxElement source = s!._statement;
+            if (v.Location != default)
+            {
+                source = EsprimaExtensions.CreateLocationNode(v.Location);
+            }
+
+            return new Completion(CompletionType.Throw, v.Error, null, source);
         }
 
         /// <summary>

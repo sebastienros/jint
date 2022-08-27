@@ -423,6 +423,24 @@ executeFile(""first-file.js"");",
             EqualIgnoringNewLineDifferences(Expected, e.JavaScriptStackTrace);
         }
 
+        [Fact]
+        public void ShouldReportCorrectColumn()
+        {
+            var e = Assert.Throws<JavaScriptException>(() =>
+            {
+                var engine = new Engine();
+                engine.Execute(@"var $variable1 = 611;
+var _variable2 = 711;
+var variable3 = 678;
+
+$variable1 + -variable2 - variable3;");
+            });
+
+            Assert.Equal(5, e.Location.Start.Line);
+            Assert.Equal(14, e.Location.Start.Column);
+            Assert.Equal("   at <anonymous>:5:15", e.JavaScriptStackTrace);
+        }
+
         private static void EqualIgnoringNewLineDifferences(string expected, string actual)
         {
             expected = expected.Replace("\r\n", "\n");
