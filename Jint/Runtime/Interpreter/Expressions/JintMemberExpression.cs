@@ -116,7 +116,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return new ExpressionResult(
                 ExpressionCompletionType.Reference,
                 rent,
-                _expression.Location);
+                _expression);
         }
     }
 }

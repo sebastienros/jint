@@ -415,7 +415,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     environmentRecord.SetMutableBinding(left._expressionName, rval, strict);
-                    return new Completion(CompletionType.Normal, rval, default);
+                    return ExpressionResult.Normal(rval, completion._source);
                 }
 
                 return null;

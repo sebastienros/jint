@@ -41,7 +41,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (_calculatedValue is not null)
             {
-                return Completion.Normal(_calculatedValue, _expression.Location);
+                return Completion.Normal(_calculatedValue, _expression);
             }
 
             var strict = StrictModeScope.IsStrictModeCode;
@@ -72,7 +72,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 argumentsInstance.Materialize();
             }
 
-            return Completion.Normal(value, _expression.Location);
+            return Completion.Normal(value, _expression);
         }
     }
 }

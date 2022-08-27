@@ -16,7 +16,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            return new Completion(CompletionType.Break, null!, _label, Location);
+            return new Completion(CompletionType.Break, null!, _label, _statement);
         }
     }
 }

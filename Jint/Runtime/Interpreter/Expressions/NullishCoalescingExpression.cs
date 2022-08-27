@@ -29,7 +29,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             // need to notify correct node when taking shortcut
             context.LastSyntaxNode = _expression;
-            return Completion.Normal(EvaluateConstantOrExpression(context), _expression.Location);
+            return Completion.Normal(EvaluateConstantOrExpression(context), _expression);
         }
 
         protected override ExpressionResult EvaluateInternal(EvaluationContext context)

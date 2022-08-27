@@ -37,7 +37,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 var jsValue = _test.GetValue(context).Value;
                 if (!TypeConverter.ToBoolean(jsValue))
                 {
-                    return new Completion(CompletionType.Normal, v, null, Location);
+                    return new Completion(CompletionType.Normal, v, null, _statement);
                 }
 
                 var completion = _body.Execute(context);
@@ -51,7 +51,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 {
                     if (completion.Type == CompletionType.Break && (completion.Target == null || completion.Target == _labelSetName))
                     {
-                        return new Completion(CompletionType.Normal, v, null, Location);
+                        return new Completion(CompletionType.Normal, v, null, _statement);
                     }
 
                     if (completion.Type != CompletionType.Normal)

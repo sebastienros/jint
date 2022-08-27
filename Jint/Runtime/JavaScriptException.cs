@@ -26,7 +26,7 @@ public class JavaScriptException : JintException
     private readonly JavaScriptErrorWrapperException _jsErrorException;
 
     public string? JavaScriptStackTrace => _jsErrorException.StackTrace;
-    public Location Location => _jsErrorException.Location;
+    public ref readonly Location Location => ref _jsErrorException.Location;
     public JsValue Error => _jsErrorException.Error;
 
     internal JavaScriptException(ErrorConstructor errorConstructor)
@@ -64,9 +64,11 @@ public class JavaScriptException : JintException
     private class JavaScriptErrorWrapperException : JintException
     {
         private string? _callStack;
+        private Location _location;
 
         public JsValue Error { get; }
-        public Location Location { get; private set; }
+
+        public ref readonly Location Location => ref _location;
 
         internal JavaScriptErrorWrapperException(JsValue error, string? message = null)
             : base(message ?? GetMessage(error))
@@ -76,12 +78,12 @@ public class JavaScriptException : JintException
 
         internal void SetLocation(Location location)
         {
-            Location = location;
+            _location = location;
         }
 
         internal void SetCallstack(Engine engine, Location location, bool overwriteExisting)
         {
-            Location = location;
+            _location = location;
 
             var errObj = Error.IsObject() ? Error.AsObject() : null;
             if (errObj is null)

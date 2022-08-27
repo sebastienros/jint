@@ -18,7 +18,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             // need to notify correct node when taking shortcut
             context.LastSyntaxNode = _expression;
 
-            return Completion.Normal(context.Engine.ResolveThisBinding(), _expression.Location);
+            return Completion.Normal(context.Engine.ResolveThisBinding(), _expression);
         }
     }
 }

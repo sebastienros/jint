@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using Esprima;
+using System.Runtime.InteropServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
@@ -14,24 +14,31 @@ namespace Jint.Runtime.Interpreter.Expressions
     /// <summary>
     /// Adapter to get different types of results, including Reference which is not a JsValue.
     /// </summary>
+    [StructLayout(LayoutKind.Auto)]
     internal readonly struct ExpressionResult
     {
+        internal readonly Node _source;
+
         public readonly ExpressionCompletionType Type;
-        public readonly Location Location;
         public readonly object Value;
 
-        public ExpressionResult(ExpressionCompletionType type, object value, in Location location)
+        public ExpressionResult(ExpressionCompletionType type, object value, Node source)
         {
             Type = type;
             Value = value;
-            Location = location;
+            _source = source;
         }
 
         public bool IsAbrupt() => Type != ExpressionCompletionType.Normal && Type != ExpressionCompletionType.Reference;
 
         public static implicit operator ExpressionResult(in Completion result)
         {
-            return new ExpressionResult((ExpressionCompletionType) result.Type, result.Value, result.Location);
+            return new ExpressionResult((ExpressionCompletionType) result.Type, result.Value, result._source);
+        }
+
+        public static ExpressionResult? Normal(JsValue value, Node source)
+        {
+            return new ExpressionResult(ExpressionCompletionType.Normal, value, source);
         }
     }
 
@@ -66,11 +73,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             var result = Evaluate(context);
             if (result.Type != ExpressionCompletionType.Reference)
             {
-                return new Completion((CompletionType) result.Type, (JsValue) result.Value, result.Location);
+                return new Completion((CompletionType) result.Type, (JsValue) result.Value, result._source);
             }
 
             var jsValue = context.Engine.GetValue((Reference) result.Value, true);
-            return new Completion(CompletionType.Normal, jsValue, null, _expression.Location);
+            return new Completion(CompletionType.Normal, jsValue, null, _expression);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -105,12 +112,12 @@ namespace Jint.Runtime.Interpreter.Expressions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected ExpressionResult NormalCompletion(JsValue value)
         {
-            return new ExpressionResult(ExpressionCompletionType.Normal, value, _expression.Location);
+            return new ExpressionResult(ExpressionCompletionType.Normal, value, _expression);
         }
 
         protected ExpressionResult NormalCompletion(Reference value)
         {
-            return new ExpressionResult(ExpressionCompletionType.Reference, value, _expression.Location);
+            return new ExpressionResult(ExpressionCompletionType.Reference, value, _expression);
         }
 
         /// <summary>
@@ -123,7 +130,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected ExpressionResult ThrowCompletion(JsValue value)
         {
-            return new ExpressionResult(ExpressionCompletionType.Throw, value, _expression.Location);
+            return new ExpressionResult(ExpressionCompletionType.Throw, value, _expression);
         }
 
         /// <summary>

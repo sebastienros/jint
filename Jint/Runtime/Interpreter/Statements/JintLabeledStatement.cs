@@ -26,7 +26,7 @@ namespace Jint.Runtime.Interpreter.Statements
             if (result.Type == CompletionType.Break && result.Target == _labelName)
             {
                 var value = result.Value;
-                return new Completion(CompletionType.Normal, value, null, Location);
+                return new Completion(CompletionType.Normal, value, null, _statement);
             }
 
             return result;

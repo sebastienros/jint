@@ -8,8 +8,6 @@ namespace Jint.Runtime.Interpreter.Statements
 {
     internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaration>
     {
-        private static readonly Completion VoidCompletion = new(CompletionType.Normal, null!, default);
-
         private ResolvedDeclaration[] _declarations = Array.Empty<ResolvedDeclaration>();
 
         private sealed class ResolvedDeclaration
@@ -127,7 +125,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
             }
 
-            return VoidCompletion;
+            return Completion.Empty();
         }
     }
 }

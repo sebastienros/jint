@@ -285,7 +285,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            return new Completion(CompletionType.Normal, JsValue.Undefined, pattern.Location);
+            return new Completion(CompletionType.Normal, JsValue.Undefined, pattern);
         }
 
         private static Completion HandleObjectPattern(
@@ -398,7 +398,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            return new Completion(CompletionType.Normal, JsValue.Undefined, pattern.Location);
+            return new Completion(CompletionType.Normal, JsValue.Undefined, pattern);
         }
 
         private static void AssignToReference(

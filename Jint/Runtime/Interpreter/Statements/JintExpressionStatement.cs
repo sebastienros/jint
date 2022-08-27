@@ -26,7 +26,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 return new Completion(result);
             }
 
-            return new Completion(CompletionType.Normal, context.Engine.GetValue((Reference) result.Value, true), null, Location);
+            return new Completion(CompletionType.Normal, context.Engine.GetValue((Reference) result.Value, true), null, _statement);
         }
     }
 }

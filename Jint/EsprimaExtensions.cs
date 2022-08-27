@@ -52,7 +52,7 @@ namespace Jint
             {
                 key = JsValue.Undefined;
             }
-            return new Completion(CompletionType.Normal, key, expression.Location);
+            return new Completion(CompletionType.Normal, key, expression);
         }
 
         private static Completion TryGetComputedPropertyKey<T>(T expression, Engine engine)
@@ -75,7 +75,7 @@ namespace Jint
                 return JintExpression.Build(engine, expression).GetValue(context!);
             }
 
-            return new Completion(CompletionType.Normal, JsValue.Undefined, expression.Location);
+            return new Completion(CompletionType.Normal, JsValue.Undefined, expression);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

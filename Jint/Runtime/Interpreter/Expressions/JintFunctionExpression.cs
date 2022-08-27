@@ -24,7 +24,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ? InstantiateOrdinaryFunctionExpression(context, _function.Name!)
                 : InstantiateGeneratorFunctionExpression(context, _function.Name!);
 
-            return Completion.Normal(closure, _expression.Location);
+            return Completion.Normal(closure, _expression);
         }
 
         /// <summary>
