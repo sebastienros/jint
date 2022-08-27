@@ -1202,7 +1202,7 @@ namespace Jint.Runtime
                 return 0;
             }
 
-            if (objectValue == null)
+            if (objectValue is null)
             {
                 if (!TypeIsNullable(paramType))
                 {
@@ -1251,7 +1251,7 @@ namespace Jint.Runtime
                 return 1;
             }
 
-            if (jsValue.IsArray() && objectValueType!.IsArray)
+            if (jsValue.IsArray() && paramType.IsArray)
             {
                 // we have potential, TODO if we'd know JS array's internal type we could have exact match
                 return 2;
