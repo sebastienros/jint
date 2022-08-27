@@ -25,9 +25,9 @@ namespace Jint.Runtime
         internal static readonly Node _emptyNode = new Identifier("");
         private static readonly Completion _emptyCompletion = new(CompletionType.Normal, null!, _emptyNode);
 
-        internal readonly Node _source;
+        internal readonly SyntaxElement _source;
 
-        internal Completion(CompletionType type, JsValue value, string? target, Node source)
+        internal Completion(CompletionType type, JsValue value, string? target, SyntaxElement source)
         {
             Type = type;
             Value = value;
@@ -35,12 +35,12 @@ namespace Jint.Runtime
             _source = source;
         }
 
-        public Completion(CompletionType type, JsValue value, Node source)
+        public Completion(CompletionType type, JsValue value, SyntaxElement source)
             : this(type, value, null, source)
         {
         }
 
-        public Completion(CompletionType type, string target, Node source)
+        public Completion(CompletionType type, string target, SyntaxElement source)
             : this(type, null!, target, source)
         {
         }

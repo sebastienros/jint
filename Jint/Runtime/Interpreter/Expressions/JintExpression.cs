@@ -17,12 +17,12 @@ namespace Jint.Runtime.Interpreter.Expressions
     [StructLayout(LayoutKind.Auto)]
     internal readonly struct ExpressionResult
     {
-        internal readonly Node _source;
+        internal readonly SyntaxElement _source;
 
         public readonly ExpressionCompletionType Type;
         public readonly object Value;
 
-        public ExpressionResult(ExpressionCompletionType type, object value, Node source)
+        public ExpressionResult(ExpressionCompletionType type, object value, SyntaxElement source)
         {
             Type = type;
             Value = value;
@@ -36,7 +36,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return new ExpressionResult((ExpressionCompletionType) result.Type, result.Value, result._source);
         }
 
-        public static ExpressionResult? Normal(JsValue value, Node source)
+        public static ExpressionResult? Normal(JsValue value, SyntaxElement source)
         {
             return new ExpressionResult(ExpressionCompletionType.Normal, value, source);
         }
@@ -83,7 +83,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ExpressionResult Evaluate(EvaluationContext context)
         {
-            context.LastSyntaxNode = _expression;
+            context.LastSyntaxElement = _expression;
             if (!_initialized)
             {
                 Initialize(context);

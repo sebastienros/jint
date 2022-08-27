@@ -37,7 +37,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
             var engine = context.Engine;
             JsValue v = Undefined.Instance;
-            Node l = context.LastSyntaxNode;
+            SyntaxElement l = context.LastSyntaxElement;
             JintSwitchCase? defaultCase = null;
             bool hit = false;
 

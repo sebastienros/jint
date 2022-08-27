@@ -68,7 +68,7 @@ namespace Jint.Native.Error
 
             JsValue BuildStackString()
             {
-                var lastSyntaxNode = _engine.GetLastSyntaxNode();
+                var lastSyntaxNode = _engine.GetLastSyntaxElement();
                 if (lastSyntaxNode == null)
                     return Undefined;
 

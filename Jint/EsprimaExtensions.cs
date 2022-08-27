@@ -429,5 +429,21 @@ namespace Jint
         }
 
         internal readonly record struct Record(JsValue Key, ScriptFunctionInstance Closure);
+
+        /// <summary>
+        /// Creates a dummy node that can be used when only location available and node is required.
+        /// </summary>
+        internal static SyntaxElement CreateLocationNode(in Location location)
+        {
+            return new MinimalSyntaxElement(location);
+        }
+    }
+
+    internal sealed class MinimalSyntaxElement : SyntaxElement
+    {
+        public MinimalSyntaxElement(in Location location)
+        {
+            Location = location;
+        }
     }
 }

@@ -73,12 +73,12 @@ namespace Jint.Runtime.Interpreter
             var engine = context.Engine;
             if (_statement != null)
             {
-                context.LastSyntaxNode = _statement;
+                context.LastSyntaxElement = _statement;
                 engine.RunBeforeExecuteStatementChecks(_statement);
             }
 
             JintStatement? s = null;
-            var c = new Completion(CompletionType.Normal, null!, null, context.LastSyntaxNode);
+            var c = new Completion(CompletionType.Normal, null!, null, context.LastSyntaxElement);
             Completion sl = c;
 
             // The value of a StatementList is the value of the last value-producing item in the StatementList
@@ -104,7 +104,12 @@ namespace Jint.Runtime.Interpreter
             }
             catch (JavaScriptException v)
             {
-                var completion = new Completion(CompletionType.Throw, v.Error, null, s!._statement);
+                SyntaxElement source = s!._statement;
+                if (v.Location != default)
+                {
+                    source = EsprimaExtensions.CreateLocationNode(v.Location);
+                }
+                var completion = new Completion(CompletionType.Throw, v.Error, null, source);
                 return completion;
             }
             catch (TypeErrorException e)

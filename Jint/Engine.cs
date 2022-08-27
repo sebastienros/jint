@@ -735,9 +735,9 @@ namespace Jint
         /// <summary>
         /// Gets the last evaluated <see cref="Node"/>.
         /// </summary>
-        internal Node? GetLastSyntaxNode()
+        internal SyntaxElement? GetLastSyntaxElement()
         {
-            return _activeEvaluationContext?.LastSyntaxNode;
+            return _activeEvaluationContext?.LastSyntaxElement;
         }
 
         /// <summary>

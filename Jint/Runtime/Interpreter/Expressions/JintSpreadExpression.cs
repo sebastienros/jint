@@ -24,7 +24,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         public override Completion GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
-            context.LastSyntaxNode = _expression;
+            context.LastSyntaxElement = _expression;
 
             GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
             return Completion.Normal(objectInstance, _expression);

@@ -32,7 +32,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             if (_statement.Type != Nodes.BlockStatement)
             {
-                context.LastSyntaxNode = _statement;
+                context.LastSyntaxElement = _statement;
                 context.Engine.RunBeforeExecuteStatementChecks(_statement);
             }
 

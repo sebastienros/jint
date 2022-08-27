@@ -59,7 +59,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             // Reset the location to the "new" keyword so that if an Error object is
             // constructed below, the stack trace will capture the correct location.
-            context.LastSyntaxNode = _expression;
+            context.LastSyntaxElement = _expression;
 
             if (!jsValue.IsConstructor)
             {
