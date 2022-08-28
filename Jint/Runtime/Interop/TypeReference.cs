@@ -195,7 +195,7 @@ namespace Jint.Runtime.Interop
                 return ConstantValueAccessor.NullAccessor;
             }
 
-            const BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Static;
+            const BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
             return typeResolver.TryFindMemberAccessor(engine, type, name, bindingFlags, indexerToTry: null, out var accessor)
                 ? accessor
                 : ConstantValueAccessor.NullAccessor;

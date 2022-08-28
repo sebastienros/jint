@@ -147,6 +147,28 @@ namespace Jint.Tests.Runtime
             Assert.Equal(10, engine.Evaluate("dc.c"));
         }
 
+        [Fact]
+        public void CanAccessBaseClassStaticFields()
+        {
+            var engine = new Engine(options =>
+            {
+                options.AllowClr();
+            });
+
+            engine.SetValue("B", TypeReference.CreateTypeReference(engine, typeof(InheritingFromClassWithStatics)));
+            Assert.Equal(42, engine.Evaluate("B.a").AsNumber());
+            Assert.Equal(24, engine.Evaluate("B.a = 24; B.a").AsNumber());
+        }
+
+        private class BaseClassWithStatics
+        {
+            public static int a = 42;
+        }
+
+        private class InheritingFromClassWithStatics : BaseClassWithStatics
+        {
+        }
+
         private static class EchoService
         {
             public static string Echo(string message) => message;
