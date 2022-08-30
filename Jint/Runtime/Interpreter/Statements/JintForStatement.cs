@@ -121,14 +121,13 @@ namespace Jint.Runtime.Interpreter.Statements
                 CreatePerIterationEnvironment(context);
             }
 
+            var debugHandler = context.DebugMode ? context.Engine.DebugHandler : null;
+
             while (true)
             {
                 if (_test != null)
                 {
-                    if (context.DebugMode)
-                    {
-                        context.Engine.DebugHandler.OnStep(_test._expression);
-                    }
+                    debugHandler?.OnStep(_test._expression);
 
                     if (!TypeConverter.ToBoolean(_test.GetValue(context).Value))
                     {
@@ -162,30 +161,21 @@ namespace Jint.Runtime.Interpreter.Statements
 
                 if (_increment != null)
                 {
-                    if (context.DebugMode)
-                    {
-                        context.Engine.DebugHandler.OnStep(_increment._expression);
-                    }
-
-                    _increment.GetValue(context);
+                    debugHandler?.OnStep(_increment._expression);
+                    _increment.Evaluate(context);
                 }
             }
         }
 
         private void CreatePerIterationEnvironment(EvaluationContext context)
         {
-            if (_boundNames == null || _boundNames.Count == 0)
-            {
-                return;
-            }
-
             var engine = context.Engine;
             var lastIterationEnv = engine.ExecutionContext.LexicalEnvironment;
             var lastIterationEnvRec = lastIterationEnv;
             var outer = lastIterationEnv._outerEnv;
             var thisIterationEnv = JintEnvironment.NewDeclarativeEnvironment(engine, outer);
 
-            for (var j = 0; j < _boundNames.Count; j++)
+            for (var j = 0; j < _boundNames!.Count; j++)
             {
                 var bn = _boundNames[j];
                 var lastValue = lastIterationEnvRec.GetBindingValue(bn, true);
