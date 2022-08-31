@@ -25,11 +25,14 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected override void Initialize(EvaluationContext context)
         {
             var engine = context.Engine;
+
             var expression = (CallExpression) _expression;
+            ref readonly var expressionArguments = ref expression.Arguments;
+
             _calleeExpression = Build(engine, expression.Callee);
             var cachedArgumentsHolder = new CachedArgumentsHolder
             {
-                JintArguments = new JintExpression[expression.Arguments.Count]
+                JintArguments = new JintExpression[expressionArguments.Count]
             };
 
             static bool CanSpread(Node? e)
@@ -37,18 +40,19 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return e?.Type == Nodes.SpreadElement || e is AssignmentExpression { Right.Type: Nodes.SpreadElement };
             }
 
-            bool cacheable = true;
-            for (var i = 0; i < expression.Arguments.Count; i++)
+            var cacheable = true;
+            for (var i = 0; i < expressionArguments.Count; i++)
             {
-                var expressionArgument = expression.Arguments[i];
+                var expressionArgument = expressionArguments[i];
                 cachedArgumentsHolder.JintArguments[i] = Build(engine, expressionArgument);
                 cacheable &= expressionArgument.Type == Nodes.Literal;
                 _hasSpreads |= CanSpread(expressionArgument);
                 if (expressionArgument is ArrayExpression ae)
                 {
-                    for (var elementIndex = 0; elementIndex < ae.Elements.Count; elementIndex++)
+                    ref readonly var elements = ref ae.Elements;
+                    for (var elementIndex = 0; elementIndex < elements.Count; elementIndex++)
                     {
-                        _hasSpreads |= CanSpread(ae.Elements[elementIndex]);
+                        _hasSpreads |= CanSpread(elements[elementIndex]);
                     }
                 }
             }
@@ -94,10 +98,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             var referenceRecord = reference as Reference;
-            if (referenceRecord != null
+            if (ReferenceEquals(func, engine.Realm.Intrinsics.Eval)
+                && referenceRecord != null
                 && !referenceRecord.IsPropertyReference()
-                && referenceRecord.GetReferencedName() == CommonProperties.Eval
-                && ReferenceEquals(func, engine.Realm.Intrinsics.Eval))
+                && referenceRecord.GetReferencedName() == CommonProperties.Eval)
             {
                 return HandleEval(context, func, engine, referenceRecord);
             }
@@ -140,7 +144,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (!func.IsObject() && !engine._referenceResolver.TryGetCallable(engine, reference, out func))
             {
-                ThrowMemberisNotFunction(referenceRecord, reference, engine);
+                ThrowMemberIsNotFunction(referenceRecord, reference, engine);
             }
 
             var callable = func as ICallable;
@@ -206,7 +210,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         [DoesNotReturn]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void ThrowMemberisNotFunction(Reference? referenceRecord1, object reference, Engine engine)
+        private static void ThrowMemberIsNotFunction(Reference? referenceRecord1, object reference, Engine engine)
         {
             var message = referenceRecord1 == null
                 ? reference + " is not a function"
@@ -244,7 +248,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             var argList = ArgumentListEvaluation(context);
-            var result = ((IConstructor) func).Construct(argList, newTarget ?? JsValue.Undefined);
+            var result = ((IConstructor) func).Construct(argList, newTarget);
             var thisER = (FunctionEnvironmentRecord) engine.ExecutionContext.GetThisEnvironment();
             return thisER.BindThisValue(result);
         }

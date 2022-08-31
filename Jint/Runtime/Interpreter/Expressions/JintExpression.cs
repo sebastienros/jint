@@ -469,19 +469,17 @@ namespace Jint.Runtime.Interpreter.Expressions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static void BuildArguments(EvaluationContext context, JintExpression[] jintExpressions, JsValue[] targetArray)
         {
-            for (var i = 0; i < jintExpressions.Length; i++)
+            for (uint i = 0; i < (uint) jintExpressions.Length; i++)
             {
-                var completion = jintExpressions[i].GetValue(context);
-                targetArray[i] = completion.Value.Clone();
+                targetArray[i] = jintExpressions[i].GetValue(context).Value.Clone();
             }
         }
 
         protected static JsValue[] BuildArgumentsWithSpreads(EvaluationContext context, JintExpression[] jintExpressions)
         {
             var args = new List<JsValue>(jintExpressions.Length);
-            for (var i = 0; i < jintExpressions.Length; i++)
+            foreach (var jintExpression in jintExpressions)
             {
-                var jintExpression = jintExpressions[i];
                 if (jintExpression is JintSpreadExpression jse)
                 {
                     jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);

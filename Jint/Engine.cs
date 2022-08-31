@@ -25,7 +25,7 @@ namespace Jint
     {
         private readonly JavaScriptParser _defaultParser = new(ParserOptions.Default);
 
-        private readonly ExecutionContextStack _executionContexts;
+        internal readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         internal EvaluationContext? _activeEvaluationContext;
 
@@ -38,7 +38,7 @@ namespace Jint
 
         // cached access
         internal readonly IObjectConverter[]? _objectConverters;
-        private readonly IConstraint[] _constraints;
+        internal readonly IConstraint[] _constraints;
         internal readonly bool _isDebugMode;
         internal bool _isStrict;
         internal readonly IReferenceResolver _referenceResolver;
@@ -108,13 +108,14 @@ namespace Jint
 
             _constraints = Options.Constraints.Constraints.ToArray();
             _referenceResolver = Options.ReferenceResolver;
-            CallStack = new JintCallStack(Options.Constraints.MaxRecursionDepth >= 0);
 
             _referencePool = new ReferencePool();
             _argumentsInstancePool = new ArgumentsInstancePool(this);
             _jsValueArrayPool = new JsValueArrayPool();
 
             Options.Apply(this);
+
+            CallStack = new JintCallStack(Options.Constraints.MaxRecursionDepth >= 0);
         }
 
         private void Reset()

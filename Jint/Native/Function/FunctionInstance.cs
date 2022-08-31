@@ -320,14 +320,6 @@ namespace Jint.Native.Function
         }
 
         /// <summary>
-        /// https://tc39.es/ecma262/#sec-ordinarycallevaluatebody
-        /// </summary>
-        internal Completion OrdinaryCallEvaluateBody(EvaluationContext context, JsValue[] arguments)
-        {
-            return _functionDefinition.EvaluateBody(context, this, arguments);
-        }
-
-        /// <summary>
         /// https://tc39.es/ecma262/#sec-prepareforordinarycall
         /// </summary>
         internal ExecutionContext PrepareForOrdinaryCall(JsValue newTarget)

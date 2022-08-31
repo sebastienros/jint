@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interpreter.Statements
             if (_statement.Type != Nodes.BlockStatement)
             {
                 context.LastSyntaxElement = _statement;
-                context.Engine.RunBeforeExecuteStatementChecks(_statement);
+                context.RunBeforeExecuteStatementChecks(_statement);
             }
 
             if (!_initialized)
