@@ -46,8 +46,8 @@ namespace Jint.Native.Function
                 && function.Function is not ArrowFunctionExpression
                 && !function.Function.Generator)
             {
-                DefineOwnProperty(CommonProperties.Arguments, new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(engine, PropertyFlag.Configurable | PropertyFlag.CustomJsValue));
-                DefineOwnProperty(CommonProperties.Caller, new PropertyDescriptor(Undefined, PropertyFlag.Configurable));
+                SetProperty(KnownKeys.Arguments, new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(engine, PropertyFlag.Configurable | PropertyFlag.CustomJsValue));
+                SetProperty(KnownKeys.Caller, new PropertyDescriptor(Undefined, PropertyFlag.Configurable));
             }
         }
 

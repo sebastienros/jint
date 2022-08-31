@@ -1,14 +1,13 @@
 ﻿using BenchmarkDotNet.Attributes;
 
-namespace Jint.Benchmark
-{
-    [MemoryDiagnoser]
-    public class StopwatchBenchmark : SingleScriptBenchmark
-    {
-        [Params(1)]
-        public override int N { get; set; }
+namespace Jint.Benchmark;
 
-        protected override string Script => @"
+[MemoryDiagnoser]
+public class StopwatchBenchmark : SingleScriptBenchmark
+{
+    public override int N => 10;
+
+    protected override string Script => @"
 function Stopwatch() {
     var sw = this;
     var start = null;
@@ -68,5 +67,4 @@ sw.Stop();
 
 var done = true;
 ";
-    }
 }

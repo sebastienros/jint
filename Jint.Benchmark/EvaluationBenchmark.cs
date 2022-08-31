@@ -1,11 +1,11 @@
 ﻿using BenchmarkDotNet.Attributes;
 
-namespace Jint.Benchmark
+namespace Jint.Benchmark;
+
+[MemoryDiagnoser]
+public class EvaluationBenchmark : SingleScriptBenchmark
 {
-    [MemoryDiagnoser]
-    public class EvaluationBenchmark : SingleScriptBenchmark
-    {
-        protected override string Script => @"
+    protected override string Script => @"
             var o = {};
             o.Foo = 'bar';
             o.Baz = 42.0001;
@@ -26,7 +26,5 @@ namespace Jint.Benchmark
             var done = true;
         ";
 
-        [Params(20)]
-        public override int N { get; set; }
-    }
+    public override int N => 20;
 }

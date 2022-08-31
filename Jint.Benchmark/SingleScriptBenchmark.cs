@@ -1,71 +1,64 @@
 ﻿using BenchmarkDotNet.Attributes;
+using Esprima;
+using Esprima.Ast;
 
-namespace Jint.Benchmark
+namespace Jint.Benchmark;
+
+[RankColumn]
+[MemoryDiagnoser]
+[HideColumns("Error", "StdDev", "Gen0", "Gen1", "Gen2")]
+[BenchmarkCategory("EngineComparison")]
+public abstract class SingleScriptBenchmark
 {
-    [MemoryDiagnoser]
-    public abstract class SingleScriptBenchmark
+    private Script _parsedScript;
+
+    protected abstract string Script { get; }
+
+    public virtual int N => 10;
+
+    [GlobalSetup]
+    public void Setup()
     {
-        private Engine sharedJint;
+        _parsedScript = new JavaScriptParser().ParseScript(Script);
+    }
 
-#if ENGINE_COMPARISON
-        private Jurassic.ScriptEngine sharedJurassic;
-        private NiL.JS.Core.Context sharedNilJs;
-#endif
+    [Benchmark]
+    public bool Jint()
+    {
+        var engine = new Engine();
+        engine.Execute(Script);
+        return engine.GetValue("done").AsBoolean();
+    }
 
-        protected abstract string Script { get; }
+    [Benchmark]
+    public bool Jint_ParsedScript()
+    {
+        var engine = new Engine();
+        engine.Execute(_parsedScript);
+        return engine.GetValue("done").AsBoolean();
+    }
 
-        [Params(10)]
-        public virtual int N { get; set; }
+    [Benchmark]
+    public bool Jurassic()
+    {
+        var engine = new Jurassic.ScriptEngine();
+        engine.Execute(Script);
+        return engine.GetGlobalValue<bool>("done");
+    }
 
-        [GlobalSetup]
-        public void Setup()
-        {
-            sharedJint = new Engine();
-#if ENGINE_COMPARISON
-            sharedJurassic = new Jurassic.ScriptEngine();
-            sharedNilJs = new NiL.JS.Core.Context();
-#endif
-        }
+    [Benchmark]
+    public bool NilJS()
+    {
+        var engine = new NiL.JS.Core.Context();
+        engine.Eval(Script);
+        return (bool) engine.GetVariable("done");
+    }
 
-        [Benchmark]
-        public bool Jint()
-        {
-            bool done = false;
-            for (var i = 0; i < N; i++)
-            {
-                sharedJint.Execute(Script);
-                done |= sharedJint.GetValue("done").AsBoolean();
-            }
-
-            return done;
-        }
-
-#if ENGINE_COMPARISON
-        [Benchmark]
-        public bool Jurassic()
-        {
-            bool done = false;
-            for (var i = 0; i < N; i++)
-            {
-                sharedJurassic.Execute(Script);
-                done |= sharedJurassic.GetGlobalValue<bool>("done");
-            }
-
-            return done;
-        }
-
-        [Benchmark]
-        public bool NilJS()
-        {
-            bool done = false;
-            for (var i = 0; i < N; i++)
-            {
-                sharedNilJs.Eval(Script);
-                done |= (bool) sharedNilJs.GetVariable("done");
-            }
-
-            return done;
-        }
-#endif
+    [Benchmark]
+    public bool YantraJS()
+    {
+        var engine = new YantraJS.Core.JSContext();
+        engine.Eval(Script);
+        return engine["done"].BooleanValue;
     }
 }
