@@ -72,7 +72,8 @@ namespace Jint.Native.Function
 
                     // actual call
                     var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
-                    var result = OrdinaryCallEvaluateBody(context, arguments);
+
+                    var result = _functionDefinition.EvaluateBody(context, this, arguments);
 
                     if (result.Type == CompletionType.Throw)
                     {
@@ -143,7 +144,8 @@ namespace Jint.Native.Function
                 try
                 {
                     var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
-                    var result = OrdinaryCallEvaluateBody(context, arguments);
+
+                    var result = _functionDefinition.EvaluateBody(context, this, arguments);
 
                     // The DebugHandler needs the current execution context before the return for stepping through the return point
                     if (context.DebugMode && result.Type != CompletionType.Throw)

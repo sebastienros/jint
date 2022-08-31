@@ -35,28 +35,36 @@ namespace Jint.Runtime.Interpreter
         public FunctionThisMode ThisMode => Strict ? FunctionThisMode.Strict : FunctionThisMode.Global;
 
         /// <summary>
-        /// https://tc39.es/ecma262/#sec-runtime-semantics-evaluatebody
+        /// https://tc39.es/ecma262/#sec-ordinarycallevaluatebody
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Completion EvaluateBody(EvaluationContext context, FunctionInstance functionObject, JsValue[] argumentsList)
         {
             Completion result;
+            var argumentsInstance = _engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
             if (Function.Expression)
             {
-                result = EvaluateConciseBody(context, functionObject, argumentsList);
+                // https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody
+                _bodyExpression ??= JintExpression.Build(_engine, (Expression) Function.Body);
+                var jsValue = _bodyExpression.GetValue(context).GetValueOrDefault().Clone();
+                result = new Completion(CompletionType.Return, jsValue, null, Function.Body);
             }
             else if (Function.Generator)
             {
-                result = EvaluateFunctionBody(context, functionObject, argumentsList);
                 // TODO generators
                 // result = EvaluateGeneratorBody(functionObject, argumentsList);
+                _bodyStatementList ??= new JintStatementList(Function);
+                result = _bodyStatementList.Execute(context);
             }
             else
             {
-                result = EvaluateFunctionBody(context, functionObject, argumentsList);
+                // https://tc39.es/ecma262/#sec-runtime-semantics-evaluatefunctionbody
+                _bodyStatementList ??= new JintStatementList(Function);
+                result = _bodyStatementList.Execute(context);
             }
 
-            return new Completion(result.Type, result.GetValueOrDefault().Clone(), result.Target, result._source);
+            argumentsInstance?.FunctionWasCalled();
+            return result;
         }
 
         /// <summary>
@@ -66,31 +74,6 @@ namespace Jint.Runtime.Interpreter
         {
             ExceptionHelper.ThrowNotImplementedException("generators not implemented");
             return default;
-        }
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody
-        /// </summary>
-        private Completion EvaluateConciseBody(EvaluationContext context, FunctionInstance functionObject, JsValue[] argumentsList)
-        {
-            var argumentsInstance = _engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
-            _bodyExpression ??= JintExpression.Build(_engine, (Expression) Function.Body);
-            var jsValue = _bodyExpression?.GetValue(context).Value ?? Undefined.Instance;
-            argumentsInstance?.FunctionWasCalled();
-            return new Completion(CompletionType.Return, jsValue, null, Function.Body);
-        }
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-runtime-semantics-evaluatefunctionbody
-        /// </summary>
-        private Completion EvaluateFunctionBody(EvaluationContext context, FunctionInstance functionObject, JsValue[] argumentsList)
-        {
-            var argumentsInstance = _engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
-            _bodyStatementList ??= new JintStatementList(Function);
-            var completion = _bodyStatementList.Execute(context);
-            argumentsInstance?.FunctionWasCalled();
-
-            return completion;
         }
 
         internal State Initialize(FunctionInstance functionInstance)

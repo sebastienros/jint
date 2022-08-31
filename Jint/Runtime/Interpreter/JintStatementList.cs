@@ -71,15 +71,14 @@ namespace Jint.Runtime.Interpreter
                 _initialized = true;
             }
 
-            var engine = context.Engine;
-            if (_statement != null)
+            if (_statement is not null)
             {
                 context.LastSyntaxElement = _statement;
-                engine.RunBeforeExecuteStatementChecks(_statement);
+                context.RunBeforeExecuteStatementChecks(_statement);
             }
 
             JintStatement? s = null;
-            var c = new Completion(CompletionType.Normal, null!, null, context.LastSyntaxElement);
+            Completion c = default;
             Completion sl = c;
 
             // The value of a StatementList is the value of the last value-producing item in the StatementList
@@ -89,33 +88,57 @@ namespace Jint.Runtime.Interpreter
                 foreach (var pair in _jintStatements!)
                 {
                     s = pair.Statement;
-                    c = pair.Value ?? s.Execute(context);
+                    c = pair.Value.GetValueOrDefault();
+                    if (c.Value is null)
+                    {
+                        c = s.Execute(context);
+                    }
 
                     if (c.Type != CompletionType.Normal)
                     {
                         return new Completion(
                             c.Type,
-                            c.Value ?? sl.Value,
+                            c.Value ?? sl.Value!,
                             c.Target,
                             c._source);
                     }
                     sl = c;
-                    lastValue = c.Value ?? lastValue;
+                    if (c.Value is not null)
+                    {
+                        lastValue = c.Value;
+                    }
                 }
             }
-            catch (JavaScriptException v)
+            catch (Exception ex)
             {
-                return CreateThrowCompletion(s, v);
+                if (ex is JintException)
+                {
+                    return HandleException(context, ex, s);
+                }
+
+                throw;
             }
-            catch (TypeErrorException e)
+
+            return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Target, c._source!);
+        }
+
+        private static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)
+        {
+            if (exception is JavaScriptException javaScriptException)
             {
-                return CreateThrowCompletion(engine.Realm.Intrinsics.TypeError, e, s!);
+                return CreateThrowCompletion(s, javaScriptException);
             }
-            catch (RangeErrorException e)
+            if (exception is TypeErrorException typeErrorException)
             {
-                return CreateThrowCompletion(engine.Realm.Intrinsics.RangeError, e, s!);
+                return CreateThrowCompletion(context.Engine.Realm.Intrinsics.TypeError, typeErrorException, s!);
             }
-            return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Target, c._source);
+            if (exception is RangeErrorException rangeErrorException)
+            {
+                return CreateThrowCompletion(context.Engine.Realm.Intrinsics.RangeError, rangeErrorException, s!);
+            }
+
+            // should not happen unless there's problem in the engine
+            throw exception;
         }
 
         private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, Exception e, JintStatement s)
