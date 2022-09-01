@@ -643,21 +643,18 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// Creates or alters the named own property to
-        /// have the state described by a Property
-        /// Descriptor. The flag controls failure handling.
+        /// Creates or alters the named own property to have the state described by a PropertyDescriptor.
         /// </summary>
         public virtual bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
             var current = GetOwnProperty(property);
-            var extensible = Extensible;
 
             if (current == desc)
             {
                 return true;
             }
 
-            return ValidateAndApplyPropertyDescriptor(this, property, extensible, desc, current);
+            return ValidateAndApplyPropertyDescriptor(this, property, Extensible, desc, current);
         }
 
         /// <summary>
@@ -673,7 +670,7 @@ namespace Jint.Native.Object
                     return false;
                 }
 
-                if (o is object)
+                if (o is not null)
                 {
                     if (desc.IsGenericDescriptor() || desc.IsDataDescriptor())
                     {
@@ -762,7 +759,7 @@ namespace Jint.Native.Object
                         return false;
                     }
 
-                    if (o is object)
+                    if (o is not null)
                     {
                         var flags = current.Flags & ~(PropertyFlag.Writable | PropertyFlag.WritableSet | PropertyFlag.CustomJsValue);
                         if (current.IsDataDescriptor())
@@ -814,7 +811,7 @@ namespace Jint.Native.Object
                 }
             }
 
-            if (o is object)
+            if (o is not null)
             {
                 if (!ReferenceEquals(descValue, null))
                 {

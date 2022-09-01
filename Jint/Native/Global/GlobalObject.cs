@@ -21,8 +21,6 @@ namespace Jint.Native.Global
             Realm realm) : base(engine)
         {
             _realm = realm;
-            // this is implementation dependent, and only to pass some unit tests
-            _prototype = realm.Intrinsics.Object.PrototypeObject;
         }
 
         protected override void Initialize()
@@ -798,14 +796,14 @@ namespace Jint.Native.Global
             return descriptor ?? PropertyDescriptor.Undefined;
         }
 
-        internal bool Set(Key property, JsValue value)
+        internal bool SetFromMutableBinding(Key property, JsValue value)
         {
             // here we are called only from global environment record context
             // we can take some shortcuts to be faster
 
             if (!_properties!.TryGetValue(property, out var existingDescriptor))
             {
-                _properties[property] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
+                _properties[property] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding);
                 return true;
             }
 

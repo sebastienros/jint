@@ -22,7 +22,7 @@ namespace Jint.Runtime
     [StructLayout(LayoutKind.Auto)]
     public readonly struct Completion
     {
-        internal static readonly Node _emptyNode = new Identifier("");
+        private static readonly Node _emptyNode = new Identifier("");
         private static readonly Completion _emptyCompletion = new(CompletionType.Normal, null!, _emptyNode);
 
         internal readonly SyntaxElement _source;
@@ -36,13 +36,19 @@ namespace Jint.Runtime
         }
 
         public Completion(CompletionType type, JsValue value, SyntaxElement source)
-            : this(type, value, null, source)
         {
+            Type = type;
+            Value = value;
+            Target = null;
+            _source = source;
         }
 
         public Completion(CompletionType type, string target, SyntaxElement source)
-            : this(type, null!, target, source)
         {
+            Type = type;
+            Value = null!;
+            Target = target;
+            _source = source;
         }
 
         internal Completion(in ExpressionResult result)
@@ -59,8 +65,9 @@ namespace Jint.Runtime
         public readonly string? Target;
         public ref readonly Location Location => ref _source.Location;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Completion Normal(JsValue value, Node source)
-            => new Completion(CompletionType.Normal, value, source);
+            => new(CompletionType.Normal, value, source);
 
         public static ref readonly Completion Empty() => ref _emptyCompletion;
 

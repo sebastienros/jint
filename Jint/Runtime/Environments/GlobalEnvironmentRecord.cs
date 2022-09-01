@@ -83,26 +83,35 @@ namespace Jint.Runtime.Environments
         }
 
         /// <summary>
-        ///     http://www.ecma-international.org/ecma-262/5.1/#sec-10.2.1.2.2
+        /// https://tc39.es/ecma262/#sec-global-environment-records-createmutablebinding-n-d
         /// </summary>
         public override void CreateMutableBinding(string name, bool canBeDeleted = false)
         {
             if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, name + " has already been declared");
+                ThrowAlreadyDeclaredException(name);
             }
 
             _declarativeRecord.CreateMutableBinding(name, canBeDeleted);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-global-environment-records-createimmutablebinding-n-s
+        /// </summary>
         public override void CreateImmutableBinding(string name, bool strict = true)
         {
             if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, name + " has already been declared");
+                ThrowAlreadyDeclaredException(name);
             }
 
             _declarativeRecord.CreateImmutableBinding(name, strict);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void ThrowAlreadyDeclaredException(string name)
+        {
+            ExceptionHelper.ThrowTypeError(_engine.Realm, name + " has already been declared");
         }
 
         public override void InitializeBinding(string name, JsValue value)
@@ -151,7 +160,7 @@ namespace Jint.Runtime.Environments
                 if (_global is GlobalObject globalObject)
                 {
                     // fast inlined path as we know we target global
-                    if (!globalObject.Set(name.Key, value) && strict)
+                    if (!globalObject.SetFromMutableBinding(name.Key, value) && strict)
                     {
                         ExceptionHelper.ThrowTypeError(_engine.Realm);
                     }
