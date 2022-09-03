@@ -220,7 +220,19 @@ namespace Jint.Runtime.Environments
             }
 
             // see ObjectEnvironmentRecord.GetBindingValue
-            var desc = _global.GetProperty(name);
+            var desc = PropertyDescriptor.Undefined;
+            if (_globalObject is not null)
+            {
+                if (_globalObject._properties?.TryGetValue(name, out desc) == false)
+                {
+                    desc = PropertyDescriptor.Undefined;
+                }
+            }
+            else
+            {
+                desc = _global.GetProperty(name);
+            }
+
             if (strict && desc == PropertyDescriptor.Undefined)
             {
                 ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
@@ -237,7 +249,19 @@ namespace Jint.Runtime.Environments
             }
 
             // see ObjectEnvironmentRecord.TryGetBindingValue
-            var desc = _global.GetProperty(name);
+            var desc = PropertyDescriptor.Undefined;
+            if (_globalObject is not null)
+            {
+                if (_globalObject._properties?.TryGetValue(name, out desc) == false)
+                {
+                    desc = PropertyDescriptor.Undefined;
+                }
+            }
+            else
+            {
+                desc = _global.GetProperty(name);
+            }
+
             if (strict && desc == PropertyDescriptor.Undefined)
             {
                 value = null;
@@ -301,6 +325,12 @@ namespace Jint.Runtime.Environments
 
         public bool HasRestrictedGlobalProperty(string name)
         {
+            if (_globalObject is not null)
+            {
+                return _globalObject._properties?.TryGetValue(name, out var desc) == true
+                       && !desc.Configurable;
+            }
+
             var existingProp = _global.GetOwnProperty(name);
             if (existingProp == PropertyDescriptor.Undefined)
             {
@@ -343,12 +373,12 @@ namespace Jint.Runtime.Environments
 
         public void CreateGlobalVarBinding(string name, bool canBeDeleted)
         {
-            var hasProperty = _global.HasOwnProperty(name);
-            if (!hasProperty && _global.Extensible)
+            Key key = name;
+            if (!_global._properties!.ContainsKey(key) && _global.Extensible)
             {
-                _global.SetProperty(name, new PropertyDescriptor(Undefined, canBeDeleted
+                _global._properties[key] = new PropertyDescriptor(Undefined, canBeDeleted
                     ? PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding
-                    : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding));
+                    : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding);
             }
 
             _varNames.Add(name);
