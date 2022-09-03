@@ -58,7 +58,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 iterating = TypeConverter.ToBoolean(_test.GetValue(context).Value);
             } while (iterating);
 
-            return NormalCompletion(v);
+            return new Completion(CompletionType.Normal, v, ((JintStatement) this)._statement);
         }
     }
 }

@@ -65,10 +65,6 @@ namespace Jint.Runtime
         public readonly string? Target;
         public ref readonly Location Location => ref _source.Location;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Completion Normal(JsValue value, Node source)
-            => new(CompletionType.Normal, value, source);
-
         public static ref readonly Completion Empty() => ref _emptyCompletion;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

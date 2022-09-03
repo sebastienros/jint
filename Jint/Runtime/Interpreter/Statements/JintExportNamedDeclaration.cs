@@ -24,12 +24,7 @@ internal sealed class JintExportNamedDeclaration : JintStatement<ExportNamedDecl
     /// </summary>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        if (_declarationStatement != null)
-        {
-            _declarationStatement.Execute(context);
-            return NormalCompletion(Undefined.Instance);
-        }
-
-        return NormalCompletion(Undefined.Instance);
+        _declarationStatement?.Execute(context);
+        return new Completion(CompletionType.Normal, Undefined.Instance, ((JintStatement) this)._statement);
     }
 }
