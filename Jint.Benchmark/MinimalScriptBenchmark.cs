@@ -5,5 +5,5 @@ namespace Jint.Benchmark;
 [MemoryDiagnoser]
 public class MinimalScriptBenchmark : SingleScriptBenchmark
 {
-    protected override string Script => "var done = 1 + 1 === 2;";
+    protected override string FileName => "minimal.js";
 }

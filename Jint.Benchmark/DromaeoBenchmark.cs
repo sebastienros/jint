@@ -22,7 +22,7 @@ public class DromaeoBenchmark
     {
         foreach (var fileName in files.Keys.ToList())
         {
-            files[fileName] = File.ReadAllText($"Scripts/dromaeo/{fileName}.js");
+            files[fileName] = File.ReadAllText($"Scripts/{fileName}.js");
         }
 
         engine = new Engine()

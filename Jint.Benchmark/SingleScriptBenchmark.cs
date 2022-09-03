@@ -4,61 +4,32 @@ using Esprima.Ast;
 
 namespace Jint.Benchmark;
 
-[RankColumn]
 [MemoryDiagnoser]
-[HideColumns("Error", "StdDev", "Gen0", "Gen1", "Gen2")]
-[BenchmarkCategory("EngineComparison")]
 public abstract class SingleScriptBenchmark
 {
+    private string _script;
     private Script _parsedScript;
 
-    protected abstract string Script { get; }
-
-    public virtual int N => 10;
+    protected abstract string FileName { get; }
 
     [GlobalSetup]
     public void Setup()
     {
-        _parsedScript = new JavaScriptParser().ParseScript(Script);
+        _script = File.ReadAllText($"Scripts/{FileName}");
+        _parsedScript = new JavaScriptParser().ParseScript(_script);
     }
 
     [Benchmark]
-    public bool Jint()
+    public void Execute()
     {
-        var engine = new Engine();
-        engine.Execute(Script);
-        return engine.GetValue("done").AsBoolean();
+        var engine = new Engine(static options => options.Strict());
+        engine.Execute(FileName);
     }
 
     [Benchmark]
-    public bool Jint_ParsedScript()
+    public void Execute_ParsedScript()
     {
-        var engine = new Engine();
+        var engine = new Engine(static options => options.Strict());
         engine.Execute(_parsedScript);
-        return engine.GetValue("done").AsBoolean();
-    }
-
-    [Benchmark]
-    public bool Jurassic()
-    {
-        var engine = new Jurassic.ScriptEngine();
-        engine.Execute(Script);
-        return engine.GetGlobalValue<bool>("done");
-    }
-
-    [Benchmark]
-    public bool NilJS()
-    {
-        var engine = new NiL.JS.Core.Context();
-        engine.Eval(Script);
-        return (bool) engine.GetVariable("done");
-    }
-
-    [Benchmark]
-    public bool YantraJS()
-    {
-        var engine = new YantraJS.Core.JSContext();
-        engine.Eval(Script);
-        return engine["done"].BooleanValue;
     }
 }

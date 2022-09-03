@@ -18,8 +18,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <None Include=".\Scripts\**" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\Jint.Tests.CommonScripts\Scripts\**" CopyToOutputDirectory="PreserveNewest" LinkBase="SunSpider" />
+    <None Include=".\Scripts\*.*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Jint.Tests.CommonScripts\Scripts\**" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />

@@ -1,12 +1,11 @@
 ﻿using BenchmarkDotNet.Attributes;
-using Jint;
 
-namespace Esprima.Benchmark;
+namespace Jint.Benchmark;
 
 [MemoryDiagnoser]
 public class SunSpiderBenchmark
 {
-    private static readonly Dictionary<string, string> files = new Dictionary<string, string>
+    private static readonly Dictionary<string, string> files = new()
     {
         {"3d-cube", null},
         {"3d-morph", null},
@@ -43,7 +42,7 @@ public class SunSpiderBenchmark
     {
         foreach (var fileName in files.Keys.ToList())
         {
-            files[fileName] = File.ReadAllText($"SunSpider/{fileName}.js");
+            files[fileName] = File.ReadAllText($"Scripts/{fileName}.js");
         }
 
         engine = new Engine()
