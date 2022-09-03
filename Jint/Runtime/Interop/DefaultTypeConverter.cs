@@ -255,7 +255,7 @@ namespace Jint.Runtime.Interop
                 new ReadOnlyCollection<ParameterExpression>(parameters)).Compile();
         }
 
-        private bool TryCastWithOperators(object value, Type type, Type valueType, [NotNullWhen(true)] out object? converted)
+        private static bool TryCastWithOperators(object value, Type type, Type valueType, [NotNullWhen(true)] out object? converted)
         {
             var key = new TypeConversionKey(valueType, type);
 

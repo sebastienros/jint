@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter.Statements
@@ -28,7 +29,7 @@ namespace Jint.Runtime.Interpreter.Statements
             var r = _switchBlock.Execute(context, value);
             if (r.Type == CompletionType.Break && r.Target == _statement.LabelSet?.Name)
             {
-                return NormalCompletion(r.Value);
+                return new Completion(CompletionType.Normal, r.Value, ((JintStatement) this)._statement);
             }
 
             return r;

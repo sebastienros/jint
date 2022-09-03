@@ -27,7 +27,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             context.LastSyntaxElement = _expression;
 
             GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
-            return Completion.Normal(objectInstance, _expression);
+            return new(CompletionType.Normal, objectInstance, _expression);
         }
 
         internal void GetValueAndCheckIterator(EvaluationContext context, out JsValue instance, out IteratorInstance? iterator)

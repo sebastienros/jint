@@ -131,7 +131,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                     if (!TypeConverter.ToBoolean(_test.GetValue(context).Value))
                     {
-                        return NormalCompletion(v);
+                        return new Completion(CompletionType.Normal, v, ((JintStatement) this)._statement);
                     }
                 }
 
@@ -143,7 +143,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                 if (result.Type == CompletionType.Break && (result.Target == null || result.Target == _statement?.LabelSet?.Name))
                 {
-                    return NormalCompletion(result.Value!);
+                    return new Completion(CompletionType.Normal, result.Value!, ((JintStatement) this)._statement);
                 }
 
                 if (result.Type != CompletionType.Continue || (result.Target != null && result.Target != _statement?.LabelSet?.Name))

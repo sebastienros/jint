@@ -44,7 +44,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
             if (context.ResumedCompletion.IsAbrupt() && !SupportsResume)
             {
-                return NormalCompletion(JsValue.Undefined);
+                return new Completion(CompletionType.Normal, JsValue.Undefined, _statement);
             }
 
             return ExecuteInternal(context);
@@ -116,19 +116,6 @@ namespace Jint.Runtime.Interpreter.Statements
             }
 
             return null;
-        }
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-normalcompletion
-        /// </summary>
-        /// <remarks>
-        /// We use custom type that is translated to Completion later on.
-        /// </remarks>
-        [DebuggerStepThrough]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected Completion NormalCompletion(JsValue value)
-        {
-            return new Completion(CompletionType.Normal, value, _statement);
         }
     }
 }

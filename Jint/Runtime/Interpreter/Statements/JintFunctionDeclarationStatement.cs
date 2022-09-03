@@ -11,7 +11,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            return NormalCompletion(JsValue.Undefined);
+            return new Completion(CompletionType.Normal, JsValue.Undefined, ((JintStatement) this)._statement);
         }
     }
 }

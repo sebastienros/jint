@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
 
@@ -24,7 +25,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ? InstantiateOrdinaryFunctionExpression(context, _function.Name!)
                 : InstantiateGeneratorFunctionExpression(context, _function.Name!);
 
-            return Completion.Normal(closure, _expression);
+            return new(CompletionType.Normal, closure, _expression);
         }
 
         /// <summary>

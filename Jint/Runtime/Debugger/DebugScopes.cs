@@ -5,8 +5,8 @@ namespace Jint.Runtime.Debugger
 {
     public sealed class DebugScopes : IReadOnlyList<DebugScope>
     {
-        private readonly HashSet<string> _foundBindings = new HashSet<string>();
-        private readonly List<DebugScope> _scopes = new List<DebugScope>();
+        private readonly HashSet<string> _foundBindings = new();
+        private readonly List<DebugScope> _scopes = new();
 
         internal DebugScopes(EnvironmentRecord environment)
         {
@@ -44,7 +44,7 @@ namespace Jint.Runtime.Debugger
                     case GlobalEnvironmentRecord global:
                         // Similarly to Chromium, we split the Global environment into Global and Script scopes
                         AddScope(DebugScopeType.Script, global._declarativeRecord);
-                        AddScope(DebugScopeType.Global, global._objectRecord);
+                        AddScope(DebugScopeType.Global, new ObjectEnvironmentRecord(environment._engine, global._global, false, false));
                         break;
                     case FunctionEnvironmentRecord:
                         AddScope(inLocalScope ? DebugScopeType.Local : DebugScopeType.Closure, record);

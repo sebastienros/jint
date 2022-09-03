@@ -45,6 +45,23 @@ namespace Jint.Runtime.Environments
             return !IsBlocked(name);
         }
 
+        internal override bool HasBinding(in BindingName name)
+        {
+            var foundBinding = HasProperty(name.StringValue);
+
+            if (!foundBinding)
+            {
+                return false;
+            }
+
+            if (!_withEnvironment)
+            {
+                return true;
+            }
+
+            return !IsBlocked(name.StringValue);
+        }
+
         private bool HasProperty(JsValue property)
         {
             return _bindingObject.HasProperty(property);
@@ -96,27 +113,13 @@ namespace Jint.Runtime.Environments
         /// </summary>
         public override void CreateMutableBinding(string name, bool canBeDeleted = false)
         {
-            var propertyDescriptor = canBeDeleted
-                ? new PropertyDescriptor(Undefined, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding)
-                : new PropertyDescriptor(Undefined, PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding);
-
-            _bindingObject.DefinePropertyOrThrow(name, propertyDescriptor);
+            _bindingObject.DefinePropertyOrThrow(name, new PropertyDescriptor(Undefined, canBeDeleted
+                ? PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding
+                : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding));
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-createmutablebinding-n-d
-        /// </summary>
-        internal void CreateMutableBindingAndInitialize(string name, JsValue value, bool canBeDeleted = false)
-        {
-            var propertyDescriptor = canBeDeleted
-                ? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding)
-                : new PropertyDescriptor(value, PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding);
-
-            _bindingObject.DefinePropertyOrThrow(name, propertyDescriptor);
-        }
-
-        /// <summary>
-        ///  http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-createimmutablebinding-n-s
+        /// https://tc39.es/ecma262/#sec-object-environment-records-createimmutablebinding-n-s
         /// </summary>
         public override void CreateImmutableBinding(string name, bool strict = true)
         {
@@ -124,7 +127,7 @@ namespace Jint.Runtime.Environments
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/6.0/#sec-object-environment-records-initializebinding-n-v
+        /// https://tc39.es/ecma262/#sec-object-environment-records-initializebinding-n-v
         /// </summary>
         public override void InitializeBinding(string name, JsValue value)
         {
@@ -133,7 +136,13 @@ namespace Jint.Runtime.Environments
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
-            SetMutableBinding(new BindingName(name), value, strict);
+            var jsString = new JsString(name);
+            if (strict && !_bindingObject.HasProperty(jsString))
+            {
+                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+            }
+
+            _bindingObject.Set(jsString, value);
         }
 
         internal override void SetMutableBinding(in BindingName name, JsValue value, bool strict)
@@ -186,7 +195,12 @@ namespace Jint.Runtime.Environments
         {
             if (!ReferenceEquals(_bindingObject, null))
             {
-                return _bindingObject.GetOwnProperties().Select( x=> x.Key.ToString()).ToArray();
+                var names = new List<string>(_bindingObject._properties?.Count ?? 0);
+                foreach (var name in _bindingObject.GetOwnProperties())
+                {
+                    names.Add(name.Key.ToString());
+                }
+                return names.ToArray();
             }
 
             return Array.Empty<string>();

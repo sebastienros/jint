@@ -63,7 +63,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             // need to notify correct node when taking shortcut
             context.LastSyntaxElement = _expression;
 
-            return Completion.Normal(ResolveValue(context), _expression);
+            JsValue value = ResolveValue(context);
+            return new(CompletionType.Normal, value, _expression);
         }
 
         protected override ExpressionResult EvaluateInternal(EvaluationContext context) => NormalCompletion(ResolveValue(context));

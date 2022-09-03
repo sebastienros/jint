@@ -75,6 +75,22 @@ namespace Jint.Collections
             return false;
         }
 
+        public void SetOrUpdateValue<TState>(Key key, Func<TValue, TState, TValue> updater, TState state)
+        {
+            if (_dictionary != null)
+            {
+                _dictionary.SetOrUpdateValue(key, updater, state);
+            }
+            else if (_list != null)
+            {
+                _list.SetOrUpdateValue(key, updater, state);
+            }
+            else
+            {
+                _list = new ListDictionary<TValue>(key, updater(default, state), _checkExistingKeys);
+            }
+        }
+
         private void SwitchToDictionary(Key key, TValue value)
         {
             var dictionary = new StringDictionarySlim<TValue>(InitialDictionarySize);
@@ -122,19 +138,8 @@ namespace Jint.Collections
 
         public void Clear()
         {
-            if (_dictionary != null)
-            {
-                var dictionary = _dictionary;
-                _dictionary = null;
-                dictionary.Clear();
-            }
-
-            if (_list != null)
-            {
-                var cachedList = _list;
-                _list = null;
-                cachedList.Clear();
-            }
+            _dictionary?.Clear();
+            _list?.Clear();
         }
 
         public bool ContainsKey(Key key)
@@ -144,10 +149,9 @@ namespace Jint.Collections
                 return _dictionary.ContainsKey(key);
             }
 
-            var cachedList = _list;
-            if (cachedList != null)
+            if (_list != null)
             {
-                return cachedList.ContainsKey(key);
+                return _list.ContainsKey(key);
             }
 
             return false;
@@ -193,7 +197,7 @@ namespace Jint.Collections
 
             return _list != null && _list.Remove(key);
         }
-        
+
         /// <summary>
         /// Optimization when no need to check for existing items.
         /// </summary>
