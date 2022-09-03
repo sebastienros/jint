@@ -20,7 +20,7 @@ namespace Jint.Runtime.Environments
             _catchEnvironment = catchEnvironment;
         }
 
-        public override bool HasBinding(string name)
+        public sealed override bool HasBinding(string name)
         {
             return _dictionary.ContainsKey(name);
         }
@@ -68,7 +68,7 @@ namespace Jint.Runtime.Environments
             _dictionary[name] = binding.ChangeValue(value);
         }
 
-        internal override void SetMutableBinding(in BindingName name, JsValue value, bool strict)
+        internal sealed override void SetMutableBinding(in BindingName name, JsValue value, bool strict)
         {
             SetMutableBinding(name.Key.Name, value, strict);
         }
@@ -123,7 +123,7 @@ namespace Jint.Runtime.Environments
             return null!;
         }
 
-        internal override bool TryGetBindingValue(string name, bool strict, [NotNullWhen(true)] out JsValue? value)
+        internal sealed override bool TryGetBindingValue(string name, bool strict, [NotNullWhen(true)] out JsValue? value)
         {
             _dictionary.TryGetValue(name, out var binding);
             if (binding.IsInitialized())
@@ -163,14 +163,14 @@ namespace Jint.Runtime.Environments
 
         public override bool HasSuperBinding() => false;
 
-        public override JsValue WithBaseObject() => Undefined;
+        public sealed override JsValue WithBaseObject() => Undefined;
 
         /// <inheritdoc />
         internal sealed override string[] GetAllBindingNames()
         {
             if (_dictionary is null)
             {
-                return System.Array.Empty<string>();
+                return Array.Empty<string>();
             }
 
             var keys = new string[_dictionary.Count];
@@ -185,7 +185,7 @@ namespace Jint.Runtime.Environments
 
         public override JsValue GetThisBinding()
         {
-            throw new System.NotImplementedException();
+            return Undefined;
         }
     }
 }

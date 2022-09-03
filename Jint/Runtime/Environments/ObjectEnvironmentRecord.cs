@@ -102,16 +102,6 @@ namespace Jint.Runtime.Environments
         }
 
         /// <summary>
-        /// https://tc39.es/ecma262/#sec-object-environment-records-createmutablebinding-n-d
-        /// </summary>
-        internal void CreateMutableBindingAndInitialize(string name, JsValue value, bool canBeDeleted = false)
-        {
-            _bindingObject.SetProperty(name, new PropertyDescriptor(value, canBeDeleted
-                ? PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding
-                : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding));
-        }
-
-        /// <summary>
         /// https://tc39.es/ecma262/#sec-object-environment-records-createimmutablebinding-n-s
         /// </summary>
         public override void CreateImmutableBinding(string name, bool strict = true)
@@ -129,7 +119,13 @@ namespace Jint.Runtime.Environments
 
         public override void SetMutableBinding(string name, JsValue value, bool strict)
         {
-            SetMutableBinding(new BindingName(name), value, strict);
+            var jsString = new JsString(name);
+            if (strict && !_bindingObject.HasProperty(jsString))
+            {
+                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+            }
+
+            _bindingObject.Set(jsString, value);
         }
 
         internal override void SetMutableBinding(in BindingName name, JsValue value, bool strict)
@@ -182,7 +178,12 @@ namespace Jint.Runtime.Environments
         {
             if (!ReferenceEquals(_bindingObject, null))
             {
-                return _bindingObject.GetOwnProperties().Select( x=> x.Key.ToString()).ToArray();
+                var names = new List<string>(_bindingObject._properties?.Count ?? 0);
+                foreach (var name in _bindingObject.GetOwnProperties())
+                {
+                    names.Add(name.Key.ToString());
+                }
+                return names.ToArray();
             }
 
             return Array.Empty<string>();

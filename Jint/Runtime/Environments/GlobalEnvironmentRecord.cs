@@ -12,16 +12,19 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class GlobalEnvironmentRecord : EnvironmentRecord
     {
-        private readonly ObjectInstance _global;
+        internal readonly ObjectInstance _global;
+
+        // we expect it to be GlobalObject, but need to allow to something host-defined, like Window
+        private readonly GlobalObject? _globalObject;
+
         // Environment records are needed by debugger
         internal readonly DeclarativeEnvironmentRecord _declarativeRecord;
-        internal readonly ObjectEnvironmentRecord _objectRecord;
-        private readonly HashSet<string> _varNames = new HashSet<string>();
+        private readonly HashSet<string> _varNames = new();
 
         public GlobalEnvironmentRecord(Engine engine, ObjectInstance global) : base(engine)
         {
             _global = global;
-            _objectRecord = new ObjectEnvironmentRecord(engine, global, provideThis: false, withEnvironment: false);
+            _globalObject = global as GlobalObject;
             _declarativeRecord = new DeclarativeEnvironmentRecord(engine);
         }
 
@@ -29,7 +32,17 @@ namespace Jint.Runtime.Environments
 
         public override bool HasBinding(string name)
         {
-            return (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name)) || _objectRecord.HasBinding(name);
+            if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
+            {
+                return true;
+            }
+
+            if (_globalObject is not null)
+            {
+                return _globalObject.HasProperty(name);
+            }
+
+            return _global.HasProperty(new JsString(name));
         }
 
         internal override bool TryGetBinding(
@@ -56,22 +69,23 @@ namespace Jint.Runtime.Environments
                 return true;
             }
 
-            return TryGetBindingForGlobalParent(name, out value, property);
+            if (_global._prototype is not null)
+            {
+                return TryGetBindingForGlobalParent(name, out value);
+            }
+
+            return false;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private bool TryGetBindingForGlobalParent(
             in BindingName name,
-            [NotNullWhen(true)] out JsValue? value,
-            PropertyDescriptor property)
+            [NotNullWhen(true)] out JsValue? value)
         {
             value = default;
 
-            var parent = _global._prototype;
-            if (parent is not null)
-            {
-                property = parent.GetOwnProperty(name.StringValue);
-            }
+            var parent = _global._prototype!;
+            var property = parent.GetOwnProperty(name.StringValue);
 
             if (property == PropertyDescriptor.Undefined)
             {
@@ -137,15 +151,18 @@ namespace Jint.Runtime.Environments
             }
             else
             {
-                // fast inlined path as we know we target global, otherwise would be
-                // _objectRecord.SetMutableBinding(name, value, strict);
-                var property = JsString.Create(name);
-                if (strict && !_global.HasProperty(property))
+                if (_globalObject is not null)
                 {
-                    ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+                    // fast inlined path as we know we target global
+                    if (!_globalObject.SetFromMutableBinding(name, value) && strict)
+                    {
+                        ExceptionHelper.ThrowTypeError(_engine.Realm);
+                    }
                 }
-
-                _global.Set(property, value);
+                else
+                {
+                    SetMutableBindingUnlikely(name, value, strict);
+                }
             }
         }
 
@@ -157,33 +174,67 @@ namespace Jint.Runtime.Environments
             }
             else
             {
-                if (_global is GlobalObject globalObject)
+                if (_globalObject is not null)
                 {
                     // fast inlined path as we know we target global
-                    if (!globalObject.SetFromMutableBinding(name.Key, value) && strict)
+                    if (!_globalObject.SetFromMutableBinding(name.Key, value) && strict)
                     {
                         ExceptionHelper.ThrowTypeError(_engine.Realm);
                     }
                 }
                 else
                 {
-                    _objectRecord.SetMutableBinding(name, value ,strict);
+                    SetMutableBindingUnlikely(name.Key.Name, value, strict);
                 }
             }
         }
 
+        private void SetMutableBindingUnlikely(string name, JsValue value, bool strict)
+        {
+            // see ObjectEnvironmentRecord.SetMutableBinding
+            var jsString = new JsString(name);
+            if (strict && !_global.HasProperty(jsString))
+            {
+                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+            }
+
+            _global.Set(jsString, value);
+        }
+
         public override JsValue GetBindingValue(string name, bool strict)
         {
-            return _declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name)
-                ? _declarativeRecord.GetBindingValue(name, strict)
-                : _objectRecord.GetBindingValue(name, strict);
+            if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
+            {
+                return _declarativeRecord.GetBindingValue(name, strict);
+            }
+
+            // see ObjectEnvironmentRecord.GetBindingValue
+            var desc = _global.GetProperty(name);
+            if (strict && desc == PropertyDescriptor.Undefined)
+            {
+                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+            }
+
+            return ObjectInstance.UnwrapJsValue(desc, _global);
         }
 
         internal override bool TryGetBindingValue(string name, bool strict, [NotNullWhen(true)] out JsValue? value)
         {
-            return _declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name)
-                ? _declarativeRecord.TryGetBindingValue(name, strict, out value)
-                : _objectRecord.TryGetBindingValue(name, strict, out value);
+            if (_declarativeRecord._hasBindings && _declarativeRecord.HasBinding(name))
+            {
+                return _declarativeRecord.TryGetBindingValue(name, strict, out value);
+            }
+
+            // see ObjectEnvironmentRecord.TryGetBindingValue
+            var desc = _global.GetProperty(name);
+            if (strict && desc == PropertyDescriptor.Undefined)
+            {
+                value = null;
+                return false;
+            }
+
+            value = ObjectInstance.UnwrapJsValue(desc, _global);
+            return true;
         }
 
         public override bool DeleteBinding(string name)
@@ -195,7 +246,7 @@ namespace Jint.Runtime.Environments
 
             if (_global.HasOwnProperty(name))
             {
-                var status = _objectRecord.DeleteBinding(name);
+                var status = _global.Delete(name);
                 if (status)
                 {
                     _varNames.Remove(name);
@@ -284,7 +335,9 @@ namespace Jint.Runtime.Environments
             var hasProperty = _global.HasOwnProperty(name);
             if (!hasProperty && _global.Extensible)
             {
-                _objectRecord.CreateMutableBindingAndInitialize(name, Undefined, canBeDeleted);
+                _global.SetProperty(name, new PropertyDescriptor(Undefined, canBeDeleted
+                    ? PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding
+                    : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding));
             }
 
             _varNames.Add(name);
@@ -295,7 +348,8 @@ namespace Jint.Runtime.Environments
         /// </summary>
         public void CreateGlobalFunctionBinding(string name, JsValue value, bool canBeDeleted)
         {
-            var existingProp = _global.GetOwnProperty(name);
+            var jsString = new JsString(name);
+            var existingProp = _global.GetOwnProperty(jsString);
 
             PropertyDescriptor desc;
             if (existingProp == PropertyDescriptor.Undefined || existingProp.Configurable)
@@ -307,8 +361,8 @@ namespace Jint.Runtime.Environments
                 desc = new PropertyDescriptor(value, PropertyFlag.None);
             }
 
-            _global.DefinePropertyOrThrow(name, desc);
-            _global.Set(name, value, false);
+            _global.DefinePropertyOrThrow(jsString, desc);
+            _global.Set(jsString, value, false);
             _varNames.Add(name);
         }
 
@@ -317,13 +371,23 @@ namespace Jint.Runtime.Environments
             // JT: Rather than introduce a new method for the debugger, I'm reusing this one,
             // which - in spite of the very general name - is actually only used by the debugger
             // at this point.
-            return _global.GetOwnProperties().Select(x => x.Key.ToString())
-                .Concat(_declarativeRecord.GetAllBindingNames()).ToArray();
+            var names = new List<string>(_global._properties?.Count ?? 0 + _declarativeRecord._dictionary?.Count ?? 0);
+            foreach (var name in _global.GetOwnProperties())
+            {
+                names.Add(name.Key.ToString());
+            }
+
+            foreach (var name in _declarativeRecord.GetAllBindingNames())
+            {
+                names.Add(name);
+            }
+
+            return names.ToArray();
         }
 
         public override bool Equals(JsValue? other)
         {
-            return ReferenceEquals(_objectRecord, other);
+            return ReferenceEquals(this, other);
         }
     }
 }

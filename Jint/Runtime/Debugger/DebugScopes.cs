@@ -44,7 +44,7 @@ namespace Jint.Runtime.Debugger
                     case GlobalEnvironmentRecord global:
                         // Similarly to Chromium, we split the Global environment into Global and Script scopes
                         AddScope(DebugScopeType.Script, global._declarativeRecord);
-                        AddScope(DebugScopeType.Global, global._objectRecord);
+                        AddScope(DebugScopeType.Global, new GlobalEnvironmentRecord(environment._engine, global._global));
                         break;
                     case FunctionEnvironmentRecord:
                         AddScope(inLocalScope ? DebugScopeType.Local : DebugScopeType.Closure, record);
