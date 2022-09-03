@@ -24,6 +24,11 @@ namespace Jint.Runtime.Environments
             return _dictionary.ContainsKey(name);
         }
 
+        internal sealed override bool HasBinding(in BindingName name)
+        {
+            return _dictionary.ContainsKey(name.Key);
+        }
+
         internal override bool TryGetBinding(
             in BindingName name,
             bool strict,

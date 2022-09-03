@@ -45,6 +45,23 @@ namespace Jint.Runtime.Environments
             return !IsBlocked(name);
         }
 
+        internal override bool HasBinding(in BindingName name)
+        {
+            var foundBinding = HasProperty(name.StringValue);
+
+            if (!foundBinding)
+            {
+                return false;
+            }
+
+            if (!_withEnvironment)
+            {
+                return true;
+            }
+
+            return !IsBlocked(name.StringValue);
+        }
+
         private bool HasProperty(JsValue property)
         {
             return _bindingObject.HasProperty(property);

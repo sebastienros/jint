@@ -45,6 +45,21 @@ namespace Jint.Runtime.Environments
             return _global.HasProperty(new JsString(name));
         }
 
+        internal override bool HasBinding(in BindingName name)
+        {
+            if (_declarativeRecord.HasBinding(name))
+            {
+                return true;
+            }
+
+            if (_globalObject is not null)
+            {
+                return _globalObject.HasProperty(name.Key);
+            }
+
+            return _global.HasProperty(name.StringValue);
+        }
+
         internal override bool TryGetBinding(
             in BindingName name,
             bool strict,
@@ -164,9 +179,9 @@ namespace Jint.Runtime.Environments
 
         internal override void SetMutableBinding(in BindingName name, JsValue value, bool strict)
         {
-            if (_declarativeRecord.HasBinding(name.Key.Name))
+            if (_declarativeRecord.HasBinding(name))
             {
-                _declarativeRecord.SetMutableBinding(name.Key.Name, value, strict);
+                _declarativeRecord.SetMutableBinding(name, value, strict);
             }
             else
             {

@@ -14,15 +14,14 @@ namespace Jint.Runtime.Environments
         {
             record = env;
 
-            var keyName = name.Key.Name;
             if (env._outerEnv is null)
             {
-                return env.HasBinding(keyName);
+                return env.HasBinding(name);
             }
 
             while (!ReferenceEquals(record, null))
             {
-                if (record.HasBinding(keyName))
+                if (record.HasBinding(name))
                 {
                     return true;
                 }
