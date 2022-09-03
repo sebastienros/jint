@@ -138,19 +138,8 @@ namespace Jint.Collections
 
         public void Clear()
         {
-            if (_dictionary != null)
-            {
-                var dictionary = _dictionary;
-                _dictionary = null;
-                dictionary.Clear();
-            }
-
-            if (_list != null)
-            {
-                var cachedList = _list;
-                _list = null;
-                cachedList.Clear();
-            }
+            _dictionary?.Clear();
+            _list?.Clear();
         }
 
         public bool ContainsKey(Key key)
@@ -160,10 +149,9 @@ namespace Jint.Collections
                 return _dictionary.ContainsKey(key);
             }
 
-            var cachedList = _list;
-            if (cachedList != null)
+            if (_list != null)
             {
-                return cachedList.ContainsKey(key);
+                return _list.ContainsKey(key);
             }
 
             return false;
