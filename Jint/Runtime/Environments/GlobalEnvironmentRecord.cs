@@ -135,10 +135,7 @@ namespace Jint.Runtime.Environments
             }
             else
             {
-                if (!_global.Set(name, value))
-                {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm);
-                }
+                _global._properties![name].Value = value;
             }
         }
 
