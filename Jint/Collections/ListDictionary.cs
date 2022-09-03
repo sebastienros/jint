@@ -17,7 +17,7 @@ namespace Jint.Collections
             _checkExistingKeys = checkExistingKeys;
             _head = new DictionaryNode
             {
-                Key = key, 
+                Key = key,
                 Value = value
             };
             _count = 1;
@@ -73,6 +73,24 @@ namespace Jint.Collections
 
             value = default;
             return false;
+        }
+
+        public void SetOrUpdateValue<TState>(Key key, Func<TValue, TState, TValue> updater, TState state)
+        {
+            DictionaryNode last = null;
+            DictionaryNode node;
+            for (node = _head; node != null; node = node.Next)
+            {
+                if (node.Key == key)
+                {
+                    node.Value = updater(node.Value, state);
+                    return;
+                }
+
+                last = node;
+            }
+
+            AddNode(key, updater(default, state), last);
         }
 
         public int Count

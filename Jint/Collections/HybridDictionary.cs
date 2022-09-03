@@ -75,6 +75,22 @@ namespace Jint.Collections
             return false;
         }
 
+        public void SetOrUpdateValue<TState>(Key key, Func<TValue, TState, TValue> updater, TState state)
+        {
+            if (_dictionary != null)
+            {
+                _dictionary.SetOrUpdateValue(key, updater, state);
+            }
+            else if (_list != null)
+            {
+                _list.SetOrUpdateValue(key, updater, state);
+            }
+            else
+            {
+                _list = new ListDictionary<TValue>(key, updater(default, state), _checkExistingKeys);
+            }
+        }
+
         private void SwitchToDictionary(Key key, TValue value)
         {
             var dictionary = new StringDictionarySlim<TValue>(InitialDictionarySize);
@@ -193,7 +209,7 @@ namespace Jint.Collections
 
             return _list != null && _list.Remove(key);
         }
-        
+
         /// <summary>
         /// Optimization when no need to check for existing items.
         /// </summary>

@@ -58,8 +58,7 @@ namespace Jint.Runtime.Environments
 
         public sealed override void InitializeBinding(string name, JsValue value)
         {
-            _dictionary.TryGetValue(name, out var binding);
-            _dictionary[name] = binding.ChangeValue(value);
+            _dictionary.SetOrUpdateValue(name, static (current, value) => current.ChangeValue(value), value);
         }
 
         internal sealed override void SetMutableBinding(in BindingName name, JsValue value, bool strict)
@@ -74,7 +73,7 @@ namespace Jint.Runtime.Environments
             {
                 if (strict)
                 {
-                    ExceptionHelper.ThrowReferenceNameError(_engine.Realm, key);
+                    ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
                 }
                 CreateMutableBindingAndInitialize(key, canBeDeleted: true, value);
                 return;
@@ -88,7 +87,7 @@ namespace Jint.Runtime.Environments
             // Is it an uninitialized binding?
             if (!binding.IsInitialized())
             {
-                ExceptionHelper.ThrowReferenceError(_engine.Realm, "Cannot access '" +  key + "' before initialization");
+                ThrowUninitializedBindingError(name);
             }
 
             if (binding.Mutable)
