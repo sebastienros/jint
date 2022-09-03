@@ -12,7 +12,6 @@ namespace Jint.Runtime.Environments
     internal class DeclarativeEnvironmentRecord : EnvironmentRecord
     {
         internal readonly HybridDictionary<Binding> _dictionary = new();
-        internal bool _hasBindings;
         internal readonly bool _catchEnvironment;
 
         public DeclarativeEnvironmentRecord(Engine engine, bool catchEnvironment = false) : base(engine)
@@ -39,31 +38,26 @@ namespace Jint.Runtime.Environments
 
         internal void CreateMutableBindingAndInitialize(Key name, bool canBeDeleted, JsValue value)
         {
-            _hasBindings = true;
             _dictionary[name] = new Binding(value, canBeDeleted, mutable: true, strict: false);
         }
 
         internal void CreateImmutableBindingAndInitialize(Key name, bool strict, JsValue value)
         {
-            _hasBindings = true;
             _dictionary[name] = new Binding(value, canBeDeleted: false, mutable: false, strict);
         }
 
         public sealed override void CreateMutableBinding(string name, bool canBeDeleted = false)
         {
-            _hasBindings = true;
             _dictionary[name] = new Binding(null!, canBeDeleted, mutable: true, strict: false);
         }
 
         public sealed override void CreateImmutableBinding(string name, bool strict = true)
         {
-            _hasBindings = true;
             _dictionary[name] = new Binding(null!, canBeDeleted: false, mutable: false, strict);
         }
 
         public sealed override void InitializeBinding(string name, JsValue value)
         {
-            _hasBindings = true;
             _dictionary.TryGetValue(name, out var binding);
             _dictionary[name] = binding.ChangeValue(value);
         }
@@ -99,7 +93,6 @@ namespace Jint.Runtime.Environments
 
             if (binding.Mutable)
             {
-                _hasBindings = true;
                 _dictionary[key] = binding.ChangeValue(value);
             }
             else
@@ -154,7 +147,6 @@ namespace Jint.Runtime.Environments
             }
 
             _dictionary.Remove(name);
-            _hasBindings = _dictionary.Count > 0;
 
             return true;
         }

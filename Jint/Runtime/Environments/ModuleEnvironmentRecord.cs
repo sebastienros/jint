@@ -30,7 +30,6 @@ internal sealed class ModuleEnvironmentRecord : DeclarativeEnvironmentRecord
     /// </summary>
     public void CreateImportBinding(string importName, ModuleRecord module, string name)
     {
-        _hasBindings = true;
         _importBindings[importName] = new IndirectBinding(module, name);
         CreateImmutableBindingAndInitialize(importName, true, JsValue.Undefined);
     }
