@@ -60,7 +60,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (cacheable)
             {
                 _cached = true;
-                var arguments = System.Array.Empty<JsValue>();
+                var arguments = Array.Empty<JsValue>();
                 if (cachedArgumentsHolder.JintArguments.Length > 0)
                 {
                     arguments = new JsValue[cachedArgumentsHolder.JintArguments.Length];
