@@ -12,50 +12,66 @@ namespace Jint
 
         internal readonly List<Declaration>? _lexicalDeclarations;
         internal readonly List<string>? _lexicalNames;
+        internal readonly bool _hasArgumentsReference;
 
-        private HoistingScope(
-            List<FunctionDeclaration>? functionDeclarations,
+        private HoistingScope(List<FunctionDeclaration>? functionDeclarations,
             List<Key>? varNames,
             List<VariableDeclaration>? variableDeclarations,
             List<Declaration>? lexicalDeclarations,
-            List<string>? lexicalNames)
+            List<string>? lexicalNames,
+            bool hasArgumentsReference)
         {
             _functionDeclarations = functionDeclarations;
             _varNames = varNames;
             _variablesDeclarations = variableDeclarations;
             _lexicalDeclarations = lexicalDeclarations;
             _lexicalNames = lexicalNames;
+            _hasArgumentsReference = hasArgumentsReference;
         }
 
         public static HoistingScope GetProgramLevelDeclarations(
+            bool strict,
             Program script,
             bool collectVarNames = false,
             bool collectLexicalNames = false)
         {
-            var treeWalker = new ScriptWalker(StrictModeScope.IsStrictModeCode, collectVarNames, collectLexicalNames);
+            var treeWalker = new ScriptWalker(strict, collectVarNames, collectLexicalNames, checkArgumentsReference: false);
             treeWalker.Visit(script, null);
             return new HoistingScope(
                 treeWalker._functions,
                 treeWalker._varNames,
                 treeWalker._variableDeclarations,
                 treeWalker._lexicalDeclarations,
-                treeWalker._lexicalNames);
+                treeWalker._lexicalNames,
+                false);
         }
 
         public static HoistingScope GetFunctionLevelDeclarations(
+            bool strict,
             IFunction node,
             bool collectVarNames = false,
-            bool collectLexicalNames = false)
+            bool collectLexicalNames = false,
+            bool checkArgumentsReference = false)
         {
-            var treeWalker = new ScriptWalker(StrictModeScope.IsStrictModeCode, collectVarNames, collectLexicalNames);
+            var treeWalker = new ScriptWalker(strict, collectVarNames, collectLexicalNames, checkArgumentsReference);
             treeWalker.Visit(node.Body, null);
+
+            if (checkArgumentsReference && !treeWalker._hasArgumentsReference)
+            {
+                ref readonly var parameters = ref node.Params;
+                for (var i = 0; i < parameters.Count; ++i)
+                {
+                    treeWalker.Visit(parameters[i], null);
+                }
+            }
 
             return new HoistingScope(
                 treeWalker._functions,
                 treeWalker._varNames,
                 treeWalker._variableDeclarations,
                 treeWalker._lexicalDeclarations,
-                treeWalker._lexicalNames);
+                treeWalker._lexicalNames,
+                treeWalker._hasArgumentsReference);
         }
 
         public static HoistingScope GetModuleLevelDeclarations(
@@ -64,14 +80,15 @@ namespace Jint
             bool collectLexicalNames = false)
         {
             //Modules area always strict
-            var treeWalker = new ScriptWalker(true, collectVarNames, collectLexicalNames);
+            var treeWalker = new ScriptWalker(strict: true, collectVarNames, collectLexicalNames, checkArgumentsReference: false);
             treeWalker.Visit(module, null);
             return new HoistingScope(
                 treeWalker._functions,
                 treeWalker._varNames,
                 treeWalker._variableDeclarations,
                 treeWalker._lexicalDeclarations,
-                treeWalker._lexicalNames);
+                treeWalker._lexicalNames,
+                false);
         }
 
         public static List<Declaration>? GetLexicalDeclarations(BlockStatement statement)
@@ -211,24 +228,26 @@ namespace Jint
             internal List<Key>? _varNames;
 
             private readonly bool _collectLexicalNames;
+            private readonly bool _checkArgumentsReference;
             internal List<Declaration>? _lexicalDeclarations;
             internal List<string>? _lexicalNames;
+            internal bool _hasArgumentsReference;
 
-            public ScriptWalker(bool strict, bool collectVarNames, bool collectLexicalNames)
+            public ScriptWalker(bool strict, bool collectVarNames, bool collectLexicalNames, bool checkArgumentsReference)
             {
                 _strict = strict;
                 _collectVarNames = collectVarNames;
                 _collectLexicalNames = collectLexicalNames;
+                _checkArgumentsReference = checkArgumentsReference;
             }
 
             public void Visit(Node node, Node? parent)
             {
                 foreach (var childNode in node.ChildNodes)
                 {
-                    if (childNode is null)
+                    if (_checkArgumentsReference && childNode.Type == Nodes.Identifier)
                     {
-                        // array expression can push null nodes in Esprima
-                        continue;
+                        _hasArgumentsReference |= ((Identifier) childNode).Name == "arguments";
                     }
 
                     if (childNode.Type == Nodes.VariableDeclaration)
@@ -252,7 +271,7 @@ namespace Jint
                             }
                         }
 
-                        if ((parent is null or Module) && variableDeclaration.Kind != VariableDeclarationKind.Var)
+                        if (parent is null or Module && variableDeclaration.Kind != VariableDeclarationKind.Var)
                         {
                             _lexicalDeclarations ??= new List<Declaration>();
                             _lexicalDeclarations.Add(variableDeclaration);
@@ -305,11 +324,6 @@ namespace Jint
             {
                 foreach (var childNode in node.ChildNodes)
                 {
-                    if (childNode is null)
-                    {
-                        continue;
-                    }
-
                     if (childNode.Type == Nodes.ImportDeclaration)
                     {
                         _importEntries ??= new();

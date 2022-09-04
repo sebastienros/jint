@@ -805,7 +805,8 @@ namespace Jint
             Script script,
             GlobalEnvironmentRecord env)
         {
-            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(script);
+            var strict = _isStrict || StrictModeScope.IsStrictModeCode;
+            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(strict, script);
             var functionDeclarations = hoistingScope._functionDeclarations;
             var varDeclarations = hoistingScope._variablesDeclarations;
             var lexDeclarations = hoistingScope._lexicalDeclarations;
@@ -928,7 +929,7 @@ namespace Jint
             var func = functionInstance._functionDefinition;
 
             var env = (FunctionEnvironmentRecord) ExecutionContext.LexicalEnvironment;
-            var strict = StrictModeScope.IsStrictModeCode;
+            var strict = _isStrict || StrictModeScope.IsStrictModeCode;
 
             var configuration = func.Initialize(functionInstance);
             var parameterNames = configuration.ParameterNames;
@@ -1085,7 +1086,7 @@ namespace Jint
             PrivateEnvironmentRecord? privateEnv,
             bool strict)
         {
-            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(script);
+            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(strict, script);
 
             var lexEnvRec = (DeclarativeEnvironmentRecord) lexEnv;
             var varEnvRec = varEnv;
