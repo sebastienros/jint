@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using Esprima.Ast;
+using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
@@ -51,13 +52,15 @@ namespace Jint.Runtime.Environments
 
         public JsValue BindThisValue(JsValue value)
         {
-            if (_thisBindingStatus == ThisBindingStatus.Initialized)
+            if (_thisBindingStatus != ThisBindingStatus.Initialized)
             {
-                ExceptionHelper.ThrowReferenceError(_functionObject._realm, "'this' has already been bound");
+                _thisValue = value;
+                _thisBindingStatus = ThisBindingStatus.Initialized;
+                return value;
             }
-            _thisValue = value;
-            _thisBindingStatus = ThisBindingStatus.Initialized;
-            return value;
+
+            ExceptionHelper.ThrowReferenceError(_functionObject._realm, "'this' has already been bound");
+            return null!;
         }
 
         public override JsValue GetThisBinding()
@@ -67,6 +70,13 @@ namespace Jint.Runtime.Environments
                 return _thisValue!;
             }
 
+            ThrowUninitializedThis();
+            return null!;
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void ThrowUninitializedThis()
+        {
             var message = "Cannot access uninitialized 'this'";
             if (NewTarget is ScriptFunctionInstance { _isClassConstructor: true, _constructorKind: ConstructorKind.Derived })
             {
@@ -75,7 +85,6 @@ namespace Jint.Runtime.Environments
             }
 
             ExceptionHelper.ThrowReferenceError(_engine.ExecutionContext.Realm, message);
-            return null;
         }
 
         public JsValue GetSuperBase()
@@ -93,19 +102,25 @@ namespace Jint.Runtime.Environments
             bool hasDuplicates,
             JsValue[]? arguments)
         {
+            if (parameterNames.Length == 0)
+            {
+                return;
+            }
+
             var value = hasDuplicates ? Undefined : null;
-            var directSet = !hasDuplicates && _dictionary.Count == 0;
-            for (var i = 0; (uint) i < (uint) parameterNames.Length; i++)
+            var directSet = !hasDuplicates && (_dictionary is null || _dictionary.Count == 0);
+            for (uint i = 0; i < (uint) parameterNames.Length; i++)
             {
                 var paramName = parameterNames[i];
-                if (directSet || !_dictionary.ContainsKey(paramName))
+                if (directSet || _dictionary is null || !_dictionary.ContainsKey(paramName))
                 {
                     var parameterValue = value;
                     if (arguments != null)
                     {
-                        parameterValue = (uint) i < (uint) arguments.Length ? arguments[i] : Undefined;
+                        parameterValue = i < (uint) arguments.Length ? arguments[i] : Undefined;
                     }
 
+                    _dictionary ??= new HybridDictionary<Binding>();
                     _dictionary[paramName] = new Binding(parameterValue!, canBeDeleted: false, mutable: true, strict: false);
                 }
             }
@@ -113,7 +128,7 @@ namespace Jint.Runtime.Environments
 
         internal void AddFunctionParameters(EvaluationContext context, IFunction functionDeclaration, JsValue[] arguments)
         {
-            bool empty = _dictionary.Count == 0;
+            var empty = _dictionary is null || _dictionary.Count == 0;
             ref readonly var parameters = ref functionDeclaration.Params;
             var count = parameters.Count;
             for (var i = 0; i < count; i++)
@@ -377,6 +392,7 @@ namespace Jint.Runtime.Environments
         {
             if (initiallyEmpty)
             {
+                _dictionary ??= new HybridDictionary<Binding>();
                 _dictionary[name] = new Binding(argument, canBeDeleted: false, mutable: true, strict: false);
             }
             else
@@ -387,6 +403,7 @@ namespace Jint.Runtime.Environments
 
         private void SetItemCheckExisting(Key name, JsValue argument)
         {
+            _dictionary ??= new HybridDictionary<Binding>();
             if (!_dictionary.TryGetValue(name, out var existing))
             {
                 _dictionary[name] = new Binding(argument, canBeDeleted: false, mutable: true, strict: false);
