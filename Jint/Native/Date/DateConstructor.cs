@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -163,14 +164,26 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
-            double dv;
+            // fast path is building default, new Date()
             if (arguments.Length == 0 || newTarget.IsUndefined())
             {
-                dv = FromDateTime(DateTime.UtcNow);
+                return OrdinaryCreateFromConstructor(
+                    newTarget,
+                    static intrinsics => intrinsics.Date.PrototypeObject,
+                    static (engine, _, dateValue) => new DateInstance(engine, dateValue),
+                    (DateTime.UtcNow - Epoch).TotalMilliseconds);
             }
-            else if (arguments.Length == 1)
+
+            return ConstructUnlikely(arguments, newTarget);
+        }
+
+        private DateInstance ConstructUnlikely(JsValue[] arguments, JsValue newTarget)
+        {
+            double dv;
+            if (arguments.Length == 1)
             {
                 if (arguments[0] is DateInstance date)
                 {
@@ -208,12 +221,10 @@ namespace Jint.Native.Date
                 dv = TimeClip(PrototypeObject.Utc(finalDate));
             }
 
-            var o = OrdinaryCreateFromConstructor(
+            return OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Date.PrototypeObject,
-                static (Engine engine, Realm _, object? _) => new DateInstance(engine));
-            o.DateValue = dv;
-            return o;
+                static (engine, _, dateValue) => new DateInstance(engine, dateValue), dv);
         }
 
         public DateInstance Construct(DateTimeOffset value)
@@ -228,10 +239,9 @@ namespace Jint.Native.Date
 
         public DateInstance Construct(double time)
         {
-            var instance = new DateInstance(_engine)
+            var instance = new DateInstance(_engine, TimeClip(time))
             {
-                _prototype = PrototypeObject,
-                DateValue = TimeClip(time)
+                _prototype = PrototypeObject
             };
 
             return instance;
@@ -254,7 +264,7 @@ namespace Jint.Native.Date
 
         private double FromDateTime(DateTime dt, bool negative = false)
         {
-            var convertToUtcAfter = (dt.Kind == DateTimeKind.Unspecified);
+            var convertToUtcAfter = dt.Kind == DateTimeKind.Unspecified;
 
             var dateAsUtc = dt.Kind == DateTimeKind.Local
                 ? dt.ToUniversalTime()
