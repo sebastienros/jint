@@ -23,7 +23,7 @@ public abstract class SingleScriptBenchmark
     public void Execute()
     {
         var engine = new Engine(static options => options.Strict());
-        engine.Execute(FileName);
+        engine.Execute(_script);
     }
 
     [Benchmark]

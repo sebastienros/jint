@@ -123,7 +123,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - If you repeatedly run the same script, you should cache the `Script` or `Module` instance produced by Esprima and feed it to Jint instead of the content string
 - You should prefer running engine in strict mode, it improves performance
 
-You can check out [the engine comparison results](Jint.Benchmarks), bear in mind that every use case is different and benchmarks might not reflect your real-world usage.
+You can check out [the engine comparison results](Jint.Benchmark), bear in mind that every use case is different and benchmarks might not reflect your real-world usage.
 
 ## Discussion
 

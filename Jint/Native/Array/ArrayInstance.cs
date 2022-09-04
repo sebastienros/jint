@@ -408,34 +408,14 @@ namespace Jint.Native.Array
             return base.GetOwnProperty(property);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private PropertyDescriptor GetOwnProperty(uint index)
-        {
-            return TryGetDescriptor(index, out var result)
-                ? result
-                : PropertyDescriptor.Undefined;
-        }
-
         internal JsValue Get(uint index)
         {
-            var prop = GetOwnProperty(index);
-            if (prop == PropertyDescriptor.Undefined)
+            if (!TryGetDescriptor(index, out var prop))
             {
                 prop = Prototype?.GetProperty(JsString.Create(index)) ?? PropertyDescriptor.Undefined;
             }
 
             return UnwrapJsValue(prop);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private PropertyDescriptor GetProperty(uint index)
-        {
-            var prop = GetOwnProperty(index);
-            if (prop != PropertyDescriptor.Undefined)
-            {
-                return prop;
-            }
-            return Prototype?.GetProperty(JsString.Create(index)) ?? PropertyDescriptor.Undefined;
         }
 
         public sealed override bool Set(JsValue property, JsValue value, JsValue receiver)
@@ -454,8 +434,7 @@ namespace Jint.Native.Array
                 else if (CanUseFastAccess)
                 {
                     // we know it's to be written to own array backing field as new value
-                    WriteArrayValue(index, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
-                    EnsureCorrectLength(index);
+                    SetIndexValue(index, value, true);
                     return true;
                 }
             }
@@ -485,13 +464,13 @@ namespace Jint.Native.Array
         private void TrackChanges(JsValue property, PropertyDescriptor desc, bool isArrayIndex)
         {
             EnsureInitialized();
-            if (!desc.IsDefaultArrayValueDescriptor())
-            {
-                _objectChangeFlags |= ObjectChangeFlags.NonDefaultDataDescriptorUsage;
-            }
 
             if (isArrayIndex)
             {
+                if (!desc.IsDefaultArrayValueDescriptor())
+                {
+                    _objectChangeFlags |= ObjectChangeFlags.NonDefaultDataDescriptorUsage;
+                }
                 _objectChangeFlags |= ObjectChangeFlags.ArrayIndex;
             }
             else
@@ -540,14 +519,7 @@ namespace Jint.Native.Array
                 return uint.MaxValue;
             }
 
-            int d = p[0] - '0';
-
-            if (d < 0 || d > 9)
-            {
-                return uint.MaxValue;
-            }
-
-            if (d == 0 && p.Length > 1)
+            if (p.Length > 1 && p[0] == '0')
             {
                 // If p is a number that start with '0' and is not '0' then
                 // its ToString representation can't be the same a p. This is
@@ -557,35 +529,12 @@ namespace Jint.Native.Array
                 return uint.MaxValue;
             }
 
-            if (p.Length > 1)
+            if (!uint.TryParse(p, out var d))
             {
-                return StringAsIndex(d, p);
+                return uint.MaxValue;
             }
 
-            return (uint) d;
-        }
-
-        private static uint StringAsIndex(int d, string p)
-        {
-            ulong result = (uint) d;
-            for (int i = 1; i < p.Length; i++)
-            {
-                d = p[i] - '0';
-
-                if (d < 0 || d > 9)
-                {
-                    return uint.MaxValue;
-                }
-
-                result = result * 10 + (uint) d;
-
-                if (result >= uint.MaxValue)
-                {
-                    return uint.MaxValue;
-                }
-            }
-
-            return (uint) result;
+            return d;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -595,7 +544,21 @@ namespace Jint.Native.Array
             {
                 EnsureCorrectLength(index);
             }
-            WriteArrayValue(index, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
+
+            // can we use existing descriptor?
+            PropertyDescriptor? descriptor = null;
+            var dense = _dense;
+            if (dense is not null && index < (uint) dense.Length)
+            {
+                var temp = dense[index];
+                if (temp is not null && temp.IsDefaultArrayValueDescriptor())
+                {
+                    temp._value = value;
+                    descriptor = temp;
+                }
+            }
+
+            WriteArrayValue(index, descriptor ?? new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -658,9 +621,7 @@ namespace Jint.Native.Array
 
         internal bool Delete(uint index)
         {
-            var desc = GetOwnProperty(index);
-
-            if (desc == PropertyDescriptor.Undefined)
+            if (!TryGetDescriptor(index, out var desc))
             {
                 return true;
             }
@@ -1003,9 +964,18 @@ namespace Jint.Native.Array
                 uint j = 0;
                 for (uint i = sourceStartIndex; i < sourceStartIndex + length; ++i, j++)
                 {
-                    var sourcePropertyDescriptor = i < (uint) sourceDense.Length && sourceDense[i] != null
-                        ? sourceDense[i]
-                        : source.GetProperty(i);
+                    PropertyDescriptor? sourcePropertyDescriptor;
+                    if (i < (uint) sourceDense.Length && sourceDense[i] != null)
+                    {
+                        sourcePropertyDescriptor = sourceDense[i];
+                    }
+                    else
+                    {
+                        if (!source.TryGetDescriptor(i, out sourcePropertyDescriptor))
+                        {
+                            sourcePropertyDescriptor = source.Prototype?.GetProperty(JsString.Create(i));
+                        }
+                    }
 
                     dense[targetStartIndex + j] = sourcePropertyDescriptor?._value is not null
                         ? new PropertyDescriptor(sourcePropertyDescriptor._value, PropertyFlag.ConfigurableEnumerableWritable)
