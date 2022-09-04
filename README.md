@@ -6,7 +6,7 @@
 
 # Jint
 
-Jint is a __Javascript interpreter__ for .NET which can run on __any modern .NET platform__ as it supports .NET Standard 2.0 and .NET 4.6.1 targets (and up). Because Jint neither generates any .NET bytecode nor uses the DLR it runs relatively small scripts really fast.
+Jint is a __Javascript interpreter__ for .NET which can run on __any modern .NET platform__ as it supports .NET Standard 2.0 and .NET 4.6.2 targets (and up).
 
 💡 You should prefer 3.x beta over the 2.x legacy version as all new features and improvements are targeted against version 3.x.
 
@@ -116,6 +116,14 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - Constraints for execution (recursion, memory usage, duration)
 
 > Follow new features as they are being implemented, see https://github.com/sebastienros/jint/issues/343
+
+## Performance
+
+- Because Jint neither generates any .NET bytecode nor uses the DLR it runs relatively small scripts really fast
+- If you repeatedly run the same script, you should cache the `Script` or `Module` instance produced by Esprima and feed it to Jint instead of the content string
+- You should prefer running engine in strict mode, it improves performance
+
+You can check out [the engine comparison results](Jint.Benchmarks), bear in mind that every use case is different and benchmarks might not reflect your real-world usage.
 
 ## Discussion
 
