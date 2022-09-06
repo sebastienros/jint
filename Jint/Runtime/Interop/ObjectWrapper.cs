@@ -326,6 +326,12 @@ namespace Jint.Runtime.Interop
                 _enumerator = target.GetEnumerator();
             }
 
+            public override void Close(CompletionType completion)
+            {
+               (_enumerator as IDisposable)?.Dispose();
+                base.Close(completion);
+            }
+
             public override bool TryIteratorStep(out ObjectInstance nextItem)
             {
                 if (_enumerator.MoveNext())

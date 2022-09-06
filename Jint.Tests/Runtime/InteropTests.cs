@@ -3145,5 +3145,68 @@ try {
             var exc = Assert.Throws<JavaScriptException>(() => engine.Execute(Source));
             Assert.Equal(exc.Message, "Caught: This is a C# error");
         }
+
+        class Baz
+        {
+            public int DisposeCalls { get; private set; }
+            public IEnumerable<int> Enumerator
+            {
+                get
+                {
+                    try
+                    {
+                        for (int i = 0; i < 10; i++) yield return i;
+                    }
+                    finally     // finally clause is translated into IDisposable.Dispose in underlying IEnumerator
+                    {
+                        ++DisposeCalls;
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        public void ShouldCallEnumeratorDisposeOnNormalTermination()
+        {
+            var engine = new Engine();
+            var baz = new Baz();
+            engine.SetValue("baz", baz);
+            const string Source = @"
+for (let i of baz.Enumerator) {
+}";
+            engine.Execute(Source);
+            Assert.Equal(1, baz.DisposeCalls);
+        }
+
+        [Fact]
+        public void ShouldCallEnumeratorDisposeOnBreak()
+        {
+            var engine = new Engine();
+            var baz = new Baz();
+            engine.SetValue("baz", baz);
+            const string Source = @"
+for (let i of baz.Enumerator) {
+  if (i == 2) break;
+}";
+            engine.Execute(Source);
+            Assert.Equal(1, baz.DisposeCalls);
+        }
+
+        [Fact]
+        public void ShouldCallEnumeratorDisposeOnException()
+        {
+            var engine = new Engine();
+            var baz = new Baz();
+            engine.SetValue("baz", baz);
+            const string Source = @"
+try {
+  for (let i of baz.Enumerator) {
+    if (i == 2) throw 'exception';
+  }
+} catch (e) {
+}";
+            engine.Execute(Source);
+            Assert.Equal(1, baz.DisposeCalls);
+        }
     }
 }
