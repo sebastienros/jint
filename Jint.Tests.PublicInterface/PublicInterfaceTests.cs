@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using Jint.Native;
 using Jint.Native.Function;
-using Xunit;
 
 namespace Jint.Tests.PublicInterface
 {
