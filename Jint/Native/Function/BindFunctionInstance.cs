@@ -6,7 +6,7 @@ namespace Jint.Native.Function
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bound-function-exotic-objects
     /// </summary>
-    internal sealed class BindFunctionInstance : ObjectInstance, IConstructor, ICallable
+    public sealed class BindFunctionInstance : ObjectInstance, IConstructor, ICallable
     {
         private readonly Realm _realm;
 
