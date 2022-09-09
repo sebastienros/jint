@@ -47,7 +47,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     ExceptionHelper.ThrowSyntaxError(engine.Realm);
                 }
 
-                _functionDefinition = new JintFunctionDefinition(engine, function);
+                _functionDefinition = new JintFunctionDefinition(function);
                 return _functionDefinition;
             }
         }
@@ -90,7 +90,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     _properties[i] = new ObjectProperty(propName, p);
 
-                    if (p.Kind is PropertyKind.Init or PropertyKind.Data)
+                    if (p.Kind is PropertyKind.Init)
                     {
                         var propertyValue = p.Value;
                         _valueExpressions[i] = Build(engine, (Expression) propertyValue);
@@ -193,7 +193,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     propName = TypeConverter.ToPropertyKey(completion.Value);
                 }
 
-                if (property.Kind == PropertyKind.Init || property.Kind == PropertyKind.Data)
+                if (property.Kind == PropertyKind.Init)
                 {
                     var expr = _valueExpressions[i];
                     var completion = expr.GetValue(context);

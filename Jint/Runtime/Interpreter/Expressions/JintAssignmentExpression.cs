@@ -393,7 +393,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var strict = StrictModeScope.IsStrictModeCode;
                 if (JintEnvironment.TryGetIdentifierEnvironmentWithBinding(
                     env,
-                    left._expressionName,
+                    left.Identifier,
                     out var environmentRecord))
                 {
                     if (strict && hasEvalOrArguments)
@@ -411,10 +411,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (right._expression.IsFunctionDefinition())
                     {
-                        ((FunctionInstance) rval).SetFunctionName(left._expressionName.StringValue);
+                        ((FunctionInstance) rval).SetFunctionName(left.Identifier.StringValue);
                     }
 
-                    environmentRecord.SetMutableBinding(left._expressionName, rval, strict);
+                    environmentRecord.SetMutableBinding(left.Identifier, rval, strict);
                     return ExpressionResult.Normal(rval, completion._source);
                 }
 

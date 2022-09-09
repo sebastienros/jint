@@ -93,7 +93,7 @@ namespace Jint.Native
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static JsNumber Create(double value)
+        public static JsNumber Create(double value)
         {
             // we expect zero to be on the fast path of integer mostly
             var temp = _intToJsValue;
@@ -136,7 +136,7 @@ namespace Jint.Native
             return new JsNumber(value);
         }
 
-        internal static JsNumber Create(byte value)
+        public static JsNumber Create(byte value)
         {
             return _intToJsValue[value];
         }
@@ -151,7 +151,7 @@ namespace Jint.Native
             return new JsNumber(value);
         }
 
-        internal static JsNumber Create(int value)
+        public static JsNumber Create(int value)
         {
             var temp = _intToJsValue;
             if ((uint) value < (uint) temp.Length)
@@ -188,7 +188,7 @@ namespace Jint.Native
             return new JsNumber(value);
         }
 
-        internal static JsNumber Create(long value)
+        public static JsNumber Create(long value)
         {
             if ((ulong) value < (ulong) _intToJsValue.Length)
             {

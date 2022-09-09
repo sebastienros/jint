@@ -316,7 +316,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
             {
                 var d = functionDeclarations[i];
                 var fn = d.Id?.Name ?? "*default*";
-                var fd = new JintFunctionDefinition(_engine, d);
+                var fd = new JintFunctionDefinition(d);
                 env.CreateMutableBinding(fn, true);
                 // TODO private scope
                 var fo = realm.Intrinsics.Function.InstantiateFunctionObject(fd, env, privateScope: null);

@@ -45,7 +45,7 @@ namespace Jint.Runtime.Environments
             return _global.HasProperty(new JsString(name));
         }
 
-        internal override bool HasBinding(in BindingName name)
+        internal override bool HasBinding(BindingName name)
         {
             if (_declarativeRecord.HasBinding(name))
             {
@@ -61,7 +61,7 @@ namespace Jint.Runtime.Environments
         }
 
         internal override bool TryGetBinding(
-            in BindingName name,
+            BindingName name,
             bool strict,
             out Binding binding,
             [NotNullWhen(true)] out JsValue? value)
@@ -93,7 +93,7 @@ namespace Jint.Runtime.Environments
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private bool TryGetBindingForGlobalParent(
-            in BindingName name,
+            BindingName name,
             [NotNullWhen(true)] out JsValue? value)
         {
             value = default;
@@ -177,7 +177,7 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        internal override void SetMutableBinding(in BindingName name, JsValue value, bool strict)
+        internal override void SetMutableBinding(BindingName name, JsValue value, bool strict)
         {
             if (_declarativeRecord.HasBinding(name))
             {

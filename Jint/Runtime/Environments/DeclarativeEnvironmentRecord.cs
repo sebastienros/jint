@@ -24,13 +24,13 @@ namespace Jint.Runtime.Environments
             return _dictionary is not null && _dictionary.ContainsKey(name);
         }
 
-        internal sealed override bool HasBinding(in BindingName name)
+        internal sealed override bool HasBinding(BindingName name)
         {
             return _dictionary is not null &&_dictionary.ContainsKey(name.Key);
         }
 
         internal override bool TryGetBinding(
-            in BindingName name,
+            BindingName name,
             bool strict,
             out Binding binding,
             [NotNullWhen(true)] out JsValue? value)
@@ -71,7 +71,7 @@ namespace Jint.Runtime.Environments
             _dictionary.SetOrUpdateValue(name, static (current, value) => current.ChangeValue(value), value);
         }
 
-        internal sealed override void SetMutableBinding(in BindingName name, JsValue value, bool strict)
+        internal sealed override void SetMutableBinding(BindingName name, JsValue value, bool strict)
         {
             SetMutableBinding(name.Key.Name, value, strict);
         }

@@ -288,7 +288,7 @@ namespace Jint
                 ExceptionHelper.ThrowSyntaxError(engine.Realm);
             }
 
-            var definition = new JintFunctionDefinition(engine, function);
+            var definition = new JintFunctionDefinition(function);
             var closure = intrinsics.Function.OrdinaryFunctionCreate(prototype, definition, definition.ThisMode, scope, privateScope);
             closure.MakeMethod(obj);
 

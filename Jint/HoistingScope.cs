@@ -3,7 +3,7 @@ using Jint.Runtime.Modules;
 
 namespace Jint
 {
-    internal readonly struct HoistingScope
+    internal sealed class HoistingScope
     {
         internal readonly List<FunctionDeclaration>? _functionDeclarations;
 
@@ -14,7 +14,8 @@ namespace Jint
         internal readonly List<string>? _lexicalNames;
         internal readonly bool _hasArgumentsReference;
 
-        private HoistingScope(List<FunctionDeclaration>? functionDeclarations,
+        private HoistingScope(
+            List<FunctionDeclaration>? functionDeclarations,
             List<Key>? varNames,
             List<VariableDeclaration>? variableDeclarations,
             List<Declaration>? lexicalDeclarations,
@@ -46,17 +47,12 @@ namespace Jint
                 false);
         }
 
-        public static HoistingScope GetFunctionLevelDeclarations(
-            bool strict,
-            IFunction node,
-            bool collectVarNames = false,
-            bool collectLexicalNames = false,
-            bool checkArgumentsReference = false)
+        public static HoistingScope GetFunctionLevelDeclarations(bool strict, IFunction node)
         {
-            var treeWalker = new ScriptWalker(strict, collectVarNames, collectLexicalNames, checkArgumentsReference);
+            var treeWalker = new ScriptWalker(strict, collectVarNames: true, collectLexicalNames: true, checkArgumentsReference: true);
             treeWalker.Visit(node.Body, null);
 
-            if (checkArgumentsReference && !treeWalker._hasArgumentsReference)
+            if (!treeWalker._hasArgumentsReference)
             {
                 ref readonly var parameters = ref node.Params;
                 for (var i = 0; i < parameters.Count; ++i)

@@ -177,7 +177,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 Nodes.BinaryExpression => JintBinaryExpression.Build(engine, (BinaryExpression) expression),
                 Nodes.CallExpression => new JintCallExpression((CallExpression) expression),
                 Nodes.ConditionalExpression => new JintConditionalExpression(engine, (ConditionalExpression) expression),
-                Nodes.FunctionExpression => new JintFunctionExpression(engine, (FunctionExpression) expression),
+                Nodes.FunctionExpression => new JintFunctionExpression((FunctionExpression) expression),
                 Nodes.Identifier => new JintIdentifierExpression((Identifier) expression),
                 Nodes.Literal => JintLiteralExpression.Build((Literal) expression),
                 Nodes.LogicalExpression => ((BinaryExpression) expression).Operator switch

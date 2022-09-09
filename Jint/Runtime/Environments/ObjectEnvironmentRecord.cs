@@ -45,7 +45,7 @@ namespace Jint.Runtime.Environments
             return !IsBlocked(name);
         }
 
-        internal override bool HasBinding(in BindingName name)
+        internal override bool HasBinding(BindingName name)
         {
             var foundBinding = HasProperty(name.StringValue);
 
@@ -68,7 +68,7 @@ namespace Jint.Runtime.Environments
         }
 
         internal override bool TryGetBinding(
-            in BindingName name,
+            BindingName name,
             bool strict,
             out Binding binding,
             [NotNullWhen(true)] out JsValue? value)
@@ -145,7 +145,7 @@ namespace Jint.Runtime.Environments
             _bindingObject.Set(jsString, value);
         }
 
-        internal override void SetMutableBinding(in BindingName name, JsValue value, bool strict)
+        internal override void SetMutableBinding(BindingName name, JsValue value, bool strict)
         {
             if (strict && !_bindingObject.HasProperty(name.StringValue))
             {

@@ -104,11 +104,11 @@ namespace Jint.Native.RegExp
 
             try
             {
-                var parserOptions = new ParserOptions();
-                var scanner = new Scanner("/" + p + "/" + flags, parserOptions);
+                var options = new ScannerOptions();
+                var scanner = new Scanner("/" + p + "/" + flags, options);
 
                 // seems valid
-                r.Value = scanner.ParseRegex(p, f, parserOptions.RegexTimeout);
+                r.Value = scanner.ParseRegex(p, f, options.RegexTimeout);
 
                 var timeout = _engine.Options.Constraints.RegexTimeout;
                 if (timeout.Ticks > 0)

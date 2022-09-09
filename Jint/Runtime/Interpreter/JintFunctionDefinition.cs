@@ -11,28 +11,21 @@ namespace Jint.Runtime.Interpreter;
 /// </summary>
 internal sealed class JintFunctionDefinition
 {
-    private readonly Engine _engine;
-
     private JintExpression? _bodyExpression;
     private JintStatementList? _bodyStatementList;
 
     public readonly string? Name;
-    public readonly bool Strict;
     public readonly IFunction Function;
 
-    private State? _state;
-
-    public JintFunctionDefinition(
-        Engine engine,
-        IFunction function)
+    public JintFunctionDefinition(IFunction function)
     {
-        _engine = engine;
         Function = function;
         Name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id!.Name : null;
-        Strict = function.Strict;
     }
 
-    public FunctionThisMode ThisMode => Strict ? FunctionThisMode.Strict : FunctionThisMode.Global;
+    public bool Strict => Function.Strict;
+
+    public FunctionThisMode ThisMode => Function.Strict ? FunctionThisMode.Strict : FunctionThisMode.Global;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-ordinarycallevaluatebody
@@ -41,11 +34,11 @@ internal sealed class JintFunctionDefinition
     internal Completion EvaluateBody(EvaluationContext context, FunctionInstance functionObject, JsValue[] argumentsList)
     {
         Completion result;
-        var argumentsInstance = _engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+        var argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
         if (Function.Expression)
         {
             // https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody
-            _bodyExpression ??= JintExpression.Build(_engine, (Expression) Function.Body);
+            _bodyExpression ??= JintExpression.Build(context.Engine, (Expression) Function.Body);
             var jsValue = _bodyExpression.GetValue(context).GetValueOrDefault().Clone();
             result = new Completion(CompletionType.Return, jsValue, null, Function.Body);
         }
@@ -76,9 +69,11 @@ internal sealed class JintFunctionDefinition
         return default;
     }
 
-    internal State Initialize(FunctionInstance functionInstance)
+    internal State Initialize()
     {
-        return _state ??= DoInitialize(functionInstance);
+        var node = (Node) Function;
+        var state = (State) (node.AssociatedData ??= BuildState(Function));
+        return state;
     }
 
     internal sealed class State
@@ -110,19 +105,13 @@ internal sealed class JintFunctionDefinition
         }
     }
 
-    private State DoInitialize(FunctionInstance functionInstance)
+    internal static State BuildState(IFunction function)
     {
         var state = new State();
 
-        ProcessParameters(Function, state, out var hasArguments);
+        ProcessParameters(function, state, out var hasArguments);
 
-        var hoistingScope = HoistingScope.GetFunctionLevelDeclarations(
-            Strict,
-            Function,
-            collectVarNames: true,
-            collectLexicalNames: true,
-            checkArgumentsReference: true);
-
+        var hoistingScope = HoistingScope.GetFunctionLevelDeclarations(function.Strict, function);
         var functionDeclarations = hoistingScope._functionDeclarations;
         var lexicalNames = hoistingScope._lexicalNames;
         state.VarNames = hoistingScope._varNames;
@@ -138,7 +127,7 @@ internal sealed class JintFunctionDefinition
                 var fn = d.Id!.Name;
                 if (state.FunctionNames.Add(fn))
                 {
-                    functionsToInitialize.AddFirst(new JintFunctionDefinition(_engine, d));
+                    functionsToInitialize.AddFirst(new JintFunctionDefinition(d));
                 }
             }
         }
@@ -148,7 +137,13 @@ internal sealed class JintFunctionDefinition
         const string ParameterNameArguments = "arguments";
 
         state.ArgumentsObjectNeeded = true;
-        if (functionInstance._thisMode == FunctionThisMode.Lexical)
+        var thisMode = function.Strict ? FunctionThisMode.Strict : FunctionThisMode.Global;
+        if (function.Type == Nodes.ArrowFunctionExpression)
+        {
+            thisMode = FunctionThisMode.Lexical;
+        }
+
+        if (thisMode == FunctionThisMode.Lexical)
         {
             state.ArgumentsObjectNeeded = false;
         }
@@ -165,7 +160,7 @@ internal sealed class JintFunctionDefinition
             }
         }
 
-        if (state.ArgumentsObjectNeeded && !_engine._isDebugMode)
+        if (state.ArgumentsObjectNeeded)
         {
             // just one extra check...
             state.ArgumentsObjectNeeded = hoistingScope._hasArgumentsReference;
@@ -178,7 +173,6 @@ internal sealed class JintFunctionDefinition
         }
 
         state.ParameterBindings = parameterBindings;
-
 
         var varsToInitialize = new List<State.VariableValuePair>();
         if (!state.HasParameterExpressions)

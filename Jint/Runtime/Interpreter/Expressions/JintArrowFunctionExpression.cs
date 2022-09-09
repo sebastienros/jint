@@ -10,7 +10,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public JintArrowFunctionExpression(Engine engine, ArrowFunctionExpression function) : base(function)
         {
-            _function = new JintFunctionDefinition(engine, function);
+            _function = new JintFunctionDefinition(function);
         }
 
         protected override ExpressionResult EvaluateInternal(EvaluationContext context)
