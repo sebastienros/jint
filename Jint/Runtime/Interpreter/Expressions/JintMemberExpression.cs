@@ -113,10 +113,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 : TypeConverter.ToPropertyKey(property);
 
             var rent = context.Engine._referencePool.Rent(baseValue, propertyKey, isStrictModeCode, thisValue: actualThis);
-            return new ExpressionResult(
-                ExpressionCompletionType.Reference,
-                rent,
-                _expression);
+            return new ExpressionResult(ExpressionCompletionType.Reference, rent);
         }
     }
 }

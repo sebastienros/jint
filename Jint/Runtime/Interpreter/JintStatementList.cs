@@ -96,11 +96,7 @@ namespace Jint.Runtime.Interpreter
 
                     if (c.Type != CompletionType.Normal)
                     {
-                        return new Completion(
-                            c.Type,
-                            c.Value ?? sl.Value!,
-                            c.Target,
-                            c._source);
+                        return new Completion(c.Type, c.Value ?? sl.Value!, c._source);
                     }
                     sl = c;
                     if (c.Value is not null)
@@ -119,7 +115,7 @@ namespace Jint.Runtime.Interpreter
                 throw;
             }
 
-            return new Completion(c.Type, lastValue ?? JsValue.Undefined, c.Target, c._source!);
+            return new Completion(c.Type, lastValue ?? JsValue.Undefined, c._source!);
         }
 
         private static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)
@@ -144,7 +140,7 @@ namespace Jint.Runtime.Interpreter
         private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, Exception e, JintStatement s)
         {
             var error = errorConstructor.Construct(new JsValue[] { e.Message });
-            return new Completion(CompletionType.Throw, error, null, s._statement);
+            return new Completion(CompletionType.Throw, error, s._statement);
         }
 
         private static Completion CreateThrowCompletion(JintStatement? s, JavaScriptException v)
@@ -155,7 +151,7 @@ namespace Jint.Runtime.Interpreter
                 source = EsprimaExtensions.CreateLocationNode(v.Location);
             }
 
-            return new Completion(CompletionType.Throw, v.Error, null, source);
+            return new Completion(CompletionType.Throw, v.Error, source);
         }
 
         /// <summary>

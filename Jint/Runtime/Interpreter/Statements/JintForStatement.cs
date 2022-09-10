@@ -141,12 +141,12 @@ namespace Jint.Runtime.Interpreter.Statements
                     v = result.Value;
                 }
 
-                if (result.Type == CompletionType.Break && (result.Target == null || result.Target == _statement?.LabelSet?.Name))
+                if (result.Type == CompletionType.Break && (context.Target == null || context.Target == _statement?.LabelSet?.Name))
                 {
                     return new Completion(CompletionType.Normal, result.Value!, ((JintStatement) this)._statement);
                 }
 
-                if (result.Type != CompletionType.Continue || (result.Target != null && result.Target != _statement?.LabelSet?.Name))
+                if (result.Type != CompletionType.Continue || (context.Target != null && context.Target != _statement?.LabelSet?.Name))
                 {
                     if (result.Type != CompletionType.Normal)
                     {

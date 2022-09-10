@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Esprima.Ast;
 
 namespace Jint.Runtime.Interpreter;
@@ -24,11 +25,23 @@ internal sealed class EvaluationContext
     public SyntaxElement LastSyntaxElement = null!;
     public readonly bool OperatorOverloadingAllowed;
 
+    // completion record information
+    public string? Target;
+    public CompletionType Completion;
+
     public void RunBeforeExecuteStatementChecks(Statement statement)
     {
         if (_shouldRunBeforeExecuteStatementChecks)
         {
             Engine.RunBeforeExecuteStatementChecks(statement);
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void PrepareFor(Node node)
+    {
+        LastSyntaxElement = node;
+        Target = null;
+        Completion = CompletionType.Normal;
     }
 }

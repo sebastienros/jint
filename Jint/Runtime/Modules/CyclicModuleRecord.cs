@@ -256,7 +256,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
         {
             if (_evalError is null)
             {
-                return new Completion(CompletionType.Normal, index, null, default);
+                return new Completion(CompletionType.Normal, index, default);
             }
 
             return _evalError.Value;
@@ -264,7 +264,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
 
         if (Status == ModuleStatus.Evaluating)
         {
-            return new Completion(CompletionType.Normal, index, null, default);
+            return new Completion(CompletionType.Normal, index, default);
         }
 
         if (Status != ModuleStatus.Linked)
@@ -527,7 +527,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
             ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
 
-        module._evalError = new Completion(CompletionType.Throw, error, null, default);
+        module._evalError = new Completion(CompletionType.Throw, error, default);
         module.Status = ModuleStatus.Evaluated;
 
         var asyncParentModules = module._asyncParentModules;

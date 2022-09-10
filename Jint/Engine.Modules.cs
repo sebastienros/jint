@@ -150,7 +150,7 @@ namespace Jint
             else if (promise.State == PromiseState.Rejected)
             {
                 var node = EsprimaExtensions.CreateLocationNode(Location.From(new Position(), new Position(), specifier));
-                ExceptionHelper.ThrowJavaScriptException(this, promise.Value, new Completion(CompletionType.Throw, promise.Value, null, node));
+                ExceptionHelper.ThrowJavaScriptException(this, promise.Value, new Completion(CompletionType.Throw, promise.Value, node));
             }
             else if (promise.State != PromiseState.Fulfilled)
             {

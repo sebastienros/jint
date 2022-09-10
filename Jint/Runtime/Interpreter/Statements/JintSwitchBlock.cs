@@ -112,7 +112,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 v = r.Value ?? Undefined.Instance;
             }
 
-            return new Completion(CompletionType.Normal, v, null, l);
+            return new Completion(CompletionType.Normal, v, l);
         }
 
         private sealed class JintSwitchCase
