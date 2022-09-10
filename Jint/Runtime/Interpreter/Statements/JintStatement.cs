@@ -31,7 +31,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             if (_statement.Type != Nodes.BlockStatement)
             {
-                context.LastSyntaxElement = _statement;
+                context.PrepareFor(_statement);
                 context.RunBeforeExecuteStatementChecks(_statement);
             }
 
@@ -110,7 +110,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 var jsValue = JintLiteralExpression.ConvertToJsValue(l);
                 if (jsValue is not null)
                 {
-                    return new Completion(CompletionType.Return, jsValue, null, rs);
+                    return new Completion(CompletionType.Return, jsValue, rs);
                 }
             }
 

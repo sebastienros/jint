@@ -1,22 +1,19 @@
 using Esprima.Ast;
 
-namespace Jint.Runtime.Interpreter.Statements
+namespace Jint.Runtime.Interpreter.Statements;
+
+/// <summary>
+/// http://www.ecma-international.org/ecma-262/5.1/#sec-12.7
+/// </summary>
+internal sealed class JintContinueStatement : JintStatement<ContinueStatement>
 {
-    /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-12.7
-    /// </summary>
-    internal sealed class JintContinueStatement : JintStatement<ContinueStatement>
+    public JintContinueStatement(ContinueStatement statement) : base(statement)
     {
-        private readonly string? _labelName;
+    }
 
-        public JintContinueStatement(ContinueStatement statement) : base(statement)
-        {
-            _labelName = _statement.Label?.Name;
-        }
-
-        protected override Completion ExecuteInternal(EvaluationContext context)
-        {
-            return new Completion(CompletionType.Continue, _labelName!, _statement);
-        }
+    protected override Completion ExecuteInternal(EvaluationContext context)
+    {
+        context.Target = _statement.Label?.Name;
+        return new Completion(CompletionType.Continue, null!, _statement);
     }
 }

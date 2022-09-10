@@ -37,11 +37,11 @@ namespace Jint.Runtime.Interpreter.Statements
                     v = completion.Value;
                 }
 
-                if (completion.Type != CompletionType.Continue || completion.Target != _labelSetName)
+                if (completion.Type != CompletionType.Continue || context.Target != _labelSetName)
                 {
-                    if (completion.Type == CompletionType.Break && (completion.Target == null || completion.Target == _labelSetName))
+                    if (completion.Type == CompletionType.Break && (context.Target == null || context.Target == _labelSetName))
                     {
-                        return new Completion(CompletionType.Normal, v, null, _statement);
+                        return new Completion(CompletionType.Normal, v, _statement);
                     }
 
                     if (completion.Type != CompletionType.Normal)

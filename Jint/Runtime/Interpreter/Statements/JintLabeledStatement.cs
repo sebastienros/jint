@@ -23,10 +23,10 @@ namespace Jint.Runtime.Interpreter.Statements
             // containing label and could keep a table per program with all the labels
             // labeledStatement.Body.LabelSet = labeledStatement.Label;
             var result = _body.Execute(context);
-            if (result.Type == CompletionType.Break && result.Target == _labelName)
+            if (result.Type == CompletionType.Break && context.Target == _labelName)
             {
                 var value = result.Value;
-                return new Completion(CompletionType.Normal, value, null, _statement);
+                return new Completion(CompletionType.Normal, value, _statement);
             }
 
             return result;

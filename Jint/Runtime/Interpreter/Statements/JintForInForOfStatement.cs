@@ -95,7 +95,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             if (!HeadEvaluation(context, out var keyResult))
             {
-                return new Completion(CompletionType.Normal, JsValue.Undefined, null, _statement);
+                return new Completion(CompletionType.Normal, JsValue.Undefined, _statement);
             }
 
             return BodyEvaluation(context, _expr, _body, keyResult, IterationKind.Enumerate, _lhsKind);
@@ -170,7 +170,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     if (!iteratorRecord.TryIteratorStep(out var nextResult))
                     {
                         close = true;
-                        return new Completion(CompletionType.Normal, v, null, _statement!);
+                        return new Completion(CompletionType.Normal, v, _statement!);
                     }
 
                     if (iteratorKind == IteratorKind.Async)
@@ -278,13 +278,13 @@ namespace Jint.Runtime.Interpreter.Statements
                         v = result.Value;
                     }
 
-                    if (result.Type == CompletionType.Break && (result.Target == null || result.Target == _statement?.LabelSet?.Name))
+                    if (result.Type == CompletionType.Break && (context.Target == null || context.Target == _statement?.LabelSet?.Name))
                     {
                         completionType = CompletionType.Normal;
-                        return new Completion(CompletionType.Normal, v, null, _statement!);
+                        return new Completion(CompletionType.Normal, v, _statement!);
                     }
 
-                    if (result.Type != CompletionType.Continue || (result.Target != null && result.Target != _statement?.LabelSet?.Name))
+                    if (result.Type != CompletionType.Continue || (context.Target != null && context.Target != _statement?.LabelSet?.Name))
                     {
                         completionType = result.Type;
                         if (result.IsAbrupt())

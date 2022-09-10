@@ -74,13 +74,14 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             var jsValue = context.Engine.GetValue((Reference) result.Value, true);
-            return new Completion(CompletionType.Normal, jsValue, null, context.LastSyntaxElement);
+            return new Completion(CompletionType.Normal, jsValue, context.LastSyntaxElement);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ExpressionResult Evaluate(EvaluationContext context)
         {
-            context.LastSyntaxElement = _expression;
+            context.PrepareFor(_expression);
+
             if (!_initialized)
             {
                 Initialize(context);
