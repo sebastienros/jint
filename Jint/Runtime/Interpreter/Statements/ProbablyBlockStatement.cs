@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Esprima.Ast;
 
 namespace Jint.Runtime.Interpreter.Statements;
@@ -7,6 +8,7 @@ namespace Jint.Runtime.Interpreter.Statements;
 /// Helper to remove virtual dispatch from block statements when it's most common target.
 /// This is especially true for things like for statements body
 /// </summary>
+[StructLayout(LayoutKind.Auto)]
 internal readonly struct ProbablyBlockStatement
 {
     private readonly JintStatement  _target;
