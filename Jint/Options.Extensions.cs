@@ -184,7 +184,7 @@ namespace Jint
             return options;
         }
 
-        public static Options Constraint(this Options options, IConstraint constraint)
+        public static Options Constraint(this Options options, Constraint constraint)
         {
             if (constraint != null)
             {
@@ -194,7 +194,7 @@ namespace Jint
             return options;
         }
 
-        public static Options WithoutConstraint(this Options options, Predicate<IConstraint> predicate)
+        public static Options WithoutConstraint(this Options options, Predicate<Constraint> predicate)
         {
             options.Constraints.Constraints.RemoveAll(predicate);
             return options;

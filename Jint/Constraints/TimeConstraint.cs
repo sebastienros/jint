@@ -1,30 +1,33 @@
 using Jint.Runtime;
+using System.Threading;
 
-namespace Jint.Constraints
+namespace Jint.Constraints;
+
+internal sealed class TimeConstraint : Constraint
 {
-    internal sealed class TimeConstraint : IConstraint
+    private readonly TimeSpan _timeout;
+    private CancellationTokenSource? _cts;
+
+    internal TimeConstraint(TimeSpan timeout)
     {
-        private readonly long _maxTicks;
-        private long _timeoutTicks;
+        _timeout = timeout;
+    }
 
-        public TimeConstraint(TimeSpan timeout)
+    public override void Check()
+    {
+        if (_cts?.IsCancellationRequested == true)
         {
-            _maxTicks = timeout.Ticks;
+            ExceptionHelper.ThrowTimeoutException();
         }
+    }
 
-        public void Check()
-        {
-            if (_timeoutTicks > 0 && _timeoutTicks < DateTime.UtcNow.Ticks)
-            {
-                ExceptionHelper.ThrowTimeoutException();
-            }
-        }
+    public override void Reset()
+    {
+        _cts?.Dispose();
 
-        public void Reset()
-        {
-            var timeoutIntervalTicks = _maxTicks;
-
-            _timeoutTicks = timeoutIntervalTicks > 0 ? DateTime.UtcNow.Ticks + timeoutIntervalTicks : 0;
-        }
+        // This cancellation token source is very likely not disposed property, but it only allocates a timer, so not a big deal.
+        // But using the cancellation token source is faster because we do not have to check the current time for each statement,
+        // which means less system calls.
+        _cts = new CancellationTokenSource(_timeout);
     }
 }

@@ -1,32 +1,31 @@
 using Jint.Runtime;
 using System.Threading;
 
-namespace Jint.Constraints
+namespace Jint.Constraints;
+
+public sealed class CancellationConstraint : Constraint
 {
-    public sealed class CancellationConstraint : IConstraint
+    private CancellationToken _cancellationToken;
+
+    internal CancellationConstraint(CancellationToken cancellationToken)
     {
-        private CancellationToken _cancellationToken;
+        _cancellationToken = cancellationToken;
+    }
 
-        public CancellationConstraint(CancellationToken cancellationToken)
+    public override void Check()
+    {
+        if (_cancellationToken.IsCancellationRequested)
         {
-            _cancellationToken = cancellationToken;
+            ExceptionHelper.ThrowExecutionCanceledException();
         }
+    }
 
-        public void Check()
-        {
-            if (_cancellationToken.IsCancellationRequested)
-            {
-                ExceptionHelper.ThrowExecutionCanceledException();
-            }
-        }
+    public void Reset(CancellationToken cancellationToken)
+    {
+        _cancellationToken = cancellationToken;
+    }
 
-        public void Reset(CancellationToken cancellationToken)
-        {
-            _cancellationToken = cancellationToken;
-        }
-
-        public void Reset()
-        {
-        }
+    public override void Reset()
+    {
     }
 }
