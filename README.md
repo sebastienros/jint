@@ -290,29 +290,29 @@ var engine = new Engine(options => {
 }
 ```
 
-You can also write a custom constraint by implementing the `IConstraint` interface:
+You can also write a custom constraint by deriving from the `Constraint` base class:
 
 ```c#
-public interface IConstraint
+public abstract class Constraint
 {
-    /// Called before a script is run and useful when you us an engine object for multiple executions.
-    void Reset();
+    /// Called before script is run and useful when you use an engine object for multiple executions.
+    public abstract void Reset();
 
-    // Called before each statement to check if your requirements are met.
-    void Check();
+    // Called before each statement to check if your requirements are met; if not - throws an exception.
+    public abstract void Check();
 }
 ```
 
 For example we can write a constraint that stops scripts when the CPU usage gets too high:
 
 ```c#
-class MyCPUConstraint : IConstraint
+class MyCPUConstraint : Constraint
 {
-    public void Reset()
+    public override void Reset()
     {
     }
 
-    public void Check()
+    public override void Check()
     {
         var cpuUsage = GetCPUUsage();
 

@@ -351,7 +351,7 @@ namespace Jint
         /// <summary>
         /// Registered constraints.
         /// </summary>
-        public List<IConstraint> Constraints { get; } = new();
+        public List<Constraint> Constraints { get; } = new();
 
         /// <summary>
         /// Maximum recursion depth allowed, defaults to -1 (no checks).

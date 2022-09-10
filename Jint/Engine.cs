@@ -38,7 +38,7 @@ namespace Jint
 
         // cached access
         internal readonly IObjectConverter[]? _objectConverters;
-        internal readonly IConstraint[] _constraints;
+        internal readonly Constraint[] _constraints;
         internal readonly bool _isDebugMode;
         internal bool _isStrict;
         internal readonly IReferenceResolver _referenceResolver;
@@ -412,10 +412,7 @@ namespace Jint
             }
         }
 
-        /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.7.1
-        /// </summary>
-        public JsValue GetValue(object value)
+        internal JsValue GetValue(object value)
         {
             return GetValue(value, false);
         }
