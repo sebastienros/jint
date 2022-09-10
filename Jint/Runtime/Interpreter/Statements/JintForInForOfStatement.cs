@@ -203,7 +203,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         {
                             var identifier = (Identifier) ((VariableDeclaration) _leftNode).Declarations[0].Id;
                             lhsName ??= identifier.Name;
-                            lhsRef = new ExpressionResult(ExpressionCompletionType.Normal, engine.ResolveBinding(lhsName), identifier);
+                            lhsRef = new ExpressionResult(ExpressionCompletionType.Normal, engine.ResolveBinding(lhsName));
                         }
                     }
 
@@ -218,7 +218,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         if (lhsRef.IsAbrupt())
                         {
                             close = true;
-                            status = new Completion(lhsRef);
+                            status = new Completion((CompletionType) lhsRef.Type, (JsValue) lhsRef.Value!, context.LastSyntaxElement);
                         }
                         else if (lhsKind == LhsKind.LexicalBinding)
                         {

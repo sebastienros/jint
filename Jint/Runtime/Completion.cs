@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime
 {
@@ -49,15 +48,6 @@ namespace Jint.Runtime
             Value = null!;
             Target = target;
             _source = source;
-        }
-
-        internal Completion(in ExpressionResult result)
-        {
-            Type = (CompletionType) result.Type;
-            // this cast protects us from getting from type
-            Value = (JsValue) result.Value;
-            Target = null;
-            _source = result._source;
         }
 
         public readonly CompletionType Type;

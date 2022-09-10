@@ -17,28 +17,25 @@ namespace Jint.Runtime.Interpreter.Expressions
     [StructLayout(LayoutKind.Auto)]
     internal readonly struct ExpressionResult
     {
-        internal readonly SyntaxElement _source;
-
         public readonly ExpressionCompletionType Type;
         public readonly object Value;
 
-        public ExpressionResult(ExpressionCompletionType type, object value, SyntaxElement source)
+        public ExpressionResult(ExpressionCompletionType type, object value)
         {
             Type = type;
             Value = value;
-            _source = source;
         }
 
         public bool IsAbrupt() => Type != ExpressionCompletionType.Normal && Type != ExpressionCompletionType.Reference;
 
         public static implicit operator ExpressionResult(in Completion result)
         {
-            return new ExpressionResult((ExpressionCompletionType) result.Type, result.Value, result._source);
+            return new ExpressionResult((ExpressionCompletionType) result.Type, result.Value);
         }
 
-        public static ExpressionResult? Normal(JsValue value, SyntaxElement source)
+        public static ExpressionResult? Normal(JsValue value)
         {
-            return new ExpressionResult(ExpressionCompletionType.Normal, value, source);
+            return new ExpressionResult(ExpressionCompletionType.Normal, value);
         }
     }
 
@@ -73,11 +70,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             var result = Evaluate(context);
             if (result.Type != ExpressionCompletionType.Reference)
             {
-                return new Completion((CompletionType) result.Type, (JsValue) result.Value, result._source);
+                return new Completion((CompletionType) result.Type, (JsValue) result.Value, context.LastSyntaxElement);
             }
 
             var jsValue = context.Engine.GetValue((Reference) result.Value, true);
-            return new Completion(CompletionType.Normal, jsValue, null, _expression);
+            return new Completion(CompletionType.Normal, jsValue, null, context.LastSyntaxElement);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -112,12 +109,12 @@ namespace Jint.Runtime.Interpreter.Expressions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected ExpressionResult NormalCompletion(JsValue value)
         {
-            return new ExpressionResult(ExpressionCompletionType.Normal, value, _expression);
+            return new ExpressionResult(ExpressionCompletionType.Normal, value);
         }
 
         protected ExpressionResult NormalCompletion(Reference value)
         {
-            return new ExpressionResult(ExpressionCompletionType.Reference, value, _expression);
+            return new ExpressionResult(ExpressionCompletionType.Reference, value);
         }
 
         /// <summary>
@@ -130,7 +127,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected ExpressionResult ThrowCompletion(JsValue value)
         {
-            return new ExpressionResult(ExpressionCompletionType.Throw, value, _expression);
+            return new ExpressionResult(ExpressionCompletionType.Throw, value);
         }
 
         /// <summary>
