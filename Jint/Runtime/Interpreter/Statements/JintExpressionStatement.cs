@@ -13,7 +13,7 @@ internal sealed class JintExpressionStatement : JintStatement<ExpressionStatemen
 
     protected override void Initialize(EvaluationContext context)
     {
-        _expression = JintExpression.Build(context.Engine, _statement.Expression);
+        _expression = JintExpression.Build(_statement.Expression);
     }
 
     protected override Completion ExecuteInternal(EvaluationContext context)

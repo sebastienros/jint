@@ -19,26 +19,33 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _argument;
         private readonly UnaryOperator _operator;
 
-        private JintUnaryExpression(Engine engine, UnaryExpression expression) : base(expression)
+        private JintUnaryExpression(UnaryExpression expression) : base(expression)
         {
-            _argument = Build(engine, expression.Argument);
+            _argument = Build(expression.Argument);
             _operator = expression.Operator;
         }
 
-        internal static JintExpression Build(Engine engine, UnaryExpression expression)
+        internal static JintExpression Build(UnaryExpression expression)
         {
+            if (expression.AssociatedData is JsValue cached)
+            {
+                return new JintConstantExpression(expression, cached);
+            }
+
             if (expression.Operator == UnaryOperator.Minus
                 && expression.Argument is Literal literal)
             {
                 var value = JintLiteralExpression.ConvertToJsValue(literal);
-                if (!(value is null))
+                if (value is not null)
                 {
                     // valid for caching
-                    return new JintConstantExpression(expression, EvaluateMinus(value));
+                    var evaluatedValue = EvaluateMinus(value);
+                    expression.AssociatedData = evaluatedValue;
+                    return new JintConstantExpression(expression, evaluatedValue);
                 }
             }
 
-            return new JintUnaryExpression(engine, expression);
+            return new JintUnaryExpression(expression);
         }
 
         public override JsValue GetValue(EvaluationContext context)

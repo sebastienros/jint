@@ -16,7 +16,7 @@ internal sealed class JintImportExpression : JintExpression
     protected override void Initialize(EvaluationContext context)
     {
         var expression = ((Import) _expression).Source;
-        _importExpression = Build(context.Engine, expression);
+        _importExpression = Build(expression);
     }
 
     /// <summary>

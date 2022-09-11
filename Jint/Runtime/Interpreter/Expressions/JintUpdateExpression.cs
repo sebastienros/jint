@@ -23,7 +23,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             var expression = (UpdateExpression) _expression;
             _prefix = expression.Prefix;
-            _argument = Build(context.Engine, expression.Argument);
+            _argument = Build(expression.Argument);
             if (expression.Operator == UnaryOperator.Increment)
             {
                 _change = 1;

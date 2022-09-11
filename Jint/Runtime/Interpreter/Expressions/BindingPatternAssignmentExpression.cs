@@ -21,7 +21,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize(EvaluationContext context)
         {
-            _right = Build(context.Engine, ((AssignmentExpression) _expression).Right);
+            _right = Build(((AssignmentExpression) _expression).Right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
@@ -239,7 +239,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         if (value.IsUndefined())
                         {
-                            var jintExpression = Build(engine, assignmentPattern.Right);
+                            var jintExpression = Build(assignmentPattern.Right);
                             var completion = jintExpression.GetValue(context);
                             if (context.IsAbrupt())
                             {
@@ -308,7 +308,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var identifier = p.Key as Identifier;
                     if (identifier == null || p.Computed)
                     {
-                        var keyExpression = Build(context.Engine, p.Key);
+                        var keyExpression = Build(p.Key);
                         var value = keyExpression.GetValue(context);
                         if (context.IsAbrupt())
                         {
@@ -327,7 +327,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         source.TryGetValue(sourceKey, out var value);
                         if (value.IsUndefined())
                         {
-                            var jintExpression = Build(context.Engine, assignmentPattern.Right);
+                            var jintExpression = Build(assignmentPattern.Right);
                             var completion = jintExpression.GetValue(context);
                             if (context.IsAbrupt())
                             {

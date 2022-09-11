@@ -101,24 +101,24 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        protected internal static JintExpression Build(Engine engine, Expression expression)
+        protected internal static JintExpression Build(Expression expression)
         {
             var result = expression.Type switch
             {
-                Nodes.AssignmentExpression => JintAssignmentExpression.Build(engine, (AssignmentExpression) expression),
+                Nodes.AssignmentExpression => JintAssignmentExpression.Build((AssignmentExpression) expression),
                 Nodes.ArrayExpression => new JintArrayExpression((ArrayExpression) expression),
-                Nodes.ArrowFunctionExpression => new JintArrowFunctionExpression(engine, (ArrowFunctionExpression) expression),
-                Nodes.BinaryExpression => JintBinaryExpression.Build(engine, (BinaryExpression) expression),
+                Nodes.ArrowFunctionExpression => new JintArrowFunctionExpression((ArrowFunctionExpression) expression),
+                Nodes.BinaryExpression => JintBinaryExpression.Build((BinaryExpression) expression),
                 Nodes.CallExpression => new JintCallExpression((CallExpression) expression),
-                Nodes.ConditionalExpression => new JintConditionalExpression(engine, (ConditionalExpression) expression),
+                Nodes.ConditionalExpression => new JintConditionalExpression((ConditionalExpression) expression),
                 Nodes.FunctionExpression => new JintFunctionExpression((FunctionExpression) expression),
                 Nodes.Identifier => new JintIdentifierExpression((Identifier) expression),
                 Nodes.Literal => JintLiteralExpression.Build((Literal) expression),
                 Nodes.LogicalExpression => ((BinaryExpression) expression).Operator switch
                 {
                     BinaryOperator.LogicalAnd => new JintLogicalAndExpression((BinaryExpression) expression),
-                    BinaryOperator.LogicalOr => new JintLogicalOrExpression(engine, (BinaryExpression) expression),
-                    BinaryOperator.NullishCoalescing => new NullishCoalescingExpression(engine, (BinaryExpression) expression),
+                    BinaryOperator.LogicalOr => new JintLogicalOrExpression((BinaryExpression) expression),
+                    BinaryOperator.NullishCoalescing => new NullishCoalescingExpression((BinaryExpression) expression),
                     _ => null
                 },
                 Nodes.MemberExpression => new JintMemberExpression((MemberExpression) expression),
@@ -127,8 +127,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 Nodes.SequenceExpression => new JintSequenceExpression((SequenceExpression) expression),
                 Nodes.ThisExpression => new JintThisExpression((ThisExpression) expression),
                 Nodes.UpdateExpression => new JintUpdateExpression((UpdateExpression) expression),
-                Nodes.UnaryExpression => JintUnaryExpression.Build(engine, (UnaryExpression) expression),
-                Nodes.SpreadElement => new JintSpreadExpression(engine, (SpreadElement) expression),
+                Nodes.UnaryExpression => JintUnaryExpression.Build((UnaryExpression) expression),
+                Nodes.SpreadElement => new JintSpreadExpression((SpreadElement) expression),
                 Nodes.TemplateLiteral => new JintTemplateLiteralExpression((TemplateLiteral) expression),
                 Nodes.TaggedTemplateExpression => new JintTaggedTemplateExpression((TaggedTemplateExpression) expression),
                 Nodes.ClassExpression => new JintClassExpression((ClassExpression) expression),
@@ -163,7 +163,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else
             {
-                JintBinaryExpression.AssertValidBigIntArithmeticOperands(context, left, right);
+                JintBinaryExpression.AssertValidBigIntArithmeticOperands(left, right);
                 var x = TypeConverter.ToBigInt(left);
                 var y = TypeConverter.ToBigInt(right);
 

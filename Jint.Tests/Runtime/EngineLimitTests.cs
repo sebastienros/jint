@@ -10,7 +10,7 @@ public class EngineLimitTests
     public void ShouldAllowReasonableCallStackDepth()
     {
 #if RELEASE
-        const int FunctionNestingCount = 990;
+        const int FunctionNestingCount = 1000;
 #else
         const int FunctionNestingCount = 570;
 #endif

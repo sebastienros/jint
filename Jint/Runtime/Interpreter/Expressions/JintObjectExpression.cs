@@ -93,7 +93,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (p.Kind is PropertyKind.Init)
                     {
                         var propertyValue = p.Value;
-                        _valueExpressions[i] = Build(engine, (Expression) propertyValue);
+                        _valueExpressions[i] = Build((Expression) propertyValue);
                         _canBuildFast &= !propertyValue.IsFunctionDefinition();
                     }
                     else
@@ -105,7 +105,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     _canBuildFast = false;
                     _properties[i] = null;
-                    _valueExpressions[i] = Build(engine, spreadElement.Argument);
+                    _valueExpressions[i] = Build(spreadElement.Argument);
                 }
                 else
                 {

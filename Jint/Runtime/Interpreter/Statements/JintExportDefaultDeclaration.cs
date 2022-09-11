@@ -30,11 +30,11 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
         }
         else if (_statement.Declaration is AssignmentExpression assignmentExpression)
         {
-            _assignmentExpression = JintAssignmentExpression.Build(context.Engine, assignmentExpression);
+            _assignmentExpression = JintAssignmentExpression.Build(assignmentExpression);
         }
         else
         {
-            _simpleExpression = JintExpression.Build(context.Engine, (Expression) _statement.Declaration);
+            _simpleExpression = JintExpression.Build((Expression) _statement.Declaration);
         }
     }
 

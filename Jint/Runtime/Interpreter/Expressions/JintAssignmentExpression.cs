@@ -13,14 +13,14 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _right;
         private readonly AssignmentOperator _operator;
 
-        private JintAssignmentExpression(Engine engine, AssignmentExpression expression) : base(expression)
+        private JintAssignmentExpression(AssignmentExpression expression) : base(expression)
         {
-            _left = Build(engine, (Expression) expression.Left);
-            _right = Build(engine, expression.Right);
+            _left = Build((Expression) expression.Left);
+            _right = Build(expression.Right);
             _operator = expression.Operator;
         }
 
-        internal static JintExpression Build(Engine engine, AssignmentExpression expression)
+        internal static JintExpression Build(AssignmentExpression expression)
         {
             if (expression.Operator == AssignmentOperator.Assign)
             {
@@ -32,7 +32,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return new SimpleAssignmentExpression(expression);
             }
 
-            return new JintAssignmentExpression(engine, expression);
+            return new JintAssignmentExpression(expression);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
@@ -345,11 +345,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             protected override void Initialize(EvaluationContext context)
             {
                 var assignmentExpression = (AssignmentExpression) _expression;
-                _left = Build(context.Engine, (Expression) assignmentExpression.Left);
+                _left = Build((Expression) assignmentExpression.Left);
                 _leftIdentifier = _left as JintIdentifierExpression;
                 _evalOrArguments = _leftIdentifier?.HasEvalOrArguments == true;
 
-                _right = Build(context.Engine, assignmentExpression.Right);
+                _right = Build(assignmentExpression.Right);
             }
 
             protected override object EvaluateInternal(EvaluationContext context)

@@ -88,7 +88,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
 
             _body = new ProbablyBlockStatement(_forBody);
-            _right = JintExpression.Build(engine, _rightExpression);
+            _right = JintExpression.Build(_rightExpression);
         }
 
         protected override Completion ExecuteInternal(EvaluationContext context)

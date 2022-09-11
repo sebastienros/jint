@@ -25,7 +25,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var expr = node.Elements[n];
                 if (expr != null)
                 {
-                    var expression = Build(engine, expr);
+                    var expression = Build(expr);
                     _expressions[n] = expression;
                     _hasSpreads |= expr.Type == Nodes.SpreadElement;
                 }

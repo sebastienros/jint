@@ -29,7 +29,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var expression = (CallExpression) _expression;
             ref readonly var expressionArguments = ref expression.Arguments;
 
-            _calleeExpression = Build(engine, expression.Callee);
+            _calleeExpression = Build(expression.Callee);
             var cachedArgumentsHolder = new CachedArgumentsHolder
             {
                 JintArguments = new JintExpression[expressionArguments.Count]
@@ -44,7 +44,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             for (var i = 0; i < expressionArguments.Count; i++)
             {
                 var expressionArgument = expressionArguments[i];
-                cachedArgumentsHolder.JintArguments[i] = Build(engine, expressionArgument);
+                cachedArgumentsHolder.JintArguments[i] = Build(expressionArgument);
                 cacheable &= expressionArgument.Type == Nodes.Literal;
                 _hasSpreads |= CanSpread(expressionArgument);
                 if (expressionArgument is ArrayExpression ae)

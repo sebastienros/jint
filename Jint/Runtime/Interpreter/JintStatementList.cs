@@ -126,21 +126,22 @@ namespace Jint.Runtime.Interpreter
             }
             if (exception is TypeErrorException typeErrorException)
             {
-                return CreateThrowCompletion(context.Engine.Realm.Intrinsics.TypeError, typeErrorException, s!);
+                var node = typeErrorException.Node ?? s!._statement;
+                return CreateThrowCompletion(context.Engine.Realm.Intrinsics.TypeError, typeErrorException, node);
             }
             if (exception is RangeErrorException rangeErrorException)
             {
-                return CreateThrowCompletion(context.Engine.Realm.Intrinsics.RangeError, rangeErrorException, s!);
+                return CreateThrowCompletion(context.Engine.Realm.Intrinsics.RangeError, rangeErrorException, s!._statement);
             }
 
             // should not happen unless there's problem in the engine
             throw exception;
         }
 
-        private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, Exception e, JintStatement s)
+        private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, Exception e, SyntaxElement s)
         {
             var error = errorConstructor.Construct(new JsValue[] { e.Message });
-            return new Completion(CompletionType.Throw, error, s._statement);
+            return new Completion(CompletionType.Throw, error, s);
         }
 
         private static Completion CreateThrowCompletion(JintStatement? s, JavaScriptException v)

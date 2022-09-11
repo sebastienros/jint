@@ -17,9 +17,8 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override void Initialize(EvaluationContext context)
         {
-            var engine = context.Engine;
             _switchBlock = new JintSwitchBlock(_statement.Cases);
-            _discriminant = JintExpression.Build(engine, _statement.Discriminant);
+            _discriminant = JintExpression.Build(_statement.Discriminant);
         }
 
         protected override Completion ExecuteInternal(EvaluationContext context)

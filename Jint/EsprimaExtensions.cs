@@ -72,7 +72,7 @@ namespace Jint
                 or Nodes.YieldExpression)
             {
                 var context = engine._activeEvaluationContext;
-                return JintExpression.Build(engine, expression).GetValue(context!);
+                return JintExpression.Build(expression).GetValue(context!);
             }
 
             return JsValue.Undefined;

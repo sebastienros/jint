@@ -18,6 +18,15 @@ internal sealed class EvaluationContext
         _shouldRunBeforeExecuteStatementChecks = engine._constraints.Length > 0 || engine._isDebugMode;
     }
 
+    // for fast evaluation checks only
+    public EvaluationContext()
+    {
+        Engine = null!;
+        ResumedCompletion = default; // TODO later
+        OperatorOverloadingAllowed = false;
+        _shouldRunBeforeExecuteStatementChecks = false;
+    }
+
     public readonly Engine Engine;
     public readonly Completion ResumedCompletion;
     public bool DebugMode => Engine._isDebugMode;

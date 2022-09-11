@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override void Initialize(EvaluationContext context)
         {
             _body = new ProbablyBlockStatement(_statement.Body);
-            _test = JintExpression.Build(context.Engine, _statement.Test);
+            _test = JintExpression.Build(_statement.Test);
             _labelSetName = _statement.LabelSet?.Name;
         }
 

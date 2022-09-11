@@ -21,10 +21,9 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize(EvaluationContext context)
         {
-            var engine = context.Engine;
-            _tagIdentifier = Build(engine, _taggedTemplateExpression.Tag);
+            _tagIdentifier = Build(_taggedTemplateExpression.Tag);
             _quasi = new JintTemplateLiteralExpression(_taggedTemplateExpression.Quasi);
-            _quasi.DoInitialize(context);
+            _quasi.DoInitialize();
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
