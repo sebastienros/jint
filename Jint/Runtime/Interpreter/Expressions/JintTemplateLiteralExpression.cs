@@ -17,17 +17,16 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize(EvaluationContext context)
         {
-            DoInitialize(context);
+            DoInitialize();
         }
 
-        internal void DoInitialize(EvaluationContext context)
+        internal void DoInitialize()
         {
-            var engine = context.Engine;
             _expressions = new JintExpression[_templateLiteralExpression.Expressions.Count];
             for (var i = 0; i < _templateLiteralExpression.Expressions.Count; i++)
             {
                 var exp = _templateLiteralExpression.Expressions[i];
-                _expressions[i] = Build(engine, exp);
+                _expressions[i] = Build(exp);
             }
 
             _initialized = true;

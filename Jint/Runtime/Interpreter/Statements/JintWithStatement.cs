@@ -19,7 +19,7 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override void Initialize(EvaluationContext context)
         {
             _body = new ProbablyBlockStatement(_statement.Body);
-            _object = JintExpression.Build(context.Engine, _statement.Object);
+            _object = JintExpression.Build(_statement.Object);
         }
 
         protected override Completion ExecuteInternal(EvaluationContext context)

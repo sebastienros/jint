@@ -18,7 +18,7 @@ internal sealed class JintReturnStatement : JintStatement<ReturnStatement>
     protected override void Initialize(EvaluationContext context)
     {
         _argument = _statement.Argument != null
-            ? JintExpression.Build(context.Engine, _statement.Argument)
+            ? JintExpression.Build(_statement.Argument)
             : null;
     }
 

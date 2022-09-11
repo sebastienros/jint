@@ -38,7 +38,7 @@ internal sealed class JintFunctionDefinition
         if (Function.Expression)
         {
             // https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody
-            _bodyExpression ??= JintExpression.Build(context.Engine, (Expression) Function.Body);
+            _bodyExpression ??= JintExpression.Build((Expression) Function.Body);
             var jsValue = _bodyExpression.GetValue(context).Clone();
             result = new Completion(CompletionType.Return, jsValue, Function.Body);
         }

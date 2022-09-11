@@ -45,18 +45,18 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
                 else
                 {
-                    _initExpression = JintExpression.Build(engine, (Expression) _statement.Init);
+                    _initExpression = JintExpression.Build((Expression) _statement.Init);
                 }
             }
 
             if (_statement.Test != null)
             {
-                _test = JintExpression.Build(engine, _statement.Test);
+                _test = JintExpression.Build(_statement.Test);
             }
 
             if (_statement.Update != null)
             {
-                _increment = JintExpression.Build(engine, _statement.Update);
+                _increment = JintExpression.Build(_statement.Update);
             }
         }
 

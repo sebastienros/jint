@@ -128,7 +128,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                 if (switchCase.Test != null)
                 {
-                    Test = JintExpression.Build(engine, switchCase.Test);
+                    Test = JintExpression.Build(switchCase.Test);
                 }
             }
         }

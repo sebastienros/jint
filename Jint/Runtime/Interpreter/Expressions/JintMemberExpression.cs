@@ -23,7 +23,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize(EvaluationContext context)
         {
-            _objectExpression = Build(context.Engine, _memberExpression.Object);
+            _objectExpression = Build(_memberExpression.Object);
 
             if (!_memberExpression.Computed)
             {
@@ -36,7 +36,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (_determinedProperty is null)
             {
-                _propertyExpression = Build(context.Engine, _memberExpression.Property);
+                _propertyExpression = Build(_memberExpression.Property);
             }
         }
 

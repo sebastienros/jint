@@ -10,9 +10,9 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression? _right;
         private readonly JsValue? _constant;
 
-        public NullishCoalescingExpression(Engine engine, BinaryExpression expression) : base(expression)
+        public NullishCoalescingExpression(BinaryExpression expression) : base(expression)
         {
-            _left = Build(engine, expression.Left);
+            _left = Build(expression.Left);
 
             // we can create a fast path for common literal case like variable ?? 0
             if (expression.Right is Literal l)
@@ -21,7 +21,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else
             {
-                _right = Build(engine, expression.Right);
+                _right = Build(expression.Right);
             }
         }
 

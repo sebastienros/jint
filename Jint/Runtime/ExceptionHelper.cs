@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using Esprima;
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Runtime.CallStack;
@@ -57,9 +58,9 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowTypeErrorNoEngine(string? message = null)
+        public static void ThrowTypeErrorNoEngine(string? message = null, Node? source = null)
         {
-            throw new TypeErrorException(message);
+            throw new TypeErrorException(message, source);
         }
 
         [DoesNotReturn]

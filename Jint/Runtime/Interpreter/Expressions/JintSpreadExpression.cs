@@ -9,9 +9,9 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _argument;
         private readonly string? _argumentName;
 
-        public JintSpreadExpression(Engine engine, SpreadElement expression) : base(expression)
+        public JintSpreadExpression(SpreadElement expression) : base(expression)
         {
-            _argument = Build(engine, expression.Argument);
+            _argument = Build(expression.Argument);
             _argumentName = (expression.Argument as Identifier)?.Name;
         }
 

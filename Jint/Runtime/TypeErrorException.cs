@@ -1,3 +1,5 @@
+using Esprima.Ast;
+
 namespace Jint.Runtime
 {
     /// <summary>
@@ -5,8 +7,11 @@ namespace Jint.Runtime
     /// </summary>
     internal sealed class TypeErrorException : JintException
     {
-        public TypeErrorException(string? message) : base(message)
+        public TypeErrorException(string? message, Node? node) : base(message)
         {
+            Node = node;
         }
+
+        public Node? Node { get; }
     }
 }

@@ -16,7 +16,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override void Initialize(EvaluationContext context)
         {
-            _argument = JintExpression.Build(context.Engine, _statement.Argument);
+            _argument = JintExpression.Build(_statement.Argument);
         }
 
         protected override Completion ExecuteInternal(EvaluationContext context)

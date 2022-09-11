@@ -8,11 +8,11 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _consequent;
         private readonly JintExpression _alternate;
 
-        public JintConditionalExpression(Engine engine, ConditionalExpression expression) : base(expression)
+        public JintConditionalExpression(ConditionalExpression expression) : base(expression)
         {
-            _test = Build(engine, expression.Test);
-            _consequent = Build(engine, expression.Consequent);
-            _alternate = Build(engine, expression.Alternate);
+            _test = Build(expression.Test);
+            _consequent = Build(expression.Consequent);
+            _alternate = Build(expression.Alternate);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)

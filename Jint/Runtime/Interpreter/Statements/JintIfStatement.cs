@@ -16,7 +16,7 @@ namespace Jint.Runtime.Interpreter.Statements
         protected override void Initialize(EvaluationContext context)
         {
             _statementConsequent = new ProbablyBlockStatement(_statement.Consequent);
-            _test = JintExpression.Build(context.Engine, _statement.Test);
+            _test = JintExpression.Build(_statement.Test);
             _alternate = _statement.Alternate != null ? new ProbablyBlockStatement(_statement.Alternate) : null;
         }
 

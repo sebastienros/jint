@@ -41,12 +41,12 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
                 else
                 {
-                    left = JintExpression.Build(engine, (Identifier) declaration.Id);
+                    left = JintExpression.Build((Identifier) declaration.Id);
                 }
 
                 if (declaration.Init != null)
                 {
-                    init = JintExpression.Build(engine, declaration.Init);
+                    init = JintExpression.Build(declaration.Init);
                 }
 
                 var leftIdentifier = left as JintIdentifierExpression;

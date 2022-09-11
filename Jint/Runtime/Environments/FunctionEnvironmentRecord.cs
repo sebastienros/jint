@@ -360,7 +360,7 @@ namespace Jint.Runtime.Environments
             if (argument.IsUndefined())
             {
                 var expression = right.As<Expression>();
-                var jintExpression = JintExpression.Build(_engine, expression);
+                var jintExpression = JintExpression.Build(expression);
 
                 var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                 var paramVarEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);

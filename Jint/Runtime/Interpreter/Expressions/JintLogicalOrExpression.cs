@@ -8,10 +8,10 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _left;
         private readonly JintExpression _right;
 
-        public JintLogicalOrExpression(Engine engine, BinaryExpression expression) : base(expression)
+        public JintLogicalOrExpression(BinaryExpression expression) : base(expression)
         {
-            _left = Build(engine, expression.Left);
-            _right = Build(engine, expression.Right);
+            _left = Build(expression.Left);
+            _right = Build(expression.Right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)

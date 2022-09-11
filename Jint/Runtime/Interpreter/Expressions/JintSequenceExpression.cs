@@ -14,13 +14,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize(EvaluationContext context)
         {
-            var engine = context.Engine;
             var expression = (SequenceExpression) _expression;
             ref readonly var expressions = ref expression.Expressions;
             var temp = new JintExpression[expressions.Count];
             for (var i = 0; i < (uint) temp.Length; i++)
             {
-                temp[i] = Build(engine, expressions[i]);
+                temp[i] = Build(expressions[i]);
             }
 
             _expressions = temp;

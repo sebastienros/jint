@@ -16,10 +16,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize(EvaluationContext context)
         {
-            var engine = context.Engine;
-
             var expression = (NewExpression) _expression;
-            _calleeExpression = Build(engine, expression.Callee);
+            _calleeExpression = Build(expression.Callee);
 
             if (expression.Arguments.Count <= 0)
             {
@@ -30,7 +28,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             for (var i = 0; i < _jintArguments.Length; i++)
             {
                 var argument = expression.Arguments[i];
-                _jintArguments[i] = Build(engine, argument);
+                _jintArguments[i] = Build(argument);
                 _hasSpreads |= argument.Type == Nodes.SpreadElement;
             }
         }

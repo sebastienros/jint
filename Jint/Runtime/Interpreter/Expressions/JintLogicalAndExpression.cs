@@ -16,8 +16,8 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected override void Initialize(EvaluationContext context)
         {
             var expression = (BinaryExpression) _expression;
-            _left = Build(context.Engine, expression.Left);
-            _right = Build(context.Engine, expression.Right);
+            _left = Build(expression.Left);
+            _right = Build(expression.Right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
