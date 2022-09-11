@@ -9,12 +9,12 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             var envRec = (FunctionEnvironmentRecord) context.Engine.ExecutionContext.GetThisEnvironment();
             var activeFunction = envRec._functionObject;
             var superConstructor = activeFunction.GetPrototypeOf();
-            return NormalCompletion(superConstructor!);
+            return superConstructor!;
         }
     }
 }

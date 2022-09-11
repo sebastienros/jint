@@ -53,7 +53,7 @@ internal sealed class Test262ModuleLoader : IModuleLoader
         catch (Exception ex)
         {
             var message = $"Could not load module {resolved.Uri?.LocalPath}: {ex.Message}";
-            ExceptionHelper.ThrowJavaScriptException(engine, message, Completion.Empty());
+            ExceptionHelper.ThrowJavaScriptException(engine, message, (Location) default);
             module = null;
         }
 

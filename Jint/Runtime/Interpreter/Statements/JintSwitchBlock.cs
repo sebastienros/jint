@@ -59,7 +59,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
                 else
                 {
-                    var clauseSelector = clause.Test.GetValue(context).Value;
+                    var clauseSelector = clause.Test.GetValue(context);
                     if (clauseSelector == input)
                     {
                         hit = true;

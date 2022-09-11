@@ -12,12 +12,12 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// https://tc39.es/ecma262/#sec-meta-properties
         /// </summary>
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             var expression = (MetaProperty) _expression;
             if (expression.Meta.Name == "new" && expression.Property.Name == "target")
             {
-                return NormalCompletion(context.Engine.GetNewTarget());
+                return context.Engine.GetNewTarget();
             }
 
             if (expression.Meta.Name == "import" && expression.Property.Name == "meta")
@@ -37,7 +37,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     module.ImportMeta = importMeta;
                 }
 
-                return NormalCompletion(importMeta);
+                return importMeta;
             }
 
             ExceptionHelper.ThrowNotImplementedException();

@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public bool HasEvalOrArguments => Identifier.HasEvalOrArguments;
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             var engine = context.Engine;
             var env = engine.ExecutionContext.LexicalEnvironment;
@@ -29,17 +29,17 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ? temp
                 : JsValue.Undefined;
 
-            return NormalCompletion(engine._referencePool.Rent(identifierEnvironment, Identifier.StringValue, strict, thisValue: null));
+            return engine._referencePool.Rent(identifierEnvironment, Identifier.StringValue, strict, thisValue: null);
         }
 
-        public override Completion GetValue(EvaluationContext context)
+        public override JsValue GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
             context.LastSyntaxElement = _expression;
 
             if (Identifier.CalculatedValue is not null)
             {
-                return new(CompletionType.Normal, Identifier.CalculatedValue, _expression);
+                return Identifier.CalculatedValue;
             }
 
             var strict = StrictModeScope.IsStrictModeCode;
@@ -70,7 +70,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 argumentsInstance.Materialize();
             }
 
-            return new(CompletionType.Normal, value, _expression);
+            return value;
         }
 
         [DoesNotReturn]

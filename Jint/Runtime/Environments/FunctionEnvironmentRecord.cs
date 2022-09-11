@@ -229,7 +229,7 @@ namespace Jint.Runtime.Environments
                         else if (p.Key is CallExpression callExpression)
                         {
                             var jintCallExpression = new JintCallExpression(callExpression);
-                            var jsValue = jintCallExpression.GetValue(context).Value;
+                            var jsValue = jintCallExpression.GetValue(context);
                             propertyName = TypeConverter.ToJsString(jsValue);
                         }
                         else
@@ -368,7 +368,7 @@ namespace Jint.Runtime.Environments
                 _engine.EnterExecutionContext(new ExecutionContext(null, paramVarEnv, paramVarEnv, null, _engine.Realm, null));
                 try
                 {
-                    argument = jintExpression.GetValue(context).Value;
+                    argument = jintExpression.GetValue(context);
                 }
                 finally
                 {

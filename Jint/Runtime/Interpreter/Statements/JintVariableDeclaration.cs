@@ -68,12 +68,11 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 if (_statement.Kind != VariableDeclarationKind.Var && declaration.Left != null)
                 {
-                    var lhs = (Reference) declaration.Left.Evaluate(context).Value;
+                    var lhs = (Reference) declaration.Left.Evaluate(context);
                     var value = JsValue.Undefined;
                     if (declaration.Init != null)
                     {
-                        var completion = declaration.Init.GetValue(context);
-                        value = completion.Value.Clone();
+                        value = declaration.Init.GetValue(context).Clone();
                         if (declaration.Init._expression.IsFunctionDefinition())
                         {
                             ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
@@ -91,12 +90,12 @@ namespace Jint.Runtime.Interpreter.Statements
                             ? engine.ExecutionContext.LexicalEnvironment
                             : null;
 
-                        var completion = declaration.Init.GetValue(context);
+                        var value = declaration.Init.GetValue(context);
 
                         BindingPatternAssignmentExpression.ProcessPatterns(
                             context,
                             declaration.LeftPattern,
-                            completion.Value,
+                            value,
                             environment,
                             checkPatternPropertyReference: _statement.Kind != VariableDeclarationKind.Var);
                     }
@@ -108,11 +107,10 @@ namespace Jint.Runtime.Interpreter.Statements
                                  declaration.EvalOrArguments) is null)
                     {
                         // slow path
-                        var lhs = (Reference) declaration.Left!.Evaluate(context).Value;
+                        var lhs = (Reference) declaration.Left!.Evaluate(context);
                         lhs.AssertValid(engine.Realm);
 
-                        var completion = declaration.Init.GetValue(context);
-                        var value = completion.Value.Clone();
+                        var value = declaration.Init.GetValue(context).Clone();
 
                         if (declaration.Init._expression.IsFunctionDefinition())
                         {

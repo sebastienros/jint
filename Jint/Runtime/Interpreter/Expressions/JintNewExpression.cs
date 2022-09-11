@@ -35,12 +35,12 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             var engine = context.Engine;
 
             // todo: optimize by defining a common abstract class or interface
-            var jsValue = _calleeExpression.GetValue(context).Value;
+            var jsValue = _calleeExpression.GetValue(context);
 
             JsValue[] arguments;
             if (_jintArguments.Length == 0)
@@ -71,7 +71,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             engine._jsValueArrayPool.ReturnArray(arguments);
 
-            return NormalCompletion(instance);
+            return instance;
         }
     }
 }

@@ -50,7 +50,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation
         /// </summary>
-        public Completion BuildConstructor(
+        public JsValue BuildConstructor(
             EvaluationContext context,
             EnvironmentRecord env)
         {
@@ -88,7 +88,7 @@ namespace Jint.Native.Function
             else
             {
                 engine.UpdateLexicalEnvironment(classScope);
-                var superclass = JintExpression.Build(engine, _superClass).GetValue(context).Value;
+                var superclass = JintExpression.Build(engine, _superClass).GetValue(context);
                 engine.UpdateLexicalEnvironment(env);
 
                 if (superclass.IsNull())
@@ -166,10 +166,10 @@ namespace Jint.Native.Function
                     }
 
                     var target = !m.Static ? proto : F;
-                    var completion = MethodDefinitionEvaluation(engine, target, m);
-                    if (completion.IsAbrupt())
+                    var value = MethodDefinitionEvaluation(engine, target, m);
+                    if (engine._activeEvaluationContext!.IsAbrupt())
                     {
-                        return completion;
+                        return value;
                     }
                 }
             }
@@ -198,13 +198,13 @@ namespace Jint.Native.Function
 
             engine.UpdatePrivateEnvironment(outerPrivateEnvironment);
 
-            return new Completion(CompletionType.Normal, F, _body);
+            return F;
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-methoddefinitionevaluation
         /// </summary>
-        private static Completion MethodDefinitionEvaluation(
+        private static JsValue MethodDefinitionEvaluation(
             Engine engine,
             ObjectInstance obj,
             MethodDefinition method)
@@ -218,12 +218,12 @@ namespace Jint.Native.Function
             }
             else
             {
-                var completion = method.TryGetKey(engine);
-                if (completion.IsAbrupt())
+                var value = method.TryGetKey(engine);
+                if (engine._activeEvaluationContext!.IsAbrupt())
                 {
-                    return completion;
+                    return value;
                 }
-                var propKey = TypeConverter.ToPropertyKey(completion.Value);
+                var propKey = TypeConverter.ToPropertyKey(value);
                 var function = method.Value as IFunction;
                 if (function is null)
                 {
@@ -247,7 +247,7 @@ namespace Jint.Native.Function
                 obj.DefinePropertyOrThrow(propKey, propDesc);
             }
 
-            return new Completion(CompletionType.Normal, obj, method);
+            return obj;
         }
     }
 }

@@ -18,22 +18,22 @@ namespace Jint
 
         public static JsValue GetKey(this Expression expression, Engine engine, bool resolveComputed = false)
         {
-            var completion = TryGetKey(expression, engine, resolveComputed);
-            if (completion.Value is not null)
+            var key = TryGetKey(expression, engine, resolveComputed);
+            if (key is not null)
             {
-                return TypeConverter.ToPropertyKey(completion.Value);
+                return TypeConverter.ToPropertyKey(key);
             }
 
             ExceptionHelper.ThrowArgumentException("Unable to extract correct key, node type: " + expression.Type);
             return JsValue.Undefined;
         }
 
-        internal static Completion TryGetKey<T>(this T property, Engine engine) where T : IProperty
+        internal static JsValue TryGetKey<T>(this T property, Engine engine) where T : IProperty
         {
             return TryGetKey(property.Key, engine, property.Computed);
         }
 
-        internal static Completion TryGetKey<T>(this T expression, Engine engine, bool resolveComputed) where T : Expression
+        internal static JsValue TryGetKey<T>(this T expression, Engine engine, bool resolveComputed) where T : Expression
         {
             JsValue key;
             if (expression is Literal literal)
@@ -52,10 +52,10 @@ namespace Jint
             {
                 key = JsValue.Undefined;
             }
-            return new Completion(CompletionType.Normal, key, expression);
+            return key;
         }
 
-        private static Completion TryGetComputedPropertyKey<T>(T expression, Engine engine)
+        private static JsValue TryGetComputedPropertyKey<T>(T expression, Engine engine)
             where T : Expression
         {
             if (expression.Type is Nodes.Identifier
@@ -75,7 +75,7 @@ namespace Jint
                 return JintExpression.Build(engine, expression).GetValue(context!);
             }
 
-            return new Completion(CompletionType.Normal, JsValue.Undefined, expression);
+            return JsValue.Undefined;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

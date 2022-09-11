@@ -26,15 +26,15 @@ namespace Jint.Runtime.Interpreter.Expressions
             _expressions = temp;
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             var result = Undefined.Instance;
             foreach (var expression in _expressions)
             {
-                result = expression.GetValue(context).Value;
+                result = expression.GetValue(context);
             }
 
-            return NormalCompletion(result);
+            return result;
         }
     }
 }

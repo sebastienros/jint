@@ -35,7 +35,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             _initialized = true;
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             var engine = context.Engine;
             var a = engine.Realm.Intrinsics.Array.ArrayCreate(_hasSpreads ? 0 : (uint) _expressions.Length);
@@ -71,7 +71,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else
                 {
-                    var value = expr.GetValue(context).Value;
+                    var value = expr.GetValue(context);
                     a.SetIndexValue(arrayIndexCounter++, value, updateLength: false);
                 }
             }
@@ -81,7 +81,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 a.SetLength(arrayIndexCounter);
             }
 
-            return NormalCompletion(a);
+            return a;
         }
 
         private sealed class ArraySpreadProtocol : IteratorProtocol

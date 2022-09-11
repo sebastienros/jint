@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             _classDefinition = new ClassDefinition(expression.Id?.Name, expression.SuperClass, expression.Body);
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             var env = context.Engine.ExecutionContext.LexicalEnvironment;
             return _classDefinition.BuildConstructor(context, env);

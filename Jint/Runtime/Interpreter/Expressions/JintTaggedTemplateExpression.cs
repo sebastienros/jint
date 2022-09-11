@@ -27,7 +27,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             _quasi.DoInitialize(context);
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             var engine = context.Engine;
             var tagger = engine.GetValue(_tagIdentifier.GetValue(context)) as ICallable;
@@ -45,13 +45,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             for (int i = 0; i < expressions.Length; ++i)
             {
-                args[i + 1] = expressions[i].GetValue(context).Value;
+                args[i + 1] = expressions[i].GetValue(context);
             }
 
             var result = tagger.Call(JsValue.Undefined, args);
             engine._jsValueArrayPool.ReturnArray(args);
 
-            return NormalCompletion(result);
+            return result;
         }
 
         /// <summary>

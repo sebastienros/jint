@@ -343,7 +343,8 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
             {
                 _engine.EnterExecutionContext(moduleContext);
                 var statementList = new JintStatementList(null, _source.Body);
-                var result = statementList.Execute(_engine._activeEvaluationContext ?? new EvaluationContext(_engine)); //Create new evaluation context when called from e.g. module tests
+                var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+                var result = statementList.Execute(context); //Create new evaluation context when called from e.g. module tests
                 _engine.LeaveExecutionContext();
                 return result;
             }

@@ -116,7 +116,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             return _canBuildFast
                 ? BuildObjectFast(context)
@@ -126,12 +126,12 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// Version that can safely build plain object with only normal init/data fields fast.
         /// </summary>
-        private ExpressionResult BuildObjectFast(EvaluationContext context)
+        private object BuildObjectFast(EvaluationContext context)
         {
             var obj = context.Engine.Realm.Intrinsics.Object.Construct(0);
             if (_properties.Length == 0)
             {
-                return NormalCompletion(obj);
+                return obj;
             }
 
             var properties = new PropertyDictionary(_properties.Length, checkExistingKeys: true);
@@ -139,18 +139,18 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var objectProperty = _properties[i];
                 var valueExpression = _valueExpressions[i];
-                var propValue = valueExpression.GetValue(context).Value.Clone();
+                var propValue = valueExpression.GetValue(context).Clone();
                 properties[objectProperty!._key!] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
             obj.SetProperties(properties);
-            return NormalCompletion(obj);
+            return obj;
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-object-initializer-runtime-semantics-propertydefinitionevaluation
         /// </summary>
-        private ExpressionResult BuildObjectNormal(EvaluationContext context)
+        private object BuildObjectNormal(EvaluationContext context)
         {
             var engine = context.Engine;
             var obj = engine.Realm.Intrinsics.Object.Construct(_properties.Length);
@@ -162,7 +162,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (objectProperty is null)
                 {
                     // spread
-                    if (_valueExpressions[i].GetValue(context).Value is ObjectInstance source)
+                    if (_valueExpressions[i].GetValue(context) is ObjectInstance source)
                     {
                         source.CopyDataProperties(obj, null);
                     }
@@ -184,25 +184,25 @@ namespace Jint.Runtime.Interpreter.Expressions
                 JsValue? propName = objectProperty.KeyJsString;
                 if (propName is null)
                 {
-                    var completion = property.TryGetKey(engine);
-                    if (completion.IsAbrupt())
+                    var value = property.TryGetKey(engine);
+                    if (context.IsAbrupt())
                     {
-                        return completion;
+                        return value;
                     }
 
-                    propName = TypeConverter.ToPropertyKey(completion.Value);
+                    propName = TypeConverter.ToPropertyKey(value);
                 }
 
                 if (property.Kind == PropertyKind.Init)
                 {
                     var expr = _valueExpressions[i];
                     var completion = expr.GetValue(context);
-                    if (completion.IsAbrupt())
+                    if (context.IsAbrupt())
                     {
                         return completion;
                     }
 
-                    var propValue = completion.Value.Clone();
+                    var propValue = completion.Clone();
                     if (expr._expression.IsFunctionDefinition())
                     {
                         var closure = (FunctionInstance) propValue;
@@ -242,7 +242,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            return NormalCompletion(obj);
+            return obj;
         }
     }
 }
