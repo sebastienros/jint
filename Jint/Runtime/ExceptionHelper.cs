@@ -144,15 +144,15 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowJavaScriptException(ErrorConstructor errorConstructor, string message)
+        public static void ThrowJavaScriptException(Engine engine, JsValue value, in Location location)
         {
-            throw new JavaScriptException(errorConstructor, message);
+            throw new JavaScriptException(value).SetJavaScriptCallstack(engine, location);
         }
 
         [DoesNotReturn]
-        public static void ThrowJavaScriptException(ErrorConstructor errorConstructor, string message, Engine engine, Location location)
+        public static void ThrowJavaScriptException(ErrorConstructor errorConstructor, string message)
         {
-            throw new JavaScriptException(errorConstructor, message).SetJavaScriptCallstack(engine, location);
+            throw new JavaScriptException(errorConstructor, message);
         }
 
         [DoesNotReturn]

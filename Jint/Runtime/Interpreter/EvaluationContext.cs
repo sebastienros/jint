@@ -44,4 +44,7 @@ internal sealed class EvaluationContext
         Target = null;
         Completion = CompletionType.Normal;
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsAbrupt() => Completion != CompletionType.Normal;
 }

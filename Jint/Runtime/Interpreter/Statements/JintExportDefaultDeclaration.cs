@@ -47,32 +47,32 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
         JsValue value;
         if (_classDefinition is not null)
         {
-            value = _classDefinition.BuildConstructor(context, env).GetValueOrDefault();
+            value = _classDefinition.BuildConstructor(context, env);
             var classBinding = _classDefinition._className;
             if (classBinding != null)
             {
                 env.CreateMutableBinding(classBinding);
                 env.InitializeBinding(classBinding, value);
             }
-        }     
+        }
         else if (_functionDeclaration is not null)
         {
             value = _functionDeclaration.Execute(context).GetValueOrDefault();
         }
         else if (_assignmentExpression is not null)
         {
-            value = _assignmentExpression.GetValue(context).GetValueOrDefault();
+            value = _assignmentExpression.GetValue(context);
         }
         else
         {
-            value = _simpleExpression!.GetValue(context).GetValueOrDefault();
+            value = _simpleExpression!.GetValue(context);
         }
 
         if (value is ObjectInstance oi && !oi.HasOwnProperty("name"))
         {
             oi.SetFunctionName("default");
         }
-        
+
         env.InitializeBinding("*default*", value);
         return Completion.Empty();
     }

@@ -154,7 +154,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     // we have fixed result
                     var context = new EvaluationContext(engine);
-                    return new JintConstantExpression(expression, result.GetValue(context).Value);
+                    return new JintConstantExpression(expression, result.GetValue(context));
                 }
             }
 
@@ -181,12 +181,12 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context).Value;
-                var right = _right.GetValue(context).Value;
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
                 var equal = left == right;
-                return NormalCompletion(equal ? JsBoolean.True : JsBoolean.False);
+                return equal ? JsBoolean.True : JsBoolean.False;
             }
         }
 
@@ -196,11 +196,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context).Value;
-                var right = _right.GetValue(context).Value;
-                return NormalCompletion(left == right ? JsBoolean.False : JsBoolean.True);
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
+                return left == right ? JsBoolean.False : JsBoolean.True;
             }
         }
 
@@ -210,20 +210,20 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context).Value;
-                var right = _right.GetValue(context).Value;
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_LessThan", out var opResult))
                 {
-                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
+                    return JsValue.FromObject(context.Engine, opResult);
                 }
 
                 var value = Compare(left, right);
 
-                return NormalCompletion(value._type == InternalTypes.Undefined ? JsBoolean.False : value);
+                return value._type == InternalTypes.Undefined ? JsBoolean.False : value;
             }
         }
 
@@ -233,20 +233,20 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context).Value;
-                var right = _right.GetValue(context).Value;
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_GreaterThan", out var opResult))
                 {
-                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
+                    return JsValue.FromObject(context.Engine, opResult);
                 }
 
                 var value = Compare(right, left, false);
 
-                return NormalCompletion(value._type == InternalTypes.Undefined ? JsBoolean.False : value);
+                return value._type == InternalTypes.Undefined ? JsBoolean.False : value;
             }
         }
 
@@ -256,20 +256,20 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context).Value;
-                var right = _right.GetValue(context).Value;
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_Addition", out var opResult))
                 {
-                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
+                    return JsValue.FromObject(context.Engine, opResult);
                 }
 
                 if (AreIntegerOperands(left, right))
                 {
-                    return NormalCompletion(JsNumber.Create((long)left.AsInteger() + right.AsInteger()));
+                    return JsNumber.Create((long)left.AsInteger() + right.AsInteger());
                 }
 
                 var lprim = TypeConverter.ToPrimitive(left);
@@ -289,7 +289,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     result = JsBigInt.Create(TypeConverter.ToBigInt(lprim) + TypeConverter.ToBigInt(rprim));
                 }
 
-                return NormalCompletion(result);
+                return result;
             }
         }
 
@@ -299,15 +299,15 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context).Value;
-                var right = _right.GetValue(context).Value;
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_Subtraction", out var opResult))
                 {
-                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
+                    return JsValue.FromObject(context.Engine, opResult);
                 }
 
                 JsValue number;
@@ -327,7 +327,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     number = JsBigInt.Create(TypeConverter.ToBigInt(left) - TypeConverter.ToBigInt(right));
                 }
 
-                return NormalCompletion(number);
+                return number;
             }
         }
 
@@ -337,10 +337,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context).Value;
-                var right = _right.GetValue(context).Value;
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
                 JsValue result;
                 if (context.OperatorOverloadingAllowed
@@ -368,7 +368,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                 }
 
-                return NormalCompletion(result);
+                return result;
             }
         }
 
@@ -378,20 +378,20 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context).Value;
-                var right = _right.GetValue(context).Value;
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_Division", out var opResult))
                 {
-                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
+                    return JsValue.FromObject(context.Engine, opResult);
                 }
 
                 left = TypeConverter.ToNumeric(left);
                 right = TypeConverter.ToNumeric(right);
-                return NormalCompletion(Divide(context, left, right));
+                return Divide(context, left, right);
             }
         }
 
@@ -404,15 +404,15 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _invert = invert;
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context).Value;
-                var right = _right.GetValue(context).Value;
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, _invert ? "op_Inequality" : "op_Equality", out var opResult))
                 {
-                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
+                    return JsValue.FromObject(context.Engine, opResult);
                 }
 
                 // if types match, we can take faster strict equality
@@ -420,7 +420,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     ? left.Equals(right)
                     : left.IsLooselyEqual(right);
 
-                return NormalCompletion(equality == !_invert ? JsBoolean.True : JsBoolean.False);
+                return equality == !_invert ? JsBoolean.True : JsBoolean.False;
             }
         }
 
@@ -433,22 +433,22 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _leftFirst = leftFirst;
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var leftValue = _left.GetValue(context).Value;
-                var rightValue = _right.GetValue(context).Value;
+                var leftValue = _left.GetValue(context);
+                var rightValue = _right.GetValue(context);
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, leftValue, rightValue, _leftFirst ? "op_GreaterThanOrEqual" : "op_LessThanOrEqual", out var opResult))
                 {
-                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
+                    return JsValue.FromObject(context.Engine, opResult);
                 }
 
                 var left = _leftFirst ? leftValue : rightValue;
                 var right = _leftFirst ? rightValue : leftValue;
 
                 var value = Compare(left, right, _leftFirst);
-                return NormalCompletion(value.IsUndefined() || ((JsBoolean) value)._value ? JsBoolean.False : JsBoolean.True);
+                return value.IsUndefined() || ((JsBoolean) value)._value ? JsBoolean.False : JsBoolean.True;
             }
         }
 
@@ -458,11 +458,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var leftValue = _left.GetValue(context).Value;
-                var rightValue = _right.GetValue(context).Value;
-                return NormalCompletion(leftValue.InstanceofOperator(rightValue) ? JsBoolean.True : JsBoolean.False);
+                var leftValue = _left.GetValue(context);
+                var rightValue = _right.GetValue(context);
+                return leftValue.InstanceofOperator(rightValue) ? JsBoolean.True : JsBoolean.False;
             }
         }
 
@@ -472,10 +472,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var leftReference = _left.GetValue(context).Value;
-                var rightReference = _right.GetValue(context).Value;
+                var leftReference = _left.GetValue(context);
+                var rightReference = _right.GetValue(context);
 
                 var left = TypeConverter.ToNumeric(leftReference);
                 var right = TypeConverter.ToNumeric(rightReference);
@@ -489,23 +489,23 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (exponentNumber.IsNaN())
                     {
-                        return NormalCompletion(JsNumber.DoubleNaN);
+                        return JsNumber.DoubleNaN;
                     }
 
                     if (exponentNumber.IsZero())
                     {
-                        return NormalCompletion(JsNumber.PositiveOne);
+                        return JsNumber.PositiveOne;
                     }
 
                     if (baseNumber.IsNaN())
                     {
-                        return NormalCompletion(JsNumber.DoubleNaN);
+                        return JsNumber.DoubleNaN;
                     }
 
                     var exponentValue = exponentNumber._value;
                     if (baseNumber.IsPositiveInfinity())
                     {
-                        return NormalCompletion(exponentValue > 0 ? JsNumber.DoublePositiveInfinity : JsNumber.PositiveZero);
+                        return exponentValue > 0 ? JsNumber.DoublePositiveInfinity : JsNumber.PositiveZero;
                     }
 
                     static bool IsOddIntegral(double value) => TypeConverter.IsIntegralNumber(value) && value % 2 != 0;
@@ -514,24 +514,24 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         if (exponentValue > 0)
                         {
-                            return NormalCompletion(IsOddIntegral(exponentValue) ? JsNumber.DoubleNegativeInfinity : JsNumber.DoublePositiveInfinity);
+                            return IsOddIntegral(exponentValue) ? JsNumber.DoubleNegativeInfinity : JsNumber.DoublePositiveInfinity;
                         }
 
-                        return NormalCompletion(IsOddIntegral(exponentValue) ? JsNumber.NegativeZero : JsNumber.PositiveZero);
+                        return IsOddIntegral(exponentValue) ? JsNumber.NegativeZero : JsNumber.PositiveZero;
                     }
 
                     if (baseNumber.IsPositiveZero())
                     {
-                        return NormalCompletion(exponentValue > 0 ? JsNumber.PositiveZero : JsNumber.DoublePositiveInfinity);
+                        return exponentValue > 0 ? JsNumber.PositiveZero : JsNumber.DoublePositiveInfinity;
                     }
 
                     if (baseNumber.IsNegativeZero())
                     {
                         if (exponentValue > 0)
                         {
-                            return NormalCompletion(IsOddIntegral(exponentValue) ? JsNumber.NegativeZero : JsNumber.PositiveZero);
+                            return IsOddIntegral(exponentValue) ? JsNumber.NegativeZero : JsNumber.PositiveZero;
                         }
-                        return NormalCompletion(IsOddIntegral(exponentValue) ? JsNumber.DoubleNegativeInfinity : JsNumber.DoublePositiveInfinity);
+                        return IsOddIntegral(exponentValue) ? JsNumber.DoubleNegativeInfinity : JsNumber.DoublePositiveInfinity;
                     }
 
                     var baseValue = baseNumber._value;
@@ -539,33 +539,33 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         if (Math.Abs(baseValue) > 1)
                         {
-                            return NormalCompletion(JsNumber.DoublePositiveInfinity);
+                            return JsNumber.DoublePositiveInfinity;
                         }
                         if (Math.Abs(baseValue) == 1)
                         {
-                            return NormalCompletion(JsNumber.DoubleNaN);
+                            return JsNumber.DoubleNaN;
                         }
 
-                        return NormalCompletion(JsNumber.PositiveZero);
+                        return JsNumber.PositiveZero;
                     }
 
                     if (exponentNumber.IsNegativeInfinity())
                     {
                         if (Math.Abs(baseValue) > 1)
                         {
-                            return NormalCompletion(JsNumber.PositiveZero);
+                            return JsNumber.PositiveZero;
                         }
                         if (Math.Abs(baseValue) == 1)
                         {
-                            return NormalCompletion(JsNumber.DoubleNaN);
+                            return JsNumber.DoubleNaN;
                         }
 
-                        return NormalCompletion(JsNumber.DoublePositiveInfinity);
+                        return JsNumber.DoublePositiveInfinity;
                     }
 
                     if (baseValue < 0 && !TypeConverter.IsIntegralNumber(exponentValue))
                     {
-                        return NormalCompletion(JsNumber.DoubleNaN);
+                        return JsNumber.DoubleNaN;
                     }
 
                     result = JsNumber.Create(Math.Pow(baseNumber._value, exponentValue));
@@ -587,7 +587,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     result = JsBigInt.Create(BigInteger.Pow(left.AsBigInt(), (int) exponent));
                 }
 
-                return NormalCompletion(result);
+                return result;
             }
         }
 
@@ -597,10 +597,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context).Value;
-                var right = _right.GetValue(context).Value;
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
                 var oi = right as ObjectInstance;
                 if (oi is null)
@@ -608,7 +608,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     ExceptionHelper.ThrowTypeError(context.Engine.Realm, "in can only be used with an object");
                 }
 
-                return NormalCompletion(oi.HasProperty(left) ? JsBoolean.True : JsBoolean.False);
+                return oi.HasProperty(left) ? JsBoolean.True : JsBoolean.False;
             }
         }
 
@@ -618,15 +618,15 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var left = _left.GetValue(context).Value;
-                var right = _right.GetValue(context).Value;
+                var left = _left.GetValue(context);
+                var right = _right.GetValue(context);
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, left, right, "op_Modulus", out var opResult))
                 {
-                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
+                    return JsValue.FromObject(context.Engine, opResult);
                 }
 
                 var result = Undefined.Instance;
@@ -702,7 +702,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                 }
 
-                return NormalCompletion(result);
+                return result;
             }
         }
 
@@ -732,15 +732,15 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _operator = expression.Operator;
             }
 
-            protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+            protected override object EvaluateInternal(EvaluationContext context)
             {
-                var lval = _left.GetValue(context).Value;
-                var rval = _right.GetValue(context).Value;
+                var lval = _left.GetValue(context);
+                var rval = _right.GetValue(context);
 
                 if (context.OperatorOverloadingAllowed
                     && TryOperatorOverloading(context, lval, rval, OperatorClrName, out var opResult))
                 {
-                    return NormalCompletion(JsValue.FromObject(context.Engine, opResult));
+                    return JsValue.FromObject(context.Engine, opResult);
                 }
 
                 var lnum = TypeConverter.ToNumeric(lval);
@@ -782,10 +782,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                             break;
                     }
 
-                    return NormalCompletion(result);
+                    return result;
                 }
 
-                return NormalCompletion(EvaluateNonInteger(context.Engine.Realm, lnum, rnum));
+                return EvaluateNonInteger(context.Engine.Realm, lnum, rnum);
             }
 
             private JsValue EvaluateNonInteger(Realm realm, JsValue left, JsValue right)

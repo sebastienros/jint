@@ -24,16 +24,16 @@ namespace Jint.Runtime.Interpreter.Expressions
             _right = Build(context.Engine, ((AssignmentExpression) _expression).Right);
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             var rightValue = _right.GetValue(context);
-            if (rightValue.IsAbrupt())
+            if (context.IsAbrupt())
             {
                 return rightValue;
             }
 
-            var completion = ProcessPatterns(context, _pattern, rightValue.Value, null);
-            if (completion.IsAbrupt())
+            var completion = ProcessPatterns(context, _pattern, rightValue, null);
+            if (context.IsAbrupt())
             {
                 return completion;
             }
@@ -41,7 +41,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return rightValue;
         }
 
-        internal static Completion ProcessPatterns(
+        internal static JsValue ProcessPatterns(
             EvaluationContext context,
             BindingPattern pattern,
             JsValue argument,
@@ -77,7 +77,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return true;
         }
 
-        private static Completion HandleArrayPattern(
+        private static JsValue HandleArrayPattern(
             EvaluationContext context,
             ArrayPattern pattern,
             JsValue argument,
@@ -241,11 +241,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             var jintExpression = Build(engine, assignmentPattern.Right);
                             var completion = jintExpression.GetValue(context);
-                            if (completion.IsAbrupt())
+                            if (context.IsAbrupt())
                             {
                                 return completion;
                             }
-                            value = completion.Value;
+                            value = completion;
                         }
 
                         if (assignmentPattern.Left is Identifier leftIdentifier)
@@ -285,10 +285,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            return new Completion(CompletionType.Normal, JsValue.Undefined, pattern);
+            return JsValue.Undefined;
         }
 
-        private static Completion HandleObjectPattern(
+        private static JsValue HandleObjectPattern(
             EvaluationContext context,
             ObjectPattern pattern,
             JsValue argument,
@@ -309,12 +309,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (identifier == null || p.Computed)
                     {
                         var keyExpression = Build(context.Engine, p.Key);
-                        var completion = keyExpression.GetValue(context);
-                        if (completion.IsAbrupt())
+                        var value = keyExpression.GetValue(context);
+                        if (context.IsAbrupt())
                         {
-                            return completion;
+                            return value;
                         }
-                        sourceKey = TypeConverter.ToPropertyKey(completion.Value);
+                        sourceKey = TypeConverter.ToPropertyKey(value);
                     }
                     else
                     {
@@ -329,11 +329,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             var jintExpression = Build(context.Engine, assignmentPattern.Right);
                             var completion = jintExpression.GetValue(context);
-                            if (completion.IsAbrupt())
+                            if (context.IsAbrupt())
                             {
                                 return completion;
                             }
-                            value = completion.Value;
+                            value = completion;
                         }
 
                         if (assignmentPattern.Left is BindingPattern bp)
@@ -398,7 +398,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            return new Completion(CompletionType.Normal, JsValue.Undefined, pattern);
+            return JsValue.Undefined;
         }
 
         private static void AssignToReference(
@@ -421,7 +421,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private static Reference GetReferenceFromMember(EvaluationContext context, MemberExpression memberExpression)
         {
             var expression = new JintMemberExpression(memberExpression);
-            var reference = expression.Evaluate(context).Value as Reference;
+            var reference = expression.Evaluate(context) as Reference;
             if (reference is null)
             {
                 ExceptionHelper.ThrowReferenceError(context.Engine.Realm, "invalid reference");

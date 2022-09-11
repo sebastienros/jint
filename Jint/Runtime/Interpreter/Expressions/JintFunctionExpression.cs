@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
 
@@ -13,18 +14,18 @@ namespace Jint.Runtime.Interpreter.Expressions
             _function = new JintFunctionDefinition(function);
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             return GetValue(context);
         }
 
-        public override Completion GetValue(EvaluationContext context)
+        public override JsValue GetValue(EvaluationContext context)
         {
             var closure = !_function.Function.Generator
                 ? InstantiateOrdinaryFunctionExpression(context, _function.Name!)
                 : InstantiateGeneratorFunctionExpression(context, _function.Name!);
 
-            return new(CompletionType.Normal, closure, _expression);
+            return closure;
         }
 
         /// <summary>

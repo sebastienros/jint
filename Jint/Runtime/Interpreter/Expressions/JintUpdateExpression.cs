@@ -41,19 +41,19 @@ namespace Jint.Runtime.Interpreter.Expressions
             _evalOrArguments = _leftIdentifier?.HasEvalOrArguments == true;
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             var fastResult = _leftIdentifier != null
                 ? UpdateIdentifier(context)
                 : null;
 
-            return NormalCompletion(fastResult ?? UpdateNonIdentifier(context));
+            return fastResult ?? UpdateNonIdentifier(context);
         }
 
         private JsValue UpdateNonIdentifier(EvaluationContext context)
         {
             var engine = context.Engine;
-            var reference = _argument.Evaluate(context).Value as Reference;
+            var reference = _argument.Evaluate(context) as Reference;
             if (reference is null)
             {
                 ExceptionHelper.ThrowTypeError(engine.Realm, "Invalid left-hand side expression");
@@ -69,7 +69,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var operatorOverloaded = false;
             if (context.OperatorOverloadingAllowed)
             {
-                if (JintUnaryExpression.TryOperatorOverloading(context, _argument.GetValue(context).Value, _change > 0 ? "op_Increment" : "op_Decrement", out var result))
+                if (JintUnaryExpression.TryOperatorOverloading(context, _argument.GetValue(context), _change > 0 ? "op_Increment" : "op_Decrement", out var result))
                 {
                     operatorOverloaded = true;
                     newValue = result;
@@ -140,7 +140,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 var operatorOverloaded = false;
                 if (context.OperatorOverloadingAllowed)
                 {
-                    if (JintUnaryExpression.TryOperatorOverloading(context, _argument.GetValue(context).Value, _change > 0 ? "op_Increment" : "op_Decrement", out var result))
+                    if (JintUnaryExpression.TryOperatorOverloading(context, _argument.GetValue(context), _change > 0 ? "op_Increment" : "op_Decrement", out var result))
                     {
                         operatorOverloaded = true;
                         newValue = result;

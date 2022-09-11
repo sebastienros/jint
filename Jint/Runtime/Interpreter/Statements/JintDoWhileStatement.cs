@@ -55,7 +55,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     context.Engine.DebugHandler.OnStep(_test._expression);
                 }
 
-                iterating = TypeConverter.ToBoolean(_test.GetValue(context).Value);
+                iterating = TypeConverter.ToBoolean(_test.GetValue(context));
             } while (iterating);
 
             return new Completion(CompletionType.Normal, v, ((JintStatement) this)._statement);

@@ -49,13 +49,13 @@ public class JavaScriptException : JintException
 
     public string GetJavaScriptErrorString() => _jsErrorException.ToString();
 
-    public JavaScriptException SetJavaScriptCallstack(Engine engine, Location location, bool overwriteExisting = false)
+    public JavaScriptException SetJavaScriptCallstack(Engine engine, in Location location, bool overwriteExisting = false)
     {
         _jsErrorException.SetCallstack(engine, location, overwriteExisting);
         return this;
     }
 
-    public JavaScriptException SetJavaScriptLocation(Location location)
+    public JavaScriptException SetJavaScriptLocation(in Location location)
     {
         _jsErrorException.SetLocation(location);
         return this;

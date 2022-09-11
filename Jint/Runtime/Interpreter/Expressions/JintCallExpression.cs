@@ -73,20 +73,20 @@ namespace Jint.Runtime.Interpreter.Expressions
             _cachedArguments = cachedArgumentsHolder;
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             if (_calleeExpression._expression.Type == Nodes.Super)
             {
-                return NormalCompletion(SuperCall(context));
+                return SuperCall(context);
             }
 
             // https://tc39.es/ecma262/#sec-function-calls
 
-            var reference = _calleeExpression.Evaluate(context).Value;
+            var reference = _calleeExpression.Evaluate(context);
 
             if (ReferenceEquals(reference, Undefined.Instance))
             {
-                return NormalCompletion(Undefined.Instance);
+                return Undefined.Instance;
             }
 
             var engine = context.Engine;
@@ -94,7 +94,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (func.IsNullOrUndefined() && _expression.IsOptional())
             {
-                return NormalCompletion(Undefined.Instance);
+                return Undefined.Instance;
             }
 
             var referenceRecord = reference as Reference;
@@ -197,7 +197,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             engine._referencePool.Return(referenceRecord);
-            return NormalCompletion(result);
+            return result;
         }
 
         [DoesNotReturn]
@@ -218,12 +218,12 @@ namespace Jint.Runtime.Interpreter.Expressions
             ExceptionHelper.ThrowTypeError(engine.Realm, message);
         }
 
-        private ExpressionResult HandleEval(EvaluationContext context, JsValue func, Engine engine, Reference referenceRecord)
+        private JsValue HandleEval(EvaluationContext context, JsValue func, Engine engine, Reference referenceRecord)
         {
             var argList = ArgumentListEvaluation(context);
             if (argList.Length == 0)
             {
-                return NormalCompletion(Undefined.Instance);
+                return Undefined.Instance;
             }
 
             var evalFunctionInstance = (EvalFunctionInstance) func;
@@ -233,7 +233,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var direct = !_expression.IsOptional();
             var value = evalFunctionInstance.PerformEval(evalArg, evalRealm, strictCaller, direct);
             engine._referencePool.Return(referenceRecord);
-            return NormalCompletion(value);
+            return value;
         }
 
         private JsValue SuperCall(EvaluationContext context)

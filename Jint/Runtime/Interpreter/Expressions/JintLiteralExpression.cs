@@ -61,16 +61,14 @@ namespace Jint.Runtime.Interpreter.Expressions
             return null;
         }
 
-        public override Completion GetValue(EvaluationContext context)
+        public override JsValue GetValue(EvaluationContext context)
         {
             // need to notify correct node when taking shortcut
             context.LastSyntaxElement = _expression;
-
-            JsValue value = ResolveValue(context);
-            return new(CompletionType.Normal, value, _expression);
+            return ResolveValue(context);
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context) => NormalCompletion(ResolveValue(context));
+        protected override object EvaluateInternal(EvaluationContext context) => ResolveValue(context);
 
         private JsValue ResolveValue(EvaluationContext context)
         {

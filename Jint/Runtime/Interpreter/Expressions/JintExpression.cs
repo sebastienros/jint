@@ -1,7 +1,5 @@
-using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
@@ -11,42 +9,6 @@ using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    /// <summary>
-    /// Adapter to get different types of results, including Reference which is not a JsValue.
-    /// </summary>
-    [StructLayout(LayoutKind.Auto)]
-    internal readonly struct ExpressionResult
-    {
-        public readonly ExpressionCompletionType Type;
-        public readonly object Value;
-
-        public ExpressionResult(ExpressionCompletionType type, object value)
-        {
-            Type = type;
-            Value = value;
-        }
-
-        public bool IsAbrupt() => Type != ExpressionCompletionType.Normal && Type != ExpressionCompletionType.Reference;
-
-        public static implicit operator ExpressionResult(in Completion result)
-        {
-            return new ExpressionResult((ExpressionCompletionType) result.Type, result.Value);
-        }
-
-        public static ExpressionResult? Normal(JsValue value)
-        {
-            return new ExpressionResult(ExpressionCompletionType.Normal, value);
-        }
-    }
-
-    internal enum ExpressionCompletionType : byte
-    {
-        Normal = 0,
-        Return = 1,
-        Throw = 2,
-        Reference
-    }
-
     internal abstract class JintExpression
     {
         // require sub-classes to set to false explicitly to skip virtual call
@@ -65,21 +27,21 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// </summary>
         /// <param name="context"></param>
         /// <seealso cref="JintLiteralExpression"/>
-        public virtual Completion GetValue(EvaluationContext context)
+        public virtual JsValue GetValue(EvaluationContext context)
         {
             var result = Evaluate(context);
-            if (result.Type != ExpressionCompletionType.Reference)
+            if (result is not Reference reference)
             {
-                return new Completion((CompletionType) result.Type, (JsValue) result.Value, context.LastSyntaxElement);
+                return (JsValue) result;
             }
 
-            var jsValue = context.Engine.GetValue((Reference) result.Value, true);
-            return new Completion(CompletionType.Normal, jsValue, context.LastSyntaxElement);
+            return context.Engine.GetValue(reference, true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ExpressionResult Evaluate(EvaluationContext context)
+        public object Evaluate(EvaluationContext context)
         {
+            var oldSyntaxElement = context.LastSyntaxElement;
             context.PrepareFor(_expression);
 
             if (!_initialized)
@@ -87,7 +49,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 Initialize(context);
                 _initialized = true;
             }
-            return EvaluateInternal(context);
+
+            var result = EvaluateInternal(context);
+
+            context.LastSyntaxElement = oldSyntaxElement;
+
+            return result;
         }
 
         /// <summary>
@@ -98,38 +65,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
         }
 
-        protected abstract ExpressionResult EvaluateInternal(EvaluationContext context);
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-normalcompletion
-        /// </summary>
-        /// <remarks>
-        /// We use custom type that is translated to Completion later on.
-        /// </remarks>
-        [DebuggerStepThrough]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected ExpressionResult NormalCompletion(JsValue value)
-        {
-            return new ExpressionResult(ExpressionCompletionType.Normal, value);
-        }
-
-        protected ExpressionResult NormalCompletion(Reference value)
-        {
-            return new ExpressionResult(ExpressionCompletionType.Reference, value);
-        }
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-throwcompletion
-        /// </summary>
-        /// <remarks>
-        /// We use custom type that is translated to Completion later on.
-        /// </remarks>
-        [DebuggerStepThrough]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected ExpressionResult ThrowCompletion(JsValue value)
-        {
-            return new ExpressionResult(ExpressionCompletionType.Throw, value);
-        }
+        protected abstract object EvaluateInternal(EvaluationContext context);
 
         /// <summary>
         /// If we'd get Esprima source, we would just refer to it, but this makes error messages easier to decipher.
@@ -469,7 +405,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             for (uint i = 0; i < (uint) jintExpressions.Length; i++)
             {
-                targetArray[i] = jintExpressions[i].GetValue(context).Value.Clone();
+                targetArray[i] = jintExpressions[i].GetValue(context).Clone();
             }
         }
 
@@ -501,8 +437,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else
                 {
-                    var completion = jintExpression.GetValue(context);
-                    args.Add(completion.Value.Clone());
+                    args.Add(jintExpression.GetValue(context).Clone());
                 }
             }
 

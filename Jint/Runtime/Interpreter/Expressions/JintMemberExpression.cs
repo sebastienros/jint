@@ -40,7 +40,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             JsValue? actualThis = null;
             string? baseReferenceName = null;
@@ -62,7 +62,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else if (_objectExpression is JintThisExpression thisExpression)
             {
-                baseValue = thisExpression.GetValue(context).Value;
+                baseValue = (JsValue?) thisExpression.GetValue(context);
             }
             else if (_objectExpression is JintSuperExpression)
             {
@@ -74,10 +74,10 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (baseValue is null)
             {
                 // fast checks failed
-                var baseReference = _objectExpression.Evaluate(context).Value;
+                var baseReference = _objectExpression.Evaluate(context);
                 if (ReferenceEquals(Undefined.Instance, baseReference))
                 {
-                    return NormalCompletion(Undefined.Instance);
+                    return Undefined.Instance;
                 }
                 if (baseReference is Reference reference)
                 {
@@ -93,10 +93,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (baseValue.IsNullOrUndefined() && (_memberExpression.Optional || _objectExpression._expression.IsOptional()))
             {
-                return NormalCompletion(Undefined.Instance);
+                return Undefined.Instance;
             }
 
-            var property = _determinedProperty ?? _propertyExpression!.GetValue(context).Value;
+            var property = _determinedProperty ?? _propertyExpression!.GetValue(context);
             if (baseValue.IsNullOrUndefined())
             {
                 // we can use base data types securely, object evaluation can mess things up
@@ -112,8 +112,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ? property
                 : TypeConverter.ToPropertyKey(property);
 
-            var rent = context.Engine._referencePool.Rent(baseValue, propertyKey, isStrictModeCode, thisValue: actualThis);
-            return new ExpressionResult(ExpressionCompletionType.Reference, rent);
+            return context.Engine._referencePool.Rent(baseValue, propertyKey, isStrictModeCode, thisValue: actualThis);
         }
     }
 }

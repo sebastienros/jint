@@ -43,16 +43,16 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (i < _expressions.Length)
                 {
                     var completion = _expressions[i].GetValue(context);
-                    sb.Builder.Append(completion.Value);
+                    sb.Builder.Append(completion);
                 }
             }
 
             return JsString.Create(sb.ToString());
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
-            return NormalCompletion(BuildString(context));
+            return BuildString(context);
         }
     }
 }

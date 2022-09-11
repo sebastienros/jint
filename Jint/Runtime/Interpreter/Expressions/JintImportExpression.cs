@@ -22,15 +22,15 @@ internal sealed class JintImportExpression : JintExpression
     /// <summary>
     /// https://tc39.es/ecma262/#sec-import-calls
     /// </summary>
-    protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+    protected override object EvaluateInternal(EvaluationContext context)
     {
         var referencingScriptOrModule = context.Engine.GetActiveScriptOrModule();
         var argRef = _importExpression.Evaluate(context);
-        var specifier = context.Engine.GetValue(argRef.Value); //.UnwrapIfPromise();
+        var specifier = context.Engine.GetValue(argRef); //.UnwrapIfPromise();
         var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
         var specifierString = TypeConverter.ToString(specifier);
         context.Engine._host.ImportModuleDynamically(referencingScriptOrModule, specifierString, promiseCapability);
         context.Engine.RunAvailableContinuations();
-        return NormalCompletion(promiseCapability.PromiseInstance);
+        return promiseCapability.PromiseInstance;
     }
 }

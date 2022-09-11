@@ -13,7 +13,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             _function = new JintFunctionDefinition(function);
         }
 
-        protected override ExpressionResult EvaluateInternal(EvaluationContext context)
+        protected override object EvaluateInternal(EvaluationContext context)
         {
             var engine = context.Engine;
             var scope = engine.ExecutionContext.LexicalEnvironment;
@@ -30,7 +30,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 closure.SetFunctionName(JsString.Empty);
             }
 
-            return NormalCompletion(closure);
+            return closure;
         }
     }
 }

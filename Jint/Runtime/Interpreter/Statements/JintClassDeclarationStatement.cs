@@ -16,17 +16,17 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             var engine = context.Engine;
             var env = engine.ExecutionContext.LexicalEnvironment;
-            var completion = _classDefinition.BuildConstructor(context, env);
+            var value = _classDefinition.BuildConstructor(context, env);
 
-            if (completion.IsAbrupt())
+            if (context.IsAbrupt())
             {
-                return completion;
+                return new Completion(context.Completion, value, _statement);
             }
 
             var classBinding = _classDefinition._className;
             if (classBinding != null)
             {
-                env.InitializeBinding(classBinding, completion.Value);
+                env.InitializeBinding(classBinding, value);
             }
 
             return new Completion(CompletionType.Normal, null!, _statement);

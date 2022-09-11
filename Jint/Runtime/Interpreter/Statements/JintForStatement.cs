@@ -129,7 +129,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 {
                     debugHandler?.OnStep(_test._expression);
 
-                    if (!TypeConverter.ToBoolean(_test.GetValue(context).Value))
+                    if (!TypeConverter.ToBoolean(_test.GetValue(context)))
                     {
                         return new Completion(CompletionType.Normal, v, ((JintStatement) this)._statement);
                     }

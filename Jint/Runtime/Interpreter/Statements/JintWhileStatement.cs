@@ -34,7 +34,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     context.Engine.DebugHandler.OnStep(_test._expression);
                 }
 
-                var jsValue = _test.GetValue(context).Value;
+                var jsValue = _test.GetValue(context);
                 if (!TypeConverter.ToBoolean(jsValue))
                 {
                     return new Completion(CompletionType.Normal, v, _statement);

@@ -18,6 +18,6 @@ internal sealed class JintExpressionStatement : JintStatement<ExpressionStatemen
 
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        return _expression.GetValue(context);
+        return new Completion(context.Completion, _expression.GetValue(context), _statement);
     }
 }

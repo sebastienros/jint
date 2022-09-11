@@ -119,7 +119,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
 
             engine.UpdateLexicalEnvironment(tdz);
-            var exprValue = _right.GetValue(context).Value;
+            var exprValue = _right.GetValue(context);
             engine.UpdateLexicalEnvironment(oldEnv);
 
             if (_iterationKind == IterationKind.Enumerate)
@@ -182,7 +182,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     var nextValue = nextResult.Get(CommonProperties.Value);
                     close = true;
 
-                    var lhsRef = new ExpressionResult();
+                    object lhsRef = null!;
                     if (lhsKind != LhsKind.LexicalBinding)
                     {
                         if (!destructuring)
@@ -203,7 +203,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         {
                             var identifier = (Identifier) ((VariableDeclaration) _leftNode).Declarations[0].Id;
                             lhsName ??= identifier.Name;
-                            lhsRef = new ExpressionResult(ExpressionCompletionType.Normal, engine.ResolveBinding(lhsName));
+                            lhsRef = engine.ResolveBinding(lhsName);
                         }
                     }
 
@@ -212,31 +212,33 @@ namespace Jint.Runtime.Interpreter.Statements
                         context.Engine.DebugHandler.OnStep(_leftNode);
                     }
 
-                    var status = new Completion();
+                    var status = CompletionType.Normal;
                     if (!destructuring)
                     {
-                        if (lhsRef.IsAbrupt())
+                        if (context.IsAbrupt())
                         {
                             close = true;
-                            status = new Completion((CompletionType) lhsRef.Type, (JsValue) lhsRef.Value!, context.LastSyntaxElement);
+                            status = context.Completion;
                         }
                         else if (lhsKind == LhsKind.LexicalBinding)
                         {
-                            ((Reference) lhsRef.Value!).InitializeReferencedBinding(nextValue);
+                            ((Reference) lhsRef).InitializeReferencedBinding(nextValue);
                         }
                         else
                         {
-                            engine.PutValue((Reference) lhsRef.Value!, nextValue);
+                            engine.PutValue((Reference) lhsRef, nextValue);
                         }
                     }
                     else
                     {
-                        status = BindingPatternAssignmentExpression.ProcessPatterns(
+                        nextValue = BindingPatternAssignmentExpression.ProcessPatterns(
                             context,
                             _assignmentPattern!,
                             nextValue,
                             iterationEnv,
                             checkPatternPropertyReference: _lhsKind != LhsKind.VarBinding);
+
+                        status = context.Completion;
 
                         if (lhsKind == LhsKind.Assignment)
                         {
@@ -252,22 +254,22 @@ namespace Jint.Runtime.Interpreter.Statements
                         }
                     }
 
-                    if (status.IsAbrupt())
+                    if (status != CompletionType.Normal)
                     {
                         engine.UpdateLexicalEnvironment(oldEnv);
                         if (_iterationKind == IterationKind.AsyncIterate)
                         {
-                            iteratorRecord.Close(status.Type);
-                            return status;
+                            iteratorRecord.Close(status);
+                            return new Completion(status, nextValue, context.LastSyntaxElement);
                         }
 
                         if (iterationKind == IterationKind.Enumerate)
                         {
-                            return status;
+                            return new Completion(status, nextValue, context.LastSyntaxElement);
                         }
 
-                        iteratorRecord.Close(status.Type);
-                        return status;
+                        iteratorRecord.Close(status);
+                        return new Completion(status, nextValue, context.LastSyntaxElement);
                     }
 
                     var result = stmt.Execute(context);

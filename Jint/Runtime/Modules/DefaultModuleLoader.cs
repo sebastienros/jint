@@ -137,7 +137,7 @@ public sealed class DefaultModuleLoader : IModuleLoader
         }
         catch (Exception)
         {
-            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {resolved.Uri?.LocalPath}", Completion.Empty());
+            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {resolved.Uri?.LocalPath}", (Location) default);
             module = null;
         }
 
