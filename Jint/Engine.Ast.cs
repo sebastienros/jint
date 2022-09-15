@@ -23,6 +23,20 @@ public partial class Engine
         return new JavaScriptParser(options).ParseScript(script, source);
     }
 
+    /// <summary>
+    /// Prepares a module for the engine that includes static analysis data to speed up execution during run-time.
+    /// </summary>
+    /// <remarks>
+    /// Returned instance is reusable and thread-safe. You should prepare modules only once and then reuse them.
+    /// </remarks>
+    public static Module PrepareModule(string script, string? source = null)
+    {
+        var astAnalyzer = new AstAnalyzer();
+        var options = ParserOptions.Default with { OnNodeCreated = astAnalyzer.NodeVisitor };
+
+        return new JavaScriptParser(options).ParseModule(script, source);
+    }
+
     private sealed class AstAnalyzer
     {
         private readonly Dictionary<string, EnvironmentRecord.BindingName> _bindingNames = new();

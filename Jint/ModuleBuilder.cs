@@ -11,6 +11,7 @@ public sealed class ModuleBuilder
 {
     private readonly Engine _engine;
     private readonly string _specifier;
+    private Module? _module;
     private readonly List<string> _sourceRaw = new();
     private readonly Dictionary<string, JsValue> _exports = new();
     private readonly ParserOptions _options;
@@ -24,7 +25,26 @@ public sealed class ModuleBuilder
 
     public ModuleBuilder AddSource(string code)
     {
+        if (_module != null)
+        {
+            throw new InvalidOperationException("Cannot have both source text and pre-compiled.");
+        }
         _sourceRaw.Add(code);
+        return this;
+    }
+
+    public ModuleBuilder AddModule(Module module)
+    {
+        if (_sourceRaw.Count > 0)
+        {
+            throw new InvalidOperationException("Cannot have both source text and pre-compiled.");
+        }
+
+        if (_module != null)
+        {
+            throw new InvalidOperationException("pre-compiled module already exists.");
+        }
+        _module = module;
         return this;
     }
 
@@ -104,6 +124,7 @@ public sealed class ModuleBuilder
 
     internal Module Parse()
     {
+        if (_module != null) return _module;
         if (_sourceRaw.Count <= 0)
         {
             return new Module(NodeList.Create(Array.Empty<Statement>()));

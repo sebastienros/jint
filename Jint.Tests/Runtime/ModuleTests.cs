@@ -1,3 +1,4 @@
+using Esprima;
 using Jint.Native;
 using Jint.Runtime;
 
@@ -334,6 +335,21 @@ export const count = globals.counter;
         var result = engine.Invoke(ns.Get("formatName"), "John", "Doe").AsString();
 
         Assert.Equal("John Doe", result);
+    }
+
+    [Fact]
+    public void CanReuseModule()
+    {
+        const string Code = "export function formatName(firstName, lastName) {\r\n    return `${firstName} ${lastName}`;\r\n}";
+        var module = Engine.PrepareModule(Code);
+        for (var i = 0; i < 5; i++)
+        {
+            var engine = new Engine();
+            engine.AddModule("__main__", x => x.AddModule(module));
+            var ns = engine.ImportModule("__main__");
+            var result = engine.Invoke(ns.Get("formatName"), "John" + i, "Doe").AsString();
+            Assert.Equal($"John{i} Doe", result);
+        }
     }
 
     internal static string GetBasePath()
