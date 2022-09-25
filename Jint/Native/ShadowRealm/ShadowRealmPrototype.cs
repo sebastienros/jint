@@ -71,13 +71,10 @@ internal sealed class ShadowRealmPrototype : Prototype
             ExceptionHelper.ThrowTypeError(_realm, "Invalid specifier");
         }
 
-        // TODO, newer test suite expects that this is always a string
-        /*
         if (!exportName.IsString())
         {
             ExceptionHelper.ThrowTypeError(_realm, "Invalid exportName");
         }
-        */
 
         var callerRealm = _realm;
         return O.ShadowRealmImportValue(specifierString.ToString(), exportName.ToString(), callerRealm);

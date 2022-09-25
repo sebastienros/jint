@@ -130,7 +130,7 @@ namespace Jint.Native.RegExp
             var functionalReplace = replaceValue is ICallable;
 
             // we need heavier logic if we have named captures
-            bool mayHaveNamedCaptures = false;
+            var mayHaveNamedCaptures = false;
             if (!functionalReplace)
             {
                 var value = TypeConverter.ToString(replaceValue);
@@ -138,12 +138,14 @@ namespace Jint.Native.RegExp
                 mayHaveNamedCaptures = value.IndexOf('$') != -1;
             }
 
+            var flags = TypeConverter.ToString(rx.Get(PropertyFlags));
+            var global = flags.IndexOf('g') != -1;
+
             var fullUnicode = false;
-            var global = TypeConverter.ToBoolean(rx.Get(PropertyGlobal));
 
             if (global)
             {
-                fullUnicode = TypeConverter.ToBoolean(rx.Get("unicode"));
+                fullUnicode = flags.IndexOf('u') != -1;
                 rx.Set(RegExpInstance.PropertyLastIndex, 0, true);
             }
 
@@ -636,13 +638,14 @@ namespace Jint.Native.RegExp
             var rx = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.match");
 
             var s = TypeConverter.ToString(arguments.At(0));
-            var global = TypeConverter.ToBoolean(rx.Get(PropertyGlobal));
+            var flags = TypeConverter.ToString(rx.Get(PropertyFlags));
+            var global = flags.IndexOf('g') != -1;
             if (!global)
             {
                 return RegExpExec(rx, s);
             }
 
-            var fullUnicode = TypeConverter.ToBoolean(rx.Get("unicode"));
+            var fullUnicode = flags.IndexOf('u') != -1;
             rx.Set(RegExpInstance.PropertyLastIndex, JsNumber.PositiveZero, true);
 
             if (!fullUnicode
