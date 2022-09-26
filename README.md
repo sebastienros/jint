@@ -108,6 +108,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 #### ECMAScript Stage 3 (no version yet)
 
 - ✔ Array find from last
+- ✔ Array.group and Array.groupToMap
 - ✔ ShadowRealm
 
 #### Other

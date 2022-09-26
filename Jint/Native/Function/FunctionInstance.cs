@@ -274,18 +274,6 @@ namespace Jint.Native.Function
         }
 
         /// <summary>
-        /// https://tc39.es/ecma262/#sec-ordinaryobjectcreate
-        /// </summary>
-        internal ObjectInstance OrdinaryObjectCreate(ObjectInstance proto)
-        {
-            var prototype = new ObjectInstance(_engine)
-            {
-                _prototype = proto
-            };
-            return prototype;
-        }
-
-        /// <summary>
         /// https://tc39.es/ecma262/#sec-ordinarycallbindthis
         /// </summary>
         internal void OrdinaryCallBindThis(ExecutionContext calleeContext, JsValue thisArgument)

@@ -1,5 +1,6 @@
 using Jint.Collections;
 using Jint.Native.Iterator;
+using Jint.Native.Map;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -35,7 +36,7 @@ namespace Jint.Native.Array
         protected override void Initialize()
         {
             const PropertyFlag propertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-            var properties = new PropertyDictionary(34, checkExistingKeys: false)
+            var properties = new PropertyDictionary(36, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), propertyFlags),
@@ -72,6 +73,8 @@ namespace Jint.Native.Array
                 ["flat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flat", Flat, 0, PropertyFlag.Configurable), propertyFlags),
                 ["flatMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flatMap", FlatMap, 1, PropertyFlag.Configurable), propertyFlags),
                 ["at"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "at", At, 1, PropertyFlag.Configurable), propertyFlags),
+                ["group"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "group", Group, 1, PropertyFlag.Configurable), propertyFlags),
+                ["groupToMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "groupToMap", GroupToMap, 1, PropertyFlag.Configurable), propertyFlags),
             };
             SetProperties(properties);
 
@@ -101,6 +104,8 @@ namespace Jint.Native.Array
                     unscopables.SetDataProperty("includes", JsBoolean.True);
                     unscopables.SetDataProperty("keys", JsBoolean.True);
                     unscopables.SetDataProperty("values", JsBoolean.True);
+                    unscopables.SetDataProperty("group", JsBoolean.True);
+                    unscopables.SetDataProperty("groupToMap", JsBoolean.True);
 
                     return unscopables;
                 }, PropertyFlag.Configurable)
@@ -1460,6 +1465,79 @@ namespace Jint.Native.Array
             o.DeletePropertyOrThrow(len);
             o.SetLength(len);
             return element;
+        }
+
+        /// <summary>
+        /// https://tc39.es/proposal-array-grouping/#sec-array.prototype.group
+        /// </summary>
+        private JsValue Group(JsValue thisObject, JsValue[] arguments)
+        {
+            var grouping = BuildArrayGrouping(thisObject, arguments, mapMode: false);
+
+            var obj = OrdinaryObjectCreate(null);
+            foreach (var pair in grouping)
+            {
+                obj.FastSetProperty(pair.Key, new PropertyDescriptor(pair.Value, PropertyFlag.ConfigurableEnumerableWritable));
+            }
+
+            return obj;
+        }
+
+        /// <summary>
+        /// https://tc39.es/proposal-array-grouping/#sec-array.prototype.grouptomap
+        /// </summary>
+        private JsValue GroupToMap(JsValue thisObject, JsValue[] arguments)
+        {
+            var grouping = BuildArrayGrouping(thisObject, arguments, mapMode: true);
+            var map = (MapInstance) Construct(_realm.Intrinsics.Map);
+            foreach (var pair in grouping)
+            {
+                map.MapSet(pair.Key, pair.Value);
+            }
+
+            return map;
+        }
+
+        private Dictionary<JsValue, ArrayInstance> BuildArrayGrouping(JsValue thisObject, JsValue[] arguments, bool mapMode)
+        {
+            var o = ArrayOperations.For(_realm, thisObject);
+            var len = o.GetLongLength();
+            var callbackfn = arguments.At(0);
+            var callable = GetCallable(callbackfn);
+            var thisArg = arguments.At(1);
+
+            var result = new Dictionary<JsValue, ArrayInstance>();
+            var args = _engine._jsValueArrayPool.RentArray(3);
+            args[2] = o.Target;
+            for (uint k = 0; k < len; k++)
+            {
+                var kValue = o.Get(k);
+                args[0] = kValue;
+                args[1] = k;
+
+                var value = callable.Call(thisArg, args);
+                JsValue key;
+                if (mapMode)
+                {
+                    key = (value as JsNumber)?.IsNegativeZero() == true ? JsNumber.PositiveZero : value;
+                }
+                else
+                {
+                    key = TypeConverter.ToPropertyKey(value);
+                }
+                if (!result.TryGetValue(key, out var list))
+                {
+                    result[key] = list = new ArrayInstance(_engine)
+                    {
+                        _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.OnlyWritable)
+                    };
+                }
+
+                list.SetIndexValue(list.GetLength(), kValue, updateLength: true);
+            }
+
+            _engine._jsValueArrayPool.ReturnArray(args);
+            return result;
         }
 
         internal sealed class ArrayComparer : IComparer<JsValue>

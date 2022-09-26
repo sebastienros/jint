@@ -11,7 +11,7 @@ namespace Jint.Native.Map
 {
     public sealed class MapConstructor : FunctionInstance, IConstructor
     {
-        private static readonly JsString _functionName = new JsString("Map");
+        private static readonly JsString _functionName = new("Map");
 
         internal MapConstructor(
             Engine engine,
@@ -26,7 +26,7 @@ namespace Jint.Native.Map
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public MapPrototype PrototypeObject { get; private set; }
+        public MapPrototype PrototypeObject { get; }
 
         protected override void Initialize()
         {
