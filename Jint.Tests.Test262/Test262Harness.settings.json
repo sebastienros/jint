@@ -81,10 +81,6 @@
     // http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics not implemented (block level functions)
     "language/statements/let/block-local-closure-set-before-initialization.js",
 
-    // not implemented (block level functions)
-    "language/block-scope/shadowing/dynamic-lookup-from-closure.js",
-    "language/block-scope/shadowing/lookup-from-closure.js",
-
     // Logic difference in .NET RegExp / skipped in ECMA tests too
     "built-ins/RegExp/S15.10.2.11_A1_T5.js",
     "built-ins/RegExp/S15.10.2.11_A1_T7.js",
@@ -103,9 +99,6 @@
     // parsing of large/small years not implemented in .NET (-271821, +271821)
     "built-ins/Date/parse/time-value-maximum-range.js",
 
-    // for-of not implemented
-    "built-ins/Proxy/enumerate/removed-does-not-trigger.js",
-
     // delete/add detection not implemented for map iterator during iteration
     "built-ins/Map/prototype/forEach/iterates-values-deleted-then-readded.js",
     "built-ins/MapIteratorPrototype/next/iteration-mutable.js",
@@ -115,13 +108,6 @@
     "built-ins/Array/prototype/toLocaleString/primitive_this_value.js",
     "built-ins/Array/prototype/toLocaleString/primitive_this_value_getter.js",
     "built-ins/Object/prototype/toLocaleString/primitive_this_value_getter.js",
-
-    // observables not implemented
-    "built-ins/String/prototype/padEnd/observable-operations.js",
-    "built-ins/String/prototype/padStart/observable-operations.js",
-
-    // code point iteration not implemented
-    "built-ins/StringIteratorPrototype/next/next-iteration-surrogate-pairs.js",
 
     // Line feed problems (git, windows, linux)
     "language/expressions/template-literal/tv-line-terminator-sequence.js",
@@ -143,21 +129,6 @@
     "language/expressions/object/accessor-name-computed.js",
     "built-ins/TypedArrayConstructors/ctors/object-arg/as-generator-iterable-returns.js",
     "language/expressions/object/method-definition/name-prop-name-yield-id.js",
-
-    // accessor not implemented
-    "language/expressions/object/prop-dup-set-get-set.js",
-    "language/expressions/object/accessor-name-computed-err-to-prop-key.js",
-    "language/expressions/object/accessor-name-computed-err-unresolvable.js",
-    "language/expressions/object/accessor-name-computed-in.js",
-    "language/expressions/object/accessor-name-literal-numeric-leading-decimal.js",
-    "language/expressions/object/accessor-name-literal-numeric-non-canonical.js",
-    "language/expressions/object/fn-name-accessor-get.js",
-    "language/expressions/object/fn-name-accessor-set.js",
-
-    // super not implemented
-    "language/expressions/object/method.js",
-    "language/expressions/object/setter-super-prop.js",
-    "language/expressions/object/getter-super-prop.js",
 
     // not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)
     "language/expressions/arrow-function/scope-paramsbody-var-open.js",
@@ -442,10 +413,7 @@
     "language/expressions/function/scope-param-rest-elem-var-open.js",
     "language/expressions/object/__proto__-duplicate-computed.js",
     "language/expressions/object/__proto__-fn-name.js",
-    "language/expressions/object/__proto__-poisoned-object-prototype.js",
     "language/expressions/object/__proto__-value-non-object.js",
-    "language/expressions/object/__proto__-value-null.js",
-    "language/expressions/object/__proto__-value-obj.js",
     "language/expressions/object/cpn-obj-lit-computed-property-name-from-null.js",
     "language/expressions/object/dstr/meth-ary-init-iter-get-err-array-prototype.js",
     "language/expressions/object/dstr/meth-dflt-ary-init-iter-get-err-array-prototype.js",

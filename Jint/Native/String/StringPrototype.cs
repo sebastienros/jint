@@ -884,36 +884,29 @@ namespace Jint.Native.String
         }
 
         /// <summary>
-        /// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/padStart
+        /// https://tc39.es/ecma262/#sec-string.prototype.padstart
         /// </summary>
-        /// <param name="thisObj">The original string object</param>
-        /// <param name="arguments">
-        ///     argument[0] is the target length of the output string
-        ///     argument[1] is the string to pad with
-        /// </param>
-        /// <returns></returns>
         private JsValue PadStart(JsValue thisObj, JsValue[] arguments)
         {
-            return Pad(thisObj, arguments, true);
+            return StringPad(thisObj, arguments, true);
         }
 
         /// <summary>
-        /// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/padEnd
+        /// https://tc39.es/ecma262/#sec-string.prototype.padend
         /// </summary>
-        /// <param name="thisObj">The original string object</param>
-        /// <param name="arguments">
-        ///     argument[0] is the target length of the output string
-        ///     argument[1] is the string to pad with
-        /// </param>
-        /// <returns></returns>
         private JsValue PadEnd(JsValue thisObj, JsValue[] arguments)
         {
-            return Pad(thisObj, arguments, false);
+            return StringPad(thisObj, arguments, false);
         }
 
-        private JsValue Pad(JsValue thisObj, JsValue[] arguments, bool padStart)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-stringpad
+        /// </summary>
+        private JsValue StringPad(JsValue thisObj, JsValue[] arguments, bool padStart)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
+            var s = TypeConverter.ToJsString(thisObj);
+
             var targetLength = TypeConverter.ToInt32(arguments.At(0));
             var padStringValue = arguments.At(1);
 
@@ -921,7 +914,6 @@ namespace Jint.Native.String
                 ? " "
                 : TypeConverter.ToString(padStringValue);
 
-            var s = TypeConverter.ToJsString(thisObj);
             if (s.Length > targetLength || padString.Length == 0)
             {
                 return s;
