@@ -10,7 +10,7 @@ namespace Jint.Native.Set
 {
     public sealed class SetConstructor : FunctionInstance, IConstructor
     {
-        private static readonly JsString _functionName = new JsString("Set");
+        private static readonly JsString _functionName = new("Set");
 
         internal SetConstructor(
             Engine engine,
@@ -25,7 +25,7 @@ namespace Jint.Native.Set
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public SetPrototype PrototypeObject { get; private set; }
+        public SetPrototype PrototypeObject { get; }
 
         protected override void Initialize()
         {

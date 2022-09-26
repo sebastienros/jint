@@ -5,7 +5,6 @@
   "Namespace": "Jint.Tests.Test262",
   "Parallel": true,
   "ExcludedFeatures": [
-    "array-grouping",
     "async-functions",
     "async-iteration",
     "Atomics",
