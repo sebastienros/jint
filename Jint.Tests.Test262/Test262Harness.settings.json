@@ -23,7 +23,6 @@
     "Promise.any",
     "regexp-duplicate-named-groups",
     "regexp-match-indices",
-    "regexp-named-groups",
     "regexp-lookbehind",
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
@@ -49,31 +48,38 @@
     "language/expressions/assignment/fn-name-lhs-cover.js",
 
     // Unicode support not built-in to .NET the same way, requires more work
-    "built-ins/RegExp/character-class-escape-non-whitespace.js",
-    "built-ins/RegExp/property-escapes/character-class.js",
     "built-ins/RegExp/prototype/Symbol.match/builtin-infer-unicode.js",
-    "built-ins/RegExp/prototype/Symbol.match/builtin-success-u-return-val-groups.js",
-    "built-ins/RegExp/prototype/Symbol.match/u-advance-after-empty.js",
-    "built-ins/RegExp/prototype/Symbol.replace/u-advance-after-empty.js",
     "built-ins/RegExp/prototype/Symbol.search/u-lastindex-advance.js",
-    "built-ins/RegExp/unicode_restricted_quantifiable_assertion.js",
-    "built-ins/RegExp/prototype/exec/u-lastindex-value.js",
-    "built-ins/RegExp/unicode_restricted_character_class_escape.js",
-    "built-ins/RegExp/unicode_restricted_identity_escape.js",
+    "built-ins/RegExp/prototype/exec/u-lastindex-adv.js",
+    "built-ins/RegExp/unicode_character_class_backspace_escape.js",
     "built-ins/RegExp/unicode_restricted_identity_escape_alpha.js",
     "built-ins/RegExp/unicode_restricted_identity_escape_c.js",
     "built-ins/RegExp/unicode_restricted_identity_escape_u.js",
-    "built-ins/RegExp/unicode_identity_escape.js",
-    "built-ins/RegExp/unicode_character_class_backspace_escape.js",
     "built-ins/RegExp/unicode_restricted_identity_escape_x.js",
     "language/literals/regexp/u-astral-char-class-invert.js",
+    "language/literals/regexp/u-astral.js",
+    "language/literals/regexp/u-case-mapping.js",
 
-    // Issue with \r in source string
-    "built-ins/RegExp/dotall/without-dotall.js",
-    "built-ins/RegExp/dotall/without-dotall-unicode.js",
+    // cannot have characters like 𝒜 as group name or something starting with $ in .NET, other .NET limitations
+    "built-ins/RegExp/named-groups/non-unicode-match.js",
+    "built-ins/RegExp/named-groups/non-unicode-property-names-valid.js",
+    "built-ins/RegExp/named-groups/non-unicode-property-names.js",
+    "built-ins/RegExp/named-groups/unicode-match.js",
+    "built-ins/RegExp/named-groups/unicode-property-names-valid.js",
+    "built-ins/RegExp/named-groups/unicode-property-names.js",
+    "built-ins/RegExp/prototype/Symbol.replace/named-groups.js",
+    "built-ins/RegExp/quantifier-integer-limit.js",
 
-    // regex named groups
-    "built-ins/String/prototype/replaceAll/searchValue-replacer-RegExp-call.js",
+    // more validation and cleanup needed
+    "built-ins/RegExp/S15.10.2.13_A1_T1.js",
+    "built-ins/RegExp/S15.10.2.13_A1_T2.js",
+    "built-ins/RegExp/character-class-escape-non-whitespace.js",
+    "built-ins/RegExp/unicode_character_class_backspace_escape.js",
+    "built-ins/RegExp/unicode_identity_escape.js",
+    "built-ins/RegExp/unicode_restricted_character_class_escape.js",
+    "built-ins/RegExp/unicode_restricted_identity_escape.js",
+    "built-ins/RegExp/unicode_restricted_quantifiable_assertion.js",
+
 
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",
@@ -88,7 +94,6 @@
     "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
     "built-ins/RegExp/S15.10.2.5_A1_T4.js",
 
-    "built-ins/RegExp/prototype/exec/u-lastindex-adv.js", // Esprima strips unicode sequence and match logic does not work
     "built-ins/String/raw/special-characters.js", // Windows line ending differences
     "language/expressions/object/method-definition/object-method-returns-promise.js", // Promise not implemented
     "language/statements/class/definition/class-method-returns-promise.js", // Promise not implemented
@@ -148,22 +153,18 @@
     "language/expressions/super/prop-expr-obj-val-from-eval.js",
 
     // Esprima problem
-    "built-ins/RegExp/quantifier-integer-limit.js",
+
+    "language/literals/regexp/u-surrogate-pairs-atom-escape-decimal.js",
+    "language/literals/regexp/u-unicode-esc.js",
     "built-ins/String/prototype/split/separator-regexp.js",
+
+
     "language/expressions/object/method-definition/name-super-prop-param.js",
     "language/expressions/optional-chaining/member-expression.js",
     "language/statements/for-of/dstr-obj-id-init-let.js",
     "language/statements/for/head-lhs-let.js",
     "language/expressions/object/yield-non-strict-access.js",
     "language/expressions/object/yield-non-strict-syntax.js",
-    "built-ins/RegExp/prototype/source/value-u.js",
-    "built-ins/RegExp/prototype/source/value-line-terminator.js",
-    "built-ins/RegExp/S15.10.2.13_A1_T1.js",
-    "built-ins/RegExp/S15.10.2.13_A1_T17.js",
-    "built-ins/RegExp/S15.10.2.13_A1_T2.js",
-    "built-ins/RegExp/S15.10.2.13_A2_T1.js",
-    "built-ins/RegExp/S15.10.2.13_A2_T2.js",
-    "built-ins/RegExp/S15.10.2.13_A2_T8.js",
     "language/expressions/object/let-non-strict-access.js",
     "language/expressions/object/let-non-strict-syntax.js",
     "language/expressions/assignment/dstr-obj-id-identifier-yield-ident-valid.js",
@@ -449,13 +450,6 @@
     "language/expressions/template-literal/tv-line-continuation.js",
     "language/function-code/eval-param-env-with-computed-key.js",
     "language/function-code/eval-param-env-with-prop-initializer.js",
-    "language/literals/regexp/u-astral.js",
-    "language/literals/regexp/u-case-mapping.js",
-    "language/literals/regexp/u-null-character-escape.js",
-    "language/literals/regexp/u-surrogate-pairs-atom-char-class.js",
-    "language/literals/regexp/u-surrogate-pairs-atom-escape-decimal.js",
-    "language/literals/regexp/u-surrogate-pairs.js",
-    "language/literals/regexp/u-unicode-esc.js",
     "language/literals/string/line-separator-eval.js",
     "language/literals/string/line-separator.js",
     "language/literals/string/paragraph-separator-eval.js",

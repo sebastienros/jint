@@ -830,6 +830,9 @@ namespace Jint.Native.String
             return (long) s[position];
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-string.prototype.codepointat
+        /// </summary>
         private JsValue CodePointAt(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);

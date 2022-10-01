@@ -51,6 +51,8 @@ namespace Jint.Repl
                 AdaptRegexp = true
             };
 
+            var serializer = new JsonSerializer(engine);
+
             while (true)
             {
                 Console.ForegroundColor = defaultColor;
@@ -66,13 +68,19 @@ namespace Jint.Repl
                     var result = engine.Evaluate(input, parserOptions);
                     if (!result.IsPrimitive() && result is not IPrimitiveInstance)
                     {
-                        var serializer = new JsonSerializer(engine);
                         var str = serializer.Serialize(result, Undefined.Instance, "  ");
                         Console.WriteLine(str);
                     }
                     else
                     {
-                        Console.WriteLine(result);
+                        if (result.IsString())
+                        {
+                            Console.WriteLine(serializer.Serialize(result, Undefined.Instance, Undefined.Instance));
+                        }
+                        else
+                        {
+                            Console.WriteLine(result);
+                        }
                     }
                 }
                 catch (JavaScriptException je)

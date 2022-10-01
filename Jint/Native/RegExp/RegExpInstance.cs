@@ -8,7 +8,7 @@ namespace Jint.Native.RegExp
     public class RegExpInstance : ObjectInstance
     {
         internal const string regExpForMatchingAllCharacters = "(?:)";
-        internal static readonly JsString PropertyLastIndex = new JsString("lastIndex");
+        internal static readonly JsString PropertyLastIndex = new("lastIndex");
 
         private string _flags = null!;
 

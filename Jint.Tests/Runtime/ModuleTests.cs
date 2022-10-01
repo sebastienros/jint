@@ -1,4 +1,3 @@
-using Esprima;
 using Jint.Native;
 using Jint.Runtime;
 
