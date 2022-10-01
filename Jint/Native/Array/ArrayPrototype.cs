@@ -1474,7 +1474,7 @@ namespace Jint.Native.Array
         {
             var grouping = BuildArrayGrouping(thisObject, arguments, mapMode: false);
 
-            var obj = OrdinaryObjectCreate(null);
+            var obj = OrdinaryObjectCreate(_engine, null);
             foreach (var pair in grouping)
             {
                 obj.FastSetProperty(pair.Key, new PropertyDescriptor(pair.Value, PropertyFlag.ConfigurableEnumerableWritable));

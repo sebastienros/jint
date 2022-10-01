@@ -61,6 +61,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 #### ECMAScript 2018
 
 - ✔ `Promise.prototype.finally`
+- ✔ RegExp named capture groups
 - ✔ Rest/spread operators for object literals (`...identifier`),
 
 #### ECMAScript 2019

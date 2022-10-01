@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Text.RegularExpressions;
 using Jint.Collections;
 using Jint.Native.Array;
@@ -16,14 +15,15 @@ namespace Jint.Native.RegExp
 {
     public sealed class RegExpPrototype : Prototype
     {
-        private static readonly JsString PropertyExec = new JsString("exec");
-        private static readonly JsString PropertyIndex = new JsString("index");
-        private static readonly JsString PropertyInput = new JsString("input");
-        private static readonly JsString PropertySticky = new JsString("sticky");
-        private static readonly JsString PropertyGlobal = new JsString("global");
-        internal static readonly JsString PropertySource = new JsString("source");
-        private static readonly JsValue DefaultSource = new JsString("(?:)");
-        internal static readonly JsString PropertyFlags = new JsString("flags");
+        private static readonly JsString PropertyExec = new("exec");
+        private static readonly JsString PropertyIndex = new("index");
+        private static readonly JsString PropertyInput = new("input");
+        private static readonly JsString PropertySticky = new("sticky");
+        private static readonly JsString PropertyGlobal = new("global");
+        internal static readonly JsString PropertySource = new("source");
+        private static readonly JsString DefaultSource = new("(?:)");
+        internal static readonly JsString PropertyFlags = new("flags");
+        private static readonly JsString PropertyGroups = new("groups");
 
         private readonly RegExpConstructor _constructor;
         private readonly Func<JsValue, JsValue[], JsValue> _defaultExec;
@@ -115,7 +115,7 @@ namespace Jint.Native.RegExp
                 return JsString.Empty;
             }
 
-            return r.Source.Replace("/", "\\/");
+            return r.Source.Replace("/", "\\/").Replace("\n", "\\n");
         }
 
         /// <summary>
@@ -165,16 +165,27 @@ namespace Jint.Native.RegExp
                         var replacerArgs = new List<JsValue>(match.Groups.Count + 2);
                         replacerArgs.Add(match.Value);
 
+                        ObjectInstance? groups = null;
                         for (var i = 1; i < match.Groups.Count; i++)
                         {
                             var capture = match.Groups[i];
-                            replacerArgs.Add(capture.Value);
+                            replacerArgs.Add(capture.Success ? capture.Value : Undefined);
+
+                            var groupName = GetRegexGroupName(rei.Value, i);
+                            if (!string.IsNullOrWhiteSpace(groupName))
+                            {
+                                groups ??= OrdinaryObjectCreate(_engine, null);
+                                groups.CreateDataPropertyOrThrow(groupName, capture.Success ? capture.Value : Undefined);
+                            }
                         }
 
                         replacerArgs.Add(match.Index);
                         replacerArgs.Add(s);
+                        if (groups is not null)
+                        {
+                            replacerArgs.Add(groups);
+                        }
 
-                        // no named captures
                         return CallFunctionalReplace(replaceValue, replacerArgs);
                     }
 
@@ -218,8 +229,9 @@ namespace Jint.Native.RegExp
             var nextSourcePosition = 0;
 
             var captures = new List<string>();
-            foreach (var result in results)
+            for (var i = 0; i < results.Count; i++)
             {
+                var result = results[i];
                 var nCaptures = (int) result.Length;
                 nCaptures = System.Math.Max(nCaptures - 1, 0);
                 var matched = TypeConverter.ToString(result.Get(0));
@@ -237,7 +249,7 @@ namespace Jint.Native.RegExp
                     n++;
                 }
 
-                var namedCaptures = result.Get("groups");
+                var namedCaptures = result.Get(PropertyGroups);
                 string replacement;
                 if (functionalReplace)
                 {
@@ -254,6 +266,7 @@ namespace Jint.Native.RegExp
                     {
                         replacerArgs.Add(namedCaptures);
                     }
+
                     replacement = CallFunctionalReplace(replaceValue, replacerArgs);
                 }
                 else
@@ -290,6 +303,9 @@ namespace Jint.Native.RegExp
             return TypeConverter.ToString(result);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getsubstitution
+        /// </summary>
         internal static string GetSubstitution(
             string matched,
             string str,
@@ -331,6 +347,26 @@ namespace Jint.Native.RegExp
                             break;
                         case '\'':
                             sb.Append(str.Substring(position + matched.Length));
+                            break;
+                        case '<':
+                            var gtPos = replacement.IndexOf('>', i + 1);
+                            if (gtPos == -1 || namedCaptures.IsUndefined())
+                            {
+                                sb.Append('$');
+                                sb.Append(c);
+                            }
+                            else
+                            {
+                                var startIndex = i + 1;
+                                var groupName = replacement.Substring(startIndex, gtPos - startIndex);
+                                var capture = namedCaptures.Get(groupName);
+                                if (!capture.IsUndefined())
+                                {
+                                    sb.Append(TypeConverter.ToString(capture));
+                                }
+
+                                i = gtPos;
+                            }
                             break;
                         default:
                             {
@@ -607,6 +643,9 @@ namespace Jint.Native.RegExp
             return !match.IsNull();
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-regexp.prototype-@@search
+        /// </summary>
         private JsValue Search(JsValue thisObj, JsValue[] arguments)
         {
             var rx = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.search");
@@ -633,6 +672,9 @@ namespace Jint.Native.RegExp
             return result.Get(PropertyIndex);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-regexp.prototype-@@match
+        /// </summary>
         private JsValue Match(JsValue thisObj, JsValue[] arguments)
         {
             var rx = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.match");
@@ -847,7 +889,7 @@ namespace Jint.Native.RegExp
                     return Null;
                 }
 
-                return CreateReturnValueArray(R.Engine, m, s, fullUnicode: false);
+                return CreateReturnValueArray(R.Engine, matcher, m, s, fullUnicode: false);
             }
 
             // the stateful version
@@ -874,24 +916,47 @@ namespace Jint.Native.RegExp
             var e = match.Index + match.Length;
             if (fullUnicode)
             {
-                // e is an index into the Input character list, derived from S, matched by matcher.
-                // Let eUTF be the smallest index into S that corresponds to the character at element e of Input.
-                // If e is greater than or equal to the number of elements in Input, then eUTF is the number of code units in S.
-                // Set e to eUTF.
-                var indexes = StringInfo.ParseCombiningCharacters(s);
-                if (match.Index < indexes.Length)
-                {
-                    var sub = StringInfo.GetNextTextElement(s, match.Index);
-                    e += sub.Length - 1;
-                }
+                e = GetStringIndex(s, e);
             }
 
-            R.Set(RegExpInstance.PropertyLastIndex, e, true);
+            if (global || sticky)
+            {
+                R.Set(RegExpInstance.PropertyLastIndex, e, true);
+            }
 
-            return CreateReturnValueArray(R.Engine, match, s, fullUnicode);
+            return CreateReturnValueArray(R.Engine, matcher, match, s, fullUnicode);
         }
 
-        private static ArrayInstance CreateReturnValueArray(Engine engine, Match match, string inputValue, bool fullUnicode)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getstringindex
+        /// </summary>
+        private static int GetStringIndex(string s, int codePointIndex)
+        {
+            if (s.Length == 0)
+            {
+                return 0;
+            }
+
+            var len = s.Length;
+            var codeUnitCount = 0;
+            var codePointCount = 0;
+
+            while (codeUnitCount < len)
+            {
+                if (codePointCount == codePointIndex)
+                {
+                    return codeUnitCount;
+                }
+
+                var isSurrogatePair = char.IsSurrogatePair(s, codeUnitCount);
+                codeUnitCount += isSurrogatePair ? 2 : 1;
+                codePointCount += 1;
+            }
+
+            return len;
+        }
+
+        private static ArrayInstance CreateReturnValueArray(Engine engine, Regex regex, Match match, string inputValue, bool fullUnicode)
         {
             var array = engine.Realm.Intrinsics.Array.ArrayCreate((ulong) match.Groups.Count);
             array.CreateDataProperty(PropertyIndex, match.Index);
@@ -904,20 +969,38 @@ namespace Jint.Native.RegExp
                 var capturedValue = Undefined;
                 if (capture?.Success == true)
                 {
-                    capturedValue = fullUnicode
-                        ? StringInfo.GetNextTextElement(inputValue, capture.Index)
-                        : capture.Value;
+                    capturedValue = capture.Value;
+                }
 
-
-                    // todo detect captured name
+                var groupName = GetRegexGroupName(regex, (int) i);
+                if (!string.IsNullOrWhiteSpace(groupName))
+                {
+                    groups ??= OrdinaryObjectCreate(engine, null);
+                    groups.CreateDataPropertyOrThrow(groupName, capturedValue);
                 }
 
                 array.SetIndexValue(i, capturedValue, updateLength: false);
             }
 
-            array.CreateDataProperty("groups", groups ?? Undefined);
+            array.CreateDataProperty(PropertyGroups, groups ?? Undefined);
 
             return array;
+        }
+
+        private static string? GetRegexGroupName(Regex regex, int index)
+        {
+            if (index == 0)
+            {
+                return null;
+            }
+            var groupNameFromNumber = regex.GroupNameFromNumber(index);
+            if (groupNameFromNumber.Length == 1 && groupNameFromNumber[0] == 48 + index)
+            {
+                // regex defaults to index as group name when it's not a named group
+                return null;
+
+            }
+            return groupNameFromNumber;
         }
 
         private JsValue Exec(JsValue thisObj, JsValue[] arguments)

@@ -1243,9 +1243,9 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ordinaryobjectcreate
         /// </summary>
-        internal ObjectInstance OrdinaryObjectCreate(ObjectInstance? proto)
+        internal static ObjectInstance OrdinaryObjectCreate(Engine engine, ObjectInstance? proto)
         {
-            var prototype = new ObjectInstance(_engine)
+            var prototype = new ObjectInstance(engine)
             {
                 _prototype = proto
             };
