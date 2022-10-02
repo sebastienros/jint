@@ -22,7 +22,6 @@
     "Promise.allSettled",
     "Promise.any",
     "regexp-duplicate-named-groups",
-    "regexp-match-indices",
     "regexp-lookbehind",
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
@@ -61,6 +60,7 @@
     "language/literals/regexp/u-case-mapping.js",
 
     // cannot have characters like 𝒜 as group name or something starting with $ in .NET, other .NET limitations
+    "built-ins/RegExp/match-indices/indices-array-unicode-property-names.js",
     "built-ins/RegExp/named-groups/non-unicode-match.js",
     "built-ins/RegExp/named-groups/non-unicode-property-names-valid.js",
     "built-ins/RegExp/named-groups/non-unicode-property-names.js",

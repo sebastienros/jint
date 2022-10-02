@@ -450,11 +450,25 @@ namespace Jint.Native.Array
             return ((IConstructor) c).Construct(new JsValue[] { JsNumber.Create(length) }, c);
         }
 
-        internal JsValue CreateArrayFromList(List<JsValue> values)
+        internal ArrayInstance CreateArrayFromList<T>(List<T> values) where T : JsValue
         {
             var jsArray = ArrayCreate((uint) values.Count);
             var index = 0;
             for (; index < values.Count; index++)
+            {
+                var item = values[index];
+                jsArray.SetIndexValue((uint) index, item, false);
+            }
+
+            jsArray.SetLength((uint) index);
+            return jsArray;
+        }
+
+        internal ArrayInstance CreateArrayFromList<T>(T[] values) where T : JsValue
+        {
+            var jsArray = ArrayCreate((uint) values.Length);
+            var index = 0;
+            for (; index < values.Length; index++)
             {
                 var item = values[index];
                 jsArray.SetIndexValue((uint) index, item, false);

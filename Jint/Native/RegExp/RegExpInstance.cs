@@ -33,6 +33,9 @@ namespace Jint.Native.RegExp
                 {
                     switch (c)
                     {
+                        case 'd':
+                            Indices = true;
+                            break;
                         case 'i':
                             IgnoreCase = true;
                             break;
@@ -51,6 +54,9 @@ namespace Jint.Native.RegExp
                         case 'u':
                             FullUnicode = true;
                             break;
+                        case 'v':
+                            UnicodeSets = true;
+                            break;
                     }
                 }
             }
@@ -58,10 +64,12 @@ namespace Jint.Native.RegExp
 
         public bool DotAll { get; private set; }
         public bool Global { get; private set; }
+        public bool Indices { get; private set; }
         public bool IgnoreCase { get; private set; }
         public bool Multiline { get; private set; }
         public bool Sticky { get; private set; }
         public bool FullUnicode { get; private set; }
+        public bool UnicodeSets { get; private set; }
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
