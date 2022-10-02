@@ -66,20 +66,22 @@ namespace Jint.Native.RegExp
             }
 
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            var properties = new PropertyDictionary(12, checkExistingKeys: false)
+            var properties = new PropertyDictionary(14, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_constructor, propertyFlags),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToRegExpString, 0, lengthFlags), propertyFlags),
                 ["exec"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "exec", _defaultExec, 1, lengthFlags), propertyFlags),
                 ["test"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "test", Test, 1, lengthFlags), propertyFlags),
-                ["dotAll"] = CreateGetAccessorDescriptor("get dotAll", r => r.DotAll),
+                ["dotAll"] = CreateGetAccessorDescriptor("get dotAll", static r => r.DotAll),
                 ["flags"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get flags", Flags, 0, lengthFlags), set: Undefined, flags: PropertyFlag.Configurable),
-                ["global"] = CreateGetAccessorDescriptor("get global", r => r.Global),
-                ["ignoreCase"] = CreateGetAccessorDescriptor("get ignoreCase", r => r.IgnoreCase),
-                ["multiline"] = CreateGetAccessorDescriptor("get multiline", r => r.Multiline),
+                ["global"] = CreateGetAccessorDescriptor("get global", static r => r.Global),
+                ["hasIndices"] = CreateGetAccessorDescriptor("get hasIndices", static r => r.Indices),
+                ["ignoreCase"] = CreateGetAccessorDescriptor("get ignoreCase", static r => r.IgnoreCase),
+                ["multiline"] = CreateGetAccessorDescriptor("get multiline", static r => r.Multiline),
                 ["source"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get source", Source, 0, lengthFlags), set: Undefined, flags: PropertyFlag.Configurable),
-                ["sticky"] = CreateGetAccessorDescriptor("get sticky", r => r.Sticky),
-                ["unicode"] = CreateGetAccessorDescriptor("get unicode", r => r.FullUnicode)
+                ["sticky"] = CreateGetAccessorDescriptor("get sticky", static r => r.Sticky),
+                ["unicode"] = CreateGetAccessorDescriptor("get unicode", static r => r.FullUnicode),
+                ["unicodeSets"] = CreateGetAccessorDescriptor("get unicodeSets", static r => r.UnicodeSets)
             };
             SetProperties(properties);
 
@@ -589,11 +591,13 @@ namespace Jint.Native.RegExp
                 return TypeConverter.ToBoolean(o.Get(p)) ? s + flag : s;
             }
 
-            var result = AddFlagIfPresent(r, PropertyGlobal, 'g', "");
+            var result = AddFlagIfPresent(r, "hasIndices", 'd', "");
+            result = AddFlagIfPresent(r, PropertyGlobal, 'g', result);
             result = AddFlagIfPresent(r, "ignoreCase", 'i', result);
             result = AddFlagIfPresent(r, "multiline", 'm', result);
             result = AddFlagIfPresent(r, "dotAll", 's', result);
             result = AddFlagIfPresent(r, "unicode", 'u', result);
+            result = AddFlagIfPresent(r, "unicodeSets", 'v', result);
             result = AddFlagIfPresent(r, PropertySticky, 'y', result);
 
             return result;
@@ -879,8 +883,9 @@ namespace Jint.Native.RegExp
 
             var matcher = R.Value;
             var fullUnicode = R.FullUnicode;
+            var hasIndices = R.Indices;
 
-            if (!global & !sticky && !fullUnicode)
+            if (!global & !sticky && !fullUnicode && !hasIndices)
             {
                 // we can the non-stateful fast path which is the common case
                 var m = matcher.Match(s, (int) lastIndex);
@@ -889,7 +894,7 @@ namespace Jint.Native.RegExp
                     return Null;
                 }
 
-                return CreateReturnValueArray(R.Engine, matcher, m, s, fullUnicode: false);
+                return CreateReturnValueArray(R.Engine, matcher, m, s, fullUnicode: false, hasIndices: false);
             }
 
             // the stateful version
@@ -924,7 +929,7 @@ namespace Jint.Native.RegExp
                 R.Set(RegExpInstance.PropertyLastIndex, e, true);
             }
 
-            return CreateReturnValueArray(R.Engine, matcher, match, s, fullUnicode);
+            return CreateReturnValueArray(R.Engine, matcher, match, s, fullUnicode, hasIndices);
         }
 
         /// <summary>
@@ -956,20 +961,40 @@ namespace Jint.Native.RegExp
             return len;
         }
 
-        private static ArrayInstance CreateReturnValueArray(Engine engine, Regex regex, Match match, string inputValue, bool fullUnicode)
+        private static ArrayInstance CreateReturnValueArray(
+            Engine engine,
+            Regex regex,
+            Match match,
+            string s,
+            bool fullUnicode,
+            bool hasIndices)
         {
             var array = engine.Realm.Intrinsics.Array.ArrayCreate((ulong) match.Groups.Count);
             array.CreateDataProperty(PropertyIndex, match.Index);
-            array.CreateDataProperty(PropertyInput, inputValue);
+            array.CreateDataProperty(PropertyInput, s);
 
             ObjectInstance? groups = null;
+            List<string>? groupNames = null;
+            var indices = hasIndices ? new List<JsNumber[]?>(match.Groups.Count) : null;
             for (uint i = 0; i < match.Groups.Count; i++)
             {
-                var capture = i < match.Groups.Count ? match.Groups[(int) i] : null;
+                var capture = match.Groups[(int) i];
                 var capturedValue = Undefined;
                 if (capture?.Success == true)
                 {
                     capturedValue = capture.Value;
+                }
+
+                if (hasIndices)
+                {
+                    if (capture?.Success == true)
+                    {
+                        indices!.Add(new[] { JsNumber.Create(capture.Index), JsNumber.Create(capture.Index + capture.Length) });
+                    }
+                    else
+                    {
+                        indices!.Add(null);
+                    }
                 }
 
                 var groupName = GetRegexGroupName(regex, (int) i);
@@ -977,6 +1002,8 @@ namespace Jint.Native.RegExp
                 {
                     groups ??= OrdinaryObjectCreate(engine, null);
                     groups.CreateDataPropertyOrThrow(groupName, capturedValue);
+                    groupNames ??= new List<string>();
+                    groupNames.Add(groupName!);
                 }
 
                 array.SetIndexValue(i, capturedValue, updateLength: false);
@@ -984,7 +1011,57 @@ namespace Jint.Native.RegExp
 
             array.CreateDataProperty(PropertyGroups, groups ?? Undefined);
 
+            if (hasIndices)
+            {
+                var indicesArray = MakeMatchIndicesIndexPairArray(engine, s, indices!, groupNames, groupNames?.Count > 0);
+                array.CreateDataPropertyOrThrow("indices", indicesArray);
+            }
+
             return array;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-makematchindicesindexpairarray
+        /// </summary>
+        private static ArrayInstance MakeMatchIndicesIndexPairArray(
+            Engine engine,
+            string s,
+            List<JsNumber[]?> indices,
+            List<string>? groupNames,
+            bool hasGroups)
+        {
+            var n = indices.Count;
+            var a = engine.Realm.Intrinsics.Array.Construct((uint) n);
+            ObjectInstance? groups = null;
+            if (hasGroups)
+            {
+                groups = OrdinaryObjectCreate(engine, null);
+            }
+
+            a.CreateDataPropertyOrThrow("groups", groups ?? Undefined);
+            for (var i = 0; i < n; ++i)
+            {
+                var matchIndices = indices[i];
+
+                var matchIndexPair = matchIndices is not null
+                    ? GetMatchIndexPair(engine, s, matchIndices)
+                    : Undefined;
+
+                a.Push(matchIndexPair);
+                if (i > 0 && !string.IsNullOrWhiteSpace(groupNames?[i - 1]))
+                {
+                    groups!.CreateDataPropertyOrThrow(groupNames![i - 1], matchIndexPair);
+                }
+            }
+            return a;
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getmatchindexpair
+        /// </summary>
+        private static JsValue GetMatchIndexPair(Engine engine, string s, JsNumber[] match)
+        {
+            return engine.Realm.Intrinsics.Array.CreateArrayFromList(match);
         }
 
         private static string? GetRegexGroupName(Regex regex, int index)

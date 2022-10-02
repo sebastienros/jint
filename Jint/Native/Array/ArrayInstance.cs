@@ -752,6 +752,39 @@ namespace Jint.Native.Array
             return GetEnumerator();
         }
 
+        internal void Push(JsValue value)
+        {
+            var initialLength = GetLength();
+            var newLength = initialLength + 1;
+
+            var temp = _dense;
+            var canUseDirectIndexSet = temp != null && newLength <= temp.Length;
+
+            double n = initialLength;
+            var desc = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
+            if (canUseDirectIndexSet)
+            {
+                temp![(uint) n] = desc;
+            }
+            else
+            {
+                WriteValueSlow(n, desc);
+            }
+
+            // check if we can set length fast without breaking ECMA specification
+            if (n < uint.MaxValue && CanSetLength())
+            {
+                _length!.Value = newLength;
+            }
+            else
+            {
+                if (!Set(CommonProperties.Length, newLength))
+                {
+                    ExceptionHelper.ThrowTypeError(_engine.Realm);
+                }
+            }
+        }
+
         internal uint Push(JsValue[] arguments)
         {
             var initialLength = GetLength();
