@@ -2783,7 +2783,7 @@ function output(x) {
         {
             var engine = new Engine();
             var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("JSON.parse('[01]')"));
-            Assert.Equal("Unexpected token '1'", ex.Message);
+            Assert.Equal("Unexpected token '1' in JSON at position 2", ex.Message);
 
             var voidCompletion = engine.Execute("try { JSON.parse('01') } catch (e) {}").GetCompletionValue();
             Assert.Equal(JsValue.Undefined, voidCompletion);
