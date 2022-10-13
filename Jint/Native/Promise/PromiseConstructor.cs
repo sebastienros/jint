@@ -13,7 +13,8 @@ namespace Jint.Native.Promise
         JsValue PromiseInstance,
         ICallable Resolve,
         ICallable Reject,
-        JsValue RejectObj
+        JsValue RejectObj,
+        JsValue ResolveObj
     );
 
     public sealed class PromiseConstructor : FunctionInstance, IConstructor
@@ -48,6 +49,8 @@ namespace Jint.Native.Promise
                     new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "reject", Reject, 1, lengthFlags),
                         propertyFlags)),
                 ["all"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "all", All, 1, lengthFlags),
+                    propertyFlags)),
+                ["any"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "any", Any, 1, lengthFlags),
                     propertyFlags)),
                 ["race"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "race", Race, 1, lengthFlags),
                     propertyFlags)),
@@ -89,7 +92,7 @@ namespace Jint.Native.Promise
                 static (Engine engine, Realm _, object? _) => new PromiseInstance(engine));
 
             var (resolve, reject) = instance.CreateResolvingFunctions();
-            promiseExecutor.Call(Undefined, new JsValue[] {resolve, reject});
+            promiseExecutor.Call(Undefined, new JsValue[] { resolve, reject });
 
             return instance;
         }
@@ -126,9 +129,9 @@ namespace Jint.Native.Promise
                 }
             }
 
-            var (instance, resolve, _, _) = NewPromiseCapability(_engine, thisObj);
+            var (instance, resolve, _, _, _) = NewPromiseCapability(_engine, thisObj);
 
-            resolve.Call(Undefined, new[] {x});
+            resolve.Call(Undefined, new[] { x });
 
             return instance;
         }
@@ -147,9 +150,9 @@ namespace Jint.Native.Promise
 
             var r = arguments.At(0);
 
-            var (instance, _, reject, _) = NewPromiseCapability(_engine, thisObj);
+            var (instance, _, reject, _, _) = NewPromiseCapability(_engine, thisObj);
 
-            reject.Call(Undefined, new[] {r});
+            reject.Call(Undefined, new[] { r });
 
             return instance;
         }
@@ -160,14 +163,14 @@ namespace Jint.Native.Promise
         //
         // 1. Let C be the this value.
         // 2. Let promiseCapability be ? NewPromiseCapability(C).
-        //     3. Let promiseResolve be GetPromiseResolve(C).
-        //     4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
-        //     5. Let iteratorRecord be GetIterator(iterable).
-        //     6. IfAbruptRejectPromise(iteratorRecord, promiseCapability).
-        //     7. Let result be PerformPromiseAll(iteratorRecord, C, promiseCapability, promiseResolve).
-        //     8. If result is an abrupt completion, then
+        // 3. Let promiseResolve be GetPromiseResolve(C).
+        // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
+        // 5. Let iteratorRecord be GetIterator(iterable).
+        // 6. IfAbruptRejectPromise(iteratorRecord, promiseCapability).
+        // 7. Let result be PerformPromiseAll(iteratorRecord, C, promiseCapability, promiseResolve).
+        // 8. If result is an abrupt completion, then
         //     a. If iteratorRecord.[[Done]] is false, set result to IteratorClose(iteratorRecord, result).
-        // b. IfAbruptRejectPromise(result, promiseCapability).
+        //     b. IfAbruptRejectPromise(result, promiseCapability).
         // 9. Return Completion(result)
         private JsValue All(JsValue thisObj, JsValue[] arguments)
         {
@@ -177,7 +180,7 @@ namespace Jint.Native.Promise
             }
 
             //2. Let promiseCapability be ? NewPromiseCapability(C).
-            var (resultingPromise, resolve, reject, rejectObj) = NewPromiseCapability(_engine, thisObj);
+            var (resultingPromise, resolve, reject, _, rejectObj) = NewPromiseCapability(_engine, thisObj);
 
             //3. Let promiseResolve be GetPromiseResolve(C).
             // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
@@ -188,7 +191,7 @@ namespace Jint.Native.Promise
             }
             catch (JavaScriptException e)
             {
-                reject.Call(Undefined, new[] {e.Error});
+                reject.Call(Undefined, new[] { e.Error });
                 return resultingPromise;
             }
 
@@ -210,7 +213,7 @@ namespace Jint.Native.Promise
             }
             catch (JavaScriptException e)
             {
-                reject.Call(Undefined, new[] {e.Error});
+                reject.Call(Undefined, new[] { e.Error });
                 return resultingPromise;
             }
 
@@ -253,7 +256,7 @@ namespace Jint.Native.Promise
                     }
                     catch (JavaScriptException e)
                     {
-                        reject.Call(Undefined, new[] {e.Error});
+                        reject.Call(Undefined, new[] { e.Error });
                         return resultingPromise;
                     }
 
@@ -262,7 +265,7 @@ namespace Jint.Native.Promise
                     // In F# it would be Option<JsValue>
                     results.Add(null!);
 
-                    var item = promiseResolve.Call(thisObj, new JsValue[] {value});
+                    var item = promiseResolve.Call(thisObj, new JsValue[] { value });
                     var thenProps = item.Get("then");
                     if (thenProps is ICallable thenFunc)
                     {
@@ -282,7 +285,7 @@ namespace Jint.Native.Promise
                                 return Undefined;
                             }, 1, PropertyFlag.Configurable);
 
-                        thenFunc.Call(item, new JsValue[] {onSuccess, rejectObj});
+                        thenFunc.Call(item, new JsValue[] { onSuccess, rejectObj });
                     }
                     else
                     {
@@ -295,33 +298,25 @@ namespace Jint.Native.Promise
             catch (JavaScriptException e)
             {
                 iterator.Close(CompletionType.Throw);
-                reject.Call(Undefined, new[] {e.Error});
+                reject.Call(Undefined, new[] { e.Error });
                 return resultingPromise;
-            }
-
-            // if there were not items but the iteration was successful
-            // e.g. "[]" empty array as an example
-            // resolve the promise sync
-            if (results.Count == 0)
-            {
-                resolve.Call(Undefined, new JsValue[] {_realm.Intrinsics.Array.ArrayCreate(0)});
             }
 
             return resultingPromise;
         }
 
-        // https://tc39.es/ecma262/#sec-promise.race
-        private JsValue Race(JsValue thisObj, JsValue[] arguments)
+        // https://tc39.es/ecma262/#sec-promise.any
+        private JsValue Any(JsValue thisObj, JsValue[] arguments)
         {
             if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_realm, "Promise.all called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.any called on non-object");
             }
 
-            // 2. Let promiseCapability be ? NewPromiseCapability(C).
-            var (resultingPromise, resolve, reject, rejectObj) = NewPromiseCapability(_engine, thisObj);
+            //2. Let promiseCapability be ? NewPromiseCapability(C).
+            var (resultingPromise, resolve, reject, resolveObj, _) = NewPromiseCapability(_engine, thisObj);
 
-            // 3. Let promiseResolve be GetPromiseResolve(C).
+            //3. Let promiseResolve be GetPromiseResolve(C).
             // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
             ICallable promiseResolve;
             try
@@ -330,7 +325,7 @@ namespace Jint.Native.Promise
             }
             catch (JavaScriptException e)
             {
-                reject.Call(Undefined, new[] {e.Error});
+                reject.Call(Undefined, new[] { e.Error });
                 return resultingPromise;
             }
 
@@ -352,7 +347,142 @@ namespace Jint.Native.Promise
             }
             catch (JavaScriptException e)
             {
-                reject.Call(Undefined, new[] {e.Error});
+                reject.Call(Undefined, new[] { e.Error });
+                return resultingPromise;
+            }
+
+            var errors = new List<JsValue>();
+            bool doneIterating = false;
+
+            void RejectIfAllRejected()
+            {
+                // that means all of them were rejected
+                // Note that "Undefined" is not null, thus the logic is sound, even though awkward
+                // also note that it is important to check if we are done iterating.
+                // if "then" method is sync then it will be resolved BEFORE the next iteration cycle
+
+                if (errors.TrueForAll(static x => x != null) && doneIterating)
+                {
+                    var array = _realm.Intrinsics.Array.ConstructFast(errors);
+
+                    reject.Call(Undefined, new JsValue[] { Construct(_realm.Intrinsics.AggregateError, new JsValue[] { array }) });
+                }
+            }
+
+            // https://tc39.es/ecma262/#sec-performpromiseany
+            try
+            {
+                int index = 0;
+
+                do
+                {
+                    JsValue value;
+                    try
+                    {
+                        if (!iterator.TryIteratorStep(out var nextItem))
+                        {
+                            doneIterating = true;
+                            RejectIfAllRejected();
+                            break;
+                        }
+
+                        value = nextItem.Get(CommonProperties.Value);
+                    }
+                    catch (JavaScriptException e)
+                    {
+                        errors.Add(e.Error);
+                        continue;
+                    }
+
+                    // note that null here is important
+                    // it will help to detect if all inner promises were rejected
+                    // In F# it would be Option<JsValue>
+                    errors.Add(null!);
+
+                    var item = promiseResolve.Call(thisObj, new JsValue[] { value });
+                    var thenProps = item.Get("then");
+                    if (thenProps is ICallable thenFunc)
+                    {
+                        var capturedIndex = index;
+
+                        var fulfilled = false;
+
+                        var onError =
+                            new ClrFunctionInstance(_engine, "", (_, args) =>
+                            {
+                                if (!fulfilled)
+                                {
+                                    fulfilled = true;
+                                    errors[capturedIndex] = args.At(0);
+                                    RejectIfAllRejected();
+                                }
+
+                                return Undefined;
+                            }, 1, PropertyFlag.Configurable);
+
+                        thenFunc.Call(item, new JsValue[] { resolveObj, onError });
+                    }
+                    else
+                    {
+                        ExceptionHelper.ThrowTypeError(_realm, "Passed non Promise-like value");
+                    }
+
+                    index += 1;
+                } while (true);
+            }
+            catch (JavaScriptException e)
+            {
+                iterator.Close(CompletionType.Throw);
+                reject.Call(Undefined, new[] { e.Error });
+                return resultingPromise;
+            }
+
+            return resultingPromise;
+        }
+
+        // https://tc39.es/ecma262/#sec-promise.race
+        private JsValue Race(JsValue thisObj, JsValue[] arguments)
+        {
+            if (!thisObj.IsObject())
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.all called on non-object");
+            }
+
+            // 2. Let promiseCapability be ? NewPromiseCapability(C).
+            var (resultingPromise, resolve, reject, _, rejectObj) = NewPromiseCapability(_engine, thisObj);
+
+            // 3. Let promiseResolve be GetPromiseResolve(C).
+            // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
+            ICallable promiseResolve;
+            try
+            {
+                promiseResolve = GetPromiseResolve(thisObj);
+            }
+            catch (JavaScriptException e)
+            {
+                reject.Call(Undefined, new[] { e.Error });
+                return resultingPromise;
+            }
+
+
+            IteratorInstance iterator;
+            // 5. Let iteratorRecord be GetIterator(iterable).
+            // 6. IfAbruptRejectPromise(iteratorRecord, promiseCapability).
+
+            try
+            {
+                if (arguments.Length == 0)
+                {
+                    ExceptionHelper.ThrowTypeError(_realm, "no arguments were passed to Promise.all");
+                }
+
+                var iterable = arguments.At(0);
+
+                iterator = iterable.GetIterator(_realm);
+            }
+            catch (JavaScriptException e)
+            {
+                reject.Call(Undefined, new[] { e.Error });
                 return resultingPromise;
             }
 
@@ -374,12 +504,12 @@ namespace Jint.Native.Promise
                     }
                     catch (JavaScriptException e)
                     {
-                        reject.Call(Undefined, new[] {e.Error});
+                        reject.Call(Undefined, new[] { e.Error });
                         return resultingPromise;
                     }
 
                     // h. Let nextPromise be ? Call(promiseResolve, constructor, « nextValue »).
-                    var nextPromise = promiseResolve.Call(thisObj, new JsValue[] {nextValue});
+                    var nextPromise = promiseResolve.Call(thisObj, new JsValue[] { nextValue });
 
                     // i. Perform ? Invoke(nextPromise, "then", « resultCapability.[[Resolve]], resultCapability.[[Reject]] »).
 
@@ -392,7 +522,7 @@ namespace Jint.Native.Promise
                 // a. If iteratorRecord.[[Done]] is false, set result to IteratorClose(iteratorRecord, result).
                 //     b. IfAbruptRejectPromise(result, promiseCapability).
                 iterator.Close(CompletionType.Throw);
-                reject.Call(Undefined, new[] {e.Error});
+                reject.Call(Undefined, new[] { e.Error });
                 return resultingPromise;
             }
 
@@ -472,7 +602,7 @@ namespace Jint.Native.Promise
 
             var executor = new ClrFunctionInstance(engine, "", Executor, 2, PropertyFlag.Configurable);
 
-            var instance = ctor.Construct(new JsValue[] {executor}, c);
+            var instance = ctor.Construct(new JsValue[] { executor }, c);
 
             ICallable? resolve = null;
             ICallable? reject = null;
@@ -495,7 +625,7 @@ namespace Jint.Native.Promise
                 ExceptionHelper.ThrowTypeError(engine.Realm, "reject is not a function");
             }
 
-            return new PromiseCapability(instance, resolve, reject, rejectArg);
+            return new PromiseCapability(instance, resolve, reject, resolveArg, rejectArg);
         }
     }
 }
