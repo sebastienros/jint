@@ -50,6 +50,8 @@ namespace Jint.Native.Promise
                         propertyFlags)),
                 ["all"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "all", All, 1, lengthFlags),
                     propertyFlags)),
+                ["allSettled"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "allSettled", AllSettled, 1, lengthFlags),
+                    propertyFlags)),
                 ["any"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "any", Any, 1, lengthFlags),
                     propertyFlags)),
                 ["race"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "race", Race, 1, lengthFlags),
@@ -271,13 +273,13 @@ namespace Jint.Native.Promise
                     {
                         var capturedIndex = index;
 
-                        var fulfilled = false;
+                        var alreadyCalled = false;
                         var onSuccess =
                             new ClrFunctionInstance(_engine, "", (_, args) =>
                             {
-                                if (!fulfilled)
+                                if (!alreadyCalled)
                                 {
-                                    fulfilled = true;
+                                    alreadyCalled = true;
                                     results[capturedIndex] = args.At(0);
                                     ResolveIfFinished();
                                 }
@@ -286,6 +288,162 @@ namespace Jint.Native.Promise
                             }, 1, PropertyFlag.Configurable);
 
                         thenFunc.Call(item, new JsValue[] { onSuccess, rejectObj });
+                    }
+                    else
+                    {
+                        ExceptionHelper.ThrowTypeError(_realm, "Passed non Promise-like value");
+                    }
+
+                    index += 1;
+                } while (true);
+            }
+            catch (JavaScriptException e)
+            {
+                iterator.Close(CompletionType.Throw);
+                reject.Call(Undefined, new[] { e.Error });
+                return resultingPromise;
+            }
+
+            return resultingPromise;
+        }
+
+        // https://tc39.es/ecma262/#sec-promise.allsettled
+        private JsValue AllSettled(JsValue thisObj, JsValue[] arguments)
+        {
+            if (!thisObj.IsObject())
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.allSettled called on non-object");
+            }
+
+            //2. Let promiseCapability be ? NewPromiseCapability(C).
+            var (resultingPromise, resolve, reject, _, rejectObj) = NewPromiseCapability(_engine, thisObj);
+
+            //3. Let promiseResolve be GetPromiseResolve(C).
+            // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
+            ICallable promiseResolve;
+            try
+            {
+                promiseResolve = GetPromiseResolve(thisObj);
+            }
+            catch (JavaScriptException e)
+            {
+                reject.Call(Undefined, new[] { e.Error });
+                return resultingPromise;
+            }
+
+
+            IteratorInstance iterator;
+            // 5. Let iteratorRecord be GetIterator(iterable).
+            // 6. IfAbruptRejectPromise(iteratorRecord, promiseCapability).
+
+            try
+            {
+                if (arguments.Length == 0)
+                {
+                    ExceptionHelper.ThrowTypeError(_realm, "no arguments were passed to Promise.all");
+                }
+
+                var iterable = arguments.At(0);
+
+                iterator = iterable.GetIterator(_realm);
+            }
+            catch (JavaScriptException e)
+            {
+                reject.Call(Undefined, new[] { e.Error });
+                return resultingPromise;
+            }
+
+            var results = new List<JsValue>();
+            bool doneIterating = false;
+
+            void ResolveIfFinished()
+            {
+                // that means all of them were resolved
+                // Note that "Undefined" is not null, thus the logic is sound, even though awkward
+                // also note that it is important to check if we are done iterating.
+                // if "then" method is sync then it will be resolved BEFORE the next iteration cycle
+                if (results.TrueForAll(static x => x != null) && doneIterating)
+                {
+                    var array = _realm.Intrinsics.Array.ConstructFast(results);
+                    resolve.Call(Undefined, new JsValue[] { array });
+                }
+            }
+
+            // 27.2.4.1.2 PerformPromiseAll ( iteratorRecord, constructor, resultCapability, promiseResolve )
+            // https://tc39.es/ecma262/#sec-performpromiseall
+            try
+            {
+                int index = 0;
+
+                do
+                {
+                    JsValue value;
+                    try
+                    {
+                        if (!iterator.TryIteratorStep(out var nextItem))
+                        {
+                            doneIterating = true;
+
+                            ResolveIfFinished();
+                            break;
+                        }
+
+                        value = nextItem.Get(CommonProperties.Value);
+                    }
+                    catch (JavaScriptException e)
+                    {
+                        reject.Call(Undefined, new[] { e.Error });
+                        return resultingPromise;
+                    }
+
+                    // note that null here is important
+                    // it will help to detect if all inner promises were resolved
+                    // In F# it would be Option<JsValue>
+                    results.Add(null!);
+
+                    var item = promiseResolve.Call(thisObj, new JsValue[] { value });
+                    var thenProps = item.Get("then");
+                    if (thenProps is ICallable thenFunc)
+                    {
+                        var capturedIndex = index;
+
+                        var alreadyCalled = false;
+                        var onSuccess =
+                            new ClrFunctionInstance(_engine, "", (_, args) =>
+                            {
+                                if (!alreadyCalled)
+                                {
+                                    alreadyCalled = true;
+
+                                    var res = Engine.Realm.Intrinsics.Object.Construct(2);
+                                    res.FastAddProperty("status", "fulfilled", true, true, true);
+                                    res.FastAddProperty("value", args.At(0), true, true, true);
+                                    results[capturedIndex] = res;
+
+                                    ResolveIfFinished();
+                                }
+
+                                return Undefined;
+                            }, 1, PropertyFlag.Configurable);
+                        var onFailure =
+                            new ClrFunctionInstance(_engine, "", (_, args) =>
+                            {
+                                if (!alreadyCalled)
+                                {
+                                    alreadyCalled = true;
+
+                                    var res = Engine.Realm.Intrinsics.Object.Construct(2);
+                                    res.FastAddProperty("status", "rejected", true, true, true);
+                                    res.FastAddProperty("reason", args.At(0), true, true, true);
+                                    results[capturedIndex] = res;
+
+                                    ResolveIfFinished();
+                                }
+
+                                return Undefined;
+                            }, 1, PropertyFlag.Configurable);
+
+                        thenFunc.Call(item, new JsValue[] { onSuccess, onFailure });
                     }
                     else
                     {
@@ -405,14 +563,14 @@ namespace Jint.Native.Promise
                     {
                         var capturedIndex = index;
 
-                        var fulfilled = false;
+                        var alreadyCalled = false;
 
                         var onError =
                             new ClrFunctionInstance(_engine, "", (_, args) =>
                             {
-                                if (!fulfilled)
+                                if (!alreadyCalled)
                                 {
-                                    fulfilled = true;
+                                    alreadyCalled = true;
                                     errors[capturedIndex] = args.At(0);
                                     RejectIfAllRejected();
                                 }

@@ -82,7 +82,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ✔ `import.meta`
 - ✔ Nullish coalescing operator (`??`)
 - ✔ Optional chaining
-- ❌ `Promise.allSettled`
+- ✔ `Promise.allSettled`
 - ✔ `String.prototype.matchAll`
 
 #### ECMAScript 2021

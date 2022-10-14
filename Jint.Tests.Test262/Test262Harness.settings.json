@@ -19,7 +19,6 @@
     "FinalizationRegistry",
     "generators",
     "import-assertions",
-    "Promise.allSettled",
     "regexp-duplicate-named-groups",
     "regexp-lookbehind",
     "regexp-unicode-property-escapes",
