@@ -152,7 +152,7 @@ namespace Jint
             for (uint i = 0; i < arrayLength; ++i)
             {
                 var jsItem = JsValue.FromObject(e, array.GetValue(i));
-                jsArray.WriteArrayValue(i, new PropertyDescriptor(jsItem, PropertyFlag.ConfigurableEnumerableWritable));
+                jsArray.WriteArrayValue(i, jsItem);
             }
 
             jsArray.SetOwnProperty(CommonProperties.Length,
