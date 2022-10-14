@@ -1,6 +1,9 @@
 using Esprima.Ast;
 using Jint.Constraints;
+using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Function;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -51,5 +54,19 @@ public class RavenApiUsageTests
 
         Assert.Equal(123, oldMaxStatements);
         Assert.Equal(321, constraint.MaxStatements);
+    }
+
+    [Fact]
+    public void CanConstructArrayInstanceFromDescriptorArray()
+    {
+        var descriptors = new[]
+        {
+            new PropertyDescriptor(42, writable: false, enumerable: false, configurable: false),
+        };
+
+        var engine = new Engine();
+        var array = new ArrayInstance(engine, descriptors);
+        Assert.Equal(1l, array.Length);
+        Assert.Equal(42, array[0]);
     }
 }

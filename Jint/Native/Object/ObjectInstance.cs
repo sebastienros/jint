@@ -459,6 +459,8 @@ namespace Jint.Native.Object
             return Set(property, value, this);
         }
 
+        private static readonly PropertyDescriptor _marker = new(Undefined, PropertyFlag.ConfigurableEnumerableWritable);
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor
         /// </summary>
@@ -473,7 +475,7 @@ namespace Jint.Native.Object
                 {
                     return parent.Set(property, value, receiver);
                 }
-                ownDesc = new PropertyDescriptor(Undefined, PropertyFlag.ConfigurableEnumerableWritable);
+                ownDesc = _marker;
             }
 
             if (ownDesc.IsDataDescriptor())

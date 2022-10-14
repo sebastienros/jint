@@ -222,7 +222,7 @@ namespace Jint.Native.Array
                 => (ulong) ((JsNumber) _target._length!._value!)._value;
 
             public override void SetLength(ulong length)
-                => _target.Set(CommonProperties.Length, length, true);
+                => _target.SetLength(length);
 
             public override void EnsureCapacity(ulong capacity)
                 => _target.EnsureCapacity((uint) capacity);
@@ -246,13 +246,17 @@ namespace Jint.Native.Array
                 var jsValues = new JsValue[n];
                 for (uint i = 0; i < (uint) jsValues.Length; i++)
                 {
-                    var prop = _target._dense[i] ?? PropertyDescriptor.Undefined;
-                    if (prop == PropertyDescriptor.Undefined)
+                    var prop = _target._dense[i];
+                    if (prop is null)
                     {
-                        prop = _target.Prototype?.GetProperty(i) ?? PropertyDescriptor.Undefined;
+                        prop = _target.Prototype?.Get(i) ?? JsValue.Undefined;
+                    }
+                    else if (prop is not JsValue)
+                    {
+                        prop = _target.UnwrapJsValue((PropertyDescriptor) prop);
                     }
 
-                    var jsValue = _target.UnwrapJsValue(prop);
+                    var jsValue = (JsValue) prop;
                     if ((jsValue.Type & elementTypes) == 0)
                     {
                         ExceptionHelper.ThrowTypeErrorNoEngine("invalid type");
