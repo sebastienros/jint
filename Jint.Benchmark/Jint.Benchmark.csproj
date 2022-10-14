@@ -29,6 +29,6 @@
     <PackageReference Include="Jurassic" Version="3.2.6" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="NiL.JS" Version="2.5.1600" />
-    <PackageReference Include="YantraJS.Core" Version="1.2.50" />
+    <PackageReference Include="YantraJS.Core" Version="1.2.51" />
   </ItemGroup>
 </Project>
