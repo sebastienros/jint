@@ -20,7 +20,6 @@
     "generators",
     "import-assertions",
     "Promise.allSettled",
-    "Promise.any",
     "regexp-duplicate-named-groups",
     "regexp-lookbehind",
     "regexp-unicode-property-escapes",
