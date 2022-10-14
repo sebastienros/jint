@@ -159,34 +159,22 @@ namespace Jint.Native.Promise
             return instance;
         }
 
-        // https://tc39.es/ecma262/#sec-promise.all
-        // The all function returns a new promise which is fulfilled with an array of fulfillment values for the passed promises,
-        // or rejects with the reason of the first passed promise that rejects. It resolves all elements of the passed iterable to promises as it runs this algorithm.
-        //
-        // 1. Let C be the this value.
-        // 2. Let promiseCapability be ? NewPromiseCapability(C).
-        // 3. Let promiseResolve be GetPromiseResolve(C).
-        // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
-        // 5. Let iteratorRecord be GetIterator(iterable).
-        // 6. IfAbruptRejectPromise(iteratorRecord, promiseCapability).
-        // 7. Let result be PerformPromiseAll(iteratorRecord, C, promiseCapability, promiseResolve).
-        // 8. If result is an abrupt completion, then
-        //     a. If iteratorRecord.[[Done]] is false, set result to IteratorClose(iteratorRecord, result).
-        //     b. IfAbruptRejectPromise(result, promiseCapability).
-        // 9. Return Completion(result)
-        private JsValue All(JsValue thisObj, JsValue[] arguments)
+        // This helper methods executes the first 6 steps in the specs belonging to static Promise methods like all, any etc.
+        // If it returns false, that means it has an error and it is already rejected
+        // If it returns true, the logic specific to the calling function should continue executing
+        private bool TryGetPromiseCapabilityAndIterator(JsValue thisObj, JsValue[] arguments, string callerName, out PromiseCapability capability, out ICallable promiseResolve, out IteratorInstance iterator)
         {
             if (!thisObj.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_realm, "Promise.all called on non-object");
+                ExceptionHelper.ThrowTypeError(_realm, $"{callerName} called on non-object");
             }
 
             //2. Let promiseCapability be ? NewPromiseCapability(C).
-            var (resultingPromise, resolve, reject, _, rejectObj) = NewPromiseCapability(_engine, thisObj);
+            capability = NewPromiseCapability(_engine, thisObj);
+            var reject = capability.Reject;
 
             //3. Let promiseResolve be GetPromiseResolve(C).
             // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
-            ICallable promiseResolve;
             try
             {
                 promiseResolve = GetPromiseResolve(thisObj);
@@ -194,11 +182,12 @@ namespace Jint.Native.Promise
             catch (JavaScriptException e)
             {
                 reject.Call(Undefined, new[] { e.Error });
-                return resultingPromise;
+                promiseResolve = null!;
+                iterator = null!;
+                return false;
             }
 
 
-            IteratorInstance iterator;
             // 5. Let iteratorRecord be GetIterator(iterable).
             // 6. IfAbruptRejectPromise(iteratorRecord, promiseCapability).
 
@@ -206,7 +195,7 @@ namespace Jint.Native.Promise
             {
                 if (arguments.Length == 0)
                 {
-                    ExceptionHelper.ThrowTypeError(_realm, "no arguments were passed to Promise.all");
+                    ExceptionHelper.ThrowTypeError(_realm, $"no arguments were passed to {callerName}");
                 }
 
                 var iterable = arguments.At(0);
@@ -216,8 +205,20 @@ namespace Jint.Native.Promise
             catch (JavaScriptException e)
             {
                 reject.Call(Undefined, new[] { e.Error });
-                return resultingPromise;
+                iterator = null!;
+                return false;
             }
+
+            return true;
+        }
+
+        // https://tc39.es/ecma262/#sec-promise.all
+        private JsValue All(JsValue thisObj, JsValue[] arguments)
+        {
+            if (!TryGetPromiseCapabilityAndIterator(thisObj, arguments, "Promise.all", out var capability, out var promiseResolve, out var iterator))
+                return capability.PromiseInstance;
+
+            var (resultingPromise, resolve, reject, _, rejectObj) = capability;
 
             var results = new List<JsValue>();
             bool doneIterating = false;
@@ -310,48 +311,10 @@ namespace Jint.Native.Promise
         // https://tc39.es/ecma262/#sec-promise.allsettled
         private JsValue AllSettled(JsValue thisObj, JsValue[] arguments)
         {
-            if (!thisObj.IsObject())
-            {
-                ExceptionHelper.ThrowTypeError(_realm, "Promise.allSettled called on non-object");
-            }
+            if (!TryGetPromiseCapabilityAndIterator(thisObj, arguments, "Promise.allSettled", out var capability, out var promiseResolve, out var iterator))
+                return capability.PromiseInstance;
 
-            //2. Let promiseCapability be ? NewPromiseCapability(C).
-            var (resultingPromise, resolve, reject, _, rejectObj) = NewPromiseCapability(_engine, thisObj);
-
-            //3. Let promiseResolve be GetPromiseResolve(C).
-            // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
-            ICallable promiseResolve;
-            try
-            {
-                promiseResolve = GetPromiseResolve(thisObj);
-            }
-            catch (JavaScriptException e)
-            {
-                reject.Call(Undefined, new[] { e.Error });
-                return resultingPromise;
-            }
-
-
-            IteratorInstance iterator;
-            // 5. Let iteratorRecord be GetIterator(iterable).
-            // 6. IfAbruptRejectPromise(iteratorRecord, promiseCapability).
-
-            try
-            {
-                if (arguments.Length == 0)
-                {
-                    ExceptionHelper.ThrowTypeError(_realm, "no arguments were passed to Promise.all");
-                }
-
-                var iterable = arguments.At(0);
-
-                iterator = iterable.GetIterator(_realm);
-            }
-            catch (JavaScriptException e)
-            {
-                reject.Call(Undefined, new[] { e.Error });
-                return resultingPromise;
-            }
+            var (resultingPromise, resolve, reject, _, rejectObj) = capability;
 
             var results = new List<JsValue>();
             bool doneIterating = false;
@@ -466,48 +429,10 @@ namespace Jint.Native.Promise
         // https://tc39.es/ecma262/#sec-promise.any
         private JsValue Any(JsValue thisObj, JsValue[] arguments)
         {
-            if (!thisObj.IsObject())
-            {
-                ExceptionHelper.ThrowTypeError(_realm, "Promise.any called on non-object");
-            }
+            if (!TryGetPromiseCapabilityAndIterator(thisObj, arguments, "Promise.any", out var capability, out var promiseResolve, out var iterator))
+                return capability.PromiseInstance;
 
-            //2. Let promiseCapability be ? NewPromiseCapability(C).
-            var (resultingPromise, resolve, reject, resolveObj, _) = NewPromiseCapability(_engine, thisObj);
-
-            //3. Let promiseResolve be GetPromiseResolve(C).
-            // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
-            ICallable promiseResolve;
-            try
-            {
-                promiseResolve = GetPromiseResolve(thisObj);
-            }
-            catch (JavaScriptException e)
-            {
-                reject.Call(Undefined, new[] { e.Error });
-                return resultingPromise;
-            }
-
-
-            IteratorInstance iterator;
-            // 5. Let iteratorRecord be GetIterator(iterable).
-            // 6. IfAbruptRejectPromise(iteratorRecord, promiseCapability).
-
-            try
-            {
-                if (arguments.Length == 0)
-                {
-                    ExceptionHelper.ThrowTypeError(_realm, "no arguments were passed to Promise.all");
-                }
-
-                var iterable = arguments.At(0);
-
-                iterator = iterable.GetIterator(_realm);
-            }
-            catch (JavaScriptException e)
-            {
-                reject.Call(Undefined, new[] { e.Error });
-                return resultingPromise;
-            }
+            var (resultingPromise, resolve, reject, resolveObj, _) = capability;
 
             var errors = new List<JsValue>();
             bool doneIterating = false;
@@ -601,48 +526,11 @@ namespace Jint.Native.Promise
         // https://tc39.es/ecma262/#sec-promise.race
         private JsValue Race(JsValue thisObj, JsValue[] arguments)
         {
-            if (!thisObj.IsObject())
-            {
-                ExceptionHelper.ThrowTypeError(_realm, "Promise.all called on non-object");
-            }
+            if (!TryGetPromiseCapabilityAndIterator(thisObj, arguments, "Promise.race", out var capability, out var promiseResolve, out var iterator))
+                return capability.PromiseInstance;
 
-            // 2. Let promiseCapability be ? NewPromiseCapability(C).
-            var (resultingPromise, resolve, reject, _, rejectObj) = NewPromiseCapability(_engine, thisObj);
+            var (resultingPromise, resolve, reject, _, rejectObj) = capability;
 
-            // 3. Let promiseResolve be GetPromiseResolve(C).
-            // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
-            ICallable promiseResolve;
-            try
-            {
-                promiseResolve = GetPromiseResolve(thisObj);
-            }
-            catch (JavaScriptException e)
-            {
-                reject.Call(Undefined, new[] { e.Error });
-                return resultingPromise;
-            }
-
-
-            IteratorInstance iterator;
-            // 5. Let iteratorRecord be GetIterator(iterable).
-            // 6. IfAbruptRejectPromise(iteratorRecord, promiseCapability).
-
-            try
-            {
-                if (arguments.Length == 0)
-                {
-                    ExceptionHelper.ThrowTypeError(_realm, "no arguments were passed to Promise.all");
-                }
-
-                var iterable = arguments.At(0);
-
-                iterator = iterable.GetIterator(_realm);
-            }
-            catch (JavaScriptException e)
-            {
-                reject.Call(Undefined, new[] { e.Error });
-                return resultingPromise;
-            }
 
             // 7. Let result be PerformPromiseRace(iteratorRecord, C, promiseCapability, promiseResolve).
             // https://tc39.es/ecma262/#sec-performpromiserace
