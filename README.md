@@ -98,7 +98,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 #### ECMAScript 2022
 
 - ❌ Class Fields
-- ❌ RegExp Match Indices
+- ✔ RegExp Match Indices
 - ❌ Top-level await
 - ❌ Ergonomic brand checks for Private Fields
 - ✔ `.at()`
