@@ -19,7 +19,6 @@
     "FinalizationRegistry",
     "generators",
     "import-assertions",
-    "Promise.allSettled",
     "regexp-duplicate-named-groups",
     "regexp-lookbehind",
     "regexp-unicode-property-escapes",
@@ -93,12 +92,11 @@
     "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
     "built-ins/RegExp/S15.10.2.5_A1_T4.js",
 
-    "built-ins/String/raw/special-characters.js", // Windows line ending differences
-    "language/expressions/object/method-definition/object-method-returns-promise.js", // Promise not implemented
-    "language/statements/class/definition/class-method-returns-promise.js", // Promise not implemented
+    // Windows line ending differences
+    "built-ins/String/raw/special-characters.js",
 
-    // there is bug in suite and bug in Jint, refer to https://github.com/sebastienros/jint/issues/888 and https://github.com/tc39/test262/issues/2985
-    "built-ins/Promise/race/resolve-element-function-name.js",
+    // Async flag is missing from test
+    "language/expressions/object/method-definition/object-method-returns-promise.js",
 
     // parsing of large/small years not implemented in .NET (-271821, +271821)
     "built-ins/Date/parse/time-value-maximum-range.js",
