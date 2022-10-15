@@ -40,30 +40,21 @@ namespace Jint.Native.Promise
         {
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
-            var properties = new PropertyDictionary(5, checkExistingKeys: false)
+            var properties = new PropertyDictionary(6, checkExistingKeys: false)
             {
-                ["resolve"] =
-                    new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "resolve", Resolve, 1, lengthFlags),
-                        propertyFlags)),
-                ["reject"] =
-                    new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "reject", Reject, 1, lengthFlags),
-                        propertyFlags)),
-                ["all"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "all", All, 1, lengthFlags),
-                    propertyFlags)),
-                ["allSettled"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "allSettled", AllSettled, 1, lengthFlags),
-                    propertyFlags)),
-                ["any"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "any", Any, 1, lengthFlags),
-                    propertyFlags)),
-                ["race"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "race", Race, 1, lengthFlags),
-                    propertyFlags)),
+                ["resolve"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "resolve", Resolve, 1, lengthFlags), propertyFlags)),
+                ["reject"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "reject", Reject, 1, lengthFlags), propertyFlags)),
+                ["all"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "all", All, 1, lengthFlags), propertyFlags)),
+                ["allSettled"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "allSettled", AllSettled, 1, lengthFlags), propertyFlags)),
+                ["any"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "any", Any, 1, lengthFlags), propertyFlags)),
+                ["race"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "race", Race, 1, lengthFlags), propertyFlags)),
             };
             SetProperties(properties);
 
             var symbols = new SymbolDictionary(1)
             {
                 [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(
-                    get: new ClrFunctionInstance(_engine, "get [Symbol.species]", (thisObj, _) => thisObj, 0,
-                        PropertyFlag.Configurable),
+                    get: new ClrFunctionInstance(_engine, "get [Symbol.species]", (thisObj, _) => thisObj, 0, PropertyFlag.Configurable),
                     set: Undefined, PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
