@@ -1,6 +1,5 @@
 using Esprima.Ast;
 using Jint.Constraints;
-using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Runtime.Descriptors;
@@ -66,7 +65,7 @@ public class RavenApiUsageTests
 
         var engine = new Engine();
         var array = new ArrayInstance(engine, descriptors);
-        Assert.Equal(1l, array.Length);
+        Assert.Equal(1L, array.Length);
         Assert.Equal(42, array[0]);
     }
 }
