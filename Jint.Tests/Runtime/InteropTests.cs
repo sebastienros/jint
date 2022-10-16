@@ -2889,7 +2889,7 @@ namespace Jint.Tests.Runtime
             _engine.SetValue("collection", new List<string> { "a", "b", "c" });
             Assert.Equal("abc", _engine.Evaluate(Script));
 
-            _engine.SetValue("collection", new Dictionary<string, object> { {"a", 1 }, { "b", 2 }, { "c", 3 } });
+            _engine.SetValue("collection", new Dictionary<string, object> { { "a", 1 }, { "b", 2 }, { "c", 3 } });
             Assert.Equal("a,1b,2c,3", _engine.Evaluate(Script));
         }
 
@@ -2985,7 +2985,7 @@ namespace Jint.Tests.Runtime
 
             // checking throwing exception in override operator
             string errorMsg = string.Empty;
-            errorMsg = Assert.Throws<JavaScriptException>(() => engine.Invoke("Eval", new object[] {new Dimensional("kg", 30), new Dimensional("piece", 70)})).Message;
+            errorMsg = Assert.Throws<JavaScriptException>(() => engine.Invoke("Eval", new object[] { new Dimensional("kg", 30), new Dimensional("piece", 70) })).Message;
             Assert.Equal("Dimensionals with different measure types are non-summable", errorMsg);
         }
 
@@ -2997,7 +2997,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void GenericParameterResolutionShouldWorkWithNulls()
         {
-            var result =new Engine()
+            var result = new Engine()
                 .SetValue("JintCommon", new JintCommon())
                 .Evaluate("JintCommon.sum(1, null)")
                 .AsNumber();
@@ -3094,7 +3094,7 @@ namespace Jint.Tests.Runtime
             engine.SetValue("fn", new ClrFunctionInstance(engine, "fn", (_, args) => (JsValue) (args[0].AsInteger() + 1)));
 
             var result = engine.Evaluate("fn(1)");
-            
+
             Assert.Equal(2, result);
         }
 
@@ -3109,7 +3109,7 @@ function wrap() {
 }
 wrap();
 ";
-            
+
             Assert.Throws<InvalidOperationException>(() => engine.Execute(Source));
         }
 
@@ -3124,11 +3124,11 @@ function wrap() {
 }
 wrap();
 ";
-            
+
             var exc = Assert.Throws<JavaScriptException>(() => engine.Execute(Source));
             Assert.Equal(exc.Message, "This is a C# error");
         }
-        
+
         [Fact]
         public void ShouldAllowCatchingConvertedClrExceptions()
         {
@@ -3141,7 +3141,7 @@ try {
   throw new Error('Caught: ' + e.message);
 }
 ";
-            
+
             var exc = Assert.Throws<JavaScriptException>(() => engine.Execute(Source));
             Assert.Equal(exc.Message, "Caught: This is a C# error");
         }
@@ -3207,6 +3207,22 @@ try {
 }";
             engine.Execute(Source);
             Assert.Equal(1, baz.DisposeCalls);
+        }
+
+        public class PropertyTestClass
+        {
+            public object Value;
+        }
+
+        [Fact]
+        public void PropertiesOfJsObjectPassedToClrShouldBeReadable()
+        {
+            _engine.SetValue("MyClass", typeof(PropertyTestClass));
+            RunTest(@"
+                var obj = new MyClass();
+                obj.Value = { foo: 'bar' };
+                equal('bar', obj.Value.foo);
+            ");
         }
     }
 }
