@@ -1,10 +1,21 @@
 using Jint.Native;
 using Jint.Runtime;
+using Xunit.Abstractions;
 
 namespace Jint.Tests.Runtime
 {
     public class TypeConverterTests
     {
+        private readonly Engine _engine;
+
+        public TypeConverterTests(ITestOutputHelper output)
+        {
+            _engine = new Engine()
+                .SetValue("log", new Action<object>(o => output.WriteLine(o.ToString())))
+                .SetValue("assert", new Action<bool>(Assert.True))
+                .SetValue("equal", new Action<object, object>(Assert.Equal))
+                ;
+        }
 
         public static readonly IEnumerable<object[]> ConvertNumberToInt32AndUint32TestData = new TheoryData<double, int>()
         {
@@ -68,6 +79,18 @@ namespace Jint.Tests.Runtime
             Assert.Equal((uint)expectedResult, TypeConverter.ToUint32(jsval));
         }
 
+        [Fact]
+        public void ToPrimitiveShouldEvaluateOnlyOnceDuringInExpression()
+        {
+            _engine.Execute(@"
+                var b = {};
+                var bval = 0;
+                b[Symbol.toPrimitive] = function(hint) { return bval++; };
+
+                b in {};
+                equal(1, bval);
+            ");
+        }
     }
 
 }
