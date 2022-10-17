@@ -496,7 +496,7 @@ namespace Jint.Native.Object
         {
             if (arguments.At(0) is not ObjectInstance o)
             {
-                return true;
+                return JsBoolean.True;
             }
 
             return TestIntegrityLevel(o, IntegrityLevel.Sealed);
@@ -509,7 +509,7 @@ namespace Jint.Native.Object
         {
             if (arguments.At(0) is not ObjectInstance o)
             {
-                return true;
+                return JsBoolean.True;
             }
 
             return TestIntegrityLevel(o, IntegrityLevel.Frozen);
@@ -555,7 +555,7 @@ namespace Jint.Native.Object
         {
             if (arguments.At(0) is not ObjectInstance o)
             {
-                return false;
+                return JsBoolean.False;
             }
 
             return o.Extensible;

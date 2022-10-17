@@ -584,7 +584,8 @@ namespace Jint.Native.Object
         /// </summary>
         public virtual bool HasProperty(JsValue property)
         {
-            var hasOwn = GetOwnProperty(property);
+            var key = TypeConverter.ToPropertyKey(property);
+            var hasOwn = GetOwnProperty(key);
             if (hasOwn != PropertyDescriptor.Undefined)
             {
                 return true;
@@ -593,7 +594,7 @@ namespace Jint.Native.Object
             var parent = GetPrototypeOf();
             if (parent != null)
             {
-                return parent.HasProperty(property);
+                return parent.HasProperty(key);
             }
 
             return false;
