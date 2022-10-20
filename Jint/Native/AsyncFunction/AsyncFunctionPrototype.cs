@@ -6,6 +6,9 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.AsyncFunction;
 
+/// <summary>
+/// https://tc39.es/ecma262/#sec-async-function-prototype-properties
+/// </summary>
 internal sealed class AsyncFunctionPrototype : Prototype
 {
     private readonly AsyncFunctionConstructor _constructor;
