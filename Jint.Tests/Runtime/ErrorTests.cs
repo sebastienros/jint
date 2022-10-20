@@ -1,4 +1,6 @@
-﻿using Esprima;
+﻿using System.Reflection;
+using Esprima;
+using Jint.Native;
 using Jint.Runtime;
 using Jint.Tests.Runtime.TestClasses;
 
@@ -439,6 +441,22 @@ $variable1 + -variable2 - variable3;");
             Assert.Equal(5, e.Location.Start.Line);
             Assert.Equal(14, e.Location.Start.Column);
             Assert.Equal("   at <anonymous>:5:15", e.JavaScriptStackTrace);
+        }
+
+        [Fact]
+        public void InvokingDelegateShouldContainJavascriptExceptionAsInnerException()
+        {
+            Delegate func = null;
+            void SetFuncValue(Delegate scriptFunc) => func = scriptFunc;
+
+            var engine = new Engine();
+            engine.SetValue("SetFuncValue", SetFuncValue);
+            engine.Execute("SetFuncValue(() => { foo.bar });");
+
+            var ex = Assert.Throws<TargetInvocationException>(() => func?.DynamicInvoke(JsValue.Undefined, Array.Empty<JsValue>()));
+
+            var exception = Assert.IsType<JavaScriptException>(ex.InnerException);
+            Assert.Equal("foo is not defined", exception.Message);
         }
 
         private static void EqualIgnoringNewLineDifferences(string expected, string actual)
