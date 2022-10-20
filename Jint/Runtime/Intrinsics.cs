@@ -2,6 +2,7 @@ using Jint.Native;
 using Jint.Native.AggregateError;
 using Jint.Native.Array;
 using Jint.Native.ArrayBuffer;
+using Jint.Native.AsyncFunction;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;
 using Jint.Native.DataView;
@@ -79,6 +80,7 @@ namespace Jint.Runtime
         private BooleanConstructor? _boolean;
         private ArrayBufferConstructor? _arrayBufferConstructor;
         private DataViewConstructor? _dataView;
+        private AsyncFunctionConstructor? _asyncFunction;
 
         private IntrinsicTypedArrayConstructor? _typedArray;
         private Int8ArrayConstructor? _int8Array;
@@ -113,6 +115,9 @@ namespace Jint.Runtime
 
         public ObjectConstructor Object { get; }
         public FunctionConstructor Function { get; }
+
+        internal AsyncFunctionConstructor AsyncFunction =>
+            _asyncFunction ??= new AsyncFunctionConstructor(_engine, _realm, Function);
 
         public ArrayConstructor Array =>
             _array ??= new ArrayConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);

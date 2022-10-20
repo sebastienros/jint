@@ -75,6 +75,11 @@ public abstract partial class Test262Test
             engine.Execute(State.Sources[include]);
         }
 
+        if (file.Flags.IndexOf("async") != -1)
+        {
+            engine.Execute(State.Sources["doneprintHandle.js"]);
+        }
+
         return engine;
     }
 

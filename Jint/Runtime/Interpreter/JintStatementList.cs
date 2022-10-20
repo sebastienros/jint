@@ -140,7 +140,7 @@ namespace Jint.Runtime.Interpreter
 
         private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, Exception e, SyntaxElement s)
         {
-            var error = errorConstructor.Construct(new JsValue[] { e.Message });
+            var error = errorConstructor.Construct(e.Message);
             return new Completion(CompletionType.Throw, error, s);
         }
 

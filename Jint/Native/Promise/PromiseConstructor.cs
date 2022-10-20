@@ -66,6 +66,9 @@ namespace Jint.Native.Promise
             return null;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-promise-executor
+        /// </summary>
         ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
@@ -73,21 +76,28 @@ namespace Jint.Native.Promise
                 ExceptionHelper.ThrowTypeError(_realm, "Constructor Promise requires 'new'");
             }
 
-            var promiseExecutor = arguments.At(0) as ICallable;
-            if (promiseExecutor is null)
+            if (arguments.At(0) is not ICallable executor)
             {
                 ExceptionHelper.ThrowTypeError(_realm, $"Promise executor {(arguments.At(0))} is not a function");
+                return null;
             }
 
-            var instance = OrdinaryCreateFromConstructor(
+            var promise = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Promise.PrototypeObject,
                 static (Engine engine, Realm _, object? _) => new PromiseInstance(engine));
 
-            var (resolve, reject) = instance.CreateResolvingFunctions();
-            promiseExecutor.Call(Undefined, new JsValue[] { resolve, reject });
+            var (resolve, reject) = promise.CreateResolvingFunctions();
+            try
+            {
+                executor.Call(Undefined, new JsValue[] { resolve, reject });
+            }
+            catch (JavaScriptException e)
+            {
+                reject.Call(JsValue.Undefined, new[] { e.Error });
+            }
 
-            return instance;
+            return promise;
         }
 
         // The abstract operation PromiseResolve takes arguments C (a constructor) and x (an ECMAScript language value).
@@ -421,12 +431,14 @@ namespace Jint.Native.Promise
         private JsValue Any(JsValue thisObj, JsValue[] arguments)
         {
             if (!TryGetPromiseCapabilityAndIterator(thisObj, arguments, "Promise.any", out var capability, out var promiseResolve, out var iterator))
+            {
                 return capability.PromiseInstance;
+            }
 
             var (resultingPromise, resolve, reject, resolveObj, _) = capability;
 
             var errors = new List<JsValue>();
-            bool doneIterating = false;
+            var doneIterating = false;
 
             void RejectIfAllRejected()
             {
@@ -446,14 +458,15 @@ namespace Jint.Native.Promise
             // https://tc39.es/ecma262/#sec-performpromiseany
             try
             {
-                int index = 0;
+                var index = 0;
 
                 do
                 {
+                    ObjectInstance? nextItem = null;
                     JsValue value;
                     try
                     {
-                        if (!iterator.TryIteratorStep(out var nextItem))
+                        if (!iterator.TryIteratorStep(out nextItem))
                         {
                             doneIterating = true;
                             RejectIfAllRejected();
@@ -464,6 +477,10 @@ namespace Jint.Native.Promise
                     }
                     catch (JavaScriptException e)
                     {
+                        if (nextItem?.Get("done")?.AsBoolean() == false)
+                        {
+                            throw;
+                        }
                         errors.Add(e.Error);
                         continue;
                     }

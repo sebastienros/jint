@@ -9,7 +9,7 @@ using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Function
 {
-    public abstract class FunctionInstance : ObjectInstance, ICallable
+    public abstract partial class FunctionInstance : ObjectInstance, ICallable
     {
         protected PropertyDescriptor? _prototypeDescriptor;
 
