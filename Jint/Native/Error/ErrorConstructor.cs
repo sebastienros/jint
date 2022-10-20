@@ -57,20 +57,27 @@ namespace Jint.Native.Error
             }
 
             var stackString = BuildStackString();
-            var stackDesc = new PropertyDescriptor(stackString, PropertyFlag.NonEnumerable);
-            o.DefinePropertyOrThrow(CommonProperties.Stack, stackDesc);
+            if (stackString is not null)
+            {
+                var stackDesc = new PropertyDescriptor(stackString, PropertyFlag.NonEnumerable);
+                o.DefinePropertyOrThrow(CommonProperties.Stack, stackDesc);
+            }
 
             var options = arguments.At(1);
-
-            o.InstallErrorCause(options);
+            if (!options.IsUndefined())
+            {
+                o.InstallErrorCause(options);
+            }
 
             return o;
 
-            JsValue BuildStackString()
+            JsValue? BuildStackString()
             {
                 var lastSyntaxNode = _engine.GetLastSyntaxElement();
                 if (lastSyntaxNode == null)
-                    return Undefined;
+                {
+                    return null;
+                }
 
                 var callStack = _engine.CallStack;
                 var currentFunction = callStack.TryPeek(out var element) ? element.Function : null;
