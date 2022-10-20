@@ -19,13 +19,11 @@ namespace Jint.Native.Promise
         Reject
     }
 
-
     internal sealed record PromiseReaction(
         ReactionType Type,
         PromiseCapability Capability,
         JsValue Handler
     );
-
 
     internal sealed record ResolvingFunctions(
         FunctionInstance Resolve,
@@ -91,10 +89,9 @@ namespace Jint.Native.Promise
 
             var result = arguments.At(0);
 
-            if (result == this)
+            if (ReferenceEquals(result, this))
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Cannot resolve Promise with itself");
-                return Undefined;
+                return RejectPromise(_engine.Realm.Intrinsics.TypeError.Construct("Cannot resolve Promise with itself"));
             }
 
             if (result is not ObjectInstance resultObj)

@@ -9,4 +9,5 @@ internal static class KnownKeys
     internal static readonly Key Done = "done";
     internal static readonly Key Value = "value";
     internal static readonly Key Undefined = "undefined";
+    internal static readonly Key Constructor = "constructor";
 }

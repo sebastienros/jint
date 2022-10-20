@@ -31,9 +31,9 @@ namespace Jint.Native.Error
             return Construct(arguments, this);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public ObjectInstance Construct(string? message = null)
         {
-            return Construct(arguments, this);
+            return Construct(message != null ? new JsValue[]{ message } : System.Array.Empty<JsValue>(), this);
         }
 
         ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);

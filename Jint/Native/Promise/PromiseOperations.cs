@@ -78,8 +78,7 @@ namespace Jint.Native.Promise
         //  d. Return Completion(thenCallResult).
         // .....Realm stuff....
         // 6. Return the Record { [[Job]]: job, [[Realm]]: thenRealm }.
-        internal static Action NewPromiseResolveThenableJob(PromiseInstance promise, ObjectInstance thenable,
-            ICallable thenMethod)
+        internal static Action NewPromiseResolveThenableJob(PromiseInstance promise, ObjectInstance thenable, ICallable thenMethod)
         {
             return () =>
             {
@@ -87,11 +86,11 @@ namespace Jint.Native.Promise
 
                 try
                 {
-                    thenMethod.Call(thenable, new[] {resolve as JsValue, reject});
+                    thenMethod.Call(thenable, new[] { resolve as JsValue, reject });
                 }
                 catch (JavaScriptException e)
                 {
-                    reject.Call(JsValue.Undefined, new[] {e.Error});
+                    reject.Call(JsValue.Undefined, new[] { e.Error });
                 }
             };
         }

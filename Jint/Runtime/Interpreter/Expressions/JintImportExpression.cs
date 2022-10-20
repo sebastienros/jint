@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Native.Promise;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -28,7 +29,18 @@ internal sealed class JintImportExpression : JintExpression
         var argRef = _importExpression.Evaluate(context);
         var specifier = context.Engine.GetValue(argRef); //.UnwrapIfPromise();
         var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
-        var specifierString = TypeConverter.ToString(specifier);
+
+        string specifierString;
+        try
+        {
+            specifierString = TypeConverter.ToString(specifier);
+        }
+        catch (JavaScriptException e)
+        {
+            promiseCapability.Reject.Call(JsValue.Undefined, new[] { e.Error });
+            return JsValue.Undefined;
+        }
+
         context.Engine._host.ImportModuleDynamically(referencingScriptOrModule, specifierString, promiseCapability);
         context.Engine.RunAvailableContinuations();
         return promiseCapability.PromiseInstance;

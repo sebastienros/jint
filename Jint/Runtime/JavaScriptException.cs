@@ -30,13 +30,13 @@ public class JavaScriptException : JintException
     public JsValue Error => _jsErrorException.Error;
 
     internal JavaScriptException(ErrorConstructor errorConstructor)
-        : base("", new JavaScriptErrorWrapperException(errorConstructor.Construct(Arguments.Empty), ""))
+        : base("", new JavaScriptErrorWrapperException(errorConstructor.Construct(), ""))
     {
         _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
     }
 
-    public JavaScriptException(ErrorConstructor errorConstructor, string? message)
-        : base(message, new JavaScriptErrorWrapperException(errorConstructor.Construct(new JsValue[] { message }), message))
+    public JavaScriptException(ErrorConstructor errorConstructor, string? message = null)
+        : base(message, new JavaScriptErrorWrapperException(errorConstructor.Construct(message), message))
     {
         _jsErrorException = (JavaScriptErrorWrapperException) InnerException!;
     }

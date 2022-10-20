@@ -1,7 +1,10 @@
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Argument;
 using Jint.Native.Function;
+using Jint.Native.Promise;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter;
@@ -34,30 +37,111 @@ internal sealed class JintFunctionDefinition
     internal Completion EvaluateBody(EvaluationContext context, FunctionInstance functionObject, JsValue[] argumentsList)
     {
         Completion result;
-        var argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+        ArgumentsInstance? argumentsInstance = null;
         if (Function.Expression)
         {
             // https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody
             _bodyExpression ??= JintExpression.Build((Expression) Function.Body);
-            var jsValue = _bodyExpression.GetValue(context).Clone();
-            result = new Completion(CompletionType.Return, jsValue, Function.Body);
+            if (Function.Async)
+            {
+                var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
+                AsyncFunctionStart(context, promiseCapability, context =>
+                {
+                    context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+                    return new Completion(CompletionType.Normal, _bodyExpression.GetValue(context), _bodyExpression._expression);
+                });
+                result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
+            }
+            else
+            {
+                argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+                var jsValue = _bodyExpression.GetValue(context).Clone();
+                result = new Completion(CompletionType.Return, jsValue, Function.Body);
+            }
         }
         else if (Function.Generator)
         {
             // TODO generators
             // result = EvaluateGeneratorBody(functionObject, argumentsList);
+            argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
             _bodyStatementList ??= new JintStatementList(Function);
             result = _bodyStatementList.Execute(context);
         }
         else
         {
-            // https://tc39.es/ecma262/#sec-runtime-semantics-evaluatefunctionbody
-            _bodyStatementList ??= new JintStatementList(Function);
-            result = _bodyStatementList.Execute(context);
+            if (Function.Async)
+            {
+                var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
+                _bodyStatementList ??= new JintStatementList(Function);
+                AsyncFunctionStart(context, promiseCapability, context =>
+                {
+                     context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+                     return _bodyStatementList.Execute(context);
+                });
+                result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
+            }
+            else
+            {
+                // https://tc39.es/ecma262/#sec-runtime-semantics-evaluatefunctionbody
+                argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+                _bodyStatementList ??= new JintStatementList(Function);
+                result = _bodyStatementList.Execute(context);
+            }
         }
 
         argumentsInstance?.FunctionWasCalled();
         return result;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-async-functions-abstract-operations-async-function-start
+    /// </summary>
+    private static void AsyncFunctionStart(EvaluationContext context, PromiseCapability promiseCapability, Func<EvaluationContext, Completion> asyncFunctionBody)
+    {
+        var runningContext = context.Engine.ExecutionContext;
+        var asyncContext = runningContext;
+        AsyncBlockStart(context, promiseCapability, asyncFunctionBody, asyncContext);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-asyncblockstart
+    /// </summary>
+    private static void AsyncBlockStart(EvaluationContext context, PromiseCapability promiseCapability, Func<EvaluationContext, Completion> asyncBody, in ExecutionContext asyncContext)
+    {
+        var runningContext = context.Engine.ExecutionContext;
+        // Set the code evaluation state of asyncContext such that when evaluation is resumed for that execution contxt the following steps will be performed:
+
+        Completion result;
+        try
+        {
+            result = asyncBody(context);
+        }
+        catch (JavaScriptException e)
+        {
+            promiseCapability.Reject.Call(JsValue.Undefined, new[] { e.Error });
+            return;
+        }
+
+        if (result.Type == CompletionType.Normal)
+        {
+            promiseCapability.Resolve.Call(JsValue.Undefined, new[] { JsValue.Undefined });
+        }
+        else if (result.Type == CompletionType.Return)
+        {
+            promiseCapability.Resolve.Call(JsValue.Undefined, new[] { result.Value });
+        }
+        else
+        {
+            promiseCapability.Reject.Call(JsValue.Undefined, new[] { result.Value });
+        }
+
+        /*
+        4. Push asyncContext onto the execution context stack; asyncContext is now the running execution context.
+        5. Resume the suspended evaluation of asyncContext. Let result be the value returned by the resumed computation.
+        6. Assert: When we return here, asyncContext has already been removed from the execution context stack and runningContext is the currently running execution context.
+        7. Assert: result is a normal completion with a value of unused. The possible sources of this value are Await or, if the async function doesn't await anything, step 3.g above.
+        8. Return unused.
+        */
     }
 
     /// <summary>

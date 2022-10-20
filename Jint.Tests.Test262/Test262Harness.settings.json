@@ -5,7 +5,6 @@
   "Namespace": "Jint.Tests.Test262",
   "Parallel": true,
   "ExcludedFeatures": [
-    "async-functions",
     "async-iteration",
     "Atomics",
     "class-fields-private",
@@ -17,6 +16,7 @@
     "class-static-methods-private",
     "decorators",
     "FinalizationRegistry",
+    "FinalizationRegistry.prototype.cleanupSome",
     "generators",
     "import-assertions",
     "regexp-duplicate-named-groups",
@@ -31,7 +31,6 @@
     "u180e"
   ],
   "ExcludedFlags": [
-    "async"
   ],
   "ExcludedDirectories": [
     "annexB",
@@ -95,9 +94,6 @@
     // Windows line ending differences
     "built-ins/String/raw/special-characters.js",
 
-    // Async flag is missing from test
-    "language/expressions/object/method-definition/object-method-returns-promise.js",
-
     // parsing of large/small years not implemented in .NET (-271821, +271821)
     "built-ins/Date/parse/time-value-maximum-range.js",
 
@@ -140,6 +136,11 @@
 
     // generators not implemented
     "built-ins/Object/prototype/toString/proxy-function.js",
+    "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-from-return-values-share-no-identity.js",
+    "built-ins/ShadowRealm/prototype/evaluate/wrapped-functions-share-no-properties-extended.js",
+    "language/expressions/async-generator/name.js",
+    "language/expressions/dynamic-import/assignment-expression/yield-assign-expr.js",
+    "language/expressions/dynamic-import/assignment-expression/yield-expr.js",
     "language/statements/class/subclass/builtin-objects/GeneratorFunction/*.js",
     "language/**/*-yield-*.js",
 
@@ -153,9 +154,12 @@
 
     "language/literals/regexp/u-surrogate-pairs-atom-escape-decimal.js",
     "language/literals/regexp/u-unicode-esc.js",
+    "language/statements/class/definition/methods-async-super-call-param.js",
+    "built-ins/AsyncFunction/AsyncFunction-construct.js\n",
     "built-ins/String/prototype/split/separator-regexp.js",
 
 
+    "language/expressions/object/method-definition/async-super-call-param.js",
     "language/expressions/object/method-definition/name-super-prop-param.js",
     "language/expressions/optional-chaining/member-expression.js",
     "language/statements/for-of/dstr-obj-id-init-let.js",
@@ -173,14 +177,6 @@
 
     // Esprima has parsing problems with weirdish unicode identifiers
     "language/identifiers/*-unicode-*.js",
-
-    // async not implemented
-    "built-ins/AsyncFunction/*.js",
-    "language/statements/async-function/*.js",
-    "language/expressions/async-function/*.js",
-    "language/expressions/async-generator/*.js",
-    "built-ins/ShadowRealm/prototype/evaluate/wrapped-functions-share-no-properties-extended.js",
-    "built-ins/ShadowRealm/prototype/evaluate/wrapped-function-from-return-values-share-no-identity.js",
 
     // special casing data
     "built-ins/**/special_casing*.js",
