@@ -53,7 +53,7 @@ namespace Jint
         internal readonly Dictionary<string, Type?> TypeCache = new();
 
         // cache for already wrapped CLR objects to keep object identity
-        internal readonly ConditionalWeakTable<object, ObjectWrapper> _objectWrapperCache = new();
+        internal readonly ConditionalWeakTable<object, ObjectInstance> _objectWrapperCache = new();
 
         internal readonly JintCallStack CallStack;
 
