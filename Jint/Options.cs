@@ -254,18 +254,7 @@ namespace Jint
         /// </summary>
         public WrapObjectDelegate WrapObjectHandler { get; set; } = static (engine, target) =>
         {
-            // check global cache, have we already wrapped the value?
-            if (engine._objectWrapperCache.TryGetValue(target, out var wrapped))
-            {
-                return wrapped;
-            }
-
-            wrapped = new ObjectWrapper(engine, target);
-            if (engine.Options.Interop.TrackObjectWrapperIdentity)
-            {
-                engine._objectWrapperCache.Add(target, wrapped);
-            }
-            return wrapped;
+            return new ObjectWrapper(engine, target);
         };
 
         /// <summary>
