@@ -8,6 +8,7 @@ using Jint.Native.Boolean;
 using Jint.Native.DataView;
 using Jint.Native.Date;
 using Jint.Native.Error;
+using Jint.Native.FinalizationRegistry;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Json;
@@ -81,6 +82,7 @@ namespace Jint.Runtime
         private ArrayBufferConstructor? _arrayBufferConstructor;
         private DataViewConstructor? _dataView;
         private AsyncFunctionConstructor? _asyncFunction;
+        private FinalizationRegistryConstructor? _finalizationRegistry;
 
         private IntrinsicTypedArrayConstructor? _typedArray;
         private Int8ArrayConstructor? _int8Array;
@@ -115,6 +117,9 @@ namespace Jint.Runtime
 
         public ObjectConstructor Object { get; }
         public FunctionConstructor Function { get; }
+
+        internal FinalizationRegistryConstructor FinalizationRegistry =>
+            _finalizationRegistry ??= new FinalizationRegistryConstructor(_engine, _realm, Function, Object.PrototypeObject);
 
         internal AsyncFunctionConstructor AsyncFunction =>
             _asyncFunction ??= new AsyncFunctionConstructor(_engine, _realm, Function);

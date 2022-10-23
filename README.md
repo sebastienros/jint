@@ -49,7 +49,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 #### ECMAScript 2016
 
 - ✔ `Array.prototype.includes`
-- ❌ `await`, `async`
+- ✔ `await`, `async`
 - ✔ Block-scoping of variables and functions
 - ✔ Exponentiation operator `**`
 - ✔ Destructuring patterns (of variables)
@@ -93,7 +93,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ✔ `Promise.any` 
 - ✔ `String.prototype.replaceAll`
 - ✔ `WeakRef` 
-- ❌ `FinalizationRegistry`
+- ✔ `FinalizationRegistry`
 
 #### ECMAScript 2022
 

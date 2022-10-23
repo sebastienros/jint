@@ -15,8 +15,6 @@
     "class-static-fields-public",
     "class-static-methods-private",
     "decorators",
-    "FinalizationRegistry",
-    "FinalizationRegistry.prototype.cleanupSome",
     "generators",
     "import-assertions",
     "regexp-duplicate-named-groups",

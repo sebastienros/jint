@@ -17,7 +17,7 @@ public class JavaScriptException : JintException
         }
         else if (error is not null)
         {
-            ret = TypeConverter.ToString(error);
+            ret = error.IsSymbol() ? error.ToString() : TypeConverter.ToString(error);
         }
 
         return ret;
