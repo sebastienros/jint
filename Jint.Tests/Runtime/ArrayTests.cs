@@ -194,5 +194,22 @@ namespace Jint.Tests.Runtime
 
             engine.Execute(code);
         }
+
+        [Fact]
+        public void ArrayConstructorFromHoles()
+        {
+            _engine.Evaluate("var a = Array(...[,,]);");
+            Assert.True(_engine.Evaluate("\"0\" in a").AsBoolean());
+            Assert.True(_engine.Evaluate("\"1\" in a").AsBoolean());
+            Assert.Equal("undefinedundefined", _engine.Evaluate("'' + a[0] + a[1]"));
+        }
+
+        [Fact]
+        public void ArrayIsSubclassable()
+        {
+            _engine.Evaluate("class C extends Array {}");
+            _engine.Evaluate("var c = new C();");
+            Assert.True(_engine.Evaluate("c.map(Boolean) instanceof C").AsBoolean());
+        }
     }
 }

@@ -442,7 +442,8 @@ namespace Jint.Native.Array
         /// </summary>
         private JsValue Map(JsValue thisObj, JsValue[] arguments)
         {
-            if (thisObj is ArrayInstance arrayInstance && !arrayInstance.HasOwnProperty(CommonProperties.Constructor))
+            if (thisObj is ArrayInstance { CanUseFastAccess: true } arrayInstance
+                && !arrayInstance.HasOwnProperty(CommonProperties.Constructor))
             {
                 return arrayInstance.Map(arguments);
             }
