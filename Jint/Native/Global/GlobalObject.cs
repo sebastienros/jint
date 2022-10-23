@@ -42,7 +42,7 @@ namespace Jint.Native.Global
                 ["Date"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Date, propertyFlags),
                 ["Error"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Error, propertyFlags),
                 ["EvalError"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.EvalError, propertyFlags),
-                ["FinalizationRegistry"] = new LazyPropertyDescriptor(this, static state => Undefined, propertyFlags),
+                ["FinalizationRegistry"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.FinalizationRegistry, propertyFlags),
                 ["Float32Array"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Float32Array, propertyFlags),
                 ["Float64Array"] = new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Float64Array, propertyFlags),
                 ["Function"] = new PropertyDescriptor(_realm.Intrinsics.Function, propertyFlags),

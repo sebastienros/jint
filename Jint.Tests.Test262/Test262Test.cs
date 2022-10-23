@@ -65,6 +65,7 @@ public abstract partial class Test262Test
             (_, _) =>
             {
                 GC.Collect();
+                GC.WaitForPendingFinalizers();
                 return JsValue.Undefined;
             }), true, true, true));
 

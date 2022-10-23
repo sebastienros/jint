@@ -1,4 +1,5 @@
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -190,5 +191,15 @@ namespace Jint.Runtime
         public virtual void InitializeShadowRealm(Realm realm)
         {
         }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-hostmakejobcallback
+        /// </summary>
+        internal virtual JobCallback MakeJobCallBack(ICallable cleanupCallback)
+        {
+            return new JobCallback(cleanupCallback, null);
+        }
     }
 }
+
+internal sealed record JobCallback(ICallable Callback, object? HostDefined);
