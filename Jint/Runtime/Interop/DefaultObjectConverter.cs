@@ -102,7 +102,21 @@ namespace Jint
                     }
                     else
                     {
-                        result = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value);
+                        // check global cache, have we already wrapped the value?
+                        if (engine._objectWrapperCache.TryGetValue(value, out var cached))
+                        {
+                            result = cached;
+                        }
+                        else
+                        {
+                            var wrapped = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value);
+                            result = wrapped;
+
+                            if (engine.Options.Interop.TrackObjectWrapperIdentity && wrapped is not null)
+                            {
+                                engine._objectWrapperCache.Add(value, wrapped);
+                            }
+                        }
                     }
 
                     // if no known type could be guessed, use the default of wrapping using using ObjectWrapper.
