@@ -419,15 +419,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
                     // optimize for array unless someone has touched the iterator
-                    if (objectInstance is ArrayInstance ai && ai.HasOriginalIterator)
+                    if (objectInstance is ArrayInstance { HasOriginalIterator: true } ai)
                     {
                         var length = ai.GetLength();
                         for (uint j = 0; j < length; ++j)
                         {
-                            if (ai.TryGetValue(j, out var value))
-                            {
-                                args.Add(value);
-                            }
+                            ai.TryGetValue(j, out var value);
+                            args.Add(value);
                         }
                     }
                     else

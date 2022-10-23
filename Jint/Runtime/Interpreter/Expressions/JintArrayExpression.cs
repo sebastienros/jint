@@ -17,16 +17,15 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize(EvaluationContext context)
         {
-            var engine = context.Engine;
-            var node = (ArrayExpression) _expression;
-            _expressions = new JintExpression[node.Elements.Count];
-            for (var n = 0; n < _expressions.Length; n++)
+            ref readonly var elements = ref ((ArrayExpression) _expression).Elements;
+            var expressions = _expressions = new JintExpression[((ArrayExpression) _expression).Elements.Count];
+            for (var n = 0; n < expressions.Length; n++)
             {
-                var expr = node.Elements[n];
+                var expr = elements[n];
                 if (expr != null)
                 {
                     var expression = Build(expr);
-                    _expressions[n] = expression;
+                    expressions[n] = expression;
                     _hasSpreads |= expr.Type == Nodes.SpreadElement;
                 }
             }
@@ -45,11 +44,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 if (expr == null)
                 {
-                    arrayIndexCounter++;
-                    continue;
+                    a.SetIndexValue(arrayIndexCounter++, null, updateLength: false);
                 }
-
-                if (_hasSpreads && expr is JintSpreadExpression jse)
+                else if (_hasSpreads && expr is JintSpreadExpression jse)
                 {
                     jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
                     // optimize for array
@@ -87,8 +84,8 @@ namespace Jint.Runtime.Interpreter.Expressions
         private sealed class ArraySpreadProtocol : IteratorProtocol
         {
             private readonly ArrayInstance _instance;
-            internal long _index;
-            internal uint _addedCount = 0;
+            private long _index;
+            internal uint _addedCount;
 
             public ArraySpreadProtocol(
                 Engine engine,
