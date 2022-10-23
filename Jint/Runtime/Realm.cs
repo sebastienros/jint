@@ -1,3 +1,5 @@
+using Esprima.Ast;
+using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime.Environments;
 
@@ -5,8 +7,10 @@ namespace Jint.Runtime
 {
     public sealed class Realm
     {
+        internal readonly Dictionary<Node, ArrayInstance> _templateMap = new();
 
-// helps when debugging which nested realm we are in...
+
+        // helps when debugging which nested realm we are in...
 #if DEBUG
         private static int globalId = 1;
 

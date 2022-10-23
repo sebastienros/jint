@@ -389,7 +389,7 @@ namespace Jint.Native.Object
                 return arguments.At(0);
             }
 
-            var status = SetIntegrityLevel(o, IntegrityLevel.Sealed);
+            var status = o.SetIntegrityLevel(IntegrityLevel.Sealed);
 
             if (!status)
             {
@@ -409,7 +409,7 @@ namespace Jint.Native.Object
                 return arguments.At(0);
             }
 
-            var status = SetIntegrityLevel(o, IntegrityLevel.Frozen);
+            var status = o.SetIntegrityLevel(IntegrityLevel.Frozen);
 
             if (!status)
             {
@@ -420,63 +420,11 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// https://tc39.es/ecma262/#sec-setintegritylevel
-        /// </summary>
-        private static bool SetIntegrityLevel(ObjectInstance o, IntegrityLevel level)
-        {
-            var status = o.PreventExtensions();
-            if (!status)
-            {
-                return false;
-            }
-
-            var keys = o.GetOwnPropertyKeys();
-            if (level == IntegrityLevel.Sealed)
-            {
-                for (var i = 0; i < keys.Count; i++)
-                {
-                    var k = keys[i];
-                    o.DefinePropertyOrThrow(k, new PropertyDescriptor { Configurable = false });
-                }
-            }
-            else
-            {
-                for (var i = 0; i < keys.Count; i++)
-                {
-                    var k = keys[i];
-                    var currentDesc = o.GetOwnProperty(k);
-                    if (currentDesc != PropertyDescriptor.Undefined)
-                    {
-                        PropertyDescriptor desc;
-                        if (currentDesc.IsAccessorDescriptor())
-                        {
-                            desc = new PropertyDescriptor { Configurable = false };
-                        }
-                        else
-                        {
-                            desc = new PropertyDescriptor { Configurable = false, Writable = false };
-                        }
-
-                        o.DefinePropertyOrThrow(k, desc);
-                    }
-                }
-            }
-
-            return true;
-        }
-
-        private enum IntegrityLevel
-        {
-            Sealed,
-            Frozen
-        }
-
-        /// <summary>
         /// https://tc39.es/ecma262/#sec-object.preventextensions
         /// </summary>
         private JsValue PreventExtensions(JsValue thisObject, JsValue[] arguments)
         {
-            if (!(arguments.At(0) is ObjectInstance o))
+            if (arguments.At(0) is not ObjectInstance o)
             {
                 return arguments.At(0);
             }

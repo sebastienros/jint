@@ -1421,5 +1421,57 @@ namespace Jint.Native.Object
 
             return min;
         }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-setintegritylevel
+        /// </summary>
+        internal bool SetIntegrityLevel(IntegrityLevel level)
+        {
+            var status = PreventExtensions();
+            if (!status)
+            {
+                return false;
+            }
+
+            var keys = GetOwnPropertyKeys();
+            if (level == IntegrityLevel.Sealed)
+            {
+                for (var i = 0; i < keys.Count; i++)
+                {
+                    var k = keys[i];
+                    DefinePropertyOrThrow(k, new PropertyDescriptor { Configurable = false });
+                }
+            }
+            else
+            {
+                for (var i = 0; i < keys.Count; i++)
+                {
+                    var k = keys[i];
+                    var currentDesc = GetOwnProperty(k);
+                    if (currentDesc != PropertyDescriptor.Undefined)
+                    {
+                        PropertyDescriptor desc;
+                        if (currentDesc.IsAccessorDescriptor())
+                        {
+                            desc = new PropertyDescriptor { Configurable = false };
+                        }
+                        else
+                        {
+                            desc = new PropertyDescriptor { Configurable = false, Writable = false };
+                        }
+
+                        DefinePropertyOrThrow(k, desc);
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        internal enum IntegrityLevel
+        {
+            Sealed,
+            Frozen
+        }
     }
 }
