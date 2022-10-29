@@ -73,7 +73,7 @@ namespace Jint.Native.Array
                 return _realm.Intrinsics.Array.ArrayCreate(0);
             }
 
-            if (objectInstance is IObjectWrapper wrapper && wrapper.Target is IEnumerable enumerable)
+            if (objectInstance is IObjectWrapper { Target: IEnumerable enumerable })
             {
                 return ConstructArrayFromIEnumerable(enumerable);
             }
@@ -134,7 +134,7 @@ namespace Jint.Native.Array
             for (uint i = 0; i < length; i++)
             {
                 JsValue jsValue;
-                source.TryGetValue(i, out var value);
+                var value = source.Get(i);
                 if (!ReferenceEquals(callable, null))
                 {
                     args![0] = value;

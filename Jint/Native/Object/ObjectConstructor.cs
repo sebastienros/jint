@@ -318,10 +318,10 @@ namespace Jint.Native.Object
         /// </summary>
         private JsValue DefineProperty(JsValue thisObject, JsValue[] arguments)
         {
-            var o = arguments.At(0) as ObjectInstance;
-            if (o is null)
+            if (arguments.At(0) is not ObjectInstance o)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Object.defineProperty called on non-object");
+                return null;
             }
 
             var p = arguments.At(1);
@@ -329,6 +329,7 @@ namespace Jint.Native.Object
 
             var attributes = arguments.At(2);
             var desc = PropertyDescriptor.ToPropertyDescriptor(_realm, attributes);
+
             o.DefinePropertyOrThrow(name, desc);
 
             return arguments.At(0);
@@ -366,7 +367,7 @@ namespace Jint.Native.Object
                     continue;
                 }
 
-                var descObj = props.UnwrapJsValue(propDesc);
+                var descObj = props.Get(nextKey);
                 var desc = PropertyDescriptor.ToPropertyDescriptor(_realm, descObj);
                 descriptors.Add(new KeyValuePair<JsValue, PropertyDescriptor>(nextKey, desc));
             }
