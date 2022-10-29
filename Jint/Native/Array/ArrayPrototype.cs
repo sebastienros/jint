@@ -1204,7 +1204,10 @@ namespace Jint.Native.Array
             return o.Target;
         }
 
-        internal JsValue Join(JsValue thisObj, JsValue[] arguments)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-array.prototype.join
+        /// </summary>
+        private JsValue Join(JsValue thisObj, JsValue[] arguments)
         {
             var separator = arguments.At(0);
             var o = ArrayOperations.For(_realm, thisObj);
@@ -1428,7 +1431,7 @@ namespace Jint.Native.Array
         /// </summary>
         public JsValue Push(JsValue thisObject, JsValue[] arguments)
         {
-            if (thisObject is ArrayInstance arrayInstance && arrayInstance.CanUseFastAccess)
+            if (thisObject is ArrayInstance { CanUseFastAccess: true } arrayInstance)
             {
                 return arrayInstance.Push(arguments);
             }

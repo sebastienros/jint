@@ -912,7 +912,7 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/6.0/#sec-tostring
+        /// https://tc39.es/ecma262/#sec-tostring
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string ToString(JsValue o)
