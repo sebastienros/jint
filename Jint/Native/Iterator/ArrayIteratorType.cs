@@ -1,9 +1,8 @@
-namespace Jint.Native.Iterator
+namespace Jint.Native.Iterator;
+
+internal enum ArrayIteratorType
 {
-    internal enum ArrayIteratorType
-    {
-        Key,
-        Value,
-        KeyAndValue
-    }
+    Key,
+    Value,
+    KeyAndValue
 }

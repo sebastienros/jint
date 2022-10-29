@@ -36,10 +36,5 @@ namespace Jint.Native.Iterator
         {
             return this;
         }
-
-        public override bool Equals(JsValue? other)
-        {
-            return ReferenceEquals(this, other);
-        }
     }
 }

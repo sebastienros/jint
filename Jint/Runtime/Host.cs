@@ -1,5 +1,4 @@
 using Jint.Native;
-using Jint.Native.Function;
 using Jint.Native.Global;
 using Jint.Native.Object;
 using Jint.Native.Promise;

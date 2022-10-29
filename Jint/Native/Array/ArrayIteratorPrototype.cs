@@ -1,101 +1,119 @@
+using Jint.Collections;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
-namespace Jint.Native.Array
+namespace Jint.Native.Array;
+
+/// <summary>
+/// https://tc39.es/ecma262/#sec-%arrayiteratorprototype%-object
+/// </summary>
+internal sealed class ArrayIteratorPrototype : IteratorPrototype
 {
-    /// <summary>
-    /// https://tc39.es/ecma262/#sec-%arrayiteratorprototype%-object
-    /// </summary>
-    internal sealed class ArrayIteratorPrototype : IteratorPrototype
+    internal ArrayIteratorPrototype(
+        Engine engine,
+        Realm realm,
+        IteratorPrototype objectPrototype) : base(engine, realm, objectPrototype)
     {
-        internal ArrayIteratorPrototype(
-            Engine engine,
-            Realm realm,
-            IteratorPrototype objectPrototype) : base(engine, realm, "Array Iterator", objectPrototype)
-        {
-        }
+    }
 
-        internal IteratorInstance Construct(ObjectInstance array, ArrayIteratorType kind)
+    protected override void Initialize()
+    {
+        var properties = new PropertyDictionary(1, checkExistingKeys: false)
         {
-            var instance = new ArrayLikeIterator(Engine, array, kind)
+            [KnownKeys.Next] = new(new ClrFunctionInstance(Engine, "next", Next, 0, PropertyFlag.Configurable), true, false, true)
+        };
+        SetProperties(properties);
+
+        var symbols = new SymbolDictionary(1)
+        {
+            [GlobalSymbolRegistry.ToStringTag] = new("Array Iterator", PropertyFlag.Configurable)
+        };
+        SetSymbols(symbols);
+    }
+
+    internal IteratorInstance Construct(ObjectInstance array, ArrayIteratorType kind)
+    {
+        var instance = new ArrayLikeIterator(Engine, array, kind)
+        {
+            _prototype = this
+        };
+
+        return instance;
+    }
+
+    private sealed class ArrayLikeIterator : IteratorInstance
+    {
+        private readonly ArrayIteratorType _kind;
+        private readonly TypedArrayInstance? _typedArray;
+        private readonly ArrayOperations? _operations;
+        private uint _position;
+        private bool _closed;
+
+        public ArrayLikeIterator(Engine engine, ObjectInstance objectInstance, ArrayIteratorType kind) : base(engine)
+        {
+            _kind = kind;
+            _typedArray = objectInstance as TypedArrayInstance;
+            if (_typedArray is null)
             {
-                _prototype = this
-            };
-
-            return instance;
-        }
-
-        private sealed class ArrayLikeIterator : IteratorInstance
-        {
-            private readonly ArrayIteratorType _kind;
-            private readonly TypedArrayInstance? _typedArray;
-            private readonly ArrayOperations? _operations;
-            private uint _position;
-            private bool _closed;
-
-            public ArrayLikeIterator(Engine engine, ObjectInstance objectInstance, ArrayIteratorType kind) : base(engine)
-            {
-                _kind = kind;
-                _typedArray = objectInstance as TypedArrayInstance;
-                if (_typedArray is null)
-                {
-                    _operations = ArrayOperations.For(objectInstance);
-                }
-
-                _position = 0;
+                _operations = ArrayOperations.For(objectInstance);
             }
 
-            public override bool TryIteratorStep(out ObjectInstance nextItem)
+            _position = 0;
+        }
+
+        public override bool TryIteratorStep(out ObjectInstance nextItem)
+        {
+            uint len;
+            if (_typedArray is not null)
             {
-                uint len;
+                _typedArray._viewedArrayBuffer.AssertNotDetached();
+                len = _typedArray.Length;
+            }
+            else
+            {
+                len = _operations!.GetLength();
+            }
+
+            if (!_closed && _position < len)
+            {
                 if (_typedArray is not null)
                 {
-                    _typedArray._viewedArrayBuffer.AssertNotDetached();
-                    len = _typedArray.Length;
+                    nextItem = _kind switch
+                    {
+                        ArrayIteratorType.Key => new ValueIteratorPosition(_engine, _position),
+                        ArrayIteratorType.Value => new ValueIteratorPosition(_engine, _typedArray[(int) _position]),
+                        _ => new KeyValueIteratorPosition(_engine, _position, _typedArray[(int) _position])
+                    };
                 }
                 else
                 {
-                    len = _operations!.GetLength();
-                }
-
-                if (!_closed && _position < len)
-                {
-                    if (_typedArray is not null)
+                    _operations!.TryGetValue(_position, out var value);
+                    if (_kind == ArrayIteratorType.Key)
                     {
-                        nextItem = _kind switch
-                        {
-                            ArrayIteratorType.Key => new ValueIteratorPosition(_engine, _position),
-                            ArrayIteratorType.Value => new ValueIteratorPosition(_engine, _typedArray[(int) _position]),
-                            _ => new KeyValueIteratorPosition(_engine, _position, _typedArray[(int) _position])
-                        };
+                        nextItem = new ValueIteratorPosition(_engine, _position);
+                    }
+                    else if (_kind == ArrayIteratorType.Value)
+                    {
+                        nextItem = new ValueIteratorPosition(_engine, value);
                     }
                     else
                     {
-                        _operations!.TryGetValue(_position, out var value);
-                        if (_kind == ArrayIteratorType.Key)
-                        {
-                            nextItem = new ValueIteratorPosition(_engine, _position);
-                        }
-                        else if (_kind == ArrayIteratorType.Value)
-                        {
-                            nextItem = new ValueIteratorPosition(_engine, value);
-                        }
-                        else
-                        {
-                            nextItem = new KeyValueIteratorPosition(_engine, _position, value);
-                        }
+                        nextItem = new KeyValueIteratorPosition(_engine, _position, value);
                     }
-
-                    _position++;
-                    return true;
                 }
 
-                _closed = true;
-                nextItem = KeyValueIteratorPosition.Done(_engine);
-                return false;
+                _position++;
+                return true;
             }
+
+            _closed = true;
+            nextItem = KeyValueIteratorPosition.Done(_engine);
+            return false;
         }
     }
 }
