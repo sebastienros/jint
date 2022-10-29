@@ -5,135 +5,134 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
-namespace Jint.Native.Map
+namespace Jint.Native.Map;
+
+/// <summary>
+/// https://tc39.es/ecma262/#sec-map-objects
+/// </summary>
+public sealed class MapPrototype : Prototype
 {
-    /// <summary>
-    /// https://www.ecma-international.org/ecma-262/6.0/#sec-map-objects
-    /// </summary>
-    public sealed class MapPrototype : Prototype
+    private readonly MapConstructor _mapConstructor;
+
+    internal MapPrototype(
+        Engine engine,
+        Realm realm,
+        MapConstructor mapConstructor,
+        ObjectPrototype objectPrototype) : base(engine, realm)
     {
-        private readonly MapConstructor _mapConstructor;
+        _prototype = objectPrototype;
+        _mapConstructor = mapConstructor;
+    }
 
-        internal MapPrototype(
-            Engine engine,
-            Realm realm,
-            MapConstructor mapConstructor,
-            ObjectPrototype objectPrototype) : base(engine, realm)
+    protected override void Initialize()
+    {
+        const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+        var properties = new PropertyDictionary(12, checkExistingKeys: false)
         {
-            _prototype = objectPrototype;
-            _mapConstructor = mapConstructor;
+            ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
+            ["constructor"] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
+            ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), propertyFlags),
+            ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), propertyFlags),
+            ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), propertyFlags),
+            ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), propertyFlags),
+            ["get"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "get", Get, 1, PropertyFlag.Configurable), propertyFlags),
+            ["has"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), propertyFlags),
+            ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), propertyFlags),
+            ["set"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "set", Set, 2, PropertyFlag.Configurable), propertyFlags),
+            ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
+            ["size"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get size", Size, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable)
+        };
+        SetProperties(properties);
+
+        var symbols = new SymbolDictionary(2)
+        {
+            [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Entries, 1, PropertyFlag.Configurable), propertyFlags),
+            [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Map", false, false, true),
+        };
+        SetSymbols(symbols);
+    }
+
+    private JsValue Size(JsValue thisObj, JsValue[] arguments)
+    {
+        AssertMapInstance(thisObj);
+        return JsNumber.Create(0);
+    }
+
+    private JsValue Get(JsValue thisObj, JsValue[] arguments)
+    {
+        var map = AssertMapInstance(thisObj);
+        return map.MapGet(arguments.At(0));
+    }
+
+    private JsValue Clear(JsValue thisObj, JsValue[] arguments)
+    {
+        var map = AssertMapInstance(thisObj);
+        map.Clear();
+        return Undefined;
+    }
+
+    private JsValue Delete(JsValue thisObj, JsValue[] arguments)
+    {
+        var map = AssertMapInstance(thisObj);
+        return map.MapDelete(arguments.At(0))
+            ? JsBoolean.True
+            : JsBoolean.False;
+    }
+
+    private JsValue Set(JsValue thisObj, JsValue[] arguments)
+    {
+        var map = AssertMapInstance(thisObj);
+        map.MapSet(arguments.At(0), arguments.At(1));
+        return thisObj;
+    }
+
+    private JsValue Has(JsValue thisObj, JsValue[] arguments)
+    {
+        var map = AssertMapInstance(thisObj);
+        return map.Has(arguments.At(0))
+            ? JsBoolean.True
+            : JsBoolean.False;
+    }
+
+    private JsValue ForEach(JsValue thisObj, JsValue[] arguments)
+    {
+        var map = AssertMapInstance(thisObj);
+        var callbackfn = arguments.At(0);
+        var thisArg = arguments.At(1);
+
+        var callable = GetCallable(callbackfn);
+
+        map.ForEach(callable, thisArg);
+
+        return Undefined;
+    }
+
+    private ObjectInstance Entries(JsValue thisObj, JsValue[] arguments)
+    {
+        var map = AssertMapInstance(thisObj);
+        return map.Iterator();
+    }
+
+    private ObjectInstance Keys(JsValue thisObj, JsValue[] arguments)
+    {
+        var map = AssertMapInstance(thisObj);
+        return map.Keys();
+    }
+
+    private ObjectInstance Values(JsValue thisObj, JsValue[] arguments)
+    {
+        var map = AssertMapInstance(thisObj);
+        return map.Values();
+    }
+
+    private MapInstance AssertMapInstance(JsValue thisObj)
+    {
+        var map = thisObj as MapInstance;
+        if (map is null)
+        {
+            ExceptionHelper.ThrowTypeError(_realm, "object must be a Map");
         }
 
-        protected override void Initialize()
-        {
-            const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            var properties = new PropertyDictionary(12, checkExistingKeys: false)
-            {
-                ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
-                ["constructor"] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
-                ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), propertyFlags),
-                ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), propertyFlags),
-                ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), propertyFlags),
-                ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), propertyFlags),
-                ["get"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "get", Get, 1, PropertyFlag.Configurable), propertyFlags),
-                ["has"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), propertyFlags),
-                ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), propertyFlags),
-                ["set"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "set", Set, 2, PropertyFlag.Configurable), propertyFlags),
-                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
-                ["size"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get size", Size, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable)
-            };
-            SetProperties(properties);
-
-            var symbols = new SymbolDictionary(2)
-            {
-                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "iterator", Entries, 1, PropertyFlag.Configurable), propertyFlags),
-                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Map", false, false, true),
-            };
-            SetSymbols(symbols);
-        }
-
-        private JsValue Size(JsValue thisObj, JsValue[] arguments)
-        {
-            AssertMapInstance(thisObj);
-            return JsNumber.Create(0);
-        }
-
-        private JsValue Get(JsValue thisObj, JsValue[] arguments)
-        {
-            var map = AssertMapInstance(thisObj);
-            return map.MapGet(arguments.At(0));
-        }
-
-        private JsValue Clear(JsValue thisObj, JsValue[] arguments)
-        {
-            var map = AssertMapInstance(thisObj);
-            map.Clear();
-            return Undefined;
-        }
-
-        private JsValue Delete(JsValue thisObj, JsValue[] arguments)
-        {
-            var map = AssertMapInstance(thisObj);
-            return map.MapDelete(arguments[0])
-                ? JsBoolean.True
-                : JsBoolean.False;
-        }
-
-        private JsValue Set(JsValue thisObj, JsValue[] arguments)
-        {
-            var map = AssertMapInstance(thisObj);
-            map.MapSet(arguments[0], arguments[1]);
-            return thisObj;
-        }
-
-        private JsValue Has(JsValue thisObj, JsValue[] arguments)
-        {
-            var map = AssertMapInstance(thisObj);
-            return map.Has(arguments[0])
-                ? JsBoolean.True
-                : JsBoolean.False;
-        }
-
-        private JsValue ForEach(JsValue thisObj, JsValue[] arguments)
-        {
-            var map = AssertMapInstance(thisObj);
-            var callbackfn = arguments.At(0);
-            var thisArg = arguments.At(1);
-
-            var callable = GetCallable(callbackfn);
-
-            map.ForEach(callable, thisArg);
-
-            return Undefined;
-        }
-
-        private ObjectInstance Entries(JsValue thisObj, JsValue[] arguments)
-        {
-            var map = AssertMapInstance(thisObj);
-            return map.Iterator();
-        }
-
-        private ObjectInstance Keys(JsValue thisObj, JsValue[] arguments)
-        {
-            var map = AssertMapInstance(thisObj);
-            return map.Keys();
-        }
-
-        private ObjectInstance Values(JsValue thisObj, JsValue[] arguments)
-        {
-            var map = AssertMapInstance(thisObj);
-            return map.Values();
-        }
-
-        private MapInstance AssertMapInstance(JsValue thisObj)
-        {
-            var map = thisObj as MapInstance;
-            if (map is null)
-            {
-                ExceptionHelper.ThrowTypeError(_realm, "object must be a Map");
-            }
-
-            return map;
-        }
+        return map;
     }
 }

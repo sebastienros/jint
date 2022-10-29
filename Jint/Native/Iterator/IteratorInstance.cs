@@ -10,7 +10,7 @@ namespace Jint.Native.Iterator
     {
         private readonly IEnumerator<JsValue> _enumerable;
 
-        public IteratorInstance(Engine engine)
+        protected IteratorInstance(Engine engine)
             : this(engine, Enumerable.Empty<JsValue>())
         {
         }
@@ -20,18 +20,13 @@ namespace Jint.Native.Iterator
             IEnumerable<JsValue> enumerable) : base(engine)
         {
             _enumerable = enumerable.GetEnumerator();
-            _prototype = engine.Realm.Intrinsics.IteratorPrototype;
+            _prototype = engine.Realm.Intrinsics.ArrayIteratorPrototype;
        }
 
         public override object ToObject()
         {
             ExceptionHelper.ThrowNotImplementedException();
             return null;
-        }
-
-        public override bool Equals(JsValue? other)
-        {
-            return false;
         }
 
         public virtual bool TryIteratorStep(out ObjectInstance nextItem)
@@ -88,34 +83,6 @@ namespace Jint.Native.Iterator
                     SetProperty("value", new PropertyDescriptor(value, PropertyFlag.AllForbidden));
                 }
                 SetProperty("done", new PropertyDescriptor(done ?? value is null, PropertyFlag.AllForbidden));
-            }
-        }
-
-        public sealed class ListIterator : IteratorInstance
-        {
-            private readonly List<JsValue> _values;
-            private int _position;
-            private bool _closed;
-
-            public ListIterator(Engine engine, List<JsValue> values) : base(engine)
-            {
-                _values = values;
-                _position = 0;
-            }
-
-            public override bool TryIteratorStep(out ObjectInstance nextItem)
-            {
-                if (!_closed && _position < _values.Count)
-                {
-                    var value = _values[_position];
-                    _position++;
-                    nextItem = new ValueIteratorPosition(_engine, value);
-                    return true;
-                }
-
-                _closed = true;
-                nextItem = KeyValueIteratorPosition.Done(_engine);
-                return false;
             }
         }
 

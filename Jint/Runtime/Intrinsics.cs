@@ -179,13 +179,13 @@ namespace Jint.Runtime
             _map ??= new MapConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
         internal MapIteratorPrototype MapIteratorPrototype =>
-            _mapIteratorPrototype ??= new MapIteratorPrototype(_engine, _realm, Object.PrototypeObject);
+            _mapIteratorPrototype ??= new MapIteratorPrototype(_engine, _realm, IteratorPrototype);
 
         public SetConstructor Set =>
             _set ??= new SetConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
         internal SetIteratorPrototype SetIteratorPrototype =>
-            _setIteratorPrototype ??= new SetIteratorPrototype(_engine, _realm, Object.PrototypeObject);
+            _setIteratorPrototype ??= new SetIteratorPrototype(_engine, _realm, IteratorPrototype);
 
         public WeakMapConstructor WeakMap =>
             _weakMap ??= new WeakMapConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
@@ -200,7 +200,7 @@ namespace Jint.Runtime
             _promise ??= new PromiseConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
         internal IteratorPrototype IteratorPrototype =>
-            _iteratorPrototype ??= new IteratorPrototype(_engine, _realm, null, Object.PrototypeObject);
+            _iteratorPrototype ??= new IteratorPrototype(_engine, _realm, Object.PrototypeObject);
 
         public StringConstructor String =>
             _string ??= new StringConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
