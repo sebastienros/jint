@@ -74,7 +74,12 @@ namespace Jint.Native
         {
             return _value;
         }
-
+        
+        public static JsNumber Create(decimal value)
+        {
+            return new JsNumber((double)value);
+        }
+        
         internal static JsNumber Create(object value)
         {
             var underlyingType = System.Type.GetTypeCode(Enum.GetUnderlyingType(value.GetType()));
