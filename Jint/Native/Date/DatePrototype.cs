@@ -12,7 +12,7 @@ namespace Jint.Native.Date
     /// <summary>
     /// https://tc39.es/ecma262/#sec-properties-of-the-date-prototype-object
     /// </summary>
-    public sealed class DatePrototype : ObjectInstance
+    internal sealed class DatePrototype : ObjectInstance
     {
         // ES6 section 20.3.1.1 Time Values and Time Range
         private const double MinYear = -1000000.0;
@@ -155,7 +155,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-date.prototype.tostring
         /// </summary>
-        public JsValue ToString(JsValue thisObj, JsValue[] arg2)
+        internal JsValue ToString(JsValue thisObj, JsValue[] arg2)
         {
             var tv = ThisTimeValue(thisObj);
             return ToDateString(tv);
@@ -456,9 +456,9 @@ namespace Jint.Native.Date
         {
             ThisTimeValue(thisObj);
             var t = TypeConverter.ToNumber(arguments.At(0));
-            var v = TimeClip(t);
+            var v = t.TimeClip();
 
-            ((DateInstance) thisObj).DateValue = v;
+            ((DateInstance) thisObj)._dateValue = t;
             return v;
         }
 
@@ -476,8 +476,8 @@ namespace Jint.Native.Date
             }
 
             var time = MakeTime(HourFromTime(t), MinFromTime(t), SecFromTime(t), ms);
-            var u = TimeClip(Utc(MakeDate(Day(t), time)));
-            ((DateInstance) thisObj).DateValue = u;
+            var u = Utc(MakeDate(Day(t), time)).TimeClip();
+            ((DateInstance) thisObj)._dateValue = u;
             return u;
         }
 
@@ -495,8 +495,8 @@ namespace Jint.Native.Date
             }
 
             var time = MakeTime(HourFromTime(t), MinFromTime(t), SecFromTime(t), milli);
-            var u = TimeClip(MakeDate(Day(t), time));
-            ((DateInstance) thisObj).DateValue = u;
+            var u = MakeDate(Day(t), time).TimeClip();
+            ((DateInstance) thisObj)._dateValue = u;
             return u;
         }
 
@@ -515,8 +515,8 @@ namespace Jint.Native.Date
             }
 
             var date = MakeDate(Day(t), MakeTime(HourFromTime(t), MinFromTime(t), s, milli));
-            var u = TimeClip(Utc(date));
-            ((DateInstance) thisObj).DateValue = u;
+            var u = Utc(date).TimeClip();
+            ((DateInstance) thisObj)._dateValue = u;
             return u;
         }
 
@@ -535,8 +535,8 @@ namespace Jint.Native.Date
             }
 
             var date = MakeDate(Day(t), MakeTime(HourFromTime(t), MinFromTime(t), s, milli));
-            var u = TimeClip(date);
-            ((DateInstance) thisObj).DateValue = u;
+            var u = date.TimeClip();
+            ((DateInstance) thisObj)._dateValue = u;
             return u;
         }
 
@@ -556,8 +556,8 @@ namespace Jint.Native.Date
             }
 
             var date = MakeDate(Day(t), MakeTime(HourFromTime(t), m, s, milli));
-            var u = TimeClip(Utc(date));
-            ((DateInstance) thisObj).DateValue = u;
+            var u = Utc(date).TimeClip();
+            ((DateInstance) thisObj)._dateValue = u;
             return u;
         }
 
@@ -577,8 +577,8 @@ namespace Jint.Native.Date
             }
 
             var date = MakeDate(Day(t), MakeTime(HourFromTime(t), m, s, milli));
-            var u = TimeClip(date);
-            ((DateInstance) thisObj).DateValue = u;
+            var u = date.TimeClip();
+            ((DateInstance) thisObj)._dateValue = u;
             return u;
         }
 
@@ -599,8 +599,8 @@ namespace Jint.Native.Date
             }
 
             var date = MakeDate(Day(t), MakeTime(h, m, s, milli));
-            var u = TimeClip(Utc(date));
-            ((DateInstance) thisObj).DateValue = u;
+            var u = Utc(date).TimeClip();
+            ((DateInstance) thisObj)._dateValue = u;
             return u;
         }
 
@@ -621,8 +621,8 @@ namespace Jint.Native.Date
             }
 
             var newDate = MakeDate(Day(t), MakeTime(h, m, s, milli));
-            var v = TimeClip(newDate);
-            ((DateInstance) thisObj).DateValue = v;
+            var v = newDate.TimeClip();
+            ((DateInstance) thisObj)._dateValue = v;
             return v;
         }
 
@@ -641,8 +641,8 @@ namespace Jint.Native.Date
 
             var (year, month, __) = YearMonthDayFromTime(t);
             var newDate = MakeDate(MakeDay(year, month, dt), TimeWithinDay(t));
-            var u = TimeClip(Utc(newDate));
-            ((DateInstance) thisObj).DateValue = u;
+            var u = Utc(newDate).TimeClip();
+            ((DateInstance) thisObj)._dateValue = u;
             return u;
         }
 
@@ -660,8 +660,8 @@ namespace Jint.Native.Date
             }
 
             var newDate = MakeDate(MakeDay(YearFromTime(t), MonthFromTime(t), dt), TimeWithinDay(t));
-            var u = TimeClip(newDate);
-            ((DateInstance) thisObj).DateValue = u;
+            var u = newDate.TimeClip();
+            ((DateInstance) thisObj)._dateValue = u;
             return u;
         }
 
@@ -680,8 +680,8 @@ namespace Jint.Native.Date
             }
 
             var newDate = MakeDate(MakeDay(YearFromTime(t), m, dt), TimeWithinDay(t));
-            var u = TimeClip(Utc(newDate));
-            ((DateInstance) thisObj).DateValue = u;
+            var u = Utc(newDate).TimeClip();
+            ((DateInstance) thisObj)._dateValue = u;
             return u;
         }
 
@@ -700,8 +700,8 @@ namespace Jint.Native.Date
             }
 
             var newDate = MakeDate(MakeDay(YearFromTime(t), m, dt), TimeWithinDay(t));
-            var u = TimeClip(newDate);
-            ((DateInstance) thisObj).DateValue = u;
+            var u = newDate.TimeClip();
+            ((DateInstance) thisObj)._dateValue = u;
             return u;
         }
 
@@ -717,8 +717,8 @@ namespace Jint.Native.Date
             var dt = arguments.Length <= 2 ? DateFromTime(t) : TypeConverter.ToNumber(arguments.At(2));
 
             var newDate = MakeDate(MakeDay(y, m, dt), TimeWithinDay(t));
-            var u = TimeClip(Utc(newDate));
-            ((DateInstance) thisObj).DateValue = u;
+            var u = Utc(newDate).TimeClip();
+            ((DateInstance) thisObj)._dateValue = u;
             return u;
         }
 
@@ -732,7 +732,7 @@ namespace Jint.Native.Date
             var y = TypeConverter.ToNumber(arguments.At(0));
             if (double.IsNaN(y))
             {
-                ((DateInstance) thisObj).DateValue = double.NaN;
+                ((DateInstance) thisObj)._dateValue = double.NaN;
                 return JsNumber.DoubleNaN;
             }
 
@@ -744,7 +744,7 @@ namespace Jint.Native.Date
 
             var newDate = MakeDay(fy, MonthFromTime(t), DateFromTime(t));
             var u = Utc(MakeDate(newDate, TimeWithinDay(t)));
-            ((DateInstance) thisObj).DateValue = TimeClip(u);
+            ((DateInstance) thisObj)._dateValue = u.TimeClip();
             return u;
         }
 
@@ -759,8 +759,8 @@ namespace Jint.Native.Date
             var m = arguments.Length <= 1 ? MonthFromTime(t) : TypeConverter.ToNumber(arguments.At(1));
             var dt = arguments.Length <= 2 ? DateFromTime(t) : TypeConverter.ToNumber(arguments.At(2));
             var newDate = MakeDate(MakeDay(y, m, dt), TimeWithinDay(t));
-            var u = TimeClip(newDate);
-            ((DateInstance) thisObj).DateValue = u;
+            var u = newDate.TimeClip();
+            ((DateInstance) thisObj)._dateValue = u;
             return u;
         }
 
@@ -1144,7 +1144,7 @@ namespace Jint.Native.Date
             return t + LocalTza(t, true);
         }
 
-        public double Utc(double t)
+        internal double Utc(double t)
         {
             return t - LocalTza(t, false);
         }
@@ -1263,21 +1263,6 @@ namespace Jint.Native.Date
             }
 
             return day * MsPerDay + time;
-        }
-
-        private static double TimeClip(double time)
-        {
-            if (!IsFinite(time))
-            {
-                return double.NaN;
-            }
-
-            if (System.Math.Abs(time) > 8640000000000000)
-            {
-                return double.NaN;
-            }
-
-            return (long) time + 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1446,14 +1431,6 @@ namespace Jint.Native.Date
         public override string ToString()
         {
             return "Date.prototype";
-        }
-    }
-
-    internal static class DateExtensions
-    {
-        public static DateTime ToDateTime(this double t)
-        {
-            return DateConstructor.Epoch.AddMilliseconds(t);
         }
     }
 }

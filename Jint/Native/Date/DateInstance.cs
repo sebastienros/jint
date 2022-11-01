@@ -7,15 +7,17 @@ namespace Jint.Native.Date;
 public sealed class DateInstance : ObjectInstance
 {
     // Maximum allowed value to prevent DateTime overflow
-    private static readonly double Max = (DateTime.MaxValue - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
+    private static readonly long Max = (long) (DateTime.MaxValue - DateConstructor.Epoch).TotalMilliseconds;
 
     // Minimum allowed value to prevent DateTime overflow
-    private static readonly double Min = -(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc) - DateTime.MinValue).TotalMilliseconds;
+    private static readonly long Min = (long) -(DateConstructor.Epoch - DateTime.MinValue).TotalMilliseconds;
+
+    internal double _dateValue;
 
     public DateInstance(Engine engine, double dateValue)
         : base(engine, ObjectClass.Date)
     {
-        DateValue = dateValue;
+        _dateValue = dateValue.TimeClip();
     }
 
     public DateTime ToDateTime()
@@ -29,7 +31,7 @@ public sealed class DateInstance : ObjectInstance
         return DateTime.MinValue;
     }
 
-    public double DateValue { get; internal set; }
+    public double DateValue => _dateValue;
 
     internal bool DateTimeRangeValid => !double.IsNaN(DateValue) && DateValue <= Max && DateValue >= Min;
 
