@@ -78,18 +78,18 @@ namespace Jint.Native
         internal static JsNumber Create(object value)
         {
             var underlyingType = System.Type.GetTypeCode(Enum.GetUnderlyingType(value.GetType()));
-            switch (underlyingType)
+            return underlyingType switch
             {
-                case TypeCode.Int64:
-                    return Create(Convert.ToInt64(value));
+                TypeCode.Int64 => Create(Convert.ToInt64(value)),
+                TypeCode.UInt32 => Create(Convert.ToUInt64(value)),
+                TypeCode.UInt64 => Create(Convert.ToUInt64(value)),
+                _ => Create(Convert.ToInt32(value))
+            };
+        }
 
-                case TypeCode.UInt32:
-                case TypeCode.UInt64:
-                    return Create(Convert.ToUInt64(value));
-
-                default:
-                    return Create(Convert.ToInt32(value));
-            }
+        public static JsNumber Create(decimal value)
+        {
+            return Create((double) value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
