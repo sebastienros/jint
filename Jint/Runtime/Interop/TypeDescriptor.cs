@@ -12,6 +12,7 @@ namespace Jint.Runtime.Interop
         private static readonly Type _stringType = typeof(string);
 
         private readonly MethodInfo? _tryGetValueMethod;
+        private readonly MethodInfo? _removeMethod;
         private readonly PropertyInfo? _keysAccessor;
         private readonly Type? _valueType;
 
@@ -25,6 +26,7 @@ namespace Jint.Runtime.Interop
                     && i.GenericTypeArguments[0] == _stringType)
                 {
                     _tryGetValueMethod = i.GetMethod("TryGetValue");
+                    _removeMethod = i.GetMethod("Remove");
                     _keysAccessor = i.GetProperty("Keys");
                     _valueType = i.GenericTypeArguments[1];
                     break;
@@ -103,6 +105,16 @@ namespace Jint.Runtime.Interop
                 o = null;
                 return false;
             }
+        }
+
+        public bool Remove(object target, string key)
+        {
+            if (_removeMethod is null)
+            {
+                return false;
+            }
+
+            return (bool) _removeMethod.Invoke(target , new object[] { key });
         }
 
         public ICollection<string> GetKeys(object target)

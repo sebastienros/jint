@@ -3224,5 +3224,53 @@ try {
                 equal('bar', obj.Value.foo);
             ");
         }
+
+        [Fact]
+        public void ShouldBeAbleToDeleteDictionaryEntries()
+        {
+            var engine = new Engine(options => options.Strict());
+
+            var dictionary = new Dictionary<string, int>
+            {
+                { "a", 1 },
+                { "b", 2 }
+            };
+
+            engine.SetValue("data", dictionary);
+            
+            Assert.True(engine.Evaluate("Object.hasOwn(data, 'a')").AsBoolean());
+            Assert.True(engine.Evaluate("data['a'] === 1").AsBoolean());
+
+            engine.Evaluate("data['a'] = 42");
+            Assert.True(engine.Evaluate("data['a'] === 42").AsBoolean());
+            
+            Assert.Equal(42, dictionary["a"]);
+
+            engine.Execute("delete data['a'];");
+            
+            Assert.False(engine.Evaluate("Object.hasOwn(data, 'a')").AsBoolean());
+            Assert.False(engine.Evaluate("data['a'] === 42").AsBoolean());
+            
+            Assert.False(dictionary.ContainsKey("a"));
+            
+            var engineNoWrite = new Engine(options => options.Strict().AllowClrWrite(false));
+
+            dictionary = new Dictionary<string, int>
+            {
+                { "a", 1 },
+                { "b", 2 }
+            };
+            
+            engineNoWrite.SetValue("data", dictionary);
+            
+            var ex1 = Assert.Throws<JavaScriptException>(() => engineNoWrite.Evaluate("data['a'] = 42"));
+            Assert.Equal("Cannot assign to read only property 'a' of System.Collections.Generic.Dictionary`2[System.String,System.Int32]", ex1.Message);
+
+            // no changes
+            Assert.True(engineNoWrite.Evaluate("data['a'] === 1").AsBoolean());
+
+            var ex2 = Assert.Throws<JavaScriptException>(() => engineNoWrite.Execute("delete data['a'];"));
+            Assert.Equal("Cannot delete property 'a' of System.Collections.Generic.Dictionary`2[System.String,System.Int32]", ex2.Message);
+        }
     }
 }

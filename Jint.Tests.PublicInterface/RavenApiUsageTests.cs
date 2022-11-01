@@ -3,6 +3,7 @@ using Jint.Constraints;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -67,5 +68,14 @@ public class RavenApiUsageTests
         var array = new ArrayInstance(engine, descriptors);
         Assert.Equal(1L, array.Length);
         Assert.Equal(42, array[0]);
+    }
+
+    [Fact]
+    public void CanGetPropertyDescriptor()
+    {
+        var engine = new Engine();
+        var obj = new DirectoryInfo("the-path");
+        var propertyDescriptor = ObjectWrapper.GetPropertyDescriptor(engine, obj, obj.GetType().GetProperty(nameof(DirectoryInfo.Name)));
+        Assert.Equal("the-path", propertyDescriptor.Value);
     }
 }
