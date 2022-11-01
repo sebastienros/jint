@@ -98,6 +98,14 @@ namespace Jint.Runtime.Interop
             return Target;
         }
 
+        public override void RemoveOwnProperty(JsValue property)
+        {
+            if (_engine.Options.Interop.AllowWrite && property is JsString jsString)
+            {
+                _typeDescriptor.Remove(Target, jsString.ToString());
+            }
+        }
+
         public override JsValue Get(JsValue property, JsValue receiver)
         {
             if (property.IsInteger() && Target is IList list)
@@ -203,7 +211,12 @@ namespace Jint.Runtime.Interop
             {
                 if (_typeDescriptor.TryGetValue(Target, member, out var value))
                 {
-                    return new PropertyDescriptor(FromObject(_engine, value), PropertyFlag.OnlyEnumerable);
+                    var flags = PropertyFlag.Enumerable;
+                    if (_engine.Options.Interop.AllowWrite)
+                    {
+                        flags |= PropertyFlag.Configurable;
+                    }
+                    return new PropertyDescriptor(FromObject(_engine, value), flags);
                 }
             }
 

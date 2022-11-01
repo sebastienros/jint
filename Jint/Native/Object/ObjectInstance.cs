@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Array;
+using Jint.Native.BigInt;
 using Jint.Native.Boolean;
 using Jint.Native.Date;
 using Jint.Native.Function;
@@ -974,6 +975,12 @@ namespace Jint.Native.Object
                             result[i] = valueToSet;
                         }
                         converted = result;
+                        break;
+                    }
+
+                    if (this is BigIntInstance bigIntInstance)
+                    {
+                        converted = bigIntInstance.BigIntData._value;
                         break;
                     }
 

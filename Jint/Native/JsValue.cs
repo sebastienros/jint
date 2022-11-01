@@ -158,6 +158,15 @@ namespace Jint.Native
             return engine.Invoke(this, arguments);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getv
+        /// </summary>
+        internal JsValue GetV(Realm realm, JsValue property)
+        {
+            var o = TypeConverter.ToObject(realm, this);
+            return o.Get(property, this);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JsValue Get(JsValue property)
         {

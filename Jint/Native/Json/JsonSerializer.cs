@@ -137,7 +137,7 @@ namespace Jint.Native.Json
             var isBigInt = value is BigIntInstance || value.IsBigInt();
             if (value.IsObject() || isBigInt)
             {
-                var toJson = value.Get(toJsonProperty, value);
+                var toJson = value.GetV(_engine.Realm, toJsonProperty);
                 if (toJson.IsUndefined() && isBigInt)
                 {
                     toJson = _engine.Realm.Intrinsics.BigInt.PrototypeObject.Get(toJsonProperty);
