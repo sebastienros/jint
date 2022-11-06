@@ -94,7 +94,7 @@ namespace Jint
             for (var i = 0; i < statementListItems.Count; i++)
             {
                 var node = statementListItems[i];
-                if (node.Type != Nodes.VariableDeclaration && node.Type != Nodes.FunctionDeclaration)
+                if (node.Type != Nodes.VariableDeclaration && node.Type != Nodes.FunctionDeclaration && node.Type != Nodes.ClassDeclaration)
                 {
                     continue;
                 }
@@ -241,12 +241,13 @@ namespace Jint
             {
                 foreach (var childNode in node.ChildNodes)
                 {
-                    if (_checkArgumentsReference && childNode.Type == Nodes.Identifier)
+                    var childType = childNode.Type;
+                    if (_checkArgumentsReference && childType == Nodes.Identifier)
                     {
                         _hasArgumentsReference |= ((Identifier) childNode).Name == "arguments";
                     }
 
-                    if (childNode.Type == Nodes.VariableDeclaration)
+                    if (childType == Nodes.VariableDeclaration)
                     {
                         var variableDeclaration = (VariableDeclaration)childNode;
                         if (variableDeclaration.Kind == VariableDeclarationKind.Var)
@@ -285,23 +286,23 @@ namespace Jint
                             }
                         }
                     }
-                    else if (childNode.Type == Nodes.FunctionDeclaration
+                    else if (childType == Nodes.FunctionDeclaration
                              // in strict mode cannot include function declarations directly under block or case clauses
                              && (!_strict || parent is null || (node.Type != Nodes.BlockStatement && node.Type != Nodes.SwitchCase)))
                     {
                         _functions ??= new List<FunctionDeclaration>();
                         _functions.Add((FunctionDeclaration)childNode);
                     }
-                    else if (childNode.Type == Nodes.ClassDeclaration)
+                    else if (childType == Nodes.ClassDeclaration && parent is null or Module)
                     {
                         _lexicalDeclarations ??= new List<Declaration>();
                         _lexicalDeclarations.Add((Declaration) childNode);
                     }
 
-                    if (childNode.Type != Nodes.FunctionDeclaration
-                        && childNode.Type != Nodes.ArrowFunctionExpression
-                        && childNode.Type != Nodes.ArrowParameterPlaceHolder
-                        && childNode.Type != Nodes.FunctionExpression
+                    if (childType != Nodes.FunctionDeclaration
+                        && childType != Nodes.ArrowFunctionExpression
+                        && childType != Nodes.ArrowParameterPlaceHolder
+                        && childType != Nodes.FunctionExpression
                         && !childNode.ChildNodes.IsEmpty())
                     {
                         Visit(childNode, node);

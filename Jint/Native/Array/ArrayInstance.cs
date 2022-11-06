@@ -870,6 +870,19 @@ namespace Jint.Native.Array
             _dense = newArray;
         }
 
+        public JsValue[] ToArray()
+        {
+            var length = GetLength();
+            var array = new JsValue[length];
+            for (uint i = 0; i < length; i++)
+            {
+                TryGetValue(i, out var outValue);
+                array[i] = outValue ?? Undefined;
+            }
+
+            return array;
+        }
+
         public IEnumerator<JsValue> GetEnumerator()
         {
             var length = GetLength();

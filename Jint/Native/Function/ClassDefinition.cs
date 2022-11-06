@@ -12,6 +12,8 @@ namespace Jint.Native.Function
     internal sealed class ClassDefinition
     {
         private static readonly MethodDefinition _superConstructor;
+        internal static CallExpression _defaultSuperCall;
+
         private static readonly MethodDefinition _emptyConstructor;
 
         internal readonly string? _className;
@@ -29,6 +31,7 @@ namespace Jint.Native.Function
             }
 
             _superConstructor = CreateConstructorMethodDefinition("class temp { constructor(...args) { super(...args); } }");
+            _defaultSuperCall = (CallExpression) ((ExpressionStatement) _superConstructor.Value.Body.Body[0]).Expression;
             _emptyConstructor = CreateConstructorMethodDefinition("class temp { constructor() {} }");
         }
 
@@ -148,9 +151,11 @@ namespace Jint.Native.Function
             {
                 var constructorInfo = constructor.DefineMethod(proto, constructorParent);
                 F = constructorInfo.Closure;
-                if (_className is not null)
+
+                var name = env is ModuleEnvironmentRecord ? _className : _className ?? "";
+                if (name is not null)
                 {
-                    F.SetFunctionName(_className);
+                    F.SetFunctionName(name);
                 }
 
                 F.MakeConstructor(writableProperty: false, proto);
