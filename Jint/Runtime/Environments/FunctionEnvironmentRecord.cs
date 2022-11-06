@@ -420,7 +420,7 @@ namespace Jint.Runtime.Environments
         {
             private readonly ArrayInstance _instance;
             private readonly int _max;
-            private long _index = 0;
+            private long _index;
 
             public ArrayPatternProtocol(
                 Engine engine,
@@ -434,8 +434,8 @@ namespace Jint.Runtime.Environments
 
             protected override void ProcessItem(JsValue[] args, JsValue currentValue)
             {
-                _index++;
                 _instance.SetIndexValue((uint) _index, currentValue, updateLength: false);
+                _index++;
             }
 
             protected override bool ShouldContinue => _index < _max;
