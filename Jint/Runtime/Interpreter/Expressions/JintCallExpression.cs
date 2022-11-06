@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.Environments;
@@ -24,8 +25,6 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override void Initialize(EvaluationContext context)
         {
-            var engine = context.Engine;
-
             var expression = (CallExpression) _expression;
             ref readonly var expressionArguments = ref expression.Arguments;
 
@@ -37,7 +36,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             static bool CanSpread(Node? e)
             {
-                return e?.Type == Nodes.SpreadElement || e is AssignmentExpression { Right.Type: Nodes.SpreadElement };
+                if (e is null)
+                {
+                    return false;
+                }
+
+                return e.Type == Nodes.SpreadElement || e is AssignmentExpression { Right.Type: Nodes.SpreadElement };
             }
 
             var cacheable = true;
@@ -247,7 +251,8 @@ namespace Jint.Runtime.Interpreter.Expressions
                 ExceptionHelper.ThrowTypeError(engine.Realm, "Not a constructor");
             }
 
-            var argList = ArgumentListEvaluation(context);
+            var defaultSuperCall = ReferenceEquals(_expression, ClassDefinition._defaultSuperCall);
+            var argList = defaultSuperCall ? DefaultSuperCallArgumentListEvaluation(context) : ArgumentListEvaluation(context);
             var result = ((IConstructor) func).Construct(argList, newTarget);
             var thisER = (FunctionEnvironmentRecord) engine.ExecutionContext.GetThisEnvironment();
             return thisER.BindThisValue(result);
@@ -298,6 +303,25 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             return arguments;
+        }
+
+        private JsValue[] DefaultSuperCallArgumentListEvaluation(EvaluationContext context)
+        {
+            // This branch behaves similarly to constructor(...args) { super(...args); }.
+            // The most notable distinction is that while the aforementioned ECMAScript source text observably calls
+            // the @@iterator method on %Array.prototype%, this function does not.
+
+            var spreadExpression = (JintSpreadExpression) _cachedArguments.JintArguments[0];
+            var array = (ArrayInstance) spreadExpression._argument.GetValue(context);
+            var length = array.GetLength();
+            var args = new List<JsValue>((int) length);
+            for (uint j = 0; j < length; ++j)
+            {
+                array.TryGetValue(j, out var value);
+                args.Add(value);
+            }
+
+            return args.ToArray();
         }
 
         private sealed class CachedArgumentsHolder

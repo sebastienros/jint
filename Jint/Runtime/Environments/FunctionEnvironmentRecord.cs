@@ -271,14 +271,18 @@ namespace Jint.Runtime.Environments
                 ExceptionHelper.ThrowTypeError(_functionObject._realm, "Destructed parameter is null");
             }
 
-            ArrayInstance? array = null;
-            var arrayContents = System.Array.Empty<JsValue>();
-            if (argument.IsArray())
+            ArrayInstance? array;
+            if (argument is ArrayInstance { HasOriginalIterator: true } ai)
             {
-                array = argument.AsArray();
+                array = ai;
             }
-            else if (argument.IsObject() && argument.TryGetIterator(_functionObject._realm, out var iterator))
+            else
             {
+                if (!argument.TryGetIterator(_functionObject._realm, out var iterator))
+                {
+                    ExceptionHelper.ThrowTypeError(context.Engine.Realm, "object is not iterable");
+                }
+
                 array = _engine.Realm.Intrinsics.Array.ArrayCreate(0);
                 var max = arrayPattern.Elements.Count;
                 if (max > 0 && arrayPattern.Elements[max - 1]?.Type == Nodes.RestElement)
@@ -290,16 +294,7 @@ namespace Jint.Runtime.Environments
                 protocol.Execute();
             }
 
-            if (!ReferenceEquals(array, null))
-            {
-                arrayContents = new JsValue[array.GetLength()];
-
-                for (uint i = 0; i < (uint) arrayContents.Length; i++)
-                {
-                    arrayContents[i] = array.Get(i);
-                }
-            }
-
+            var arrayContents = array.ToArray();
             for (var i = 0; i < arrayPattern.Elements.Count; i++)
             {
                 SetFunctionParameter(context, arrayPattern.Elements[i], arrayContents, i, initiallyEmpty);

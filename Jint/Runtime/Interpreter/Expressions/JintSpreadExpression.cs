@@ -6,7 +6,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintSpreadExpression : JintExpression
     {
-        private readonly JintExpression _argument;
+        internal readonly JintExpression _argument;
         private readonly string? _argumentName;
 
         public JintSpreadExpression(SpreadElement expression) : base(expression)
