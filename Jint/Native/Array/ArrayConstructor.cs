@@ -46,6 +46,9 @@ namespace Jint.Native.Array
             SetSymbols(symbols);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-array.from
+        /// </summary>
         private JsValue From(JsValue thisObj, JsValue[] arguments)
         {
             var source = arguments.At(0);
@@ -61,7 +64,7 @@ namespace Jint.Native.Array
             if (source is JsString jsString)
             {
                 var a = _realm.Intrinsics.Array.ArrayCreate((uint) jsString.Length);
-                for (int i = 0; i < jsString._value.Length; i++)
+                for (var i = 0; i < jsString._value.Length; i++)
                 {
                     a.SetIndexValue((uint) i, JsString.Create(jsString._value[i]), updateLength: false);
                 }
@@ -108,13 +111,15 @@ namespace Jint.Native.Array
             ICallable? callable,
             JsValue thisArg)
         {
+            var iterator = objectInstance.Get(GlobalSymbolRegistry.Iterator);
             var source = ArrayOperations.For(objectInstance);
             var length = source.GetLength();
 
             ObjectInstance a;
             if (thisObj is IConstructor constructor)
             {
-                var argumentsList = objectInstance.Get(GlobalSymbolRegistry.Iterator).IsNullOrUndefined()
+                var isNullOrUndefined = iterator.IsNullOrUndefined();
+                var argumentsList = isNullOrUndefined
                     ? new JsValue[] { length }
                     : null;
 

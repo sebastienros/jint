@@ -190,9 +190,8 @@ namespace Jint.Native.Array
             public override bool TryGetValue(ulong index, out JsValue value)
             {
                 var propertyName = JsString.Create(index);
-                var property = _target.GetProperty(propertyName);
-                var kPresent = property != PropertyDescriptor.Undefined;
-                value = kPresent ? _target.UnwrapJsValue(property) : JsValue.Undefined;
+                var kPresent = _target.HasProperty(propertyName);
+                value = kPresent ? _target.Get(propertyName) : JsValue.Undefined;
                 return kPresent;
             }
 

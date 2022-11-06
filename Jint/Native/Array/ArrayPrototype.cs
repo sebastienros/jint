@@ -681,6 +681,9 @@ namespace Jint.Native.Array
             return target.FindWithCallback(arguments, out _, out _, false);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-array.prototype.every
+        /// </summary>
         private JsValue Every(JsValue thisObj, JsValue[] arguments)
         {
             var o = ArrayOperations.For(_realm, thisObj);
@@ -781,6 +784,9 @@ namespace Jint.Native.Array
             return -1;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-array.prototype.find
+        /// </summary>
         private JsValue Find(JsValue thisObj, JsValue[] arguments)
         {
             var target = TypeConverter.ToObject(_realm, thisObj);
@@ -788,6 +794,9 @@ namespace Jint.Native.Array
             return value;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-array.prototype.findindex
+        /// </summary>
         private JsValue FindIndex(JsValue thisObj, JsValue[] arguments)
         {
             var target = TypeConverter.ToObject(_realm, thisObj);
@@ -1311,7 +1320,7 @@ namespace Jint.Native.Array
             for (var i = 0; i < items.Count; i++)
             {
                 var e = items[i];
-                if (e is ObjectInstance oi && oi.IsConcatSpreadable)
+                if (e is ObjectInstance { IsConcatSpreadable: true } oi)
                 {
                     if (e is ArrayInstance eArray && a is ArrayInstance a2)
                     {
