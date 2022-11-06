@@ -223,4 +223,85 @@ public class ArrayTests
         Assert.True(engine.Evaluate("!iterator.hasOwnProperty(Symbol.iterator)").AsBoolean());
         Assert.True(engine.Evaluate("iterator[Symbol.iterator]() === iterator").AsBoolean());
     }
+
+    [Fact]
+    public void ArrayFrom()
+    {
+        const string Script = @"
+            // Array.from -> Get -> [[Get]]
+            var get = [];
+            var p = new Proxy({length: 2, 0: '', 1: ''}, { get: function(o, k) { get.push(k); return o[k]; }});
+            Array.from(p);";
+
+        var engine = new Engine();
+        engine.Execute(Script);
+
+        Assert.True(engine.Evaluate("get[0] === Symbol.iterator").AsBoolean());
+        Assert.Equal("length,0,1", engine.Evaluate("get.slice(1) + ''").AsString());
+    }
+
+    [Fact]
+    public void Iteration()
+    {
+        const string Script = @"
+            // Array.prototype methods -> Get -> [[Get]]
+            var methods = ['copyWithin', 'every', 'fill', 'filter', 'find', 'findIndex', 'forEach',
+              'indexOf', 'join', 'lastIndexOf', 'map', 'reduce', 'reduceRight', 'some'];
+            var get;
+            var p = new Proxy({length: 2, 0: '', 1: ''}, { get: function(o, k) { get.push(k); return o[k]; }});
+            for(var i = 0; i < methods.length; i+=1) {
+              get = [];
+              Array.prototype[methods[i]].call(p, Function());
+              var actual = get + '';
+              var expected = (
+                methods[i] === 'fill' ? ""length"" :
+                methods[i] === 'every' ? ""length,0"" :
+                methods[i] === 'lastIndexOf' || methods[i] === 'reduceRight' ? ""length,1,0"" :
+                ""length,0,1"");
+
+              if (actual !== expected) {
+                throw methods[i] + ': ' + actual + ' !== ' + expected;
+              }
+            }
+            return true;";
+
+        var engine = new Engine();
+        Assert.True(engine.Evaluate(Script).AsBoolean());
+    }
+
+    [Fact]
+    public void Concat()
+    {
+        const string Script = @"
+            // Array.prototype.concat -> Get -> [[Get]]
+            var get = [];
+            var arr = [1];
+            arr.constructor = void undefined;
+            var p = new Proxy(arr, { get: function(o, k) { get.push(k); return o[k]; }});
+            Array.prototype.concat.call(p,p);";
+
+        var engine = new Engine();
+        engine.Execute(Script);
+
+        Assert.Equal("constructor", engine.Evaluate("get[0]"));
+        Assert.True(engine.Evaluate("get[1] === Symbol.isConcatSpreadable").AsBoolean());
+        Assert.Equal("length", engine.Evaluate("get[2]"));
+        Assert.Equal("0", engine.Evaluate("get[3]"));
+        Assert.True(engine.Evaluate("get[4] === get[1] && get[5] === get[2] && get[6] === get[3]").AsBoolean());
+        Assert.Equal(7, engine.Evaluate("get.length"));
+    }
+
+    [Fact]
+    public void Shift()
+    {
+        const string Script = @"
+// Array.prototype.shift -> Get -> [[Get]]
+var get = [];
+var p = new Proxy([0,1,2,3], { get: function(o, k) { get.push(k); return o[k]; }});
+Array.prototype.shift.call(p);
+return get + '' === ""length,0,1,2,3"";";
+
+        var engine = new Engine();
+        Assert.True(engine.Evaluate(Script).AsBoolean());
+    }
 }

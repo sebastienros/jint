@@ -1023,26 +1023,8 @@ namespace Jint.Native.Object
         {
             long GetLength()
             {
-                var desc = GetProperty(CommonProperties.Length);
-                var descValue = desc.Value;
-                double len;
-                if (desc.IsDataDescriptor() && !ReferenceEquals(descValue, null))
-                {
-                    len = TypeConverter.ToNumber(descValue);
-                }
-                else
-                {
-                    var getter = desc.Get ?? Undefined;
-                    if (getter.IsUndefined())
-                    {
-                        len = 0;
-                    }
-                    else
-                    {
-                        // if getter is not undefined it must be ICallable
-                        len = TypeConverter.ToNumber(((ICallable) getter).Call(this, Arguments.Empty));
-                    }
-                }
+                var descValue = Get(CommonProperties.Length);
+                var len = TypeConverter.ToNumber(descValue);
 
                 return (long) System.Math.Max(
                     0,
@@ -1057,7 +1039,8 @@ namespace Jint.Native.Object
                 return kPresent;
             }
 
-            if (GetLength() == 0)
+            var length = GetLength();
+            if (length == 0)
             {
                 index = 0;
                 value = Undefined;
@@ -1070,7 +1053,6 @@ namespace Jint.Native.Object
 
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
-            var length = GetLength();
             for (uint k = 0; k < length; k++)
             {
                 if (TryGetValue(k, out var kvalue) || visitUnassigned)
