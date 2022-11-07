@@ -12,22 +12,19 @@ namespace Jint
 
         internal readonly List<Declaration>? _lexicalDeclarations;
         internal readonly List<string>? _lexicalNames;
-        internal readonly bool _hasArgumentsReference;
 
         private HoistingScope(
             List<FunctionDeclaration>? functionDeclarations,
             List<Key>? varNames,
             List<VariableDeclaration>? variableDeclarations,
             List<Declaration>? lexicalDeclarations,
-            List<string>? lexicalNames,
-            bool hasArgumentsReference)
+            List<string>? lexicalNames)
         {
             _functionDeclarations = functionDeclarations;
             _varNames = varNames;
             _variablesDeclarations = variableDeclarations;
             _lexicalDeclarations = lexicalDeclarations;
             _lexicalNames = lexicalNames;
-            _hasArgumentsReference = hasArgumentsReference;
         }
 
         public static HoistingScope GetProgramLevelDeclarations(
@@ -36,38 +33,28 @@ namespace Jint
             bool collectVarNames = false,
             bool collectLexicalNames = false)
         {
-            var treeWalker = new ScriptWalker(strict, collectVarNames, collectLexicalNames, checkArgumentsReference: false);
+            var treeWalker = new ScriptWalker(strict, collectVarNames, collectLexicalNames);
             treeWalker.Visit(script, null);
+
             return new HoistingScope(
                 treeWalker._functions,
                 treeWalker._varNames,
                 treeWalker._variableDeclarations,
                 treeWalker._lexicalDeclarations,
-                treeWalker._lexicalNames,
-                false);
+                treeWalker._lexicalNames);
         }
 
         public static HoistingScope GetFunctionLevelDeclarations(bool strict, IFunction node)
         {
-            var treeWalker = new ScriptWalker(strict, collectVarNames: true, collectLexicalNames: true, checkArgumentsReference: true);
+            var treeWalker = new ScriptWalker(strict, collectVarNames: true, collectLexicalNames: true);
             treeWalker.Visit(node.Body, null);
-
-            if (!treeWalker._hasArgumentsReference)
-            {
-                ref readonly var parameters = ref node.Params;
-                for (var i = 0; i < parameters.Count; ++i)
-                {
-                    treeWalker.Visit(parameters[i], null);
-                }
-            }
 
             return new HoistingScope(
                 treeWalker._functions,
                 treeWalker._varNames,
                 treeWalker._variableDeclarations,
                 treeWalker._lexicalDeclarations,
-                treeWalker._lexicalNames,
-                treeWalker._hasArgumentsReference);
+                treeWalker._lexicalNames);
         }
 
         public static HoistingScope GetModuleLevelDeclarations(
@@ -75,16 +62,15 @@ namespace Jint
             bool collectVarNames = false,
             bool collectLexicalNames = false)
         {
-            //Modules area always strict
-            var treeWalker = new ScriptWalker(strict: true, collectVarNames, collectLexicalNames, checkArgumentsReference: false);
+            // modules area always strict
+            var treeWalker = new ScriptWalker(strict: true, collectVarNames, collectLexicalNames);
             treeWalker.Visit(module, null);
             return new HoistingScope(
                 treeWalker._functions,
                 treeWalker._varNames,
                 treeWalker._variableDeclarations,
                 treeWalker._lexicalDeclarations,
-                treeWalker._lexicalNames,
-                false);
+                treeWalker._lexicalNames);
         }
 
         public static List<Declaration>? GetLexicalDeclarations(BlockStatement statement)
@@ -224,17 +210,14 @@ namespace Jint
             internal List<Key>? _varNames;
 
             private readonly bool _collectLexicalNames;
-            private readonly bool _checkArgumentsReference;
             internal List<Declaration>? _lexicalDeclarations;
             internal List<string>? _lexicalNames;
-            internal bool _hasArgumentsReference;
 
-            public ScriptWalker(bool strict, bool collectVarNames, bool collectLexicalNames, bool checkArgumentsReference)
+            public ScriptWalker(bool strict, bool collectVarNames, bool collectLexicalNames)
             {
                 _strict = strict;
                 _collectVarNames = collectVarNames;
                 _collectLexicalNames = collectLexicalNames;
-                _checkArgumentsReference = checkArgumentsReference;
             }
 
             public void Visit(Node node, Node? parent)
@@ -242,11 +225,6 @@ namespace Jint
                 foreach (var childNode in node.ChildNodes)
                 {
                     var childType = childNode.Type;
-                    if (_checkArgumentsReference && childType == Nodes.Identifier)
-                    {
-                        _hasArgumentsReference |= ((Identifier) childNode).Name == "arguments";
-                    }
-
                     if (childType == Nodes.VariableDeclaration)
                     {
                         var variableDeclaration = (VariableDeclaration)childNode;

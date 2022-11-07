@@ -247,7 +247,7 @@ internal sealed class JintFunctionDefinition
         if (state.ArgumentsObjectNeeded)
         {
             // just one extra check...
-            state.ArgumentsObjectNeeded = hoistingScope._hasArgumentsReference;
+            state.ArgumentsObjectNeeded = ArgumentsUsageAstVisitor.HasArgumentsReference(function);
         }
 
         var parameterBindings = new HashSet<Key>(state.ParameterNames);
@@ -417,24 +417,25 @@ internal sealed class JintFunctionDefinition
         hasArguments = false;
         state.IsSimpleParameterList  = true;
 
+        var countParameters = true;
         ref readonly var functionDeclarationParams = ref function.Params;
         var count = functionDeclarationParams.Count;
         var parameterNames = new List<Key>(count);
         for (var i = 0; i < count; i++)
         {
             var parameter = functionDeclarationParams[i];
-            if (parameter is Identifier id)
+            var type = parameter.Type;
+
+            if (type == Nodes.Identifier)
             {
+                var id = (Identifier) parameter;
                 state.HasDuplicates |= parameterNames.Contains(id.Name);
                 hasArguments = id.Name == "arguments";
                 parameterNames.Add(id.Name);
-                if (state.IsSimpleParameterList)
-                {
-                    state.Length++;
-                }
             }
-            else if (parameter.Type != Nodes.Literal)
+            else if (type != Nodes.Literal)
             {
+                countParameters &= type != Nodes.AssignmentPattern;
                 state.IsSimpleParameterList = false;
                 GetBoundNames(
                     parameter,
@@ -445,8 +446,59 @@ internal sealed class JintFunctionDefinition
                     ref state.HasDuplicates,
                     ref hasArguments);
             }
+
+            if (countParameters && type is Nodes.Identifier or Nodes.ObjectPattern or Nodes.ArrayPattern)
+            {
+                state.Length++;
+            }
         }
 
         state.ParameterNames = parameterNames.ToArray();
+    }
+
+    private static class ArgumentsUsageAstVisitor
+    {
+        public static bool HasArgumentsReference(IFunction function)
+        {
+            if (HasArgumentsReference(function.Body))
+            {
+                return true;
+            }
+
+            ref readonly var parameters = ref function.Params;
+            for (var i = 0; i < parameters.Count; ++i)
+            {
+                if (HasArgumentsReference(parameters[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasArgumentsReference(Node node)
+        {
+            foreach (var childNode in node.ChildNodes)
+            {
+                var childType = childNode.Type;
+                if (childType == Nodes.Identifier)
+                {
+                    if (((Identifier) childNode).Name == "arguments")
+                    {
+                        return true;
+                    }
+                }
+                else if (childType != Nodes.FunctionDeclaration && !childNode.ChildNodes.IsEmpty())
+                {
+                    if (HasArgumentsReference(childNode))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
     }
 }

@@ -194,19 +194,15 @@ namespace Jint.Runtime.Environments
                 ExceptionHelper.ThrowTypeError(_functionObject._realm, "Destructed parameter is null or undefined");
             }
 
-            if (!argument.IsObject())
-            {
-                return;
-            }
+            var argumentObject = TypeConverter.ToObject(_engine.Realm , argument);
 
-            var argumentObject = argument.AsObject();
-
-            var processedProperties = objectPattern.Properties.Count > 0 && objectPattern.Properties[objectPattern.Properties.Count - 1] is RestElement
+            ref readonly var properties = ref objectPattern.Properties;
+            var processedProperties = properties.Count > 0 && properties[properties.Count - 1] is RestElement
                 ? new HashSet<JsValue>()
                 : null;
 
             var jsValues = _engine._jsValueArrayPool.RentArray(1);
-            foreach (var property in objectPattern.Properties)
+            foreach (var property in properties)
             {
                 var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                 var paramVarEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
@@ -217,26 +213,7 @@ namespace Jint.Runtime.Environments
                 {
                     if (property is Property p)
                     {
-                        JsString propertyName = JsString.Empty;
-                        if (p.Key is Identifier propertyIdentifier)
-                        {
-                            propertyName = JsString.Create(propertyIdentifier.Name);
-                        }
-                        else if (p.Key is Literal propertyLiteral)
-                        {
-                            propertyName = JsString.Create(propertyLiteral.Raw);
-                        }
-                        else if (p.Key is CallExpression callExpression)
-                        {
-                            var jintCallExpression = new JintCallExpression(callExpression);
-                            var jsValue = jintCallExpression.GetValue(context);
-                            propertyName = TypeConverter.ToJsString(jsValue);
-                        }
-                        else
-                        {
-                            ExceptionHelper.ThrowArgumentOutOfRangeException("property", "unknown object pattern property type");
-                        }
-
+                        var propertyName = p.GetKey(_engine);
                         processedProperties?.Add(propertyName.ToString());
                         jsValues[0] = argumentObject.Get(propertyName);
                         SetFunctionParameter(context, p.Value, jsValues, 0, initiallyEmpty);
