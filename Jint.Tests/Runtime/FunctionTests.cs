@@ -4,26 +4,33 @@ using Jint.Native.Function;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
-namespace Jint.Tests.Runtime
+namespace Jint.Tests.Runtime;
+
+public class FunctionTests
 {
-    public class FunctionTests
+    private readonly Engine _engine;
+
+    public FunctionTests()
     {
-        [Fact]
-        public void BindCombinesBoundArgumentsToCallArgumentsCorrectly()
-        {
-            var e = new Engine();
-            e.Evaluate("var testFunc = function (a, b, c) { return a + ', ' + b + ', ' + c + ', ' + JSON.stringify(arguments); }");
+        _engine = new Engine()
+            .SetValue("equal", new Action<object, object>(Assert.Equal));
+    }
 
-            Assert.Equal("a, 1, a, {\"0\":\"a\",\"1\":1,\"2\":\"a\"}", e.Evaluate("testFunc('a', 1, 'a');").AsString());
-            Assert.Equal("a, 1, a, {\"0\":\"a\",\"1\":1,\"2\":\"a\"}", e.Evaluate("testFunc.bind('anything')('a', 1, 'a');").AsString());
-        }
+    [Fact]
+    public void BindCombinesBoundArgumentsToCallArgumentsCorrectly()
+    {
+        _engine.Evaluate("var testFunc = function (a, b, c) { return a + ', ' + b + ', ' + c + ', ' + JSON.stringify(arguments); }");
 
-        [Fact]
-        public void ArrowFunctionShouldBeExtensible()
-        {
-            new Engine()
-                .SetValue("assert", new Action<bool>(Assert.True))
-                .Execute(@"
+        Assert.Equal("a, 1, a, {\"0\":\"a\",\"1\":1,\"2\":\"a\"}", _engine.Evaluate("testFunc('a', 1, 'a');").AsString());
+        Assert.Equal("a, 1, a, {\"0\":\"a\",\"1\":1,\"2\":\"a\"}", _engine.Evaluate("testFunc.bind('anything')('a', 1, 'a');").AsString());
+    }
+
+    [Fact]
+    public void ArrowFunctionShouldBeExtensible()
+    {
+        new Engine()
+            .SetValue("assert", new Action<bool>(Assert.True))
+            .Execute(@"
                     var a = () => null
                     Object.defineProperty(a, 'hello', { enumerable: true, get: () => 'world' })
                     assert(a.hello === 'world')
@@ -31,12 +38,12 @@ namespace Jint.Tests.Runtime
                     a.foo = 'bar';
                     assert(a.foo === 'bar');
                 ");
-        }
+    }
 
-        [Fact]
-        public void BlockScopeFunctionShouldWork()
-        {
-            const string script = @"
+    [Fact]
+    public void BlockScopeFunctionShouldWork()
+    {
+        const string Script = @"
 function execute(doc, args){
     var i = doc;
     {
@@ -49,21 +56,21 @@ function execute(doc, args){
 }
 ";
 
-            var engine = new Engine(options =>
-            {
-                options.Strict();
-            });
-            engine.Execute(script);
-
-            var obj = engine.Evaluate("var obj = {}; execute(obj); return obj;").AsObject();
-
-            Assert.Equal("ayende", obj.Get("Name").AsString());
-        }
-
-        [Fact]
-        public void ObjectCoercibleForCallable()
+        var engine = new Engine(options =>
         {
-            const string script = @"
+            options.Strict();
+        });
+        engine.Execute(Script);
+
+        var obj = engine.Evaluate("var obj = {}; execute(obj); return obj;").AsObject();
+
+        Assert.Equal("ayende", obj.Get("Name").AsString());
+    }
+
+    [Fact]
+    public void ObjectCoercibleForCallable()
+    {
+        const string Script = @"
 var booleanCount = 0;
 Boolean.prototype.then = function() {
   booleanCount += 1;
@@ -74,59 +81,56 @@ function test() {
 testFunction.call(true);
 assertEqual(booleanCount, 1);
 ";
-            var engine = new Engine();
-            engine
-                .SetValue("testFunction", new ClrFunctionInstance(engine, "testFunction", (thisValue, args) =>
-                {
-                    return engine.Invoke(thisValue, "then", new[] { Undefined.Instance, args.At(0) });
-                }))
-                .SetValue("assertEqual", new Action<object, object>((a, b) => Assert.Equal(b, a)))
-                .Execute(script);
-        }
-
-        [Fact]
-        public void AnonymousLambdaShouldHaveNameDefined()
-        {
-            var engine = new Engine();
-            Assert.True(engine.Evaluate("(()=>{}).hasOwnProperty('name')").AsBoolean());
-        }
-
-        [Fact]
-        public void CanInvokeConstructorsFromEngine()
-        {
-            var engine = new Engine();
-
-            engine.Evaluate("class TestClass { constructor(a, b) { this.a = a; this.b = b; }}");
-            engine.Evaluate("function TestFunction(a, b) { this.a = a; this.b = b; }");
-
-            var instanceFromClass = engine.Construct("TestClass", "abc", 123).AsObject();
-            Assert.Equal("abc", instanceFromClass.Get("a"));
-            Assert.Equal(123, instanceFromClass.Get("b"));
-
-            var instanceFromFunction = engine.Construct("TestFunction", "abc", 123).AsObject();
-            Assert.Equal("abc", instanceFromFunction.Get("a"));
-            Assert.Equal(123, instanceFromFunction.Get("b"));
-
-            var arrayInstance = (ArrayInstance) engine.Construct("Array", "abc", 123).AsObject();
-            Assert.Equal((uint) 2, arrayInstance.Length);
-            Assert.Equal("abc", arrayInstance[0]);
-            Assert.Equal(123, arrayInstance[1]);
-        }
-
-        [Fact]
-        public void FunctionInstancesCanBePassedToHost()
-        {
-            var engine = new Engine();
-            Func<JsValue, JsValue[], JsValue> ev = null;
-
-            void addListener(Func<JsValue, JsValue[], JsValue> callback)
+        var engine = new Engine();
+        engine
+            .SetValue("testFunction", new ClrFunctionInstance(engine, "testFunction", (thisValue, args) =>
             {
-                ev = callback;
-            }
+                return engine.Invoke(thisValue, "then", new[] { Undefined.Instance, args.At(0) });
+            }))
+            .SetValue("assertEqual", new Action<object, object>((a, b) => Assert.Equal(b, a)))
+            .Execute(Script);
+    }
 
-            engine.SetValue("addListener", new Action<Func<JsValue, JsValue[], JsValue>>(addListener));
+    [Fact]
+    public void AnonymousLambdaShouldHaveNameDefined()
+    {
+        Assert.True(_engine.Evaluate("(()=>{}).hasOwnProperty('name')").AsBoolean());
+    }
 
-            engine.Execute(@"
+    [Fact]
+    public void CanInvokeConstructorsFromEngine()
+    {
+        _engine.Evaluate("class TestClass { constructor(a, b) { this.a = a; this.b = b; }}");
+        _engine.Evaluate("function TestFunction(a, b) { this.a = a; this.b = b; }");
+
+        var instanceFromClass = _engine.Construct("TestClass", "abc", 123).AsObject();
+        Assert.Equal("abc", instanceFromClass.Get("a"));
+        Assert.Equal(123, instanceFromClass.Get("b"));
+
+        var instanceFromFunction = _engine.Construct("TestFunction", "abc", 123).AsObject();
+        Assert.Equal("abc", instanceFromFunction.Get("a"));
+        Assert.Equal(123, instanceFromFunction.Get("b"));
+
+        var arrayInstance = (ArrayInstance) _engine.Construct("Array", "abc", 123).AsObject();
+        Assert.Equal((uint) 2, arrayInstance.Length);
+        Assert.Equal("abc", arrayInstance[0]);
+        Assert.Equal(123, arrayInstance[1]);
+    }
+
+    [Fact]
+    public void FunctionInstancesCanBePassedToHost()
+    {
+        var engine = new Engine();
+        Func<JsValue, JsValue[], JsValue> ev = null;
+
+        void addListener(Func<JsValue, JsValue[], JsValue> callback)
+        {
+            ev = callback;
+        }
+
+        engine.SetValue("addListener", new Action<Func<JsValue, JsValue[], JsValue>>(addListener));
+
+        engine.Execute(@"
                 var a = 5;
 
                 (function() {
@@ -137,29 +141,29 @@ assertEqual(booleanCount, 1);
                 })();
 ");
 
-            Assert.Equal(5, engine.Evaluate("a"));
+        Assert.Equal(5, engine.Evaluate("a"));
 
-            ev(null, new JsValue[0]);
-            Assert.Equal(10, engine.Evaluate("a"));
+        ev(null, new JsValue[0]);
+        Assert.Equal(10, engine.Evaluate("a"));
 
-            ev(null, new JsValue[] { 20 });
-            Assert.Equal(30, engine.Evaluate("a"));
+        ev(null, new JsValue[] { 20 });
+        Assert.Equal(30, engine.Evaluate("a"));
+    }
+
+    [Fact]
+    public void BoundFunctionsCanBePassedToHost()
+    {
+        var engine = new Engine();
+        Func<JsValue, JsValue[], JsValue> ev = null;
+
+        void addListener(Func<JsValue, JsValue[], JsValue> callback)
+        {
+            ev = callback;
         }
 
-        [Fact]
-        public void BoundFunctionsCanBePassedToHost()
-        {
-            var engine = new Engine();
-            Func<JsValue, JsValue[], JsValue> ev = null;
+        engine.SetValue("addListener", new Action<Func<JsValue, JsValue[], JsValue>>(addListener));
 
-            void addListener(Func<JsValue, JsValue[], JsValue> callback)
-            {
-                ev = callback;
-            }
-
-            engine.SetValue("addListener", new Action<Func<JsValue, JsValue[], JsValue>>(addListener));
-
-            engine.Execute(@"
+        engine.Execute(@"
                 var a = 5;
 
                 (function() {
@@ -169,92 +173,91 @@ assertEqual(booleanCount, 1);
                 })();
             ");
 
-            Assert.Equal(5, engine.Evaluate("a"));
+        Assert.Equal(5, engine.Evaluate("a"));
 
-            ev(null, new JsValue[0]);
-            Assert.Equal(10, engine.Evaluate("a"));
+        ev(null, new JsValue[0]);
+        Assert.Equal(10, engine.Evaluate("a"));
 
-            ev(null, new JsValue[] { 20 });
-            Assert.Equal(30, engine.Evaluate("a"));
+        ev(null, new JsValue[] { 20 });
+        Assert.Equal(30, engine.Evaluate("a"));
+    }
+
+    [Fact]
+    public void ConstructorsCanBePassedToHost()
+    {
+        var engine = new Engine();
+        Func<JsValue, JsValue[], JsValue> ev = null;
+
+        void addListener(Func<JsValue, JsValue[], JsValue> callback)
+        {
+            ev = callback;
         }
 
-        [Fact]
-        public void ConstructorsCanBePassedToHost()
-        {
-            var engine = new Engine();
-            Func<JsValue, JsValue[], JsValue> ev = null;
+        engine.SetValue("addListener", new Action<Func<JsValue, JsValue[], JsValue>>(addListener));
 
-            void addListener(Func<JsValue, JsValue[], JsValue> callback)
-            {
-                ev = callback;
-            }
+        engine.Execute(@"addListener(Boolean)");
 
-            engine.SetValue("addListener", new Action<Func<JsValue, JsValue[], JsValue>>(addListener));
+        Assert.Equal(true, ev(JsValue.Undefined, new JsValue[] { "test" }));
+        Assert.Equal(true, ev(JsValue.Undefined, new JsValue[] { 5 }));
+        Assert.Equal(false, ev(JsValue.Undefined, new JsValue[] { false }));
+        Assert.Equal(false, ev(JsValue.Undefined, new JsValue[] { 0}));
+        Assert.Equal(false, ev(JsValue.Undefined, new JsValue[] { JsValue.Undefined }));
+    }
 
-            engine.Execute(@"addListener(Boolean)");
-
-            Assert.Equal(true, ev(JsValue.Undefined, new JsValue[] { "test" }));
-            Assert.Equal(true, ev(JsValue.Undefined, new JsValue[] { 5 }));
-            Assert.Equal(false, ev(JsValue.Undefined, new JsValue[] { false }));
-            Assert.Equal(false, ev(JsValue.Undefined, new JsValue[] { 0}));
-            Assert.Equal(false, ev(JsValue.Undefined, new JsValue[] { JsValue.Undefined }));
-        }
-
-        [Fact]
-        public void FunctionsShouldResolveToSameReference()
-        {
-            var engine = new Engine();
-            engine.SetValue("equal", new Action<object, object>(Assert.Equal));
-            engine.Execute(@"
+    [Fact]
+    public void FunctionsShouldResolveToSameReference()
+    {
+        _engine.SetValue("equal", new Action<object, object>(Assert.Equal));
+        _engine.Execute(@"
                 function testFn() {}
                 equal(testFn, testFn);
             ");
-        }
-        
-        [Fact]
-        public void CanInvokeCallForFunctionInstance()
-        {
-            var engine = new Engine();
+    }
 
-            engine.Evaluate(@"
+    [Fact]
+    public void CanInvokeCallForFunctionInstance()
+    {
+        _engine.Evaluate(@"
                 (function () {
                     function foo(a = 123) { return a; }
                     foo()
                 })")
-                .As<FunctionInstance>().Call();
+            .As<FunctionInstance>().Call();
 
-            var result = engine.Evaluate(@"
+        var result = _engine.Evaluate(@"
                 (function () {
                     class Foo { test() { return 123 } }
                     let f = new Foo()
                     return f.test()
                 })")
-                .As<FunctionInstance>().Call();
+            .As<FunctionInstance>().Call();
 
-            Assert.True(result.IsInteger());
-            Assert.Equal(123, result.AsInteger());
-        }
+        Assert.True(result.IsInteger());
+        Assert.Equal(123, result.AsInteger());
+    }
 
-        [Fact]
-        public void CanInvokeFunctionViaEngineInstance()
-        {
-            var engine = new Engine();
+    [Fact]
+    public void CanInvokeFunctionViaEngineInstance()
+    {
+        var function = _engine.Evaluate("function bar(a) { return a; }; bar;");
 
-            var function = engine.Evaluate("function bar(a) { return a; }; bar;");
+        Assert.Equal(123, _engine.Call(function, 123));
+        Assert.Equal(123, _engine.Call("bar", 123));
+    }
 
-            Assert.Equal(123, engine.Call(function, 123));
-            Assert.Equal(123, engine.Call("bar", 123));
-        }
+    [Fact]
+    public void CanInvokeFunctionViaEngineInstanceWithCustomThisObj()
+    {
+        var function = _engine.Evaluate("function baz() { return this; }; baz;");
 
-        [Fact]
-        public void CanInvokeFunctionViaEngineInstanceWithCustomThisObj()
-        {
-            var engine = new Engine();
+        Assert.Equal("I'm this!", TypeConverter.ToString(_engine.Call(function, "I'm this!", Arguments.Empty)));
+        Assert.Equal("I'm this!", TypeConverter.ToString(function.Call("I'm this!", Arguments.Empty)));
+    }
 
-            var function = engine.Evaluate("function baz() { return this; }; baz;");
-
-            Assert.Equal("I'm this!", TypeConverter.ToString(engine.Call(function, "I'm this!", Arguments.Empty)));
-            Assert.Equal("I'm this!", TypeConverter.ToString(function.Call("I'm this!", Arguments.Empty)));
-        }
+    [Fact]
+    public void ArrowFunction()
+    {
+        const string Script = @"var f = (function() { return z => arguments[0]; }(5)); equal(5, f(6));";
+        _engine.Execute(Script);
     }
 }

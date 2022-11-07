@@ -185,8 +185,6 @@
 
     // failing tests in new test suite (due to updating to latest and using whole set)
     "language/arguments-object/mapped/nonconfigurable-descriptors-define-failure.js",
-    "language/destructuring/binding/syntax/destructuring-array-parameters-function-arguments-length.js",
-    "language/destructuring/binding/syntax/destructuring-object-parameters-function-arguments-length.js",
     "language/eval-code/direct/arrow-fn-a-following-parameter-is-named-arguments-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js",
     "language/eval-code/direct/arrow-fn-a-following-parameter-is-named-arguments-arrow-func-declare-arguments-assign.js",
     "language/eval-code/direct/arrow-fn-a-preceding-parameter-is-named-arguments-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js",
