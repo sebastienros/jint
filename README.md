@@ -331,15 +331,15 @@ var engine = new Engine(options =>
 });
 ```
 
-When you reuse the engine you want to use cancellation tokens you have to reset the token before each call of `Execute`:
+When you reuse the engine and want to use cancellation tokens you have to reset the token before each call of `Execute`:
 
 ```c#
-var constraint = new CancellationConstraint();
-
 var engine = new Engine(options =>
 {
-    options.Constraint(constraint);
+    options.CancellationToken(new CancellationToken(true));
 });
+
+var constraint = engine.FindConstraint<CancellationConstraint>();
 
 for (var i = 0; i < 10; i++) 
 {
