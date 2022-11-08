@@ -10,8 +10,8 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine();
             var instance = new ObjectInstance(engine);
-            instance.FastAddProperty("bare", JsValue.Null, true, true, true);
-            instance.FastAddProperty("scope", JsValue.Null, true, true, true);
+            instance.FastSetDataProperty("bare", JsValue.Null);
+            instance.FastSetDataProperty("scope", JsValue.Null);
             instance.RemoveOwnProperty("bare");
             var propertyNames = instance.GetOwnProperties().Select(x => x.Key).ToList();
             Assert.Equal(new JsValue[] { "scope" }, propertyNames);

@@ -3,6 +3,7 @@ using Jint.Native;
 using Jint.Native.Error;
 using Jint.Native.Object;
 using Jint.Pooling;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime;
 
@@ -100,7 +101,7 @@ public class JavaScriptException : JintException
             else
             {
                 _callStack = engine.CallStack.BuildCallStackString(location);
-                errObj.FastAddProperty(CommonProperties.Stack, _callStack, false, false, false);
+                errObj.FastSetProperty(CommonProperties.Stack._value, new PropertyDescriptor(_callStack, false, false, false));
             }
         }
 

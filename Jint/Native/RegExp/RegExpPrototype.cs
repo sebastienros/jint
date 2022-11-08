@@ -875,8 +875,8 @@ namespace Jint.Native.RegExp
 
                 // "aaa".match() => [ '', index: 0, input: 'aaa' ]
                 var array = R.Engine.Realm.Intrinsics.Array.ArrayCreate(1);
-                array.FastAddProperty(PropertyIndex, lastIndex, true, true, true);
-                array.FastAddProperty(PropertyInput, s, true, true, true);
+                array.FastSetDataProperty(PropertyIndex._value, lastIndex);
+                array.FastSetDataProperty(PropertyInput._value, s);
                 array.SetIndexValue(0, JsString.Empty, updateLength: false);
                 return array;
             }

@@ -17,7 +17,7 @@ namespace Jint.Tests.Runtime
             Action<JsValue> resolveFunc = null;
 
             var engine = new Engine();
-            engine.SetValue('f', new Func<JsValue>(() =>
+            engine.SetValue("f", new Func<JsValue>(() =>
             {
                 var (promise, resolve, _) = engine.RegisterPromise();
                 resolveFunc = resolve;
@@ -36,7 +36,7 @@ namespace Jint.Tests.Runtime
             Action<JsValue> rejectFunc = null;
 
             var engine = new Engine();
-            engine.SetValue('f', new Func<JsValue>(() =>
+            engine.SetValue("f", new Func<JsValue>(() =>
             {
                 var (promise, _, reject) = engine.RegisterPromise();
                 rejectFunc = reject;
@@ -96,7 +96,7 @@ namespace Jint.Tests.Runtime
         public void Execute_ConcurrentNormalExecuteCall_WorksFine()
         {
             var engine = new Engine();
-            engine.SetValue('f', new Func<JsValue>(() => engine.RegisterPromise().Promise));
+            engine.SetValue("f", new Func<JsValue>(() => engine.RegisterPromise().Promise));
 
             engine.Execute("f();");
 

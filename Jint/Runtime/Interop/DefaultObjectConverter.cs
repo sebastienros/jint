@@ -155,23 +155,16 @@ namespace Jint
 
         private static JsValue ConvertArray(Engine e, object v)
         {
-            var array = (Array)v;
-            var arrayLength = (uint)array.Length;
+            var array = (Array) v;
+            var arrayLength = (uint) array.Length;
 
-            var jsArray = new ArrayInstance(e, arrayLength)
-            {
-                _prototype = e.Realm.Intrinsics.Array.PrototypeObject
-            };
-
+            var values = new object[arrayLength];
             for (uint i = 0; i < arrayLength; ++i)
             {
-                var jsItem = JsValue.FromObject(e, array.GetValue(i));
-                jsArray.WriteArrayValue(i, jsItem);
+                values[i] = JsValue.FromObject(e, array.GetValue(i));
             }
 
-            jsArray.SetOwnProperty(CommonProperties.Length,
-                new PropertyDescriptor(arrayLength, PropertyFlag.OnlyWritable));
-            return jsArray;
+            return new ArrayInstance(e, values);
         }
     }
 }

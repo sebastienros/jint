@@ -174,39 +174,39 @@ namespace Jint
             return context;
         }
 
-        public Engine SetValue(JsValue name, Delegate value)
+        public Engine SetValue(string name, Delegate value)
         {
-            Realm.GlobalObject.FastAddProperty(name, new DelegateWrapper(this, value), true, false, true);
+            Realm.GlobalObject.FastSetProperty(name, new PropertyDescriptor(new DelegateWrapper(this, value), true, false, true));
             return this;
         }
 
-        public Engine SetValue(JsValue name, string value)
+        public Engine SetValue(string name, string value)
         {
             return SetValue(name, new JsString(value));
         }
 
-        public Engine SetValue(JsValue name, double value)
+        public Engine SetValue(string name, double value)
         {
             return SetValue(name, JsNumber.Create(value));
         }
 
-        public Engine SetValue(JsValue name, int value)
+        public Engine SetValue(string name, int value)
         {
             return SetValue(name, JsNumber.Create(value));
         }
 
-        public Engine SetValue(JsValue name, bool value)
+        public Engine SetValue(string name, bool value)
         {
             return SetValue(name, value ? JsBoolean.True : JsBoolean.False);
         }
 
-        public Engine SetValue(JsValue name, JsValue value)
+        public Engine SetValue(string name, JsValue value)
         {
             Realm.GlobalObject.Set(name, value);
             return this;
         }
 
-        public Engine SetValue(JsValue name, object obj)
+        public Engine SetValue(string name, object obj)
         {
             var value = obj is Type t
                 ? TypeReference.CreateTypeReference(this, t)

@@ -14,9 +14,17 @@ public sealed class DateInstance : ObjectInstance
 
     internal double _dateValue;
 
-    public DateInstance(Engine engine, double dateValue)
-        : base(engine, ObjectClass.Date)
+    public DateInstance(Engine engine, DateTimeOffset value) : this(engine, value.UtcDateTime)
     {
+    }
+
+    public DateInstance(Engine engine, DateTime value) : this(engine, engine.Realm.Intrinsics.Date.FromDateTime(value))
+    {
+    }
+
+    public DateInstance(Engine engine, double dateValue) : base(engine, ObjectClass.Date)
+    {
+        _prototype = engine.Realm.Intrinsics.Date.PrototypeObject;
         _dateValue = dateValue.TimeClip();
     }
 

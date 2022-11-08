@@ -1,5 +1,6 @@
 using Jint.Native;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime.Domain
@@ -30,15 +31,15 @@ namespace Jint.Tests.Runtime.Domain
                 _prototype = engine.Realm.Intrinsics.Object.PrototypeObject,
             };
 
-            obj.FastAddProperty("constructor", ctor, false, false, true);
+            obj.FastSetProperty("constructor", new PropertyDescriptor(ctor, false, false, true));
 
             return obj;
         }
 
         public void Configure()
         {
-            FastAddProperty("toString", new ClrFunctionInstance(Engine, "toString", ToGuidString), true, false, true);
-            FastAddProperty("valueOf", new ClrFunctionInstance(Engine, "valueOf", ValueOf), true, false, true);
+            FastSetProperty("toString", new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToGuidString), true, false, true));
+            FastSetProperty("valueOf", new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf), true, false, true));
         }
     }
 }

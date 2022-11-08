@@ -321,32 +321,38 @@ namespace Jint.Native.Array
 
         private ArrayInstance Construct(JsValue[] arguments, ulong capacity, ObjectInstance prototypeObject)
         {
-            var instance = ArrayCreate(capacity, prototypeObject);
-
-            if (arguments.Length == 1 && arguments.At(0).IsNumber())
+            ArrayInstance instance;
+            if (arguments.Length == 1)
             {
-                var length = TypeConverter.ToNumber(arguments.At(0));
-                ValidateLength(length);
-                instance._length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
-            }
-            else if (arguments.Length == 1 && arguments[0] is IObjectWrapper objectWrapper)
-            {
-                if (objectWrapper.Target is IEnumerable enumerable)
+                switch (arguments[0])
                 {
-                    return ConstructArrayFromIEnumerable(enumerable);
+                    case JsNumber number:
+                        ValidateLength(number._value);
+                        instance = ArrayCreate((ulong) number._value, prototypeObject);
+                        break;
+                    case IObjectWrapper objectWrapper:
+                        instance = objectWrapper.Target is IEnumerable enumerable
+                            ? ConstructArrayFromIEnumerable(enumerable)
+                            : ArrayCreate(0, prototypeObject);
+                        break;
+                    case ArrayInstance arrayInstance:
+                        // direct copy
+                        instance = (ArrayInstance) ConstructArrayFromArrayLike(Undefined, arrayInstance, null, this);
+                        break;
+                    default:
+                        instance = ArrayCreate(capacity, prototypeObject);
+                        instance._length!._value = JsNumber.PositiveZero;
+                        instance.Push(arguments);
+                        break;
                 }
-            }
-            else if (arguments.Length == 1 && arguments[0] is ArrayInstance arrayInstance)
-            {
-                // direct copy
-                return (ArrayInstance) ConstructArrayFromArrayLike(Undefined, arrayInstance, null, this);
             }
             else
             {
-                instance._length = new PropertyDescriptor(0, PropertyFlag.OnlyWritable);
+                instance = ArrayCreate((ulong) arguments.Length, prototypeObject);
+                instance._length!._value = JsNumber.PositiveZero;
                 if (arguments.Length > 0)
                 {
-                    PrototypeObject.Push(instance, arguments);
+                    instance.Push(arguments);
                 }
             }
 
@@ -364,10 +370,9 @@ namespace Jint.Native.Array
             }
 
             proto ??= PrototypeObject;
-            var instance = new ArrayInstance(Engine, (uint) length)
+            var instance = new ArrayInstance(Engine, (uint) length, (uint) length)
             {
-                _prototype = proto,
-                _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable)
+                _prototype = proto
             };
             return instance;
         }

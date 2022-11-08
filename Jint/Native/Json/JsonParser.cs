@@ -681,7 +681,7 @@ namespace Jint.Native.Json
                 Expect(":");
                 var value = ParseJsonValue();
 
-                obj.FastAddProperty(name, value, true, true, true);
+                obj.FastSetDataProperty(name, value);
 
                 if (!Match("}"))
                 {
