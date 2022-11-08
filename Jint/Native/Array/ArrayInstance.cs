@@ -26,6 +26,12 @@ namespace Jint.Native.Array
             _dense = System.Array.Empty<object?>();
         }
 
+        /// <summary>
+        /// Creates a new array instance with defaults.
+        /// </summary>
+        /// <param name="engine">The engine that this array is bound to.</param>
+        /// <param name="capacity">The initial size of underlying data structure, if you know you're going to add N items, provide N.</param>
+        /// <param name="length">Sets the length of the array.</param>
         public ArrayInstance(Engine engine, uint capacity = 0, uint length = 0) : base(engine)
         {
             _prototype = engine.Realm.Intrinsics.Array.PrototypeObject;
@@ -50,6 +56,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// Possibility to construct valid array fast.
         /// Requires that supplied array is of type object[] and it should only contain values inheriting from JsValue.
+        /// The array will be owned and modified by Jint afterwards.
         /// </summary>
         public ArrayInstance(Engine engine, object[] items) : base(engine)
         {
@@ -968,6 +975,9 @@ namespace Jint.Native.Array
             return GetEnumerator();
         }
 
+        /// <summary>
+        /// Pushes the value to the end of the array instance.
+        /// </summary>
         public void Push(JsValue value)
         {
             var initialLength = GetLength();
@@ -1001,15 +1011,18 @@ namespace Jint.Native.Array
             }
         }
 
-        public uint Push(JsValue[] arguments)
+        /// <summary>
+        /// Pushes the given values to the end of the array.
+        /// </summary>
+        public uint Push(JsValue[] values)
         {
             var initialLength = GetLength();
-            var newLength = initialLength + arguments.Length;
+            var newLength = initialLength + values.Length;
 
             // if we see that we are bringing more than normal growth algorithm handles, ensure capacity eagerly
             if (_dense != null
                 && initialLength != 0
-                && arguments.Length > initialLength * 2
+                && values.Length > initialLength * 2
                 && newLength <= MaxDenseArrayLength)
             {
                 EnsureCapacity((uint) newLength);
@@ -1017,7 +1030,7 @@ namespace Jint.Native.Array
 
             var temp = _dense;
             ulong n = initialLength;
-            foreach (var argument in arguments)
+            foreach (var argument in values)
             {
                 if (n < ArrayOperations.MaxArrayLength)
                 {
