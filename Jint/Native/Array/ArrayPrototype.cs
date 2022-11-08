@@ -1540,10 +1540,7 @@ namespace Jint.Native.Array
                 }
                 if (!result.TryGetValue(key, out var list))
                 {
-                    result[key] = list = new ArrayInstance(_engine)
-                    {
-                        _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.OnlyWritable)
-                    };
+                    result[key] = list = new ArrayInstance(_engine);
                 }
 
                 list.SetIndexValue(list.GetLength(), kValue, updateLength: true);

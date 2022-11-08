@@ -2689,8 +2689,8 @@ namespace Jint.Tests.Runtime
                 Console.WriteLine(message);
             }
 
-            engine.Realm.GlobalObject.FastAddProperty("global", engine.Realm.GlobalObject, true, true, true);
-            engine.Realm.GlobalObject.FastAddProperty("test", new DelegateWrapper(engine, (Action<string, object>) Test), true, true, true);
+            engine.Realm.GlobalObject.FastSetDataProperty("global", engine.Realm.GlobalObject);
+            engine.Realm.GlobalObject.FastSetDataProperty("test", new DelegateWrapper(engine, (Action<string, object>) Test));
 
             {
                 var ex = Assert.Throws<JavaScriptException>(() => engine.Realm.GlobalObject.ToObject());
@@ -3237,22 +3237,22 @@ try {
             };
 
             engine.SetValue("data", dictionary);
-            
+
             Assert.True(engine.Evaluate("Object.hasOwn(data, 'a')").AsBoolean());
             Assert.True(engine.Evaluate("data['a'] === 1").AsBoolean());
 
             engine.Evaluate("data['a'] = 42");
             Assert.True(engine.Evaluate("data['a'] === 42").AsBoolean());
-            
+
             Assert.Equal(42, dictionary["a"]);
 
             engine.Execute("delete data['a'];");
-            
+
             Assert.False(engine.Evaluate("Object.hasOwn(data, 'a')").AsBoolean());
             Assert.False(engine.Evaluate("data['a'] === 42").AsBoolean());
-            
+
             Assert.False(dictionary.ContainsKey("a"));
-            
+
             var engineNoWrite = new Engine(options => options.Strict().AllowClrWrite(false));
 
             dictionary = new Dictionary<string, int>
@@ -3260,9 +3260,9 @@ try {
                 { "a", 1 },
                 { "b", 2 }
             };
-            
+
             engineNoWrite.SetValue("data", dictionary);
-            
+
             var ex1 = Assert.Throws<JavaScriptException>(() => engineNoWrite.Evaluate("data['a'] = 42"));
             Assert.Equal("Cannot assign to read only property 'a' of System.Collections.Generic.Dictionary`2[System.String,System.Int32]", ex1.Message);
 

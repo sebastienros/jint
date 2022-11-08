@@ -17,7 +17,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Object
 {
-    public class ObjectInstance : JsValue, IEquatable<ObjectInstance>
+    public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         private bool _initialized;
         private readonly ObjectClass _class;
@@ -853,29 +853,11 @@ namespace Jint.Native.Object
                 if (mutable != null)
                 {
                     // replace old with new type that supports get and set
-                    o.FastSetProperty(property, mutable);
+                    o.SetOwnProperty(property, mutable);
                 }
             }
 
             return true;
-        }
-
-        /// <summary>
-        /// Optimized version of [[Put]] when the property is known to be undeclared already
-        /// </summary>
-        public void FastAddProperty(JsValue name, JsValue value, bool writable, bool enumerable, bool configurable)
-        {
-            SetOwnProperty(name, new PropertyDescriptor(value, writable, enumerable, configurable));
-        }
-
-        /// <summary>
-        /// Optimized version of [[Put]] when the property is known to be already declared
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="value"></param>
-        public void FastSetProperty(JsValue name, PropertyDescriptor value)
-        {
-            SetOwnProperty(name, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1204,10 +1186,11 @@ namespace Jint.Native.Object
         /// https://tc39.es/ecma262/#sec-createdatapropertyorthrow
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool CreateDataProperty(JsValue p, JsValue v)
+        public bool CreateDataProperty(JsValue p, JsValue v)
         {
             return DefineOwnProperty(p, new PropertyDescriptor(v, PropertyFlag.ConfigurableEnumerableWritable));
         }
+
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-createdataproperty

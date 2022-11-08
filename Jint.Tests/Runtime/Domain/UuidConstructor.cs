@@ -58,8 +58,8 @@ namespace Jint.Tests.Runtime.Domain
 
         public void Configure()
         {
-            FastAddProperty("parse", new ClrFunctionInstance(Engine, "parse", Parse), true, false, true);
-            FastAddProperty("Empty", JsUuid.Empty, true, false, true);
+            FastSetProperty("parse", new PropertyDescriptor(new ClrFunctionInstance(Engine, "parse", Parse), true, false, true));
+            FastSetProperty("Empty", new PropertyDescriptor(JsUuid.Empty, true, false, true));
         }
 
         public UuidInstance Construct(JsUuid uuid) => new UuidInstance(Engine) { PrimitiveValue = uuid, _prototype = PrototypeObject };

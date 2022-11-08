@@ -1,7 +1,10 @@
 using Esprima.Ast;
 using Jint.Constraints;
+using Jint.Native;
 using Jint.Native.Array;
+using Jint.Native.Date;
 using Jint.Native.Function;
+using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
@@ -77,5 +80,49 @@ public class RavenApiUsageTests
         var obj = new DirectoryInfo("the-path");
         var propertyDescriptor = ObjectWrapper.GetPropertyDescriptor(engine, obj, obj.GetType().GetProperty(nameof(DirectoryInfo.Name)));
         Assert.Equal("the-path", propertyDescriptor.Value);
+    }
+
+    [Fact]
+    public void CanInjectConstructedObjects()
+    {
+        var engine = new Engine();
+        var obj = new ObjectInstance(engine);
+        obj.FastSetDataProperty("name", "test");
+
+        var emptyArray = new ArrayInstance(engine);
+
+        var array = new ArrayInstance(engine, new object[]
+        {
+            JsNumber.Create(1),
+            JsNumber.Create(2),
+            JsNumber.Create(3)
+        });
+        var date = new DateInstance(engine, new DateTime(2022, 10, 20));
+
+        engine.SetValue("obj", obj);
+        engine.SetValue("emptyArray", emptyArray);
+        engine.SetValue("array", array);
+        engine.SetValue("date", date);
+
+        Assert.Equal("test", engine.Evaluate("obj.name"));
+        Assert.Equal(0, engine.Evaluate("emptyArray.length"));
+        Assert.Equal(1, engine.Evaluate("array.findIndex(x => x === 2)"));
+        Assert.Equal(2022, engine.Evaluate("date.getFullYear()"));
+
+        array.Push(4);
+        array.Push(new JsValue[] { 5, 6 });
+
+        Assert.Equal(4, array[3]);
+        Assert.Equal(5, array[4]);
+        Assert.Equal(6, array[5]);
+
+        var i = 0;
+        foreach (var entry in array.GetEntries())
+        {
+            Assert.Equal(i.ToString(), entry.Key);
+            Assert.Equal(i + 1, entry.Value);
+            i++;
+        }
+        Assert.Equal(6, i);
     }
 }

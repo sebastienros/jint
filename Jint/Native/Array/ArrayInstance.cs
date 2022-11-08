@@ -21,8 +21,21 @@ namespace Jint.Native.Array
 
         private ObjectChangeFlags _objectChangeFlags;
 
-        public ArrayInstance(Engine engine, uint capacity = 0) : base(engine)
+        private protected ArrayInstance(Engine engine) : base(engine)
         {
+            _dense = System.Array.Empty<object?>();
+        }
+
+        /// <summary>
+        /// Creates a new array instance with defaults.
+        /// </summary>
+        /// <param name="engine">The engine that this array is bound to.</param>
+        /// <param name="capacity">The initial size of underlying data structure, if you know you're going to add N items, provide N.</param>
+        /// <param name="length">Sets the length of the array.</param>
+        public ArrayInstance(Engine engine, uint capacity = 0, uint length = 0) : base(engine)
+        {
+            _prototype = engine.Realm.Intrinsics.Array.PrototypeObject;
+
             if (capacity > engine.Options.Constraints.MaxArraySize)
             {
                 ThrowMaximumArraySizeReachedException(engine, capacity);
@@ -34,15 +47,21 @@ namespace Jint.Native.Array
             }
             else
             {
-                _sparse = new Dictionary<uint, object?>((int) (capacity <= 1024 ? capacity : 1024));
+                _sparse = new Dictionary<uint, object?>(1024);
             }
+
+            _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
         /// <summary>
-        /// Possibility to construct valid array fast, requires that supplied array does not have holes.
+        /// Possibility to construct valid array fast.
+        /// Requires that supplied array is of type object[] and it should only contain values inheriting from JsValue.
+        /// The array will be owned and modified by Jint afterwards.
         /// </summary>
-        public ArrayInstance(Engine engine, JsValue[] items) : base(engine)
+        public ArrayInstance(Engine engine, object[] items) : base(engine)
         {
+            _prototype = engine.Realm.Intrinsics.Array.PrototypeObject;
+
             int length;
             if (items == null || items.Length == 0)
             {
@@ -51,6 +70,11 @@ namespace Jint.Native.Array
             }
             else
             {
+                if (items.GetType() != typeof(object[]))
+                {
+                    ExceptionHelper.ThrowArgumentException("Supplied array must be of type object[] and should only contain values inheriting from JsValue");
+                }
+
                 _dense = items;
                 length = items.Length;
             }
@@ -362,6 +386,59 @@ namespace Jint.Native.Array
             properties.AddRange(base.GetOwnPropertyKeys(types));
 
             return properties;
+        }
+
+        /// <summary>
+        /// Returns key and value pairs for actual array entries, excludes parent and optionally length.
+        /// </summary>
+        /// <param name="includeLength">Whether to return length and it's value.</param>
+        public IEnumerable<KeyValuePair<string, JsValue>> GetEntries(bool includeLength = false)
+        {
+            var temp = _dense;
+            if (temp != null)
+            {
+                var length = System.Math.Min(temp.Length, GetLength());
+                for (var i = 0; i < length; i++)
+                {
+                    var value = temp[i];
+                    if (value != null)
+                    {
+                        var key = TypeConverter.ToString(i);
+                        if (value is not PropertyDescriptor descriptor)
+                        {
+                            yield return new KeyValuePair<string, JsValue>(key, (JsValue) value);
+                        }
+                        else
+                        {
+                            yield return new KeyValuePair<string, JsValue>(key, descriptor.Value);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                foreach (var entry in _sparse!)
+                {
+                    var value = entry.Value;
+                    if (value is not null)
+                    {
+                        var key = TypeConverter.ToString(entry.Key);
+                        if (value is not PropertyDescriptor descriptor)
+                        {
+                            yield return new KeyValuePair<string, JsValue>(key, (JsValue) value);
+                        }
+                        else
+                        {
+                            yield return new KeyValuePair<string, JsValue>(key, descriptor.Value);
+                        }
+                    }
+                }
+            }
+
+            if (includeLength && _length != null)
+            {
+                yield return new KeyValuePair<string, JsValue>(CommonProperties.Length._value, _length.Value);
+            }
         }
 
         public sealed override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
@@ -898,7 +975,10 @@ namespace Jint.Native.Array
             return GetEnumerator();
         }
 
-        internal void Push(JsValue value)
+        /// <summary>
+        /// Pushes the value to the end of the array instance.
+        /// </summary>
+        public void Push(JsValue value)
         {
             var initialLength = GetLength();
             var newLength = initialLength + 1;
@@ -931,15 +1011,18 @@ namespace Jint.Native.Array
             }
         }
 
-        internal uint Push(JsValue[] arguments)
+        /// <summary>
+        /// Pushes the given values to the end of the array.
+        /// </summary>
+        public uint Push(JsValue[] values)
         {
             var initialLength = GetLength();
-            var newLength = initialLength + arguments.Length;
+            var newLength = initialLength + values.Length;
 
             // if we see that we are bringing more than normal growth algorithm handles, ensure capacity eagerly
             if (_dense != null
                 && initialLength != 0
-                && arguments.Length > initialLength * 2
+                && values.Length > initialLength * 2
                 && newLength <= MaxDenseArrayLength)
             {
                 EnsureCapacity((uint) newLength);
@@ -947,7 +1030,7 @@ namespace Jint.Native.Array
 
             var temp = _dense;
             ulong n = initialLength;
-            foreach (var argument in arguments)
+            foreach (var argument in values)
             {
                 if (n < ArrayOperations.MaxArrayLength)
                 {

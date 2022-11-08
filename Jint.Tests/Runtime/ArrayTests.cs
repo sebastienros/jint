@@ -62,7 +62,7 @@ public class ArrayTests
     public void ArrayLengthFromInitialState()
     {
         var engine = new Engine();
-        var array = new ArrayInstance(engine, 0);
+        var array = new ArrayInstance(engine);
         var length = (int) array.Length;
         Assert.Equal(0, length);
     }

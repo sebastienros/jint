@@ -239,7 +239,7 @@ namespace Jint.Native.Date
                 static (engine, _, dateValue) => new DateInstance(engine, dateValue), time);
         }
 
-        private double FromDateTime(DateTime dt, bool negative = false)
+        internal double FromDateTime(DateTime dt, bool negative = false)
         {
             var convertToUtcAfter = dt.Kind == DateTimeKind.Unspecified;
 

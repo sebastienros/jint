@@ -380,8 +380,8 @@ namespace Jint.Native.Promise
                                     alreadyCalled = true;
 
                                     var res = Engine.Realm.Intrinsics.Object.Construct(2);
-                                    res.FastAddProperty("status", "fulfilled", true, true, true);
-                                    res.FastAddProperty("value", args.At(0), true, true, true);
+                                    res.FastSetDataProperty("status", "fulfilled");
+                                    res.FastSetDataProperty("value", args.At(0));
                                     results[capturedIndex] = res;
 
                                     ResolveIfFinished();
@@ -397,8 +397,8 @@ namespace Jint.Native.Promise
                                     alreadyCalled = true;
 
                                     var res = Engine.Realm.Intrinsics.Object.Construct(2);
-                                    res.FastAddProperty("status", "rejected", true, true, true);
-                                    res.FastAddProperty("reason", args.At(0), true, true, true);
+                                    res.FastSetDataProperty("status", "rejected");
+                                    res.FastSetDataProperty("reason", args.At(0));
                                     results[capturedIndex] = res;
 
                                     ResolveIfFinished();

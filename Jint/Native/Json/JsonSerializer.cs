@@ -30,6 +30,11 @@ namespace Jint.Native.Json
             _engine = engine;
         }
 
+        public JsValue Serialize(JsValue value)
+        {
+            return Serialize(value, JsValue.Undefined, JsValue.Undefined);
+        }
+
         public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
         {
             _stack = new ObjectTraverseStack(_engine);
