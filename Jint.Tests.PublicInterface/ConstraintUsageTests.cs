@@ -27,8 +27,11 @@ public class ConstraintUsageTests
         {
             var result = engine.Evaluate(@"
                 function sleep(millisecondsTimeout) {
+                    var x = 0;
                     var totalMilliseconds = new Date().getTime() + millisecondsTimeout;
-                    while (new Date().getTime() < totalMilliseconds) { }
+                    while (new Date().getTime() < totalMilliseconds) {
+                        x++;
+                    }
                 }
                 sleep(200);
                 return 'done';
