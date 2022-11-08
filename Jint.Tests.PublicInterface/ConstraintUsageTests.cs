@@ -8,7 +8,7 @@ public class ConstraintUsageTests
     [Fact]
     public void CanFindAndResetCancellationConstraint()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
         var engine = new Engine(new Options().CancellationToken(cts.Token));
 
         // expect constraint to abort execution due to timeout
@@ -28,9 +28,8 @@ public class ConstraintUsageTests
             var result = engine.Evaluate(@"
                 function sleep(millisecondsTimeout) {
                     var totalMilliseconds = new Date().getTime() + millisecondsTimeout;
-                    while (new Date() < totalMilliseconds) { }
+                    while (new Date().getTime() < totalMilliseconds) { }
                 }
-
                 sleep(200);
                 return 'done';
             ");

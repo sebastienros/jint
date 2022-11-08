@@ -107,7 +107,7 @@ public class RavenApiUsageTests
         Assert.Equal("test", engine.Evaluate("obj.name"));
         Assert.Equal(0, engine.Evaluate("emptyArray.length"));
         Assert.Equal(1, engine.Evaluate("array.findIndex(x => x === 2)"));
-        Assert.Equal(0, engine.Evaluate("date.getMilliseconds()"));
+        Assert.Equal(2022, engine.Evaluate("date.getFullYear()"));
 
         array.Push(4);
         array.Push(new JsValue[] { 5, 6 });
