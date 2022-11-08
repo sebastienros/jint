@@ -3,7 +3,6 @@ using System.Threading;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint
