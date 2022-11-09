@@ -55,7 +55,7 @@ namespace Jint.Native.Array
 
         /// <summary>
         /// Possibility to construct valid array fast.
-        /// Requires that supplied array is of type object[] and it should only contain values inheriting from JsValue.
+        /// Requires that supplied array is of type object[] and it should only contain values that inherit from JsValue or PropertyDescriptor or are null.
         /// The array will be owned and modified by Jint afterwards.
         /// </summary>
         public ArrayInstance(Engine engine, object[] items) : base(engine)
@@ -72,7 +72,7 @@ namespace Jint.Native.Array
             {
                 if (items.GetType() != typeof(object[]))
                 {
-                    ExceptionHelper.ThrowArgumentException("Supplied array must be of type object[] and should only contain values inheriting from JsValue");
+                    ExceptionHelper.ThrowArgumentException("Supplied array must be of type object[] and should only contain values that inherit from JsValue or PropertyDescriptor or are null");
                 }
 
                 _dense = items;
@@ -394,45 +394,9 @@ namespace Jint.Native.Array
         /// <param name="includeLength">Whether to return length and it's value.</param>
         public IEnumerable<KeyValuePair<string, JsValue>> GetEntries(bool includeLength = false)
         {
-            var temp = _dense;
-            if (temp != null)
+            foreach (var (index, value) in this.Enumerate())
             {
-                var length = System.Math.Min(temp.Length, GetLength());
-                for (var i = 0; i < length; i++)
-                {
-                    var value = temp[i];
-                    if (value != null)
-                    {
-                        var key = TypeConverter.ToString(i);
-                        if (value is not PropertyDescriptor descriptor)
-                        {
-                            yield return new KeyValuePair<string, JsValue>(key, (JsValue) value);
-                        }
-                        else
-                        {
-                            yield return new KeyValuePair<string, JsValue>(key, descriptor.Value);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                foreach (var entry in _sparse!)
-                {
-                    var value = entry.Value;
-                    if (value is not null)
-                    {
-                        var key = TypeConverter.ToString(entry.Key);
-                        if (value is not PropertyDescriptor descriptor)
-                        {
-                            yield return new KeyValuePair<string, JsValue>(key, (JsValue) value);
-                        }
-                        else
-                        {
-                            yield return new KeyValuePair<string, JsValue>(key, descriptor.Value);
-                        }
-                    }
-                }
+                yield return new KeyValuePair<string, JsValue>(TypeConverter.ToString(index), value);
             }
 
             if (includeLength && _length != null)
@@ -954,25 +918,80 @@ namespace Jint.Native.Array
             for (uint i = 0; i < length; i++)
             {
                 TryGetValue(i, out var outValue);
-                array[i] = outValue ?? Undefined;
+                array[i] = outValue;
             }
 
             return array;
         }
 
-        public IEnumerator<JsValue> GetEnumerator()
-        {
-            var length = GetLength();
-            for (uint i = 0; i < length; i++)
-            {
-                TryGetValue(i, out var outValue);
-                yield return outValue ?? Undefined;
-            }
-        }
-
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        public IEnumerator<JsValue> GetEnumerator()
+        {
+            foreach (var (_, value) in this.Enumerate())
+            {
+                yield return value;
+            }
+        }
+
+        private readonly record struct IndexedEntry(int Index, JsValue Value);
+
+        private IEnumerable<IndexedEntry> Enumerate()
+        {
+            if (!CanUseFastAccess)
+            {
+                // slow path where prototype is also checked
+                var length = GetLength();
+                for (uint i = 0; i < length; i++)
+                {
+                    TryGetValue(i, out var outValue);
+                    yield return new IndexedEntry((int) i, outValue);
+                }
+
+                yield break;
+            }
+
+            var temp = _dense;
+            if (temp != null)
+            {
+                var length = System.Math.Min(temp.Length, GetLength());
+                for (var i = 0; i < length; i++)
+                {
+                    var value = temp[i];
+                    if (value != null)
+                    {
+                        if (value is not PropertyDescriptor descriptor)
+                        {
+                            yield return new IndexedEntry(i, (JsValue) value);
+                        }
+                        else
+                        {
+                            yield return new IndexedEntry(i, descriptor.Value);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                foreach (var entry in _sparse!)
+                {
+                    var value = entry.Value;
+                    if (value is not null)
+                    {
+                        if (value is not PropertyDescriptor descriptor)
+                        {
+                            yield return new IndexedEntry((int) entry.Key, (JsValue) value);
+                        }
+                        else
+                        {
+                            yield return new IndexedEntry((int) entry.Key, descriptor.Value);
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -1195,7 +1214,25 @@ namespace Jint.Native.Array
             get
             {
                 TryGetValue(index, out var kValue);
-                return kValue ?? Undefined;
+                return kValue;
+            }
+        }
+
+        public JsValue this[int index]
+        {
+            get
+            {
+                JsValue? kValue;
+                if (index >= 0)
+                {
+                    TryGetValue((uint) index, out kValue);
+                }
+                else
+                {
+                    // slow path
+                    TryGetValue(JsNumber.Create(index), out kValue);
+                }
+                return kValue;
             }
         }
 

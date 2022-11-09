@@ -22,7 +22,7 @@ public class RavenApiUsageTests
 
         var properties = new List<Node>
         {
-            new Property(PropertyKind.Data, new Identifier("field"), false,
+            new Property(PropertyKind.Init, new Identifier("field"), false,
                 new StaticMemberExpression(new Identifier("self"), new Identifier("field"), optional: false), false, false)
         };
 
