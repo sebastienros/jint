@@ -43,6 +43,11 @@ namespace Jint.Native.Proxy
         /// </summary>
         JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments)
         {
+            if (_target is not ICallable)
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "(intermediate value) is not a function");
+            }
+
             var jsValues = new[] { _target, thisObject, _engine.Realm.Intrinsics.Array.ConstructFast(arguments) };
             if (TryCallHandler(TrapApply, jsValues, out var result))
             {
@@ -63,6 +68,11 @@ namespace Jint.Native.Proxy
         /// </summary>
         ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
         {
+            if (_target is not ICallable)
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "(intermediate value) is not a constructor");
+            }
+
             var argArray = _engine.Realm.Intrinsics.Array.Construct(arguments, _engine.Realm.Intrinsics.Array);
 
             if (!TryCallHandler(TrapConstruct, new[] { _target, argArray, newTarget }, out var result))
@@ -116,7 +126,7 @@ namespace Jint.Native.Proxy
             AssertTargetNotRevoked(property);
             var target = _target;
 
-            if (property == KeyFunctionRevoke || !TryCallHandler(TrapGet, new[] {target, TypeConverter.ToPropertyKey(property), this }, out var result))
+            if (property == KeyFunctionRevoke || !TryCallHandler(TrapGet, new[] { target, TypeConverter.ToPropertyKey(property), receiver }, out var result))
             {
                 return target.Get(property, receiver);
             }
@@ -128,7 +138,7 @@ namespace Jint.Native.Proxy
                 {
                    ExceptionHelper.ThrowTypeError(_engine.Realm);
                 }
-                if (targetDesc.IsAccessorDescriptor() && !targetDesc.Configurable && targetDesc.Get!.IsUndefined() && !result.IsUndefined())
+                if (targetDesc.IsAccessorDescriptor() && !targetDesc.Configurable && (targetDesc.Get ?? Undefined).IsUndefined() && !result.IsUndefined())
                 {
                    ExceptionHelper.ThrowTypeError(_engine.Realm, $"'get' on proxy: property '{property}' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined' (got '{result}')");
                 }
@@ -324,7 +334,7 @@ namespace Jint.Native.Proxy
 
                 if (targetDesc.IsAccessorDescriptor() && !targetDesc.Configurable)
                 {
-                    if (targetDesc.Set!.IsUndefined())
+                    if ((targetDesc.Set ?? Undefined).IsUndefined())
                     {
                         ExceptionHelper.ThrowTypeError(_engine.Realm);
                     }
