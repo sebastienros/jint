@@ -56,4 +56,10 @@ public class DestructuringTests
         _engine.Execute("equal(1, ((a, b = 39,) => {}).length);");
         _engine.Execute("equal(2, function({a, b}, [c, d]){}.length);");
     }
+
+    [Fact]
+    public void WithNestedRest()
+    {
+        _engine.Execute("return function([x, ...[y, ...z]]) { equal(1, x); equal(2, y); equal('3,4', z + ''); }([1, 2, 3, 4]);");
+    }
 }

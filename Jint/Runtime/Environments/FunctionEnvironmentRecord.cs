@@ -147,7 +147,7 @@ namespace Jint.Runtime.Environments
         {
             if (parameter is Identifier identifier)
             {
-                var argument = (uint) index < (uint) arguments.Length ? arguments[index] : Undefined;
+                var argument = arguments.At(index);
                 SetItemSafely(identifier.Name, argument, initiallyEmpty);
             }
             else
@@ -163,7 +163,7 @@ namespace Jint.Runtime.Environments
             int index,
             bool initiallyEmpty)
         {
-            var argument = arguments.Length > index ? arguments[index] : Undefined;
+            var argument = arguments.At(index);
 
             if (parameter is RestElement restElement)
             {
@@ -289,24 +289,21 @@ namespace Jint.Runtime.Environments
             int restCount = arguments.Length - (index + 1) + 1;
             uint count = restCount > 0 ? (uint) restCount : 0;
 
-            var rest = _engine.Realm.Intrinsics.Array.ArrayCreate(count);
-
             uint targetIndex = 0;
+            var rest = new object[count];
             for (var argIndex = index; argIndex < arguments.Length; ++argIndex)
             {
-                rest.SetIndexValue(targetIndex++, arguments[argIndex], updateLength: false);
+                rest[targetIndex++] = arguments[argIndex];
             }
 
+            var array = new ArrayInstance(_engine, rest);
             if (restElement.Argument is Identifier restIdentifier)
             {
-                SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
+                SetItemSafely(restIdentifier.Name, array, initiallyEmpty);
             }
             else if (restElement.Argument is BindingPattern bindingPattern)
             {
-                SetFunctionParameter(context, bindingPattern, new JsValue[]
-                {
-                    rest
-                }, index, initiallyEmpty);
+                SetFunctionParameter(context, bindingPattern, new [] { array }, 0, initiallyEmpty);
             }
             else
             {
