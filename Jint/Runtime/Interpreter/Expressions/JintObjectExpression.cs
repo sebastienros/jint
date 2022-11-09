@@ -52,29 +52,31 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        public JintObjectExpression(ObjectExpression expression) : base(expression)
+        private JintObjectExpression(ObjectExpression expression) : base(expression)
         {
             _initialized = false;
+        }
+
+        public static JintExpression Build(ObjectExpression expression)
+        {
+            return expression.Properties.Count == 0
+                ? JintEmptyObjectExpression.Instance
+                : new JintObjectExpression(expression);
         }
 
         protected override void Initialize(EvaluationContext context)
         {
             _canBuildFast = true;
             var expression = (ObjectExpression) _expression;
-            if (expression.Properties.Count == 0)
-            {
-                // empty object initializer
-                return;
-            }
+            ref readonly var properties = ref expression.Properties;
 
-            var engine = context.Engine;
-            _valueExpressions = new JintExpression[expression.Properties.Count];
-            _properties = new ObjectProperty[expression.Properties.Count];
+            _valueExpressions = new JintExpression[properties.Count];
+            _properties = new ObjectProperty[properties.Count];
 
             for (var i = 0; i < _properties.Length; i++)
             {
                 string? propName = null;
-                var property = expression.Properties[i];
+                var property = properties[i];
                 if (property is Property p)
                 {
                     if (p.Key is Literal literal)
@@ -128,12 +130,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// </summary>
         private object BuildObjectFast(EvaluationContext context)
         {
-            var obj = context.Engine.Realm.Intrinsics.Object.Construct(0);
-            if (_properties.Length == 0)
-            {
-                return obj;
-            }
-
+            var obj = new ObjectInstance(context.Engine);
             var properties = new PropertyDictionary(_properties.Length, checkExistingKeys: true);
             for (var i = 0; i < _properties.Length; i++)
             {
@@ -244,5 +241,26 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             return obj;
         }
+
+        internal sealed class JintEmptyObjectExpression : JintExpression
+        {
+            public static JintEmptyObjectExpression Instance = new(new ObjectExpression(NodeList.Create(Enumerable.Empty<Node>())));
+
+            private JintEmptyObjectExpression(Expression expression) : base(expression)
+            {
+            }
+
+            protected override object EvaluateInternal(EvaluationContext context)
+            {
+                return new ObjectInstance(context.Engine);
+            }
+
+            public override JsValue GetValue(EvaluationContext context)
+            {
+                return new ObjectInstance(context.Engine);
+            }
+        }
     }
 }
+
+

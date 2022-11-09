@@ -106,7 +106,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var result = expression.Type switch
             {
                 Nodes.AssignmentExpression => JintAssignmentExpression.Build((AssignmentExpression) expression),
-                Nodes.ArrayExpression => new JintArrayExpression((ArrayExpression) expression),
+                Nodes.ArrayExpression => JintArrayExpression.Build((ArrayExpression) expression),
                 Nodes.ArrowFunctionExpression => new JintArrowFunctionExpression((ArrowFunctionExpression) expression),
                 Nodes.BinaryExpression => JintBinaryExpression.Build((BinaryExpression) expression),
                 Nodes.CallExpression => new JintCallExpression((CallExpression) expression),
@@ -123,7 +123,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 },
                 Nodes.MemberExpression => new JintMemberExpression((MemberExpression) expression),
                 Nodes.NewExpression => new JintNewExpression((NewExpression) expression),
-                Nodes.ObjectExpression => new JintObjectExpression((ObjectExpression) expression),
+                Nodes.ObjectExpression => JintObjectExpression.Build((ObjectExpression) expression),
                 Nodes.SequenceExpression => new JintSequenceExpression((SequenceExpression) expression),
                 Nodes.ThisExpression => new JintThisExpression((ThisExpression) expression),
                 Nodes.UpdateExpression => new JintUpdateExpression((UpdateExpression) expression),

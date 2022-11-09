@@ -1135,8 +1135,6 @@ namespace Jint.Native.Array
                     }
                 }
             }
-            a.DefineOwnProperty(CommonProperties.Length, new PropertyDescriptor(length, PropertyFlag.ConfigurableEnumerableWritable));
-
             return a;
         }
 

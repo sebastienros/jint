@@ -7,12 +7,19 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal sealed class JintArrayExpression : JintExpression
     {
-        private JintExpression[] _expressions = Array.Empty<JintExpression>();
+        private JintExpression?[] _expressions = Array.Empty<JintExpression?>();
         private bool _hasSpreads;
 
-        public JintArrayExpression(ArrayExpression expression) : base(expression)
+        private JintArrayExpression(ArrayExpression expression) : base(expression)
         {
             _initialized = false;
+        }
+
+        public static JintExpression Build(ArrayExpression expression)
+        {
+            return expression.Elements.Count == 0
+                ? JintEmptyArrayExpression.Instance
+                : new JintArrayExpression(expression);
         }
 
         protected override void Initialize(EvaluationContext context)
@@ -102,6 +109,25 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _index++;
                 _addedCount++;
                 _instance.SetIndexValue((uint) _index, currentValue, updateLength: false);
+            }
+        }
+
+        internal sealed class JintEmptyArrayExpression : JintExpression
+        {
+            public static JintEmptyArrayExpression Instance = new(new ArrayExpression(NodeList.Create(Enumerable.Empty<Expression?>())));
+
+            private JintEmptyArrayExpression(Expression expression) : base(expression)
+            {
+            }
+
+            protected override object EvaluateInternal(EvaluationContext context)
+            {
+                return new ArrayInstance(context.Engine, Array.Empty<object>());
+            }
+
+            public override JsValue GetValue(EvaluationContext context)
+            {
+                return new ArrayInstance(context.Engine, Array.Empty<object>());
             }
         }
     }
