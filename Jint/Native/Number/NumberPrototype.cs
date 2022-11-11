@@ -14,7 +14,7 @@ namespace Jint.Native.Number
     /// <summary>
     /// https://tc39.es/ecma262/#sec-properties-of-the-number-prototype-object
     /// </summary>
-    public sealed class NumberPrototype : NumberInstance
+    internal sealed class NumberPrototype : NumberInstance
     {
         private readonly Realm _realm;
         private readonly NumberConstructor _constructor;

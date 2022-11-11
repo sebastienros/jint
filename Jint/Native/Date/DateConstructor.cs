@@ -12,7 +12,7 @@ namespace Jint.Native.Date
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date-constructor
     /// </summary>
-    public sealed class DateConstructor : FunctionInstance, IConstructor
+    internal sealed class DateConstructor : FunctionInstance, IConstructor
     {
         internal static readonly DateTime Epoch = new(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
@@ -173,19 +173,19 @@ namespace Jint.Native.Date
                 return OrdinaryCreateFromConstructor(
                     newTarget,
                     static intrinsics => intrinsics.Date.PrototypeObject,
-                    static (engine, _, dateValue) => new DateInstance(engine, dateValue),
+                    static (engine, _, dateValue) => new JsDate(engine, dateValue),
                     (DateTime.UtcNow - Epoch).TotalMilliseconds);
             }
 
             return ConstructUnlikely(arguments, newTarget);
         }
 
-        private DateInstance ConstructUnlikely(JsValue[] arguments, JsValue newTarget)
+        private JsDate ConstructUnlikely(JsValue[] arguments, JsValue newTarget)
         {
             double dv;
             if (arguments.Length == 1)
             {
-                if (arguments[0] is DateInstance date)
+                if (arguments[0] is JsDate date)
                 {
                     return Construct(date.DateValue);
                 }
@@ -224,19 +224,19 @@ namespace Jint.Native.Date
             return OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Date.PrototypeObject,
-                static (engine, _, dateValue) => new DateInstance(engine, dateValue), dv);
+                static (engine, _, dateValue) => new JsDate(engine, dateValue), dv);
         }
 
-        public DateInstance Construct(DateTimeOffset value) => Construct(value.UtcDateTime);
+        public JsDate Construct(DateTimeOffset value) => Construct(value.UtcDateTime);
 
-        public DateInstance Construct(DateTime value) => Construct(FromDateTime(value));
+        public JsDate Construct(DateTime value) => Construct(FromDateTime(value));
 
-        public DateInstance Construct(double time)
+        public JsDate Construct(double time)
         {
             return OrdinaryCreateFromConstructor(
                 Undefined,
                 static intrinsics => intrinsics.Date.PrototypeObject,
-                static (engine, _, dateValue) => new DateInstance(engine, dateValue), time);
+                static (engine, _, dateValue) => new JsDate(engine, dateValue), time);
         }
 
         internal double FromDateTime(DateTime dt, bool negative = false)

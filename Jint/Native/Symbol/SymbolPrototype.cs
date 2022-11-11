@@ -9,7 +9,7 @@ namespace Jint.Native.Symbol
     /// <summary>
     /// https://tc39.es/ecma262/#sec-properties-of-the-symbol-prototype-object
     /// </summary>
-    public sealed class SymbolPrototype : Prototype
+    internal sealed class SymbolPrototype : Prototype
     {
         private readonly SymbolConstructor _constructor;
 

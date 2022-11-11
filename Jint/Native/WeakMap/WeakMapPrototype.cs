@@ -10,7 +10,7 @@ namespace Jint.Native.WeakMap
     /// <summary>
     /// https://tc39.es/ecma262/#sec-weakmap-objects
     /// </summary>
-    public sealed class WeakMapPrototype : Prototype
+    internal sealed class WeakMapPrototype : Prototype
     {
         private readonly WeakMapConstructor _constructor;
 

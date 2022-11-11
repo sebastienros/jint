@@ -27,7 +27,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            var result = Undefined.Instance;
+            var result = JsValue.Undefined;
             foreach (var expression in _expressions)
             {
                 result = expression.GetValue(context);

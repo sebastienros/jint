@@ -10,7 +10,7 @@ namespace Jint.Native.WeakSet
     /// <summary>
     /// https://tc39.es/ecma262/#sec-weakset-objects
     /// </summary>
-    public sealed class WeakSetPrototype : Prototype
+    internal sealed class WeakSetPrototype : Prototype
     {
         private readonly WeakSetConstructor _constructor;
 

@@ -24,7 +24,7 @@ namespace Jint.Native.Error
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public ErrorPrototype PrototypeObject { get; }
+        internal ErrorPrototype PrototypeObject { get; }
 
         protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
@@ -46,7 +46,7 @@ namespace Jint.Native.Error
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
                 _intrinsicDefaultProto,
-                static (Engine engine, Realm _, object? _) => new ErrorInstance(engine));
+                static (Engine engine, Realm _, object? _) => new JsError(engine));
 
             var jsValue = arguments.At(0);
             if (!jsValue.IsUndefined())

@@ -11,7 +11,7 @@ namespace Jint.Native.Symbol
     /// 19.4
     /// http://www.ecma-international.org/ecma-262/6.0/index.html#sec-symbol-objects
     /// </summary>
-    public sealed class SymbolConstructor : FunctionInstance, IConstructor
+    internal sealed class SymbolConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new JsString("Symbol");
 

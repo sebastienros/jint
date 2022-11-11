@@ -5,7 +5,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Proxy
 {
-    public sealed class ProxyInstance : ObjectInstance, IConstructor, ICallable
+    internal sealed class ProxyInstance : ObjectInstance, IConstructor, ICallable
     {
         internal ObjectInstance _target;
         internal ObjectInstance? _handler;

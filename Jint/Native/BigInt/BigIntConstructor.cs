@@ -11,7 +11,7 @@ namespace Jint.Native.BigInt;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-bigint-constructor
 /// </summary>
-public sealed class BigIntConstructor : FunctionInstance, IConstructor
+internal sealed class BigIntConstructor : FunctionInstance, IConstructor
 {
     private static readonly JsString _functionName = new("BigInt");
 

@@ -2,7 +2,6 @@
 using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native;
-using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
@@ -248,8 +247,8 @@ namespace Jint.Runtime.Environments
                 ExceptionHelper.ThrowTypeError(_functionObject._realm, "Destructed parameter is null");
             }
 
-            ArrayInstance? array;
-            if (argument is ArrayInstance { HasOriginalIterator: true } ai)
+            JsArray? array;
+            if (argument is JsArray { HasOriginalIterator: true } ai)
             {
                 array = ai;
             }
@@ -296,7 +295,7 @@ namespace Jint.Runtime.Environments
                 rest[targetIndex++] = arguments[argIndex];
             }
 
-            var array = new ArrayInstance(_engine, rest);
+            var array = new JsArray(_engine, rest);
             if (restElement.Argument is Identifier restIdentifier)
             {
                 SetItemSafely(restIdentifier.Name, array, initiallyEmpty);
@@ -392,13 +391,13 @@ namespace Jint.Runtime.Environments
 
         private sealed class ArrayPatternProtocol : IteratorProtocol
         {
-            private readonly ArrayInstance _instance;
+            private readonly JsArray _instance;
             private readonly int _max;
             private long _index;
 
             public ArrayPatternProtocol(
                 Engine engine,
-                ArrayInstance instance,
+                JsArray instance,
                 IteratorInstance iterator,
                 int max) : base(engine, iterator, 0)
             {

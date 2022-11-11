@@ -10,7 +10,7 @@ namespace Jint.Native.Map;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-map-objects
 /// </summary>
-public sealed class MapPrototype : Prototype
+internal sealed class MapPrototype : Prototype
 {
     private readonly MapConstructor _mapConstructor;
 

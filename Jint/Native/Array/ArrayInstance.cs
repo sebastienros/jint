@@ -26,13 +26,7 @@ namespace Jint.Native.Array
             _dense = System.Array.Empty<object?>();
         }
 
-        /// <summary>
-        /// Creates a new array instance with defaults.
-        /// </summary>
-        /// <param name="engine">The engine that this array is bound to.</param>
-        /// <param name="capacity">The initial size of underlying data structure, if you know you're going to add N items, provide N.</param>
-        /// <param name="length">Sets the length of the array.</param>
-        public ArrayInstance(Engine engine, uint capacity = 0, uint length = 0) : base(engine)
+        private protected ArrayInstance(Engine engine, uint capacity = 0, uint length = 0) : base(engine)
         {
             _prototype = engine.Realm.Intrinsics.Array.PrototypeObject;
 
@@ -53,12 +47,7 @@ namespace Jint.Native.Array
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
-        /// <summary>
-        /// Possibility to construct valid array fast.
-        /// Requires that supplied array is of type object[] and it should only contain values that inherit from JsValue or PropertyDescriptor or are null.
-        /// The array will be owned and modified by Jint afterwards.
-        /// </summary>
-        public ArrayInstance(Engine engine, object[] items) : base(engine)
+        private protected ArrayInstance(Engine engine, object[] items) : base(engine)
         {
             _prototype = engine.Realm.Intrinsics.Array.PrototypeObject;
 
@@ -82,10 +71,7 @@ namespace Jint.Native.Array
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
-        /// <summary>
-        /// Possibility to construct valid array fast, requires that supplied array does not have holes.
-        /// </summary>
-        public ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine)
+        private protected ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine)
         {
             int length;
             if (items == null || items.Length == 0)
@@ -1102,7 +1088,7 @@ namespace Jint.Native.Array
             }
         }
 
-        internal ArrayInstance Map(JsValue[] arguments)
+        internal JsArray Map(JsValue[] arguments)
         {
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
@@ -1239,7 +1225,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// Fast path for concatenating sane-sized arrays, we assume size has been calculated.
         /// </summary>
-        internal void CopyValues(ArrayInstance source, uint sourceStartIndex, uint targetStartIndex, uint length)
+        internal void CopyValues(JsArray source, uint sourceStartIndex, uint targetStartIndex, uint length)
         {
             if (length == 0)
             {

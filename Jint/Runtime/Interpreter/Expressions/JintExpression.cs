@@ -2,7 +2,6 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Array;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
 using Jint.Runtime.References;
@@ -194,9 +193,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return lN > 0 ? double.PositiveInfinity : double.NegativeInfinity;
             }
 
-            if (lN % rN == 0)
+            if (lN % rN == 0 && (lN != 0 || rN > 0))
             {
-                return lN / rN;
+                return JsNumber.Create(lN / rN);
             }
 
             return (double) lN / rN;
@@ -206,7 +205,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             if (lval.IsUndefined() || rval.IsUndefined())
             {
-                return Undefined.Instance;
+                return JsValue.Undefined;
             }
             else
             {
@@ -255,28 +254,38 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static JsValue Compare(JsValue x, JsValue y, bool leftFirst = true) =>
-            x._type == y._type && x._type == InternalTypes.Integer
-                ? CompareInteger(x, y, leftFirst)
+            x.IsNumber() && y.IsNumber()
+                ? CompareNumber(x, y, leftFirst)
                 : CompareComplex(x, y, leftFirst);
 
-        private static JsValue CompareInteger(JsValue x, JsValue y, bool leftFirst)
+        private static JsValue CompareNumber(JsValue x, JsValue y, bool leftFirst)
         {
-            int nx, ny;
+            double nx, ny;
             if (leftFirst)
             {
-                nx = x.AsInteger();
-                ny = y.AsInteger();
+                nx = x.AsNumber();
+                ny = y.AsNumber();
             }
             else
             {
-                ny = y.AsInteger();
-                nx = x.AsInteger();
+                ny = y.AsNumber();
+                nx = x.AsNumber();
             }
 
-            return nx < ny;
+            if (x.IsInteger() && y.IsInteger())
+            {
+                return (int) nx < (int) ny ? JsBoolean.True : JsBoolean.False;
+            }
+
+            if (!double.IsInfinity(nx) && !double.IsInfinity(ny) && !double.IsNaN(nx) && !double.IsNaN(ny))
+            {
+                return nx < ny ? JsBoolean.True : JsBoolean.False;
+            }
+
+            return CompareComplex(x, y, leftFirst);
         }
 
-        private static  JsValue CompareComplex(JsValue x, JsValue y, bool leftFirst)
+        private static JsValue CompareComplex(JsValue x, JsValue y, bool leftFirst)
         {
             JsValue px, py;
             if (leftFirst)
@@ -299,7 +308,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     if (typea == typeb)
                     {
-                        return TypeConverter.ToBigInt(px) < TypeConverter.ToBigInt(py);
+                        return TypeConverter.ToBigInt(px) < TypeConverter.ToBigInt(py) ? JsBoolean.True : JsBoolean.False;
                     }
 
                     if (typea == Types.BigInt)
@@ -310,7 +319,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             {
                                 return JsValue.Undefined;
                             }
-                            return TypeConverter.ToBigInt(px) < temp;
+                            return TypeConverter.ToBigInt(px) < temp ? JsBoolean.True : JsBoolean.False;
                         }
 
                         var numberB = TypeConverter.ToNumber(py);
@@ -321,16 +330,16 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         if (double.IsPositiveInfinity(numberB))
                         {
-                            return true;
+                            return JsBoolean.True;
                         }
 
                         if (double.IsNegativeInfinity(numberB))
                         {
-                            return false;
+                            return JsBoolean.False;
                         }
 
                         var normalized = new BigInteger(Math.Ceiling(numberB));
-                        return TypeConverter.ToBigInt(px) < normalized;
+                        return TypeConverter.ToBigInt(px) < normalized ? JsBoolean.True : JsBoolean.False;
                     }
 
                     if (px is JsString jsStringX)
@@ -339,7 +348,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             return JsValue.Undefined;
                         }
-                        return temp < TypeConverter.ToBigInt(py);
+                        return temp < TypeConverter.ToBigInt(py) ? JsBoolean.True : JsBoolean.False;
                     }
 
                     var numberA = TypeConverter.ToNumber(px);
@@ -350,12 +359,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (double.IsPositiveInfinity(numberA))
                     {
-                        return false;
+                        return JsBoolean.False;
                     }
 
                     if (double.IsNegativeInfinity(numberA))
                     {
-                        return true;
+                        return JsBoolean.True;
                     }
 
                     var normalizedA = new BigInteger(Math.Floor(numberA));
@@ -367,38 +376,38 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (double.IsNaN(nx) || double.IsNaN(ny))
                 {
-                    return Undefined.Instance;
+                    return JsValue.Undefined;
                 }
 
                 if (nx == ny)
                 {
-                    return false;
+                    return JsBoolean.False;
                 }
 
                 if (double.IsPositiveInfinity(nx))
                 {
-                    return false;
+                    return JsBoolean.False;
                 }
 
                 if (double.IsPositiveInfinity(ny))
                 {
-                    return true;
+                    return JsBoolean.True;
                 }
 
                 if (double.IsNegativeInfinity(ny))
                 {
-                    return false;
+                    return JsBoolean.False;
                 }
 
                 if (double.IsNegativeInfinity(nx))
                 {
-                    return true;
+                    return JsBoolean.True;
                 }
 
-                return nx < ny;
+                return nx < ny ? JsBoolean.True : JsBoolean.False;
             }
 
-            return string.CompareOrdinal(TypeConverter.ToString(x), TypeConverter.ToString(y)) < 0;
+            return string.CompareOrdinal(TypeConverter.ToString(x), TypeConverter.ToString(y)) < 0 ? JsBoolean.True : JsBoolean.False;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -419,7 +428,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
                     // optimize for array unless someone has touched the iterator
-                    if (objectInstance is ArrayInstance { HasOriginalIterator: true } ai)
+                    if (objectInstance is JsArray { HasOriginalIterator: true } ai)
                     {
                         var length = ai.GetLength();
                         for (uint j = 0; j < length; ++j)

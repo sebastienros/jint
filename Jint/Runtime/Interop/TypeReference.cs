@@ -25,7 +25,7 @@ namespace Jint.Runtime.Interop
             _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
 
-            var proto = new ObjectInstance(engine);
+            var proto = new JsObject(engine);
             _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.AllForbidden);
 
             PreventExtensions();

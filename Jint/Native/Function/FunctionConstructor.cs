@@ -25,7 +25,7 @@ namespace Jint.Native.Function
             _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
         }
 
-        public FunctionPrototype PrototypeObject { get; }
+        internal FunctionPrototype PrototypeObject { get; }
 
         protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {

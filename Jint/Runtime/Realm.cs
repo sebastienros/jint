@@ -1,5 +1,5 @@
 using Esprima.Ast;
-using Jint.Native.Array;
+using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Environments;
 
@@ -7,7 +7,7 @@ namespace Jint.Runtime
 {
     public sealed class Realm
     {
-        internal readonly Dictionary<Node, ArrayInstance> _templateMap = new();
+        internal readonly Dictionary<Node, JsArray> _templateMap = new();
 
 
         // helps when debugging which nested realm we are in...

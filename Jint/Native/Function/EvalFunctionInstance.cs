@@ -7,7 +7,7 @@ using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Native.Function
 {
-    public sealed class EvalFunctionInstance : FunctionInstance
+    internal sealed class EvalFunctionInstance : FunctionInstance
     {
         private static readonly JsString _functionName = new("eval");
 

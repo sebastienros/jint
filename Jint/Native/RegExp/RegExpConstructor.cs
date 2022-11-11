@@ -27,6 +27,8 @@ namespace Jint.Native.RegExp
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
+        internal RegExpPrototype PrototypeObject { get; }
+
         protected override void Initialize()
         {
             var symbols = new SymbolDictionary(1)
@@ -165,7 +167,5 @@ namespace Jint.Native.RegExp
         {
             r.SetOwnProperty(RegExpInstance.PropertyLastIndex, new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
         }
-
-        public RegExpPrototype PrototypeObject { get; private set; }
     }
 }

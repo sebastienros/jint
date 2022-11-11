@@ -14,7 +14,7 @@ namespace Jint.Native.Array
 
         public static ArrayOperations For(ObjectInstance instance)
         {
-            if (instance is ArrayInstance { CanUseFastAccess: true } arrayInstance)
+            if (instance is JsArray { CanUseFastAccess: true } arrayInstance)
             {
                 return new ArrayInstanceOperations(arrayInstance);
             }
@@ -205,9 +205,9 @@ namespace Jint.Native.Array
                 => _target.DeletePropertyOrThrow(JsString.Create(index));
         }
 
-        private sealed class ArrayInstanceOperations : ArrayOperations<ArrayInstance>
+        private sealed class ArrayInstanceOperations : ArrayOperations<JsArray>
         {
-            public ArrayInstanceOperations(ArrayInstance target) : base(target)
+            public ArrayInstanceOperations(JsArray target) : base(target)
             {
             }
 

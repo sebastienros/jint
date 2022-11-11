@@ -27,7 +27,7 @@ namespace Jint.Tests.PublicInterface
             });
 
             var result1 = engine.Evaluate(@"try { throw1() } catch (e) { return e; }");
-            var error1 = Assert.IsType<ErrorInstance>(result1);
+            var error1 = Assert.IsType<JsError>(result1);
             Assert.Equal("message 1", error1.Get("message").ToString());
 
             var result2 = engine.Evaluate(@"try { throw2() } catch (e) { return e; }");

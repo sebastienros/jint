@@ -24,6 +24,6 @@ internal sealed class JintReturnStatement : JintStatement<ReturnStatement>
 
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
-        return new Completion(CompletionType.Return, _argument?.GetValue(context) ?? Undefined.Instance, _statement);
+        return new Completion(CompletionType.Return, _argument?.GetValue(context) ?? JsValue.Undefined, _statement);
     }
 }

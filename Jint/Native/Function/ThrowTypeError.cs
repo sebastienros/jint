@@ -3,7 +3,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Function
 {
-    public sealed class ThrowTypeError : FunctionInstance
+    internal sealed class ThrowTypeError : FunctionInstance
     {
         public ThrowTypeError(Engine engine, Realm realm)
             : base(engine, realm, null)

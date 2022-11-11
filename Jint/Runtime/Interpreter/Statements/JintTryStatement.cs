@@ -48,10 +48,10 @@ namespace Jint.Runtime.Interpreter.Statements
                     return b;
                 }
 
-                return f.UpdateEmpty(Undefined.Instance);
+                return f.UpdateEmpty(JsValue.Undefined);
             }
 
-            return b.UpdateEmpty(Undefined.Instance);
+            return b.UpdateEmpty(JsValue.Undefined);
         }
 
         private Completion ExecuteCatch(EvaluationContext context, Completion b, Engine engine)

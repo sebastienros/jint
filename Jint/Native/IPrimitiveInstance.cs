@@ -1,10 +1,9 @@
 using Jint.Runtime;
 
-namespace Jint.Native
+namespace Jint.Native;
+
+public interface IPrimitiveInstance
 {
-    public interface IPrimitiveInstance
-    {
-        Types Type { get; } 
-        JsValue PrimitiveValue { get; }
-    }
+    Types Type { get; }
+    JsValue PrimitiveValue { get; }
 }

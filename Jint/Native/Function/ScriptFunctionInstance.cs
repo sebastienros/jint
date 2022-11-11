@@ -137,7 +137,7 @@ namespace Jint.Native.Function
                 thisArgument = OrdinaryCreateFromConstructor(
                     newTarget,
                     static intrinsics => intrinsics.Object.PrototypeObject,
-                    static (Engine engine, Realm _, object? _) => new ObjectInstance(engine));
+                    static (Engine engine, Realm _, object? _) => new JsObject(engine));
             }
 
             var calleeContext = PrepareForOrdinaryCall(newTarget);

@@ -47,7 +47,7 @@ internal sealed class AggregateErrorConstructor : FunctionInstance, IConstructor
         var o = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.AggregateError.PrototypeObject,
-            static (Engine engine, Realm _, object? _) => new ErrorInstance(engine));
+            static (Engine engine, Realm _, object? _) => new JsError(engine));
 
         if (!message.IsUndefined())
         {

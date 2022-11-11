@@ -8,7 +8,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Math
 {
-    public sealed class MathInstance : ObjectInstance
+    internal sealed class MathInstance : ObjectInstance
     {
         private Random? _random;
 

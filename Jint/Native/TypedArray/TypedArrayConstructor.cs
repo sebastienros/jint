@@ -31,7 +31,7 @@ namespace Jint.Native.TypedArray
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public TypedArrayPrototype PrototypeObject { get; }
+        private TypedArrayPrototype PrototypeObject { get; }
 
         protected override void Initialize()
         {

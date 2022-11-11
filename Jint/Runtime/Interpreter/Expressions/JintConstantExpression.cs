@@ -15,12 +15,7 @@ internal sealed class JintConstantExpression : JintExpression
         _value = value;
     }
 
-    public override JsValue GetValue(EvaluationContext context)
-    {
-        // need to notify correct node when taking shortcut
-        context.LastSyntaxElement = _expression;
-        return _value;
-    }
+    public override JsValue GetValue(EvaluationContext context) => _value;
 
     protected override object EvaluateInternal(EvaluationContext context) => _value;
 }

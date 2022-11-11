@@ -15,7 +15,7 @@ namespace Jint.Native.ShadowRealm;
 /// <summary>
 /// https://tc39.es/proposal-shadowrealm/#sec-properties-of-shadowrealm-instances
 /// </summary>
-public sealed class ShadowRealmInstance : ObjectInstance
+internal sealed class ShadowRealmInstance : ObjectInstance
 {
     private readonly JavaScriptParser _parser = new(new ParserOptions { Tolerant = false });
     internal readonly Realm _shadowRealm;

@@ -2,34 +2,33 @@ using System.Runtime.CompilerServices;
 using Jint.Native.Object;
 using Jint.Runtime;
 
-namespace Jint.Native.Number
+namespace Jint.Native.Number;
+
+internal class NumberInstance : ObjectInstance, IPrimitiveInstance
 {
-    public class NumberInstance : ObjectInstance, IPrimitiveInstance
+    private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
+
+    public NumberInstance(Engine engine, JsNumber value)
+        : base(engine, ObjectClass.Number)
     {
-        private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
+        NumberData = value;
+    }
 
-        public NumberInstance(Engine engine, JsNumber value)
-            : base(engine, ObjectClass.Number)
-        {
-            NumberData = value;
-        }
+    Types IPrimitiveInstance.Type => Types.Number;
 
-        Types IPrimitiveInstance.Type => Types.Number;
+    JsValue IPrimitiveInstance.PrimitiveValue => NumberData;
 
-        JsValue IPrimitiveInstance.PrimitiveValue => NumberData;
+    public JsNumber NumberData { get; }
 
-        public JsNumber NumberData { get; }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsNegativeZero(double x)
+    {
+        return x == 0 && BitConverter.DoubleToInt64Bits(x) == NegativeZeroBits;
+    }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsNegativeZero(double x)
-        {
-            return x == 0 && BitConverter.DoubleToInt64Bits(x) == NegativeZeroBits;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsPositiveZero(double x)
-        {
-            return x == 0 && BitConverter.DoubleToInt64Bits(x) != NegativeZeroBits;
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsPositiveZero(double x)
+    {
+        return x == 0 && BitConverter.DoubleToInt64Bits(x) != NegativeZeroBits;
     }
 }

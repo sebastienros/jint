@@ -9,7 +9,7 @@ namespace Jint.Native.DataView
     /// <summary>
     /// https://tc39.es/ecma262/#sec-dataview-constructor
     /// </summary>
-    public sealed class DataViewConstructor : FunctionInstance, IConstructor
+    internal sealed class DataViewConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new("DataView");
 

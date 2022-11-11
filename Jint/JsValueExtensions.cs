@@ -3,8 +3,6 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using Esprima;
 using Jint.Native;
-using Jint.Native.Array;
-using Jint.Native.Date;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Promise;
@@ -42,7 +40,7 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsDate(this JsValue value)
         {
-            return value is DateInstance;
+            return value is JsDate;
         }
 
         [Pure]
@@ -128,14 +126,14 @@ namespace Jint
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static DateInstance AsDate(this JsValue value)
+        public static JsDate AsDate(this JsValue value)
         {
             if (!value.IsDate())
             {
                 ExceptionHelper.ThrowArgumentException("The value is not a date");
             }
 
-            return (DateInstance) value;
+            return (JsDate) value;
         }
 
         [Pure]
@@ -175,14 +173,14 @@ namespace Jint
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ArrayInstance AsArray(this JsValue value)
+        public static JsArray AsArray(this JsValue value)
         {
             if (!value.IsArray())
             {
                 ExceptionHelper.ThrowArgumentException("The value is not an array");
             }
 
-            return (ArrayInstance) value;
+            return (JsArray) value;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -84,7 +84,7 @@ namespace Jint.Native.Array
                 [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, propertyFlags),
                 [GlobalSymbolRegistry.Unscopables] = new LazyPropertyDescriptor(_engine, static state =>
                 {
-                    var unscopables = new ObjectInstance((Engine) state!)
+                    var unscopables = new JsObject((Engine) state!)
                     {
                         _prototype = null
                     };
@@ -442,7 +442,7 @@ namespace Jint.Native.Array
         /// </summary>
         private JsValue Map(JsValue thisObj, JsValue[] arguments)
         {
-            if (thisObj is ArrayInstance { CanUseFastAccess: true } arrayInstance
+            if (thisObj is JsArray { CanUseFastAccess: true } arrayInstance
                 && !arrayInstance.HasOwnProperty(CommonProperties.Constructor))
             {
                 return arrayInstance.Map(arguments);
@@ -1119,7 +1119,7 @@ namespace Jint.Native.Array
 
             var length = (uint) System.Math.Max(0, (long) final - (long) k);
             var a = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObj), length);
-            if (thisObj is ArrayInstance ai && a is ArrayInstance a2)
+            if (thisObj is JsArray ai && a is JsArray a2)
             {
                 a2.CopyValues(ai, (uint) k, 0, length);
             }
@@ -1320,7 +1320,7 @@ namespace Jint.Native.Array
                 var e = items[i];
                 if (e is ObjectInstance { IsConcatSpreadable: true } oi)
                 {
-                    if (e is ArrayInstance eArray && a is ArrayInstance a2)
+                    if (e is JsArray eArray && a is JsArray a2)
                     {
                         a2.CopyValues(eArray, 0, n, eArray.GetLength());
                         n += eArray.GetLength();
@@ -1438,7 +1438,7 @@ namespace Jint.Native.Array
         /// </summary>
         public JsValue Push(JsValue thisObject, JsValue[] arguments)
         {
-            if (thisObject is ArrayInstance { CanUseFastAccess: true } arrayInstance)
+            if (thisObject is JsArray { CanUseFastAccess: true } arrayInstance)
             {
                 return arrayInstance.Push(arguments);
             }
@@ -1509,7 +1509,7 @@ namespace Jint.Native.Array
             return map;
         }
 
-        private Dictionary<JsValue, ArrayInstance> BuildArrayGrouping(JsValue thisObject, JsValue[] arguments, bool mapMode)
+        private Dictionary<JsValue, JsArray> BuildArrayGrouping(JsValue thisObject, JsValue[] arguments, bool mapMode)
         {
             var o = ArrayOperations.For(_realm, thisObject);
             var len = o.GetLongLength();
@@ -1517,7 +1517,7 @@ namespace Jint.Native.Array
             var callable = GetCallable(callbackfn);
             var thisArg = arguments.At(1);
 
-            var result = new Dictionary<JsValue, ArrayInstance>();
+            var result = new Dictionary<JsValue, JsArray>();
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o.Target;
             for (uint k = 0; k < len; k++)
@@ -1538,7 +1538,7 @@ namespace Jint.Native.Array
                 }
                 if (!result.TryGetValue(key, out var list))
                 {
-                    result[key] = list = new ArrayInstance(_engine);
+                    result[key] = list = new JsArray(_engine);
                 }
 
                 list.SetIndexValue(list.GetLength(), kValue, updateLength: true);

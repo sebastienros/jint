@@ -8,7 +8,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Set;
 
-public sealed class SetConstructor : FunctionInstance, IConstructor
+internal sealed class SetConstructor : FunctionInstance, IConstructor
 {
     private static readonly JsString _functionName = new("Set");
 

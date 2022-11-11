@@ -7,7 +7,7 @@ namespace Jint.Native.TypedArray
     /// <summary>
     /// https://tc39.es/ecma262/#sec-properties-of-typedarray-prototype-objects
     /// </summary>
-    public sealed class TypedArrayPrototype : ObjectInstance
+    internal sealed class TypedArrayPrototype : ObjectInstance
     {
         private readonly TypedArrayConstructor _constructor;
         private readonly TypedArrayElementType _arrayElementType;

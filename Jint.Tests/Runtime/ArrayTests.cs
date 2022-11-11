@@ -1,4 +1,4 @@
-using Jint.Native.Array;
+using Jint.Native;
 
 namespace Jint.Tests.Runtime;
 
@@ -62,7 +62,7 @@ public class ArrayTests
     public void ArrayLengthFromInitialState()
     {
         var engine = new Engine();
-        var array = new ArrayInstance(engine);
+        var array = new JsArray(engine);
         var length = (int) array.Length;
         Assert.Equal(0, length);
     }

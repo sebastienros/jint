@@ -245,7 +245,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-object.prototype.tostring
         /// </summary>
-        public JsValue ToObjectString(JsValue thisObject, JsValue[] arguments)
+        internal JsValue ToObjectString(JsValue thisObject, JsValue[] arguments)
         {
             if (thisObject.IsUndefined())
             {
@@ -283,7 +283,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.2.4.5
         /// </summary>
-        public JsValue HasOwnProperty(JsValue thisObject, JsValue[] arguments)
+        private JsValue HasOwnProperty(JsValue thisObject, JsValue[] arguments)
         {
             var p = TypeConverter.ToPropertyKey(arguments[0]);
             var o = TypeConverter.ToObject(_realm, thisObject);

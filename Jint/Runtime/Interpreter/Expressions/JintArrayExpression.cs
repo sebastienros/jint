@@ -1,6 +1,5 @@
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Array;
 using Jint.Native.Iterator;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -57,7 +56,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
                     // optimize for array
-                    if (objectInstance is ArrayInstance ai)
+                    if (objectInstance is JsArray ai)
                     {
                         var length = ai.GetLength();
                         var newLength = arrayIndexCounter + length;
@@ -90,13 +89,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private sealed class ArraySpreadProtocol : IteratorProtocol
         {
-            private readonly ArrayInstance _instance;
+            private readonly JsArray _instance;
             private long _index;
             internal uint _addedCount;
 
             public ArraySpreadProtocol(
                 Engine engine,
-                ArrayInstance instance,
+                JsArray instance,
                 IteratorInstance iterator,
                 long startIndex) : base(engine, iterator, 0)
             {
@@ -122,12 +121,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
-                return new ArrayInstance(context.Engine, Array.Empty<object>());
+                return new JsArray(context.Engine, Array.Empty<object>());
             }
 
             public override JsValue GetValue(EvaluationContext context)
             {
-                return new ArrayInstance(context.Engine, Array.Empty<object>());
+                return new JsArray(context.Engine, Array.Empty<object>());
             }
         }
     }

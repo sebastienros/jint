@@ -130,7 +130,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// </summary>
         private object BuildObjectFast(EvaluationContext context)
         {
-            var obj = new ObjectInstance(context.Engine);
+            var obj = new JsObject(context.Engine);
             var properties = new PropertyDictionary(_properties.Length, checkExistingKeys: true);
             for (var i = 0; i < _properties.Length; i++)
             {
@@ -252,12 +252,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
-                return new ObjectInstance(context.Engine);
+                return new JsObject(context.Engine);
             }
 
             public override JsValue GetValue(EvaluationContext context)
             {
-                return new ObjectInstance(context.Engine);
+                return new JsObject(context.Engine);
             }
         }
     }

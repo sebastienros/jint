@@ -87,12 +87,12 @@ var output = {
             var length = engine.GetValue("length");
             var output = engine.GetValue("output").AsObject();
 
-            Assert.Equal(Null.Instance, address);
-            Assert.Equal(Null.Instance, city);
-            Assert.Equal(Null.Instance, length);
+            Assert.Equal(JsValue.Null, address);
+            Assert.Equal(JsValue.Null, city);
+            Assert.Equal(JsValue.Null, length);
 
-            Assert.Equal(Null.Instance, output.Get("Count1"));
-            Assert.Equal(Undefined.Instance, output.Get("Count2"));
+            Assert.Equal(JsValue.Null, output.Get("Count1"));
+            Assert.Equal(JsValue.Undefined, output.Get("Count2"));
         }
 
         [Fact]
@@ -111,13 +111,13 @@ function test2(arg) {
 }
 ";
             engine.Execute(Script);
-            var result = engine.Invoke("test", Null.Instance);
+            var result = engine.Invoke("test", JsValue.Null);
 
-            Assert.Equal(Null.Instance, result);
+            Assert.Equal(JsValue.Null, result);
 
-            result = engine.Invoke("test2", Null.Instance);
+            result = engine.Invoke("test2", JsValue.Null);
 
-            Assert.Equal(Null.Instance, result);
+            Assert.Equal(JsValue.Null, result);
         }
 
         [Fact]

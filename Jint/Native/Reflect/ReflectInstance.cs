@@ -11,7 +11,7 @@ namespace Jint.Native.Reflect
     /// <summary>
     /// https://www.ecma-international.org/ecma-262/6.0/index.html#sec-reflect-object
     /// </summary>
-    public sealed class ReflectInstance : ObjectInstance
+    internal sealed class ReflectInstance : ObjectInstance
     {
         private readonly Realm _realm;
 

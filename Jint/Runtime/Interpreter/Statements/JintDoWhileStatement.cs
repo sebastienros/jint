@@ -26,7 +26,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            JsValue v = Undefined.Instance;
+            JsValue v = JsValue.Undefined;
             bool iterating;
 
             do

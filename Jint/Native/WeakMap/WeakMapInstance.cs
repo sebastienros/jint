@@ -5,7 +5,7 @@ using Jint.Runtime;
 
 namespace Jint.Native.WeakMap;
 
-public sealed class WeakMapInstance : ObjectInstance
+internal sealed class WeakMapInstance : ObjectInstance
 {
     private readonly ConditionalWeakTable<JsValue, JsValue> _table;
 

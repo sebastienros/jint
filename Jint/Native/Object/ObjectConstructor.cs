@@ -162,7 +162,7 @@ namespace Jint.Native.Object
                 return OrdinaryCreateFromConstructor(
                     newTarget,
                     static intrinsics => intrinsics.Object.PrototypeObject,
-                    static (Engine engine, Realm _, object? _) => new ObjectInstance(engine));
+                    static (Engine engine, Realm _, object? _) => new JsObject(engine));
             }
 
             if (arguments.Length > 0)
@@ -181,12 +181,12 @@ namespace Jint.Native.Object
             }
 
 
-            return new ObjectInstance(_engine);
+            return new JsObject(_engine);
         }
 
         internal ObjectInstance Construct(int propertyCount)
         {
-            var obj = new ObjectInstance(_engine);
+            var obj = new JsObject(_engine);
             obj.SetProperties(propertyCount > 0  ? new PropertyDictionary(propertyCount, checkExistingKeys: true) : null);
             return obj;
         }

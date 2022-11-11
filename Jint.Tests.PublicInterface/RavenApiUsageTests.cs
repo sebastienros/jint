@@ -1,10 +1,8 @@
+using System.Diagnostics;
 using Esprima.Ast;
 using Jint.Constraints;
 using Jint.Native;
-using Jint.Native.Array;
-using Jint.Native.Date;
 using Jint.Native.Function;
-using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
@@ -68,7 +66,7 @@ public class RavenApiUsageTests
         };
 
         var engine = new Engine();
-        var array = new ArrayInstance(engine, descriptors);
+        var array = new JsArray(engine, descriptors);
         Assert.Equal(1L, array.Length);
         Assert.Equal(42, array[0]);
     }
@@ -86,18 +84,18 @@ public class RavenApiUsageTests
     public void CanInjectConstructedObjects()
     {
         var engine = new Engine();
-        var obj = new ObjectInstance(engine);
+        var obj = new JsObject(engine);
         obj.FastSetDataProperty("name", "test");
 
-        var emptyArray = new ArrayInstance(engine);
+        var emptyArray = new JsArray(engine);
 
-        var array = new ArrayInstance(engine, new object[]
+        var array = new JsArray(engine, new object[]
         {
             JsNumber.Create(1),
             JsNumber.Create(2),
             JsNumber.Create(3)
         });
-        var date = new DateInstance(engine, new DateTime(2022, 10, 20));
+        var date = new JsDate(engine, new DateTime(2022, 10, 20));
 
         engine.SetValue("obj", obj);
         engine.SetValue("emptyArray", emptyArray);

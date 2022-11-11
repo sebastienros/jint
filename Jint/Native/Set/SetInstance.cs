@@ -5,7 +5,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Set;
 
-public sealed class SetInstance : ObjectInstance
+internal sealed class SetInstance : ObjectInstance
 {
     internal readonly OrderedSet<JsValue> _set;
 
