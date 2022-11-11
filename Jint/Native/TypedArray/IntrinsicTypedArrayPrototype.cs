@@ -15,20 +15,17 @@ namespace Jint.Native.TypedArray
     /// <summary>
     /// https://tc39.es/ecma262/#sec-properties-of-the-%typedarrayprototype%-object
     /// </summary>
-    internal sealed class IntrinsicTypedArrayPrototype : ObjectInstance
+    internal sealed class IntrinsicTypedArrayPrototype : Prototype
     {
-        private readonly Realm _realm;
         private readonly IntrinsicTypedArrayConstructor _constructor;
         private ClrFunctionInstance? _originalIteratorFunction;
 
         internal IntrinsicTypedArrayPrototype(
             Engine engine,
-            Realm realm,
             ObjectInstance objectPrototype,
-            IntrinsicTypedArrayConstructor constructor) : base(engine)
+            IntrinsicTypedArrayConstructor constructor) : base(engine, engine.Realm)
         {
             _prototype = objectPrototype;
-            _realm = realm;
             _constructor = constructor;
         }
 

@@ -310,11 +310,21 @@ namespace Jint.Native.Object
 
         public override JsValue Get(JsValue property, JsValue receiver)
         {
-            var desc = GetOwnProperty(property);
-
-            if (desc != PropertyDescriptor.Undefined)
+            if ((_type & InternalTypes.PlainObject) != 0 && ReferenceEquals(this, receiver) && property is JsString jsString)
             {
-                return UnwrapJsValue(desc, receiver);
+                EnsureInitialized();
+                if (_properties?.TryGetValue(jsString.ToString(), out var ownDesc) == true)
+                {
+                    return UnwrapJsValue(ownDesc, receiver);
+                }
+            }
+            else
+            {
+                var desc = GetOwnProperty(property);
+                if (desc != PropertyDescriptor.Undefined)
+                {
+                    return UnwrapJsValue(desc, receiver);
+                }
             }
 
             return Prototype?.Get(property, receiver) ?? Undefined;
@@ -456,6 +466,19 @@ namespace Jint.Native.Object
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Set(JsValue property, JsValue value)
         {
+            if ((_type & InternalTypes.PlainObject) != 0 && property is JsString jsString)
+            {
+                var key = (Key) jsString.ToString();
+                if (_properties?.TryGetValue(key, out var ownDesc) == true)
+                {
+                    if ((ownDesc._flags & PropertyFlag.Writable) != 0)
+                    {
+                        ownDesc._value = value;
+                        return true;
+                    }
+                }
+            }
+
             return Set(property, value, this);
         }
 
@@ -465,6 +488,24 @@ namespace Jint.Native.Object
         /// https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor
         /// </summary>
         public override bool Set(JsValue property, JsValue value, JsValue receiver)
+        {
+            if ((_type & InternalTypes.PlainObject) != 0 && ReferenceEquals(this, receiver) && property is JsString jsString)
+            {
+                var key = (Key) jsString.ToString();
+                if (_properties?.TryGetValue(key, out var ownDesc) == true)
+                {
+                    if ((ownDesc._flags & PropertyFlag.Writable) != 0)
+                    {
+                        ownDesc._value = value;
+                        return true;
+                    }
+                }
+            }
+
+            return SetUnlikely(property, value, receiver);
+        }
+
+        private bool SetUnlikely(JsValue property, JsValue value, JsValue receiver)
         {
             var ownDesc = GetOwnProperty(property);
 

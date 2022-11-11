@@ -23,7 +23,7 @@ public class JsDate : ObjectInstance
     {
     }
 
-    public JsDate(Engine engine, double dateValue) : base(engine, ObjectClass.Date)
+    public JsDate(Engine engine, double dateValue) : base(engine, ObjectClass.Date, InternalTypes.Object | InternalTypes.PlainObject)
     {
         _prototype = engine.Realm.Intrinsics.Date.PrototypeObject;
         _dateValue = dateValue.TimeClip();

@@ -54,8 +54,11 @@ namespace Jint.Runtime
         RequiresCloning = 1024,
         Module = 2048,
 
+        // the object doesn't override important GetOwnProperty etc which change behavior
+        PlainObject = 4096,
+
         Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-        InternalFlags = ObjectEnvironmentRecord | RequiresCloning
+        InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Module
     }
 
     public static class TypeConverter

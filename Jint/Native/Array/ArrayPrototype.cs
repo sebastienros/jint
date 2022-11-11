@@ -25,7 +25,7 @@ namespace Jint.Native.Array
             Engine engine,
             Realm realm,
             ArrayConstructor arrayConstructor,
-            ObjectPrototype objectPrototype) : base(engine)
+            ObjectPrototype objectPrototype) : base(engine, InternalTypes.Object)
         {
             _prototype = objectPrototype;
             _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Writable);

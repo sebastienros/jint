@@ -12,7 +12,7 @@ namespace Jint.Native.Date
     /// <summary>
     /// https://tc39.es/ecma262/#sec-properties-of-the-date-prototype-object
     /// </summary>
-    internal sealed class DatePrototype : ObjectInstance
+    internal sealed class DatePrototype : Prototype
     {
         // ES6 section 20.3.1.1 Time Values and Time Range
         private const double MinYear = -1000000.0;
@@ -20,18 +20,15 @@ namespace Jint.Native.Date
         private const double MinMonth = -10000000.0;
         private const double MaxMonth = -MinMonth;
 
-        private readonly Realm _realm;
         private readonly DateConstructor _constructor;
 
         internal DatePrototype(
             Engine engine,
-            Realm realm,
             DateConstructor constructor,
             ObjectPrototype objectPrototype)
-            : base(engine)
+            : base(engine, engine.Realm)
         {
             _prototype = objectPrototype;
-            _realm = realm;
             _constructor = constructor;
         }
 

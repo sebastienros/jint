@@ -21,7 +21,7 @@ namespace Jint.Native.DataView
             : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
-            PrototypeObject = new DataViewPrototype(engine, realm, this, objectPrototype);
+            PrototypeObject = new DataViewPrototype(engine, this, objectPrototype);
             _length = new PropertyDescriptor(1, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }

@@ -1,5 +1,4 @@
 using Jint.Collections;
-using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.TypedArray
@@ -7,7 +6,7 @@ namespace Jint.Native.TypedArray
     /// <summary>
     /// https://tc39.es/ecma262/#sec-properties-of-typedarray-prototype-objects
     /// </summary>
-    internal sealed class TypedArrayPrototype : ObjectInstance
+    internal sealed class TypedArrayPrototype : Prototype
     {
         private readonly TypedArrayConstructor _constructor;
         private readonly TypedArrayElementType _arrayElementType;
@@ -16,7 +15,7 @@ namespace Jint.Native.TypedArray
             Engine engine,
             IntrinsicTypedArrayPrototype objectPrototype,
             TypedArrayConstructor constructor,
-            TypedArrayElementType type) : base(engine)
+            TypedArrayElementType type) : base(engine, engine.Realm)
         {
             _prototype = objectPrototype;
             _constructor = constructor;

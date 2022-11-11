@@ -23,7 +23,7 @@ internal sealed class BigIntConstructor : FunctionInstance, IConstructor
         : base(engine, realm, _functionName)
     {
         _prototype = functionPrototype;
-        PrototypeObject = new BigIntPrototype(engine, realm, this, objectPrototype);
+        PrototypeObject = new BigIntPrototype(engine, this, objectPrototype);
         _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
     }
