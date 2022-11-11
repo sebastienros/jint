@@ -24,10 +24,10 @@ namespace Jint.Tests.Runtime
                 return promise;
             }));
 
-            engine.Execute("f();");
+            var promise = engine.Evaluate("f();");
 
             resolveFunc(66);
-            Assert.Equal(66, engine.GetCompletionValue().UnwrapIfPromise());
+            Assert.Equal(66, promise.UnwrapIfPromise());
         }
 
         [Fact]
@@ -45,7 +45,7 @@ namespace Jint.Tests.Runtime
 
             engine.Execute("f();");
 
-            var completion = engine.Execute("f();").GetCompletionValue();
+            var completion = engine.Evaluate("f();");
 
             rejectFunc("oops!");
 
@@ -75,7 +75,7 @@ namespace Jint.Tests.Runtime
                 return promise;
             }));
 
-            var completion = engine.Execute("Promise.race([f1(), f2()]);").GetCompletionValue();
+            var completion = engine.Evaluate("Promise.race([f1(), f2()]);");
 
             resolve1("first");
 
@@ -100,7 +100,7 @@ namespace Jint.Tests.Runtime
 
             engine.Execute("f();");
 
-            Assert.Equal(true, engine.Execute(" 1 + 1 === 2").GetCompletionValue());
+            Assert.Equal(true, engine.Evaluate(" 1 + 1 === 2"));
         }
 
         #endregion
@@ -135,9 +135,9 @@ namespace Jint.Tests.Runtime
         public void PromiseCtor_ReturnsPromiseJsValue()
         {
             var engine = new Engine();
-            engine.Execute("new Promise((resolve, reject)=>{});");
+            var promise = engine.Evaluate("new Promise((resolve, reject)=>{});");
 
-            Assert.IsType<PromiseInstance>(engine.GetCompletionValue());
+            Assert.IsType<PromiseInstance>(promise);
         }
 
         #endregion

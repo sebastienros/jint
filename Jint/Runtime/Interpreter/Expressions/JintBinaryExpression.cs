@@ -641,7 +641,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return JsValue.FromObject(context.Engine, opResult);
                 }
 
-                var result = Undefined.Instance;
+                var result = JsValue.Undefined;
                 left = TypeConverter.ToNumeric(left);
                 right = TypeConverter.ToNumeric(right);
 

@@ -35,7 +35,7 @@ namespace Jint.Runtime.Interpreter.Statements
             }
 
             var engine = context.Engine;
-            JsValue v = Undefined.Instance;
+            JsValue v = JsValue.Undefined;
             SyntaxElement l = context.LastSyntaxElement;
             JintSwitchCase? defaultCase = null;
             bool hit = false;
@@ -81,7 +81,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     }
 
                     l = r._source;
-                    v = r.Value ?? Undefined.Instance;
+                    v = r.Value ?? JsValue.Undefined;
                 }
             }
 
@@ -109,7 +109,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
 
                 l = r._source;
-                v = r.Value ?? Undefined.Instance;
+                v = r.Value ?? JsValue.Undefined;
             }
 
             return new Completion(CompletionType.Normal, v, l);

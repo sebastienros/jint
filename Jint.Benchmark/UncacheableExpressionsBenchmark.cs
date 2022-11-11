@@ -2,7 +2,6 @@
 using BenchmarkDotNet.Attributes;
 using Jint.Native;
 using Newtonsoft.Json;
-using Undefined = Jint.Native.Undefined;
 
 namespace Jint.Benchmark;
 
@@ -99,7 +98,7 @@ function output(d) {
         var call = engine.GetValue("output").TryCast<ICallable>();
         for (int i = 0; i < N; ++i)
         {
-            call.Call(Undefined.Instance, targetJsObject);
+            call.Call(JsValue.Undefined, targetJsObject);
         }
     }
 

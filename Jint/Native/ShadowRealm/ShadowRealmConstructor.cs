@@ -9,7 +9,7 @@ namespace Jint.Native.ShadowRealm;
 /// <summary>
 /// https://tc39.es/proposal-shadowrealm/#sec-properties-of-the-shadowRealm-constructor
 /// </summary>
-public sealed class ShadowRealmConstructor : FunctionInstance, IConstructor
+internal sealed class ShadowRealmConstructor : FunctionInstance, IConstructor
 {
     private static readonly JsString _functionName = new JsString("ShadowRealm");
 

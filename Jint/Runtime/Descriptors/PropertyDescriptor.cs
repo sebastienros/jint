@@ -342,7 +342,7 @@ namespace Jint.Runtime.Descriptors
         {
             if (ReferenceEquals(desc, Undefined))
             {
-                return Native.Undefined.Instance;
+                return JsValue.Undefined;
             }
 
             var obj = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
@@ -354,7 +354,7 @@ namespace Jint.Runtime.Descriptors
 
             if (desc.IsDataDescriptor())
             {
-                properties["value"] =  new PropertyDescriptor(desc.Value ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
+                properties["value"] =  new PropertyDescriptor(desc.Value ?? JsValue.Undefined, PropertyFlag.ConfigurableEnumerableWritable);
                 if (desc._flags != PropertyFlag.None || desc.WritableSet)
                 {
                     properties["writable"] = new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable);
@@ -362,8 +362,8 @@ namespace Jint.Runtime.Descriptors
             }
             else
             {
-                properties["get"] = new PropertyDescriptor(desc.Get ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
-                properties["set"] = new PropertyDescriptor(desc.Set ?? Native.Undefined.Instance, PropertyFlag.ConfigurableEnumerableWritable);
+                properties["get"] = new PropertyDescriptor(desc.Get ?? JsValue.Undefined, PropertyFlag.ConfigurableEnumerableWritable);
+                properties["set"] = new PropertyDescriptor(desc.Set ?? JsValue.Undefined, PropertyFlag.ConfigurableEnumerableWritable);
             }
 
             if (!strictUndefined || desc.EnumerableSet)

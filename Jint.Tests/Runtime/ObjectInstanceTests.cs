@@ -1,5 +1,4 @@
 using Jint.Native;
-using Jint.Native.Object;
 
 namespace Jint.Tests.Runtime
 {
@@ -9,7 +8,7 @@ namespace Jint.Tests.Runtime
         public void RemovingFirstPropertyFromObjectInstancePropertiesBucketAndEnumerating()
         {
             var engine = new Engine();
-            var instance = new ObjectInstance(engine);
+            var instance = new JsObject(engine);
             instance.FastSetDataProperty("bare", JsValue.Null);
             instance.FastSetDataProperty("scope", JsValue.Null);
             instance.RemoveOwnProperty("bare");
@@ -44,7 +43,7 @@ namespace Jint.Tests.Runtime
         public void ShouldHavePrototypeInPlaceByDefault()
         {
             var engine = new Engine();
-            var instance = new ObjectInstance(engine);
+            var instance = new JsObject(engine);
             Assert.NotNull(instance.GetPrototypeOf());
             Assert.Equal("[object Object]", instance.ToString());
         }

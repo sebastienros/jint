@@ -1,10 +1,11 @@
 using System.Globalization;
+using Jint.Native.Date;
 using Jint.Native.Object;
 using Jint.Runtime;
 
-namespace Jint.Native.Date;
+namespace Jint.Native;
 
-public sealed class DateInstance : ObjectInstance
+public class JsDate : ObjectInstance
 {
     // Maximum allowed value to prevent DateTime overflow
     private static readonly long Max = (long) (DateTime.MaxValue - DateConstructor.Epoch).TotalMilliseconds;
@@ -14,15 +15,15 @@ public sealed class DateInstance : ObjectInstance
 
     internal double _dateValue;
 
-    public DateInstance(Engine engine, DateTimeOffset value) : this(engine, value.UtcDateTime)
+    public JsDate(Engine engine, DateTimeOffset value) : this(engine, value.UtcDateTime)
     {
     }
 
-    public DateInstance(Engine engine, DateTime value) : this(engine, engine.Realm.Intrinsics.Date.FromDateTime(value))
+    public JsDate(Engine engine, DateTime value) : this(engine, engine.Realm.Intrinsics.Date.FromDateTime(value))
     {
     }
 
-    public DateInstance(Engine engine, double dateValue) : base(engine, ObjectClass.Date)
+    public JsDate(Engine engine, double dateValue) : base(engine, ObjectClass.Date)
     {
         _prototype = engine.Realm.Intrinsics.Date.PrototypeObject;
         _dateValue = dateValue.TimeClip();

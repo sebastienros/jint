@@ -13,7 +13,7 @@ namespace Jint.Native.String
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string-constructor
     /// </summary>
-    public sealed class StringConstructor : FunctionInstance, IConstructor
+    internal sealed class StringConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new JsString("String");
 

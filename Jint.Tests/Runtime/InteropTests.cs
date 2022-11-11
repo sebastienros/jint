@@ -623,7 +623,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void PocosCanReturnObjectInstanceDirectly()
         {
-            var x = new ObjectInstance(_engine);
+            var x = new JsObject(_engine);
             x.Set("foo", new JsString("bar"));
 
             var o = new

@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using Jint.Native;
-using Jint.Native.Array;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
@@ -163,7 +162,7 @@ namespace Jint
                 values[i] = JsValue.FromObject(e, array.GetValue(i));
             }
 
-            return new ArrayInstance(e, values);
+            return new JsArray(e, values);
         }
     }
 }

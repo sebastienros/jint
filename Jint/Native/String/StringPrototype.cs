@@ -14,7 +14,7 @@ namespace Jint.Native.String
     /// <summary>
     /// https://tc39.es/ecma262/#sec-properties-of-the-string-prototype-object
     /// </summary>
-    public sealed class StringPrototype : StringInstance
+    internal sealed class StringPrototype : StringInstance
     {
         private readonly Realm _realm;
         private readonly StringConstructor _constructor;
@@ -147,7 +147,7 @@ namespace Jint.Native.String
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string TrimStartEx(string s)
+        internal static string TrimStartEx(string s)
         {
             if (s.Length == 0)
                 return string.Empty;
@@ -173,7 +173,7 @@ namespace Jint.Native.String
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string TrimEx(string s)
+        internal static string TrimEx(string s)
         {
             return TrimEndEx(TrimStartEx(s));
         }
@@ -347,7 +347,7 @@ namespace Jint.Native.String
 
             if (separator.IsNull())
             {
-                separator = Native.Null.Text;
+                separator = "null";
             }
             else if (!separator.IsUndefined())
             {
@@ -945,7 +945,7 @@ namespace Jint.Native.String
             var searchString = arguments.At(0);
             if (ReferenceEquals(searchString, Null))
             {
-                searchString = Native.Null.Text;
+                searchString = "null";
             }
             else
             {
@@ -990,7 +990,7 @@ namespace Jint.Native.String
             var searchString = arguments.At(0);
             if (ReferenceEquals(searchString, Null))
             {
-                searchString = Native.Null.Text;
+                searchString = "null";
             }
             else
             {

@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using Jint.Collections;
-using Jint.Native.Array;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
@@ -13,7 +12,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.RegExp
 {
-    public sealed class RegExpPrototype : Prototype
+    internal sealed class RegExpPrototype : Prototype
     {
         private static readonly JsString PropertyExec = new("exec");
         private static readonly JsString PropertyIndex = new("index");
@@ -470,7 +469,7 @@ namespace Jint.Native.RegExp
                     return StringPrototype.SplitWithStringSeparator(_realm, "", s, (uint) s.Length);
                 }
 
-                var a = (ArrayInstance) _realm.Intrinsics.Array.Construct(Arguments.Empty);
+                var a = _realm.Intrinsics.Array.Construct(Arguments.Empty);
                 var match = R.Value.Match(s, 0);
 
                 if (!match.Success) // No match at all return the string in an array
@@ -961,7 +960,7 @@ namespace Jint.Native.RegExp
             return len;
         }
 
-        private static ArrayInstance CreateReturnValueArray(
+        private static JsArray CreateReturnValueArray(
             Engine engine,
             Regex regex,
             Match match,
@@ -1023,7 +1022,7 @@ namespace Jint.Native.RegExp
         /// <summary>
         /// https://tc39.es/ecma262/#sec-makematchindicesindexpairarray
         /// </summary>
-        private static ArrayInstance MakeMatchIndicesIndexPairArray(
+        private static JsArray MakeMatchIndicesIndexPairArray(
             Engine engine,
             string s,
             List<JsNumber[]?> indices,

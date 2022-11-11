@@ -124,7 +124,7 @@ namespace Jint.Native.Function
                 }
             }
 
-            var proto = new ObjectInstance(engine)
+            ObjectInstance proto = new JsObject(engine)
             {
                 _prototype = protoParent
             };

@@ -5,7 +5,6 @@ using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;
-using Jint.Native.Date;
 using Jint.Native.Function;
 using Jint.Native.Number;
 using Jint.Native.RegExp;
@@ -28,7 +27,7 @@ namespace Jint.Native.Object
         internal ObjectInstance? _prototype;
         protected readonly Engine _engine;
 
-        public ObjectInstance(Engine engine) : this(engine, ObjectClass.Object)
+        protected ObjectInstance(Engine engine) : this(engine, ObjectClass.Object)
         {
         }
 
@@ -446,7 +445,7 @@ namespace Jint.Native.Object
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Set(JsValue p, JsValue v, bool throwOnError)
         {
-            if (!Set(p, v, this) && throwOnError)
+            if (!Set(p, v) && throwOnError)
             {
                 ExceptionHelper.ThrowTypeError(_engine.Realm);
             }
@@ -476,6 +475,7 @@ namespace Jint.Native.Object
                 {
                     return parent.Set(property, value, receiver);
                 }
+
                 ownDesc = _marker;
             }
 
@@ -518,7 +518,10 @@ namespace Jint.Native.Object
                 return false;
             }
 
-            _engine.Call(setter, receiver, new[] { value }, expression: null);
+            _engine.Call(setter, receiver, new[]
+            {
+                value
+            }, expression: null);
 
             return true;
         }
@@ -901,7 +904,7 @@ namespace Jint.Native.Object
                     break;
 
                 case ObjectClass.Date:
-                    if (this is DateInstance dateInstance)
+                    if (this is JsDate dateInstance)
                     {
                         converted = dateInstance.ToDateTime();
                     }
@@ -941,7 +944,7 @@ namespace Jint.Native.Object
                 case ObjectClass.Arguments:
                 case ObjectClass.Object:
 
-                    if (this is ArrayInstance arrayInstance)
+                    if (this is JsArray arrayInstance)
                     {
                         var result = new object?[arrayInstance.Length];
                         for (uint i = 0; i < result.Length; i++)
@@ -1220,7 +1223,7 @@ namespace Jint.Native.Object
         /// </summary>
         internal static ObjectInstance OrdinaryObjectCreate(Engine engine, ObjectInstance? proto)
         {
-            var prototype = new ObjectInstance(engine)
+            var prototype = new JsObject(engine)
             {
                 _prototype = proto
             };
@@ -1268,7 +1271,7 @@ namespace Jint.Native.Object
             }
         }
 
-        internal ArrayInstance EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind kind)
+        internal JsArray EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind kind)
         {
             var ownKeys = GetOwnPropertyKeys(Types.String);
 

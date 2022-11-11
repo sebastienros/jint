@@ -2,7 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.Environments;
@@ -88,9 +87,9 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var reference = _calleeExpression.Evaluate(context);
 
-            if (ReferenceEquals(reference, Undefined.Instance))
+            if (ReferenceEquals(reference, JsValue.Undefined))
             {
-                return Undefined.Instance;
+                return JsValue.Undefined;
             }
 
             var engine = context.Engine;
@@ -98,7 +97,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (func.IsNullOrUndefined() && _expression.IsOptional())
             {
-                return Undefined.Instance;
+                return JsValue.Undefined;
             }
 
             var referenceRecord = reference as Reference;
@@ -141,7 +140,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else
             {
-                thisObject = Undefined.Instance;
+                thisObject = JsValue.Undefined;
             }
 
             var arguments = ArgumentListEvaluation(context);
@@ -227,7 +226,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var argList = ArgumentListEvaluation(context);
             if (argList.Length == 0)
             {
-                return Undefined.Instance;
+                return JsValue.Undefined;
             }
 
             var evalFunctionInstance = (EvalFunctionInstance) func;
@@ -312,7 +311,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             // the @@iterator method on %Array.prototype%, this function does not.
 
             var spreadExpression = (JintSpreadExpression) _cachedArguments.JintArguments[0];
-            var array = (ArrayInstance) spreadExpression._argument.GetValue(context);
+            var array = (JsArray) spreadExpression._argument.GetValue(context);
             var length = array.GetLength();
             var args = new List<JsValue>((int) length);
             for (uint j = 0; j < length; ++j)

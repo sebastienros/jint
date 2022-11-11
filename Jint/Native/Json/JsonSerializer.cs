@@ -1,5 +1,4 @@
 using Jint.Collections;
-using Jint.Native.Array;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;
 using Jint.Native.Global;
@@ -21,7 +20,7 @@ namespace Jint.Native.Json
         private string? _indent;
         private string? _gap;
         private List<JsValue>? _propertyList;
-        private JsValue _replacerFunction = Undefined.Instance;
+        private JsValue _replacerFunction = JsValue.Undefined;
 
         private static readonly JsString toJsonProperty = new("toJSON");
 
@@ -41,9 +40,9 @@ namespace Jint.Native.Json
 
             // for JSON.stringify(), any function passed as the first argument will return undefined
             // if the replacer is not defined. The function is not called either.
-            if (value.IsCallable && ReferenceEquals(replacer, Undefined.Instance))
+            if (value.IsCallable && ReferenceEquals(replacer, JsValue.Undefined))
             {
-                return Undefined.Instance;
+                return JsValue.Undefined;
             }
 
             if (replacer is ObjectInstance oi)
@@ -174,7 +173,7 @@ namespace Jint.Native.Json
                 };
             }
 
-            if (ReferenceEquals(value, Null.Instance))
+            if (ReferenceEquals(value, JsValue.Null))
             {
                 return JsString.NullString;
             }
@@ -191,7 +190,7 @@ namespace Jint.Native.Json
 
             if (value.IsNumber())
             {
-                var isFinite = GlobalObject.IsFinite(Undefined.Instance, Arguments.From(value));
+                var isFinite = GlobalObject.IsFinite(JsValue.Undefined, Arguments.From(value));
                 if (((JsBoolean) isFinite)._value)
                 {
                     return TypeConverter.ToJsString(value);
@@ -226,7 +225,7 @@ namespace Jint.Native.Json
 
         private static bool SerializesAsArray(ObjectInstance value)
         {
-            if (value is ArrayInstance)
+            if (value is JsArray)
             {
                 return true;
             }

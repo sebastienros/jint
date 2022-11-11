@@ -9,7 +9,7 @@ namespace Jint.Native.Boolean
     /// <summary>
     ///     http://www.ecma-international.org/ecma-262/5.1/#sec-15.6.4
     /// </summary>
-    public sealed class BooleanPrototype : BooleanInstance
+    internal sealed class BooleanPrototype : BooleanInstance
     {
         private readonly Realm _realm;
         private readonly BooleanConstructor _constructor;

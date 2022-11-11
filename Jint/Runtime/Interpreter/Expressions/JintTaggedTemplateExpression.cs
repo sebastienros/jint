@@ -1,6 +1,5 @@
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.References;
@@ -64,7 +63,7 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
     /// <summary>
     /// https://www.ecma-international.org/ecma-262/6.0/#sec-gettemplateobject
     /// </summary>
-    private ArrayInstance GetTemplateObject(EvaluationContext context)
+    private JsArray GetTemplateObject(EvaluationContext context)
     {
         var realm = context.Engine.Realm;
         var templateRegistry = realm._templateMap;

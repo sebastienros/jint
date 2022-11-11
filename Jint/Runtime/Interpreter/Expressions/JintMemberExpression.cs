@@ -75,9 +75,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 // fast checks failed
                 var baseReference = _objectExpression.Evaluate(context);
-                if (ReferenceEquals(Undefined.Instance, baseReference))
+                if (ReferenceEquals(JsValue.Undefined, baseReference))
                 {
-                    return Undefined.Instance;
+                    return JsValue.Undefined;
                 }
                 if (baseReference is Reference reference)
                 {
@@ -93,7 +93,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (baseValue.IsNullOrUndefined() && (_memberExpression.Optional || _objectExpression._expression.IsOptional()))
             {
-                return Undefined.Instance;
+                return JsValue.Undefined;
             }
 
             var property = _determinedProperty ?? _propertyExpression!.GetValue(context);

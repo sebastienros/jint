@@ -42,7 +42,7 @@ public readonly struct Completion
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public JsValue GetValueOrDefault()
     {
-        return Value ?? Undefined.Instance;
+        return Value ?? JsValue.Undefined;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

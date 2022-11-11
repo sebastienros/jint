@@ -17,7 +17,7 @@ namespace Jint.Native.Promise
         JsValue ResolveObj
     );
 
-    public sealed class PromiseConstructor : FunctionInstance, IConstructor
+    internal sealed class PromiseConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new JsString("Promise");
 

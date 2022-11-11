@@ -497,7 +497,7 @@ namespace Jint
                     var getter = desc.Get!;
                     if (getter.IsUndefined())
                     {
-                        return Undefined.Instance;
+                        return JsValue.Undefined;
                     }
 
                     var callable = (ICallable) getter.AsObject();

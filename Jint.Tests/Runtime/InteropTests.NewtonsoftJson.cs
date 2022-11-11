@@ -1,5 +1,4 @@
 using Jint.Native;
-using Jint.Native.Date;
 using Jint.Runtime;
 using Newtonsoft.Json.Linq;
 
@@ -61,7 +60,7 @@ namespace Jint.Tests.Runtime
             var obj = JObject.Parse(json);
             engine.SetValue("o", obj);
             var value = engine.Evaluate("o.Properties.expirationDate.Value");
-            var dateInstance = Assert.IsAssignableFrom<DateInstance>(value);
+            var dateInstance = Assert.IsAssignableFrom<JsDate>(value);
             Assert.Equal(DateTime.Parse("2021-10-09T00:00:00Z").ToUniversalTime(), dateInstance.ToDateTime());
         }
 
@@ -103,7 +102,7 @@ namespace Jint.Tests.Runtime
 
             Assert.Equal("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2,\"Null\":null,\"Date\":\"2015-06-25T00:00:00.000Z\"}]", result);
         }
-        
+
         [Fact]
         public void DecimalsShouldBeHandledFromJObjects()
         {

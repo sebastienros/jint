@@ -3,9 +3,16 @@ using Jint.Runtime;
 
 namespace Jint.Native.Error;
 
+public sealed class JsError : ErrorInstance
+{
+    internal JsError(Engine engine) : base(engine, ObjectClass.Error)
+    {
+    }
+}
+
 public class ErrorInstance : ObjectInstance
 {
-    internal ErrorInstance(Engine engine, ObjectClass objectClass = ObjectClass.Error)
+    private protected ErrorInstance(Engine engine, ObjectClass objectClass)
         : base(engine, objectClass)
     {
     }

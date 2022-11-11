@@ -114,7 +114,7 @@ namespace Jint.Runtime.Interpreter.Statements
         /// </summary>
         private Completion ForBodyEvaluation(EvaluationContext context)
         {
-            var v = Undefined.Instance;
+            var v = JsValue.Undefined;
 
             if (_shouldCreatePerIterationEnvironment)
             {

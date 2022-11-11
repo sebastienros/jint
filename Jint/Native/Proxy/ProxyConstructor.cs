@@ -10,7 +10,7 @@ namespace Jint.Native.Proxy
     /// <summary>
     /// https://tc39.es/ecma262/#sec-proxy-constructor
     /// </summary>
-    public sealed class ProxyConstructor : FunctionInstance, IConstructor
+    internal sealed class ProxyConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _name = new JsString("Proxy");
         private static readonly JsString PropertyProxy = new JsString("proxy");

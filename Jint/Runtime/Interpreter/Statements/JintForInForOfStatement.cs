@@ -155,7 +155,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             var engine = context.Engine;
             var oldEnv = engine.ExecutionContext.LexicalEnvironment;
-            var v = Undefined.Instance;
+            var v = JsValue.Undefined;
             var destructuring = _destructuring;
             string? lhsName = null;
 

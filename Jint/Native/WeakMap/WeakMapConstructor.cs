@@ -6,7 +6,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.WeakMap
 {
-    public sealed class WeakMapConstructor : FunctionInstance, IConstructor
+    internal sealed class WeakMapConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new JsString("WeakMap");
 

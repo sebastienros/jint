@@ -1,5 +1,4 @@
 using Jint.Native;
-using Jint.Native.Object;
 using Jint.Native.WeakMap;
 using Jint.Native.WeakSet;
 using Jint.Runtime;
@@ -56,7 +55,7 @@ public class WeakSetMapTests
         var engine = new Engine();
         var weakMap = new WeakMapInstance(engine);
 
-        var e = Assert.Throws<JavaScriptException>(() => weakMap.WeakMapSet(key, new ObjectInstance(engine)));
+        var e = Assert.Throws<JavaScriptException>(() => weakMap.WeakMapSet(key, new JsObject(engine)));
         Assert.StartsWith("WeakMap key must be an object, got ", e.Message);
 
         Assert.False(weakMap.WeakMapHas(key));

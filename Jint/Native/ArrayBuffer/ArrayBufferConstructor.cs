@@ -13,7 +13,7 @@ namespace Jint.Native.ArrayBuffer
     /// <summary>
     /// https://tc39.es/ecma262/#sec-properties-of-the-arraybuffer-constructor
     /// </summary>
-    public sealed class ArrayBufferConstructor : FunctionInstance, IConstructor
+    internal sealed class ArrayBufferConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new("ArrayBuffer");
 
@@ -30,7 +30,7 @@ namespace Jint.Native.ArrayBuffer
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public ArrayBufferPrototype PrototypeObject { get; }
+        private ArrayBufferPrototype PrototypeObject { get; }
 
         protected override void Initialize()
         {
@@ -87,7 +87,7 @@ namespace Jint.Native.ArrayBuffer
             var obj = OrdinaryCreateFromConstructor(
                 constructor,
                 static intrinsics => intrinsics.ArrayBuffer.PrototypeObject,
-                static (engine, realm, state) => new ArrayBufferInstance(engine, (ulong) ((JsNumber) state!)._value),
+                static (engine, realm, state) => new ArrayBufferInstance(engine, (ulong) state!._value),
                 JsNumber.Create(byteLength));
 
             return obj;

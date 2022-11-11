@@ -223,7 +223,7 @@ namespace Jint.Native.Array
                 a = _realm.Intrinsics.Array.Construct(len);
             }
 
-            if (a is ArrayInstance ai)
+            if (a is JsArray ai)
             {
                 // faster for real arrays
                 for (uint k = 0; k < arguments.Length; k++)
@@ -275,14 +275,14 @@ namespace Jint.Native.Array
             return Construct(arguments, thisObject);
         }
 
-        public ObjectInstance Construct(JsValue[] arguments)
+        public JsArray Construct(JsValue[] arguments)
         {
             return Construct(arguments, this);
         }
 
         ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
 
-        internal ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        internal JsArray Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {
@@ -304,24 +304,24 @@ namespace Jint.Native.Array
             return Construct(arguments, capacity, proto);
         }
 
-        public ArrayInstance Construct(int capacity)
+        public JsArray Construct(int capacity)
         {
             return Construct(System.Array.Empty<JsValue>(), (uint) capacity);
         }
 
-        public ArrayInstance Construct(uint capacity)
+        public JsArray Construct(uint capacity)
         {
             return Construct(System.Array.Empty<JsValue>(), capacity);
         }
 
-        public ArrayInstance Construct(JsValue[] arguments, uint capacity)
+        public JsArray Construct(JsValue[] arguments, uint capacity)
         {
             return Construct(arguments, capacity, PrototypeObject);
         }
 
-        private ArrayInstance Construct(JsValue[] arguments, ulong capacity, ObjectInstance prototypeObject)
+        private JsArray Construct(JsValue[] arguments, ulong capacity, ObjectInstance prototypeObject)
         {
-            ArrayInstance instance;
+            JsArray instance;
             if (arguments.Length == 1)
             {
                 switch (arguments[0])
@@ -335,9 +335,9 @@ namespace Jint.Native.Array
                             ? ConstructArrayFromIEnumerable(enumerable)
                             : ArrayCreate(0, prototypeObject);
                         break;
-                    case ArrayInstance arrayInstance:
+                    case JsArray array:
                         // direct copy
-                        instance = (ArrayInstance) ConstructArrayFromArrayLike(Undefined, arrayInstance, null, this);
+                        instance = (JsArray) ConstructArrayFromArrayLike(Undefined, array, null, this);
                         break;
                     default:
                         instance = ArrayCreate(capacity, prototypeObject);
@@ -362,7 +362,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-arraycreate
         /// </summary>
-        internal ArrayInstance ArrayCreate(ulong length, ObjectInstance? proto = null)
+        internal JsArray ArrayCreate(ulong length, ObjectInstance? proto = null)
         {
             if (length > ArrayOperations.MaxArrayLength)
             {
@@ -370,16 +370,16 @@ namespace Jint.Native.Array
             }
 
             proto ??= PrototypeObject;
-            var instance = new ArrayInstance(Engine, (uint) length, (uint) length)
+            var instance = new JsArray(Engine, (uint) length, (uint) length)
             {
                 _prototype = proto
             };
             return instance;
         }
 
-        private ArrayInstance ConstructArrayFromIEnumerable(IEnumerable enumerable)
+        private JsArray ConstructArrayFromIEnumerable(IEnumerable enumerable)
         {
-            var jsArray = (ArrayInstance) Construct(Arguments.Empty);
+            var jsArray = Construct(Arguments.Empty);
             var tempArray = _engine._jsValueArrayPool.RentArray(1);
             foreach (var item in enumerable)
             {
@@ -392,7 +392,7 @@ namespace Jint.Native.Array
             return jsArray;
         }
 
-        public ArrayInstance ConstructFast(JsValue[] contents)
+        public JsArray ConstructFast(JsValue[] contents)
         {
             var instance = ArrayCreate((ulong) contents.Length);
             for (var i = 0; i < contents.Length; i++)
@@ -402,7 +402,7 @@ namespace Jint.Native.Array
             return instance;
         }
 
-        internal ArrayInstance ConstructFast(List<JsValue> contents)
+        internal JsArray ConstructFast(List<JsValue> contents)
         {
             var instance = ArrayCreate((ulong) contents.Count);
             for (var i = 0; i < contents.Count; i++)
@@ -415,7 +415,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-arrayspeciescreate
         /// </summary>
-        public ObjectInstance ArraySpeciesCreate(ObjectInstance originalArray, ulong length)
+        internal ObjectInstance ArraySpeciesCreate(ObjectInstance originalArray, ulong length)
         {
             var isArray = originalArray.IsArray();
             if (!isArray)
@@ -460,7 +460,7 @@ namespace Jint.Native.Array
             return ((IConstructor) c).Construct(new JsValue[] { JsNumber.Create(length) }, c);
         }
 
-        internal ArrayInstance CreateArrayFromList<T>(List<T> values) where T : JsValue
+        internal JsArray CreateArrayFromList<T>(List<T> values) where T : JsValue
         {
             var jsArray = ArrayCreate((uint) values.Count);
             var index = 0;
@@ -474,7 +474,7 @@ namespace Jint.Native.Array
             return jsArray;
         }
 
-        internal ArrayInstance CreateArrayFromList<T>(T[] values) where T : JsValue
+        internal JsArray CreateArrayFromList<T>(T[] values) where T : JsValue
         {
             var jsArray = ArrayCreate((uint) values.Length);
             var index = 0;

@@ -948,9 +948,9 @@ namespace Jint.Runtime
                     ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a Symbol value to a string");
                     return null;
                 case InternalTypes.Undefined:
-                    return Undefined.Text;
+                    return "undefined";
                 case InternalTypes.Null:
-                    return Null.Text;
+                    return "null";
                 case InternalTypes.Object when o is IObjectWrapper p:
                     return p.Target?.ToString()!;
                 default:
@@ -975,9 +975,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool IsIntegralNumber(double value)
         {
-            return !double.IsNaN(value)
-                   && !double.IsInfinity(value)
-                   && Math.Floor(Math.Abs(value)) == Math.Abs(value);
+            return !double.IsNaN(value) && !double.IsInfinity(value) && value % 1 == 0;
         }
 
         private static ObjectInstance ToObjectNonObject(Realm realm, JsValue value)

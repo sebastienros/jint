@@ -5,7 +5,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.WeakSet
 {
-    public sealed class WeakSetConstructor : FunctionInstance, IConstructor
+    internal sealed class WeakSetConstructor : FunctionInstance, IConstructor
     {
         private static readonly JsString _functionName = new JsString("WeakSet");
 

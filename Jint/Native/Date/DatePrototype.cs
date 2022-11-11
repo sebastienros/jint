@@ -143,7 +143,7 @@ namespace Jint.Native.Date
         /// </summary>
         private double ThisTimeValue(JsValue thisObj)
         {
-            if (thisObj is DateInstance dateInstance)
+            if (thisObj is JsDate dateInstance)
             {
                 return dateInstance.DateValue;
             }
@@ -458,7 +458,7 @@ namespace Jint.Native.Date
             var t = TypeConverter.ToNumber(arguments.At(0));
             var v = t.TimeClip();
 
-            ((DateInstance) thisObj)._dateValue = t;
+            ((JsDate) thisObj)._dateValue = t;
             return v;
         }
 
@@ -477,7 +477,7 @@ namespace Jint.Native.Date
 
             var time = MakeTime(HourFromTime(t), MinFromTime(t), SecFromTime(t), ms);
             var u = Utc(MakeDate(Day(t), time)).TimeClip();
-            ((DateInstance) thisObj)._dateValue = u;
+            ((JsDate) thisObj)._dateValue = u;
             return u;
         }
 
@@ -496,7 +496,7 @@ namespace Jint.Native.Date
 
             var time = MakeTime(HourFromTime(t), MinFromTime(t), SecFromTime(t), milli);
             var u = MakeDate(Day(t), time).TimeClip();
-            ((DateInstance) thisObj)._dateValue = u;
+            ((JsDate) thisObj)._dateValue = u;
             return u;
         }
 
@@ -516,7 +516,7 @@ namespace Jint.Native.Date
 
             var date = MakeDate(Day(t), MakeTime(HourFromTime(t), MinFromTime(t), s, milli));
             var u = Utc(date).TimeClip();
-            ((DateInstance) thisObj)._dateValue = u;
+            ((JsDate) thisObj)._dateValue = u;
             return u;
         }
 
@@ -536,7 +536,7 @@ namespace Jint.Native.Date
 
             var date = MakeDate(Day(t), MakeTime(HourFromTime(t), MinFromTime(t), s, milli));
             var u = date.TimeClip();
-            ((DateInstance) thisObj)._dateValue = u;
+            ((JsDate) thisObj)._dateValue = u;
             return u;
         }
 
@@ -557,7 +557,7 @@ namespace Jint.Native.Date
 
             var date = MakeDate(Day(t), MakeTime(HourFromTime(t), m, s, milli));
             var u = Utc(date).TimeClip();
-            ((DateInstance) thisObj)._dateValue = u;
+            ((JsDate) thisObj)._dateValue = u;
             return u;
         }
 
@@ -578,7 +578,7 @@ namespace Jint.Native.Date
 
             var date = MakeDate(Day(t), MakeTime(HourFromTime(t), m, s, milli));
             var u = date.TimeClip();
-            ((DateInstance) thisObj)._dateValue = u;
+            ((JsDate) thisObj)._dateValue = u;
             return u;
         }
 
@@ -600,7 +600,7 @@ namespace Jint.Native.Date
 
             var date = MakeDate(Day(t), MakeTime(h, m, s, milli));
             var u = Utc(date).TimeClip();
-            ((DateInstance) thisObj)._dateValue = u;
+            ((JsDate) thisObj)._dateValue = u;
             return u;
         }
 
@@ -622,7 +622,7 @@ namespace Jint.Native.Date
 
             var newDate = MakeDate(Day(t), MakeTime(h, m, s, milli));
             var v = newDate.TimeClip();
-            ((DateInstance) thisObj)._dateValue = v;
+            ((JsDate) thisObj)._dateValue = v;
             return v;
         }
 
@@ -642,7 +642,7 @@ namespace Jint.Native.Date
             var (year, month, __) = YearMonthDayFromTime(t);
             var newDate = MakeDate(MakeDay(year, month, dt), TimeWithinDay(t));
             var u = Utc(newDate).TimeClip();
-            ((DateInstance) thisObj)._dateValue = u;
+            ((JsDate) thisObj)._dateValue = u;
             return u;
         }
 
@@ -661,7 +661,7 @@ namespace Jint.Native.Date
 
             var newDate = MakeDate(MakeDay(YearFromTime(t), MonthFromTime(t), dt), TimeWithinDay(t));
             var u = newDate.TimeClip();
-            ((DateInstance) thisObj)._dateValue = u;
+            ((JsDate) thisObj)._dateValue = u;
             return u;
         }
 
@@ -681,7 +681,7 @@ namespace Jint.Native.Date
 
             var newDate = MakeDate(MakeDay(YearFromTime(t), m, dt), TimeWithinDay(t));
             var u = Utc(newDate).TimeClip();
-            ((DateInstance) thisObj)._dateValue = u;
+            ((JsDate) thisObj)._dateValue = u;
             return u;
         }
 
@@ -701,7 +701,7 @@ namespace Jint.Native.Date
 
             var newDate = MakeDate(MakeDay(YearFromTime(t), m, dt), TimeWithinDay(t));
             var u = newDate.TimeClip();
-            ((DateInstance) thisObj)._dateValue = u;
+            ((JsDate) thisObj)._dateValue = u;
             return u;
         }
 
@@ -718,7 +718,7 @@ namespace Jint.Native.Date
 
             var newDate = MakeDate(MakeDay(y, m, dt), TimeWithinDay(t));
             var u = Utc(newDate).TimeClip();
-            ((DateInstance) thisObj)._dateValue = u;
+            ((JsDate) thisObj)._dateValue = u;
             return u;
         }
 
@@ -732,7 +732,7 @@ namespace Jint.Native.Date
             var y = TypeConverter.ToNumber(arguments.At(0));
             if (double.IsNaN(y))
             {
-                ((DateInstance) thisObj)._dateValue = double.NaN;
+                ((JsDate) thisObj)._dateValue = double.NaN;
                 return JsNumber.DoubleNaN;
             }
 
@@ -744,7 +744,7 @@ namespace Jint.Native.Date
 
             var newDate = MakeDay(fy, MonthFromTime(t), DateFromTime(t));
             var u = Utc(MakeDate(newDate, TimeWithinDay(t)));
-            ((DateInstance) thisObj)._dateValue = u.TimeClip();
+            ((JsDate) thisObj)._dateValue = u.TimeClip();
             return u;
         }
 
@@ -760,7 +760,7 @@ namespace Jint.Native.Date
             var dt = arguments.Length <= 2 ? DateFromTime(t) : TypeConverter.ToNumber(arguments.At(2));
             var newDate = MakeDate(MakeDay(y, m, dt), TimeWithinDay(t));
             var u = newDate.TimeClip();
-            ((DateInstance) thisObj)._dateValue = u;
+            ((JsDate) thisObj)._dateValue = u;
             return u;
         }
 
@@ -789,7 +789,7 @@ namespace Jint.Native.Date
                 ExceptionHelper.ThrowRangeError(_realm);
             }
 
-            if (((DateInstance) thisObj).DateTimeRangeValid)
+            if (((JsDate) thisObj).DateTimeRangeValid)
             {
                 // shortcut
                 var dt = thisTime.ToDateTime();

@@ -68,14 +68,14 @@ namespace Jint.Repl
                     var result = engine.Evaluate(input, parserOptions);
                     if (!result.IsPrimitive() && result is not IPrimitiveInstance)
                     {
-                        var str = serializer.Serialize(result, Undefined.Instance, "  ");
+                        var str = serializer.Serialize(result, JsValue.Undefined, "  ");
                         Console.WriteLine(str);
                     }
                     else
                     {
                         if (result.IsString())
                         {
-                            Console.WriteLine(serializer.Serialize(result, Undefined.Instance, Undefined.Instance));
+                            Console.WriteLine(serializer.Serialize(result, JsValue.Undefined, JsValue.Undefined));
                         }
                         else
                         {

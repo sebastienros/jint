@@ -1,7 +1,4 @@
 ﻿using Jint.Native;
-using Jint.Native.Array;
-using Jint.Native.Date;
-using Jint.Native.Object;
 using Jint.Native.RegExp;
 
 namespace Jint.Tests.Runtime
@@ -18,7 +15,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeAnArray()
         {
-            var value = new ArrayInstance(_engine);
+            var value = new JsArray(_engine);
             Assert.Equal(false, value.IsBoolean());
             Assert.Equal(true, value.IsArray());
             Assert.Equal(false, value.IsDate());
@@ -54,7 +51,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeADate()
         {
-            var value = new DateInstance(_engine, double.NaN);
+            var value = new JsDate(_engine, double.NaN);
             Assert.Equal(false, value.IsBoolean());
             Assert.Equal(false, value.IsArray());
             Assert.Equal(true, value.IsDate());
@@ -72,7 +69,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeNull()
         {
-            var value = Null.Instance;
+            var value = JsValue.Null;
             Assert.Equal(false, value.IsBoolean());
             Assert.Equal(false, value.IsArray());
             Assert.Equal(false, value.IsDate());
@@ -105,7 +102,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeAnObject()
         {
-            var value = new ObjectInstance(_engine);
+            var value = new JsObject(_engine);
             Assert.Equal(false, value.IsBoolean());
             Assert.Equal(false, value.IsArray());
             Assert.Equal(false, value.IsDate());
@@ -156,7 +153,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeUndefined()
         {
-            var value = Undefined.Instance;
+            var value = JsValue.Undefined;
             Assert.Equal(false, value.IsBoolean());
             Assert.Equal(false, value.IsArray());
             Assert.Equal(false, value.IsDate());

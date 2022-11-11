@@ -282,13 +282,13 @@ namespace Jint.Native.Json
         private Token ScanNullLiteral()
         {
             int start = _index;
-            if (ConsumeMatch(Null.Text))
+            if (ConsumeMatch("null"))
             {
                 return new Token
                 {
                     Type = Tokens.NullLiteral,
-                    Text = Null.Text,
-                    Value = Null.Instance,
+                    Text = "null",
+                    Value = JsValue.Null,
                     LineNumber = _lineNumber,
                     LineStart = _lineStart,
                     Range = new[] { start, _index }
@@ -639,7 +639,7 @@ namespace Jint.Native.Json
                 if (Match(","))
                 {
                     Lex();
-                    elements.Add(Null.Instance);
+                    elements.Add(JsValue.Null);
                 }
                 else
                 {
@@ -721,7 +721,7 @@ namespace Jint.Native.Json
             {
                 case Tokens.NullLiteral:
                     var v = Lex().Value;
-                    return Null.Instance;
+                    return JsValue.Null;
                 case Tokens.BooleanLiteral:
                     // implicit conversion operator goes through caching
                     return (bool) Lex().Value ? JsBoolean.True : JsBoolean.False;
@@ -745,7 +745,7 @@ namespace Jint.Native.Json
             ThrowUnexpected(Lex());
 
             // can't be reached
-            return Null.Instance;
+            return JsValue.Null;
         }
 
         public JsValue Parse(string code)

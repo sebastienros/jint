@@ -275,8 +275,8 @@ namespace Jint.Native.TypedArray
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void IntegerIndexedElementSet(int index, JsValue value)
         {
-            TypedArrayValue numValue = _contentType != TypedArrayContentType.BigInt 
-                ? TypeConverter.ToNumber(value) 
+            TypedArrayValue numValue = _contentType != TypedArrayContentType.BigInt
+                ? TypeConverter.ToNumber(value)
                 : value.ToBigInteger(_engine);
 
             if (IsValidIntegerIndex(index))

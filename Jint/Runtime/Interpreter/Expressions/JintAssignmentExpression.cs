@@ -168,7 +168,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
                         else if (lval.IsUndefined() || rval.IsUndefined())
                         {
-                            lval = Undefined.Instance;
+                            lval = JsValue.Undefined;
                         }
                         else if (!AreIntegerOperands(lval, rval))
                         {
@@ -194,7 +194,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         var rval = _right.GetValue(context);
                         if (lval.IsUndefined() || rval.IsUndefined())
                         {
-                            lval = Undefined.Instance;
+                            lval = JsValue.Undefined;
                         }
                         else if (!AreIntegerOperands(lval, rval))
                         {
@@ -291,7 +291,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         var rval = _right.GetValue(context);
                         if (!lval.IsBigInt() && !rval.IsBigInt())
                         {
-                            lval = JsNumber.Create(System.Math.Pow(TypeConverter.ToNumber(lval), TypeConverter.ToNumber(rval)));
+                            lval = JsNumber.Create(Math.Pow(TypeConverter.ToNumber(lval), TypeConverter.ToNumber(rval)));
                         }
                         else
                         {

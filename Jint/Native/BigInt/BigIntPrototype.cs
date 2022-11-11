@@ -12,7 +12,7 @@ namespace Jint.Native.BigInt;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-bigint-prototype-object
 /// </summary>
-public sealed class BigIntPrototype : ObjectInstance
+internal sealed class BigIntPrototype : ObjectInstance
 {
     private readonly Realm _realm;
     private readonly BigIntConstructor _constructor;

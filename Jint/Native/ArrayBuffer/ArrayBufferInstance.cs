@@ -7,7 +7,7 @@ namespace Jint.Native.ArrayBuffer
     /// <summary>
     /// https://tc39.es/ecma262/#sec-arraybuffer-objects
     /// </summary>
-    public sealed class ArrayBufferInstance : ObjectInstance
+    internal sealed class ArrayBufferInstance : ObjectInstance
     {
         // so that we don't need to allocate while or reading setting values
         private readonly byte[] _workBuffer = new byte[8];

@@ -1,9 +1,8 @@
-namespace Jint.Native.ArrayBuffer
+namespace Jint.Native.ArrayBuffer;
+
+internal enum ArrayBufferOrder
 {
-    internal enum ArrayBufferOrder
-    {
-        Init,
-        SecCst,
-        Unordered
-    }
+    Init,
+    SecCst,
+    Unordered
 }

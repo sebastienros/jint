@@ -174,7 +174,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 case UnaryOperator.Void:
                     _argument.GetValue(context);
-                    return Undefined.Instance;
+                    return JsValue.Undefined;
 
                 case UnaryOperator.TypeOf:
                 {

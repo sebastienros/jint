@@ -6,7 +6,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Map;
 
-public sealed class MapInstance : ObjectInstance
+internal sealed class MapInstance : ObjectInstance
 {
     private readonly Realm _realm;
     internal readonly OrderedDictionary<JsValue, JsValue> _map;

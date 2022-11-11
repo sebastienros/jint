@@ -181,7 +181,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             reference = GetReferenceFromMember(context, memberExpression);
                         }
 
-                        ArrayInstance array;
+                        JsArray array;
                         if (arrayOperations != null)
                         {
                             var length = arrayOperations.GetLength();
