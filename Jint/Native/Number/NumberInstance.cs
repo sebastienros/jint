@@ -8,6 +8,12 @@ internal class NumberInstance : ObjectInstance, IPrimitiveInstance
 {
     private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
 
+    private protected NumberInstance(Engine engine, InternalTypes type)
+        : base(engine, ObjectClass.Number, type)
+    {
+        NumberData = JsNumber.PositiveZero;
+    }
+
     public NumberInstance(Engine engine, JsNumber value)
         : base(engine, ObjectClass.Number)
     {

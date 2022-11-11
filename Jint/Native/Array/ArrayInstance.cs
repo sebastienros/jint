@@ -21,7 +21,7 @@ namespace Jint.Native.Array
 
         private ObjectChangeFlags _objectChangeFlags;
 
-        private protected ArrayInstance(Engine engine) : base(engine)
+        private protected ArrayInstance(Engine engine, InternalTypes type) : base(engine, type: type)
         {
             _dense = System.Array.Empty<object?>();
         }

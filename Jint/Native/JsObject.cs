@@ -8,7 +8,7 @@ namespace Jint.Native;
 /// </summary>
 public sealed class JsObject : ObjectInstance
 {
-    public JsObject(Engine engine) : base(engine, type: InternalTypes.Object)
+    public JsObject(Engine engine) : base(engine, type: InternalTypes.Object | InternalTypes.PlainObject)
     {
     }
 }

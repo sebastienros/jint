@@ -24,7 +24,7 @@ namespace Jint.Native.Number
             Realm realm,
             NumberConstructor constructor,
             ObjectPrototype objectPrototype)
-            : base(engine, JsNumber.PositiveZero)
+            : base(engine, InternalTypes.Object | InternalTypes.PlainObject)
         {
             _prototype = objectPrototype;
             _realm = realm;

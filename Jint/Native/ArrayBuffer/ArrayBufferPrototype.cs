@@ -10,19 +10,16 @@ namespace Jint.Native.ArrayBuffer
     /// <summary>
     /// https://tc39.es/ecma262/#sec-properties-of-the-arraybuffer-prototype-object
     /// </summary>
-    internal sealed class ArrayBufferPrototype : ObjectInstance
+    internal sealed class ArrayBufferPrototype : Prototype
     {
-        private readonly Realm _realm;
         private readonly ArrayBufferConstructor _constructor;
 
         internal ArrayBufferPrototype(
             Engine engine,
-            Realm realm,
             ArrayBufferConstructor constructor,
-            ObjectPrototype objectPrototype) : base(engine, 0)
+            ObjectPrototype objectPrototype) : base(engine, engine.Realm)
         {
             _prototype = objectPrototype;
-            _realm = realm;
             _constructor = constructor;
         }
 

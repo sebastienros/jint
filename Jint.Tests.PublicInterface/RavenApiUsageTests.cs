@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Esprima.Ast;
 using Jint.Constraints;
 using Jint.Native;

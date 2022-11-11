@@ -25,7 +25,7 @@ namespace Jint.Native.ArrayBuffer
             : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
-            PrototypeObject = new ArrayBufferPrototype(engine, realm, this, objectPrototype);
+            PrototypeObject = new ArrayBufferPrototype(engine, this, objectPrototype);
             _length = new PropertyDescriptor(1, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }

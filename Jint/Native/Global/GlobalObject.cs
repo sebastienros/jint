@@ -18,7 +18,7 @@ namespace Jint.Native.Global
 
         internal GlobalObject(
             Engine engine,
-            Realm realm) : base(engine, ObjectClass.Object, InternalTypes.Object)
+            Realm realm) : base(engine, ObjectClass.Object, InternalTypes.Object | InternalTypes.PlainObject)
         {
             _realm = realm;
         }

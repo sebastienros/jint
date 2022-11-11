@@ -21,7 +21,7 @@ namespace Jint.Native.TypedArray
             string functionName) : base(engine, realm, new JsString(functionName))
         {
             _prototype = functionPrototype;
-            PrototypeObject = new IntrinsicTypedArrayPrototype(engine, realm, objectPrototype, this);
+            PrototypeObject = new IntrinsicTypedArrayPrototype(engine, objectPrototype, this);
             _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }

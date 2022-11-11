@@ -12,19 +12,16 @@ namespace Jint.Native.DataView
     /// <summary>
     /// https://tc39.es/ecma262/#sec-properties-of-the-dataview-prototype-object
     /// </summary>
-    internal sealed class DataViewPrototype : ObjectInstance
+    internal sealed class DataViewPrototype : Prototype
     {
-        private readonly Realm _realm;
         private readonly DataViewConstructor _constructor;
 
         internal DataViewPrototype(
             Engine engine,
-            Realm realm,
             DataViewConstructor constructor,
-            ObjectPrototype objectPrototype) : base(engine)
+            ObjectPrototype objectPrototype) : base(engine, engine.Realm)
         {
             _prototype = objectPrototype;
-            _realm = realm;
             _constructor = constructor;
         }
 
