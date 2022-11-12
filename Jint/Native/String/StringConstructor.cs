@@ -55,7 +55,16 @@ namespace Jint.Native.String
                 return JsString.Empty;
             }
 
+            if (arguments.Length == 1)
+            {
+                return JsString.Create((char) TypeConverter.ToUint16(arguments[0]));
+            }
+
+#if NETSTANDARD2_1_OR_GREATER
+            var elements = length < 512 ? stackalloc char[length] : new char[length];
+#else
             var elements = new char[length];
+#endif
             for (var i = 0; i < elements.Length; i++ )
             {
                 var nextCu = TypeConverter.ToUint16(arguments[i]);

@@ -44,8 +44,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             var engine = context.Engine;
-            var lval = context.Engine.GetValue(lref, false);
+            var originalLeftValue = context.Engine.GetValue(lref, false);
             var handledByOverload = false;
+            JsValue? newLeftValue = null;
 
             if (context.OperatorOverloadingAllowed)
             {
@@ -94,14 +95,15 @@ namespace Jint.Runtime.Interpreter.Expressions
                 if (operatorClrName != null)
                 {
                     var rval = _right.GetValue(context);
-                    if (JintBinaryExpression.TryOperatorOverloading(context, lval, rval, operatorClrName, out var result))
+                    if (JintBinaryExpression.TryOperatorOverloading(context, originalLeftValue, rval, operatorClrName, out var result))
                     {
-                        lval = JsValue.FromObject(context.Engine, result);
+                        newLeftValue = JsValue.FromObject(context.Engine, result);
                         handledByOverload = true;
                     }
                 }
             }
 
+            var wasMutatedInPlace = false;
             if (!handledByOverload)
             {
                 switch (_operator)
@@ -109,31 +111,32 @@ namespace Jint.Runtime.Interpreter.Expressions
                     case AssignmentOperator.PlusAssign:
                     {
                         var rval = _right.GetValue(context);
-                        if (AreIntegerOperands(lval, rval))
+                        if (AreIntegerOperands(originalLeftValue, rval))
                         {
-                            lval = (long) lval.AsInteger() + rval.AsInteger();
+                            newLeftValue = (long) originalLeftValue.AsInteger() + rval.AsInteger();
                         }
                         else
                         {
-                            var lprim = TypeConverter.ToPrimitive(lval);
+                            var lprim = TypeConverter.ToPrimitive(originalLeftValue);
                             var rprim = TypeConverter.ToPrimitive(rval);
 
                             if (lprim.IsString() || rprim.IsString())
                             {
-                                if (!(lprim is JsString jsString))
+                                wasMutatedInPlace = lprim is JsString.ConcatenatedString;
+                                if (lprim is not JsString jsString)
                                 {
                                     jsString = new JsString.ConcatenatedString(TypeConverter.ToString(lprim));
                                 }
 
-                                lval = jsString.Append(rprim);
+                                newLeftValue = jsString.Append(rprim);
                             }
-                            else if (!AreIntegerOperands(lval, rval))
+                            else if (!AreIntegerOperands(originalLeftValue, rval))
                             {
-                                lval = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
+                                newLeftValue = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
                             }
                             else
                             {
-                                lval = TypeConverter.ToBigInt(lprim) + TypeConverter.ToBigInt(rprim);
+                                newLeftValue = TypeConverter.ToBigInt(lprim) + TypeConverter.ToBigInt(rprim);
                             }
                         }
 
@@ -143,17 +146,17 @@ namespace Jint.Runtime.Interpreter.Expressions
                     case AssignmentOperator.MinusAssign:
                     {
                         var rval = _right.GetValue(context);
-                        if (AreIntegerOperands(lval, rval))
+                        if (AreIntegerOperands(originalLeftValue, rval))
                         {
-                            lval = JsNumber.Create(lval.AsInteger() - rval.AsInteger());
+                            newLeftValue = JsNumber.Create(originalLeftValue.AsInteger() - rval.AsInteger());
                         }
-                        else if (!AreIntegerOperands(lval, rval))
+                        else if (!AreIntegerOperands(originalLeftValue, rval))
                         {
-                            lval = JsNumber.Create(TypeConverter.ToNumber(lval) - TypeConverter.ToNumber(rval));
+                            newLeftValue = JsNumber.Create(TypeConverter.ToNumber(originalLeftValue) - TypeConverter.ToNumber(rval));
                         }
                         else
                         {
-                            lval = JsNumber.Create(TypeConverter.ToBigInt(lval) - TypeConverter.ToBigInt(rval));
+                            newLeftValue = JsNumber.Create(TypeConverter.ToBigInt(originalLeftValue) - TypeConverter.ToBigInt(rval));
                         }
 
                         break;
@@ -162,21 +165,21 @@ namespace Jint.Runtime.Interpreter.Expressions
                     case AssignmentOperator.TimesAssign:
                     {
                         var rval = _right.GetValue(context);
-                        if (AreIntegerOperands(lval, rval))
+                        if (AreIntegerOperands(originalLeftValue, rval))
                         {
-                            lval = (long) lval.AsInteger() * rval.AsInteger();
+                            newLeftValue = (long) originalLeftValue.AsInteger() * rval.AsInteger();
                         }
-                        else if (lval.IsUndefined() || rval.IsUndefined())
+                        else if (originalLeftValue.IsUndefined() || rval.IsUndefined())
                         {
-                            lval = JsValue.Undefined;
+                            newLeftValue = JsValue.Undefined;
                         }
-                        else if (!AreIntegerOperands(lval, rval))
+                        else if (!AreIntegerOperands(originalLeftValue, rval))
                         {
-                            lval = TypeConverter.ToNumber(lval) * TypeConverter.ToNumber(rval);
+                            newLeftValue = TypeConverter.ToNumber(originalLeftValue) * TypeConverter.ToNumber(rval);
                         }
                         else
                         {
-                            lval = TypeConverter.ToBigInt(lval) * TypeConverter.ToBigInt(rval);
+                            newLeftValue = TypeConverter.ToBigInt(originalLeftValue) * TypeConverter.ToBigInt(rval);
                         }
 
                         break;
@@ -185,24 +188,24 @@ namespace Jint.Runtime.Interpreter.Expressions
                     case AssignmentOperator.DivideAssign:
                     {
                         var rval = _right.GetValue(context);
-                        lval = Divide(context, lval, rval);
+                        newLeftValue = Divide(context, originalLeftValue, rval);
                         break;
                     }
 
                     case AssignmentOperator.ModuloAssign:
                     {
                         var rval = _right.GetValue(context);
-                        if (lval.IsUndefined() || rval.IsUndefined())
+                        if (originalLeftValue.IsUndefined() || rval.IsUndefined())
                         {
-                            lval = JsValue.Undefined;
+                            newLeftValue = JsValue.Undefined;
                         }
-                        else if (!AreIntegerOperands(lval, rval))
+                        else if (!AreIntegerOperands(originalLeftValue, rval))
                         {
-                            lval = TypeConverter.ToNumber(lval) % TypeConverter.ToNumber(rval);
+                            newLeftValue = TypeConverter.ToNumber(originalLeftValue) % TypeConverter.ToNumber(rval);
                         }
                         else
                         {
-                            lval = TypeConverter.ToNumber(lval) % TypeConverter.ToNumber(rval);
+                            newLeftValue = TypeConverter.ToNumber(originalLeftValue) % TypeConverter.ToNumber(rval);
                         }
 
                         break;
@@ -211,87 +214,87 @@ namespace Jint.Runtime.Interpreter.Expressions
                     case AssignmentOperator.BitwiseAndAssign:
                     {
                         var rval = _right.GetValue(context);
-                        lval = TypeConverter.ToInt32(lval) & TypeConverter.ToInt32(rval);
+                        newLeftValue = TypeConverter.ToInt32(originalLeftValue) & TypeConverter.ToInt32(rval);
                         break;
                     }
 
                     case AssignmentOperator.BitwiseOrAssign:
                     {
                         var rval = _right.GetValue(context);
-                        lval = TypeConverter.ToInt32(lval) | TypeConverter.ToInt32(rval);
+                        newLeftValue = TypeConverter.ToInt32(originalLeftValue) | TypeConverter.ToInt32(rval);
                         break;
                     }
 
                     case AssignmentOperator.BitwiseXorAssign:
                     {
                         var rval = _right.GetValue(context);
-                        lval = TypeConverter.ToInt32(lval) ^ TypeConverter.ToInt32(rval);
+                        newLeftValue = TypeConverter.ToInt32(originalLeftValue) ^ TypeConverter.ToInt32(rval);
                         break;
                     }
 
                     case AssignmentOperator.LeftShiftAssign:
                     {
                         var rval = _right.GetValue(context);
-                        lval = TypeConverter.ToInt32(lval) << (int) (TypeConverter.ToUint32(rval) & 0x1F);
+                        newLeftValue = TypeConverter.ToInt32(originalLeftValue) << (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
                     }
 
                     case AssignmentOperator.RightShiftAssign:
                     {
                         var rval = _right.GetValue(context);
-                        lval = TypeConverter.ToInt32(lval) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
+                        newLeftValue = TypeConverter.ToInt32(originalLeftValue) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
                     }
 
                     case AssignmentOperator.UnsignedRightShiftAssign:
                     {
                         var rval = _right.GetValue(context);
-                        lval = (uint) TypeConverter.ToInt32(lval) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
+                        newLeftValue = (uint) TypeConverter.ToInt32(originalLeftValue) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
                     }
 
                     case AssignmentOperator.NullishAssign:
                     {
-                        if (!lval.IsNullOrUndefined())
+                        if (!originalLeftValue.IsNullOrUndefined())
                         {
-                            return lval;
+                            return originalLeftValue;
                         }
 
                         var rval = NamedEvaluation(context, _right);
-                        lval = rval;
+                        newLeftValue = rval;
                         break;
                     }
 
                     case AssignmentOperator.AndAssign:
                     {
-                        if (!TypeConverter.ToBoolean(lval))
+                        if (!TypeConverter.ToBoolean(originalLeftValue))
                         {
-                            return lval;
+                            return originalLeftValue;
                         }
 
                         var rval = NamedEvaluation(context, _right);
-                        lval = rval;
+                        newLeftValue = rval;
                         break;
                     }
 
                     case AssignmentOperator.OrAssign:
                     {
-                        if (TypeConverter.ToBoolean(lval))
+                        if (TypeConverter.ToBoolean(originalLeftValue))
                         {
-                            return lval;
+                            return originalLeftValue;
                         }
 
                         var rval = NamedEvaluation(context, _right);
-                        lval = rval;
+                        newLeftValue = rval;
                         break;
                     }
 
                     case AssignmentOperator.ExponentiationAssign:
                     {
                         var rval = _right.GetValue(context);
-                        if (!lval.IsBigInt() && !rval.IsBigInt())
+                        if (!originalLeftValue.IsBigInt() && !rval.IsBigInt())
                         {
-                            lval = JsNumber.Create(Math.Pow(TypeConverter.ToNumber(lval), TypeConverter.ToNumber(rval)));
+                            newLeftValue = JsNumber.Create(Math.Pow(TypeConverter.ToNumber(originalLeftValue), TypeConverter.ToNumber(rval)));
                         }
                         else
                         {
@@ -300,7 +303,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             {
                                 ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Cannot do exponentation with exponent not fitting int32");
                             }
-                            lval = JsBigInt.Create(BigInteger.Pow(TypeConverter.ToBigInt(lval), (int) exponent));
+                            newLeftValue = JsBigInt.Create(BigInteger.Pow(TypeConverter.ToBigInt(originalLeftValue), (int) exponent));
                         }
 
                         break;
@@ -312,10 +315,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
             }
 
-            engine.PutValue(lref, lval);
+            // if we did string concatenation in-place, we don't need to update records, objects might have evil setters
+            if (!wasMutatedInPlace || lref.GetBase() is not EnvironmentRecord)
+            {
+                engine.PutValue(lref, newLeftValue!);
+            }
 
             engine._referencePool.Return(lref);
-            return lval;
+            return newLeftValue!;
         }
 
         private JsValue NamedEvaluation(EvaluationContext context, JintExpression expression)
