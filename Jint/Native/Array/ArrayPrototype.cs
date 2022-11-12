@@ -1245,7 +1245,10 @@ namespace Jint.Native.Array
             sb.Builder.Append(s);
             for (uint k = 1; k < len; k++)
             {
-                sb.Builder.Append(sep);
+                if (sep != "")
+                {
+                    sb.Builder.Append(sep);
+                }
                 sb.Builder.Append(StringFromJsValue(o.Get(k)));
             }
 

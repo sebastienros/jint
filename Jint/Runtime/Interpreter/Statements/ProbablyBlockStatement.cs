@@ -11,28 +11,29 @@ namespace Jint.Runtime.Interpreter.Statements;
 [StructLayout(LayoutKind.Auto)]
 internal readonly struct ProbablyBlockStatement
 {
-    private readonly JintStatement  _target;
+    private readonly JintStatement? _statement = null;
+    private readonly JintBlockStatement? _blockStatement = null;
 
     public ProbablyBlockStatement(Statement statement)
     {
         if (statement is BlockStatement blockStatement)
         {
-            _target = new JintBlockStatement(blockStatement);
+            _blockStatement = new JintBlockStatement(blockStatement);
         }
         else
         {
-            _target = JintStatement.Build(statement);
+            _statement = JintStatement.Build(statement);
         }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Completion Execute(EvaluationContext context)
     {
-        if (_target is JintBlockStatement blockStatement)
+        if (_blockStatement is not null)
         {
-            return blockStatement.ExecuteBlock(context);
+            return _blockStatement.ExecuteBlock(context);
         }
 
-        return _target.Execute(context);
+        return _statement!.Execute(context);
     }
 }

@@ -196,17 +196,6 @@ public class JsString : JsValue, IEquatable<JsString>
         return _value;
     }
 
-    public JsArray ToArray(Engine engine)
-    {
-        var array = engine.Realm.Intrinsics.Array.ArrayCreate((uint) _value.Length);
-        for (int i = 0; i < _value.Length; ++i)
-        {
-            array.SetIndexValue((uint) i, _value[i], updateLength: false);
-        }
-
-        return array;
-    }
-
     internal int IndexOf(string value, StringComparison comparisonType)
     {
         return ToString().IndexOf(value, comparisonType);
