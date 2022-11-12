@@ -58,8 +58,13 @@ namespace Jint.Runtime.Interop
                 var arguments = state.Arguments;
                 var referenceType = state.TypeReference.ReferenceType;
 
+                var fromOptionsCreator = engine.Options.Interop.CreateTypeReferenceObject(engine, referenceType, arguments);
                 ObjectInstance? result = null;
-                if (arguments.Length == 0 && referenceType.IsValueType)
+                if (fromOptionsCreator is not null)
+                {
+                    result = TypeConverter.ToObject(realm, FromObject(engine, fromOptionsCreator));
+                }
+                else if (arguments.Length == 0 && referenceType.IsValueType)
                 {
                     var instance = Activator.CreateInstance(referenceType);
                     result = TypeConverter.ToObject(realm, FromObject(engine, instance));
@@ -82,7 +87,7 @@ namespace Jint.Runtime.Interop
 
                 if (result is null)
                 {
-                    ExceptionHelper.ThrowTypeError(realm, "No public methods with the specified arguments were found.");
+                    ExceptionHelper.ThrowTypeError(realm, $"Could not resolve a constructor for type {referenceType} for given arguments");
                 }
 
                 result.SetPrototypeOf(state.TypeReference);
