@@ -296,6 +296,12 @@ namespace Jint
         public Func<ObjectInstance, IDictionary<string, object>> CreateClrObject = _ => new ExpandoObject();
 
         /// <summary>
+        /// Strategy to create a CLR object from TypeReference.
+        /// Defaults to retuning null which makes TypeReference attempt to find suitable constructor.
+        /// </summary>
+        public Func<Engine, Type, JsValue[], object?> CreateTypeReferenceObject = (_, _, _) => null;
+
+        /// <summary>
         /// When not null, is used to serialize any CLR object in an
         /// <see cref="IObjectWrapper"/> passing through 'JSON.stringify'.
         /// </summary>
