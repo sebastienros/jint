@@ -324,7 +324,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     processedProperties?.Add(sourceKey);
                     if (p.Value is AssignmentPattern assignmentPattern)
                     {
-                        source.TryGetValue(sourceKey, out var value);
+                        var value = source.Get(sourceKey);
                         if (value.IsUndefined())
                         {
                             var jintExpression = Build(assignmentPattern.Right);
@@ -353,21 +353,21 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else if (p.Value is BindingPattern bindingPattern)
                     {
-                        source.TryGetValue(sourceKey, out var value);
+                        var value = source.Get(sourceKey);
                         ProcessPatterns(context, bindingPattern, value, environment);
                     }
                     else if (p.Value is MemberExpression memberExpression)
                     {
                         var reference = GetReferenceFromMember(context, memberExpression);
-                        source.TryGetValue(sourceKey, out var value);
+                        var value = source.Get(sourceKey);
                         AssignToReference(context.Engine, reference, value, environment);
                     }
                     else
                     {
                         var identifierReference = p.Value as Identifier;
                         var target = identifierReference ?? identifier;
-                        source.TryGetValue(sourceKey, out var v);
-                        AssignToIdentifier(context.Engine, target!.Name, v, environment, checkReference);
+                        var value = source.Get(sourceKey);
+                        AssignToIdentifier(context.Engine, target!.Name, value, environment, checkReference);
                     }
                 }
                 else
