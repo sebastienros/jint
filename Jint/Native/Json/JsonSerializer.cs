@@ -13,7 +13,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Json
 {
-    public class JsonSerializer
+    public sealed class JsonSerializer
     {
         private readonly Engine _engine;
         private ObjectTraverseStack _stack = null!;

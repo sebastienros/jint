@@ -121,12 +121,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
-                return new JsArray(context.Engine, Array.Empty<object>());
+                return new JsArray(context.Engine, Array.Empty<JsValue>());
             }
 
             public override JsValue GetValue(EvaluationContext context)
             {
-                return new JsArray(context.Engine, Array.Empty<object>());
+                return new JsArray(context.Engine, Array.Empty<JsValue>());
             }
         }
     }

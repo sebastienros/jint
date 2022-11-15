@@ -86,32 +86,50 @@ public class RavenApiUsageTests
         var obj = new JsObject(engine);
         obj.FastSetDataProperty("name", "test");
 
-        var emptyArray = new JsArray(engine);
-
-        var array = new JsArray(engine, new object[]
+        var array1 = new JsArray(engine, new JsValue[]
         {
             JsNumber.Create(1),
             JsNumber.Create(2),
             JsNumber.Create(3)
         });
-        var date = new JsDate(engine, new DateTime(2022, 10, 20));
+        engine.SetValue("array1", array1);
+
+        TestArrayAccess(engine, array1, "array1");
+
+        var array3 = new JsArray(engine, new []
+        {
+            new PropertyDescriptor(JsNumber.Create(1), true, true, true),
+            new PropertyDescriptor(JsNumber.Create(2), true, true, true),
+            new PropertyDescriptor(JsNumber.Create(3), true, true, true),
+        });
+        engine.SetValue("array3", array3);
+        TestArrayAccess(engine, array3, "array3");
 
         engine.SetValue("obj", obj);
-        engine.SetValue("emptyArray", emptyArray);
-        engine.SetValue("array", array);
-        engine.SetValue("date", date);
-
         Assert.Equal("test", engine.Evaluate("obj.name"));
+
+        engine.SetValue("emptyArray", new JsArray(engine));
         Assert.Equal(0, engine.Evaluate("emptyArray.length"));
-        Assert.Equal(1, engine.Evaluate("array.findIndex(x => x === 2)"));
+        Assert.Equal(1, engine.Evaluate("emptyArray.push(1); return emptyArray.length"));
+
+        engine.SetValue("emptyArray", new JsArray(engine, Array.Empty<JsValue>()));
+        Assert.Equal(0, engine.Evaluate("emptyArray.length"));
+        Assert.Equal(1, engine.Evaluate("emptyArray.push(1); return emptyArray.length"));
+
+        engine.SetValue("emptyArray", new JsArray(engine, Array.Empty<PropertyDescriptor>()));
+        Assert.Equal(0, engine.Evaluate("emptyArray.length"));
+        Assert.Equal(1, engine.Evaluate("emptyArray.push(1); return emptyArray.length"));
+
+        engine.SetValue("date", new JsDate(engine, new DateTime(2022, 10, 20)));
         Assert.Equal(2022, engine.Evaluate("date.getFullYear()"));
+    }
+
+    private static void TestArrayAccess(Engine engine, JsArray array, string name)
+    {
+        Assert.Equal(1, engine.Evaluate($"{name}.findIndex(x => x === 2)"));
 
         array.Push(4);
         array.Push(new JsValue[] { 5, 6 });
-
-        Assert.Equal(4, array[3]);
-        Assert.Equal(5, array[4]);
-        Assert.Equal(6, array[5]);
 
         var i = 0;
         foreach (var entry in array.GetEntries())
@@ -120,6 +138,26 @@ public class RavenApiUsageTests
             Assert.Equal(i + 1, entry.Value);
             i++;
         }
+
         Assert.Equal(6, i);
+
+        array[0] = "";
+        array[1] = false;
+        array[2] = null;
+
+        Assert.Equal("", array[0]);
+        Assert.Equal(false, array[1]);
+        Assert.Equal(JsValue.Undefined, array[2]);
+        Assert.Equal(4, array[3]);
+        Assert.Equal(5, array[4]);
+        Assert.Equal(6, array[5]);
+
+        for (i = 0; i < 100; ++i)
+        {
+            array.Push(JsValue.Undefined);
+        }
+
+        Assert.Equal(106L, array.Length);
+        Assert.True(array.All(x => x is JsNumber or JsUndefined or JsNumber or JsString or JsBoolean));
     }
 }

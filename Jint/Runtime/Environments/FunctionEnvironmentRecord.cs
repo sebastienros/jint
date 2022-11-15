@@ -289,7 +289,7 @@ namespace Jint.Runtime.Environments
             uint count = restCount > 0 ? (uint) restCount : 0;
 
             uint targetIndex = 0;
-            var rest = new object[count];
+            var rest = new JsValue[count];
             for (var argIndex = index; argIndex < arguments.Length; ++argIndex)
             {
                 rest[targetIndex++] = arguments[argIndex];

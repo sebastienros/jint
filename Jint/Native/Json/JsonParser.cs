@@ -10,7 +10,7 @@ using Range = Esprima.Range;
 
 namespace Jint.Native.Json
 {
-    public class JsonParser
+    public sealed class JsonParser
     {
         private readonly Engine _engine;
 
