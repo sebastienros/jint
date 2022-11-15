@@ -5,7 +5,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.RegExp
 {
-    public class RegExpInstance : ObjectInstance
+    public sealed class RegExpInstance : ObjectInstance
     {
         internal const string regExpForMatchingAllCharacters = "(?:)";
         internal static readonly JsString PropertyLastIndex = new("lastIndex");

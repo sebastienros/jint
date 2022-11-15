@@ -47,7 +47,7 @@ namespace Jint.Native.Array
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
-        private protected ArrayInstance(Engine engine, object[] items) : base(engine)
+        private protected ArrayInstance(Engine engine, JsValue[] items) : base(engine)
         {
             _prototype = engine.Realm.Intrinsics.Array.PrototypeObject;
 
@@ -59,11 +59,6 @@ namespace Jint.Native.Array
             }
             else
             {
-                if (items.GetType() != typeof(object[]))
-                {
-                    ExceptionHelper.ThrowArgumentException("Supplied array must be of type object[] and should only contain values that inherit from JsValue or PropertyDescriptor or are null");
-                }
-
                 _dense = items;
                 length = items.Length;
             }
@@ -73,6 +68,8 @@ namespace Jint.Native.Array
 
         private protected ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine)
         {
+            _prototype = engine.Realm.Intrinsics.Array.PrototypeObject;
+
             int length;
             if (items == null || items.Length == 0)
             {
@@ -992,14 +989,13 @@ namespace Jint.Native.Array
             var canUseDirectIndexSet = temp != null && newLength <= temp.Length;
 
             double n = initialLength;
-            var desc = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
             if (canUseDirectIndexSet)
             {
-                temp![(uint) n] = desc;
+                temp![(uint) n] = value;
             }
             else
             {
-                WriteValueSlow(n, desc);
+                WriteValueSlow(n, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
             }
 
             // check if we can set length fast without breaking ECMA specification
@@ -1202,6 +1198,10 @@ namespace Jint.Native.Array
                 TryGetValue(index, out var kValue);
                 return kValue;
             }
+            set
+            {
+                SetIndexValue(index, value, updateLength: true);
+            }
         }
 
         public JsValue this[int index]
@@ -1219,6 +1219,17 @@ namespace Jint.Native.Array
                     TryGetValue(JsNumber.Create(index), out kValue);
                 }
                 return kValue;
+            }
+            set
+            {
+                if (index >= 0)
+                {
+                    SetIndexValue((uint) index, value, updateLength: true);
+                }
+                else
+                {
+                    Set(index, value);
+                }
             }
         }
 

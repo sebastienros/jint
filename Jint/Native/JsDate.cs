@@ -5,7 +5,7 @@ using Jint.Runtime;
 
 namespace Jint.Native;
 
-public class JsDate : ObjectInstance
+public sealed class JsDate : ObjectInstance
 {
     // Maximum allowed value to prevent DateTime overflow
     private static readonly long Max = (long) (DateTime.MaxValue - DateConstructor.Epoch).TotalMilliseconds;

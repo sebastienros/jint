@@ -17,15 +17,15 @@ public sealed class JsArray : ArrayInstance
 
     /// <summary>
     /// Possibility to construct valid array fast.
-    /// Requires that supplied array is of type object[] and it should only contain values that inherit from JsValue or PropertyDescriptor or are null.
     /// The array will be owned and modified by Jint afterwards.
     /// </summary>
-    public JsArray(Engine engine, object[] items) : base(engine, items)
+    public JsArray(Engine engine, JsValue[] items) : base(engine, items)
     {
     }
 
     /// <summary>
     /// Possibility to construct valid array fast, requires that supplied array does not have holes.
+    /// The array will be owned and modified by Jint afterwards.
     /// </summary>
     public JsArray(Engine engine, PropertyDescriptor[] items) : base(engine, items)
     {

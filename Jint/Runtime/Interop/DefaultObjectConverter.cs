@@ -156,7 +156,7 @@ namespace Jint
             var array = (Array) v;
             var arrayLength = (uint) array.Length;
 
-            var values = new object[arrayLength];
+            var values = new JsValue[arrayLength];
             for (uint i = 0; i < arrayLength; ++i)
             {
                 values[i] = JsValue.FromObject(e, array.GetValue(i));

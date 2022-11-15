@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Jint.Native.Symbol
 {
-    public class GlobalSymbolRegistry
+    public sealed class GlobalSymbolRegistry
     {
         public static readonly JsSymbol AsyncIterator = new JsSymbol("Symbol.asyncIterator");
         public static readonly JsSymbol HasInstance = new JsSymbol("Symbol.hasInstance");
