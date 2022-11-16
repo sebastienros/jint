@@ -20,6 +20,7 @@ namespace Jint.Native.Array
         private Dictionary<uint, object?>? _sparse;
 
         private ObjectChangeFlags _objectChangeFlags;
+        private bool _isObjectArray = true;
 
         private protected ArrayInstance(Engine engine, InternalTypes type) : base(engine, type: type)
         {
@@ -50,6 +51,7 @@ namespace Jint.Native.Array
         private protected ArrayInstance(Engine engine, JsValue[] items) : base(engine)
         {
             _prototype = engine.Realm.Intrinsics.Array.PrototypeObject;
+            _isObjectArray = false;
 
             int length;
             if (items == null || items.Length == 0)
@@ -69,6 +71,7 @@ namespace Jint.Native.Array
         private protected ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine)
         {
             _prototype = engine.Realm.Intrinsics.Array.PrototypeObject;
+            _isObjectArray = false;
 
             int length;
             if (items == null || items.Length == 0)
@@ -479,6 +482,18 @@ namespace Jint.Native.Array
             var isSafeSelfTarget = IsSafeSelfTarget(receiver);
             if (isSafeSelfTarget && IsArrayIndex(property, out var index))
             {
+                var temp = _dense;
+                if (temp is not null && CanUseFastAccess)
+                {
+                    var current = index < temp.Length ? temp[index] : null;
+                    if (current is not PropertyDescriptor p || p.IsDefaultArrayValueDescriptor())
+                    {
+                        SetIndexValue(index, value, true);
+                        return true;
+                    }
+                }
+
+                // slower and more allocating
                 if (TryGetDescriptor(index, out var descriptor))
                 {
                     if (descriptor.IsDefaultArrayValueDescriptor())
@@ -733,6 +748,10 @@ namespace Jint.Native.Array
                     var value = temp[index];
                     if (value is JsValue jsValue)
                     {
+                        if (EnsureCompatibleDense(typeof(PropertyDescriptor)))
+                        {
+                            temp = _dense!;
+                        }
                         temp[index] = descriptor = new PropertyDescriptor(jsValue, PropertyFlag.ConfigurableEnumerableWritable);
                     }
                     else if (value is PropertyDescriptor propertyDescriptor)
@@ -819,12 +838,16 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void WriteArrayValue(uint index, object? value)
+        private void WriteArrayValue(uint index, object? value)
         {
             var dense = _dense;
             if (dense != null && index < (uint) dense.Length)
             {
-                dense[index] = value;
+                if (value is not null && !_isObjectArray && EnsureCompatibleDense(value is JsValue ? typeof(JsValue) : typeof(PropertyDescriptor)))
+                {
+                    dense = _dense;
+                }
+                dense![index] = value;
             }
             else
             {
@@ -861,6 +884,32 @@ namespace Jint.Native.Array
             }
         }
 
+        /// <summary>
+        /// Converts to object array when needed. Returns true if conversion was made.
+        /// </summary>
+        private bool EnsureCompatibleDense(Type expectedElementType)
+        {
+            if (!_isObjectArray)
+            {
+                return CheckConversionUnlikely(expectedElementType);
+            }
+
+            return false;
+        }
+
+        private bool CheckConversionUnlikely(Type expectedElementType)
+        {
+            var currentElementType = _dense!.GetType().GetElementType();
+            if (currentElementType != typeof(object) && !expectedElementType.IsAssignableFrom(currentElementType))
+            {
+                // triggers conversion for array
+                EnsureCapacity((uint) _dense.Length, force: true);
+                return true;
+            }
+
+            return false;
+        }
+
         private void ConvertToSparse()
         {
             _sparse = new Dictionary<uint, object?>(_dense!.Length <= 1024 ? _dense.Length : 0);
@@ -876,9 +925,9 @@ namespace Jint.Native.Array
             _dense = null;
         }
 
-        internal void EnsureCapacity(uint capacity)
+        internal void EnsureCapacity(uint capacity, bool force = false)
         {
-            if (capacity > MaxDenseArrayLength || _dense is null || capacity <= (uint) _dense.Length)
+            if (!force && (capacity > MaxDenseArrayLength || _dense is null || capacity <= (uint) _dense.Length))
             {
                 return;
             }
@@ -890,8 +939,9 @@ namespace Jint.Native.Array
 
             // need to grow
             var newArray = new object[capacity];
-            System.Array.Copy(_dense, newArray, _dense.Length);
+            System.Array.Copy(_dense, newArray, _dense!.Length);
             _dense = newArray;
+            _isObjectArray = true;
         }
 
         public JsValue[] ToArray()

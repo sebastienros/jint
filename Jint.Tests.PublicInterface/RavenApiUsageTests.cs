@@ -127,6 +127,7 @@ public class RavenApiUsageTests
     private static void TestArrayAccess(Engine engine, JsArray array, string name)
     {
         Assert.Equal(1, engine.Evaluate($"{name}.findIndex(x => x === 2)"));
+        Assert.Equal(2, array.GetOwnProperty("1").Value);
 
         array.Push(4);
         array.Push(new JsValue[] { 5, 6 });
