@@ -241,7 +241,7 @@ namespace Jint.Runtime
         internal SymbolConstructor Symbol =>
             _symbol ??= new SymbolConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
-        internal ShadowRealmConstructor ShadowRealm =>
+        public ShadowRealmConstructor ShadowRealm =>
             _shadowRealm ??= new ShadowRealmConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
         internal EvalFunctionInstance Eval =>
