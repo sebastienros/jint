@@ -9,9 +9,9 @@ namespace Jint.Native.ShadowRealm;
 /// <summary>
 /// https://tc39.es/proposal-shadowrealm/#sec-properties-of-the-shadowRealm-constructor
 /// </summary>
-internal sealed class ShadowRealmConstructor : FunctionInstance, IConstructor
+public sealed class ShadowRealmConstructor : FunctionInstance, IConstructor
 {
-    private static readonly JsString _functionName = new JsString("ShadowRealm");
+    private static readonly JsString _functionName = new("ShadowRealm");
 
     internal ShadowRealmConstructor(
         Engine engine,
@@ -34,12 +34,12 @@ internal sealed class ShadowRealmConstructor : FunctionInstance, IConstructor
         return null;
     }
 
-    public ShadowRealmInstance Construct()
+    public ShadowRealm Construct()
     {
         return Construct(PrototypeObject);
     }
 
-    private ShadowRealmInstance Construct(JsValue newTarget)
+    private ShadowRealm Construct(JsValue newTarget)
     {
         var realmRec = _engine._host.CreateRealm();
 
@@ -56,7 +56,7 @@ internal sealed class ShadowRealmConstructor : FunctionInstance, IConstructor
                     realm: realmRec,
                     function: null);
 
-                return new ShadowRealmInstance(engine, context, realmRec);
+                return new ShadowRealm(engine, context, realmRec);
             },
             realmRec);
 

@@ -80,9 +80,9 @@ internal sealed class ShadowRealmPrototype : Prototype
         return O.ShadowRealmImportValue(specifierString.ToString(), exportName.ToString(), callerRealm);
     }
 
-    private ShadowRealmInstance ValidateShadowRealmObject(JsValue thisObj)
+    private ShadowRealm ValidateShadowRealmObject(JsValue thisObj)
     {
-        var instance = thisObj as ShadowRealmInstance;
+        var instance = thisObj as ShadowRealm;
         if (instance is null)
         {
             ExceptionHelper.ThrowTypeError(_realm, "object must be a ShadowRealm");

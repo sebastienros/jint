@@ -15,13 +15,13 @@ namespace Jint.Native.ShadowRealm;
 /// <summary>
 /// https://tc39.es/proposal-shadowrealm/#sec-properties-of-shadowrealm-instances
 /// </summary>
-internal sealed class ShadowRealmInstance : ObjectInstance
+public sealed class ShadowRealm : ObjectInstance
 {
     private readonly JavaScriptParser _parser = new(new ParserOptions { Tolerant = false });
     internal readonly Realm _shadowRealm;
-    internal readonly ExecutionContext _executionContext;
+    private readonly ExecutionContext _executionContext;
 
-    internal ShadowRealmInstance(Engine engine, ExecutionContext executionContext, Realm shadowRealm) : base(engine)
+    internal ShadowRealm(Engine engine, ExecutionContext executionContext, Realm shadowRealm) : base(engine)
     {
         _executionContext = executionContext;
         _shadowRealm = shadowRealm;
@@ -242,9 +242,9 @@ internal sealed class ShadowRealmInstance : ObjectInstance
         }
     }
 
-    private static ShadowRealmInstance ValidateShadowRealmObject(Realm callerRealm, JsValue thisObj)
+    private static ShadowRealm ValidateShadowRealmObject(Realm callerRealm, JsValue thisObj)
     {
-        var instance = thisObj as ShadowRealmInstance;
+        var instance = thisObj as ShadowRealm;
         if (instance is null)
         {
             ExceptionHelper.ThrowTypeError(callerRealm, "object must be a ShadowRealm");
