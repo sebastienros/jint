@@ -13,6 +13,7 @@ namespace Jint.Native.WeakSet
     internal sealed class WeakSetPrototype : Prototype
     {
         private readonly WeakSetConstructor _constructor;
+        internal ClrFunctionInstance _originalAddFunction = null!;
 
         internal WeakSetPrototype(
             Engine engine,
@@ -26,20 +27,22 @@ namespace Jint.Native.WeakSet
 
         protected override void Initialize()
         {
-            const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+            _originalAddFunction = new ClrFunctionInstance(Engine, "add", Add, 1, PropertyFlag.Configurable);
+
+            const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
-                ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
-                ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-                ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), propertyFlags),
-                ["add"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "add", Add, 1, PropertyFlag.Configurable), propertyFlags),
-                ["has"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), propertyFlags),
+                ["length"] = new(0, PropertyFlag.Configurable),
+                ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
+                ["delete"] = new(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["add"] = new(_originalAddFunction, PropertyFlags),
+                ["has"] = new(new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), PropertyFlags),
             };
             SetProperties(properties);
 
             var symbols = new SymbolDictionary(1)
             {
-                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("WeakSet", false, false, true)
+                [GlobalSymbolRegistry.ToStringTag] = new("WeakSet", false, false, true)
             };
             SetSymbols(symbols);
         }

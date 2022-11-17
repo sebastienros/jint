@@ -474,6 +474,15 @@ namespace Jint.Native.Array
                 return value;
             }
 
+            if (property == CommonProperties.Length)
+            {
+                var length = _length?._value;
+                if (length is not null)
+                {
+                    return length;
+                }
+            }
+
             return base.Get(property, receiver);
         }
 

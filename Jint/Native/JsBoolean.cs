@@ -12,10 +12,12 @@ public sealed class JsBoolean : JsValue, IEquatable<JsBoolean>
 
     internal readonly bool _value;
 
-    public JsBoolean(bool value) : base(Types.Boolean)
+    private JsBoolean(bool value) : base(Types.Boolean)
     {
         _value = value;
     }
+
+    internal static JsBoolean Create(bool value) => value ? True : False;
 
     public override object ToObject()
     {

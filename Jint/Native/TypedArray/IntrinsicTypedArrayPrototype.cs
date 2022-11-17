@@ -1274,7 +1274,7 @@ namespace Jint.Native.TypedArray
             else
             {
                 var elementObj = TypeConverter.ToObject(_realm, firstElement);
-                var func = elementObj.Get("toLocaleString", elementObj) as ICallable;
+                var func = elementObj.Get("toLocaleString") as ICallable;
                 if (func is null)
                 {
                     ExceptionHelper.ThrowTypeError(_realm);
@@ -1287,7 +1287,7 @@ namespace Jint.Native.TypedArray
             {
                 var s = r + separator;
                 var elementObj = TypeConverter.ToObject(_realm, array[k]);
-                var func = elementObj.Get("toLocaleString", elementObj) as ICallable;
+                var func = elementObj.Get("toLocaleString") as ICallable;
                 if (func is null)
                 {
                     ExceptionHelper.ThrowTypeError(_realm);

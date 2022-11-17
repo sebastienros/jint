@@ -41,7 +41,7 @@ namespace Jint.Native.Json
 
         private static JsValue InternalizeJSONProperty(JsValue holder, JsValue name, ICallable reviver)
         {
-            JsValue temp = holder.Get(name, holder);
+            var temp = holder.Get(name);
             if (temp is ObjectInstance val)
             {
                 if (val.IsArray())

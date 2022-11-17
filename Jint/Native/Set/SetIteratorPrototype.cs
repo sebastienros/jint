@@ -65,11 +65,11 @@ internal sealed class SetIteratorPrototype : IteratorPrototype
             {
                 var value = _set._set[_position];
                 _position++;
-                nextItem = new KeyValueIteratorPosition(_engine, value, value);
+                nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine, value, value);
                 return true;
             }
 
-            nextItem = KeyValueIteratorPosition.Done(_engine);
+            nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine);
             return false;
         }
     }
@@ -93,12 +93,12 @@ internal sealed class SetIteratorPrototype : IteratorPrototype
             {
                 var value = _values[_position];
                 _position++;
-                nextItem = new ValueIteratorPosition(_engine, value);
+                nextItem = IteratorResult.CreateValueIteratorPosition(_engine, value);
                 return true;
             }
 
             _closed = true;
-            nextItem = KeyValueIteratorPosition.Done(_engine);
+            nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine);
             return false;
         }
     }

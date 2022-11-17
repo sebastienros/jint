@@ -7,7 +7,7 @@ namespace Jint.Native.WeakSet
 {
     internal sealed class WeakSetConstructor : FunctionInstance, IConstructor
     {
-        private static readonly JsString _functionName = new JsString("WeakSet");
+        private static readonly JsString _functionName = new("WeakSet");
 
         internal WeakSetConstructor(
             Engine engine,
@@ -22,7 +22,7 @@ namespace Jint.Native.WeakSet
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        public WeakSetPrototype PrototypeObject { get; }
+        private WeakSetPrototype PrototypeObject { get; }
 
         protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
@@ -42,9 +42,22 @@ namespace Jint.Native.WeakSet
                 static intrinsics => intrinsics.WeakSet.PrototypeObject,
                 static (Engine engine, Realm _, object? _) => new WeakSetInstance(engine));
 
-            if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
+            var arg1 = arguments.At(0);
+            if (!arg1.IsNullOrUndefined())
             {
                 var adder = set.Get("add") as ICallable;
+
+                // check fast path
+                if (arg1 is JsArray array && ReferenceEquals(adder, _engine.Realm.Intrinsics.WeakSet.PrototypeObject._originalAddFunction))
+                {
+                    foreach (var value in array)
+                    {
+                        set.WeakSetAdd(value);
+                    }
+
+                    return set;
+                }
+
                 if (adder is null)
                 {
                     ExceptionHelper.ThrowTypeError(_realm, "add must be callable");
@@ -62,7 +75,7 @@ namespace Jint.Native.WeakSet
                             return set;
                         }
 
-                        next.TryGetValue(CommonProperties.Value, out var nextValue);
+                        var nextValue = next.Get(CommonProperties.Value);
                         args[0] = nextValue;
                         adder.Call(set, args);
                     } while (true);

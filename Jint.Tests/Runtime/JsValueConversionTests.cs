@@ -33,7 +33,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ShouldBeABoolean()
         {
-            var value = new JsBoolean(true);
+            var value = JsBoolean.True;
             Assert.Equal(true, value.IsBoolean());
             Assert.Equal(false, value.IsArray());
             Assert.Equal(false, value.IsDate());
