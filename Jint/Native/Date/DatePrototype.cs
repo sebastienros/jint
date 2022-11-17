@@ -815,7 +815,7 @@ namespace Jint.Native.Date
                 return Null;
             }
 
-            var toIso = o.Get("toISOString", o);
+            var toIso = o.Get("toISOString");
             var callable = toIso as ICallable;
             if (callable is null)
             {

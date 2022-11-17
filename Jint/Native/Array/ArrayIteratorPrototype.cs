@@ -85,9 +85,9 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
                 {
                     nextItem = _kind switch
                     {
-                        ArrayIteratorType.Key => new ValueIteratorPosition(_engine, _position),
-                        ArrayIteratorType.Value => new ValueIteratorPosition(_engine, _typedArray[(int) _position]),
-                        _ => new KeyValueIteratorPosition(_engine, _position, _typedArray[(int) _position])
+                        ArrayIteratorType.Key => IteratorResult.CreateValueIteratorPosition(_engine, JsNumber.Create(_position)),
+                        ArrayIteratorType.Value => IteratorResult.CreateValueIteratorPosition(_engine, _typedArray[(int) _position]),
+                        _ => IteratorResult.CreateKeyValueIteratorPosition(_engine, JsNumber.Create(_position), _typedArray[(int) _position])
                     };
                 }
                 else
@@ -95,15 +95,15 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
                     _operations!.TryGetValue(_position, out var value);
                     if (_kind == ArrayIteratorType.Key)
                     {
-                        nextItem = new ValueIteratorPosition(_engine, _position);
+                        nextItem = IteratorResult.CreateValueIteratorPosition(_engine, JsNumber.Create(_position));
                     }
                     else if (_kind == ArrayIteratorType.Value)
                     {
-                        nextItem = new ValueIteratorPosition(_engine, value);
+                        nextItem = IteratorResult.CreateValueIteratorPosition(_engine, value);
                     }
                     else
                     {
-                        nextItem = new KeyValueIteratorPosition(_engine, _position, value);
+                        nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine, JsNumber.Create(_position), value);
                     }
                 }
 
@@ -112,7 +112,7 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
             }
 
             _closed = true;
-            nextItem = KeyValueIteratorPosition.Done(_engine);
+            nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine);
             return false;
         }
     }

@@ -321,11 +321,11 @@ namespace Jint.Runtime.Interop
                     var key = _enumerator.Current;
                     var value = _target.Get(key);
 
-                    nextItem = new KeyValueIteratorPosition(_engine, key, value);
+                    nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine, key, value);
                     return true;
                 }
 
-                nextItem = KeyValueIteratorPosition.Done(_engine);
+                nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine);
                 return false;
             }
         }
@@ -350,11 +350,11 @@ namespace Jint.Runtime.Interop
                 if (_enumerator.MoveNext())
                 {
                     var value = _enumerator.Current;
-                    nextItem = new ValueIteratorPosition(_engine, FromObject(_engine, value));
+                    nextItem = IteratorResult.CreateValueIteratorPosition(_engine, FromObject(_engine, value));
                     return true;
                 }
 
-                nextItem = KeyValueIteratorPosition.Done(_engine);
+                nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine);
                 return false;
             }
         }

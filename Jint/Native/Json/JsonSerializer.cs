@@ -137,7 +137,7 @@ namespace Jint.Native.Json
         /// </summary>
         private JsValue SerializeJSONProperty(JsValue key, JsValue holder)
         {
-            var value = holder.Get(key, holder);
+            var value = holder.Get(key);
             var isBigInt = value is BigIntInstance || value.IsBigInt();
             if (value.IsObject() || isBigInt)
             {
@@ -312,7 +312,7 @@ namespace Jint.Native.Json
             var stepback = _indent;
             _indent += _gap;
             var partial = new List<string>();
-            var len = TypeConverter.ToUint32(value.Get(CommonProperties.Length, value));
+            var len = TypeConverter.ToUint32(value.Get(CommonProperties.Length));
             for (int i = 0; i < len; i++)
             {
                 var strP = SerializeJSONProperty(i, value);

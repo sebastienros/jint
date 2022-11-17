@@ -146,7 +146,7 @@ namespace Jint.Native.Array
 
             private double GetIntegerLength()
             {
-                var descValue = _target.Get(CommonProperties.Length, _target);
+                var descValue = _target.Get(CommonProperties.Length);
                 if (!ReferenceEquals(descValue, null))
                 {
                     return TypeConverter.ToInteger(descValue);
@@ -185,7 +185,7 @@ namespace Jint.Native.Array
             }
 
             public override JsValue Get(ulong index)
-                => _target.Get(JsString.Create(index), _target);
+                => _target.Get(JsString.Create(index));
 
             public override bool TryGetValue(ulong index, out JsValue value)
             {
@@ -297,7 +297,7 @@ namespace Jint.Native.Array
                     return _target.Length;
                 }
 
-                var descValue = _target.Get(CommonProperties.Length, _target);
+                var descValue = _target.Get(CommonProperties.Length);
                 if (!ReferenceEquals(descValue, null))
                 {
                     return (uint) TypeConverter.ToInteger(descValue);

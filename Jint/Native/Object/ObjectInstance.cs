@@ -1061,7 +1061,7 @@ namespace Jint.Native.Object
             {
                 var property = JsString.Create(idx);
                 var kPresent = HasProperty(property);
-                jsValue = kPresent ? Get(property, this) : Undefined;
+                jsValue = kPresent ? Get(property) : Undefined;
                 return kPresent;
             }
 
@@ -1117,7 +1117,7 @@ namespace Jint.Native.Object
         {
             get
             {
-                var spreadable = Get(GlobalSymbolRegistry.IsConcatSpreadable, this);
+                var spreadable = Get(GlobalSymbolRegistry.IsConcatSpreadable);
                 if (!spreadable.IsUndefined())
                 {
                     return TypeConverter.ToBoolean(spreadable);

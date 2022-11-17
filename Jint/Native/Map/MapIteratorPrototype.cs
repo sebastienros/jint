@@ -67,29 +67,29 @@ internal sealed class MapIteratorPrototype : IteratorPrototype
 
     private sealed class MapIterator : IteratorInstance
     {
-        private readonly MapInstance _map;
+        private readonly OrderedDictionary<JsValue, JsValue> _map;
 
         private int _position;
 
         public MapIterator(Engine engine, MapInstance map) : base(engine)
         {
-            _map = map;
+            _map = map._map;
             _position = 0;
         }
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
-            if (_position < _map.GetSize())
+            if (_position < _map.Count)
             {
-                var key = _map._map.GetKey(_position);
-                var value = _map._map[key];
+                var key = _map.GetKey(_position);
+                var value = _map[key];
 
                 _position++;
-                nextItem = new KeyValueIteratorPosition(_engine, key, value);
+                nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine, key, value);
                 return true;
             }
 
-            nextItem = KeyValueIteratorPosition.Done(_engine);
+            nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine);
             return false;
         }
     }

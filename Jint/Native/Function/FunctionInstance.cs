@@ -229,7 +229,7 @@ namespace Jint.Native.Function
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ObjectInstance GetPrototypeFromConstructor(JsValue constructor, Func<Intrinsics, ObjectInstance> intrinsicDefaultProto)
         {
-            if (constructor.Get(CommonProperties.Prototype, constructor) is not ObjectInstance proto)
+            if (constructor.Get(CommonProperties.Prototype) is not ObjectInstance proto)
             {
                 var realm = GetFunctionRealm(constructor);
                 proto = intrinsicDefaultProto(realm.Intrinsics);
