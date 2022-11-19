@@ -99,13 +99,16 @@ namespace Jint.Native.Array
                     unscopables.SetDataProperty("findLastIndex", JsBoolean.True);
                     unscopables.SetDataProperty("flat", JsBoolean.True);
                     unscopables.SetDataProperty("flatMap", JsBoolean.True);
+                    unscopables.SetDataProperty("group", JsBoolean.True);
                     unscopables.SetDataProperty("groupBy", JsBoolean.True);
                     unscopables.SetDataProperty("groupByToMap", JsBoolean.True);
+                    unscopables.SetDataProperty("groupToMap", JsBoolean.True);
                     unscopables.SetDataProperty("includes", JsBoolean.True);
                     unscopables.SetDataProperty("keys", JsBoolean.True);
+                    unscopables.SetDataProperty("toReversed", JsBoolean.True);
+                    unscopables.SetDataProperty("toSorted", JsBoolean.True);
+                    unscopables.SetDataProperty("toSpliced", JsBoolean.True);
                     unscopables.SetDataProperty("values", JsBoolean.True);
-                    unscopables.SetDataProperty("group", JsBoolean.True);
-                    unscopables.SetDataProperty("groupToMap", JsBoolean.True);
 
                     return unscopables;
                 }, PropertyFlag.Configurable)
