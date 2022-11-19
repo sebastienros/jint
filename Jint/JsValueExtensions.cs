@@ -126,6 +126,13 @@ namespace Jint
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool CanBeHeldWeakly(this JsValue value, GlobalSymbolRegistry symbolRegistry)
+        {
+            return value.IsObject() || (value.IsSymbol() && !symbolRegistry.ContainsCustom(value));
+        }
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsDate AsDate(this JsValue value)
         {
             if (!value.IsDate())

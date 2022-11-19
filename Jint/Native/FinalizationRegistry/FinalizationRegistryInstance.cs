@@ -4,7 +4,7 @@ using Jint.Runtime;
 
 namespace Jint.Native.FinalizationRegistry;
 
-internal sealed record Cell(JsValue WeakRefTarget, JsValue HeldValue, ObjectInstance? UnregisterToken);
+internal sealed record Cell(JsValue WeakRefTarget, JsValue HeldValue, JsValue? UnregisterToken);
 
 internal sealed class FinalizationRegistryInstance : ObjectInstance
 {

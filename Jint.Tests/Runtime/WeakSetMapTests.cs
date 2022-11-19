@@ -31,8 +31,7 @@ public class WeakSetMapTests
         100.04,
         double.NaN,
         "hello",
-        true,
-        new JsSymbol("hello")
+        true
     };
 
     [Theory]
@@ -43,7 +42,7 @@ public class WeakSetMapTests
         var weakSet = new WeakSetInstance(engine);
 
         var e = Assert.Throws<JavaScriptException>(() => weakSet.WeakSetAdd(key));
-        Assert.StartsWith("WeakSet value must be an object, got ", e.Message);
+        Assert.StartsWith("WeakSet value must be an object or symbol, got ", e.Message);
 
         Assert.False(weakSet.WeakSetHas(key));
     }

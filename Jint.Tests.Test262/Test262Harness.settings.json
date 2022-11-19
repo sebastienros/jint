@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "8565eea8be06eee720b9af42235d1ecf5df0dc5f",
+  "SuiteGitSha": "83a46bfe0e79aed8274a1b9f4beb0a2efa0b3533",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -7,6 +7,7 @@
   "ExcludedFeatures": [
     "async-iteration",
     "Atomics",
+    "change-array-by-copy",
     "class-fields-private",
     "class-fields-public",
     "class-methods-private",

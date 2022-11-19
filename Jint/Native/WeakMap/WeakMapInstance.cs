@@ -26,7 +26,7 @@ internal sealed class WeakMapInstance : ObjectInstance
 
     internal void WeakMapSet(JsValue key, JsValue value)
     {
-        if (key.IsPrimitive())
+        if (!key.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
             ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakMap key must be an object, got " + key);
         }
