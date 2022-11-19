@@ -66,7 +66,7 @@ namespace Jint.Native.Symbol
                 ? Undefined
                 : TypeConverter.ToJsString(description);
 
-            var value = _engine.GlobalSymbolRegistry.CreateSymbol(descString);
+            var value = GlobalSymbolRegistry.CreateSymbol(descString);
             return value;
         }
 
@@ -81,7 +81,7 @@ namespace Jint.Native.Symbol
 
             if (!_engine.GlobalSymbolRegistry.TryGetSymbol(stringKey, out var symbol))
             {
-                symbol = _engine.GlobalSymbolRegistry.CreateSymbol(stringKey);
+                symbol = GlobalSymbolRegistry.CreateSymbol(stringKey);
                 _engine.GlobalSymbolRegistry.Add(symbol);
             }
 

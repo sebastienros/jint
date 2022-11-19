@@ -51,9 +51,9 @@ internal sealed class FinalizationRegistryPrototype : Prototype
         var heldValue = arguments.At(1);
         var unregisterToken = arguments.At(2);
 
-        if (target is not ObjectInstance)
+        if (!target.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
-            ExceptionHelper.ThrowTypeError(_realm, "target must be an object");
+            ExceptionHelper.ThrowTypeError(_realm, "target must be an object or symbol");
         }
 
         if (SameValue(target, heldValue))
@@ -61,7 +61,7 @@ internal sealed class FinalizationRegistryPrototype : Prototype
             ExceptionHelper.ThrowTypeError(_realm, "target and holdings must not be same");
         }
 
-        if (unregisterToken is not ObjectInstance oi)
+        if (!unregisterToken.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
             if (!unregisterToken.IsUndefined())
             {
@@ -69,7 +69,7 @@ internal sealed class FinalizationRegistryPrototype : Prototype
             }
 
         }
-        var cell = new Cell(target, heldValue, unregisterToken as ObjectInstance);
+        var cell = new Cell(target, heldValue, unregisterToken);
         finalizationRegistry.AddCell(cell);
         return Undefined;
     }
@@ -83,9 +83,9 @@ internal sealed class FinalizationRegistryPrototype : Prototype
 
         var unregisterToken = arguments.At(0);
 
-        if (unregisterToken is not ObjectInstance oi)
+        if (!unregisterToken.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
-            ExceptionHelper.ThrowTypeError(_realm, unregisterToken + " must be an object");
+            ExceptionHelper.ThrowTypeError(_realm, unregisterToken + " must be an object or symbol");
         }
 
         return finalizationRegistry.Remove(unregisterToken);

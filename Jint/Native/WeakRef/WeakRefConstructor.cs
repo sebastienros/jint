@@ -42,15 +42,15 @@ internal sealed class WeakRefConstructor : FunctionInstance, IConstructor
 
         var target = arguments.At(0);
 
-        if (target is not ObjectInstance)
+        if (!target.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
-            ExceptionHelper.ThrowTypeError(_realm, "WeakRef: target must be an object");
+            ExceptionHelper.ThrowTypeError(_realm, "WeakRef: target must be an object or symbol");
         }
 
         var weakRef = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.WeakRef.PrototypeObject,
-            static (Engine engine, Realm _, object? t) => new WeakRefInstance(engine, (ObjectInstance) t!),
+            static (engine, _, target) => new WeakRefInstance(engine, target!),
             target);
 
         _engine.AddToKeptObjects(target);

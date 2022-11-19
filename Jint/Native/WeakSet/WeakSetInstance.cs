@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 
 namespace Jint.Native.WeakSet;
@@ -26,9 +27,9 @@ internal sealed class WeakSetInstance : ObjectInstance
 
     internal void WeakSetAdd(JsValue value)
     {
-        if (value.IsPrimitive())
+        if (!value.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakSet value must be an object, got " + value);
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakSet value must be an object or symbol, got " + value);
         }
 
 #if NETSTANDARD2_1_OR_GREATER
@@ -38,5 +39,4 @@ internal sealed class WeakSetInstance : ObjectInstance
         _table.Add(value, Undefined);
 #endif
     }
-
 }

@@ -7,11 +7,11 @@ namespace Jint.Native.WeakRef;
 /// </summary>
 internal sealed class WeakRefInstance : ObjectInstance
 {
-    private readonly WeakReference<ObjectInstance> _weakRefTarget;
+    private readonly WeakReference<JsValue> _weakRefTarget;
 
-    public WeakRefInstance(Engine engine, ObjectInstance target) : base(engine)
+    public WeakRefInstance(Engine engine, JsValue target) : base(engine)
     {
-        _weakRefTarget = new WeakReference<ObjectInstance>(target);
+        _weakRefTarget = new WeakReference<JsValue>(target);
     }
 
     public JsValue WeakRefDeref()
