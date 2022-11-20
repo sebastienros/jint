@@ -35,53 +35,58 @@ namespace Jint.Native.Array
 
         protected override void Initialize()
         {
-            const PropertyFlag propertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-            var properties = new PropertyDictionary(36, checkExistingKeys: false)
+            const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
+            var properties = new PropertyDictionary(40, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), propertyFlags),
-                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), propertyFlags),
-                ["concat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), propertyFlags),
-                ["copyWithin"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), propertyFlags),
-                ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), propertyFlags),
-                ["fill"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), propertyFlags),
-                ["join"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "join", Join, 1, PropertyFlag.Configurable), propertyFlags),
-                ["pop"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "pop", Pop, 0, PropertyFlag.Configurable), propertyFlags),
-                ["push"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "push", Push, 1, PropertyFlag.Configurable), propertyFlags),
-                ["reverse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reverse", Reverse, 0, PropertyFlag.Configurable), propertyFlags),
-                ["shift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "shift", Shift, 0, PropertyFlag.Configurable), propertyFlags),
-                ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), propertyFlags),
-                ["sort"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "sort", Sort, 1, PropertyFlag.Configurable), propertyFlags),
-                ["splice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "splice", Splice, 2, PropertyFlag.Configurable), propertyFlags),
-                ["unshift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unshift", Unshift, 1, PropertyFlag.Configurable), propertyFlags),
-                ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), propertyFlags),
-                ["indexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), propertyFlags),
-                ["lastIndexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), propertyFlags),
-                ["every"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "every", Every, 1, PropertyFlag.Configurable), propertyFlags),
-                ["some"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "some", Some, 1, PropertyFlag.Configurable), propertyFlags),
-                ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), propertyFlags),
-                ["map"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "map", Map, 1, PropertyFlag.Configurable), propertyFlags),
-                ["filter"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "filter", Filter, 1, PropertyFlag.Configurable), propertyFlags),
-                ["reduce"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduce", Reduce, 1, PropertyFlag.Configurable), propertyFlags),
-                ["reduceRight"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1, PropertyFlag.Configurable), propertyFlags),
-                ["find"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), propertyFlags),
-                ["findIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), propertyFlags),
-                ["findLast"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findLast", FindLast, 1, PropertyFlag.Configurable), propertyFlags),
-                ["findLastIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findLastIndex", FindLastIndex, 1, PropertyFlag.Configurable), propertyFlags),
-                ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), propertyFlags),
-                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
-                ["flat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flat", Flat, 0, PropertyFlag.Configurable), propertyFlags),
-                ["flatMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flatMap", FlatMap, 1, PropertyFlag.Configurable), propertyFlags),
-                ["at"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "at", At, 1, PropertyFlag.Configurable), propertyFlags),
-                ["group"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "group", Group, 1, PropertyFlag.Configurable), propertyFlags),
-                ["groupToMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "groupToMap", GroupToMap, 1, PropertyFlag.Configurable), propertyFlags),
+
+                ["at"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "at", At, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["concat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["copyWithin"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), PropertyFlags),
+                ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["every"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "every", Every, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["fill"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["filter"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "filter", Filter, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["find"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["findIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["findLast"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findLast", FindLast, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["findLastIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findLastIndex", FindLastIndex, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["flat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flat", Flat, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["flatMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flatMap", FlatMap, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["group"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "group", Group, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["groupToMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "groupToMap", GroupToMap, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["indexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["join"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "join", Join, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["lastIndexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["map"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "map", Map, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["pop"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "pop", Pop, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["push"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "push", Push, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["reduce"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduce", Reduce, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["reduceRight"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["reverse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reverse", Reverse, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["shift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "shift", Shift, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), PropertyFlags),
+                ["some"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "some", Some, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["sort"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "sort", Sort, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["splice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "splice", Splice, 2, PropertyFlag.Configurable), PropertyFlags),
+                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["toReversed"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toReversed", ToReversed, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["toSorted"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toSorted", ToSorted, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["toSpliced"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toSpliced", ToSpliced, 2, PropertyFlag.Configurable), PropertyFlags),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["unshift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unshift", Unshift, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["with"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "with", With, 2, PropertyFlag.Configurable), PropertyFlags),
             };
             SetProperties(properties);
 
             _originalIteratorFunction = new ClrFunctionInstance(Engine, "iterator", Values, 1);
             var symbols = new SymbolDictionary(2)
             {
-                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, propertyFlags),
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, PropertyFlags),
                 [GlobalSymbolRegistry.Unscopables] = new LazyPropertyDescriptor(_engine, static state =>
                 {
                     var unscopables = new JsObject((Engine) state!)
@@ -89,23 +94,26 @@ namespace Jint.Native.Array
                         _prototype = null
                     };
 
-                    unscopables.SetDataProperty("at", JsBoolean.True);
-                    unscopables.SetDataProperty("copyWithin", JsBoolean.True);
-                    unscopables.SetDataProperty("entries", JsBoolean.True);
-                    unscopables.SetDataProperty("fill", JsBoolean.True);
-                    unscopables.SetDataProperty("find", JsBoolean.True);
-                    unscopables.SetDataProperty("findIndex", JsBoolean.True);
-                    unscopables.SetDataProperty("findLast", JsBoolean.True);
-                    unscopables.SetDataProperty("findLastIndex", JsBoolean.True);
-                    unscopables.SetDataProperty("flat", JsBoolean.True);
-                    unscopables.SetDataProperty("flatMap", JsBoolean.True);
-                    unscopables.SetDataProperty("groupBy", JsBoolean.True);
-                    unscopables.SetDataProperty("groupByToMap", JsBoolean.True);
-                    unscopables.SetDataProperty("includes", JsBoolean.True);
-                    unscopables.SetDataProperty("keys", JsBoolean.True);
-                    unscopables.SetDataProperty("values", JsBoolean.True);
-                    unscopables.SetDataProperty("group", JsBoolean.True);
-                    unscopables.SetDataProperty("groupToMap", JsBoolean.True);
+                    unscopables.FastSetDataProperty("at", JsBoolean.True);
+                    unscopables.FastSetDataProperty("copyWithin", JsBoolean.True);
+                    unscopables.FastSetDataProperty("entries", JsBoolean.True);
+                    unscopables.FastSetDataProperty("fill", JsBoolean.True);
+                    unscopables.FastSetDataProperty("find", JsBoolean.True);
+                    unscopables.FastSetDataProperty("findIndex", JsBoolean.True);
+                    unscopables.FastSetDataProperty("findLast", JsBoolean.True);
+                    unscopables.FastSetDataProperty("findLastIndex", JsBoolean.True);
+                    unscopables.FastSetDataProperty("flat", JsBoolean.True);
+                    unscopables.FastSetDataProperty("flatMap", JsBoolean.True);
+                    unscopables.FastSetDataProperty("group", JsBoolean.True);
+                    unscopables.FastSetDataProperty("groupBy", JsBoolean.True);
+                    unscopables.FastSetDataProperty("groupByToMap", JsBoolean.True);
+                    unscopables.FastSetDataProperty("groupToMap", JsBoolean.True);
+                    unscopables.FastSetDataProperty("includes", JsBoolean.True);
+                    unscopables.FastSetDataProperty("keys", JsBoolean.True);
+                    unscopables.FastSetDataProperty("toReversed", JsBoolean.True);
+                    unscopables.FastSetDataProperty("toSorted", JsBoolean.True);
+                    unscopables.FastSetDataProperty("toSpliced", JsBoolean.True);
+                    unscopables.FastSetDataProperty("values", JsBoolean.True);
 
                     return unscopables;
                 }, PropertyFlag.Configurable)
@@ -133,6 +141,38 @@ namespace Jint.Native.Array
 
             ExceptionHelper.ThrowTypeError(_realm, "cannot construct iterator");
             return null;
+        }
+
+        private ObjectInstance With(JsValue thisObj, JsValue[] arguments)
+        {
+            var o = ArrayOperations.For(TypeConverter.ToObject(_realm, thisObj));
+            var len = o.GetLongLength();
+            var relativeIndex = TypeConverter.ToIntegerOrInfinity(arguments.At(0));
+            var value = arguments.At(1);
+
+            long actualIndex;
+            if (relativeIndex >= 0)
+            {
+                actualIndex = (long) relativeIndex;
+            }
+            else
+            {
+                actualIndex = (long) (len + relativeIndex);
+            }
+
+            if (actualIndex >= (long) len || actualIndex < 0)
+            {
+                ExceptionHelper.ThrowRangeError(_realm, "Invalid start index");
+            }
+
+            var a = CreateBackingArray(len);
+            ulong k = 0;
+            while (k < len)
+            {
+                a[k] = k == (ulong) actualIndex ? value : o.Get(k);
+                k++;
+            }
+            return new JsArray(_engine, a);
         }
 
         private ObjectInstance Entries(JsValue thisObj, JsValue[] arguments)
@@ -1017,19 +1057,7 @@ namespace Jint.Native.Array
         {
             var objectInstance = TypeConverter.ToObject(_realm, thisObj);
             var obj = ArrayOperations.For(objectInstance);
-
-            var compareArg = arguments.At(0);
-            ICallable? compareFn = null;
-            if (!compareArg.IsUndefined())
-            {
-                if (compareArg is not ICallable callable)
-                {
-                    ExceptionHelper.ThrowTypeError(_realm, "The comparison function must be either a function or undefined");
-                    return null;
-                }
-
-                compareFn = callable;
-            }
+            var compareFn = GetCompareFunction(arguments.At(0));
 
             var len = obj.GetLength();
             if (len <= 1)
@@ -1377,6 +1405,164 @@ namespace Jint.Native.Array
             return func(array, Arguments.Empty);
         }
 
+        private JsValue ToReversed(JsValue thisObj, JsValue[] arguments)
+        {
+            var o = ArrayOperations.For(TypeConverter.ToObject(_realm, thisObj));
+
+            var len = o.GetLongLength();
+
+            if (len == 0)
+            {
+                return new JsArray(_engine);
+            }
+
+            var a = CreateBackingArray(len);
+            ulong k = 0;
+            while (k < len)
+            {
+                var from = len - k - 1;
+                a[k++] = o.Get(from);
+            }
+            return new JsArray(_engine, a);
+        }
+
+        private JsValue ToSorted(JsValue thisObj, JsValue[] arguments)
+        {
+            var o = ArrayOperations.For(TypeConverter.ToObject(_realm, thisObj));
+            var compareFn = GetCompareFunction(arguments.At(0));
+
+            var len = o.GetLongLength();
+            ValidateArrayLength(len);
+
+            if (len == 0)
+            {
+                return new JsArray(_engine);
+            }
+
+            var array = o.GetAll(skipHoles: true);
+
+            array = SortArray(array, compareFn);
+
+            return new JsArray(_engine, array);
+        }
+
+        private JsValue ToSpliced(JsValue thisObj, JsValue[] arguments)
+        {
+            var start = arguments.At(0);
+            var deleteCount = arguments.At(1);
+
+            var o = ArrayOperations.For(_realm, TypeConverter.ToObject(_realm, thisObj));
+            var len = o.GetLongLength();
+            var relativeStart = TypeConverter.ToIntegerOrInfinity(start);
+
+            ulong actualStart;
+            if (double.IsNegativeInfinity(relativeStart))
+            {
+                actualStart = 0;
+            }
+            else if (relativeStart < 0)
+            {
+                actualStart = (ulong) System.Math.Max(len + relativeStart, 0);
+            }
+            else
+            {
+                actualStart = (ulong) System.Math.Min(relativeStart, len);
+            }
+
+            var items = System.Array.Empty<JsValue>();
+            ulong insertCount;
+            ulong actualDeleteCount;
+            if (arguments.Length == 0)
+            {
+                insertCount = 0;
+                actualDeleteCount = 0;
+            }
+            else if (arguments.Length == 1)
+            {
+                insertCount = 0;
+                actualDeleteCount = len - actualStart;
+            }
+            else
+            {
+                insertCount = (ulong) (arguments.Length - 2);
+                var dc = TypeConverter.ToIntegerOrInfinity(deleteCount);
+                actualDeleteCount = (ulong) System.Math.Min(System.Math.Max(dc,0), len - actualStart);
+
+                items = System.Array.Empty<JsValue>();
+                if (arguments.Length > 2)
+                {
+                    items = new JsValue[arguments.Length - 2];
+                    System.Array.Copy(arguments, 2, items, 0, items.Length);
+                }
+            }
+
+            var newLen = len + insertCount - actualDeleteCount;
+            if (newLen > ArrayOperations.MaxArrayLikeLength)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "Invalid input length");
+            }
+
+            ValidateArrayLength(newLen);
+
+            var r = actualStart + actualDeleteCount;
+            var a = new JsArray(_engine, (uint) newLen);
+            uint i = 0;
+
+            while (i < actualStart)
+            {
+                a.SetIndexValue(i, o.Get(i), updateLength: false);
+                i++;
+            }
+            a.SetLength((uint) actualStart);
+
+            foreach (var item in items)
+            {
+                a.SetIndexValue(i++, item, updateLength: false);
+            }
+
+            while (i < newLen)
+            {
+                var fromValue = o.Get(r);
+                a.SetIndexValue(i, fromValue, updateLength: false);
+
+                i++;
+                r++;
+            }
+
+            a.SetLength(i);
+            return a;
+        }
+
+        private JsValue[] SortArray(IEnumerable<JsValue> array, ICallable? compareFn)
+        {
+            var comparer = ArrayComparer.WithFunction(_engine, compareFn);
+
+            try
+            {
+                return array.OrderBy(x => x, comparer).ToArray();
+            }
+            catch (InvalidOperationException e)
+            {
+                throw e.InnerException ?? e;
+            }
+        }
+
+        private ICallable? GetCompareFunction(JsValue compareArg)
+        {
+            ICallable? compareFn = null;
+            if (!compareArg.IsUndefined())
+            {
+                if (compareArg is not ICallable callable)
+                {
+                    ExceptionHelper.ThrowTypeError(_realm, "The comparison function must be either a function or undefined");
+                    return null;
+                }
+                compareFn = callable;
+            }
+
+            return compareFn;
+        }
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.reduceright
         /// </summary>
@@ -1551,6 +1737,20 @@ namespace Jint.Native.Array
             return result;
         }
 
+        private object[] CreateBackingArray(ulong length)
+        {
+            ValidateArrayLength(length);
+            return new object[length];
+        }
+
+        private void ValidateArrayLength(ulong length)
+        {
+            if (length > ArrayOperations.MaxArrayLength)
+            {
+                ExceptionHelper.ThrowRangeError(_engine.Realm, "Invalid array length " + length);
+            }
+        }
+
         internal sealed class ArrayComparer : IComparer<JsValue>
         {
             /// <summary>
@@ -1558,14 +1758,9 @@ namespace Jint.Native.Array
             /// </summary>
             public static readonly ArrayComparer Default = new(null, null);
 
-            public static ArrayComparer WithFunction(Engine engine, ICallable compare)
+            public static ArrayComparer WithFunction(Engine engine, ICallable? compare)
             {
-                if (compare == null)
-                {
-                    return Default;
-                }
-
-                return new ArrayComparer(engine, compare);
+                return compare is null ? Default : new ArrayComparer(engine, compare);
             }
 
             private readonly Engine? _engine;

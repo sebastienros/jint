@@ -7,7 +7,6 @@
   "ExcludedFeatures": [
     "async-iteration",
     "Atomics",
-    "change-array-by-copy",
     "class-fields-private",
     "class-fields-public",
     "class-methods-private",

@@ -59,7 +59,7 @@ namespace Jint.Native.TypedArray
             };
         }
 
-        internal static IConstructor? GetConstructor(this TypedArrayElementType type, Intrinsics intrinsics)
+        internal static IConstructor GetConstructor(this TypedArrayElementType type, Intrinsics intrinsics)
         {
             return type switch
             {
@@ -74,7 +74,7 @@ namespace Jint.Native.TypedArray
                 TypedArrayElementType.BigUint64 => intrinsics.BigUint64Array,
                 TypedArrayElementType.Float32 => intrinsics.Float32Array,
                 TypedArrayElementType.Float64 => intrinsics.Float64Array,
-                _ => null
+                _ => null!
             };
         }
 

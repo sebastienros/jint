@@ -110,6 +110,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 
 - ✔ Array find from last
 - ✔ Array.group and Array.groupToMap
+- ✔ Change Array by copy
 - ✔ ShadowRealm
 - ✔ Symbols as WeakMap keys
 

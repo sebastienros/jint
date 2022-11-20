@@ -56,9 +56,11 @@ namespace Jint.Runtime
 
         // the object doesn't override important GetOwnProperty etc which change behavior
         PlainObject = 4096,
+        // our native array
+        Array = 8192,
 
         Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-        InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Module
+        InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module
     }
 
     public static class TypeConverter
@@ -245,6 +247,36 @@ namespace Jint.Runtime
                     return 0;
                 default:
                     return ToNumber(ToPrimitive(o, Types.Number));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static JsNumber ToJsNumber(JsValue o)
+        {
+            return o.IsNumber() ? (JsNumber) o : ToJsNumberUnlikely(o);
+        }
+
+        private static JsNumber ToJsNumberUnlikely(JsValue o)
+        {
+            var type = o._type & ~InternalTypes.InternalFlags;
+
+            switch (type)
+            {
+                case InternalTypes.Undefined:
+                    return JsNumber.DoubleNaN;
+                case InternalTypes.Null:
+                    return JsNumber.PositiveZero;
+                case InternalTypes.Boolean:
+                    return ((JsBoolean) o)._value ? JsNumber.PositiveOne : JsNumber.PositiveZero;
+                case InternalTypes.String:
+                    return new JsNumber(ToNumber(o.ToString()));
+                case InternalTypes.Symbol:
+                case InternalTypes.BigInt:
+                    // TODO proper TypeError would require Engine instance and a lot of API changes
+                    ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a " + type + " value to a number");
+                    return JsNumber.PositiveZero;
+                default:
+                    return new JsNumber(ToNumber(ToPrimitive(o, Types.Number)));
             }
         }
 
@@ -624,6 +656,28 @@ namespace Jint.Runtime
                 default:
                     ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a " + prim.Type + " to a BigInt");
                     return BigInteger.One;
+            }
+        }
+
+        public static JsBigInt ToJsBigInt(JsValue value)
+        {
+            return value as JsBigInt ?? ToJsBigIntUnlikely(value);
+        }
+
+        private static JsBigInt ToJsBigIntUnlikely(JsValue value)
+        {
+            var prim = ToPrimitive(value, Types.Number);
+            switch (prim.Type)
+            {
+                case Types.BigInt:
+                    return (JsBigInt) prim;
+                case Types.Boolean:
+                    return ((JsBoolean) prim)._value ? JsBigInt.One : JsBigInt.Zero;
+                case Types.String:
+                    return new JsBigInt(StringToBigInt(prim.ToString()));
+                default:
+                    ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a " + prim.Type + " to a BigInt");
+                    return JsBigInt.One;
             }
         }
 

@@ -18,29 +18,30 @@ namespace Jint.Native.TypedArray
         private readonly Intrinsics _intrinsics;
         internal uint _arrayLength;
 
-        private TypedArrayInstance(
-            Engine engine,
-            Intrinsics intrinsics) : base(engine)
-        {
-            _intrinsics = intrinsics;
-            _viewedArrayBuffer = new ArrayBufferInstance(engine, 0);
-        }
-
         internal TypedArrayInstance(
             Engine engine,
             Intrinsics intrinsics,
             TypedArrayElementType type,
-            uint length) : this(engine, intrinsics)
+            uint length) : base(engine)
         {
-            _arrayElementType = type;
-            _arrayLength = length;
+            _intrinsics = intrinsics;
+            _viewedArrayBuffer = new ArrayBufferInstance(engine, 0);
 
+            _arrayElementType = type;
             _contentType = type != TypedArrayElementType.BigInt64 && type != TypedArrayElementType.BigUint64
                 ? TypedArrayContentType.Number
                 : TypedArrayContentType.BigInt;
+
+            _arrayLength = length;
         }
 
-        internal JsValue this[int index]
+        public JsValue this[int index]
+        {
+            get => IntegerIndexedElementGet(index);
+            set => IntegerIndexedElementSet(index, value);
+        }
+
+        public JsValue this[uint index]
         {
             get => IntegerIndexedElementGet(index);
             set => IntegerIndexedElementSet(index, value);
@@ -329,7 +330,7 @@ namespace Jint.Native.TypedArray
         /// https://tc39.es/ecma262/#sec-isvalidintegerindex
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool IsValidIntegerIndex(double index)
+        internal bool IsValidIntegerIndex(double index)
         {
             if (_viewedArrayBuffer.IsDetachedBuffer)
             {
@@ -358,7 +359,7 @@ namespace Jint.Native.TypedArray
         /// https://tc39.es/ecma262/#sec-isvalidintegerindex
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool IsValidIntegerIndex(int index)
+        internal bool IsValidIntegerIndex(int index)
         {
             return !_viewedArrayBuffer.IsDetachedBuffer && (uint) index < _arrayLength;
         }

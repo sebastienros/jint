@@ -30,4 +30,8 @@ public sealed class JsArray : ArrayInstance
     public JsArray(Engine engine, PropertyDescriptor[] items) : base(engine, items)
     {
     }
+
+    internal JsArray(Engine engine, object[] items) : base(engine, items)
+    {
+    }
 }

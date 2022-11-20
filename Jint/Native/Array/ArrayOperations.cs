@@ -47,19 +47,22 @@ namespace Jint.Native.Array
 
         public abstract JsValue Get(ulong index);
 
-        public virtual JsValue[] GetAll(Types elementTypes)
+        public virtual JsValue[] GetAll(
+            Types elementTypes = Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.Object,
+            bool skipHoles = false)
         {
+            uint writeIndex = 0;
             var n = (int) GetLength();
             var jsValues = new JsValue[n];
             for (uint i = 0; i < (uint) jsValues.Length; i++)
             {
-                var jsValue = Get(i);
+                var jsValue = skipHoles && !HasProperty(i) ? JsValue.Undefined : Get(i);
                 if ((jsValue.Type & elementTypes) == 0)
                 {
                     ExceptionHelper.ThrowTypeErrorNoEngine("invalid type");
                 }
 
-                jsValues[i] = jsValue;
+                jsValues[writeIndex++] = jsValue;
             }
 
             return jsValues;
@@ -75,7 +78,7 @@ namespace Jint.Native.Array
 
         public abstract void DeletePropertyOrThrow(ulong index);
 
-        internal ArrayLikeIterator GetEnumerator() => new ArrayLikeIterator(this);
+        public ArrayLikeIterator GetEnumerator() => new ArrayLikeIterator(this);
 
         IEnumerator<JsValue> IEnumerable<JsValue>.GetEnumerator() => new ArrayLikeIterator(this);
 
@@ -100,14 +103,9 @@ namespace Jint.Native.Array
             {
                 get
                 {
-                    if (!_initialized)
-                    {
-                        return JsValue.Undefined;
-                    }
-                    else
-                    {
-                        return _obj.TryGetValue(_current, out var temp) ? temp : JsValue.Undefined;
-                    }
+                    return !_initialized
+                        ? JsValue.Undefined
+                        : _obj.TryGetValue(_current, out var temp) ? temp : JsValue.Undefined;
                 }
             }
 
@@ -232,7 +230,7 @@ namespace Jint.Native.Array
 
             public override JsValue Get(ulong index) => _target.Get((uint) index);
 
-            public override JsValue[] GetAll(Types elementTypes)
+            public override JsValue[] GetAll(Types elementTypes, bool skipHoles = false)
             {
                 var n = _target.GetLength();
 
@@ -242,6 +240,7 @@ namespace Jint.Native.Array
                 }
 
                 // optimized
+                uint writeIndex = 0;
                 var jsValues = new JsValue[n];
                 for (uint i = 0; i < (uint) jsValues.Length; i++)
                 {
@@ -255,13 +254,12 @@ namespace Jint.Native.Array
                         prop = _target.UnwrapJsValue((PropertyDescriptor) prop);
                     }
 
-                    var jsValue = (JsValue) prop;
-                    if ((jsValue.Type & elementTypes) == 0)
+                    if (prop is JsValue jsValue && (jsValue.Type & elementTypes) == 0)
                     {
                         ExceptionHelper.ThrowTypeErrorNoEngine("invalid type");
                     }
 
-                    jsValues[i] = jsValue;
+                    jsValues[writeIndex++] = (JsValue?) prop ?? JsValue.Undefined;
                 }
 
                 return jsValues;

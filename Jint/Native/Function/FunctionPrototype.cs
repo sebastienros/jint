@@ -174,10 +174,7 @@ namespace Jint.Native.Function
                 ExceptionHelper.ThrowTypeError(realm);
             }
             var operations = ArrayOperations.For(argArrayObj);
-            var allowedTypes = elementTypes ??
-                               Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.Object;
-
-            var argList = operations.GetAll(allowedTypes);
+            var argList = elementTypes is null ? operations.GetAll() : operations.GetAll(elementTypes.Value);
             return argList;
         }
 
