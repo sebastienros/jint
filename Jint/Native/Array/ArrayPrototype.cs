@@ -74,6 +74,7 @@ namespace Jint.Native.Array
                 ["splice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "splice", Splice, 2, PropertyFlag.Configurable), propertyFlags),
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), propertyFlags),
                 ["toReversed"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toReversed", ToReversed, 0, PropertyFlag.Configurable), propertyFlags),
+                ["toSorted"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toSorted", ToSorted, 1, PropertyFlag.Configurable), propertyFlags),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), propertyFlags),
                 ["unshift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unshift", Unshift, 1, PropertyFlag.Configurable), propertyFlags),
                 ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
@@ -1022,19 +1023,7 @@ namespace Jint.Native.Array
         {
             var objectInstance = TypeConverter.ToObject(_realm, thisObj);
             var obj = ArrayOperations.For(objectInstance);
-
-            var compareArg = arguments.At(0);
-            ICallable? compareFn = null;
-            if (!compareArg.IsUndefined())
-            {
-                if (compareArg is not ICallable callable)
-                {
-                    ExceptionHelper.ThrowTypeError(_realm, "The comparison function must be either a function or undefined");
-                    return null;
-                }
-
-                compareFn = callable;
-            }
+            var compareFn = GetCompareFunction(arguments.At(0));
 
             var len = obj.GetLength();
             if (len <= 1)
@@ -1384,18 +1373,73 @@ namespace Jint.Native.Array
 
         private JsValue ToReversed(JsValue thisObj, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(_realm, thisObj);
+            var o = ArrayOperations.For(TypeConverter.ToObject(_realm, thisObj));
 
-            var operations = ArrayOperations.For(o);
-            var len = operations.GetLongLength();
+            var len = o.GetLongLength();
+
+            if (len == 0)
+            {
+                return new JsArray(_engine);
+            }
+
             var a = CreateBackingArray(len);
             ulong k = 0;
             while (k < len)
             {
                 var from = len - k - 1;
-                a[k++] = operations.Get(from);
+                a[k++] = o.Get(from);
             }
             return new JsArray(_engine, a);
+        }
+
+        private JsValue ToSorted(JsValue thisObj, JsValue[] arguments)
+        {
+            var o = ArrayOperations.For(TypeConverter.ToObject(_realm, thisObj));
+            var compareFn = GetCompareFunction(arguments.At(0));
+
+            var len = o.GetLongLength();
+            ValidateArrayLength(len);
+
+            if (len == 0)
+            {
+                return new JsArray(_engine);
+            }
+
+            var array = o.GetAll(skipHoles: true);
+
+            array = SortArray(array, compareFn);
+
+            return new JsArray(_engine, array);
+        }
+
+        private JsValue[] SortArray(IEnumerable<JsValue> array, ICallable? compareFn)
+        {
+            var comparer = ArrayComparer.WithFunction(_engine, compareFn);
+
+            try
+            {
+                return array.OrderBy(x => x, comparer).ToArray();
+            }
+            catch (InvalidOperationException e)
+            {
+                throw e.InnerException ?? e;
+            }
+        }
+
+        private ICallable? GetCompareFunction(JsValue compareArg)
+        {
+            ICallable? compareFn = null;
+            if (!compareArg.IsUndefined())
+            {
+                if (compareArg is not ICallable callable)
+                {
+                    ExceptionHelper.ThrowTypeError(_realm, "The comparison function must be either a function or undefined");
+                    return null;
+                }
+                compareFn = callable;
+            }
+
+            return compareFn;
         }
 
         /// <summary>
@@ -1574,12 +1618,16 @@ namespace Jint.Native.Array
 
         private object[] CreateBackingArray(ulong length)
         {
+            ValidateArrayLength(length);
+            return new object[length];
+        }
+
+        private void ValidateArrayLength(ulong length)
+        {
             if (length > ArrayOperations.MaxArrayLength)
             {
                 ExceptionHelper.ThrowRangeError(_engine.Realm, "Invalid array length " + length);
             }
-
-            return new object[length];
         }
 
         internal sealed class ArrayComparer : IComparer<JsValue>
@@ -1589,14 +1637,9 @@ namespace Jint.Native.Array
             /// </summary>
             public static readonly ArrayComparer Default = new(null, null);
 
-            public static ArrayComparer WithFunction(Engine engine, ICallable compare)
+            public static ArrayComparer WithFunction(Engine engine, ICallable? compare)
             {
-                if (compare == null)
-                {
-                    return Default;
-                }
-
-                return new ArrayComparer(engine, compare);
+                return compare is null ? Default : new ArrayComparer(engine, compare);
             }
 
             private readonly Engine? _engine;

@@ -1,5 +1,4 @@
 using Jint.Native.Array;
-using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native;
