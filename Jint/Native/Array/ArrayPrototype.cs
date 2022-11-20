@@ -75,6 +75,7 @@ namespace Jint.Native.Array
                 ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), propertyFlags),
                 ["toReversed"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toReversed", ToReversed, 0, PropertyFlag.Configurable), propertyFlags),
                 ["toSorted"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toSorted", ToSorted, 1, PropertyFlag.Configurable), propertyFlags),
+                ["toSpliced"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toSpliced", ToSpliced, 2, PropertyFlag.Configurable), propertyFlags),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), propertyFlags),
                 ["unshift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unshift", Unshift, 1, PropertyFlag.Configurable), propertyFlags),
                 ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
@@ -1410,6 +1411,93 @@ namespace Jint.Native.Array
             array = SortArray(array, compareFn);
 
             return new JsArray(_engine, array);
+        }
+
+        private JsValue ToSpliced(JsValue thisObj, JsValue[] arguments)
+        {
+            var start = arguments.At(0);
+            var deleteCount = arguments.At(1);
+
+            var o = ArrayOperations.For(_realm, TypeConverter.ToObject(_realm, thisObj));
+            var len = o.GetLongLength();
+            var relativeStart = TypeConverter.ToIntegerOrInfinity(start);
+
+            ulong actualStart;
+            if (double.IsNegativeInfinity(relativeStart))
+            {
+                actualStart = 0;
+            }
+            else if (relativeStart < 0)
+            {
+                actualStart = (ulong) System.Math.Max(len + relativeStart, 0);
+            }
+            else
+            {
+                actualStart = (ulong) System.Math.Min(relativeStart, len);
+            }
+
+            var items = System.Array.Empty<JsValue>();
+            ulong insertCount;
+            ulong actualDeleteCount;
+            if (arguments.Length == 0)
+            {
+                insertCount = 0;
+                actualDeleteCount = 0;
+            }
+            else if (arguments.Length == 1)
+            {
+                insertCount = 0;
+                actualDeleteCount = len - actualStart;
+            }
+            else
+            {
+                insertCount = (ulong) (arguments.Length - 2);
+                var dc = TypeConverter.ToIntegerOrInfinity(deleteCount);
+                actualDeleteCount = (ulong) System.Math.Min(System.Math.Max(dc,0), len - actualStart);
+
+                items = System.Array.Empty<JsValue>();
+                if (arguments.Length > 2)
+                {
+                    items = new JsValue[arguments.Length - 2];
+                    System.Array.Copy(arguments, 2, items, 0, items.Length);
+                }
+            }
+
+            var newLen = len + insertCount - actualDeleteCount;
+            if (newLen > ArrayOperations.MaxArrayLikeLength)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "Invalid input length");
+            }
+
+            ValidateArrayLength(newLen);
+
+            var r = actualStart + actualDeleteCount;
+            var a = new JsArray(_engine, (uint) newLen);
+            uint i = 0;
+
+            while (i < actualStart)
+            {
+                a.SetIndexValue(i, o.Get(i), updateLength: false);
+                i++;
+            }
+            a.SetLength((uint) actualStart);
+
+            foreach (var item in items)
+            {
+                a.SetIndexValue(i++, item, updateLength: false);
+            }
+
+            while (i < newLen)
+            {
+                var fromValue = o.Get(r);
+                a.SetIndexValue(i, fromValue, updateLength: false);
+
+                i++;
+                r++;
+            }
+
+            a.SetLength(i);
+            return a;
         }
 
         private JsValue[] SortArray(IEnumerable<JsValue> array, ICallable? compareFn)
