@@ -79,6 +79,7 @@ namespace Jint.Native.Array
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), propertyFlags),
                 ["unshift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unshift", Unshift, 1, PropertyFlag.Configurable), propertyFlags),
                 ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
+                ["with"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "with", With, 2, PropertyFlag.Configurable), propertyFlags),
             };
             SetProperties(properties);
 
@@ -140,6 +141,38 @@ namespace Jint.Native.Array
 
             ExceptionHelper.ThrowTypeError(_realm, "cannot construct iterator");
             return null;
+        }
+
+        private ObjectInstance With(JsValue thisObj, JsValue[] arguments)
+        {
+            var o = ArrayOperations.For(TypeConverter.ToObject(_realm, thisObj));
+            var len = o.GetLongLength();
+            var relativeIndex = TypeConverter.ToIntegerOrInfinity(arguments.At(0));
+            var value = arguments.At(1);
+
+            long actualIndex;
+            if (relativeIndex >= 0)
+            {
+                actualIndex = (long) relativeIndex;
+            }
+            else
+            {
+                actualIndex = (long) (len + relativeIndex);
+            }
+
+            if (actualIndex >= (long) len || actualIndex < 0)
+            {
+                ExceptionHelper.ThrowRangeError(_realm, "Invalid start index");
+            }
+
+            var a = CreateBackingArray(len);
+            ulong k = 0;
+            while (k < len)
+            {
+                a[k] = k == (ulong) actualIndex ? value : o.Get(k);
+                k++;
+            }
+            return new JsArray(_engine, a);
         }
 
         private ObjectInstance Entries(JsValue thisObj, JsValue[] arguments)
