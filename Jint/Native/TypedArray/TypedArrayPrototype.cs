@@ -1,35 +1,38 @@
 using Jint.Collections;
+using Jint.Native.Array;
+using Jint.Native.Object;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
-namespace Jint.Native.TypedArray
+namespace Jint.Native.TypedArray;
+
+/// <summary>
+/// https://tc39.es/ecma262/#sec-properties-of-typedarray-prototype-objects
+/// </summary>
+internal sealed class TypedArrayPrototype : Prototype
 {
-    /// <summary>
-    /// https://tc39.es/ecma262/#sec-properties-of-typedarray-prototype-objects
-    /// </summary>
-    internal sealed class TypedArrayPrototype : Prototype
+    private readonly TypedArrayConstructor _constructor;
+    private readonly TypedArrayElementType _arrayElementType;
+
+    internal TypedArrayPrototype(
+        Engine engine,
+        IntrinsicTypedArrayPrototype objectPrototype,
+        TypedArrayConstructor constructor,
+        TypedArrayElementType type) : base(engine, engine.Realm)
     {
-        private readonly TypedArrayConstructor _constructor;
-        private readonly TypedArrayElementType _arrayElementType;
+        _prototype = objectPrototype;
+        _constructor = constructor;
+        _arrayElementType = type;
+    }
 
-        internal TypedArrayPrototype(
-            Engine engine,
-            IntrinsicTypedArrayPrototype objectPrototype,
-            TypedArrayConstructor constructor,
-            TypedArrayElementType type) : base(engine, engine.Realm)
+    protected override void Initialize()
+    {
+        var properties = new PropertyDictionary(2, false)
         {
-            _prototype = objectPrototype;
-            _constructor = constructor;
-            _arrayElementType = type;
-        }
-
-        protected override void Initialize()
-        {
-            var properties = new PropertyDictionary(2, false)
-            {
-                ["BYTES_PER_ELEMENT"] = new(JsNumber.Create(_arrayElementType.GetElementSize()), PropertyFlag.AllForbidden),
-                ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable)
-            };
-            SetProperties(properties);
-        }
+            ["BYTES_PER_ELEMENT"] = new(JsNumber.Create(_arrayElementType.GetElementSize()), PropertyFlag.AllForbidden),
+            ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
+        };
+        SetProperties(properties);
     }
 }

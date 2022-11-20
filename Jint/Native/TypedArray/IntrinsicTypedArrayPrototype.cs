@@ -31,54 +31,54 @@ namespace Jint.Native.TypedArray
 
         protected override void Initialize()
         {
-            const PropertyFlag lengthFlags = PropertyFlag.Configurable;
-            const PropertyFlag propertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-            var properties = new PropertyDictionary(33, false)
+            const PropertyFlag LengthFlags = PropertyFlag.Configurable;
+            const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
+            var properties = new PropertyDictionary(36, false)
             {
-                ["buffer"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get buffer", Buffer, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-                ["byteLength"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get byteLength", ByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-                ["byteOffset"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(Engine, "get byteOffset", ByteOffset, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-                ["length"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(Engine, "get length", GetLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
+                ["at"] = new(new ClrFunctionInstance(Engine, "at", At, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["buffer"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get buffer", Buffer, 0, LengthFlags), Undefined, PropertyFlag.Configurable),
+                ["byteLength"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get byteLength", ByteLength, 0, LengthFlags), Undefined, PropertyFlag.Configurable),
+                ["byteOffset"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(Engine, "get byteOffset", ByteOffset, 0, LengthFlags), Undefined, PropertyFlag.Configurable),
                 ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
-                ["copyWithin"] = new(new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), propertyFlags),
-                ["entries"] = new(new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), propertyFlags),
-                ["every"] = new(new ClrFunctionInstance(Engine, "every", Every, 1, PropertyFlag.Configurable), propertyFlags),
-                ["fill"] = new(new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), propertyFlags),
-                ["filter"] = new(new ClrFunctionInstance(Engine, "filter", Filter, 1, PropertyFlag.Configurable), propertyFlags),
-                ["find"] = new(new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), propertyFlags),
-                ["findIndex"] = new(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), propertyFlags),
-                ["findLast"] = new(new ClrFunctionInstance(Engine, "findLast", FindLast, 1, PropertyFlag.Configurable), propertyFlags),
-                ["findLastIndex"] = new(new ClrFunctionInstance(Engine, "findLastIndex", FindLastIndex, 1, PropertyFlag.Configurable), propertyFlags),
-                ["forEach"] = new(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), propertyFlags),
-                ["includes"] = new(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), propertyFlags),
-                ["indexOf"] = new(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), propertyFlags),
-                ["join"] = new(new ClrFunctionInstance(Engine, "join", Join, 1, PropertyFlag.Configurable), propertyFlags),
-                ["keys"] = new(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), propertyFlags),
-                ["lastIndexOf"] = new(new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), propertyFlags),
-                ["map"] = new(new ClrFunctionInstance(Engine, "map", Map, 1, PropertyFlag.Configurable), propertyFlags),
-                ["reduce"] = new(new ClrFunctionInstance(Engine, "reduce", Reduce, 1, PropertyFlag.Configurable), propertyFlags),
-                ["reduceRight"] = new(new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1, PropertyFlag.Configurable), propertyFlags),
-                ["reverse"] = new(new ClrFunctionInstance(Engine, "reverse", Reverse, 0, PropertyFlag.Configurable), propertyFlags),
-                ["set"] = new(new ClrFunctionInstance(Engine, "set", Set, 1, PropertyFlag.Configurable), propertyFlags),
-                ["slice"] = new(new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), propertyFlags),
-                ["some"] = new(new ClrFunctionInstance(Engine, "some", Some, 1, PropertyFlag.Configurable), propertyFlags),
-                ["sort"] = new(new ClrFunctionInstance(Engine, "sort", Sort, 1, PropertyFlag.Configurable), propertyFlags),
-                ["subarray"] = new(new ClrFunctionInstance(Engine, "subarray", Subarray, 2, PropertyFlag.Configurable), propertyFlags),
-                ["toLocaleString"] = new(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), propertyFlags),
-                ["toString"] = new(new ClrFunctionInstance(Engine, "toLocaleString", _realm.Intrinsics.Array.PrototypeObject.ToString, 0, PropertyFlag.Configurable), propertyFlags),
-                ["values"] = new(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
-                ["at"] = new(new ClrFunctionInstance(Engine, "at", At, 1, PropertyFlag.Configurable), propertyFlags),
+                ["copyWithin"] = new(new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), PropertyFlags),
+                ["entries"] = new(new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["every"] = new(new ClrFunctionInstance(Engine, "every", Every, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["fill"] = new(new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["filter"] = new(new ClrFunctionInstance(Engine, "filter", Filter, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["find"] = new(new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["findIndex"] = new(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["findLast"] = new(new ClrFunctionInstance(Engine, "findLast", FindLast, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["findLastIndex"] = new(new ClrFunctionInstance(Engine, "findLastIndex", FindLastIndex, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["forEach"] = new(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["includes"] = new(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["indexOf"] = new(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["join"] = new(new ClrFunctionInstance(Engine, "join", Join, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["keys"] = new(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["lastIndexOf"] = new(new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["length"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(Engine, "get length", GetLength, 0, LengthFlags), Undefined, PropertyFlag.Configurable),
+                ["map"] = new(new ClrFunctionInstance(Engine, "map", Map, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["reduce"] = new(new ClrFunctionInstance(Engine, "reduce", Reduce, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["reduceRight"] = new(new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["reverse"] = new(new ClrFunctionInstance(Engine, "reverse", Reverse, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["set"] = new(new ClrFunctionInstance(Engine, "set", Set, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["slice"] = new(new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), PropertyFlags),
+                ["some"] = new(new ClrFunctionInstance(Engine, "some", Some, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["sort"] = new(new ClrFunctionInstance(Engine, "sort", Sort, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["subarray"] = new(new ClrFunctionInstance(Engine, "subarray", Subarray, 2, PropertyFlag.Configurable), PropertyFlags),
+                ["toLocaleString"] = new(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["toReversed"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toReversed", ToReversed, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["toSorted"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toSorted", ToSorted, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["toString"] = new(new ClrFunctionInstance(Engine, "toLocaleString", _realm.Intrinsics.Array.PrototypeObject.ToString, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["values"] = new(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["with"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "with", With, 2, PropertyFlag.Configurable), PropertyFlags),
             };
             SetProperties(properties);
 
             _originalIteratorFunction = new ClrFunctionInstance(Engine, "iterator", Values, 1);
             var symbols = new SymbolDictionary(2)
             {
-                [GlobalSymbolRegistry.Iterator] = new(_originalIteratorFunction, propertyFlags),
-                [GlobalSymbolRegistry.ToStringTag] = new GetSetPropertyDescriptor(
-                    new ClrFunctionInstance(Engine, "get [Symbol.toStringTag]", ToStringTag, 0, PropertyFlag.Configurable),
-                    Undefined,
-                    PropertyFlag.Configurable)
+                [GlobalSymbolRegistry.Iterator] = new(_originalIteratorFunction, PropertyFlags),
+                [GlobalSymbolRegistry.ToStringTag] = new GetSetPropertyDescriptor(new ClrFunctionInstance(Engine, "get [Symbol.toStringTag]", ToStringTag, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
         }
@@ -1012,7 +1012,7 @@ namespace Jint.Native.TypedArray
                 k = (int) relativeStart;
             }
 
-            if(k < 0 || k >= len)
+            if (k < 0 || k >= len)
             {
                 return Undefined;
             }
@@ -1147,31 +1147,14 @@ namespace Jint.Native.TypedArray
             var buffer = obj._viewedArrayBuffer;
             var len = obj.Length;
 
-            var compareArg = arguments.At(0);
-            ICallable? compareFn = null;
-            if (!compareArg.IsUndefined())
-            {
-                compareFn = GetCallable(compareArg);
-            }
+            var compareFn = GetCompareFunction(arguments.At(0));
 
             if (len <= 1)
             {
                 return obj;
             }
 
-            JsValue[] array;
-            try
-            {
-                var comparer = TypedArrayComparer.WithFunction(buffer, compareFn);
-                var operations = ArrayOperations.For(obj);
-                array = operations
-                    .OrderBy(x => x, comparer)
-                    .ToArray();
-            }
-            catch (InvalidOperationException e)
-            {
-                throw e.InnerException ?? e;
-            }
+            var array = SortArray(buffer, compareFn, obj);
 
             for (var i = 0; i < (uint) array.Length; ++i)
             {
@@ -1321,6 +1304,117 @@ namespace Jint.Native.TypedArray
             }
 
             return o._arrayElementType.GetTypedArrayName();
+        }
+
+        private JsValue ToReversed(JsValue thisObj, JsValue[] arguments)
+        {
+            var o = thisObj.ValidateTypedArray(_realm);
+            var length = o._arrayLength;
+
+            var a = TypedArrayCreateSameType(o, new [] { JsNumber.Create(length) });
+            uint k = 0;
+            while (k < length)
+            {
+                var from = length - k - 1;
+                a[k++] = o.Get(from);
+            }
+
+            return a;
+        }
+
+        private JsValue ToSorted(JsValue thisObj, JsValue[] arguments)
+        {
+            var o = thisObj.ValidateTypedArray(_realm);
+            var compareFn = GetCompareFunction(arguments.At(0));
+
+            var buffer = o._viewedArrayBuffer;
+            var length = o.Length;
+
+            var a = TypedArrayCreateSameType(o, new [] { JsNumber.Create(length) });
+
+            var array = SortArray(buffer, compareFn, o);
+            for (var i = 0; (uint) i < (uint) array.Length; ++i)
+            {
+                a[i] = array[i];
+            }
+
+            return a;
+        }
+
+        private ObjectInstance With(JsValue thisObj, JsValue[] arguments)
+        {
+            var o = thisObj.ValidateTypedArray(_realm);
+            var value = arguments.At(1);
+
+            var length = o._arrayLength;
+            var relativeIndex = TypeConverter.ToIntegerOrInfinity(arguments.At(0));
+
+            long actualIndex;
+            if (relativeIndex >= 0)
+            {
+                actualIndex = (long) relativeIndex;
+            }
+            else
+            {
+                actualIndex = (long) (length + relativeIndex);
+            }
+
+            value = o._contentType == TypedArrayContentType.BigInt
+                ? TypeConverter.ToJsBigInt(value)
+                : TypeConverter.ToJsNumber(value);
+
+            if (!o.IsValidIntegerIndex(actualIndex))
+            {
+                ExceptionHelper.ThrowRangeError(_realm, "Invalid start index");
+            }
+
+            var a = TypedArrayCreateSameType(o, new [] { JsNumber.Create(length) });
+
+            var k = 0;
+            while (k < length)
+            {
+                a[k] = k == (int) actualIndex ? value : o.Get(k);
+                k++;
+            }
+
+            return a;
+        }
+
+        private TypedArrayInstance TypedArrayCreateSameType(TypedArrayInstance exemplar, JsValue[] argumentList)
+        {
+            var constructor = exemplar._arrayElementType.GetConstructor(_realm.Intrinsics);
+            var result = IntrinsicTypedArrayConstructor.TypedArrayCreate(_realm, constructor, argumentList);
+            return result;
+        }
+
+        private ICallable? GetCompareFunction(JsValue compareArg)
+        {
+            ICallable? compareFn = null;
+            if (!compareArg.IsUndefined())
+            {
+                if (compareArg is not ICallable callable)
+                {
+                    ExceptionHelper.ThrowTypeError(_realm, "The comparison function must be either a function or undefined");
+                    return null;
+                }
+                compareFn = callable;
+            }
+
+            return compareFn;
+        }
+
+        private static JsValue[] SortArray(ArrayBufferInstance buffer, ICallable? compareFn, TypedArrayInstance obj)
+        {
+            var comparer = TypedArrayComparer.WithFunction(buffer, compareFn);
+            var operations = ArrayOperations.For(obj);
+            try
+            {
+                return operations.OrderBy(x => x, comparer).ToArray();
+            }
+            catch (InvalidOperationException e)
+            {
+                throw e.InnerException ?? e;
+            }
         }
 
         private sealed class TypedArrayComparer : IComparer<JsValue>

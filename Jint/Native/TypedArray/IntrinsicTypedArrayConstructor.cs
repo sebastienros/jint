@@ -73,7 +73,7 @@ namespace Jint.Native.TypedArray
             {
                 var values = TypedArrayConstructor.IterableToList(_realm, source, usingIterator);
                 var iteratorLen = values.Count;
-                var iteratorTarget = TypedArrayCreate((IConstructor) c, new JsValue[] { iteratorLen });
+                var iteratorTarget = TypedArrayCreate(_realm, (IConstructor) c, new JsValue[] { iteratorLen });
                 for (var k = 0; k < iteratorLen; ++k)
                 {
                     var kValue = values[k];
@@ -95,7 +95,7 @@ namespace Jint.Native.TypedArray
             var len = arrayLike.Length;
 
             var argumentList = new JsValue[] { JsNumber.Create(len) };
-            var targetObj = TypedArrayCreate((IConstructor) c, argumentList);
+            var targetObj = TypedArrayCreate(_realm, (IConstructor) c, argumentList);
 
             var mappingArgs = mapping ? new JsValue[2] : null;
             for (uint k = 0; k < len; ++k)
@@ -132,7 +132,7 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var newObj = TypedArrayCreate((IConstructor) thisObj, new JsValue[] { len });
+            var newObj = TypedArrayCreate(_realm, (IConstructor) thisObj, new JsValue[] { len });
 
             var k = 0;
             while (k < len)
@@ -152,7 +152,7 @@ namespace Jint.Native.TypedArray
         {
             var defaultConstructor = exemplar._arrayElementType.GetConstructor(_realm.Intrinsics)!;
             var constructor = SpeciesConstructor(exemplar, defaultConstructor);
-            var result = TypedArrayCreate(constructor, argumentList);
+            var result = TypedArrayCreate(_realm, constructor, argumentList);
             if (result._contentType != exemplar._contentType)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
@@ -164,14 +164,14 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#typedarray-create
         /// </summary>
-        private TypedArrayInstance TypedArrayCreate(IConstructor constructor, JsValue[] argumentList)
+        internal static TypedArrayInstance TypedArrayCreate(Realm realm, IConstructor constructor, JsValue[] argumentList)
         {
-            var newTypedArray = Construct(constructor, argumentList).ValidateTypedArray(_realm);
+            var newTypedArray = Construct(constructor, argumentList).ValidateTypedArray(realm);
             if (argumentList.Length == 1 && argumentList[0] is JsNumber number)
             {
                 if (newTypedArray.Length < number._value)
                 {
-                    ExceptionHelper.ThrowTypeError(_realm);
+                    ExceptionHelper.ThrowTypeError(realm);
                 }
             }
 
