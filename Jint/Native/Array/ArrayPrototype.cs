@@ -39,42 +39,44 @@ namespace Jint.Native.Array
             var properties = new PropertyDictionary(36, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), propertyFlags),
-                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), propertyFlags),
+
+                ["at"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "at", At, 1, PropertyFlag.Configurable), propertyFlags),
                 ["concat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "concat", Concat, 1, PropertyFlag.Configurable), propertyFlags),
                 ["copyWithin"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), propertyFlags),
                 ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), propertyFlags),
-                ["fill"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), propertyFlags),
-                ["join"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "join", Join, 1, PropertyFlag.Configurable), propertyFlags),
-                ["pop"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "pop", Pop, 0, PropertyFlag.Configurable), propertyFlags),
-                ["push"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "push", Push, 1, PropertyFlag.Configurable), propertyFlags),
-                ["reverse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reverse", Reverse, 0, PropertyFlag.Configurable), propertyFlags),
-                ["shift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "shift", Shift, 0, PropertyFlag.Configurable), propertyFlags),
-                ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), propertyFlags),
-                ["sort"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "sort", Sort, 1, PropertyFlag.Configurable), propertyFlags),
-                ["splice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "splice", Splice, 2, PropertyFlag.Configurable), propertyFlags),
-                ["unshift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unshift", Unshift, 1, PropertyFlag.Configurable), propertyFlags),
-                ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), propertyFlags),
-                ["indexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), propertyFlags),
-                ["lastIndexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), propertyFlags),
                 ["every"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "every", Every, 1, PropertyFlag.Configurable), propertyFlags),
-                ["some"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "some", Some, 1, PropertyFlag.Configurable), propertyFlags),
-                ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), propertyFlags),
-                ["map"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "map", Map, 1, PropertyFlag.Configurable), propertyFlags),
+                ["fill"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "fill", Fill, 1, PropertyFlag.Configurable), propertyFlags),
                 ["filter"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "filter", Filter, 1, PropertyFlag.Configurable), propertyFlags),
-                ["reduce"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduce", Reduce, 1, PropertyFlag.Configurable), propertyFlags),
-                ["reduceRight"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1, PropertyFlag.Configurable), propertyFlags),
                 ["find"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "find", Find, 1, PropertyFlag.Configurable), propertyFlags),
                 ["findIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), propertyFlags),
                 ["findLast"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findLast", FindLast, 1, PropertyFlag.Configurable), propertyFlags),
                 ["findLastIndex"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "findLastIndex", FindLastIndex, 1, PropertyFlag.Configurable), propertyFlags),
-                ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), propertyFlags),
-                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
                 ["flat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flat", Flat, 0, PropertyFlag.Configurable), propertyFlags),
                 ["flatMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flatMap", FlatMap, 1, PropertyFlag.Configurable), propertyFlags),
-                ["at"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "at", At, 1, PropertyFlag.Configurable), propertyFlags),
+                ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), propertyFlags),
                 ["group"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "group", Group, 1, PropertyFlag.Configurable), propertyFlags),
                 ["groupToMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "groupToMap", GroupToMap, 1, PropertyFlag.Configurable), propertyFlags),
+                ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), propertyFlags),
+                ["indexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), propertyFlags),
+                ["join"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "join", Join, 1, PropertyFlag.Configurable), propertyFlags),
+                ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Keys, 0, PropertyFlag.Configurable), propertyFlags),
+                ["lastIndexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), propertyFlags),
+                ["map"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "map", Map, 1, PropertyFlag.Configurable), propertyFlags),
+                ["pop"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "pop", Pop, 0, PropertyFlag.Configurable), propertyFlags),
+                ["push"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "push", Push, 1, PropertyFlag.Configurable), propertyFlags),
+                ["reduce"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduce", Reduce, 1, PropertyFlag.Configurable), propertyFlags),
+                ["reduceRight"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reduceRight", ReduceRight, 1, PropertyFlag.Configurable), propertyFlags),
+                ["reverse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "reverse", Reverse, 0, PropertyFlag.Configurable), propertyFlags),
+                ["shift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "shift", Shift, 0, PropertyFlag.Configurable), propertyFlags),
+                ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "slice", Slice, 2, PropertyFlag.Configurable), propertyFlags),
+                ["some"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "some", Some, 1, PropertyFlag.Configurable), propertyFlags),
+                ["sort"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "sort", Sort, 1, PropertyFlag.Configurable), propertyFlags),
+                ["splice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "splice", Splice, 2, PropertyFlag.Configurable), propertyFlags),
+                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), propertyFlags),
+                ["toReversed"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toReversed", ToReversed, 0, PropertyFlag.Configurable), propertyFlags),
+                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToString, 0, PropertyFlag.Configurable), propertyFlags),
+                ["unshift"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "unshift", Unshift, 1, PropertyFlag.Configurable), propertyFlags),
+                ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
             };
             SetProperties(properties);
 
@@ -89,26 +91,26 @@ namespace Jint.Native.Array
                         _prototype = null
                     };
 
-                    unscopables.SetDataProperty("at", JsBoolean.True);
-                    unscopables.SetDataProperty("copyWithin", JsBoolean.True);
-                    unscopables.SetDataProperty("entries", JsBoolean.True);
-                    unscopables.SetDataProperty("fill", JsBoolean.True);
-                    unscopables.SetDataProperty("find", JsBoolean.True);
-                    unscopables.SetDataProperty("findIndex", JsBoolean.True);
-                    unscopables.SetDataProperty("findLast", JsBoolean.True);
-                    unscopables.SetDataProperty("findLastIndex", JsBoolean.True);
-                    unscopables.SetDataProperty("flat", JsBoolean.True);
-                    unscopables.SetDataProperty("flatMap", JsBoolean.True);
-                    unscopables.SetDataProperty("group", JsBoolean.True);
-                    unscopables.SetDataProperty("groupBy", JsBoolean.True);
-                    unscopables.SetDataProperty("groupByToMap", JsBoolean.True);
-                    unscopables.SetDataProperty("groupToMap", JsBoolean.True);
-                    unscopables.SetDataProperty("includes", JsBoolean.True);
-                    unscopables.SetDataProperty("keys", JsBoolean.True);
-                    unscopables.SetDataProperty("toReversed", JsBoolean.True);
-                    unscopables.SetDataProperty("toSorted", JsBoolean.True);
-                    unscopables.SetDataProperty("toSpliced", JsBoolean.True);
-                    unscopables.SetDataProperty("values", JsBoolean.True);
+                    unscopables.FastSetDataProperty("at", JsBoolean.True);
+                    unscopables.FastSetDataProperty("copyWithin", JsBoolean.True);
+                    unscopables.FastSetDataProperty("entries", JsBoolean.True);
+                    unscopables.FastSetDataProperty("fill", JsBoolean.True);
+                    unscopables.FastSetDataProperty("find", JsBoolean.True);
+                    unscopables.FastSetDataProperty("findIndex", JsBoolean.True);
+                    unscopables.FastSetDataProperty("findLast", JsBoolean.True);
+                    unscopables.FastSetDataProperty("findLastIndex", JsBoolean.True);
+                    unscopables.FastSetDataProperty("flat", JsBoolean.True);
+                    unscopables.FastSetDataProperty("flatMap", JsBoolean.True);
+                    unscopables.FastSetDataProperty("group", JsBoolean.True);
+                    unscopables.FastSetDataProperty("groupBy", JsBoolean.True);
+                    unscopables.FastSetDataProperty("groupByToMap", JsBoolean.True);
+                    unscopables.FastSetDataProperty("groupToMap", JsBoolean.True);
+                    unscopables.FastSetDataProperty("includes", JsBoolean.True);
+                    unscopables.FastSetDataProperty("keys", JsBoolean.True);
+                    unscopables.FastSetDataProperty("toReversed", JsBoolean.True);
+                    unscopables.FastSetDataProperty("toSorted", JsBoolean.True);
+                    unscopables.FastSetDataProperty("toSpliced", JsBoolean.True);
+                    unscopables.FastSetDataProperty("values", JsBoolean.True);
 
                     return unscopables;
                 }, PropertyFlag.Configurable)
@@ -1380,6 +1382,22 @@ namespace Jint.Native.Array
             return func(array, Arguments.Empty);
         }
 
+        private JsValue ToReversed(JsValue thisObj, JsValue[] arguments)
+        {
+            var o = TypeConverter.ToObject(_realm, thisObj);
+
+            var operations = ArrayOperations.For(o);
+            var len = operations.GetLongLength();
+            var a = CreateBackingArray(len);
+            ulong k = 0;
+            while (k < len)
+            {
+                var from = len - k - 1;
+                a[k++] = operations.Get(from);
+            }
+            return new JsArray(_engine, a);
+        }
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.prototype.reduceright
         /// </summary>
@@ -1552,6 +1570,16 @@ namespace Jint.Native.Array
 
             _engine._jsValueArrayPool.ReturnArray(args);
             return result;
+        }
+
+        private object[] CreateBackingArray(ulong length)
+        {
+            if (length > ArrayOperations.MaxArrayLength)
+            {
+                ExceptionHelper.ThrowRangeError(_engine.Realm, "Invalid array length " + length);
+            }
+
+            return new object[length];
         }
 
         internal sealed class ArrayComparer : IComparer<JsValue>

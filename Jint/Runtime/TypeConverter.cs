@@ -56,9 +56,11 @@ namespace Jint.Runtime
 
         // the object doesn't override important GetOwnProperty etc which change behavior
         PlainObject = 4096,
+        // our native array
+        Array = 8192,
 
         Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
-        InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Module
+        InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module
     }
 
     public static class TypeConverter

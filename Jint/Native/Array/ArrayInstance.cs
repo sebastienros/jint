@@ -27,7 +27,7 @@ namespace Jint.Native.Array
             _dense = System.Array.Empty<object?>();
         }
 
-        private protected ArrayInstance(Engine engine, uint capacity = 0, uint length = 0) : base(engine)
+        private protected ArrayInstance(Engine engine, uint capacity = 0, uint length = 0) : base(engine, type: InternalTypes.Object | InternalTypes.Array)
         {
             _prototype = engine.Realm.Intrinsics.Array.PrototypeObject;
 
@@ -48,30 +48,30 @@ namespace Jint.Native.Array
             _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
         }
 
-        private protected ArrayInstance(Engine engine, JsValue[] items) : base(engine)
+        private protected ArrayInstance(Engine engine, JsValue[] items) : base(engine, type: InternalTypes.Object | InternalTypes.Array)
         {
-            _prototype = engine.Realm.Intrinsics.Array.PrototypeObject;
-            _isObjectArray = false;
-
-            int length;
-            if (items == null || items.Length == 0)
-            {
-                _dense = System.Array.Empty<object>();
-                length = 0;
-            }
-            else
-            {
-                _dense = items;
-                length = items.Length;
-            }
-
-            _length = new PropertyDescriptor(length, PropertyFlag.OnlyWritable);
+            Initialize(engine, items);
         }
 
-        private protected ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine)
+        private protected ArrayInstance(Engine engine, PropertyDescriptor[] items) : base(engine, type: InternalTypes.Object | InternalTypes.Array)
         {
+            Initialize(engine, items);
+        }
+
+        private protected ArrayInstance(Engine engine, object[] items) : base(engine, type: InternalTypes.Object | InternalTypes.Array)
+        {
+            Initialize(engine, items);
+        }
+
+        private void Initialize<T>(Engine engine, T[] items) where T : class
+        {
+            if (items.Length > engine.Options.Constraints.MaxArraySize)
+            {
+                ThrowMaximumArraySizeReachedException(engine, (uint) items.Length);
+            }
+
             _prototype = engine.Realm.Intrinsics.Array.PrototypeObject;
-            _isObjectArray = false;
+            _isObjectArray = typeof(T) == typeof(object);
 
             int length;
             if (items == null || items.Length == 0)

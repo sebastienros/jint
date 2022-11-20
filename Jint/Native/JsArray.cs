@@ -1,4 +1,5 @@
 using Jint.Native.Array;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native;
@@ -28,6 +29,10 @@ public sealed class JsArray : ArrayInstance
     /// The array will be owned and modified by Jint afterwards.
     /// </summary>
     public JsArray(Engine engine, PropertyDescriptor[] items) : base(engine, items)
+    {
+    }
+
+    internal JsArray(Engine engine, object[] items) : base(engine, items)
     {
     }
 }
