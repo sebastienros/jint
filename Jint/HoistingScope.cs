@@ -264,12 +264,14 @@ namespace Jint
                             }
                         }
                     }
-                    else if (childType == Nodes.FunctionDeclaration
-                             // in strict mode cannot include function declarations directly under block or case clauses
-                             && (!_strict || parent is null || (node.Type != Nodes.BlockStatement && node.Type != Nodes.SwitchCase)))
+                    else if (childType == Nodes.FunctionDeclaration)
                     {
-                        _functions ??= new List<FunctionDeclaration>();
-                        _functions.Add((FunctionDeclaration)childNode);
+                        // function declarations are not hoisted if they are under block or case clauses
+                        if (parent is null || (node.Type != Nodes.BlockStatement && node.Type != Nodes.SwitchCase))
+                        {
+                            _functions ??= new List<FunctionDeclaration>();
+                            _functions.Add((FunctionDeclaration)childNode);
+                        }
                     }
                     else if (childType == Nodes.ClassDeclaration && parent is null or Module)
                     {
