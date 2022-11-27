@@ -114,7 +114,7 @@ public partial class GlobalObject
         properties.AddDangerous(propertyRegExp, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.RegExp, PropertyFlags));
         properties.AddDangerous(propertySet, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Set, PropertyFlags));
         properties.AddDangerous(propertyShadowRealm, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.ShadowRealm, PropertyFlags));
-        properties.AddDangerous(propertySharedArrayBuffer, new LazyPropertyDescriptor(this, static state => Undefined, PropertyFlags));
+        properties.AddDangerous(propertySharedArrayBuffer, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.SharedArrayBuffer, PropertyFlags));
         properties.AddDangerous(propertyString, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.String, PropertyFlags));
         properties.AddDangerous(propertySymbol, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Symbol, PropertyFlags));
         properties.AddDangerous(propertySyntaxError, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.SyntaxError, PropertyFlags));

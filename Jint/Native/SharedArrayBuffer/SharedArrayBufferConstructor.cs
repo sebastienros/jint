@@ -8,16 +8,16 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
-namespace Jint.Native.ArrayBuffer;
+namespace Jint.Native.SharedArrayBuffer;
 
 /// <summary>
-/// https://tc39.es/ecma262/#sec-properties-of-the-arraybuffer-constructor
+/// https://tc39.es/ecma262/#sec-sharedarraybuffer-constructor
 /// </summary>
-internal sealed class ArrayBufferConstructor : Constructor
+internal sealed class SharedArrayBufferConstructor : Constructor
 {
-    private static readonly JsString _functionName = new("ArrayBuffer");
+    private static readonly JsString _functionName = new("SharedArrayBuffer");
 
-    internal ArrayBufferConstructor(
+    internal SharedArrayBufferConstructor(
         Engine engine,
         Realm realm,
         FunctionPrototype functionPrototype,
@@ -25,12 +25,12 @@ internal sealed class ArrayBufferConstructor : Constructor
         : base(engine, realm, _functionName)
     {
         _prototype = functionPrototype;
-        PrototypeObject = new ArrayBufferPrototype(engine, this, objectPrototype);
+        PrototypeObject = new SharedArrayBufferPrototype(engine, this, objectPrototype);
         _length = new PropertyDescriptor(1, PropertyFlag.Configurable);
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
     }
 
-    private ArrayBufferPrototype PrototypeObject { get; }
+    private SharedArrayBufferPrototype PrototypeObject { get; }
 
     protected override void Initialize()
     {
@@ -65,6 +65,12 @@ internal sealed class ArrayBufferConstructor : Constructor
         return thisObject;
     }
 
+    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    {
+        ExceptionHelper.ThrowTypeError(_realm, "Constructor SharedArrayBuffer requires 'new'");
+        return Undefined;
+    }
+
     public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
@@ -77,28 +83,27 @@ internal sealed class ArrayBufferConstructor : Constructor
 
         var byteLength = TypeConverter.ToIndex(_realm, length);
         var requestedMaxByteLength = options.GetArrayBufferMaxByteLengthOption();
-        return AllocateArrayBuffer(newTarget, byteLength, requestedMaxByteLength);
+
+        return AllocateSharedArrayBuffer(newTarget, byteLength, requestedMaxByteLength);
     }
 
-    /// <summary>
-    /// https://tc39.es/ecma262/#sec-allocatearraybuffer
-    /// </summary>
-    internal JsArrayBuffer AllocateArrayBuffer(JsValue constructor, ulong byteLength, uint? maxByteLength = null)
+    private JsSharedArrayBuffer AllocateSharedArrayBuffer(JsValue constructor, uint byteLength, uint? maxByteLength  = null)
     {
-        var allocatingResizableBuffer = maxByteLength != null;
+        var allocatingGrowableBuffer = maxByteLength != null;
 
-        if (allocatingResizableBuffer && byteLength > maxByteLength)
+        if (allocatingGrowableBuffer && byteLength > maxByteLength)
         {
             ExceptionHelper.ThrowRangeError(_realm);
         }
 
         var obj = OrdinaryCreateFromConstructor(
             constructor,
-            static intrinsics => intrinsics.ArrayBuffer.PrototypeObject,
-            static (engine, _, state) => new JsArrayBuffer(engine, state!.Item1),
-            new Tuple<uint?>(maxByteLength));
+            static intrinsics => intrinsics.SharedArrayBuffer.PrototypeObject,
+            static (engine, _, state) => new JsSharedArrayBuffer(engine, state!.Item1, state.Item2),
+            new Tuple<uint?, uint>(maxByteLength, byteLength));
 
-        var block = byteLength > 0 ? JsArrayBuffer.CreateByteDataBlock(_realm, byteLength) : System.Array.Empty<byte>();
+        var allocLength = maxByteLength.GetValueOrDefault(byteLength);
+        var block = JsSharedArrayBuffer.CreateSharedByteDataBlock(_realm, allocLength);
         obj._arrayBufferData = block;
 
         return obj;
