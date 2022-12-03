@@ -165,7 +165,7 @@ namespace Jint.Runtime.Environments
                 if (_globalObject is not null)
                 {
                     // fast inlined path as we know we target global
-                    if (!_globalObject.SetFromMutableBinding(name, value) && strict)
+                    if (!_globalObject.SetFromMutableBinding(name, value, strict) && strict)
                     {
                         ExceptionHelper.ThrowTypeError(_engine.Realm);
                     }
@@ -188,7 +188,7 @@ namespace Jint.Runtime.Environments
                 if (_globalObject is not null)
                 {
                     // fast inlined path as we know we target global
-                    if (!_globalObject.SetFromMutableBinding(name.Key, value) && strict)
+                    if (!_globalObject.SetFromMutableBinding(name.Key, value, strict) && strict)
                     {
                         ExceptionHelper.ThrowTypeError(_engine.Realm);
                     }

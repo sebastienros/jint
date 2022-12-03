@@ -56,7 +56,7 @@ namespace Jint.Native.Function
         /// </summary>
         protected internal override JsValue Call(JsValue thisArgument, JsValue[] arguments)
         {
-            var strict = _thisMode == FunctionThisMode.Strict || _engine._isStrict;
+            var strict = _functionDefinition.Strict || _thisMode == FunctionThisMode.Strict || _engine._isStrict;
             using (new StrictModeScope(strict, true))
             {
                 try
