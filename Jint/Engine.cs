@@ -40,7 +40,7 @@ namespace Jint
         internal readonly IObjectConverter[]? _objectConverters;
         internal readonly Constraint[] _constraints;
         internal readonly bool _isDebugMode;
-        internal bool _isStrict;
+        internal readonly bool _isStrict;
         internal readonly IReferenceResolver _referenceResolver;
         internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
@@ -254,7 +254,7 @@ namespace Jint
                 ? _defaultParser
                 : new JavaScriptParser(parserOptions);
 
-            var script = parser.ParseScript(code, source);
+            var script = parser.ParseScript(code, source, _isStrict);
 
             return Evaluate(script);
         }
@@ -274,7 +274,7 @@ namespace Jint
                 ? _defaultParser
                 : new JavaScriptParser(parserOptions);
 
-            var script = parser.ParseScript(code, source);
+            var script = parser.ParseScript(code, source, _isStrict);
 
             return Execute(script);
         }
@@ -663,11 +663,9 @@ namespace Jint
             var ownsContext = _activeEvaluationContext is null;
             _activeEvaluationContext ??= new EvaluationContext(this);
 
-            var oldStrict = _isStrict;
             try
             {
-                _isStrict = strict;
-                using (new StrictModeScope(_isStrict))
+                using (new StrictModeScope(strict))
                 {
                     return callback();
                 }
@@ -678,7 +676,6 @@ namespace Jint
                 {
                     _activeEvaluationContext = null!;
                 }
-                _isStrict = oldStrict;
                 ResetConstraints();
                 _agent.ClearKeptObjects();
             }

@@ -54,7 +54,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var privateScope = runningExecutionContext.PrivateEnvironment;
 
-            var thisMode = _function.Strict || engine._isStrict
+            var thisMode = _function.Strict
                 ? FunctionThisMode.Strict
                 : FunctionThisMode.Global;
 
@@ -96,7 +96,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             var privateScope = runningExecutionContext.PrivateEnvironment;
 
-            var thisMode = _function.Strict || engine._isStrict
+            var thisMode = _function.Strict
                 ? FunctionThisMode.Strict
                 : FunctionThisMode.Global;
 

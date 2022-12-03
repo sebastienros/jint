@@ -796,13 +796,17 @@ namespace Jint.Native.Global
             return descriptor ?? PropertyDescriptor.Undefined;
         }
 
-        internal bool SetFromMutableBinding(Key property, JsValue value)
+        internal bool SetFromMutableBinding(Key property, JsValue value, bool strict)
         {
             // here we are called only from global environment record context
             // we can take some shortcuts to be faster
 
             if (!_properties!.TryGetValue(property, out var existingDescriptor))
             {
+                if (strict)
+                {
+                    ExceptionHelper.ThrowReferenceNameError(_realm, property.Name);
+                }
                 _properties[property] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding);
                 return true;
             }

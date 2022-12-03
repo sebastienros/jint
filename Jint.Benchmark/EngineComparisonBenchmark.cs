@@ -47,7 +47,7 @@ public class EngineComparisonBenchmark
                 script = _dromaeoHelpers + Environment.NewLine + Environment.NewLine + script;
             }
             _files[fileName] = script;
-            _parsedScripts[fileName] = javaScriptParser.ParseScript(script);
+            _parsedScripts[fileName] = javaScriptParser.ParseScript(script, strict: true);
         }
     }
 

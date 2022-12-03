@@ -51,7 +51,7 @@ public sealed class ShadowRealm : ObjectInstance
         Script script;
         try
         {
-            script = _parser.ParseScript(sourceText);
+            script = _parser.ParseScript(sourceText, source: null, _engine._isStrict);
         }
         catch (ParserException e)
         {
