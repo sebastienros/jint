@@ -139,7 +139,7 @@ public partial class FunctionInstance
             }
 
             JavaScriptParser parser = new(new ParserOptions { Tolerant = false });
-            function = (IFunction) parser.ParseScript(functionExpression).Body[0];
+            function = (IFunction) parser.ParseScript(functionExpression, source: null, _engine._isStrict).Body[0];
         }
         catch (ParserException ex)
         {

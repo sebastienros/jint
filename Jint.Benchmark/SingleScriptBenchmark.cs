@@ -15,7 +15,7 @@ public abstract class SingleScriptBenchmark
     public void Setup()
     {
         _script = File.ReadAllText($"Scripts/{FileName}");
-        _parsedScript = Engine.PrepareScript(_script);
+        _parsedScript = Engine.PrepareScript(_script, strict: true);
     }
 
     [Benchmark]

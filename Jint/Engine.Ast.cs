@@ -15,12 +15,12 @@ public partial class Engine
     /// <remarks>
     /// Returned instance is reusable and thread-safe. You should prepare scripts only once and then reuse them.
     /// </remarks>
-    public static Script PrepareScript(string script, string? source = null)
+    public static Script PrepareScript(string script, string? source = null, bool strict = false)
     {
         var astAnalyzer = new AstAnalyzer();
         var options = ParserOptions.Default with { OnNodeCreated = astAnalyzer.NodeVisitor };
 
-        return new JavaScriptParser(options).ParseScript(script, source);
+        return new JavaScriptParser(options).ParseScript(script, source, strict);
     }
 
     /// <summary>

@@ -455,7 +455,6 @@
     "language/statements/for-of/dstr/obj-prop-elem-target-obj-literal-prop-ref-init.js",
     "language/statements/for-of/head-lhs-async-dot.js",
     "language/statements/for-of/head-lhs-async-escaped.js",
-    "language/statements/function/13.0-12-s.js",
     "language/statements/function/cptn-decl.js",
     "language/statements/function/dstr/ary-init-iter-get-err-array-prototype.js",
     "language/statements/function/dstr/dflt-ary-init-iter-get-err-array-prototype.js",

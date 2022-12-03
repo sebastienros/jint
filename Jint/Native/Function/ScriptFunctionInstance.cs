@@ -42,7 +42,6 @@ namespace Jint.Native.Function
             _length = new LazyPropertyDescriptor(null, _ => JsNumber.Create(function.Initialize().Length), PropertyFlag.Configurable);
 
             if (!function.Strict
-                && !engine._isStrict
                 && function.Function is not ArrowFunctionExpression
                 && !function.Function.Generator)
             {
@@ -56,7 +55,7 @@ namespace Jint.Native.Function
         /// </summary>
         protected internal override JsValue Call(JsValue thisArgument, JsValue[] arguments)
         {
-            var strict = _functionDefinition.Strict || _thisMode == FunctionThisMode.Strict || _engine._isStrict;
+            var strict = _functionDefinition.Strict || _thisMode == FunctionThisMode.Strict;
             using (new StrictModeScope(strict, true))
             {
                 try
