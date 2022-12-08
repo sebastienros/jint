@@ -333,6 +333,38 @@ namespace Jint.Tests.Runtime.Debugger
         }
 
         [Fact]
+        public void HasCorrectScopeChainForModule()
+        {
+            string imported = @"
+            function add(a, b)
+            {
+                debugger;
+                return a + b;
+            }
+            
+            export { add };";
+
+            string main = @"
+            import { add } from 'imported-module';
+            const x = 1;
+            const y = 2;
+            add(x, y);";
+            TestHelpers.TestAtBreak(engine =>
+            {
+                engine.AddModule("imported-module", imported);
+                engine.AddModule("main", main);
+                engine.ImportModule("main");
+            },
+            info =>
+            {
+                Assert.Collection(info.CurrentScopeChain,
+                    scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a", "b"),
+                    scope => AssertScope(scope, DebugScopeType.Module, "add"),
+                    scope => AssertScope(scope, DebugScopeType.Global));
+            });
+        }
+
+        [Fact]
         public void HasCorrectScopeChainForNestedBlock()
         {
             string script = @"
@@ -499,6 +531,23 @@ namespace Jint.Tests.Runtime.Debugger
                         scope => AssertScope(scope, DebugScopeType.Global, "foo", "bar")
                     )
                 );
+            });
+        }
+
+        [Fact]
+        public void InspectsModuleScopedBindings()
+        {
+            string main = @"const x = 1; debugger;";
+            TestHelpers.TestAtBreak(engine =>
+            {
+                engine.AddModule("main", main);
+                engine.ImportModule("main");
+            },
+            info =>
+            {
+                // No need for imports - main module is module scoped too, duh.
+                var value = AssertOnlyScopeContains(info.CurrentScopeChain, "x", DebugScopeType.Module);
+                Assert.Equal(1, value.AsInteger());
             });
         }
     }

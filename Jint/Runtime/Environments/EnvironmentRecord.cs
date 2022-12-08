@@ -73,17 +73,6 @@ namespace Jint.Runtime.Environments
         public abstract JsValue GetBindingValue(string name, bool strict);
 
         /// <summary>
-        /// Returns the value of an already existing binding from an environment record. Unlike <see cref="GetBindingValue(string, bool)"/>
-        /// this does not throw an exception for uninitialized bindings, but instead returns false and sets <paramref name="value"/> to null.
-        /// </summary>
-        /// <param name="name">The identifier of the binding</param>
-        /// <param name="strict">Strict mode</param>
-        /// <param name="value">The value of an already existing binding from an environment record.</param>
-        /// <returns>True if the value is initialized, otherwise false.</returns>
-        /// <remarks>This is used for debugger inspection. Note that this will currently still throw if the binding cannot be retrieved (e.g. because it doesn't exist).</remarks>
-        internal abstract bool TryGetBindingValue(string name, bool strict, [NotNullWhen(true)] out JsValue? value);
-
-        /// <summary>
         /// Delete a binding from an environment record. The String value N is the text of the bound name If a binding for N exists, remove the binding and return true. If the binding exists but cannot be removed return false. If the binding does not exist return true.
         /// </summary>
         /// <param name="name">The identifier of the binding</param>

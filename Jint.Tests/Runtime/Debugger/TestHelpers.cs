@@ -24,9 +24,9 @@ namespace Jint.Tests.Runtime.Debugger
         /// Initializes engine in debugmode and executes script until debugger statement,
         /// before calling stepHandler for assertions. Also asserts that a break was triggered.
         /// </summary>
-        /// <param name="script">Script that is basis for testing</param>
+        /// <param name="initialization">Action to initialize and execute scripts</param>
         /// <param name="breakHandler">Handler for assertions</param>
-        public static void TestAtBreak(string script, Action<Engine, DebugInformation> breakHandler)
+        public static void TestAtBreak(Action<Engine> initialization, Action<Engine, DebugInformation> breakHandler)
         {
             var engine = new Engine(options => options
                 .DebugMode()
@@ -41,9 +41,26 @@ namespace Jint.Tests.Runtime.Debugger
                 return StepMode.None;
             };
 
-            engine.Execute(script);
+            initialization(engine);
 
             Assert.True(didBreak, "Test script did not break (e.g. didn't reach debugger statement)");
+        }
+
+        /// <inheritdoc cref="TestAtBreak()"/>
+        public static void TestAtBreak(Action<Engine> initialization, Action<DebugInformation> breakHandler)
+        {
+            TestAtBreak(engine => initialization(engine), (engine, info) => breakHandler(info));
+        }
+
+        /// <summary>
+        /// Initializes engine in debugmode and executes script until debugger statement,
+        /// before calling stepHandler for assertions. Also asserts that a break was triggered.
+        /// </summary>
+        /// <param name="script">Script that is basis for testing</param>
+        /// <param name="breakHandler">Handler for assertions</param>
+        public static void TestAtBreak(string script, Action<Engine, DebugInformation> breakHandler)
+        {
+            TestAtBreak(engine => engine.Execute(script), breakHandler);
         }
 
         /// <inheritdoc cref="TestAtBreak()"/>

@@ -57,7 +57,7 @@ namespace Jint.Runtime.Debugger
         /// <returns>Value of the binding</returns>
         public JsValue? GetBindingValue(string name)
         {
-            _record.TryGetBindingValue(name, strict: true, out var result);
+            _record.TryGetBinding(new EnvironmentRecord.BindingName(name), strict: true, out _, out var result);
             return result;
         }
 

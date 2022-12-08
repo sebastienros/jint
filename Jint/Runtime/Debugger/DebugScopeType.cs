@@ -79,7 +79,6 @@ namespace Jint.Runtime.Debugger
         /// <summary>
         /// Module scope bindings.
         /// </summary>
-        /// <remarks>Not currently implemented by Jint.</remarks>
         Module,
 
         /// <summary>
