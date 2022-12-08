@@ -36,6 +36,23 @@ public class DefaultModuleLoaderTests
     }
 
     [Fact]
+    public void ShouldTriggerLoadedEvent()
+    {
+        var loader = new DefaultModuleLoader(ModuleTests.GetBasePath());
+        bool triggered = false;
+        loader.Loaded += (sender, source, module) =>
+        {
+            Assert.Equal(loader, sender);
+            Assert.NotNull(source);
+            Assert.NotNull(module);
+            triggered = true;
+        };
+        var engine = new Engine(options => options.EnableModules(loader));
+        engine.ImportModule("./modules/format-name.js");
+        Assert.True(triggered);
+    }
+
+    [Fact]
     public void ShouldResolveBareSpecifiers()
     {
         var resolver = new DefaultModuleLoader("/");
