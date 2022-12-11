@@ -55,6 +55,9 @@ namespace Jint.Runtime.Debugger
                         // If an ObjectEnvironmentRecord is not a GlobalEnvironmentRecord, it's With
                         AddScope(DebugScopeType.With, record);
                         break;
+                    case ModuleEnvironmentRecord:
+                        AddScope(DebugScopeType.Module, record);
+                        break;
                     case DeclarativeEnvironmentRecord der:
                         if (der._catchEnvironment)
                         {

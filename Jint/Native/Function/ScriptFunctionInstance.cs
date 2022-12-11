@@ -159,7 +159,11 @@ namespace Jint.Native.Function
                     var result = _functionDefinition.EvaluateBody(context, this, arguments);
 
                     // The DebugHandler needs the current execution context before the return for stepping through the return point
-                    if (context.DebugMode && result.Type != CompletionType.Throw)
+                    // We exclude the empty constructor generated for classes without an explicit constructor.
+                    bool isStep = context.DebugMode &&
+                        result.Type != CompletionType.Throw &&
+                        _functionDefinition.Function != ClassDefinition._emptyConstructor.Value;
+                    if (isStep)
                     {
                         // We don't have a statement, but we still need a Location for debuggers. DebugHandler will infer one from
                         // the function body:

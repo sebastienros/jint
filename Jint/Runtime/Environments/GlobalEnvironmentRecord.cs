@@ -241,37 +241,6 @@ namespace Jint.Runtime.Environments
             return ObjectInstance.UnwrapJsValue(desc, _global);
         }
 
-        internal override bool TryGetBindingValue(string name, bool strict, [NotNullWhen(true)] out JsValue? value)
-        {
-            if (_declarativeRecord.HasBinding(name))
-            {
-                return _declarativeRecord.TryGetBindingValue(name, strict, out value);
-            }
-
-            // see ObjectEnvironmentRecord.TryGetBindingValue
-            var desc = PropertyDescriptor.Undefined;
-            if (_globalObject is not null)
-            {
-                if (_globalObject._properties?.TryGetValue(name, out desc) == false)
-                {
-                    desc = PropertyDescriptor.Undefined;
-                }
-            }
-            else
-            {
-                desc = _global.GetProperty(name);
-            }
-
-            if (strict && desc == PropertyDescriptor.Undefined)
-            {
-                value = null;
-                return false;
-            }
-
-            value = ObjectInstance.UnwrapJsValue(desc, _global);
-            return true;
-        }
-
         public override bool DeleteBinding(string name)
         {
             if (_declarativeRecord.HasBinding(name))

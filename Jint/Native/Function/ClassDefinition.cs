@@ -14,7 +14,7 @@ namespace Jint.Native.Function
         private static readonly MethodDefinition _superConstructor;
         internal static CallExpression _defaultSuperCall;
 
-        private static readonly MethodDefinition _emptyConstructor;
+        internal static readonly MethodDefinition _emptyConstructor;
 
         internal readonly string? _className;
         private readonly Expression? _superClass;

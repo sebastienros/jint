@@ -26,7 +26,7 @@ namespace Jint.Tests.Runtime.Debugger
         [Fact]
         public void StepsThroughWhileLoop()
         {
-            string script = @"
+            var script = @"
                 let x = 0;
                 while (x < 2)
                 {
@@ -50,7 +50,7 @@ namespace Jint.Tests.Runtime.Debugger
         [Fact]
         public void StepsThroughDoWhileLoop()
         {
-            string script = @"
+            var script = @"
                 let x = 0;
                 do
                 {
@@ -74,7 +74,7 @@ namespace Jint.Tests.Runtime.Debugger
         [Fact]
         public void StepsThroughForLoop()
         {
-            string script = @"
+            var script = @"
                 for (let x = 0; x < 2; x++)
                 {
                     'dummy';
@@ -87,10 +87,10 @@ namespace Jint.Tests.Runtime.Debugger
                 node => Assert.IsType<ForStatement>(node),        // for ...
                 node => Assert.IsType<VariableDeclaration>(node), // let x = 0
                 node => Assert.IsType<BinaryExpression>(node),    // x < 2
-                node => Assert.IsType<ExpressionStatement>(node), // 'dummy';
+                node => Assert.True(node.IsLiteral("dummy")),     // 'dummy';
                 node => Assert.IsType<UpdateExpression>(node),    // x++;
                 node => Assert.IsType<BinaryExpression>(node),    // x < 2
-                node => Assert.IsType<ExpressionStatement>(node), // 'dummy';
+                node => Assert.True(node.IsLiteral("dummy")),     // 'dummy';
                 node => Assert.IsType<UpdateExpression>(node),    // x++;
                 node => Assert.IsType<BinaryExpression>(node)     // x < 2 (false)
             );
@@ -99,7 +99,7 @@ namespace Jint.Tests.Runtime.Debugger
         [Fact]
         public void StepsThroughForOfLoop()
         {
-            string script = @"
+            var script = @"
                 const arr = [1, 2];
                 for (const item of arr)
                 {
@@ -113,16 +113,16 @@ namespace Jint.Tests.Runtime.Debugger
                 node => Assert.IsType<VariableDeclaration>(node), // let arr = [1, 2];
                 node => Assert.IsType<ForOfStatement>(node),      // for ...
                 node => Assert.IsType<VariableDeclaration>(node), // item
-                node => Assert.IsType<ExpressionStatement>(node), // 'dummy';
+                node => Assert.True(node.IsLiteral("dummy")),     // 'dummy';
                 node => Assert.IsType<VariableDeclaration>(node), // item
-                node => Assert.IsType<ExpressionStatement>(node)  // 'dummy';
+                node => Assert.True(node.IsLiteral("dummy"))      // 'dummy';
             );
         }
 
         [Fact]
         public void StepsThroughForInLoop()
         {
-            string script = @"
+            var script = @"
                 const obj = { x: 1, y: 2 };
                 for (const key in obj)
                 {
@@ -142,11 +142,36 @@ namespace Jint.Tests.Runtime.Debugger
             );
         }
 
+        [Fact]
+        public void StepsThroughConstructor()
+        {
+            var script = @"
+                class Test
+                {
+                    constructor()
+                    {
+                        'in constructor';
+                    }
+                }
+                new Test();
+                'after construction';
+            ";
+
+            var nodes = CollectStepNodes(script);
+
+            Assert.Collection(nodes,
+                node => Assert.IsType<ClassDeclaration>(node),          // class Test
+                node => Assert.IsType<ExpressionStatement>(node),       // new Test();
+                node => Assert.True(node.IsLiteral("in constructor")),  // 'in constructor()'
+                node => Assert.Null(node),                              // return point
+                node => Assert.True(node.IsLiteral("after construction"))
+            );
+        }
 
         [Fact]
         public void SkipsFunctionBody()
         {
-            string script = @"
+            var script = @"
                 function test()
                 {
                     'dummy';
@@ -159,8 +184,27 @@ namespace Jint.Tests.Runtime.Debugger
             Assert.Collection(nodes,
                 node => Assert.IsType<FunctionDeclaration>(node), // function(test) ...;
                 node => Assert.IsType<ExpressionStatement>(node), // test();
-                node => Assert.IsType<Directive>(node),           // 'dummy';
+                node => Assert.True(node.IsLiteral("dummy")),     // 'dummy';
                 node => Assert.Null(node)                         // return point
+            );
+        }
+
+        [Fact]
+        public void SkipsReturnPointOfImplicitConstructor()
+        {
+            var script = @"
+                class Test
+                {
+                }
+                new Test();
+                'dummy';
+            ";
+
+            var nodes = CollectStepNodes(script);
+            Assert.Collection(nodes,
+                node => Assert.IsType<ClassDeclaration>(node),    // class Test
+                node => Assert.IsType<ExpressionStatement>(node), // new Test();
+                node => Assert.True(node.IsLiteral("dummy"))      // 'dummy';
             );
         }
     }

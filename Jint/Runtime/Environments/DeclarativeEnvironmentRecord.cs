@@ -124,17 +124,6 @@ namespace Jint.Runtime.Environments
             return null!;
         }
 
-        internal sealed override bool TryGetBindingValue(string name, bool strict, [NotNullWhen(true)] out JsValue? value)
-        {
-            if (_dictionary is not null && _dictionary.TryGetValue(name, out var binding) && binding.IsInitialized())
-            {
-                value = binding.Value;
-                return true;
-            }
-            value = null;
-            return false;
-        }
-
         [MethodImpl(MethodImplOptions.NoInlining)]
         private void ThrowUninitializedBindingError(string name)
         {
