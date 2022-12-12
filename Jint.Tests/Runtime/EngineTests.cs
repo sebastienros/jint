@@ -1584,13 +1584,11 @@ var prep = function (fn) { fn(); };
             Assert.NotNull(debugInfo.CallStack);
             Assert.NotNull(debugInfo.CurrentNode);
             Assert.NotNull(debugInfo.CurrentScopeChain);
-            Assert.NotNull(debugInfo.CurrentScopeChain.Global);
-            Assert.NotNull(debugInfo.CurrentScopeChain.Local);
 
             Assert.Equal(2, debugInfo.CallStack.Count);
             Assert.Equal("func1", debugInfo.CurrentCallFrame.FunctionName);
-            var globalScope = debugInfo.CurrentScopeChain.Global;
-            var localScope = debugInfo.CurrentScopeChain.Local;
+            var globalScope = debugInfo.CurrentScopeChain.Single(s => s.ScopeType == DebugScopeType.Global);
+            var localScope = debugInfo.CurrentScopeChain.Single(s => s.ScopeType == DebugScopeType.Local);
             Assert.Contains("global", globalScope.BindingNames);
             Assert.Equal(true, globalScope.GetBindingValue("global").AsBoolean());
             Assert.Contains("local", localScope.BindingNames);

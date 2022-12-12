@@ -177,6 +177,10 @@ namespace Jint.Runtime.Environments
 
         public override JsValue WithBaseObject() => _withEnvironment ? _bindingObject : Undefined;
 
+        public sealed override bool HasBindings()
+        {
+            return _bindingObject._properties?.Count > 0;
+        }
 
         internal override string[] GetAllBindingNames()
         {
