@@ -278,11 +278,6 @@ namespace Jint.Runtime.Interop
             return Equals(obj as ObjectWrapper);
         }
 
-        public override bool Equals(object? obj)
-        {
-            return Equals(obj as ObjectWrapper);
-        }
-
         public bool Equals(ObjectWrapper? other)
         {
             if (ReferenceEquals(null, other))

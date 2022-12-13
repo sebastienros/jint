@@ -182,7 +182,7 @@ namespace Jint
 
         public Engine SetValue(string name, string value)
         {
-            return SetValue(name, new JsString(value));
+            return SetValue(name, JsString.Create(value));
         }
 
         public Engine SetValue(string name, double value)

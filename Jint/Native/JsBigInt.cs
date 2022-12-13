@@ -46,14 +46,13 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
     }
 
 
-    public override object ToObject()
-    {
-        return _value;
-    }
+    public override object ToObject() => _value;
+
+    internal override bool ToBoolean() => _value != 0;
 
     public static bool operator ==(JsBigInt a, double b)
     {
-        return a is not null && TypeConverter.IsIntegralNumber(b) && a._value == (long) b;
+        return TypeConverter.IsIntegralNumber(b) && a._value == (long) b;
     }
 
     public static bool operator !=(JsBigInt a, double b)

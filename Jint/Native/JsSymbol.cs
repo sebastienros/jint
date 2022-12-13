@@ -16,10 +16,7 @@ public sealed class JsSymbol : JsValue, IEquatable<JsSymbol>
         _value = value;
     }
 
-    public override object ToObject()
-    {
-        return _value;
-    }
+    public override object ToObject() => _value;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-symboldescriptivestring

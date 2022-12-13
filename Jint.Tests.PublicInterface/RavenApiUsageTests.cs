@@ -161,4 +161,92 @@ public class RavenApiUsageTests
         Assert.Equal(106L, array.Length);
         Assert.True(array.All(x => x is JsNumber or JsUndefined or JsNumber or JsString or JsBoolean));
     }
+
+    // Checks different ways how string can be checked for equality without the need to materialize lazy value
+    [Fact]
+    public void CanInheritCustomString()
+    {
+        var engine = new Engine();
+
+        var str = new CustomString("the-value");
+        engine.SetValue("str", str);
+
+        var empty = new CustomString("");
+        engine.SetValue("empty", empty);
+
+        var obj = new JsObject(engine);
+        obj.Set("name", new CustomString("the name"));
+        engine.SetValue("obj", obj);
+
+        var array = new JsArray(engine, Enumerable.Range(1, 100).Select(x => new CustomString(x.ToString())).ToArray<JsValue>());
+        engine.SetValue("array", array);
+
+        Assert.True(engine.Evaluate("str ? true : false").AsBoolean());
+        Assert.False(engine.Evaluate("empty ? true : false").AsBoolean());
+
+        Assert.True(engine.Evaluate("array.includes('2')").AsBoolean());
+        Assert.True(engine.Evaluate("array.filter(x => x === '2').length > 0").AsBoolean());
+
+        engine.SetValue("objArray", new JsArray(engine, new JsValue[] { obj, obj }));
+        Assert.True(engine.Evaluate("objArray.filter(x => x.name === 'the name').length === 2").AsBoolean());
+
+        Assert.Equal(9, engine.Evaluate("str.length"));
+
+        Assert.True(engine.Evaluate("str == 'the-value'").AsBoolean());
+        Assert.True(engine.Evaluate("str === 'the-value'").AsBoolean());
+
+        Assert.True(engine.Evaluate("str.indexOf('value-too-long') === -1").AsBoolean());
+        Assert.True(engine.Evaluate("str.lastIndexOf('value-too-long') === -1").AsBoolean());
+        Assert.False(engine.Evaluate("str.startsWith('value-too-long')").AsBoolean());
+        Assert.False(engine.Evaluate("str.endsWith('value-too-long')").AsBoolean());
+        Assert.False(engine.Evaluate("str.includes('value-too-long')").AsBoolean());
+
+        Assert.True(engine.Evaluate("empty.trim() === ''").AsBoolean());
+        Assert.True(engine.Evaluate("empty.trimStart() === ''").AsBoolean());
+        Assert.True(engine.Evaluate("empty.trimEnd() === ''").AsBoolean());
+    }
+
+    private sealed class CustomString : JsString
+    {
+        private readonly string _value;
+
+        public CustomString(string value) : base(null)
+        {
+            _value = value;
+        }
+
+        public override string ToString()
+        {
+            // when called we know that we couldn't use fast paths
+            throw new InvalidOperationException("I don't want to be materialized!");
+        }
+
+        public override char this[int index] => _value[index];
+
+        public override int Length => _value.Length;
+
+        public override bool Equals(JsString obj)
+        {
+            return obj switch
+            {
+                CustomString customString => _value == customString._value,
+                _ => _value == obj.ToString()
+            };
+        }
+
+        public override bool IsLooselyEqual(JsValue value)
+        {
+            return value switch
+            {
+                CustomString customString => _value == customString._value,
+                JsString jsString => _value == jsString.ToString(),
+                _ => base.IsLooselyEqual(value)
+            };
+        }
+
+        public override int GetHashCode()
+        {
+            return _value.GetHashCode();
+        }
+    }
 }
