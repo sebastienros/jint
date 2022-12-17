@@ -6,6 +6,7 @@ using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
+using Jint.Tests.Runtime.Debugger;
 using Xunit.Abstractions;
 
 #pragma warning disable 618
@@ -2878,6 +2879,98 @@ x.test = {
             Assert.Equal(2L, array.Length);
             Assert.True(array[0].IsUndefined());
             Assert.True(array[1].IsUndefined());
+        }
+
+        [Fact]
+        public void ExecuteShouldTriggerParsedEvent()
+        {
+            TestParsedEvent(
+                (engine, code) => engine.Execute(code),
+                expectedSource: "<anonymous>"
+            );
+        }
+
+        [Fact]
+        public void ExecuteWithSourceShouldTriggerParsedEvent()
+        {
+            TestParsedEvent(
+                (engine, code) => engine.Execute(code, "mysource"),
+                expectedSource: "mysource"
+            );
+        }
+
+        [Fact]
+        public void ExecuteWithParserOptionsShouldTriggerParsedEvent()
+        {
+            TestParsedEvent(
+                (engine, code) => engine.Execute(code, ParserOptions.Default),
+                expectedSource: "<anonymous>"
+            );
+        }
+
+        [Fact]
+        public void ExecuteWithSourceAndParserOptionsShouldTriggerParsedEvent()
+        {
+            TestParsedEvent(
+                (engine, code) => engine.Execute(code, "mysource", ParserOptions.Default),
+                expectedSource: "mysource"
+            );
+        }
+
+        [Fact]
+        public void EvaluateShouldTriggerParsedEvent()
+        {
+            TestParsedEvent(
+                (engine, code) => engine.Evaluate(code),
+                expectedSource: "<anonymous>"
+            );
+        }
+
+        [Fact]
+        public void EvaluateWithSourceShouldTriggerParsedEvent()
+        {
+            TestParsedEvent(
+                (engine, code) => engine.Evaluate(code, "mysource"),
+                expectedSource: "mysource"
+            );
+        }
+
+        [Fact]
+        public void EvaluateWithParserOptionsShouldTriggerParsedEvent()
+        {
+            TestParsedEvent(
+                (engine, code) => engine.Evaluate(code, ParserOptions.Default),
+                expectedSource: "<anonymous>"
+            );
+        }
+
+        [Fact]
+        public void EvaluateWithSourceAndParserOptionsShouldTriggerParsedEvent()
+        {
+            TestParsedEvent(
+                (engine, code) => engine.Evaluate(code, "mysource", ParserOptions.Default),
+                expectedSource: "mysource"
+            );
+        }
+
+        private void TestParsedEvent(Action<Engine, string> call, string expectedSource)
+        {
+            var engine = new Engine();
+
+            const string script = "'dummy';";
+
+            bool parsedTriggered = false;
+            engine.Parsed += (sender, source, ast) =>
+            {
+                parsedTriggered = true;
+                Assert.Equal(engine, sender);
+                Assert.Equal(expectedSource, source);
+                Assert.Collection(ast.Body, node => Assert.True(TestHelpers.IsLiteral(node, "dummy")));
+            };
+
+            call(engine, script);
+
+            Assert.True(parsedTriggered);
         }
 
         private class Wrapper

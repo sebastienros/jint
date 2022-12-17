@@ -61,6 +61,13 @@ namespace Jint
         internal Intrinsics _originalIntrinsics = null!;
         internal Host _host = null!;
 
+        public delegate void ParsedHandler(object sender, string source, Script script);
+
+        /// <summary>
+        /// The Parsed event is triggered whenever a script has been passed as a result of execution or evaluation.
+        /// </summary>
+        public event ParsedHandler? Parsed;
+
         /// <summary>
         /// Constructs a new engine instance.
         /// </summary>
@@ -255,6 +262,7 @@ namespace Jint
                 : new JavaScriptParser(parserOptions);
 
             var script = parser.ParseScript(code, source, _isStrict);
+            Parsed?.Invoke(this, source, script);
 
             return Evaluate(script);
         }
@@ -275,6 +283,7 @@ namespace Jint
                 : new JavaScriptParser(parserOptions);
 
             var script = parser.ParseScript(code, source, _isStrict);
+            Parsed?.Invoke(this, source, script);
 
             return Execute(script);
         }
@@ -363,7 +372,7 @@ namespace Jint
 
             Action<JsValue> SettleWith(FunctionInstance settle) => value =>
             {
-                settle.Call(JsValue.Undefined, new[] {value});
+                settle.Call(JsValue.Undefined, new[] { value });
                 RunAvailableContinuations();
             };
 
