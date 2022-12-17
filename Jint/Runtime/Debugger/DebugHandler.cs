@@ -84,7 +84,7 @@ namespace Jint.Runtime.Debugger
             {
                 throw new DebugEvaluationException("Jint has no active evaluation context");
             }
-            int callStackSize = _engine.CallStack.Count;
+            var callStackSize = _engine.CallStack.Count;
 
             var list = new JintStatementList(null, script.Body);
             Completion result;
