@@ -22,9 +22,8 @@ namespace Jint.Runtime.Interpreter.Statements
 
                     System.Diagnostics.Debugger.Break();
                     break;
+                // DebugHandler handles DebuggerStatementHandling.Script during OnStep
                 case DebuggerStatementHandling.Script:
-                    engine.DebugHandler?.OnDebuggerStatement(_statement);
-                    break;
                 case DebuggerStatementHandling.Ignore:
                     break;
             }

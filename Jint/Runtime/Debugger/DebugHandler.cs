@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -7,6 +8,7 @@ namespace Jint.Runtime.Debugger
 {
     public enum PauseType
     {
+        Skip,
         Step,
         Break,
         DebuggerStatement
@@ -21,7 +23,7 @@ namespace Jint.Runtime.Debugger
         private int _steppingDepth;
 
         /// <summary>
-        /// The Step event is triggered before the engine executes a step-eligible AST node.
+        /// The Step event is triggered before the engine executes a step-eligible execution point.
         /// </summary>
         /// <remarks>
         /// If the current step mode is <see cref="StepMode.None"/>, this event is never triggered. The script may
@@ -39,11 +41,20 @@ namespace Jint.Runtime.Debugger
         /// </remarks>
         public event DebugEventHandler? Break;
 
+
+        /// <summary>
+        /// The Skip event is triggered for each execution point, when the point doesn't trigger a <see cref="Step"/>
+        /// or <see cref="Break"/> event.
+        /// </summary>
+        public event DebugEventHandler? Skip;
+
         internal DebugHandler(Engine engine, StepMode initialStepMode)
         {
             _engine = engine;
             HandleNewStepMode(initialStepMode);
         }
+
+        private bool IsStepping => _engine.CallStack.Count <= _steppingDepth;
 
         /// <summary>
         /// The location of the current (step-eligible) AST node being executed.
@@ -132,11 +143,7 @@ namespace Jint.Runtime.Debugger
             }
             _paused = true;
 
-            CheckBreakPointAndPause(
-                new BreakLocation(node.Location.Source!, node.Location.Start),
-                node: node,
-                location: null,
-                returnValue: null);
+            CheckBreakPointAndPause(node, node.Location);
         }
 
         internal void OnReturnPoint(Node functionBody, JsValue returnValue)
@@ -152,67 +159,58 @@ namespace Jint.Runtime.Debugger
             var functionBodyEnd = bodyLocation.End;
             var location = Location.From(functionBodyEnd, functionBodyEnd, bodyLocation.Source);
 
-            CheckBreakPointAndPause(
-                new BreakLocation(bodyLocation.Source!, bodyLocation.End),
-                node: null,
-                location: location,
-                returnValue: returnValue);
-        }
-
-        internal void OnDebuggerStatement(Statement statement)
-        {
-            // Don't reenter if we're already paused
-            if (_paused)
-            {
-                return;
-            }
-            _paused = true;
-
-            bool isStepping = _engine.CallStack.Count <= _steppingDepth;
-
-            // Even though we're at a debugger statement, if we're stepping, ignore the statement. OnStep already
-            // takes care of pausing.
-            if (!isStepping)
-            {
-                Pause(PauseType.DebuggerStatement, statement);
-            }
-
-            _paused = false;
+            CheckBreakPointAndPause(node: null, location, returnValue);
         }
 
         private void CheckBreakPointAndPause(
-            BreakLocation breakLocation,
             Node? node,
-            Location? location = null,
+            Location location,
             JsValue? returnValue = null)
         {
-            CurrentLocation = location ?? node?.Location;
-            var breakpoint = BreakPoints.FindMatch(this, breakLocation);
+            CurrentLocation = location;
 
-            bool isStepping = _engine.CallStack.Count <= _steppingDepth;
+            // Even if we matched a breakpoint, if we're stepping, the reason we're pausing is the step.
+            // Still, we need to include the breakpoint at this location, in case the debugger UI needs to update
+            // e.g. a hit count.
+            var breakLocation = new BreakLocation(location.Source, location.Start);
+            var breakPoint = BreakPoints.FindMatch(this, breakLocation);
 
-            if (breakpoint != null || isStepping)
+            PauseType pauseType;
+
+            if (IsStepping)
             {
-                // Even if we matched a breakpoint, if we're stepping, the reason we're pausing is the step.
-                // Still, we need to include the breakpoint at this location, in case the debugger UI needs to update
-                // e.g. a hit count.
-                Pause(isStepping ? PauseType.Step : PauseType.Break, node!, location, returnValue, breakpoint);
+                pauseType = PauseType.Step;
             }
+            else if (breakPoint != null)
+            {
+                pauseType = PauseType.Break;
+            }
+            else if (node?.Type == Nodes.DebuggerStatement &&
+                _engine.Options.Debugger.StatementHandling == DebuggerStatementHandling.Script)
+            {
+                pauseType = PauseType.DebuggerStatement;
+            }
+            else
+            {
+                pauseType = PauseType.Skip;
+            }
+
+            Pause(pauseType, node, location, returnValue, breakPoint);
 
             _paused = false;
         }
 
         private void Pause(
             PauseType type,
-            Node node,
-            Location? location = null,
+            Node? node,
+            Location location,
             JsValue? returnValue = null,
             BreakPoint? breakPoint = null)
         {
             var info = new DebugInformation(
                 engine: _engine,
                 currentNode: node,
-                currentLocation: location ?? node.Location,
+                currentLocation: location,
                 returnValue: returnValue,
                 currentMemoryUsage: _engine.CurrentMemoryUsage,
                 pauseType: type,
@@ -222,6 +220,7 @@ namespace Jint.Runtime.Debugger
             StepMode? result = type switch
             {
                 // Conventionally, sender should be DebugHandler - but Engine is more useful
+                PauseType.Skip => Skip?.Invoke(_engine, info),
                 PauseType.Step => Step?.Invoke(_engine, info),
                 PauseType.Break => Break?.Invoke(_engine, info),
                 PauseType.DebuggerStatement => Break?.Invoke(_engine, info),
