@@ -64,7 +64,7 @@ namespace Jint
         public delegate void ParsedHandler(object sender, string source, Script script);
 
         /// <summary>
-        /// The Parsed event is triggered whenever a script has been passed as a result of execution or evaluation.
+        /// The Parsed event is triggered whenever a script has been parsed as a result of execution or evaluation.
         /// </summary>
         public event ParsedHandler? Parsed;
 
