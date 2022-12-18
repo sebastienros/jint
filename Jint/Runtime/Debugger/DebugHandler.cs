@@ -16,11 +16,17 @@ namespace Jint.Runtime.Debugger
 
     public class DebugHandler
     {
+        public delegate void ParsedEventHandler(object sender, Program ast);
         public delegate StepMode DebugEventHandler(object sender, DebugInformation e);
 
         private readonly Engine _engine;
         private bool _paused;
         private int _steppingDepth;
+
+        /// <summary>
+        /// The Parsed event is triggered after the engine retrieves a parsed AST of a script or module.
+        /// </summary>
+        public event ParsedEventHandler? Parsed;
 
         /// <summary>
         /// The Step event is triggered before the engine executes a step-eligible execution point.
@@ -131,6 +137,14 @@ namespace Jint.Runtime.Debugger
             catch (ParserException ex)
             {
                 throw new DebugEvaluationException("An error occurred during debugger expression parsing", ex);
+            }
+        }
+
+        internal void OnParsed(Program ast)
+        {
+            if (ast != null)
+            {
+                Parsed?.Invoke(_engine, ast);
             }
         }
 

@@ -2953,18 +2953,31 @@ x.test = {
             );
         }
 
-        private void TestParsedEvent(Action<Engine, string> call, string expectedSource)
+        [Fact]
+        public void ImportModuleShouldTriggerParsedEvent()
+        {
+            TestParsedEvent(
+                (engine, code) =>
+                {
+                    engine.AddModule("my-module", code);
+                    engine.ImportModule("my-module");
+                },
+                expectedSource: "my-module"
+            );
+        }
+
+        private static void TestParsedEvent(Action<Engine, string> call, string expectedSource)
         {
             var engine = new Engine();
 
             const string script = "'dummy';";
 
-            bool parsedTriggered = false;
-            engine.Parsed += (sender, source, ast) =>
+            var parsedTriggered = false;
+            engine.DebugHandler.Parsed += (sender, ast) =>
             {
                 parsedTriggered = true;
                 Assert.Equal(engine, sender);
-                Assert.Equal(expectedSource, source);
+                Assert.Equal(expectedSource, ast.Location.Source);
                 Assert.Collection(ast.Body, node => Assert.True(TestHelpers.IsLiteral(node, "dummy")));
             };
 

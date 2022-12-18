@@ -41,6 +41,11 @@ namespace Jint
                 module = LoaderFromModuleLoader(moduleResolution);
             }
 
+            if (module is SourceTextModuleRecord sourceTextModule)
+            {
+                DebugHandler.OnParsed(sourceTextModule._source);
+            }
+
             return module;
         }
 

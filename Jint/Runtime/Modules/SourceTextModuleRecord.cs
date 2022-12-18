@@ -32,7 +32,7 @@ internal sealed record ExportEntry(
 /// </summary>
 internal class SourceTextModuleRecord : CyclicModuleRecord
 {
-    private readonly Module _source;
+    internal readonly Module _source;
     private ExecutionContext _context;
     private ObjectInstance _importMeta;
     private readonly List<ImportEntry> _importEntries;
