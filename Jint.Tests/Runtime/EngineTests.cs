@@ -2882,81 +2882,81 @@ x.test = {
         }
 
         [Fact]
-        public void ExecuteShouldTriggerParsedEvent()
+        public void ExecuteShouldTriggerBeforeEvaluateEvent()
         {
-            TestParsedEvent(
+            TestBeforeEvaluateEvent(
                 (engine, code) => engine.Execute(code),
                 expectedSource: "<anonymous>"
             );
         }
 
         [Fact]
-        public void ExecuteWithSourceShouldTriggerParsedEvent()
+        public void ExecuteWithSourceShouldTriggerBeforeEvaluateEvent()
         {
-            TestParsedEvent(
+            TestBeforeEvaluateEvent(
                 (engine, code) => engine.Execute(code, "mysource"),
                 expectedSource: "mysource"
             );
         }
 
         [Fact]
-        public void ExecuteWithParserOptionsShouldTriggerParsedEvent()
+        public void ExecuteWithParserOptionsShouldTriggerBeforeEvaluateEvent()
         {
-            TestParsedEvent(
+            TestBeforeEvaluateEvent(
                 (engine, code) => engine.Execute(code, ParserOptions.Default),
                 expectedSource: "<anonymous>"
             );
         }
 
         [Fact]
-        public void ExecuteWithSourceAndParserOptionsShouldTriggerParsedEvent()
+        public void ExecuteWithSourceAndParserOptionsShouldTriggerBeforeEvaluateEvent()
         {
-            TestParsedEvent(
+            TestBeforeEvaluateEvent(
                 (engine, code) => engine.Execute(code, "mysource", ParserOptions.Default),
                 expectedSource: "mysource"
             );
         }
 
         [Fact]
-        public void EvaluateShouldTriggerParsedEvent()
+        public void EvaluateShouldTriggerBeforeEvaluateEvent()
         {
-            TestParsedEvent(
+            TestBeforeEvaluateEvent(
                 (engine, code) => engine.Evaluate(code),
                 expectedSource: "<anonymous>"
             );
         }
 
         [Fact]
-        public void EvaluateWithSourceShouldTriggerParsedEvent()
+        public void EvaluateWithSourceShouldTriggerBeforeEvaluateEvent()
         {
-            TestParsedEvent(
+            TestBeforeEvaluateEvent(
                 (engine, code) => engine.Evaluate(code, "mysource"),
                 expectedSource: "mysource"
             );
         }
 
         [Fact]
-        public void EvaluateWithParserOptionsShouldTriggerParsedEvent()
+        public void EvaluateWithParserOptionsShouldTriggerBeforeEvaluateEvent()
         {
-            TestParsedEvent(
+            TestBeforeEvaluateEvent(
                 (engine, code) => engine.Evaluate(code, ParserOptions.Default),
                 expectedSource: "<anonymous>"
             );
         }
 
         [Fact]
-        public void EvaluateWithSourceAndParserOptionsShouldTriggerParsedEvent()
+        public void EvaluateWithSourceAndParserOptionsShouldTriggerBeforeEvaluateEvent()
         {
-            TestParsedEvent(
+            TestBeforeEvaluateEvent(
                 (engine, code) => engine.Evaluate(code, "mysource", ParserOptions.Default),
                 expectedSource: "mysource"
             );
         }
 
         [Fact]
-        public void ImportModuleShouldTriggerParsedEvent()
+        public void ImportModuleShouldTriggerBeforeEvaluateEvent()
         {
-            TestParsedEvent(
+            TestBeforeEvaluateEvent(
                 (engine, code) =>
                 {
                     engine.AddModule("my-module", code);
@@ -2966,16 +2966,16 @@ x.test = {
             );
         }
 
-        private static void TestParsedEvent(Action<Engine, string> call, string expectedSource)
+        private static void TestBeforeEvaluateEvent(Action<Engine, string> call, string expectedSource)
         {
             var engine = new Engine();
 
             const string script = "'dummy';";
 
-            var parsedTriggered = false;
-            engine.DebugHandler.Parsed += (sender, ast) =>
+            var beforeEvaluateTriggered = false;
+            engine.DebugHandler.BeforeEvaluate += (sender, ast) =>
             {
-                parsedTriggered = true;
+                beforeEvaluateTriggered = true;
                 Assert.Equal(engine, sender);
                 Assert.Equal(expectedSource, ast.Location.Source);
                 Assert.Collection(ast.Body, node => Assert.True(TestHelpers.IsLiteral(node, "dummy")));
@@ -2983,7 +2983,7 @@ x.test = {
 
             call(engine, script);
 
-            Assert.True(parsedTriggered);
+            Assert.True(beforeEvaluateTriggered);
         }
 
         private class Wrapper

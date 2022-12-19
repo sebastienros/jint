@@ -292,7 +292,7 @@ namespace Jint
         /// </summary>
         private Engine ScriptEvaluation(ScriptRecord scriptRecord)
         {
-            DebugHandler.OnParsed(scriptRecord.EcmaScriptCode);
+            DebugHandler.OnBeforeEvaluate(scriptRecord.EcmaScriptCode);
 
             var globalEnv = Realm.GlobalEnv;
 

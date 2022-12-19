@@ -16,7 +16,7 @@ namespace Jint.Runtime.Debugger
 
     public class DebugHandler
     {
-        public delegate void ParsedEventHandler(object sender, Program ast);
+        public delegate void BeforeEvaluateEventHandler(object sender, Program ast);
         public delegate StepMode DebugEventHandler(object sender, DebugInformation e);
 
         private readonly Engine _engine;
@@ -24,9 +24,9 @@ namespace Jint.Runtime.Debugger
         private int _steppingDepth;
 
         /// <summary>
-        /// The Parsed event is triggered after the engine retrieves a parsed AST of a script or module.
+        /// Triggered before the engine executes/evaluates the parsed AST of a script or module.
         /// </summary>
-        public event ParsedEventHandler? Parsed;
+        public event BeforeEvaluateEventHandler? BeforeEvaluate;
 
         /// <summary>
         /// The Step event is triggered before the engine executes a step-eligible execution point.
@@ -140,11 +140,11 @@ namespace Jint.Runtime.Debugger
             }
         }
 
-        internal void OnParsed(Program ast)
+        internal void OnBeforeEvaluate(Program ast)
         {
             if (ast != null)
             {
-                Parsed?.Invoke(_engine, ast);
+                BeforeEvaluate?.Invoke(_engine, ast);
             }
         }
 
