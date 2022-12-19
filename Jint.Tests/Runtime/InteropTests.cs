@@ -3122,5 +3122,23 @@ try {
             var ex2 = Assert.Throws<JavaScriptException>(() => engineNoWrite.Execute("delete data['a'];"));
             Assert.Equal("Cannot delete property 'a' of System.Collections.Generic.Dictionary`2[System.String,System.Int32]", ex2.Message);
         }
+
+        public record RecordTestClass(object Value = null);
+
+        public class RecordTestClassContext
+        {
+            public object Method(RecordTestClass recordTest)
+            {
+                return recordTest.Value;
+            }
+        }
+
+        [Fact]
+        public void CanConstructOptionalRecordClass()
+        {
+            _engine.SetValue("Context", new RecordTestClassContext());
+            Assert.Equal(null, _engine.Evaluate("Context.method({});").ToObject());
+            Assert.Equal(5, _engine.Evaluate("Context.method({ value: 5 });").AsInteger());
+        }
     }
 }
