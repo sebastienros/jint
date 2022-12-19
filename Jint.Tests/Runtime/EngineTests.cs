@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Reflection;
 using Esprima;
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
@@ -2954,16 +2955,41 @@ x.test = {
         }
 
         [Fact]
-        public void ImportModuleShouldTriggerBeforeEvaluateEvent()
+        public void ImportModuleShouldTriggerBeforeEvaluateEvents()
         {
-            TestBeforeEvaluateEvent(
-                (engine, code) =>
+            var engine = new Engine();
+
+            const string module1 = "import dummy from 'module2';";
+            const string module2 = "export default 'dummy';";
+
+            var beforeEvaluateTriggeredCount = 0;
+            engine.DebugHandler.BeforeEvaluate += (sender, ast) =>
+            {
+                beforeEvaluateTriggeredCount++;
+                Assert.Equal(engine, sender);
+
+                switch (beforeEvaluateTriggeredCount)
                 {
-                    engine.AddModule("my-module", code);
-                    engine.ImportModule("my-module");
-                },
-                expectedSource: "my-module"
-            );
+                    case 1:
+                        Assert.Equal("module1", ast.Location.Source);
+                        Assert.Collection(ast.Body,
+                            node => Assert.IsType<ImportDeclaration>(node)
+                        );
+                        break;
+                    case 2:
+                        Assert.Equal("module2", ast.Location.Source);
+                        Assert.Collection(ast.Body,
+                            node => Assert.IsType<ExportDefaultDeclaration>(node)
+                        );
+                        break;
+                }
+            };
+
+            engine.AddModule("module1", module1);
+            engine.AddModule("module2", module2);
+            engine.ImportModule("module1");
+
+            Assert.Equal(2, beforeEvaluateTriggeredCount);
         }
 
         private static void TestBeforeEvaluateEvent(Action<Engine, string> call, string expectedSource)

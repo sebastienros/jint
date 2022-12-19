@@ -41,6 +41,11 @@ namespace Jint
                 module = LoaderFromModuleLoader(moduleResolution);
             }
 
+            if (module is SourceTextModuleRecord sourceTextModule)
+            {
+                DebugHandler.OnBeforeEvaluate(sourceTextModule._source);
+            }
+
             return module;
         }
 
@@ -127,11 +132,6 @@ namespace Jint
 
         private JsValue EvaluateModule(string specifier, ModuleRecord cyclicModule)
         {
-            if (cyclicModule is SourceTextModuleRecord sourceTextModule)
-            {
-                DebugHandler.OnBeforeEvaluate(sourceTextModule._source);
-            }
-
             var ownsContext = _activeEvaluationContext is null;
             _activeEvaluationContext ??= new EvaluationContext(this);
             JsValue evaluationResult;
