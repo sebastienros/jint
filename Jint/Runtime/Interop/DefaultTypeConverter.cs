@@ -134,6 +134,8 @@ namespace Jint.Runtime.Interop
                     ExceptionHelper.ThrowArgumentException("No valid constructors found");
                 }
 
+                var constructorParameters = Array.Empty<object>();
+
                 // reference types - return null if no valid constructor is found
                 if (!type.IsValueType)
                 {
@@ -149,11 +151,25 @@ namespace Jint.Runtime.Interop
 
                     if (!found)
                     {
+                        foreach (var constructor in constructors)
+                        {
+                            var parameterInfos = constructor.GetParameters();
+                            if (parameterInfos.All(p => p.IsOptional) && constructor.IsPublic)
+                            {
+                                constructorParameters = new object[parameterInfos.Length];
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!found)
+                    {
                         ExceptionHelper.ThrowArgumentException("No valid constructors found");
                     }
                 }
 
-                var obj = Activator.CreateInstance(type, System.Array.Empty<object>());
+                var obj = Activator.CreateInstance(type, constructorParameters);
 
                 var members = type.GetMembers();
                 foreach (var member in members)
