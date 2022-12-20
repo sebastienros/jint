@@ -153,6 +153,11 @@ namespace Jint.Runtime.Environments
 
         public sealed override JsValue WithBaseObject() => Undefined;
 
+        public sealed override bool HasBindings()
+        {
+            return _dictionary?.Count > 0;
+        }
+
         /// <inheritdoc />
         internal sealed override string[] GetAllBindingNames()
         {

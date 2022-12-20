@@ -376,6 +376,11 @@ namespace Jint.Runtime.Environments
             _varNames.Add(name);
         }
 
+        public sealed override bool HasBindings()
+        {
+            return _declarativeRecord.HasBindings() || _globalObject?._properties?.Count > 0 || _global._properties?.Count > 0;
+        }
+
         internal override string[] GetAllBindingNames()
         {
             // JT: Rather than introduce a new method for the debugger, I'm reusing this one,

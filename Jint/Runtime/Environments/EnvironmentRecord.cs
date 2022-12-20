@@ -85,6 +85,8 @@ namespace Jint.Runtime.Environments
 
         public abstract JsValue WithBaseObject();
 
+        public abstract bool HasBindings();
+
         /// <summary>
         /// Returns an array of all the defined binding names
         /// </summary>

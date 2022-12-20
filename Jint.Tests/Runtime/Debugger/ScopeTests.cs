@@ -299,7 +299,8 @@ namespace Jint.Tests.Runtime.Debugger
             {
                 Assert.Collection(info.CurrentScopeChain,
                     scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a"),
-                    scope => AssertScope(scope, DebugScopeType.Closure, "b", "power"), // a, this, arguments shadowed by local
+                    // a, arguments shadowed by local - but still exist in this scope
+                    scope => AssertScope(scope, DebugScopeType.Closure, "a", "arguments", "b", "power"),
                     scope => AssertScope(scope, DebugScopeType.Script, "x", "y", "z"),
                     scope => AssertScope(scope, DebugScopeType.Global, "add"));
             });
@@ -327,7 +328,7 @@ namespace Jint.Tests.Runtime.Debugger
                 Assert.Collection(info.CurrentScopeChain,
                     scope => AssertScope(scope, DebugScopeType.Block, "y"),
                     scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a", "b"),
-                    scope => AssertScope(scope, DebugScopeType.Script, "x", "z"), // y shadowed
+                    scope => AssertScope(scope, DebugScopeType.Script, "x", "y", "z"), // y is shadowed, but still in the scope
                     scope => AssertScope(scope, DebugScopeType.Global, "add"));
             });
         }
@@ -391,7 +392,7 @@ namespace Jint.Tests.Runtime.Debugger
                     scope => AssertScope(scope, DebugScopeType.Block, "x"),
                     scope => AssertScope(scope, DebugScopeType.Block, "y"),
                     scope => AssertScope(scope, DebugScopeType.Local, "arguments", "a", "b"),
-                    scope => AssertScope(scope, DebugScopeType.Script, "z"), // x, y shadowed
+                    scope => AssertScope(scope, DebugScopeType.Script, "x", "y", "z"), // x, y are shadowed, but still in the scope
                     scope => AssertScope(scope, DebugScopeType.Global, "add"));
             });
         }

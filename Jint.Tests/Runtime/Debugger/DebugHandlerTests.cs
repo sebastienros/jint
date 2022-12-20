@@ -31,7 +31,7 @@ namespace Jint.Tests.Runtime.Debugger
 
                 if (info.ReachedLiteral("target"))
                 {
-                    var obj = info.CurrentScopeChain.Global.GetBindingValue("obj") as ObjectInstance;
+                    var obj = info.CurrentScopeChain[0].GetBindingValue("obj") as ObjectInstance;
                     var prop = obj.GetOwnProperty("name");
                     // This is where reentrance would occur:
                     var value = prop.Get.Invoke(engine);

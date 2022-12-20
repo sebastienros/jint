@@ -1,11 +1,13 @@
 ﻿using System.Globalization;
 using System.Reflection;
 using Esprima;
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
+using Jint.Tests.Runtime.Debugger;
 using Xunit.Abstractions;
 
 #pragma warning disable 618
@@ -1584,13 +1586,11 @@ var prep = function (fn) { fn(); };
             Assert.NotNull(debugInfo.CallStack);
             Assert.NotNull(debugInfo.CurrentNode);
             Assert.NotNull(debugInfo.CurrentScopeChain);
-            Assert.NotNull(debugInfo.CurrentScopeChain.Global);
-            Assert.NotNull(debugInfo.CurrentScopeChain.Local);
 
             Assert.Equal(2, debugInfo.CallStack.Count);
             Assert.Equal("func1", debugInfo.CurrentCallFrame.FunctionName);
-            var globalScope = debugInfo.CurrentScopeChain.Global;
-            var localScope = debugInfo.CurrentScopeChain.Local;
+            var globalScope = debugInfo.CurrentScopeChain.Single(s => s.ScopeType == DebugScopeType.Global);
+            var localScope = debugInfo.CurrentScopeChain.Single(s => s.ScopeType == DebugScopeType.Local);
             Assert.Contains("global", globalScope.BindingNames);
             Assert.Equal(true, globalScope.GetBindingValue("global").AsBoolean());
             Assert.Contains("local", localScope.BindingNames);
@@ -2880,6 +2880,136 @@ x.test = {
             Assert.Equal(2L, array.Length);
             Assert.True(array[0].IsUndefined());
             Assert.True(array[1].IsUndefined());
+        }
+
+        [Fact]
+        public void ExecuteShouldTriggerBeforeEvaluateEvent()
+        {
+            TestBeforeEvaluateEvent(
+                (engine, code) => engine.Execute(code),
+                expectedSource: "<anonymous>"
+            );
+        }
+
+        [Fact]
+        public void ExecuteWithSourceShouldTriggerBeforeEvaluateEvent()
+        {
+            TestBeforeEvaluateEvent(
+                (engine, code) => engine.Execute(code, "mysource"),
+                expectedSource: "mysource"
+            );
+        }
+
+        [Fact]
+        public void ExecuteWithParserOptionsShouldTriggerBeforeEvaluateEvent()
+        {
+            TestBeforeEvaluateEvent(
+                (engine, code) => engine.Execute(code, ParserOptions.Default),
+                expectedSource: "<anonymous>"
+            );
+        }
+
+        [Fact]
+        public void ExecuteWithSourceAndParserOptionsShouldTriggerBeforeEvaluateEvent()
+        {
+            TestBeforeEvaluateEvent(
+                (engine, code) => engine.Execute(code, "mysource", ParserOptions.Default),
+                expectedSource: "mysource"
+            );
+        }
+
+        [Fact]
+        public void EvaluateShouldTriggerBeforeEvaluateEvent()
+        {
+            TestBeforeEvaluateEvent(
+                (engine, code) => engine.Evaluate(code),
+                expectedSource: "<anonymous>"
+            );
+        }
+
+        [Fact]
+        public void EvaluateWithSourceShouldTriggerBeforeEvaluateEvent()
+        {
+            TestBeforeEvaluateEvent(
+                (engine, code) => engine.Evaluate(code, "mysource"),
+                expectedSource: "mysource"
+            );
+        }
+
+        [Fact]
+        public void EvaluateWithParserOptionsShouldTriggerBeforeEvaluateEvent()
+        {
+            TestBeforeEvaluateEvent(
+                (engine, code) => engine.Evaluate(code, ParserOptions.Default),
+                expectedSource: "<anonymous>"
+            );
+        }
+
+        [Fact]
+        public void EvaluateWithSourceAndParserOptionsShouldTriggerBeforeEvaluateEvent()
+        {
+            TestBeforeEvaluateEvent(
+                (engine, code) => engine.Evaluate(code, "mysource", ParserOptions.Default),
+                expectedSource: "mysource"
+            );
+        }
+
+        [Fact]
+        public void ImportModuleShouldTriggerBeforeEvaluateEvents()
+        {
+            var engine = new Engine();
+
+            const string module1 = "import dummy from 'module2';";
+            const string module2 = "export default 'dummy';";
+
+            var beforeEvaluateTriggeredCount = 0;
+            engine.DebugHandler.BeforeEvaluate += (sender, ast) =>
+            {
+                beforeEvaluateTriggeredCount++;
+                Assert.Equal(engine, sender);
+
+                switch (beforeEvaluateTriggeredCount)
+                {
+                    case 1:
+                        Assert.Equal("module1", ast.Location.Source);
+                        Assert.Collection(ast.Body,
+                            node => Assert.IsType<ImportDeclaration>(node)
+                        );
+                        break;
+                    case 2:
+                        Assert.Equal("module2", ast.Location.Source);
+                        Assert.Collection(ast.Body,
+                            node => Assert.IsType<ExportDefaultDeclaration>(node)
+                        );
+                        break;
+                }
+            };
+
+            engine.AddModule("module1", module1);
+            engine.AddModule("module2", module2);
+            engine.ImportModule("module1");
+
+            Assert.Equal(2, beforeEvaluateTriggeredCount);
+        }
+
+        private static void TestBeforeEvaluateEvent(Action<Engine, string> call, string expectedSource)
+        {
+            var engine = new Engine();
+
+            const string script = "'dummy';";
+
+            var beforeEvaluateTriggered = false;
+            engine.DebugHandler.BeforeEvaluate += (sender, ast) =>
+            {
+                beforeEvaluateTriggered = true;
+                Assert.Equal(engine, sender);
+                Assert.Equal(expectedSource, ast.Location.Source);
+                Assert.Collection(ast.Body, node => Assert.True(TestHelpers.IsLiteral(node, "dummy")));
+            };
+
+            call(engine, script);
+
+            Assert.True(beforeEvaluateTriggered);
         }
 
         private class Wrapper

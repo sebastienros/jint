@@ -192,6 +192,7 @@ debugger;
             bool didBreak = false;
             engine.DebugHandler.Break += (sender, info) =>
             {
+                Assert.Equal(PauseType.DebuggerStatement, info.PauseType);
                 didBreak = true;
                 return StepMode.None;
             };
@@ -230,6 +231,33 @@ debugger;
             engine.Execute(script);
             Assert.Equal(3, stepCount);
             Assert.False(didBreak);
+        }
+
+        [Fact]
+        public void DebuggerStatementDoesNotTriggerBreakWhenAtBreakPoint()
+        {
+            string script = @"'dummy';
+debugger;
+'dummy';";
+
+            var engine = new Engine(options => options
+                .DebugMode()
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script)
+                .InitialStepMode(StepMode.None));
+
+            int breakCount = 0;
+
+            engine.DebugHandler.BreakPoints.Set(new BreakPoint(2, 0));
+
+            engine.DebugHandler.Break += (sender, info) =>
+            {
+                Assert.Equal(PauseType.Break, info.PauseType);
+                breakCount++;
+                return StepMode.None;
+            };
+
+            engine.Execute(script);
+            Assert.Equal(1, breakCount);
         }
 
         [Fact]

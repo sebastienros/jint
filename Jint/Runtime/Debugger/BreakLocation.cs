@@ -18,7 +18,7 @@ public sealed record BreakLocation
 
     }
 
-    public BreakLocation(string source, Esprima.Position position) : this(source, position.Line, position.Column)
+    public BreakLocation(string? source, Esprima.Position position) : this(source, position.Line, position.Column)
     {
     }
 

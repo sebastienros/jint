@@ -5,18 +5,8 @@ namespace Jint.Runtime.Modules;
 
 public sealed class DefaultModuleLoader : IModuleLoader
 {
-    public delegate void ModuleLoadedEventHandler(object sender, string source, Module module);
-
     private readonly Uri _basePath;
     private readonly bool _restrictToBasePath;
-
-    /// <summary>
-    /// The Loaded event is triggered after a module is loaded and parsed.
-    /// </summary>
-    /// <remarks>
-    /// The event is not triggered if a module was loaded but failed to parse.
-    /// </remarks>
-    public event ModuleLoadedEventHandler? Loaded;
 
     public DefaultModuleLoader(string basePath) : this(basePath, true)
     {
@@ -151,8 +141,6 @@ public sealed class DefaultModuleLoader : IModuleLoader
             ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", (Location) default);
             module = null;
         }
-
-        Loaded?.Invoke(this, source, module);
 
         return module;
     }

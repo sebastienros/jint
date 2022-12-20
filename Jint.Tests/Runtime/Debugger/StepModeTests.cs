@@ -413,7 +413,7 @@ namespace Jint.Tests.Runtime.Debugger
                 function test()
                 {
                     'dummy';
-                    'øummy';
+                    'dummy';
                 }";
 
             var engine = new Engine(options => options
@@ -431,6 +431,53 @@ namespace Jint.Tests.Runtime.Debugger
             engine.Execute(script);
 
             Assert.Equal(1, stepCount);
+        }
+
+        [Fact]
+        public void SkipIsTriggeredWhenRunning()
+        {
+            string script = @"
+                'step';
+                'skip';
+                'skip';
+                debugger;
+                'step';
+                'step';
+                ";
+
+            var engine = new Engine(options => options
+                .DebugMode()
+                .DebuggerStatementHandling(DebuggerStatementHandling.Script)
+                .InitialStepMode(StepMode.Into));
+
+            int stepCount = 0;
+            int skipCount = 0;
+
+            engine.DebugHandler.Step += (sender, info) =>
+            {
+                Assert.True(TestHelpers.IsLiteral(info.CurrentNode, "step"));
+                stepCount++;
+                // Start running after first step
+                return stepCount == 1 ? StepMode.None : StepMode.Into;
+            };
+
+            engine.DebugHandler.Skip += (sender, info) =>
+            {
+                Assert.True(TestHelpers.IsLiteral(info.CurrentNode, "skip"));
+                skipCount++;
+                return StepMode.None;
+            };
+
+            engine.DebugHandler.Break += (sender, info) =>
+            {
+                // Back to stepping after debugger statement
+                return StepMode.Into;
+            };
+
+            engine.Execute(script);
+
+            Assert.Equal(2, skipCount);
+            Assert.Equal(3, stepCount);
         }
     }
 }

@@ -10,13 +10,12 @@ namespace Jint.Runtime.Debugger
     public sealed class DebugScope
     {
         private readonly EnvironmentRecord _record;
-        private readonly List<string> _bindingNames;
+        private string[]? _bindingNames;
 
-        internal DebugScope(DebugScopeType type, EnvironmentRecord record, List<string> bindingNames, bool isTopLevel)
+        internal DebugScope(DebugScopeType type, EnvironmentRecord record, bool isTopLevel)
         {
             ScopeType = type;
             _record = record;
-            _bindingNames = bindingNames;
             BindingObject = record is ObjectEnvironmentRecord objEnv ? objEnv._bindingObject : null;
             IsTopLevel = isTopLevel;
         }
@@ -37,9 +36,9 @@ namespace Jint.Runtime.Debugger
         public bool IsTopLevel { get; }
 
         /// <summary>
-        /// Names of all non-shadowed bindings in the scope.
+        /// Names of all bindings in the scope.
         /// </summary>
-        public IReadOnlyList<string> BindingNames => _bindingNames;
+        public IReadOnlyList<string> BindingNames => _bindingNames ??= _record.GetAllBindingNames();
 
         /// <summary>
         /// Binding object for ObjectEnvironmentRecords - that is, Global scope and With scope. Null for other scopes.

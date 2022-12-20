@@ -292,6 +292,8 @@ namespace Jint
         /// </summary>
         private Engine ScriptEvaluation(ScriptRecord scriptRecord)
         {
+            DebugHandler.OnBeforeEvaluate(scriptRecord.EcmaScriptCode);
+
             var globalEnv = Realm.GlobalEnv;
 
             var scriptContext = new ExecutionContext(
@@ -363,7 +365,7 @@ namespace Jint
 
             Action<JsValue> SettleWith(FunctionInstance settle) => value =>
             {
-                settle.Call(JsValue.Undefined, new[] {value});
+                settle.Call(JsValue.Undefined, new[] { value });
                 RunAvailableContinuations();
             };
 

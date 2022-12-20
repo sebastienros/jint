@@ -14,7 +14,7 @@ namespace Jint.Runtime.Debugger
 
         internal DebugInformation(
             Engine engine,
-            Node currentNode,
+            Node? currentNode,
             Location currentLocation,
             JsValue? returnValue,
             long currentMemoryUsage,
@@ -51,7 +51,7 @@ namespace Jint.Runtime.Debugger
         /// The AST Node that will be executed on next step.
         /// Note that this will be null when execution is at a return point.
         /// </summary>
-        public Node CurrentNode { get; }
+        public Node? CurrentNode { get; }
 
         /// <summary>
         /// The current source Location.
