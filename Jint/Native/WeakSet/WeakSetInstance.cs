@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 
 using Jint.Native.Object;
-using Jint.Native.Symbol;
 using Jint.Runtime;
 
 namespace Jint.Native.WeakSet;
