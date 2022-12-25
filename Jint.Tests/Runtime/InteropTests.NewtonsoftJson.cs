@@ -115,5 +115,19 @@ namespace Jint.Tests.Runtime
             var number = Assert.IsType<JsNumber>(fromInterop);
             Assert.Equal(123.456d, number.AsNumber());
         }
+
+        [Fact]
+        public void ShouldBeAbleToChangePropertyWithNameValue()
+        {
+            var engine = new Engine();
+
+            var input = Newtonsoft.Json.JsonConvert.DeserializeObject(@"{ ""value"": ""ORIGINAL"" }");
+            var result = engine
+                .SetValue("input", input)
+                .Evaluate("input.value = \"CHANGED\"; input.value")
+                .AsString();
+
+            Assert.Equal("CHANGED", result);
+        }
     }
 }

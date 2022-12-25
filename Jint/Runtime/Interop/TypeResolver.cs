@@ -45,7 +45,12 @@ namespace Jint.Runtime.Interop
         /// </summary>
         public StringComparer MemberNameComparer { get; set; } = DefaultMemberNameComparer.Instance;
 
-        internal ReflectionAccessor GetAccessor(Engine engine, Type type, string member, Func<ReflectionAccessor?>? accessorFactory = null)
+        internal ReflectionAccessor GetAccessor(
+            Engine engine,
+            Type type,
+            string member,
+            Func<ReflectionAccessor?>? accessorFactory = null,
+            bool forWrite = false)
         {
             var key = new ClrPropertyDescriptorFactoriesKey(type, member);
 
@@ -55,7 +60,7 @@ namespace Jint.Runtime.Interop
                 return accessor;
             }
 
-            accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member);
+            accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member, forWrite);
 
             // racy, we don't care, worst case we'll catch up later
             Interlocked.CompareExchange(ref _reflectionAccessors,
@@ -70,17 +75,20 @@ namespace Jint.Runtime.Interop
         private ReflectionAccessor ResolvePropertyDescriptorFactory(
             Engine engine,
             Type type,
-            string memberName)
+            string memberName,
+            bool forWrite)
         {
             var isNumber = uint.TryParse(memberName, out _);
 
             // we can always check indexer if there's one, and then fall back to properties if indexer returns null
             IndexerAccessor.TryFindIndexer(engine, type, memberName, out var indexerAccessor, out var indexer);
 
-            const BindingFlags bindingFlags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public;
+            const BindingFlags BindingFlags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public;
 
             // properties and fields cannot be numbers
-            if (!isNumber && TryFindMemberAccessor(engine, type, memberName, bindingFlags, indexer, out var temp))
+            if (!isNumber
+                && TryFindMemberAccessor(engine, type, memberName, BindingFlags, indexer, out var temp)
+                && (!forWrite || temp.Writable))
             {
                 return temp;
             }
@@ -280,8 +288,7 @@ namespace Jint.Runtime.Interop
             }
 
             // TPC: need to grab the extension methods here - for overloads
-            MethodInfo[] extensionMethods;
-            if (engine._extensionMethods.TryGetExtensionMethods(type, out extensionMethods))
+            if (engine._extensionMethods.TryGetExtensionMethods(type, out var extensionMethods))
             {
                 foreach (var methodInfo in extensionMethods)
                 {
