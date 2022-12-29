@@ -180,5 +180,10 @@ namespace Jint.Runtime.Environments
         {
             return Undefined;
         }
+
+        public void Clear()
+        {
+            _dictionary = null;
+        }
     }
 }
