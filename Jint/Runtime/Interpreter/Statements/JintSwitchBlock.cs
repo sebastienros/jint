@@ -42,6 +42,8 @@ namespace Jint.Runtime.Interpreter.Statements
             EnvironmentRecord? oldEnv = null;
             var temp = _jintSwitchBlock;
 
+            DeclarativeEnvironmentRecord? blockEnv = null;
+
             start:
             for (; i < temp.Length; i++)
             {
@@ -49,7 +51,9 @@ namespace Jint.Runtime.Interpreter.Statements
                 if (clause.LexicalDeclarations is not null && oldEnv is null)
                 {
                     oldEnv = context.Engine.ExecutionContext.LexicalEnvironment;
-                    var blockEnv = JintEnvironment.NewDeclarativeEnvironment(context.Engine, oldEnv);
+                    blockEnv ??= JintEnvironment.NewDeclarativeEnvironment(context.Engine, oldEnv);
+                    blockEnv.Clear();
+
                     JintStatementList.BlockDeclarationInstantiation(context.Engine, blockEnv, clause.LexicalDeclarations);
                     context.Engine.UpdateLexicalEnvironment(blockEnv);
                 }
@@ -71,6 +75,11 @@ namespace Jint.Runtime.Interpreter.Statements
 
                 if (!hit)
                 {
+                    if (oldEnv is not null)
+                    {
+                        context.Engine.UpdateLexicalEnvironment(oldEnv);
+                        oldEnv = null;
+                    }
                     continue;
                 }
 
