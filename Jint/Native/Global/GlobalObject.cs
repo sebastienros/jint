@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Esprima;
 using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Native.String;
@@ -224,154 +225,124 @@ namespace Jint.Native.Global
         }
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.3
+        /// https://tc39.es/ecma262/#sec-parsefloat-string
         /// </summary>
         public static JsValue ParseFloat(JsValue thisObject, JsValue[] arguments)
         {
             var inputString = TypeConverter.ToString(arguments.At(0));
             var trimmedString = StringPrototype.TrimStartEx(inputString);
 
-            var sign = 1;
-            if (trimmedString.Length > 0)
+            if (string.IsNullOrWhiteSpace(trimmedString))
+            {
+                return JsNumber.DoubleNaN;
+            }
+
+            // start of string processing
+            var i = 0;
+
+            // check known string constants
+            if (!char.IsDigit(trimmedString[0]))
             {
                 if (trimmedString[0] == '-')
                 {
-                    sign = -1;
-                    trimmedString = trimmedString.Substring(1);
+                    i++;
+                    if (trimmedString.Length > 1 && trimmedString[1] == 'I' && trimmedString.StartsWith("-Infinity"))
+                    {
+                        return JsNumber.DoubleNegativeInfinity;
+                    }
                 }
-                else if (trimmedString[0] == '+')
+
+                if (trimmedString[0] == '+')
                 {
-                    trimmedString = trimmedString.Substring(1);
+                    i++;
+                    if (trimmedString.Length > 1 && trimmedString[1] == 'I' && trimmedString.StartsWith("+Infinity"))
+                    {
+                        return JsNumber.DoublePositiveInfinity;
+                    }
+                }
+
+                if (trimmedString.StartsWith("Infinity"))
+                {
+                    return JsNumber.DoublePositiveInfinity;
+                }
+
+                if (trimmedString.StartsWith("NaN"))
+                {
+                    return JsNumber.DoubleNaN;
                 }
             }
 
-            if (trimmedString.StartsWith("Infinity"))
-            {
-                return sign * double.PositiveInfinity;
-            }
+            // find the starting part of string  that is still acceptable JS number
 
-            if (trimmedString.StartsWith("NaN"))
-            {
-                return JsNumber.DoubleNaN;
-            }
-
-            var separator = (char)0;
-
-            bool isNan = true;
-            decimal number = 0;
-            var i = 0;
-            for (; i < trimmedString.Length; i++)
+            var dotFound = false;
+            var exponentFound = false;
+            while (i < trimmedString.Length)
             {
                 var c = trimmedString[i];
+
+                if (Character.IsDecimalDigit(c))
+                {
+                    i++;
+                    continue;
+                }
+
                 if (c == '.')
                 {
+                    if (dotFound)
+                    {
+                        // does not look right
+                        break;
+                    }
+
                     i++;
-                    separator = '.';
-                    break;
+                    dotFound = true;
+                    continue;
                 }
 
-                if (c == 'e' || c == 'E')
+                if (c is 'e' or 'E')
                 {
+                    if (exponentFound)
+                    {
+                        // does not look right
+                        break;
+                    }
+
                     i++;
-                    separator = 'e';
-                    break;
+                    exponentFound = true;
+                    continue;
                 }
 
-                var digit = c - '0';
+                if (c is '+' or '-' && trimmedString[i - 1] is 'e' or 'E')
+                {
+                    // ok
+                    i++;
+                    continue;
+                }
 
-                if (digit >= 0 && digit <= 9)
-                {
-                    isNan = false;
-                    number = number * 10 + digit;
-                }
-                else
-                {
-                    break;
-                }
+                break;
             }
 
-            decimal pow = 0.1m;
-
-            if (separator == '.')
+            while (exponentFound && i > 0 && !Character.IsDecimalDigit(trimmedString[i - 1]))
             {
-                for (; i < trimmedString.Length; i++)
-                {
-                    var c = trimmedString[i];
-
-                    var digit = c - '0';
-
-                    if (digit >= 0 && digit <= 9)
-                    {
-                        isNan = false;
-                        number += digit * pow;
-                        pow *= 0.1m;
-                    }
-                    else if (c == 'e' || c == 'E')
-                    {
-                        i++;
-                        separator = 'e';
-                        break;
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
+                // we are missing required exponent number part info
+                i--;
             }
 
-            var exp = 0;
-            var expSign = 1;
+            // we should now have proper input part
 
-            if (separator == 'e')
+#if NETSTANDARD2_1_OR_GREATER
+            var substring = trimmedString.AsSpan(0, i);
+#else
+            var substring = trimmedString.Substring(0, i);
+#endif
+
+            const NumberStyles Styles = NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent | NumberStyles.AllowLeadingSign;
+            if (double.TryParse(substring, Styles, CultureInfo.InvariantCulture, out var d))
             {
-                if (i < trimmedString.Length)
-                {
-                    if (trimmedString[i] == '-')
-                    {
-                        expSign = -1;
-                        i++;
-                    }
-                    else if (trimmedString[i] == '+')
-                    {
-                        i++;
-                    }
-                }
-
-                for (; i < trimmedString.Length; i++)
-                {
-                    var c = trimmedString[i];
-
-                    var digit = c - '0';
-
-                    if (digit >= 0 && digit <= 9)
-                    {
-                        exp = exp * 10 + digit;
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
+                return d;
             }
 
-            if (isNan)
-            {
-                return JsNumber.DoubleNaN;
-            }
-
-            for (var k = 1; k <= exp; k++)
-            {
-                if (expSign > 0)
-                {
-                    number *= 10;
-                }
-                else
-                {
-                    number /= 10;
-                }
-            }
-
-            return (double)(sign * number);
+            return JsNumber.DoubleNaN;
         }
 
         /// <summary>
@@ -550,11 +521,10 @@ namespace Jint.Native.Global
                         };
                     }
 
-                    for (var j = 0; j < octets.Length; j++)
+                    foreach (var octet in octets)
                     {
-                        var jOctet = octets[j];
-                        var x1 = HexaMap[jOctet / 16];
-                        var x2 = HexaMap[jOctet % 16];
+                        var x1 = HexaMap[octet / 16];
+                        var x2 = HexaMap[octet % 16];
                         _stringBuilder.Append('%').Append(x1).Append(x2);
                     }
                 }

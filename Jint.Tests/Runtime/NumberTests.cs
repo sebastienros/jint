@@ -55,5 +55,13 @@ namespace Jint.Tests.Runtime
             var value = _engine.Evaluate($"(3).toPrecision({fractionDigits}).toString()").AsString();
             Assert.Equal(result, value);
         }
+
+        [Theory]
+        [InlineData("1.7976931348623157e+308", double.MaxValue)]
+        public void ParseFloat(string input, double result)
+        {
+            var value = _engine.Evaluate($"parseFloat('{input}')").AsNumber();
+            Assert.Equal(result, value);
+        }
     }
 }
