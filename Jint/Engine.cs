@@ -597,7 +597,7 @@ namespace Jint
         /// <param name="propertyName">The name of the function to call.</param>
         /// <param name="arguments">The arguments of the function call.</param>
         /// <returns>The value returned by the function call.</returns>
-        public JsValue Invoke(string propertyName, params object[] arguments)
+        public JsValue Invoke(string propertyName, params object?[] arguments)
         {
             return Invoke(propertyName, null, arguments);
         }
@@ -609,7 +609,7 @@ namespace Jint
         /// <param name="thisObj">The this value inside the function call.</param>
         /// <param name="arguments">The arguments of the function call.</param>
         /// <returns>The value returned by the function call.</returns>
-        public JsValue Invoke(string propertyName, object? thisObj, object[] arguments)
+        public JsValue Invoke(string propertyName, object? thisObj, object?[] arguments)
         {
             var value = GetValue(propertyName);
 
@@ -622,7 +622,7 @@ namespace Jint
         /// <param name="value">The function to call.</param>
         /// <param name="arguments">The arguments of the function call.</param>
         /// <returns>The value returned by the function call.</returns>
-        public JsValue Invoke(JsValue value, params object[] arguments)
+        public JsValue Invoke(JsValue value, params object?[] arguments)
         {
             return Invoke(value, null, arguments);
         }
@@ -634,7 +634,7 @@ namespace Jint
         /// <param name="thisObj">The this value inside the function call.</param>
         /// <param name="arguments">The arguments of the function call.</param>
         /// <returns>The value returned by the function call.</returns>
-        public JsValue Invoke(JsValue value, object? thisObj, object[] arguments)
+        public JsValue Invoke(JsValue value, object? thisObj, object?[] arguments)
         {
             var callable = value as ICallable;
             if (callable is null)
