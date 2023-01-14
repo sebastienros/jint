@@ -147,6 +147,11 @@ namespace Jint.Native
         public abstract object ToObject();
 
         /// <summary>
+        /// Coerces boolean value from <see cref="JsValue"/> instance.
+        /// </summary>
+        internal virtual bool ToBoolean() => true;
+
+        /// <summary>
         /// Invoke the current value as function.
         /// </summary>
         /// <param name="engine">The engine handling the invoke.</param>

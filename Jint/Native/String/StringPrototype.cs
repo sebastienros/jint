@@ -178,26 +178,47 @@ namespace Jint.Native.String
             return TrimEndEx(TrimStartEx(s));
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-string.prototype.trim
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private JsValue Trim(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
-            var s = TypeConverter.ToString(thisObj);
-            return TrimEx(s);
+            var s = TypeConverter.ToJsString(thisObj);
+            if (s.Length == 0 || (!IsWhiteSpaceEx(s[0]) && !IsWhiteSpaceEx(s[s.Length - 1])))
+            {
+                return s;
+            }
+            return TrimEx(s.ToString());
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-string.prototype.trimstart
+        /// </summary>
         private JsValue TrimStart(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
-            var s = TypeConverter.ToString(thisObj);
-            return TrimStartEx(s);
+            var s = TypeConverter.ToJsString(thisObj);
+            if (s.Length == 0 || !IsWhiteSpaceEx(s[0]))
+            {
+                return s;
+            }
+            return TrimStartEx(s.ToString());
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-string.prototype.trimend
+        /// </summary>
         private JsValue TrimEnd(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
-            var s = TypeConverter.ToString(thisObj);
-            return TrimEndEx(s);
+            var s = TypeConverter.ToJsString(thisObj);
+            if (s.Length == 0 || !IsWhiteSpaceEx(s[s.Length - 1]))
+            {
+                return s;
+            }
+            return TrimEndEx(s.ToString());
         }
 
         private JsValue ToLocaleUpperCase(JsValue thisObj, JsValue[] arguments)
@@ -527,8 +548,7 @@ namespace Jint.Native.String
                 replaceValue = TypeConverter.ToJsString(replaceValue);
             }
 
-            var position = thisString.IndexOf(searchString, StringComparison.Ordinal);
-            var matched = searchString;
+            var position = thisString.IndexOf(searchString);
             if (position < 0)
             {
                 return thisString;
@@ -537,16 +557,16 @@ namespace Jint.Native.String
             string replStr;
             if (functionalReplace)
             {
-                var replValue = ((ICallable) replaceValue).Call(Undefined, matched, position, thisString);
+                var replValue = ((ICallable) replaceValue).Call(Undefined, searchString, position, thisString);
                 replStr = TypeConverter.ToString(replValue);
             }
             else
             {
                 var captures = System.Array.Empty<string>();
-                replStr =  RegExpPrototype.GetSubstitution(matched, thisString.ToString(), position, captures, Undefined, TypeConverter.ToString(replaceValue));
+                replStr =  RegExpPrototype.GetSubstitution(searchString, thisString.ToString(), position, captures, Undefined, TypeConverter.ToString(replaceValue));
             }
 
-            var tailPos = position + matched.Length;
+            var tailPos = position + searchString.Length;
             var newString = thisString.Substring(0, position) + replStr + thisString.Substring(tailPos);
 
             return newString;
@@ -708,11 +728,14 @@ namespace Jint.Native.String
             return string.CompareOrdinal(s.Normalize(NormalizationForm.FormKD), that.Normalize(NormalizationForm.FormKD));
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-string.prototype.lastindexof
+        /// </summary>
         private JsValue LastIndexOf(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s = TypeConverter.ToString(thisObj);
+            var jsString = TypeConverter.ToJsString(thisObj);
             var searchStr = TypeConverter.ToString(arguments.At(0));
             double numPos = double.NaN;
             if (arguments.Length > 1 && !arguments[1].IsUndefined())
@@ -722,10 +745,16 @@ namespace Jint.Native.String
 
             var pos = double.IsNaN(numPos) ? double.PositiveInfinity : TypeConverter.ToInteger(numPos);
 
-            var len = s.Length;
+            var len = jsString.Length;
             var start = (int)System.Math.Min(System.Math.Max(pos, 0), len);
             var searchLen = searchStr.Length;
 
+            if (searchLen > len)
+            {
+                return JsNumber.IntegerNegativeOne;
+            }
+
+            var s = jsString.ToString();
             var i = start;
             bool found;
 
@@ -736,7 +765,7 @@ namespace Jint.Native.String
 
                 while (found && j < searchLen)
                 {
-                    if ((i + searchLen > len) || (s[i + j] != searchStr[j]))
+                    if (i + searchLen > len || s[i + j] != searchStr[j])
                     {
                         found = false;
                     }
@@ -762,7 +791,7 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToJsString(thisObj);
             var searchStr = TypeConverter.ToString(arguments.At(0));
             double pos = 0;
             if (arguments.Length > 1 && !arguments[1].IsUndefined())
@@ -772,7 +801,7 @@ namespace Jint.Native.String
 
             if (pos >= s.Length)
             {
-                return -1;
+                return JsNumber.IntegerNegativeOne;
             }
 
             if (pos < 0)
@@ -780,7 +809,7 @@ namespace Jint.Native.String
                 pos = 0;
             }
 
-            return s.IndexOf(searchStr, (int) pos, StringComparison.Ordinal);
+            return s.IndexOf(searchStr, (int) pos);
         }
 
         private JsValue Concat(JsValue thisObj, JsValue[] arguments)
@@ -922,13 +951,13 @@ namespace Jint.Native.String
         }
 
         /// <summary>
-        /// https://www.ecma-international.org/ecma-262/6.0/#sec-string.prototype.startswith
+        /// https://tc39.es/ecma262/#sec-string.prototype.startswith
         /// </summary>
         private JsValue StartsWith(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToJsString(thisObj);
 
             var searchString = arguments.At(0);
             if (ReferenceEquals(searchString, Null))
@@ -949,31 +978,18 @@ namespace Jint.Native.String
 
             var len = s.Length;
             var start = System.Math.Min(System.Math.Max(pos, 0), len);
-            var searchLength = searchStr.Length;
-            if (searchLength + start > len)
-            {
-                return false;
-            }
 
-            for (var i = 0; i < searchLength; i++)
-            {
-                if (s[start + i] != searchStr[i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return s.StartsWith(searchStr, start);
         }
 
         /// <summary>
-        /// https://www.ecma-international.org/ecma-262/6.0/#sec-string.prototype.endswith
+        /// https://tc39.es/ecma262/#sec-string.prototype.endswith
         /// </summary>
         private JsValue EndsWith(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToJsString(thisObj);
 
             var searchString = arguments.At(0);
             if (ReferenceEquals(searchString, Null))
@@ -993,30 +1009,18 @@ namespace Jint.Native.String
             var len = s.Length;
             var pos = TypeConverter.ToInt32(arguments.At(1, len));
             var end = System.Math.Min(System.Math.Max(pos, 0), len);
-            var searchLength = searchStr.Length;
-            var start = end - searchLength;
 
-            if (start < 0)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < searchLength; i++)
-            {
-                if (s[start + i] != searchStr[i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return s.EndsWith(searchStr, end);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-string.prototype.includes
+        /// </summary>
         private JsValue Includes(JsValue thisObj, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(Engine, thisObj);
 
-            var s1 = TypeConverter.ToString(thisObj);
+            var s = TypeConverter.ToJsString(thisObj);
             var searchString = arguments.At(0);
 
             if (searchString.IsRegExp())
@@ -1033,12 +1037,7 @@ namespace Jint.Native.String
 
             if (searchStr.Length == 0)
             {
-                return true;
-            }
-
-            if (pos >= s1.Length)
-            {
-                return false;
+                return JsBoolean.True;
             }
 
             if (pos < 0)
@@ -1046,7 +1045,7 @@ namespace Jint.Native.String
                 pos = 0;
             }
 
-            return s1.IndexOf(searchStr, (int) pos, StringComparison.Ordinal) > -1;
+            return s.IndexOf(searchStr, (int) pos) > -1;
         }
 
         private JsValue Normalize(JsValue thisObj, JsValue[] arguments)

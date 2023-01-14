@@ -68,7 +68,7 @@ namespace Jint.Runtime
         // how many decimals to check when determining if double is actually an int
         private const double DoubleIsIntegerTolerance = double.Epsilon * 100;
 
-        internal static readonly string[] intToString = new string[1024];
+        private static readonly string[] intToString = new string[1024];
         private static readonly string[] charToString = new string[256];
 
         static TypeConverter()
@@ -172,29 +172,7 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-toboolean
         /// </summary>
-        public static bool ToBoolean(JsValue o)
-        {
-            var type = o._type & ~InternalTypes.InternalFlags;
-            switch (type)
-            {
-                case InternalTypes.Boolean:
-                    return ((JsBoolean) o)._value;
-                case InternalTypes.Undefined:
-                case InternalTypes.Null:
-                    return false;
-                case InternalTypes.Integer:
-                    return (int) ((JsNumber) o)._value != 0;
-                case InternalTypes.Number:
-                    var n = ((JsNumber) o)._value;
-                    return n != 0 && !double.IsNaN(n);
-                case InternalTypes.String:
-                    return !((JsString) o).IsNullOrEmpty();
-                case InternalTypes.BigInt:
-                    return ((JsBigInt) o)._value != 0;
-                default:
-                    return true;
-            }
-        }
+        public static bool ToBoolean(JsValue o) => o.ToBoolean();
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-tonumeric

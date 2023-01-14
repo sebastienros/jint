@@ -8,15 +8,11 @@ public sealed class JsUndefined : JsValue, IEquatable<JsUndefined>
     {
     }
 
-    public override object ToObject()
-    {
-        return null!;
-    }
+    public override object ToObject() => null!;
 
-    public override string ToString()
-    {
-        return "undefined";
-    }
+    internal override bool ToBoolean() => false;
+
+    public override string ToString() => "undefined";
 
     public override bool IsLooselyEqual(JsValue value)
     {

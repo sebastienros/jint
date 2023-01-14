@@ -70,9 +70,16 @@ public sealed class JsNumber : JsValue, IEquatable<JsNumber>
         _value = value;
     }
 
-    public override object ToObject()
+    public override object ToObject() => _value;
+
+    internal override bool ToBoolean()
     {
-        return _value;
+        if (_type == InternalTypes.Integer)
+        {
+            return (int) _value != 0;
+        }
+
+        return _value != 0 && !double.IsNaN(_value);
     }
 
     internal static JsNumber Create(object value)
@@ -256,11 +263,6 @@ public sealed class JsNumber : JsValue, IEquatable<JsNumber>
     }
 
     public override bool Equals(JsValue? obj)
-    {
-        return Equals(obj as JsNumber);
-    }
-
-    public override bool Equals(object? obj)
     {
         return Equals(obj as JsNumber);
     }

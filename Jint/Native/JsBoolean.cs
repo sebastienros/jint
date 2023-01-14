@@ -19,10 +19,9 @@ public sealed class JsBoolean : JsValue, IEquatable<JsBoolean>
 
     internal static JsBoolean Create(bool value) => value ? True : False;
 
-    public override object ToObject()
-    {
-        return _value ? BoxedTrue : BoxedFalse;
-    }
+    public override object ToObject() => _value ? BoxedTrue : BoxedFalse;
+
+    internal override bool ToBoolean() => _value;
 
     public override string ToString()
     {
