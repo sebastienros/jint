@@ -38,6 +38,9 @@
     // Esprima problem, Unexpected token *
     "language/expressions/object/dstr-async-gen-meth-*",
 
+    // Esprima problem for regex, https://github.com/sebastienros/esprima-dotnet/pull/364
+    "built-ins/RegExp/S15.10.4.1_A9_T3.js",
+
     // Currently quite impossible to detect if assignment target is CoverParenthesizedExpression
     "language/expressions/assignment/fn-name-lhs-cover.js",
 
