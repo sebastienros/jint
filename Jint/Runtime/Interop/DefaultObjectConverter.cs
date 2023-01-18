@@ -1,6 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 
@@ -101,7 +103,7 @@ namespace Jint
                     else
                     {
                         // check global cache, have we already wrapped the value?
-                        if (engine._objectWrapperCache.TryGetValue(value, out var cached))
+                        if (engine._objectWrapperCache?.TryGetValue(value, out var cached) == true)
                         {
                             result = cached;
                         }
@@ -112,6 +114,7 @@ namespace Jint
 
                             if (engine.Options.Interop.TrackObjectWrapperIdentity && wrapped is not null)
                             {
+                                engine._objectWrapperCache ??= new ConditionalWeakTable<object, ObjectInstance>();
                                 engine._objectWrapperCache.Add(value, wrapped);
                             }
                         }
