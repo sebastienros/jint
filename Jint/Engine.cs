@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Reflection;
+using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -53,7 +54,7 @@ namespace Jint
         internal readonly Dictionary<string, Type?> TypeCache = new();
 
         // cache for already wrapped CLR objects to keep object identity
-        internal readonly ConditionalWeakTable<object, ObjectInstance> _objectWrapperCache = new();
+        internal ConditionalWeakTable<object, ObjectInstance>? _objectWrapperCache;
 
         internal readonly JintCallStack CallStack;
 
@@ -1426,7 +1427,18 @@ namespace Jint
 
         public void Dispose()
         {
-            // no-op for now
+            if (_objectWrapperCache is null)
+            {
+                return;
+            }
+
+#if NETSTANDARD2_1_OR_GREATER
+            _objectWrapperCache.Clear();
+#else
+            // we can expect that reflection is OK as we've been generating object wrappers already
+            var clearMethod = _objectWrapperCache.GetType().GetMethod("Clear", BindingFlags.Instance | BindingFlags.NonPublic);
+            clearMethod?.Invoke(_objectWrapperCache, Array.Empty<object>());
+#endif
         }
     }
 }
