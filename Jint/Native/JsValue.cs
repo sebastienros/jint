@@ -149,7 +149,7 @@ namespace Jint.Native
         /// <summary>
         /// Coerces boolean value from <see cref="JsValue"/> instance.
         /// </summary>
-        internal virtual bool ToBoolean() => true;
+        internal virtual bool ToBoolean() => _type > InternalTypes.Null;
 
         /// <summary>
         /// Invoke the current value as function.

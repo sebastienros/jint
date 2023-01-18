@@ -2,6 +2,7 @@ using Esprima.Ast;
 using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
@@ -96,7 +97,7 @@ public class RavenApiUsageTests
 
         TestArrayAccess(engine, array1, "array1");
 
-        var array3 = new JsArray(engine, new []
+        var array3 = new JsArray(engine, new[]
         {
             new PropertyDescriptor(JsNumber.Create(1), true, true, true),
             new PropertyDescriptor(JsNumber.Create(2), true, true, true),
@@ -206,47 +207,97 @@ public class RavenApiUsageTests
         Assert.True(engine.Evaluate("empty.trimEnd() === ''").AsBoolean());
     }
 
-    private sealed class CustomString : JsString
+    [Fact]
+    public void CanDefineCustomNull()
     {
-        private readonly string _value;
+        var engine = new Engine();
+        engine.SetValue("value", new CustomNull());
+        Assert.Equal("foo", engine.Evaluate("value ? value + 'bar' : 'foo'"));
+    }
 
-        public CustomString(string value) : base(null)
+    [Fact]
+    public void CanDefineCustomUndefined()
+    {
+        var engine = new Engine();
+        engine.SetValue("value", new CustomUndefined());
+        Assert.Equal("foo", engine.Evaluate("value ? value + 'bar' : 'foo'"));
+    }
+}
+
+file sealed class CustomString : JsString
+{
+    private readonly string _value;
+
+    public CustomString(string value) : base(null)
+    {
+        _value = value;
+    }
+
+    public override string ToString()
+    {
+        // when called we know that we couldn't use fast paths
+        throw new InvalidOperationException("I don't want to be materialized!");
+    }
+
+    public override char this[int index] => _value[index];
+
+    public override int Length => _value.Length;
+
+    public override bool Equals(JsString obj)
+    {
+        return obj switch
         {
-            _value = value;
-        }
+            CustomString customString => _value == customString._value,
+            _ => _value == obj.ToString()
+        };
+    }
 
-        public override string ToString()
+    public override bool IsLooselyEqual(JsValue value)
+    {
+        return value switch
         {
-            // when called we know that we couldn't use fast paths
-            throw new InvalidOperationException("I don't want to be materialized!");
-        }
+            CustomString customString => _value == customString._value,
+            JsString jsString => _value == jsString.ToString(),
+            _ => base.IsLooselyEqual(value)
+        };
+    }
 
-        public override char this[int index] => _value[index];
+    public override int GetHashCode()
+    {
+        return _value.GetHashCode();
+    }
+}
 
-        public override int Length => _value.Length;
+file sealed class CustomNull : JsValue
+{
+    public CustomNull() : base(Types.Null)
+    {
+    }
 
-        public override bool Equals(JsString obj)
-        {
-            return obj switch
-            {
-                CustomString customString => _value == customString._value,
-                _ => _value == obj.ToString()
-            };
-        }
+    public override object ToObject()
+    {
+        return null;
+    }
 
-        public override bool IsLooselyEqual(JsValue value)
-        {
-            return value switch
-            {
-                CustomString customString => _value == customString._value,
-                JsString jsString => _value == jsString.ToString(),
-                _ => base.IsLooselyEqual(value)
-            };
-        }
+    public override string ToString()
+    {
+        return "null";
+    }
+}
 
-        public override int GetHashCode()
-        {
-            return _value.GetHashCode();
-        }
+file sealed class CustomUndefined : JsValue
+{
+    public CustomUndefined() : base(Types.Null)
+    {
+    }
+
+    public override object ToObject()
+    {
+        return null;
+    }
+
+    public override string ToString()
+    {
+        return "null";
     }
 }

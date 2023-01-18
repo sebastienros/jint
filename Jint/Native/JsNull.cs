@@ -10,8 +10,6 @@ public sealed class JsNull : JsValue, IEquatable<JsNull>
 
     public override object ToObject() => null!;
 
-    internal override bool ToBoolean() => false;
-
     public override string ToString() => "null";
 
     public override bool IsLooselyEqual(JsValue value)
