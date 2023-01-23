@@ -799,9 +799,9 @@ namespace Jint.Native.String
                 pos = TypeConverter.ToInteger(arguments[1]);
             }
 
-            if (pos >= s.Length)
+            if (pos > s.Length)
             {
-                return JsNumber.IntegerNegativeOne;
+                pos = s.Length;
             }
 
             if (pos < 0)
