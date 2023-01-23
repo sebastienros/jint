@@ -55,4 +55,12 @@ bar += 'bar';
         Assert.True(engine.Evaluate("!iterator.hasOwnProperty(Symbol.iterator)").AsBoolean());
         Assert.True(engine.Evaluate("iterator[Symbol.iterator]() === iterator").AsBoolean());
     }
+
+    [Fact]
+    public void IndexOf()
+    {
+        var engine = new Engine();
+        Assert.Equal(0, engine.Evaluate("''.indexOf('', 0)"));
+        Assert.Equal(0, engine.Evaluate("''.indexOf('', 1)"));
+    }
 }
