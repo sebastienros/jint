@@ -2883,6 +2883,21 @@ x.test = {
         }
 
         [Fact]
+        public void CanDisableCompilation()
+        {
+            var engine = new Engine(options =>
+            {
+                options.StringCompilationAllowed = false;
+            });
+
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("eval('1+1');"));
+            Assert.Equal("String compilation is not allowed", ex.Message);
+
+            ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Function('1+1');"));
+            Assert.Equal("String compilation is not allowed", ex.Message);
+        }
+
+        [Fact]
         public void ExecuteShouldTriggerBeforeEvaluateEvent()
         {
             TestBeforeEvaluateEvent(

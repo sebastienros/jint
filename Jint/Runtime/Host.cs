@@ -108,6 +108,10 @@ namespace Jint.Runtime
         /// </summary>
         public virtual void EnsureCanCompileStrings(Realm callerRealm, Realm evalRealm)
         {
+            if (!Engine.Options.StringCompilationAllowed)
+            {
+                ExceptionHelper.ThrowJavaScriptException(callerRealm.Intrinsics.TypeError, "String compilation is not allowed");
+            }
         }
 
         /// <summary>
