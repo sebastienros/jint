@@ -70,6 +70,15 @@ namespace Jint
         public IReferenceResolver ReferenceResolver { get; set; } = DefaultReferenceResolver.Instance;
 
         /// <summary>
+        /// Whether calling 'eval' with custom code and function constructors taking function code as string is allowed.
+        /// Defaults to true.
+        /// </summary>
+        /// <remarks>
+        /// https://tc39.es/ecma262/#sec-hostensurecancompilestrings
+        /// </remarks>
+        public bool StringCompilationAllowed { get; set; } = true;
+
+        /// <summary>
         /// Called by the <see cref="Engine"/> instance that loads this <see cref="Options" />
         /// once it is loaded.
         /// </summary>
