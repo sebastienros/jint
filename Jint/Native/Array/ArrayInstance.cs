@@ -404,6 +404,10 @@ namespace Jint.Native.Array
                     {
                         if (value is not PropertyDescriptor descriptor)
                         {
+                            if (EnsureCompatibleDense(typeof(PropertyDescriptor)))
+                            {
+                                temp = _dense!;
+                            }
                             temp[i] = descriptor = new PropertyDescriptor((JsValue) value, PropertyFlag.ConfigurableEnumerableWritable);
                         }
                         yield return new KeyValuePair<JsValue, PropertyDescriptor>(TypeConverter.ToString(i), descriptor);
@@ -419,6 +423,10 @@ namespace Jint.Native.Array
                     {
                         if (value is not PropertyDescriptor descriptor)
                         {
+                            if (EnsureCompatibleDense(typeof(PropertyDescriptor)))
+                            {
+                                temp = _dense!;
+                            }
                             _sparse[entry.Key] = descriptor = new PropertyDescriptor((JsValue) value, PropertyFlag.ConfigurableEnumerableWritable);
                         }
                         yield return new KeyValuePair<JsValue, PropertyDescriptor>(TypeConverter.ToString(entry.Key), descriptor);
