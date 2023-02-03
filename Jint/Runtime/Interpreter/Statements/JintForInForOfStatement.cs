@@ -2,8 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Iterator;
-using Jint.Native.Object;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
@@ -131,7 +129,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
 
                 var obj = TypeConverter.ToObject(engine.Realm, exprValue);
-                result = new ObjectKeyVisitor(engine, obj);
+                result = new IteratorInstance.EnumerableIterator(engine, obj.GetKeys());
             }
             else
             {
@@ -361,44 +359,6 @@ namespace Jint.Runtime.Interpreter.Statements
             Enumerate,
             Iterate,
             AsyncIterate
-        }
-
-        private sealed class ObjectKeyVisitor : IteratorInstance
-        {
-            public ObjectKeyVisitor(Engine engine, ObjectInstance obj)
-                : base(engine, CreateEnumerator(obj))
-            {
-            }
-
-            private static IEnumerable<JsValue> CreateEnumerator(ObjectInstance obj)
-            {
-                var visited = new HashSet<JsValue>();
-                foreach (var key in obj.GetOwnPropertyKeys(Types.String))
-                {
-                    var desc = obj.GetOwnProperty(key);
-                    if (desc != PropertyDescriptor.Undefined)
-                    {
-                        visited.Add(key);
-                        if (desc.Enumerable)
-                        {
-                            yield return key;
-                        }
-                    }
-                }
-
-                if (obj.Prototype is null)
-                {
-                    yield break;
-                }
-
-                foreach (var protoKey in CreateEnumerator(obj.Prototype))
-                {
-                    if (!visited.Contains(protoKey))
-                    {
-                        yield return protoKey;
-                    }
-                }
-            }
         }
     }
 }

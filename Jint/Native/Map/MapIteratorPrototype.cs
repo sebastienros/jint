@@ -47,7 +47,7 @@ internal sealed class MapIteratorPrototype : IteratorPrototype
 
     internal IteratorInstance ConstructKeyIterator(MapInstance map)
     {
-        var instance = new IteratorInstance(Engine, map._map.Keys)
+        var instance = new IteratorInstance.EnumerableIterator(Engine, map._map.Keys)
         {
             _prototype = this
         };
@@ -57,7 +57,7 @@ internal sealed class MapIteratorPrototype : IteratorPrototype
 
     internal IteratorInstance ConstructValueIterator(MapInstance map)
     {
-        var instance = new IteratorInstance(Engine, map._map.Values)
+        var instance = new IteratorInstance.EnumerableIterator(Engine, map._map.Values)
         {
             _prototype = this
         };

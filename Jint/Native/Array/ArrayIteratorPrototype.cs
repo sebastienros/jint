@@ -38,12 +38,49 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
 
     internal IteratorInstance Construct(ObjectInstance array, ArrayIteratorType kind)
     {
-        var instance = new ArrayLikeIterator(Engine, array, kind)
-        {
-            _prototype = this
-        };
+        IteratorInstance instance = array is JsArray jsArray
+            ? new ArrayIterator(Engine, jsArray, kind)  { _prototype = this }
+            : new ArrayLikeIterator(Engine, array, kind) { _prototype = this };
 
         return instance;
+    }
+
+    private sealed class ArrayIterator : IteratorInstance
+    {
+        private readonly ArrayIteratorType _kind;
+        private readonly JsArray _array;
+        private uint _position;
+        private bool _closed;
+
+        public ArrayIterator(Engine engine, JsArray array, ArrayIteratorType kind) : base(engine)
+        {
+            _kind = kind;
+            _array = array;
+            _position = 0;
+        }
+
+        public override bool TryIteratorStep(out ObjectInstance nextItem)
+        {
+            var len = _array.Length;
+            var position = _position;
+            if (!_closed && position < len)
+            {
+                _array.TryGetValue(position, out var value);
+                nextItem = _kind switch
+                {
+                    ArrayIteratorType.Key => IteratorResult.CreateValueIteratorPosition(_engine, JsNumber.Create(position)),
+                    ArrayIteratorType.Value => IteratorResult.CreateValueIteratorPosition(_engine, value),
+                    _ => IteratorResult.CreateKeyValueIteratorPosition(_engine, JsNumber.Create(position), value)
+                };
+
+                _position++;
+                return true;
+            }
+
+            _closed = true;
+            nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine);
+            return false;
+        }
     }
 
     private sealed class ArrayLikeIterator : IteratorInstance
@@ -93,18 +130,12 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
                 else
                 {
                     _operations!.TryGetValue(_position, out var value);
-                    if (_kind == ArrayIteratorType.Key)
+                    nextItem = _kind switch
                     {
-                        nextItem = IteratorResult.CreateValueIteratorPosition(_engine, JsNumber.Create(_position));
-                    }
-                    else if (_kind == ArrayIteratorType.Value)
-                    {
-                        nextItem = IteratorResult.CreateValueIteratorPosition(_engine, value);
-                    }
-                    else
-                    {
-                        nextItem = IteratorResult.CreateKeyValueIteratorPosition(_engine, JsNumber.Create(_position), value);
-                    }
+                        ArrayIteratorType.Key => IteratorResult.CreateValueIteratorPosition(_engine, JsNumber.Create(_position)),
+                        ArrayIteratorType.Value => IteratorResult.CreateValueIteratorPosition(_engine, value),
+                        _ => IteratorResult.CreateKeyValueIteratorPosition(_engine, JsNumber.Create(_position), value)
+                    };
                 }
 
                 _position++;
