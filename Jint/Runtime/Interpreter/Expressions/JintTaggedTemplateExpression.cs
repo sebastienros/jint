@@ -37,7 +37,7 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
             ExceptionHelper.ThrowTypeError(engine.Realm, "Argument must be callable");
         }
 
-        var expressions = _quasi._expressions;
+        ref readonly var expressions = ref _quasi._expressions;
 
         var args = engine._jsValueArrayPool.RentArray(expressions.Length + 1);
 
@@ -72,12 +72,14 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
             return cached;
         }
 
-        var count = (uint) _quasi._templateLiteralExpression.Quasis.Count;
-        var template = context.Engine.Realm.Intrinsics.Array.ArrayCreate(count);
-        var rawObj = context.Engine.Realm.Intrinsics.Array.ArrayCreate(count);
-        for (uint i = 0; i < _quasi._templateLiteralExpression.Quasis.Count; ++i)
+        ref readonly var elements = ref _quasi._templateLiteralExpression.Quasis;
+        var count = (uint) elements.Count;
+
+        var template = new JsArray(context.Engine, count, length: count);
+        var rawObj = new JsArray(context.Engine, count, length: count);
+        for (uint i = 0; i < elements.Count; ++i)
         {
-            var templateElementValue = _quasi._templateLiteralExpression.Quasis[(int) i].Value;
+            var templateElementValue = elements[(int) i].Value;
             template.SetIndexValue(i, templateElementValue.Cooked, updateLength: false);
             rawObj.SetIndexValue(i, templateElementValue.Raw, updateLength: false);
         }
