@@ -5,22 +5,12 @@ using Jint.Runtime;
 
 namespace Jint.Native.Iterator
 {
-    internal class IteratorInstance : ObjectInstance
+    internal abstract class IteratorInstance : ObjectInstance
     {
-        private readonly IEnumerator<JsValue> _enumerable;
-
-        protected IteratorInstance(Engine engine)
-            : this(engine, Enumerable.Empty<JsValue>())
+        protected IteratorInstance(Engine engine) : base(engine)
         {
-        }
-
-        public IteratorInstance(
-            Engine engine,
-            IEnumerable<JsValue> enumerable) : base(engine)
-        {
-            _enumerable = enumerable.GetEnumerator();
             _prototype = engine.Realm.Intrinsics.ArrayIteratorPrototype;
-       }
+        }
 
         public override object ToObject()
         {
@@ -28,17 +18,7 @@ namespace Jint.Native.Iterator
             return null;
         }
 
-        public virtual bool TryIteratorStep(out ObjectInstance nextItem)
-        {
-            if (_enumerable.MoveNext())
-            {
-                nextItem = IteratorResult.CreateValueIteratorPosition(_engine, _enumerable.Current);
-                return true;
-            }
-
-            nextItem = IteratorResult.CreateValueIteratorPosition(_engine, done: JsBoolean.True);
-            return false;
-        }
+        public abstract bool TryIteratorStep(out ObjectInstance nextItem);
 
         public virtual void Close(CompletionType completion)
         {
@@ -65,6 +45,7 @@ namespace Jint.Native.Iterator
                     ExceptionHelper.ThrowTypeError(target.Engine.Realm);
                     return;
                 }
+
                 _nextMethod = callable;
             }
 
@@ -119,6 +100,7 @@ namespace Jint.Native.Iterator
                         throw;
                     }
                 }
+
                 if (completion != CompletionType.Throw && !innerResult.IsObject())
                 {
                     ExceptionHelper.ThrowTypeError(_target.Engine.Realm, "Iterator returned non-object");
@@ -204,6 +186,28 @@ namespace Jint.Native.Iterator
 
                 nextItem = CreateIterResultObject(match, false);
                 return true;
+            }
+        }
+
+        internal sealed class EnumerableIterator : IteratorInstance
+        {
+            private readonly IEnumerator<JsValue> _enumerable;
+
+            public EnumerableIterator(Engine engine, IEnumerable<JsValue> obj) : base(engine)
+            {
+                _enumerable = obj.GetEnumerator();
+            }
+
+            public override bool TryIteratorStep(out ObjectInstance nextItem)
+            {
+                if (_enumerable.MoveNext())
+                {
+                    nextItem = IteratorResult.CreateValueIteratorPosition(_engine, _enumerable.Current);
+                    return true;
+                }
+
+                nextItem = IteratorResult.CreateValueIteratorPosition(_engine, done: JsBoolean.True);
+                return false;
             }
         }
     }

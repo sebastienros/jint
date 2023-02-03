@@ -6,7 +6,7 @@ namespace Jint.Native.Iterator;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-createiterresultobject
 /// </summary>
-internal class IteratorResult : ObjectInstance
+internal sealed class IteratorResult : ObjectInstance
 {
     private readonly JsValue _value;
     private readonly JsBoolean _done;
@@ -24,7 +24,7 @@ internal class IteratorResult : ObjectInstance
 
     public static IteratorResult CreateKeyValueIteratorPosition(Engine engine, JsValue? key = null, JsValue? value = null)
     {
-        var done = ReferenceEquals(null, key) && ReferenceEquals(null, value);
+        var done = key is null && value is null;
         var array = done ? Undefined : new JsArray(engine, new[] { key!, value! });
 
         return new IteratorResult(engine, array, JsBoolean.Create(done));

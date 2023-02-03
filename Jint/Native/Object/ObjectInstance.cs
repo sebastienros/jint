@@ -1402,6 +1402,36 @@ namespace Jint.Native.Object
             return false;
         }
 
+        internal IEnumerable<JsValue> GetKeys()
+        {
+            var visited = new HashSet<JsValue>();
+            foreach (var key in GetOwnPropertyKeys(Types.String))
+            {
+                var desc = GetOwnProperty(key);
+                if (desc != PropertyDescriptor.Undefined)
+                {
+                    visited.Add(key);
+                    if (desc.Enumerable)
+                    {
+                        yield return key;
+                    }
+                }
+            }
+
+            if (Prototype is null)
+            {
+                yield break;
+            }
+
+            foreach (var protoKey in Prototype.GetKeys())
+            {
+                if (!visited.Contains(protoKey))
+                {
+                    yield return protoKey;
+                }
+            }
+        }
+
         public override string ToString()
         {
             return TypeConverter.ToString(this);

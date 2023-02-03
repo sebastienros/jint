@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -1436,7 +1435,7 @@ namespace Jint
             _objectWrapperCache.Clear();
 #else
             // we can expect that reflection is OK as we've been generating object wrappers already
-            var clearMethod = _objectWrapperCache.GetType().GetMethod("Clear", BindingFlags.Instance | BindingFlags.NonPublic);
+            var clearMethod = _objectWrapperCache.GetType().GetMethod("Clear", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             clearMethod?.Invoke(_objectWrapperCache, Array.Empty<object>());
 #endif
         }
