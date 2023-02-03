@@ -63,4 +63,13 @@ bar += 'bar';
         Assert.Equal(0, engine.Evaluate("''.indexOf('', 0)"));
         Assert.Equal(0, engine.Evaluate("''.indexOf('', 1)"));
     }
+
+    [Fact]
+    public void TemplateLiteralsWithArrays()
+    {
+        var engine = new Engine();
+        engine.Execute("var a = [1,2,'three',true];");
+        Assert.Equal("test 1,2,three,true", engine.Evaluate("'test ' + a"));
+        Assert.Equal("test 1,2,three,true", engine.Evaluate("`test ${a}`"));
+    }
 }

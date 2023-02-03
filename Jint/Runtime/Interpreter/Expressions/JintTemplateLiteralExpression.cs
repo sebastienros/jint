@@ -2,56 +2,56 @@ using Esprima.Ast;
 using Jint.Native;
 using Jint.Pooling;
 
-namespace Jint.Runtime.Interpreter.Expressions
+namespace Jint.Runtime.Interpreter.Expressions;
+
+internal sealed class JintTemplateLiteralExpression : JintExpression
 {
-    internal sealed class JintTemplateLiteralExpression : JintExpression
+    internal readonly TemplateLiteral _templateLiteralExpression;
+    internal JintExpression[] _expressions = Array.Empty<JintExpression>();
+
+    public JintTemplateLiteralExpression(TemplateLiteral expression) : base(expression)
     {
-        internal readonly TemplateLiteral _templateLiteralExpression;
-        internal JintExpression[] _expressions = Array.Empty<JintExpression>();
+        _templateLiteralExpression = expression;
+        _initialized = false;
+    }
 
-        public JintTemplateLiteralExpression(TemplateLiteral expression) : base(expression)
+    protected override void Initialize(EvaluationContext context)
+    {
+        DoInitialize();
+    }
+
+    internal void DoInitialize()
+    {
+        ref readonly var expressions = ref _templateLiteralExpression.Expressions;
+        _expressions = new JintExpression[expressions.Count];
+        for (var i = 0; i < expressions.Count; i++)
         {
-            _templateLiteralExpression = expression;
-            _initialized = false;
+            _expressions[i] = Build(expressions[i]);
         }
 
-        protected override void Initialize(EvaluationContext context)
-        {
-            DoInitialize();
-        }
+        _initialized = true;
+    }
 
-        internal void DoInitialize()
+    private JsString BuildString(EvaluationContext context)
+    {
+        using var sb = StringBuilderPool.Rent();
+        ref readonly var elements = ref _templateLiteralExpression.Quasis;
+        for (var i = 0; i < elements.Count; i++)
         {
-            _expressions = new JintExpression[_templateLiteralExpression.Expressions.Count];
-            for (var i = 0; i < _templateLiteralExpression.Expressions.Count; i++)
+            var quasi = elements[i];
+            sb.Builder.Append(quasi.Value.Cooked);
+            if (i < _expressions.Length)
             {
-                var exp = _templateLiteralExpression.Expressions[i];
-                _expressions[i] = Build(exp);
+                var value = _expressions[i].GetValue(context);
+                sb.Builder.Append(TypeConverter.ToString(value));
             }
-
-            _initialized = true;
         }
 
-        private JsString BuildString(EvaluationContext context)
-        {
-            using var sb = StringBuilderPool.Rent();
-            for (var i = 0; i < _templateLiteralExpression.Quasis.Count; i++)
-            {
-                var quasi = _templateLiteralExpression.Quasis[i];
-                sb.Builder.Append(quasi.Value.Cooked);
-                if (i < _expressions.Length)
-                {
-                    var completion = _expressions[i].GetValue(context);
-                    sb.Builder.Append(completion);
-                }
-            }
+        return JsString.Create(sb.ToString());
+    }
 
-            return JsString.Create(sb.ToString());
-        }
-
-        protected override object EvaluateInternal(EvaluationContext context)
-        {
-            return BuildString(context);
-        }
+    protected override object EvaluateInternal(EvaluationContext context)
+    {
+        return BuildString(context);
     }
 }
