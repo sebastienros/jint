@@ -77,7 +77,7 @@ public class DateTests
         var engine = new Engine(
             conf =>
             {
-                conf.LocalTimeZone(TimeZoneConverter.TZConvert.GetTimeZoneInfo("Asia/Shanghai"));
+                conf.LocalTimeZone(TimeZoneInfo.FindSystemTimeZoneById("China Standard Time"));
             });
 
         Assert.Equal("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)", engine.Evaluate("new Date(2022,1,1).toString()"));
