@@ -1,4 +1,3 @@
-using System.Globalization;
 using Jint.Native.Date;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -56,6 +55,6 @@ public sealed class JsDate : ObjectInstance
             return "Infinity";
         }
 
-        return ToDateTime().ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz", CultureInfo.InvariantCulture);
+        return TypeConverter.ToString(this);
     }
 }
