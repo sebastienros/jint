@@ -56,6 +56,6 @@ public sealed class JsDate : ObjectInstance
             return "Infinity";
         }
 
-        return ToDateTime().ToString("ddd MMM dd yyyy HH:mm:ss 'GMT'zzz", CultureInfo.InvariantCulture);
+        return _engine.Realm.Intrinsics.Date.PrototypeObject.ToDateString(DateValue).ToString();
     }
 }

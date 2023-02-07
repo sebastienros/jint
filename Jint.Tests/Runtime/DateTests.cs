@@ -67,7 +67,20 @@ public class DateTests
         var number = _engine.Evaluate("new Date() / 1").AsNumber();
         Assert.Equal((long) number, number);
 
-        var dateInstance  = _engine.Realm.Intrinsics.Date.Construct(123.456d);
+        var dateInstance = _engine.Realm.Intrinsics.Date.Construct(123.456d);
         Assert.Equal((long) dateInstance.DateValue, dateInstance.DateValue);
+    }
+
+    [Fact]
+    public void ToStringFollowsJavaScriptFormat()
+    {
+        var engine = new Engine(
+            conf =>
+            {
+                conf.LocalTimeZone(TimeZoneConverter.TZConvert.GetTimeZoneInfo("Asia/Shanghai"));
+            });
+
+        Assert.Equal("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)", engine.Evaluate("new Date(2022,1,1).toString()"));
+        Assert.Equal("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)", engine.Evaluate("new Date(2022,1,1)").ToString());
     }
 }
