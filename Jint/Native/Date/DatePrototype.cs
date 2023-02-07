@@ -177,7 +177,7 @@ namespace Jint.Native.Date
         /// <summary>
         /// https://tc39.es/ecma262/#sec-todatestring
         /// </summary>
-        internal JsValue ToDateString(double tv)
+        private JsValue ToDateString(double tv)
         {
             if (double.IsNaN(tv))
             {
