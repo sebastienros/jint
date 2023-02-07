@@ -1,4 +1,3 @@
-using System.Globalization;
 using Jint.Native.Date;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -56,6 +55,6 @@ public sealed class JsDate : ObjectInstance
             return "Infinity";
         }
 
-        return _engine.Realm.Intrinsics.Date.PrototypeObject.ToDateString(DateValue).ToString();
+        return TypeConverter.ToString(this);
     }
 }
