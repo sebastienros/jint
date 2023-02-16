@@ -21,3 +21,11 @@ Jint number serialization is based on the Java port of the FastDtoa algorithm fr
 Website:      http://mozilla.org/
 Copyright:    Copyright (c) Mozilla
 License:      MPL 2.0 - http://mozilla.org/MPL/2.0/
+
+MimeKit
+-----
+Jint date parsing utilizes code extracted from the excellent MimeKit library.
+
+Website:      https://github.com/jstedfast/MimeKit
+Copyright:    Copyright (C) 2012-2022 .NET Foundation and Contributors
+License:      MIT - https://github.com/jstedfast/MimeKit/blob/master/LICENSE

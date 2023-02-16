@@ -83,4 +83,18 @@ public class DateTests
         Assert.Equal("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)", engine.Evaluate("new Date(2022,1,1).toString()"));
         Assert.Equal("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)", engine.Evaluate("new Date(2022,1,1)").ToString());
     }
+
+    [Theory]
+    [InlineData("Thu, 30 Jan 2020 08:00:00 PST", 1580400000000)]
+    [InlineData("Thursday January 01 1970 00:00:25 UTC", 25000)]
+    [InlineData("Wednesday 31 December 1969 18:01:26 MDT", 86000)]
+    [InlineData("Wednesday 31 December 1969 19:00:08 EST", 8000)]
+    [InlineData("Wednesday 31 December 1969 17:01:59 PDT", 119000)]
+    [InlineData("December 31 1969 17:01:14 MST", 74000)]
+    [InlineData("January 01 1970 01:46:06 +0145", 66000)]
+    [InlineData("December 31 1969 17:00:50 PDT", 50000)]
+    public void CanParseLocaleString(string input, long expected)
+    {
+        Assert.Equal(expected, _engine.Evaluate($"new Date('{input}') * 1").AsNumber());
+    }
 }
