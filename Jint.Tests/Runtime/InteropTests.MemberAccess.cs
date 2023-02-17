@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
+using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Domain;
 
@@ -88,6 +89,26 @@ namespace Jint.Tests.Runtime
 
             // reflection could bypass some safeguards
             Assert.Equal("Method1", engine.Evaluate("m.GetType().GetMethod('Method1').Invoke(m, [])").AsString());
+        }
+
+        [Fact]
+        public void ShouldBeAbleToVaryGetTypeConfigurationBetweenEngines()
+        {
+            static string TestAllowGetTypeOption(bool allowGetType)
+            {
+                var uri = new Uri("https://github.com/sebastienros/jint");
+                const string Input = nameof(uri) + ".GetType();";
+
+                using var engine = new Engine(options => options.Interop.AllowGetType = allowGetType);
+                engine.SetValue(nameof(uri), JsValue.FromObject(engine, uri));
+                var result = engine.Evaluate(Input).ToString();
+                return result;
+            }
+
+            Assert.Equal("System.Uri", TestAllowGetTypeOption(allowGetType: true));
+
+            var ex = Assert.Throws<JavaScriptException>(() => TestAllowGetTypeOption(allowGetType: false));
+            Assert.Equal("Property 'GetType' of object is not a function", ex.Message);
         }
 
         [Fact]

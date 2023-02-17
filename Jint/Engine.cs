@@ -61,6 +61,10 @@ namespace Jint
         internal Intrinsics _originalIntrinsics = null!;
         internal Host _host = null!;
 
+        // we need to cache reflection accessors on engine level as configuration options can affect outcome
+        internal readonly record struct ClrPropertyDescriptorFactoriesKey(Type Type, Key PropertyName);
+        internal Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> _reflectionAccessors = new();
+
         /// <summary>
         /// Constructs a new engine instance.
         /// </summary>
