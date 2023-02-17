@@ -13,9 +13,6 @@ namespace Jint.Runtime.Interop
     {
         public static readonly TypeResolver Default = new();
 
-        private readonly record struct ClrPropertyDescriptorFactoriesKey(Type Type, Key PropertyName);
-        private Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor> _reflectionAccessors = new();
-
         /// <summary>
         /// Registers a filter that determines whether given member is wrapped to interop or returned as undefined.
         /// By default allows all but will also be limited by <see cref="InteropOptions.AllowGetType"/> configuration.
@@ -52,9 +49,9 @@ namespace Jint.Runtime.Interop
             Func<ReflectionAccessor?>? accessorFactory = null,
             bool forWrite = false)
         {
-            var key = new ClrPropertyDescriptorFactoriesKey(type, member);
+            var key = new Engine.ClrPropertyDescriptorFactoriesKey(type, member);
 
-            var factories = _reflectionAccessors;
+            var factories = engine._reflectionAccessors;
             if (factories.TryGetValue(key, out var accessor))
             {
                 return accessor;
@@ -63,8 +60,8 @@ namespace Jint.Runtime.Interop
             accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member, forWrite);
 
             // racy, we don't care, worst case we'll catch up later
-            Interlocked.CompareExchange(ref _reflectionAccessors,
-                new Dictionary<ClrPropertyDescriptorFactoriesKey, ReflectionAccessor>(factories)
+            Interlocked.CompareExchange(ref engine._reflectionAccessors,
+                new Dictionary<Engine.ClrPropertyDescriptorFactoriesKey, ReflectionAccessor>(factories)
                 {
                     [key] = accessor
                 }, factories);
