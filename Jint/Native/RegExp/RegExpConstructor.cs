@@ -10,7 +10,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.RegExp
 {
-    public sealed class RegExpConstructor : FunctionInstance, IConstructor
+    public sealed class RegExpConstructor : Constructor
     {
         private static readonly JsString _functionName = new JsString("RegExp");
 
@@ -19,7 +19,7 @@ namespace Jint.Native.RegExp
             Realm realm,
             FunctionPrototype functionPrototype,
             ObjectPrototype objectPrototype)
-            : base(engine, realm, _functionName, FunctionThisMode.Global)
+            : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
             PrototypeObject = new RegExpPrototype(engine, realm, this, objectPrototype);
@@ -48,12 +48,10 @@ namespace Jint.Native.RegExp
             return Construct(arguments, this);
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
-
         /// <summary>
         /// https://tc39.es/ecma262/#sec-regexp-pattern-flags
         /// </summary>
-        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var pattern = arguments.At(0);
             var flags = arguments.At(1);

@@ -1,5 +1,4 @@
 using Jint.Collections;
-using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -7,7 +6,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Object
 {
-    public sealed class ObjectConstructor : FunctionInstance, IConstructor
+    public sealed class ObjectConstructor : Constructor
     {
         private static readonly JsString _name = new JsString("Object");
 
@@ -153,9 +152,7 @@ namespace Jint.Native.Object
             return Construct(arguments, this);
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
-
-        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (!ReferenceEquals(this, newTarget) && !newTarget.IsUndefined())
             {

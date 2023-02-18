@@ -16,9 +16,5 @@ public abstract class Constructor : FunctionInstance, IConstructor
         return null;
     }
 
-    public virtual ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
-    {
-        ExceptionHelper.ThrowTypeError(_realm, $"Abstract class {_nameDescriptor?.Value} not directly constructable");
-        return null;
-    }
+    public abstract ObjectInstance Construct(JsValue[] arguments, JsValue newTarget);
 }

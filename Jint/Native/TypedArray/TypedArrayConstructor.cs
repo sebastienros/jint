@@ -41,12 +41,6 @@ namespace Jint.Native.TypedArray
             SetProperties(properties);
         }
 
-        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
-        {
-            ExceptionHelper.ThrowTypeError(_realm, "Abstract class TypedArray not directly constructable");
-            return Undefined;
-        }
-
         public override ObjectInstance Construct(JsValue[] args, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
