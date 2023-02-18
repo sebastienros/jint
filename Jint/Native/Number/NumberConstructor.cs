@@ -11,7 +11,7 @@ namespace Jint.Native.Number
     /// <summary>
     /// https://tc39.es/ecma262/#sec-number-constructor
     /// </summary>
-    internal sealed class NumberConstructor : FunctionInstance, IConstructor
+    internal sealed class NumberConstructor : Constructor
     {
         private static readonly JsString _functionName = new JsString("Number");
 
@@ -121,7 +121,7 @@ namespace Jint.Native.Number
         /// <summary>
         /// https://tc39.es/ecma262/#sec-number-constructor-number-value
         /// </summary>
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var n = ProcessFirstParameter(arguments);
 

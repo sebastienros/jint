@@ -6,7 +6,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.WeakMap
 {
-    internal sealed class WeakMapConstructor : FunctionInstance, IConstructor
+    internal sealed class WeakMapConstructor : Constructor
     {
         private static readonly JsString _functionName = new JsString("WeakMap");
 
@@ -25,13 +25,7 @@ namespace Jint.Native.WeakMap
 
         public WeakMapPrototype PrototypeObject { get; }
 
-        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
-        {
-            ExceptionHelper.ThrowTypeError(_realm, "Constructor WeakMap requires 'new'");
-            return null;
-        }
-
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {

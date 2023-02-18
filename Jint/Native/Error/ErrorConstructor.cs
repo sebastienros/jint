@@ -1,11 +1,10 @@
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Error
 {
-    public sealed class ErrorConstructor : FunctionInstance, IConstructor
+    public sealed class ErrorConstructor : Constructor
     {
         private readonly Func<Intrinsics, ObjectInstance> _intrinsicDefaultProto;
 
@@ -36,12 +35,10 @@ namespace Jint.Native.Error
             return Construct(message != null ? new JsValue[]{ message } : System.Array.Empty<JsValue>(), this);
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
-
         /// <summary>
         /// https://tc39.es/ecma262/#sec-nativeerror
         /// </summary>
-        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var o = OrdinaryCreateFromConstructor(
                 newTarget,

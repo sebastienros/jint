@@ -256,7 +256,7 @@ namespace Jint.Runtime
         internal ErrorConstructor SyntaxError =>
             _syntaxError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _syntaxErrorFunctionName, static intrinsics => intrinsics.SyntaxError.PrototypeObject);
 
-        internal ErrorConstructor TypeError =>
+        public ErrorConstructor TypeError =>
             _typeError ??= new ErrorConstructor(_engine, _realm, Error, Error.PrototypeObject, _typeErrorFunctionName, static intrinsics => intrinsics.TypeError.PrototypeObject);
 
         internal ErrorConstructor RangeError =>

@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -12,7 +11,7 @@ namespace Jint.Native.Date;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-date-constructor
 /// </summary>
-internal sealed class DateConstructor : FunctionInstance, IConstructor
+internal sealed class DateConstructor : Constructor
 {
     internal static readonly DateTime Epoch = new(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
@@ -165,13 +164,10 @@ internal sealed class DateConstructor : FunctionInstance, IConstructor
         return PrototypeObject.ToString(Construct(Arguments.Empty, thisObject), Arguments.Empty);
     }
 
-    ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
-
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date
     /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
         // fast path is building default, new Date()
         if (arguments.Length == 0 || newTarget.IsUndefined())

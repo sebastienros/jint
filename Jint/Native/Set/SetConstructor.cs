@@ -8,7 +8,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Set;
 
-internal sealed class SetConstructor : FunctionInstance, IConstructor
+internal sealed class SetConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Set");
 
@@ -17,7 +17,7 @@ internal sealed class SetConstructor : FunctionInstance, IConstructor
         Realm realm,
         FunctionPrototype functionPrototype,
         ObjectPrototype objectPrototype)
-        : base(engine, realm, _functionName, FunctionThisMode.Global)
+        : base(engine, realm, _functionName)
     {
         _prototype = functionPrototype;
         PrototypeObject = new SetPrototype(engine, realm, this, objectPrototype);
@@ -42,16 +42,10 @@ internal sealed class SetConstructor : FunctionInstance, IConstructor
         return thisObject;
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
-    {
-        ExceptionHelper.ThrowTypeError(_engine.Realm, "Constructor Set requires 'new'");
-        return null;
-    }
-
     /// <summary>
     /// https://tc39.es/ecma262/#sec-set-iterable
     /// </summary>
-    ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
         {

@@ -8,7 +8,7 @@ namespace Jint.Native.WeakRef;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-weak-ref-constructor
 /// </summary>
-internal sealed class WeakRefConstructor : FunctionInstance, IConstructor
+internal sealed class WeakRefConstructor : Constructor
 {
     private static readonly JsString _functionName = new("WeakRef");
 
@@ -27,13 +27,7 @@ internal sealed class WeakRefConstructor : FunctionInstance, IConstructor
 
     private WeakRefPrototype PrototypeObject { get; }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
-    {
-        ExceptionHelper.ThrowTypeError(_realm, "Constructor WeakRef requires 'new'");
-        return null;
-    }
-
-    ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
         {

@@ -9,7 +9,7 @@ namespace Jint.Native.ShadowRealm;
 /// <summary>
 /// https://tc39.es/proposal-shadowrealm/#sec-properties-of-the-shadowRealm-constructor
 /// </summary>
-public sealed class ShadowRealmConstructor : FunctionInstance, IConstructor
+public sealed class ShadowRealmConstructor : Constructor
 {
     private static readonly JsString _functionName = new("ShadowRealm");
 
@@ -27,12 +27,6 @@ public sealed class ShadowRealmConstructor : FunctionInstance, IConstructor
     }
 
     private ShadowRealmPrototype PrototypeObject { get; }
-
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
-    {
-        ExceptionHelper.ThrowTypeError(_realm, "Constructor ShadowRealm requires 'new'");
-        return null;
-    }
 
     public ShadowRealm Construct()
     {
@@ -70,7 +64,7 @@ public sealed class ShadowRealmConstructor : FunctionInstance, IConstructor
     }
 
 
-    ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
         {

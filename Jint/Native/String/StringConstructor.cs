@@ -13,7 +13,7 @@ namespace Jint.Native.String
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string-constructor
     /// </summary>
-    internal sealed class StringConstructor : FunctionInstance, IConstructor
+    internal sealed class StringConstructor : Constructor
     {
         private static readonly JsString _functionName = new JsString("String");
 
@@ -22,7 +22,7 @@ namespace Jint.Native.String
             Realm realm,
             FunctionPrototype functionPrototype,
             ObjectPrototype objectPrototype)
-            : base(engine, realm, _functionName, FunctionThisMode.Global)
+            : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
             PrototypeObject = new StringPrototype(engine, realm, this, objectPrototype);
@@ -165,7 +165,7 @@ namespace Jint.Native.String
         /// <summary>
         /// https://tc39.es/ecma262/#sec-string-constructor-string-value
         /// </summary>
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             JsString s;
             if (arguments.Length == 0)

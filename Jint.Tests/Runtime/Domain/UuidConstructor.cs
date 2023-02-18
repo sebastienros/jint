@@ -1,5 +1,4 @@
 using Jint.Native;
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -7,7 +6,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime.Domain
 {
-    internal sealed class UuidConstructor : FunctionInstance, IConstructor
+    internal sealed class UuidConstructor : Constructor
     {
         private static readonly JsString _functionName = new JsString("Uuid");
 
@@ -64,6 +63,6 @@ namespace Jint.Tests.Runtime.Domain
 
         public UuidInstance Construct(JsUuid uuid) => new UuidInstance(Engine) { PrimitiveValue = uuid, _prototype = PrototypeObject };
 
-        public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget) => Construct(Guid.NewGuid());
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget) => Construct(Guid.NewGuid());
     }
 }

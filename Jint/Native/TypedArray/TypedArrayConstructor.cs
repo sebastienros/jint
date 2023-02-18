@@ -1,7 +1,6 @@
 using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.ArrayBuffer;
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -12,7 +11,7 @@ namespace Jint.Native.TypedArray
     /// <summary>
     /// https://tc39.es/ecma262/#sec-typedarray-constructors
     /// </summary>
-    public abstract class TypedArrayConstructor : FunctionInstance, IConstructor
+    public abstract class TypedArrayConstructor : Constructor
     {
         private readonly TypedArrayElementType _arrayElementType;
 
@@ -42,15 +41,7 @@ namespace Jint.Native.TypedArray
             SetProperties(properties);
         }
 
-        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
-        {
-            ExceptionHelper.ThrowTypeError(_realm, "Abstract class TypedArray not directly constructable");
-            return Undefined;
-        }
-
-        ObjectInstance IConstructor.Construct(JsValue[] args, JsValue newTarget) => Construct(args, newTarget);
-
-        internal ObjectInstance Construct(JsValue[] args, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] args, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {

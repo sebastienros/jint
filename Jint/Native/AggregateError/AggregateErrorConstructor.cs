@@ -1,5 +1,4 @@
 using Jint.Native.Error;
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
@@ -10,7 +9,7 @@ namespace Jint.Native.AggregateError;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-aggregate-error-constructor
 /// </summary>
-internal sealed class AggregateErrorConstructor : FunctionInstance, IConstructor
+internal sealed class AggregateErrorConstructor : Constructor
 {
     private static readonly JsString _name = new("AggregateError");
 
@@ -33,12 +32,10 @@ internal sealed class AggregateErrorConstructor : FunctionInstance, IConstructor
         return Construct(arguments, this);
     }
 
-    ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
-
     /// <summary>
     /// https://tc39.es/ecma262/#sec-nativeerror
     /// </summary>
-    private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
         var errors = arguments.At(0);
         var message = arguments.At(1);

@@ -2,14 +2,13 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using Jint.Collections;
 using Jint.Native;
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop.Reflection;
 
 namespace Jint.Runtime.Interop
 {
-    public sealed class TypeReference : FunctionInstance, IConstructor, IObjectWrapper
+    public sealed class TypeReference : Constructor, IObjectWrapper
     {
         private static readonly JsString _name = new("typereference");
         private static readonly ConcurrentDictionary<Type, MethodDescriptor[]> _constructorCache = new();
@@ -18,7 +17,7 @@ namespace Jint.Runtime.Interop
         private readonly record struct MemberAccessorKey(Type Type, string PropertyName);
 
         private TypeReference(Engine engine, Type type)
-            : base(engine, engine.Realm, _name, FunctionThisMode.Global)
+            : base(engine, engine.Realm, _name)
         {
             ReferenceType = type;
 
@@ -49,9 +48,7 @@ namespace Jint.Runtime.Interop
             return Construct(arguments, Undefined);
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
-
-        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             static ObjectInstance ObjectCreator(Engine engine, Realm realm, ObjectCreateState state)
             {

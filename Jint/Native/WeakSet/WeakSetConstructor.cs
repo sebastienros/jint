@@ -5,7 +5,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.WeakSet
 {
-    internal sealed class WeakSetConstructor : FunctionInstance, IConstructor
+    internal sealed class WeakSetConstructor : Constructor
     {
         private static readonly JsString _functionName = new("WeakSet");
 
@@ -24,13 +24,7 @@ namespace Jint.Native.WeakSet
 
         private WeakSetPrototype PrototypeObject { get; }
 
-        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
-        {
-            ExceptionHelper.ThrowTypeError(_realm, "Constructor WeakSet requires 'new'");
-            return null;
-        }
-
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {

@@ -8,7 +8,7 @@ namespace Jint.Native.FinalizationRegistry;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-finalization-registry-constructor
 /// </summary>
-internal sealed class FinalizationRegistryConstructor : FunctionInstance, IConstructor
+internal sealed class FinalizationRegistryConstructor : Constructor
 {
     private static readonly JsString _functionName = new("FinalizationRegistry");
 
@@ -31,9 +31,7 @@ internal sealed class FinalizationRegistryConstructor : FunctionInstance, IConst
         return Construct(arguments, thisObject);
     }
 
-    ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
-
-    private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
         {

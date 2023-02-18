@@ -11,7 +11,7 @@ namespace Jint.Native.Symbol
     /// 19.4
     /// http://www.ecma-international.org/ecma-262/6.0/index.html#sec-symbol-objects
     /// </summary>
-    internal sealed class SymbolConstructor : FunctionInstance, IConstructor
+    internal sealed class SymbolConstructor : Constructor
     {
         private static readonly JsString _functionName = new JsString("Symbol");
 
@@ -20,7 +20,7 @@ namespace Jint.Native.Symbol
             Realm realm,
             FunctionPrototype functionPrototype,
             ObjectPrototype objectPrototype)
-            : base(engine, realm, _functionName, FunctionThisMode.Global)
+            : base(engine, realm, _functionName)
         {
             _prototype = functionPrototype;
             PrototypeObject = new SymbolPrototype(engine, realm, this, objectPrototype);
@@ -107,7 +107,7 @@ namespace Jint.Native.Symbol
             return Undefined;
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Symbol is not a constructor");
             return null;

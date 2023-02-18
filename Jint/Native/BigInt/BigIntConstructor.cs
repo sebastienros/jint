@@ -11,7 +11,7 @@ namespace Jint.Native.BigInt;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-bigint-constructor
 /// </summary>
-internal sealed class BigIntConstructor : FunctionInstance, IConstructor
+internal sealed class BigIntConstructor : Constructor
 {
     private static readonly JsString _functionName = new("BigInt");
 
@@ -101,7 +101,7 @@ internal sealed class BigIntConstructor : FunctionInstance, IConstructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint-constructor-number-value
     /// </summary>
-    ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
         var value = arguments.Length > 0
             ? JsBigInt.Create(arguments[0].ToBigInteger(_engine))

@@ -9,7 +9,7 @@ namespace Jint.Native.DataView
     /// <summary>
     /// https://tc39.es/ecma262/#sec-dataview-constructor
     /// </summary>
-    internal sealed class DataViewConstructor : FunctionInstance, IConstructor
+    internal sealed class DataViewConstructor : Constructor
     {
         private static readonly JsString _functionName = new("DataView");
 
@@ -28,13 +28,7 @@ namespace Jint.Native.DataView
 
         public DataViewPrototype PrototypeObject { get; }
 
-        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
-        {
-            ExceptionHelper.ThrowTypeError(_realm, "Constructor DataView requires 'new'");
-            return Undefined;
-        }
-
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {

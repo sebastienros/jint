@@ -1,5 +1,4 @@
 using Jint.Collections;
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -10,7 +9,7 @@ namespace Jint.Native.Proxy
     /// <summary>
     /// https://tc39.es/ecma262/#sec-proxy-constructor
     /// </summary>
-    internal sealed class ProxyConstructor : FunctionInstance, IConstructor
+    internal sealed class ProxyConstructor : Constructor
     {
         private static readonly JsString _name = new JsString("Proxy");
         private static readonly JsString PropertyProxy = new JsString("proxy");
@@ -33,13 +32,7 @@ namespace Jint.Native.Proxy
             SetProperties(properties);
         }
 
-        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
-        {
-            ExceptionHelper.ThrowTypeError(_realm, "Constructor Proxy requires 'new'");
-            return null;
-        }
-
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {
