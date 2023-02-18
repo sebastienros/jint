@@ -31,7 +31,14 @@ internal sealed class EvaluationContext
     public readonly Completion ResumedCompletion;
     public bool DebugMode => Engine._isDebugMode;
 
-    public SyntaxElement LastSyntaxElement = null!;
+    public SyntaxElement LastSyntaxElement
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => Engine.GetLastSyntaxElement();
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        set => Engine._lastSyntaxElement = value;
+    }
+
     public readonly bool OperatorOverloadingAllowed;
 
     // completion record information

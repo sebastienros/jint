@@ -2,23 +2,22 @@ using System.Collections.Concurrent;
 using Jint.Native;
 using Jint.Native.Function;
 
-namespace Jint.Tests.PublicInterface
+namespace Jint.Tests.PublicInterface;
+
+public class PublicInterfaceTests
 {
-    public class PublicInterfaceTests
+    [Fact]
+    public void BindFunctionInstancesArePublic()
     {
-
-        [Fact]
-        public void BindFunctionInstancesArePublic()
+        var engine = new Engine(options =>
         {
-            var engine = new Engine(options =>
-            {
-                options.AllowClr();
-            });
+            options.AllowClr();
+        });
 
-            using var emulator = new SetTimeoutEmulator(engine);
+        using var emulator = new SetTimeoutEmulator(engine);
 
-            engine.SetValue("emulator", emulator);
-            engine.Execute(@"
+        engine.SetValue("emulator", emulator);
+        engine.Execute(@"
 var coolingObject = {
     coolDownTime: 1000,
     cooledDown: false
@@ -29,27 +28,27 @@ var coolingObject = {
     }.bind(coolingObject), coolingObject.coolDownTime);
 
 ");
+    }
 
-        }
+    private sealed class SetTimeoutEmulator : IDisposable
+    {
+        private readonly Engine _engine;
+        private readonly ConcurrentQueue<JsValue> _queue = new();
+        private readonly Task _queueProcessor;
+        private readonly CancellationTokenSource _quit = new();
+        private bool _disposedValue;
 
-        private class SetTimeoutEmulator : IDisposable
+        public SetTimeoutEmulator(Engine engine)
         {
-            private readonly Engine _engine;
-            private readonly ConcurrentQueue<JsValue> _queue = new();
-            private readonly Task _queueProcessor;
-            private readonly CancellationTokenSource _quit = new();
-            private bool _disposedValue;
+            _engine = engine ?? throw new ArgumentNullException(nameof(engine));
 
-            public SetTimeoutEmulator(Engine engine)
+            _queueProcessor = Task.Run(() =>
             {
-                _engine = engine ?? throw new ArgumentNullException(nameof(engine));
-
-                _queueProcessor = Task.Run(() =>
+                while (!_quit.IsCancellationRequested)
                 {
-
-                    while (!_quit.IsCancellationRequested)
+                    while (_queue.TryDequeue(out var queueEntry))
                     {
-                        while (_queue.TryDequeue(out var queueEntry))
+                        lock (_engine)
                         {
                             if (queueEntry is FunctionInstance fi)
                             {
@@ -65,35 +64,35 @@ var coolingObject = {
                             }
                         }
                     }
-                });
-            }
-
-            public void SetTimeout(JsValue script, object timeout)
-            {
-                _queue.Enqueue(script);
-            }
-
-            protected virtual void Dispose(bool disposing)
-            {
-                if (!_disposedValue)
-                {
-                    if (disposing)
-                    {
-                        // TODO: dispose managed state (managed objects)
-                        _quit.Cancel();
-                        _queueProcessor.Wait();
-                    }
-
-                    _disposedValue = true;
                 }
-            }
+            });
+        }
 
-            public void Dispose()
+        public void SetTimeout(JsValue script, object timeout)
+        {
+            _queue.Enqueue(script);
+        }
+
+        protected void Dispose(bool disposing)
+        {
+            if (!_disposedValue)
             {
-                // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-                Dispose(disposing: true);
-                GC.SuppressFinalize(this);
+                if (disposing)
+                {
+                    // TODO: dispose managed state (managed objects)
+                    _quit.Cancel();
+                    _queueProcessor.Wait();
+                }
+
+                _disposedValue = true;
             }
+        }
+
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }
