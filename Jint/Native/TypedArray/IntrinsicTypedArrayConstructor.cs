@@ -1,5 +1,4 @@
 using Jint.Collections;
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
@@ -11,7 +10,7 @@ namespace Jint.Native.TypedArray
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%-intrinsic-object
     /// </summary>
-    internal sealed class IntrinsicTypedArrayConstructor : FunctionInstance, IConstructor
+    internal sealed class IntrinsicTypedArrayConstructor : Constructor
     {
         internal IntrinsicTypedArrayConstructor(
             Engine engine,
@@ -189,7 +188,7 @@ namespace Jint.Native.TypedArray
             return Undefined;
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] args, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] args, JsValue newTarget)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Abstract class TypedArray not directly constructable");
             return null;

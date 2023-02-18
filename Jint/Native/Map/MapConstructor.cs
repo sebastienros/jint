@@ -9,7 +9,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Map;
 
-internal sealed class MapConstructor : FunctionInstance, IConstructor
+internal sealed class MapConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Map");
 
@@ -42,16 +42,10 @@ internal sealed class MapConstructor : FunctionInstance, IConstructor
         return thisObject;
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
-    {
-        ExceptionHelper.ThrowTypeError(_realm, "Constructor Map requires 'new'");
-        return null;
-    }
-
     /// <summary>
     /// https://tc39.es/ecma262/#sec-map-iterable
     /// </summary>
-    ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
         {

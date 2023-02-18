@@ -10,7 +10,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
 {
-    public sealed class ArrayConstructor : FunctionInstance, IConstructor
+    public sealed class ArrayConstructor : Constructor
     {
         private static readonly JsString _functionName = new JsString("Array");
 
@@ -277,12 +277,10 @@ namespace Jint.Native.Array
 
         public JsArray Construct(JsValue[] arguments)
         {
-            return Construct(arguments, this);
+            return (JsArray) Construct(arguments, this);
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
-
-        internal JsArray Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {

@@ -9,7 +9,7 @@ namespace Jint.Native.Function
     /// <summary>
     /// https://tc39.es/ecma262/#sec-function-constructor
     /// </summary>
-    public sealed class FunctionConstructor : FunctionInstance, IConstructor
+    public sealed class FunctionConstructor : Constructor
     {
         private static readonly JsString _functionName = new JsString("Function");
 
@@ -32,9 +32,7 @@ namespace Jint.Native.Function
             return Construct(arguments, thisObject);
         }
 
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget) => Construct(arguments, newTarget);
-
-        private ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var function = CreateDynamicFunction(
                 this,

@@ -17,7 +17,7 @@ namespace Jint.Native.Promise
         JsValue ResolveObj
     );
 
-    internal sealed class PromiseConstructor : FunctionInstance, IConstructor
+    internal sealed class PromiseConstructor : Constructor
     {
         private static readonly JsString _functionName = new JsString("Promise");
 
@@ -60,16 +60,10 @@ namespace Jint.Native.Promise
             SetSymbols(symbols);
         }
 
-        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
-        {
-            ExceptionHelper.ThrowTypeError(_realm, "Constructor Promise requires 'new'");
-            return null;
-        }
-
         /// <summary>
         /// https://tc39.es/ecma262/#sec-promise-executor
         /// </summary>
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {

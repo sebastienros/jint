@@ -13,7 +13,7 @@ namespace Jint.Native.ArrayBuffer
     /// <summary>
     /// https://tc39.es/ecma262/#sec-properties-of-the-arraybuffer-constructor
     /// </summary>
-    internal sealed class ArrayBufferConstructor : FunctionInstance, IConstructor
+    internal sealed class ArrayBufferConstructor : Constructor
     {
         private static readonly JsString _functionName = new("ArrayBuffer");
 
@@ -65,13 +65,7 @@ namespace Jint.Native.ArrayBuffer
             return thisObject;
         }
 
-        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
-        {
-            ExceptionHelper.ThrowTypeError(_realm, "Constructor ArrayBuffer requires 'new'");
-            return Undefined;
-        }
-
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
             {

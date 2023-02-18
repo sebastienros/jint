@@ -5,7 +5,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Boolean
 {
-    internal sealed class BooleanConstructor : FunctionInstance, IConstructor
+    internal sealed class BooleanConstructor : Constructor
     {
         private static readonly JsString _functionName = new JsString("Boolean");
 
@@ -37,7 +37,7 @@ namespace Jint.Native.Boolean
         /// <summary>
         /// https://tc39.es/ecma262/#sec-boolean-constructor-boolean-value
         /// </summary>
-        ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+        public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             var b = TypeConverter.ToBoolean(arguments.At(0))
                 ? JsBoolean.True
