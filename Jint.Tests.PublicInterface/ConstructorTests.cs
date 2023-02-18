@@ -54,7 +54,7 @@ public class ConstructorTests
 
 file sealed class DateOnlyConstructor : Constructor
 {
-    public DateOnlyConstructor(Engine engine) : base(engine, engine.Realm, (JsString) "DateOnly")
+    public DateOnlyConstructor(Engine engine) : base(engine, "DateOnly")
     {
     }
 
