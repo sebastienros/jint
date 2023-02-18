@@ -227,6 +227,17 @@ namespace Jint
         }
 
         /// <summary>
+        /// Checks engine's active constraints. Propagates exceptions from constraints.
+        /// </summary>
+        public void CheckConstraints()
+        {
+            foreach (var constraint in _constraints)
+            {
+                constraint.Check();
+            }
+        }
+
+        /// <summary>
         /// Initializes the statements count
         /// </summary>
         public void ResetConstraints()

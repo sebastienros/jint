@@ -6,6 +6,9 @@ namespace Jint.Tests.PublicInterface;
 [Collection("ConstraintUsageTests")]
 public class ConstraintUsageTests
 {
+// this test case is problematic due to nature of cancellation token source in old framework
+// in NET 6 it's better designed and signals more reliably
+#if NET6_0_OR_GREATER
     [Fact]
     public void CanFindAndResetCancellationConstraint()
     {
@@ -44,5 +47,24 @@ public class ConstraintUsageTests
             ");
             return result.AsString();
         }
+    }
+#endif
+
+    [Fact]
+    public void CanObserveConstraintsFromCustomCode()
+    {
+        var engine = new Engine(o => o.TimeoutInterval(TimeSpan.FromMilliseconds(100)));
+        engine.SetValue("slowFunction", new Func<string>(() =>
+        {
+            for (var i = 0; i < 100; ++i)
+            {
+                Thread.Sleep(TimeSpan.FromMilliseconds(200));
+                engine.CheckConstraints();
+            }
+
+            return "didn't throw!";
+        }));
+
+        Assert.Throws<TimeoutException>(() => engine.Execute("slowFunction()"));
     }
 }
