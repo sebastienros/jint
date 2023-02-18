@@ -138,6 +138,8 @@ namespace Jint
         // having a proper execution context established
         internal Realm? _realmInConstruction;
 
+        internal SyntaxElement? _lastSyntaxElement;
+
         public Realm Realm => _realmInConstruction ?? ExecutionContext.Realm;
 
         internal GlobalSymbolRegistry GlobalSymbolRegistry { get; } = new();
@@ -735,9 +737,9 @@ namespace Jint
         /// <summary>
         /// Gets the last evaluated <see cref="Node"/>.
         /// </summary>
-        internal SyntaxElement? GetLastSyntaxElement()
+        internal SyntaxElement GetLastSyntaxElement()
         {
-            return _activeEvaluationContext?.LastSyntaxElement;
+            return _lastSyntaxElement!;
         }
 
         /// <summary>

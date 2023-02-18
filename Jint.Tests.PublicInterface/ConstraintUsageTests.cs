@@ -3,6 +3,7 @@ using Jint.Runtime;
 
 namespace Jint.Tests.PublicInterface;
 
+[Collection("ConstraintUsageTests")]
 public class ConstraintUsageTests
 {
     [Fact]
@@ -27,13 +28,18 @@ public class ConstraintUsageTests
         {
             var result = engine.Evaluate(@"
                 function sleep(millisecondsTimeout) {
-                    var x = 0;
                     var totalMilliseconds = new Date().getTime() + millisecondsTimeout;
-                    while (new Date().getTime() < totalMilliseconds) {
-                        x++;
+                    var now = new Date().getTime();
+                    while (now < totalMilliseconds) {
+                        // simulate some work
+                        now = new Date().getTime();
+                        now = new Date().getTime();
+                        now = new Date().getTime();
+                        now = new Date().getTime();
+                        now = new Date().getTime();
                     }
                 }
-                sleep(200);
+                sleep(300);
                 return 'done';
             ");
             return result.AsString();
