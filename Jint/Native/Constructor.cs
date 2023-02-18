@@ -6,7 +6,11 @@ namespace Jint.Native;
 
 public abstract class Constructor : FunctionInstance, IConstructor
 {
-    protected Constructor(Engine engine, Realm realm, JsString name) : base(engine, realm, name)
+    protected Constructor(Engine engine, string name) : this(engine, engine.Realm, new JsString(name))
+    {
+    }
+
+    internal Constructor(Engine engine, Realm realm, JsString name) : base(engine, realm, name)
     {
     }
 
