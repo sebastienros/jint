@@ -73,7 +73,7 @@ var coolingObject = {
             _queue.Enqueue(script);
         }
 
-        protected void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
             if (!_disposedValue)
             {
