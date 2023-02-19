@@ -3182,18 +3182,20 @@ try {
         }
 
         [Fact]
-        public void CanPassDateTimeMinViaInterop()
+        public void CanPassDateTimeMinAndMaxViaInterop()
         {
             var engine = new Engine(cfg => cfg.AllowClrWrite());
 
             var dt = DateTime.UtcNow;
             engine.SetValue("capture", new Action<object>(o => dt = (DateTime) o));
-            engine.SetValue("minDate", DateTime.MinValue);
 
+            engine.SetValue("minDate", DateTime.MinValue);
             engine.Execute("capture(minDate);");
             Assert.Equal(DateTime.MinValue, dt);
 
-            // DateTime.MaxValue cannot be handled due to internal presentation that would require tick precision
+            engine.SetValue("maxDate", DateTime.MaxValue);
+            engine.Execute("capture(maxDate);");
+            Assert.Equal(DateTime.MaxValue, dt);
         }
     }
 }

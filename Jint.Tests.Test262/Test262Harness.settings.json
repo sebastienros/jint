@@ -183,7 +183,7 @@
     // special casing data
     "built-ins/**/special_casing*.js",
 
-    // negative years, c'mon...
+    // negative years, we can partially handle but not values too big due to .NET parsing limitations
     "built-ins/Date/prototype/*/negative-year.js",
 
     // failing tests in new test suite (due to updating to latest and using whole set)

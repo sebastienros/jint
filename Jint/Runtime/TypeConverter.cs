@@ -361,6 +361,7 @@ namespace Jint.Runtime
             return (ulong) Math.Min(len, NumberConstructor.MaxSafeInteger);
         }
 
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-tointegerorinfinity
         /// </summary>
@@ -391,8 +392,14 @@ namespace Jint.Runtime
         /// </summary>
         public static double ToInteger(JsValue o)
         {
-            var number = ToNumber(o);
+            return ToInteger(ToNumber(o));
+        }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-tointeger
+        /// </summary>
+        internal static double ToInteger(double number)
+        {
             if (double.IsNaN(number))
             {
                 return 0;
@@ -415,23 +422,6 @@ namespace Jint.Runtime
             }
 
             return integer;
-        }
-
-        internal static double ToInteger(string o)
-        {
-            var number = ToNumber(o);
-
-            if (double.IsNaN(number))
-            {
-                return 0;
-            }
-
-            if (number == 0 || double.IsInfinity(number))
-            {
-                return number;
-            }
-
-            return (long) number;
         }
 
         internal static int DoubleToInt32Slow(double o)

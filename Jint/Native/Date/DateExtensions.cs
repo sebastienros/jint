@@ -6,19 +6,19 @@ internal static class DateExtensions
     {
         return DateConstructor.Epoch.AddMilliseconds(t);
     }
-        
-    internal static double TimeClip(this double time)
+
+    internal static DatePresentation TimeClip(this double time)
     {
         if (double.IsInfinity(time) || double.IsNaN(time))
         {
-            return double.NaN;
+            return new DatePresentation(0, DateFlags.NaN);
         }
 
         if (System.Math.Abs(time) > 8640000000000000)
         {
-            return double.NaN;
+            return new DatePresentation(0, DateFlags.NaN);
         }
-        
-        return (long) time;
+
+        return new DatePresentation((long) time, DateFlags.None);
     }
 }
