@@ -46,6 +46,7 @@ namespace Jint
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
         internal readonly ExtensionMethodCache _extensionMethods;
+        internal JintAdditionalData? _additionalData;
 
         public ITypeConverter ClrTypeConverter { get; internal set; } = null!;
 
@@ -219,6 +220,24 @@ namespace Jint
                 : JsValue.FromObject(this, obj);
 
             return SetValue(name, value);
+        }
+
+        public Engine SetAdditionalData<TValue>(string key, TValue value)
+        {
+            _additionalData ??= new JintAdditionalData();
+            _additionalData.Set(key, value);
+            return this;
+        }
+
+        public bool TryGetAdditionalData<TValue>(string key, out TValue? value)
+        {
+            if (_additionalData == null)
+            {
+                value = default;
+                return false;
+            }
+
+            return _additionalData.TryGetValue(key, out value);
         }
 
         internal void LeaveExecutionContext()
