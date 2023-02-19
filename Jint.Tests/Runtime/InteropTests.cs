@@ -3140,5 +3140,20 @@ try {
             Assert.Equal(null, _engine.Evaluate("Context.method({});").ToObject());
             Assert.Equal(5, _engine.Evaluate("Context.method({ value: 5 });").AsInteger());
         }
+
+        [Fact]
+        public void CanPassDateTimeMinViaInterop()
+        {
+            var engine = new Engine(cfg => cfg.AllowClrWrite());
+
+            var dt = DateTime.UtcNow;
+            engine.SetValue("capture", new Action<object>(o => dt = (DateTime) o));
+            engine.SetValue("minDate", DateTime.MinValue);
+
+            engine.Execute("capture(minDate);");
+            Assert.Equal(DateTime.MinValue, dt);
+
+            // DateTime.MaxValue cannot be handled due to internal presentation that would require tick precision
+        }
     }
 }

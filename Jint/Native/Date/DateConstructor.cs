@@ -262,7 +262,7 @@ internal sealed class DateConstructor : Constructor
 
     internal long FromDateTime(DateTime dt, bool negative = false)
     {
-        var convertToUtcAfter = dt.Kind == DateTimeKind.Unspecified;
+        var convertToUtcAfter = dt.Kind == DateTimeKind.Unspecified && dt != DateTime.MinValue;
 
         var dateAsUtc = dt.Kind == DateTimeKind.Local
             ? dt.ToUniversalTime()
