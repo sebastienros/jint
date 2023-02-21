@@ -2473,6 +2473,27 @@ namespace Jint.Tests.Runtime
             Assert.Equal("float-val", engine.Evaluate("a.testFunc(12.3);").AsString());
         }
 
+        [Fact]
+        public void TypeConversionWithTemporaryInvalidValuesShouldNotCache()
+        {
+            var engine = new Engine(options => options.AllowClr());
+            engine.SetValue("IntValueInput", TypeReference.CreateTypeReference(engine, typeof(IntValueInput)));
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new IntValueInput().testFunc(NaN);").AsString());
+            Assert.Equal("No public methods with the specified arguments were found.", ex.Message);
+
+            Assert.Equal(123, engine.Evaluate("new IntValueInput().testFunc(123);").AsNumber());
+
+            ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new IntValueInput().testFunc(12.3);").AsNumber());
+            Assert.Equal("No public methods with the specified arguments were found.", ex.Message);
+
+            Assert.Equal(123, engine.Evaluate("new IntValueInput().testFunc(123);").AsNumber());
+        }
+
+        public class IntValueInput
+        {
+            public int TestFunc(int value) => value;
+        }
+
         public class TestItem
         {
             public double Cost { get; set; }

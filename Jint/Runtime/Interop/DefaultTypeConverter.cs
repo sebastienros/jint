@@ -39,7 +39,7 @@ namespace Jint.Runtime.Interop
 
         public virtual object? Convert(object? value, Type type, IFormatProvider formatProvider)
         {
-            if (value == null)
+            if (value is null)
             {
                 if (TypeConverter.TypeIsNullable(type))
                 {
@@ -81,6 +81,19 @@ namespace Jint.Runtime.Interop
             }
 
             var valueType = value.GetType();
+
+            if (valueType == typeof(double) || valueType == typeof(float) || valueType == typeof(decimal))
+            {
+                // conversion can be dangerous
+                var doubleValue = (double) value;
+                if (!TypeConverter.IsIntegralNumber(doubleValue)
+                    && (type == typeof(long) || type == typeof(int) || type == typeof(short) || type == typeof(byte) || type == typeof(ulong) || type == typeof(uint) || type == typeof(ushort) || type == typeof(sbyte)))
+                {
+                    // this is not safe
+                    ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(value) , "Cannot convert floating point number with decimals to integral type");
+                }
+            }
+
             // is the javascript value an ICallable instance ?
             if (valueType == iCallableType)
             {
@@ -323,7 +336,7 @@ namespace Jint.Runtime.Interop
             var key = new TypeConversionKey(value?.GetType() ?? typeof(void), type);
 
             // string conversion is not stable, "filter" -> int is invalid, "0" -> int is valid
-            var canConvert = value is string || _knownConversions.GetOrAdd(key, _ =>
+            var canTryConvert = value is string || _knownConversions.GetOrAdd(key, _ =>
             {
                 try
                 {
@@ -336,7 +349,7 @@ namespace Jint.Runtime.Interop
                 }
             });
 
-            if (canConvert)
+            if (canTryConvert)
             {
                 try
                 {
