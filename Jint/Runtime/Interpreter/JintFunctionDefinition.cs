@@ -48,7 +48,7 @@ internal sealed class JintFunctionDefinition
                 AsyncFunctionStart(context, promiseCapability, context =>
                 {
                     context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
-                    return new Completion(CompletionType.Normal, _bodyExpression.GetValue(context), _bodyExpression._expression);
+                    return new Completion(CompletionType.Return, _bodyExpression.GetValue(context), _bodyExpression._expression);
                 });
                 result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
             }

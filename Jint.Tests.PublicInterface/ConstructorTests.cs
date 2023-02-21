@@ -1,3 +1,4 @@
+using System.Globalization;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -78,17 +79,17 @@ file sealed class DateOnlyConstructor : Constructor
             var day = arguments.Length == 2 ? 0 : TypeConverter.ToNumber(arguments[2]) - 1;
             if (double.IsNaN(year))
             {
-                throw new JavaScriptException(_engine.Realm.Intrinsics.TypeError, "Invalid year " + year);
+                throw new JavaScriptException(_engine.Realm.Intrinsics.TypeError, $"Invalid year {year.ToString(CultureInfo.InvariantCulture)}");
             }
 
             if (double.IsNaN(month))
             {
-                throw new JavaScriptException(_engine.Realm.Intrinsics.TypeError, "Invalid month " + month);
+                throw new JavaScriptException(_engine.Realm.Intrinsics.TypeError, $"Invalid month {month.ToString(CultureInfo.InvariantCulture)}");
             }
 
             if (double.IsNaN(day))
             {
-                throw new JavaScriptException(_engine.Realm.Intrinsics.TypeError, "Invalid day " + day);
+                throw new JavaScriptException(_engine.Realm.Intrinsics.TypeError, $"Invalid day {day.ToString(CultureInfo.InvariantCulture)}");
             }
 
             var dt = new DateTime((int) year, 1, 1);
