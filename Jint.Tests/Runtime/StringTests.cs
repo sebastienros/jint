@@ -72,4 +72,13 @@ bar += 'bar';
         Assert.Equal("test 1,2,three,true", engine.Evaluate("'test ' + a"));
         Assert.Equal("test 1,2,three,true", engine.Evaluate("`test ${a}`"));
     }
+
+    [Fact]
+    public void TemplateLiteralAsObjectKey()
+    {
+        var engine=new Engine();
+        var result = engine.Evaluate("({ [`key`]: 'value' })").AsObject();
+        Assert.True(result.HasOwnProperty("key"));
+        Assert.Equal("value", result["key"]);
+    }
 }
