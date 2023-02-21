@@ -69,7 +69,8 @@ namespace Jint
                 or Nodes.ConditionalExpression
                 or Nodes.ArrowFunctionExpression
                 or Nodes.FunctionExpression
-                or Nodes.YieldExpression)
+                or Nodes.YieldExpression
+                or Nodes.TemplateLiteral)
             {
                 var context = engine._activeEvaluationContext;
                 return JintExpression.Build(expression).GetValue(context!);
