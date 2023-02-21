@@ -241,6 +241,17 @@ public class ArrayTests
     }
 
     [Fact]
+    public void ArrayFromStringUsingMapping()
+    {
+        var engine = new Engine();
+        var array = engine.Evaluate("Array.from('fff', (s) => Number.parseInt(s, 16))").AsArray();
+        Assert.Equal((uint) 3, array.Length);
+        Assert.Equal((uint) 15, array[0]);
+        Assert.Equal((uint) 15, array[1]);
+        Assert.Equal((uint) 15, array[2]);
+    }
+
+    [Fact]
     public void Iteration()
     {
         const string Script = @"

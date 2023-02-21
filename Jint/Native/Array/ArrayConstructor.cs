@@ -51,58 +51,42 @@ namespace Jint.Native.Array
         /// </summary>
         private JsValue From(JsValue thisObj, JsValue[] arguments)
         {
-            var source = arguments.At(0);
+            var items = arguments.At(0);
             var mapFunction = arguments.At(1);
             var callable = !mapFunction.IsUndefined() ? GetCallable(mapFunction) : null;
             var thisArg = arguments.At(2);
 
-            if (source.IsNullOrUndefined())
+            if (items.IsNullOrUndefined())
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Cannot convert undefined or null to object");
             }
 
-            if (source is JsString jsString)
+            var usingIterator = GetMethod(_realm, items, GlobalSymbolRegistry.Iterator);
+            if (usingIterator is not null)
             {
-                var a = _realm.Intrinsics.Array.ArrayCreate((uint) jsString.Length);
-                for (var i = 0; i < jsString._value.Length; i++)
+                ObjectInstance instance;
+                if (!ReferenceEquals(this, thisObj) && thisObj is IConstructor constructor)
                 {
-                    a.SetIndexValue((uint) i, JsString.Create(jsString._value[i]), updateLength: false);
+                    instance = constructor.Construct(System.Array.Empty<JsValue>(), thisObj);
                 }
-                return a;
+                else
+                {
+                    instance = ArrayCreate(0);
+                }
+
+                var iterator = items.GetIterator(_realm, method: usingIterator);
+                var protocol = new ArrayProtocol(_engine, thisArg, instance, iterator, callable);
+                protocol.Execute();
+                return instance;
             }
 
-            if (thisObj.IsNull() || source is not ObjectInstance objectInstance)
-            {
-                return _realm.Intrinsics.Array.ArrayCreate(0);
-            }
-
+            var objectInstance = TypeConverter.ToObject(_realm, items);
             if (objectInstance is IObjectWrapper { Target: IEnumerable enumerable })
             {
                 return ConstructArrayFromIEnumerable(enumerable);
             }
 
-            if (objectInstance.IsArrayLike)
-            {
-                return ConstructArrayFromArrayLike(thisObj, objectInstance, callable, thisArg);
-            }
-
-            ObjectInstance instance;
-            if (thisObj is IConstructor constructor)
-            {
-                instance = constructor.Construct(System.Array.Empty<JsValue>(), thisObj);
-            }
-            else
-            {
-                instance = _realm.Intrinsics.Array.ArrayCreate(0);
-            }
-
-            if (objectInstance.TryGetIterator(_realm, out var iterator))
-            {
-                var protocol = new ArrayProtocol(_engine, thisArg, instance, iterator, callable);
-                protocol.Execute();
-            }
-
-            return instance;
+            return ConstructArrayFromArrayLike(thisObj, objectInstance, callable, thisArg);
         }
 
         private ObjectInstance ConstructArrayFromArrayLike(
@@ -111,23 +95,18 @@ namespace Jint.Native.Array
             ICallable? callable,
             JsValue thisArg)
         {
-            var iterator = objectInstance.Get(GlobalSymbolRegistry.Iterator);
             var source = ArrayOperations.For(objectInstance);
             var length = source.GetLength();
 
             ObjectInstance a;
-            if (thisObj is IConstructor constructor)
+            if (!ReferenceEquals(thisObj, this) && thisObj is IConstructor constructor)
             {
-                var isNullOrUndefined = iterator.IsNullOrUndefined();
-                var argumentsList = isNullOrUndefined
-                    ? new JsValue[] { length }
-                    : null;
-
+                var argumentsList = new JsValue[] { length };
                 a = Construct(constructor, argumentsList);
             }
             else
             {
-                a = _realm.Intrinsics.Array.ArrayCreate(length);
+                a = ArrayCreate(length);
             }
 
             var args = !ReferenceEquals(callable, null)
@@ -138,23 +117,18 @@ namespace Jint.Native.Array
             uint n = 0;
             for (uint i = 0; i < length; i++)
             {
-                JsValue jsValue;
                 var value = source.Get(i);
                 if (!ReferenceEquals(callable, null))
                 {
                     args![0] = value;
                     args[1] = i;
-                    jsValue = callable.Call(thisArg, args);
+                    value = callable.Call(thisArg, args);
 
                     // function can alter data
                     length = source.GetLength();
                 }
-                else
-                {
-                    jsValue = value;
-                }
 
-                target.CreateDataPropertyOrThrow(i, jsValue);
+                target.CreateDataPropertyOrThrow(i, value);
                 n++;
             }
 
