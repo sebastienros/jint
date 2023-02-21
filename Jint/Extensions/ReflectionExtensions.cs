@@ -131,6 +131,13 @@ namespace Jint.Extensions
             JsValue value,
             [NotNullWhen(true)] out object? converted)
         {
+            if (value.IsInteger() && (memberType == typeof(int) || memberType == typeof(long)))
+            {
+                // safe and doesn't require configuration
+                converted = value.AsInteger();
+                return true;
+            }
+
             if (memberType == typeof(bool) && (valueCoercionType & ValueCoercionType.Boolean) != 0)
             {
                 converted = TypeConverter.ToBoolean(value);
