@@ -111,12 +111,16 @@ namespace Jint.Native.RegExp
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            if (r.Source is null)
+            if (string.IsNullOrEmpty(r.Source))
             {
-                return JsString.Empty;
+                return RegExpInstance.regExpForMatchingAllCharacters;
             }
 
-            return r.Source.Replace("/", "\\/").Replace("\n", "\\n");
+
+            return r.Source
+                .Replace("\\/", "/") // ensure forward-slashes
+                .Replace("/", "\\/") // then escape again
+                .Replace("\n", "\\n");
         }
 
         /// <summary>
