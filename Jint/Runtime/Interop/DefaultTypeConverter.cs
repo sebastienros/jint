@@ -17,7 +17,6 @@ namespace Jint.Runtime.Interop
 
         private readonly record struct TypeConversionKey(Type Source, Type Target);
 
-        private static readonly ConcurrentDictionary<TypeConversionKey, bool> _knownConversions = new();
         private static readonly ConcurrentDictionary<TypeConversionKey, MethodInfo?> _knownCastOperators = new();
 
         private static readonly Type intType = typeof(int);
@@ -39,20 +38,39 @@ namespace Jint.Runtime.Interop
 
         public virtual object? Convert(object? value, Type type, IFormatProvider formatProvider)
         {
+            if (!TryConvert(value, type, formatProvider, propagateException: true, out var converted, out var problemMessage))
+            {
+                ExceptionHelper.ThrowError(_engine, problemMessage ?? $"Unable to convert {value} to type {type}");
+            }
+            return converted;
+        }
+
+        public virtual bool TryConvert(object? value, Type type, IFormatProvider formatProvider, [NotNullWhen(true)] out object? converted)
+        {
+            return TryConvert(value, type, formatProvider, propagateException: false, out converted, out _);
+        }
+
+        private bool TryConvert(object? value, Type type, IFormatProvider formatProvider, bool propagateException, out object? converted, out string? problemMessage)
+        {
+            converted = null;
+            problemMessage = null;
+
             if (value is null)
             {
                 if (TypeConverter.TypeIsNullable(type))
                 {
-                    return null;
+                    return true;
                 }
 
-                ExceptionHelper.ThrowNotSupportedException($"Unable to convert null to '{type.FullName}'");
+                problemMessage = $"Unable to convert null to '{type.FullName}'";
+                return false;
             }
 
             // don't try to convert if value is derived from type
             if (type.IsInstanceOfType(value))
             {
-                return value;
+                converted = value;
+                return true;
             }
 
             if (type.IsGenericType)
@@ -60,7 +78,8 @@ namespace Jint.Runtime.Interop
                 var result = TypeConverter.IsAssignableToGenericType(value.GetType(), type);
                 if (result.IsAssignable)
                 {
-                    return value;
+                    converted = value;
+                    return true;
                 }
             }
 
@@ -77,7 +96,8 @@ namespace Jint.Runtime.Interop
                     ExceptionHelper.ThrowArgumentOutOfRangeException();
                 }
 
-                return Enum.ToObject(type, integer);
+                converted = Enum.ToObject(type, integer);
+                return true;
             }
 
             var valueType = value.GetType();
@@ -90,7 +110,8 @@ namespace Jint.Runtime.Interop
                     && (type == typeof(long) || type == typeof(int) || type == typeof(short) || type == typeof(byte) || type == typeof(ulong) || type == typeof(uint) || type == typeof(ushort) || type == typeof(sbyte)))
                 {
                     // this is not safe
-                    ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(value) , "Cannot convert floating point number with decimals to integral type");
+                    problemMessage = $"Cannot convert floating point number {doubleValue} with decimals to integral type {type}";
+                    return false;
                 }
             }
 
@@ -113,7 +134,8 @@ namespace Jint.Runtime.Interop
                         functionInstance?.SetHiddenClrObjectProperty(delegatePropertyKey, d);
                     }
 
-                    return d;
+                    converted = d;
+                    return true;
                 }
             }
 
@@ -122,7 +144,8 @@ namespace Jint.Runtime.Interop
                 var source = value as object[];
                 if (source == null)
                 {
-                    ExceptionHelper.ThrowArgumentException($"Value of object[] type is expected, but actual type is {value.GetType()}.");
+                    problemMessage = $"Value of object[] type is expected, but actual type is {value.GetType()}";
+                    return false;
                 }
 
                 var targetElementType = type.GetElementType();
@@ -133,7 +156,9 @@ namespace Jint.Runtime.Interop
                 }
                 var result = Array.CreateInstance(targetElementType, source.Length);
                 itemsConverted.CopyTo(result, 0);
-                return result;
+
+                converted = result;
+                return true;
             }
 
             var typeDescriptor = TypeDescriptor.Get(valueType);
@@ -144,7 +169,8 @@ namespace Jint.Runtime.Interop
                 // value types
                 if (type.IsValueType && constructors.Length > 0)
                 {
-                    ExceptionHelper.ThrowArgumentException("No valid constructors found");
+                    problemMessage = $"No valid constructors found for {type}";
+                    return false;
                 }
 
                 var constructorParameters = Array.Empty<object>();
@@ -167,7 +193,7 @@ namespace Jint.Runtime.Interop
                         foreach (var constructor in constructors)
                         {
                             var parameterInfos = constructor.GetParameters();
-                            if (parameterInfos.All(p => p.IsOptional) && constructor.IsPublic)
+                            if (parameterInfos.All(static p => p.IsOptional) && constructor.IsPublic)
                             {
                                 constructorParameters = new object[parameterInfos.Length];
                                 found = true;
@@ -178,7 +204,8 @@ namespace Jint.Runtime.Interop
 
                     if (!found)
                     {
-                        ExceptionHelper.ThrowArgumentException("No valid constructors found");
+                        problemMessage = $"No valid constructors found for type {type}";
+                        return false;
                     }
                 }
 
@@ -202,28 +229,31 @@ namespace Jint.Runtime.Interop
                     }
                 }
 
-                return obj;
+                converted = obj;
+                return true;
             }
 
             try
             {
-                return System.Convert.ChangeType(value, type, formatProvider);
+                converted = System.Convert.ChangeType(value, type, formatProvider);
+                return true;
             }
             catch (Exception e)
             {
                 // check if we can do a cast with operator overloading
                 if (TryCastWithOperators(value, type, valueType, out var invoke))
                 {
-                    return invoke;
+                    converted = invoke;
+                    return true;
                 }
 
-                if (!_engine.Options.Interop.ExceptionHandler(e))
+                if (propagateException && !_engine.Options.Interop.ExceptionHandler(e))
                 {
                     throw;
                 }
 
-                ExceptionHelper.ThrowError(_engine, e.Message);
-                return null;
+                problemMessage = e.Message;
+                return false;
             }
         }
 
@@ -331,41 +361,6 @@ namespace Jint.Runtime.Interop
             return false;
         }
 
-        public virtual bool TryConvert(object? value, Type type, IFormatProvider formatProvider, out object? converted)
-        {
-            var key = new TypeConversionKey(value?.GetType() ?? typeof(void), type);
-
-            // string conversion is not stable, "filter" -> int is invalid, "0" -> int is valid
-            var canTryConvert = value is string || _knownConversions.GetOrAdd(key, _ =>
-            {
-                try
-                {
-                    Convert(value, type, formatProvider);
-                    return true;
-                }
-                catch
-                {
-                    return false;
-                }
-            });
-
-            if (canTryConvert)
-            {
-                try
-                {
-                    converted = Convert(value, type, formatProvider);
-                    return true;
-                }
-                catch
-                {
-                    converted = null;
-                    return false;
-                }
-            }
-
-            converted = null;
-            return false;
-        }
     }
 
     internal static class ObjectExtensions
