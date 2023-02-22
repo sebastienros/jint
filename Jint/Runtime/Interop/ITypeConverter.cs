@@ -1,8 +1,19 @@
-namespace Jint.Runtime.Interop
+using System.Diagnostics.CodeAnalysis;
+
+namespace Jint.Runtime.Interop;
+
+/// <summary>
+/// Handles conversions between CLR types.
+/// </summary>
+public interface ITypeConverter
 {
-    public interface ITypeConverter
-    {
-        object? Convert(object? value, Type type, IFormatProvider formatProvider);
-        bool TryConvert(object? value, Type type, IFormatProvider formatProvider, out object? converted);
-    }
+    /// <summary>
+    /// Converts value to to type. Throws exception if cannot be done.
+    /// </summary>
+    object? Convert(object? value, Type type, IFormatProvider formatProvider);
+
+    /// <summary>
+    /// Converts value to to type. Returns false if cannot be done.
+    /// </summary>
+    bool TryConvert(object? value, Type type, IFormatProvider formatProvider, [NotNullWhen(true)] out object? converted);
 }
