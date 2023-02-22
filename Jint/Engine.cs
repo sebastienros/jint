@@ -212,7 +212,7 @@ namespace Jint
             return this;
         }
 
-        public Engine SetValue(string name, object obj)
+        public Engine SetValue(string name, object? obj)
         {
             var value = obj is Type t
                 ? TypeReference.CreateTypeReference(this, t)
