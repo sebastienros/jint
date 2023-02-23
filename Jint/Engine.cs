@@ -1064,8 +1064,9 @@ namespace Jint
                 var realm = Realm;
                 foreach (var f in configuration.FunctionsToInitialize)
                 {
-                    var fn = f.Name!;
-                    var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv, privateEnv);
+                    var jintFunctionDefinition = new JintFunctionDefinition(f);
+                    var fn = jintFunctionDefinition.Name!;
+                    var fo = realm.Intrinsics.Function.InstantiateFunctionObject(jintFunctionDefinition, lexEnv, privateEnv);
                     varEnv.SetMutableBinding(fn, fo, strict: false);
                 }
             }

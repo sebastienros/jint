@@ -56,6 +56,18 @@ namespace Jint.Runtime.Interpreter.Expressions
             return result;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal object EvaluateWithoutNodeTracking(EvaluationContext context)
+        {
+            if (!_initialized)
+            {
+                Initialize(context);
+                _initialized = true;
+            }
+
+            return EvaluateInternal(context);
+        }
+
         /// <summary>
         /// Opportunity to build one-time structures and caching based on lexical context.
         /// </summary>

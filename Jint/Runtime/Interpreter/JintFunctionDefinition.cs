@@ -170,7 +170,7 @@ internal sealed class JintFunctionDefinition
         public bool HasParameterExpressions;
         public bool ArgumentsObjectNeeded;
         public List<Key>? VarNames;
-        public LinkedList<JintFunctionDefinition>? FunctionsToInitialize;
+        public LinkedList<FunctionDeclaration>? FunctionsToInitialize;
         public readonly HashSet<Key> FunctionNames = new();
         public LexicalVariableDeclaration[] LexicalDeclarations = Array.Empty<LexicalVariableDeclaration>();
         public HashSet<Key>? ParameterBindings;
@@ -200,18 +200,18 @@ internal sealed class JintFunctionDefinition
         var lexicalNames = hoistingScope._lexicalNames;
         state.VarNames = hoistingScope._varNames;
 
-        LinkedList<JintFunctionDefinition>? functionsToInitialize = null;
+        LinkedList<FunctionDeclaration>? functionsToInitialize = null;
 
         if (functionDeclarations != null)
         {
-            functionsToInitialize = new LinkedList<JintFunctionDefinition>();
+            functionsToInitialize = new LinkedList<FunctionDeclaration>();
             for (var i = functionDeclarations.Count - 1; i >= 0; i--)
             {
                 var d = functionDeclarations[i];
                 var fn = d.Id!.Name;
                 if (state.FunctionNames.Add(fn))
                 {
-                    functionsToInitialize.AddFirst(new JintFunctionDefinition(d));
+                    functionsToInitialize.AddFirst(d);
                 }
             }
         }
