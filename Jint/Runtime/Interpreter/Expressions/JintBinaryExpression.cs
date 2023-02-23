@@ -161,7 +161,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     try
                     {
                         var context = new EvaluationContext();
-                        return new JintConstantExpression(expression, result.GetValue(context));
+                        return new JintConstantExpression(expression, (JsValue) result.EvaluateWithoutNodeTracking(context));
                     }
                     catch
                     {
