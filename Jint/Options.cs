@@ -251,20 +251,18 @@ namespace Jint
         public List<IObjectConverter> ObjectConverters { get; } = new();
 
         /// <summary>
-        /// Whether identity map is persisted for object wrappers in order to maintain object identity.
-        /// Defaults to true.
+        /// Whether identity map is persisted for object wrappers in order to maintain object identity. This can cause
+        /// memory usage to grow when targeting large set and freeing of memory can be delayed due to ConditionalWeakTable semantics.
+        /// Defaults to false.
         /// </summary>
-        public bool TrackObjectWrapperIdentity { get; set; } = true;
+        public bool TrackObjectWrapperIdentity { get; set; } = false;
 
         /// <summary>
         /// If no known type could be guessed, objects are by default wrapped as an
         /// ObjectInstance using class ObjectWrapper. This function can be used to
         /// change the behavior.
         /// </summary>
-        public WrapObjectDelegate WrapObjectHandler { get; set; } = static (engine, target) =>
-        {
-            return new ObjectWrapper(engine, target);
-        };
+        public WrapObjectDelegate WrapObjectHandler { get; set; } = static (engine, target) => new ObjectWrapper(engine, target);
 
         /// <summary>
         ///

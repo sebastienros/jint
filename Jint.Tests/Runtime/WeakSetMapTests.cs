@@ -63,7 +63,7 @@ public class WeakSetMapTests
     [Fact]
     public void WeakSetWithInteropObject()
     {
-        var engine = new Engine();
+        var engine = new Engine(options => options.Interop.TrackObjectWrapperIdentity = true);
 
         engine.SetValue("context", new { Item = new Item { Value = "Test" } });
 
@@ -89,7 +89,7 @@ public class WeakSetMapTests
         parent.Child = child;
         child.Parent = parent;
 
-        var engine = new Engine();
+        var engine = new Engine(options => options.Interop.TrackObjectWrapperIdentity = true);
 
         engine.SetValue("context", new { Parent = parent });
 
