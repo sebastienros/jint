@@ -24,7 +24,7 @@ namespace Jint.Tests.Runtime
             _engine = new Engine(cfg => cfg.AllowClr(
                         typeof(Shape).GetTypeInfo().Assembly,
                         typeof(Console).GetTypeInfo().Assembly,
-                        typeof(System.IO.File).GetTypeInfo().Assembly))
+                        typeof(File).GetTypeInfo().Assembly))
                     .SetValue("log", new Action<object>(Console.WriteLine))
                     .SetValue("assert", new Action<bool>(Assert.True))
                     .SetValue("equal", new Action<object, object>(Assert.Equal))
@@ -3152,6 +3152,25 @@ try {
             {
                 return recordTest.Value;
             }
+        }
+
+        private class ClassWithIndexerAndProperty
+        {
+            public string MyProp { get; } = "from property";
+
+            public string this[string name] => name != nameof(MyProp) ? "from indexer" : null;
+        }
+
+        [Fact]
+        public void CanToStringObjectWithoutToPrimitiveSymbol()
+        {
+            var engine = new Engine();
+
+            engine.SetValue("obj", new ClassWithIndexerAndProperty());
+            Assert.Equal("Jint.Tests.Runtime.InteropTests+ClassWithIndexerAndProperty", engine.Evaluate("obj + ''").AsString());
+
+            engine.SetValue("obj", new Company("name"));
+            Assert.Equal("Jint.Tests.Runtime.Domain.Company", engine.Evaluate("obj + ''").AsString());
         }
 
         [Fact]

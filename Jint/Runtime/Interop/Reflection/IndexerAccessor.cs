@@ -139,7 +139,14 @@ namespace Jint.Runtime.Interop.Reflection
                 }
             }
 
-            return _getter.Invoke(target, parameters);
+            try
+            {
+                return _getter.Invoke(target, parameters);
+            }
+            catch (TargetInvocationException tie) when (tie.InnerException is KeyNotFoundException)
+            {
+                return JsValue.Undefined;
+            }
         }
 
         protected override void DoSetValue(object target, object? value)

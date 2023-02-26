@@ -187,18 +187,24 @@ namespace Jint.Runtime.Interop
             }
 
             // if we have array-like or dictionary or expando, we can provide iterator
-            if (property.IsSymbol() && property == GlobalSymbolRegistry.Iterator && _typeDescriptor.Iterable)
+            if (property.IsSymbol())
             {
-                var iteratorFunction = new ClrFunctionInstance(
-                    Engine,
-                    "iterator",
-                    Iterator,
-                    1,
-                    PropertyFlag.Configurable);
+                if (property == GlobalSymbolRegistry.Iterator && _typeDescriptor.Iterable)
+                {
+                    var iteratorFunction = new ClrFunctionInstance(
+                        Engine,
+                        "iterator",
+                        Iterator,
+                        1,
+                        PropertyFlag.Configurable);
 
-                var iteratorProperty = new PropertyDescriptor(iteratorFunction, PropertyFlag.Configurable | PropertyFlag.Writable);
-                SetProperty(GlobalSymbolRegistry.Iterator, iteratorProperty);
-                return iteratorProperty;
+                    var iteratorProperty = new PropertyDescriptor(iteratorFunction, PropertyFlag.Configurable | PropertyFlag.Writable);
+                    SetProperty(GlobalSymbolRegistry.Iterator, iteratorProperty);
+                    return iteratorProperty;
+                }
+
+                // not that safe
+                return PropertyDescriptor.Undefined;
             }
 
             var member = property.ToString();
