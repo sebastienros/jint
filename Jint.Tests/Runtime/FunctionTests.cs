@@ -237,6 +237,18 @@ assertEqual(booleanCount, 1);
     }
 
     [Fact]
+    public void CanInvokeCallForFunctionInstanceWithDifferingArgCounts()
+    {
+        _engine.Execute("function foo() { return Array.from(arguments).join(','); }");
+        var function = _engine.GetValue("foo");
+        Assert.Equal("", function.Call());
+        Assert.Equal("1", function.Call(1));
+        Assert.Equal("1,2", function.Call(1, 2));
+        Assert.Equal("1,2,3", function.Call(1, 2, 3));
+        Assert.Equal("1,2,3,4", function.Call(1, 2, 3, 4));
+    }
+
+    [Fact]
     public void CanInvokeFunctionViaEngineInstance()
     {
         var function = _engine.Evaluate("function bar(a) { return a; }; bar;");

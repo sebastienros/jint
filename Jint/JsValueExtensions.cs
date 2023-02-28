@@ -435,29 +435,96 @@ namespace Jint
         }
 
         [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static JsValue Call(this JsValue value, params JsValue[] arguments)
+        public static JsValue Call(this JsValue value)
         {
-            if (value is not ObjectInstance objectInstance)
+            if (value is ObjectInstance objectInstance)
             {
-                ExceptionHelper.ThrowArgumentException(value + " is not object");
-                return null;
+                var engine = objectInstance.Engine;
+                return engine.Call(value, Array.Empty<JsValue>());
             }
 
-            return objectInstance.Engine.Call(value, arguments);
+            return ThrowNotObject(value);
+        }
+
+        [Pure]
+        public static JsValue Call(this JsValue value, JsValue arg1)
+        {
+            if (value is ObjectInstance objectInstance)
+            {
+                var engine = objectInstance.Engine;
+                var arguments = engine._jsValueArrayPool.RentArray(1);
+                arguments[0] = arg1;
+                var result = engine.Call(value, arguments);
+                engine._jsValueArrayPool.ReturnArray(arguments);
+                return result;
+            }
+
+            return ThrowNotObject(value);
+        }
+
+        [Pure]
+        public static JsValue Call(this JsValue value, JsValue arg1, JsValue arg2)
+        {
+            if (value is ObjectInstance objectInstance)
+            {
+                var engine = objectInstance.Engine;
+                var arguments = engine._jsValueArrayPool.RentArray(2);
+                arguments[0] = arg1;
+                arguments[1] = arg2;
+                var result = engine.Call(value, arguments);
+                engine._jsValueArrayPool.ReturnArray(arguments);
+                return result;
+            }
+
+            return ThrowNotObject(value);
+        }
+
+        [Pure]
+        public static JsValue Call(this JsValue value, JsValue arg1, JsValue arg2, JsValue arg3)
+        {
+            if (value is ObjectInstance objectInstance)
+            {
+                var engine = objectInstance.Engine;
+                var arguments = engine._jsValueArrayPool.RentArray(3);
+                arguments[0] = arg1;
+                arguments[1] = arg2;
+                arguments[2] = arg3;
+                var result = engine.Call(value, arguments);
+                engine._jsValueArrayPool.ReturnArray(arguments);
+                return result;
+            }
+
+            return ThrowNotObject(value);
+        }
+
+        [Pure]
+        public static JsValue Call(this JsValue value, params JsValue[] arguments)
+        {
+            if (value is ObjectInstance objectInstance)
+            {
+                return objectInstance.Engine.Call(value, arguments);
+            }
+
+            return ThrowNotObject(value);
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static JsValue Call(this JsValue value, JsValue thisObj, params JsValue[] arguments)
+        public static JsValue Call(this JsValue value, JsValue thisObj, JsValue[] arguments)
         {
-            if (value is not ObjectInstance objectInstance)
+            if (value is ObjectInstance objectInstance)
             {
-                ExceptionHelper.ThrowArgumentException(value + " is not object");
-                return null;
+                return objectInstance.Engine.Call(value, thisObj, arguments);
             }
 
-            return objectInstance.Engine.Call(value, thisObj, arguments);
+            return ThrowNotObject(value);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static JsValue ThrowNotObject(JsValue value)
+        {
+            ExceptionHelper.ThrowArgumentException(value + " is not object");
+            return null;
         }
 
         /// <summary>
