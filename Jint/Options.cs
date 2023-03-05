@@ -335,6 +335,12 @@ namespace Jint
         /// <see cref="IObjectWrapper"/> passing through 'JSON.stringify'.
         /// </summary>
         public Func<object, string>? SerializeToJson { get; set; }
+
+        /// <summary>
+        /// What kind of date time should be produced when JavaScript date is converted to DateTime. If Local, uses <see cref="Options.TimeZone"/>.
+        /// Defaults to <see cref="System.DateTimeKind.Utc"/>.
+        /// </summary>
+        public DateTimeKind DateTimeKind { get; set; } = DateTimeKind.Utc;
     }
 
     /// <summary>

@@ -1105,10 +1105,36 @@ namespace Jint.Tests.Runtime
         public void ShouldConvertDateInstanceToDateTime()
         {
             var result = _engine.Evaluate("new Date(0)");
-            var value = result.ToObject();
+            var value = result.ToObject() is DateTime ? (DateTime) result.ToObject() : default;
 
-            Assert.Equal(typeof(DateTime), value.GetType());
             Assert.Equal(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc), value);
+            Assert.Equal(DateTimeKind.Utc, value.Kind);
+        }
+
+        [Fact]
+        public void ShouldConvertDateInstanceToLocalDateTime()
+        {
+            TimeZoneInfo timeZone;
+            try
+            {
+                timeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Helsinki");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                timeZone = TimeZoneInfo.FindSystemTimeZoneById("FLE Standard Time");
+            }
+
+            var engine = new Engine(options =>
+            {
+                options.TimeZone = timeZone;
+                options.Interop.DateTimeKind = DateTimeKind.Local;
+            });
+
+            var result = engine.Evaluate("new Date(0)");
+            var value = result.ToObject() is DateTime ? (DateTime) result.ToObject() : default;
+
+            Assert.Equal(new DateTime(1970, 1, 1, 2, 0, 0, DateTimeKind.Local), value);
+            Assert.Equal(DateTimeKind.Local, value.Kind);
         }
 
         [Fact]
