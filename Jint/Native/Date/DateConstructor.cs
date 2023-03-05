@@ -91,7 +91,16 @@ internal sealed class DateConstructor : Constructor
     /// </summary>
     private JsValue Parse(JsValue thisObj, JsValue[] arguments)
     {
-        var date = TypeConverter.ToString(arguments.At(0));
+        var dateString = TypeConverter.ToString(arguments.At(0));
+        var date = ParseFromString(dateString);
+        return date.ToJsValue();
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-date.parse
+    /// </summary>
+    private DatePresentation ParseFromString(string date)
+    {
         var negative = date.StartsWith("-");
         if (negative)
         {
@@ -122,7 +131,7 @@ internal sealed class DateConstructor : Constructor
                         }
 
                         // unrecognized dates should return NaN (15.9.4.2)
-                        return JsNumber.DoubleNaN;
+                        return DatePresentation.NaN;
                     }
                 }
             }
@@ -131,6 +140,9 @@ internal sealed class DateConstructor : Constructor
         return FromDateTime(result, negative);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-date.utc
+    /// </summary>
     private static JsValue Utc(JsValue thisObj, JsValue[] arguments)
     {
         var y = TypeConverter.ToNumber(arguments.At(0));
@@ -151,12 +163,12 @@ internal sealed class DateConstructor : Constructor
             DatePrototype.MakeDay(y, m, dt),
             DatePrototype.MakeTime(h, min, s, milli));
 
-        return finalDate.TimeClip();
+        return finalDate.TimeClip().ToJsValue();
     }
 
     private static JsValue Now(JsValue thisObj, JsValue[] arguments)
     {
-        return System.Math.Floor((DateTime.UtcNow - Epoch).TotalMilliseconds);
+        return (long) (DateTime.UtcNow - Epoch).TotalMilliseconds;
     }
 
     protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -184,18 +196,19 @@ internal sealed class DateConstructor : Constructor
 
     private JsDate ConstructUnlikely(JsValue[] arguments, JsValue newTarget)
     {
-        double dv;
+        DatePresentation dv;
         if (arguments.Length == 1)
         {
             if (arguments[0] is JsDate date)
             {
-                return Construct(date.DateValue);
+                return Construct(date._dateValue);
             }
 
             var v = TypeConverter.ToPrimitive(arguments[0]);
             if (v.IsString())
             {
-                return Construct(((JsNumber) Parse(Undefined, Arguments.From(v)))._value);
+                var value = ParseFromString(v.ToString());
+                return Construct(value);
             }
 
             dv = TypeConverter.ToNumber(v);
@@ -220,7 +233,7 @@ internal sealed class DateConstructor : Constructor
                 DatePrototype.MakeDay(y, m, dt),
                 DatePrototype.MakeTime(h, min, s, milli));
 
-            dv = PrototypeObject.Utc(finalDate);
+            dv = PrototypeObject.Utc(finalDate).TimeClip();
         }
 
         return OrdinaryCreateFromConstructor(
@@ -233,7 +246,15 @@ internal sealed class DateConstructor : Constructor
 
     public JsDate Construct(DateTime value) => Construct(FromDateTime(value));
 
-    public JsDate Construct(double time)
+    public JsDate Construct(long time)
+    {
+        return OrdinaryCreateFromConstructor(
+            Undefined,
+            static intrinsics => intrinsics.Date.PrototypeObject,
+            static (engine, _, dateValue) => new JsDate(engine, dateValue), time);
+    }
+
+    private JsDate Construct(DatePresentation time)
     {
         return OrdinaryCreateFromConstructor(
             Undefined,
@@ -260,24 +281,35 @@ internal sealed class DateConstructor : Constructor
         return (long) System.Math.Floor(result);
     }
 
-    internal long FromDateTime(DateTime dt, bool negative = false)
+    internal DatePresentation FromDateTime(DateTime dt, bool negative = false)
     {
-        var convertToUtcAfter = dt.Kind == DateTimeKind.Unspecified && dt != DateTime.MinValue;
+        if (dt == DateTime.MinValue)
+        {
+            return DatePresentation.MinValue;
+        }
+
+        if (dt == DateTime.MaxValue)
+        {
+            return DatePresentation.MaxValue;
+        }
+
+        var convertToUtcAfter = dt.Kind == DateTimeKind.Unspecified;
 
         var dateAsUtc = dt.Kind == DateTimeKind.Local
             ? dt.ToUniversalTime()
             : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
 
-        double result;
+        DatePresentation result;
         if (negative)
         {
-            var zero = (Epoch - DateTime.MinValue).TotalMilliseconds;
-            result = zero - TimeSpan.FromTicks(dateAsUtc.Ticks).TotalMilliseconds;
-            result *= -1;
+            result = DatePrototype.MakeDate(
+                DatePrototype.MakeDay(-1 * dateAsUtc.Year, dateAsUtc.Month - 1, dateAsUtc.Day),
+                DatePrototype.MakeTime(dateAsUtc.Hour, dateAsUtc.Minute, dateAsUtc.Second, dateAsUtc.Millisecond)
+            );
         }
         else
         {
-            result = (dateAsUtc - Epoch).TotalMilliseconds;
+            result = (long) (dateAsUtc - Epoch).TotalMilliseconds;
         }
 
         if (convertToUtcAfter)
@@ -285,6 +317,6 @@ internal sealed class DateConstructor : Constructor
             result = PrototypeObject.Utc(result);
         }
 
-        return (long) System.Math.Floor(result);
+        return result;
     }
 }

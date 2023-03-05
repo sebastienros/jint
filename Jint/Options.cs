@@ -21,6 +21,21 @@ namespace Jint
     {
         internal List<Action<Engine>> _configurations { get; } = new();
 
+        public Options()
+        {
+            GetUtcOffset = milliseconds =>
+            {
+                // we have limited capabilities without addon like NodaTime
+                if (milliseconds is < -62135596800000L or > 253402300799999L)
+                {
+                    return this.TimeZone.BaseUtcOffset;
+                }
+
+                var utcOffset = this.TimeZone.GetUtcOffset(DateTimeOffset.FromUnixTimeMilliseconds(milliseconds));
+                return utcOffset;
+            };
+        }
+
         /// <summary>
         /// Execution constraints for the engine.
         /// </summary>
@@ -60,6 +75,13 @@ namespace Jint
         /// The time zone the engine runs on, defaults to local.
         /// </summary>
         public TimeZoneInfo TimeZone { get; set; } = TimeZoneInfo.Local;
+
+        /// <summary>
+        /// Retrieves UTC offset for given date presented as milliseconds since the Unix epoch. May be negative (for instants before the epoch).
+        /// Defaults to using <see cref="TimeZoneInfo.GetUtcOffset(System.DateTimeOffset)"/> using the configured time zone.
+        /// </summary>
+        /// <seealso cref="TimeZone"/>
+        public Func<long, TimeSpan> GetUtcOffset { get; set; }
 
         /// <summary>
         /// Reference resolver allows customizing behavior for reference resolving. This can be useful in cases where

@@ -79,20 +79,16 @@ namespace Jint.Tests.Runtime
             _engine.Execute(source);
         }
 
-        private string GetEmbeddedFile(string filename)
+        internal static string GetEmbeddedFile(string filename)
         {
-            const string prefix = "Jint.Tests.Runtime.Scripts.";
+            const string Prefix = "Jint.Tests.Runtime.Scripts.";
 
             var assembly = typeof(EngineTests).GetTypeInfo().Assembly;
-            var scriptPath = prefix + filename;
+            var scriptPath = Prefix + filename;
 
-            using (var stream = assembly.GetManifestResourceStream(scriptPath))
-            {
-                using (var sr = new StreamReader(stream))
-                {
-                    return sr.ReadToEnd();
-                }
-            }
+            using var stream = assembly.GetManifestResourceStream(scriptPath);
+            using var sr = new StreamReader(stream);
+            return sr.ReadToEnd();
         }
 
         [Theory]

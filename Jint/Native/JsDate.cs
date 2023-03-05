@@ -7,12 +7,12 @@ namespace Jint.Native;
 public sealed class JsDate : ObjectInstance
 {
     // Maximum allowed value to prevent DateTime overflow
-    private static readonly long Max = (long) (DateTime.MaxValue - DateConstructor.Epoch).TotalMilliseconds;
+    internal static readonly long Max = (long) (DateTime.MaxValue - DateConstructor.Epoch).TotalMilliseconds;
 
     // Minimum allowed value to prevent DateTime overflow
-    private static readonly long Min = (long) -(DateConstructor.Epoch - DateTime.MinValue).TotalMilliseconds;
+    internal static readonly long Min = (long) -(DateConstructor.Epoch - DateTime.MinValue).TotalMilliseconds;
 
-    internal double _dateValue;
+    internal DatePresentation _dateValue;
 
     public JsDate(Engine engine, DateTimeOffset value) : this(engine, value.UtcDateTime)
     {
@@ -20,9 +20,21 @@ public sealed class JsDate : ObjectInstance
 
     public JsDate(Engine engine, DateTime value) : this(engine, engine.Realm.Intrinsics.Date.FromDateTime(value))
     {
+        if (value == DateTime.MinValue)
+        {
+            _dateValue = _dateValue with { Flags = DateFlags.DateTimeMinValue };
+        }
+        else if (value == DateTime.MinValue)
+        {
+            _dateValue = _dateValue with { Flags = DateFlags.DateTimeMaxValue };
+        }
     }
 
-    public JsDate(Engine engine, double dateValue) : base(engine, ObjectClass.Date, InternalTypes.Object | InternalTypes.PlainObject)
+    public JsDate(Engine engine, long dateValue) : this(engine, new DatePresentation(dateValue, DateFlags.None))
+    {
+    }
+
+    internal JsDate(Engine engine, DatePresentation dateValue) : base(engine, ObjectClass.Date, InternalTypes.Object | InternalTypes.PlainObject)
     {
         _prototype = engine.Realm.Intrinsics.Date.PrototypeObject;
         _dateValue = dateValue.TimeClip();
@@ -30,27 +42,37 @@ public sealed class JsDate : ObjectInstance
 
     public DateTime ToDateTime()
     {
-        if (DateTimeRangeValid)
+        if (_dateValue.Flags == DateFlags.DateTimeMinValue)
         {
-            return DateConstructor.Epoch.AddMilliseconds(DateValue);
+            return DateTime.MinValue;
+        }
+
+        if (_dateValue.Flags == DateFlags.DateTimeMaxValue)
+        {
+            return DateTime.MaxValue;
+        }
+
+        if (_dateValue.DateTimeRangeValid)
+        {
+            return DateConstructor.Epoch.AddMilliseconds(_dateValue.Value);
         }
 
         ExceptionHelper.ThrowRangeError(_engine.Realm);
         return DateTime.MinValue;
     }
 
-    public double DateValue => _dateValue;
+    public double DateValue => _dateValue.IsFinite ? _dateValue.Value : double.NaN;
 
-    internal bool DateTimeRangeValid => !double.IsNaN(DateValue) && DateValue <= Max && DateValue >= Min;
+    internal bool DateTimeRangeValid => _dateValue.DateTimeRangeValid;
 
     public override string ToString()
     {
-        if (double.IsNaN(DateValue))
+        if (_dateValue.IsNaN)
         {
             return "NaN";
         }
 
-        if (double.IsInfinity(DateValue))
+        if (_dateValue.IsInfinity)
         {
             return "Infinity";
         }
