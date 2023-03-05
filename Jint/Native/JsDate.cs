@@ -54,7 +54,13 @@ public sealed class JsDate : ObjectInstance
 
         if (_dateValue.DateTimeRangeValid)
         {
-            return DateConstructor.Epoch.AddMilliseconds(_dateValue.Value);
+            var dateTime = DateConstructor.Epoch.AddMilliseconds(_dateValue.Value);
+            if (_engine.Options.Interop.DateTimeKind == DateTimeKind.Local)
+            {
+                dateTime = TimeZoneInfo.ConvertTimeFromUtc(dateTime, _engine.Options.TimeZone);
+                dateTime = DateTime.SpecifyKind(dateTime, DateTimeKind.Local);
+            }
+            return dateTime;
         }
 
         ExceptionHelper.ThrowRangeError(_engine.Realm);
