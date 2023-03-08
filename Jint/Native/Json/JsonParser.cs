@@ -195,7 +195,6 @@ namespace Jint.Native.Json
             var sb = state.TokenBuffer;
             int start = _index;
             char ch = _source.CharCodeAt(_index);
-            bool hasFraction = false;
 
             // Number start with a -
             if (ch == '-')
@@ -230,7 +229,6 @@ namespace Jint.Native.Json
 
             if (ch == '.')
             {
-                hasFraction = true;
                 sb.Append(ch);
                 _index++;
 
@@ -243,7 +241,6 @@ namespace Jint.Native.Json
 
             if (ch == 'e' || ch == 'E')
             {
-                hasFraction = true;
                 sb.Append(ch);
                 ch = _source.CharCodeAt(++_index);
                 if (ch == '+' || ch == '-')
@@ -267,9 +264,7 @@ namespace Jint.Native.Json
 
             string number = sb.ToString();
             sb.Clear();
-            JsNumber value = hasFraction
-                ? new JsNumber(double.Parse(number, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture))
-                : new JsNumber(long.Parse(number, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture));
+            JsNumber value = new JsNumber(double.Parse(number, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture));
             return CreateToken(Tokens.Number, number, '\0', value, new TextRange(start, _index));
         }
 
