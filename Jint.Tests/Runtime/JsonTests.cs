@@ -271,7 +271,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void MaxLevelDoesNotInflucePrimitiveValues()
+        public void MaxDepthDoesNotInfluencePrimitiveValues()
         {
             var engine = new Engine();
             var parser = new JsonParser(engine, maxDepth: 1);
@@ -281,6 +281,15 @@ namespace Jint.Tests.Runtime
             Assert.True(parsed["b"].IsBoolean());
             Assert.True(parsed["c"].IsNull());
             Assert.True(parsed["d"].IsString());
+        }
+
+        [Fact]
+        public void MaxDepthGetsUsedFromEngineOptionsConstraints()
+        {
+            var engine = new Engine(options => options.MaxJsonParseDepth(0));
+            var parser = new JsonParser(engine);
+
+            Assert.Throws<JavaScriptException>(() => parser.Parse("[]"));
         }
 
         private static string GenerateDeepNestedArray(int depth)

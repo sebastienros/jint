@@ -12,7 +12,6 @@ namespace Jint.Native.Json
 {
     public sealed class JsonParser
     {
-        private static int s_defaultMaxDepth = 64;
         private readonly Engine _engine;
         private readonly int _maxDepth;
 
@@ -20,30 +19,18 @@ namespace Jint.Native.Json
         /// The max. depth level used for new JsonParser instances.
         /// The initial value is 64.
         /// </summary>
-        /// <exception cref="ArgumentOutOfRangeException">Is thrown if the provided value is negative.</exception>
-        public static int DefaultMaxDepth
-        {
-            get => s_defaultMaxDepth;
-            set
-            {
-                if (value < 0) throw new ArgumentOutOfRangeException(nameof(DefaultMaxDepth), "The max. depth must be greater or equal to zero");
-                s_defaultMaxDepth = value;
-            }
-        }
 
         /// <summary>
-        /// Creates a new parser with the <see cref="DefaultMaxDepth"/> as the upper
-        /// recursion limit.
+        /// Creates a new parser using the recursion depth specified in <see cref="ConstraintOptions.MaxJsonParseDepth"/>.
         /// </summary>
         public JsonParser(Engine engine)
-            : this(engine, DefaultMaxDepth)
+            : this(engine, engine.Options.Constraints.MaxJsonParseDepth)
         {
         }
 
-        public JsonParser(Engine engine, int maxDepth)
+        public JsonParser(Engine engine, uint maxDepth)
         {
-            if (maxDepth < 0) throw new ArgumentOutOfRangeException(nameof(maxDepth), "The max. depth must be greater or equal to zero");
-            _maxDepth = maxDepth;
+            _maxDepth = (int)maxDepth;
             _engine = engine;
             // Two tokens are "live" during parsing,
             // lookahead and the current one on the stack

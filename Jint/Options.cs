@@ -397,6 +397,12 @@ namespace Jint
         /// The maximum size for JavaScript array, defaults to <see cref="uint.MaxValue"/>.
         /// </summary>
         public uint MaxArraySize { get; set; } = uint.MaxValue;
+
+        /// <summary>
+        /// The maximum depth allowed when parsing JSON files using "JSON.parse",
+        /// defaults to 64.
+        /// </summary>
+        public uint MaxJsonParseDepth { get; set; } = 64u;
     }
 
     /// <summary>
