@@ -366,10 +366,15 @@ namespace Jint.Native.Array
 
         public JsArray ConstructFast(JsValue[] contents)
         {
-            var instance = ArrayCreate((ulong) contents.Length);
-            for (var i = 0; i < contents.Length; i++)
+            return ConstructFast(contents, 0, contents.Length);
+        }
+
+        internal JsArray ConstructFast(JsValue[] contents, int offset, int length)
+        {
+            var instance = ArrayCreate((ulong) length);
+            for (var i = 0; i < length; i++)
             {
-                instance.SetIndexValue((uint) i, contents[i], updateLength: false);
+                instance.SetIndexValue((uint) i, contents[i + offset], updateLength: false);
             }
             return instance;
         }
