@@ -82,7 +82,11 @@ namespace Jint.Native.Object
             get => _class;
         }
 
-        public JsValue this[JsValue property] => Get(property);
+        public JsValue this[JsValue property]
+        {
+            get => Get(property);
+            set => Set(property, value);
+        }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-construct
@@ -637,7 +641,7 @@ namespace Jint.Native.Object
             }
 
             var parent = GetPrototypeOf();
-            if (parent != null)
+            if (parent is not null)
             {
                 return parent.HasProperty(key);
             }
@@ -1262,7 +1266,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ordinaryobjectcreate
         /// </summary>
-        internal static ObjectInstance OrdinaryObjectCreate(Engine engine, ObjectInstance? proto)
+        internal static JsObject OrdinaryObjectCreate(Engine engine, ObjectInstance? proto)
         {
             var prototype = new JsObject(engine)
             {

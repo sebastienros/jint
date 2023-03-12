@@ -45,17 +45,17 @@ internal sealed class BigIntPrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-bigint.prototype.tolocalestring
+    /// https://tc39.es/ecma402/#sup-bigint.prototype.tolocalestring
     /// </summary>
     private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
     {
-        if (!thisObject.IsBigInt() && thisObject is not BigIntInstance)
-        {
-            ExceptionHelper.ThrowTypeError(_realm);
-        }
+        var locales = arguments.At(0);
+        var options = arguments.At(1);
 
-        var m = TypeConverter.ToBigInt(thisObject);
-        return m.ToString("R");
+        var x = ThisBigIntValue(thisObject);
+        //var numberFormat = (NumberFormat) Construct(_realm.Intrinsics.NumberFormat, new[] {  locales, options });
+        // numberFormat.FormatNumeric(x);
+        return x._value.ToString("R");
     }
 
     /// <summary>
@@ -144,7 +144,7 @@ internal sealed class BigIntPrototype : Prototype
                 return bigIntInstance.BigIntData;
             default:
                 ExceptionHelper.ThrowTypeError(_realm);
-                return JsBigInt.One;
+                return default;
         }
     }
 }

@@ -18,7 +18,7 @@ namespace Jint.Runtime.Debugger
         private void Populate(EnvironmentRecord? environment)
         {
             bool inLocalScope = true;
-            while (environment != null)
+            while (environment is not null)
             {
                 var record = environment;
                 switch (record)

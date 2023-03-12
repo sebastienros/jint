@@ -31,7 +31,7 @@ using Jint.Native.WeakSet;
 
 namespace Jint.Runtime
 {
-    public sealed class Intrinsics
+    public sealed partial class Intrinsics
     {
         private static readonly JsString _errorFunctionName = new("Error");
         private static readonly JsString _evalErrorFunctionName = new("EvalError");

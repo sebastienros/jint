@@ -25,7 +25,7 @@ namespace Jint.Runtime.CallStack
             var lex = LexicalEnvironment;
             while (true)
             {
-                if (lex != null)
+                if (lex is not null)
                 {
                     if (lex.HasThisBinding())
                     {
