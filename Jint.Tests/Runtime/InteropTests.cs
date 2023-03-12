@@ -2508,11 +2508,14 @@ namespace Jint.Tests.Runtime
             Assert.Equal("No public methods with the specified arguments were found.", ex.Message);
 
             Assert.Equal(123, engine.Evaluate("new IntValueInput().testFunc(123);").AsNumber());
+        }
 
-            ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new IntValueInput().testFunc(12.3);").AsNumber());
-            Assert.Equal("No public methods with the specified arguments were found.", ex.Message);
-
-            Assert.Equal(123, engine.Evaluate("new IntValueInput().testFunc(123);").AsNumber());
+        [Fact]
+        public void CanConvertFloatingPointToIntegerWithoutError()
+        {
+            var engine = new Engine(options => options.AllowClr());
+            engine.SetValue("IntValueInput", TypeReference.CreateTypeReference(engine, typeof(IntValueInput)));
+            Assert.Equal(12, engine.Evaluate("new IntValueInput().testFunc(12.3);").AsNumber());
         }
 
         public class IntValueInput
