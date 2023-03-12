@@ -1,5 +1,3 @@
-using NodaTime;
-
 namespace Jint.Tests.Runtime;
 
 public class DateTests
@@ -98,38 +96,6 @@ public class DateTests
     public void CanParseLocaleString(string input, long expected)
     {
         Assert.Equal(expected, _engine.Evaluate($"new Date('{input}') * 1").AsNumber());
-    }
-
-    [Theory]
-    [InlineData("401, 0, 1, 0, 0, 0, 0", -49512821989000)]
-    [InlineData("1900, 0, 1, 0, 0, 0, 0", -2208994789000)]
-    [InlineData("1920, 0, 1, 0, 0, 0, 0", -1577929189000)]
-    [InlineData("1969, 0, 1, 0, 0, 0, 0", -31543200000)]
-    [InlineData("2000, 1, 1, 1, 1, 1, 1", 949359661001)]
-    public void CanProduceValidDatesUsingNodaTimeIntegration(string input, long expected)
-    {
-        var dateTimeZone = DateTimeZoneProviders.Tzdb["Europe/Helsinki"];
-        TimeZoneInfo timeZone;
-        try
-        {
-            timeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Helsinki");
-        }
-        catch (TimeZoneNotFoundException)
-        {
-            timeZone = TimeZoneInfo.FindSystemTimeZoneById("FLE Standard Time");
-        }
-
-        var engine = new Engine(options =>
-        {
-            options.TimeZone = timeZone;
-            options.GetUtcOffset = milliseconds =>
-            {
-                var offset = dateTimeZone.GetUtcOffset(Instant.FromUnixTimeMilliseconds(milliseconds));
-                return offset.ToTimeSpan();
-            };
-        });
-
-        Assert.Equal(expected, engine.Evaluate($"new Date({input}) * 1").AsNumber());
     }
 
     [Fact]

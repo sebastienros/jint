@@ -1,4 +1,3 @@
-using System.Globalization;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -14,48 +13,8 @@ namespace Jint.Native.Date;
 internal sealed class DateConstructor : Constructor
 {
     internal static readonly DateTime Epoch = new(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
-    private static readonly string[] DefaultFormats = {
-        "yyyy-MM-dd",
-        "yyyy-MM",
-        "yyyy"
-    };
-
-    private static readonly string[] SecondaryFormats = {
-        "yyyy-MM-ddTHH:mm:ss.FFF",
-        "yyyy-MM-ddTHH:mm:ss",
-        "yyyy-MM-ddTHH:mm",
-
-        // Formats used in DatePrototype toString methods
-        "ddd MMM dd yyyy HH:mm:ss 'GMT'K",
-        "ddd MMM dd yyyy",
-        "HH:mm:ss 'GMT'K",
-
-        // standard formats
-        "yyyy-M-dTH:m:s.FFFK",
-        "yyyy/M/dTH:m:s.FFFK",
-        "yyyy-M-dTH:m:sK",
-        "yyyy/M/dTH:m:sK",
-        "yyyy-M-dTH:mK",
-        "yyyy/M/dTH:mK",
-        "yyyy-M-d H:m:s.FFFK",
-        "yyyy/M/d H:m:s.FFFK",
-        "yyyy-M-d H:m:sK",
-        "yyyy/M/d H:m:sK",
-        "yyyy-M-d H:mK",
-        "yyyy/M/d H:mK",
-        "yyyy-M-dK",
-        "yyyy/M/dK",
-        "yyyy-MK",
-        "yyyy/MK",
-        "yyyyK",
-        "THH:mm:ss.FFFK",
-        "THH:mm:ssK",
-        "THH:mmK",
-        "THHK"
-    };
-
     private static readonly JsString _functionName = new JsString("Date");
+    private readonly ITimeSystem _timeSystem;
 
     internal DateConstructor(
         Engine engine,
@@ -68,6 +27,7 @@ internal sealed class DateConstructor : Constructor
         PrototypeObject = new DatePrototype(engine, this, objectPrototype);
         _length = new PropertyDescriptor(7, PropertyFlag.Configurable);
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
+        _timeSystem = engine.Options.TimeSystem;
     }
 
     internal DatePrototype PrototypeObject { get; }
@@ -101,43 +61,13 @@ internal sealed class DateConstructor : Constructor
     /// </summary>
     private DatePresentation ParseFromString(string date)
     {
-        var negative = date.StartsWith("-");
-        if (negative)
+        if (_timeSystem.TryParse(date, out var result))
         {
-            date = date.Substring(1);
+            return result;
         }
 
-        var startParen = date.IndexOf('(');
-        if (startParen != -1)
-        {
-            // informative text
-            date = date.Substring(0, startParen);
-        }
-
-        date = date.Trim();
-
-        if (!DateTime.TryParseExact(date, DefaultFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var result))
-        {
-            if (!DateTime.TryParseExact(date, SecondaryFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
-            {
-                if (!DateTime.TryParse(date, Engine.Options.Culture, DateTimeStyles.AdjustToUniversal, out result))
-                {
-                    if (!DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out result))
-                    {
-                        // fall back to trying with MimeKit
-                        if (DateUtils.TryParse(date, out var mimeKitResult))
-                        {
-                            return FromDateTimeOffset(mimeKitResult);
-                        }
-
-                        // unrecognized dates should return NaN (15.9.4.2)
-                        return DatePresentation.NaN;
-                    }
-                }
-            }
-        }
-
-        return FromDateTime(result, negative);
+        // unrecognized dates should return NaN
+        return DatePresentation.NaN;
     }
 
     /// <summary>
@@ -262,25 +192,6 @@ internal sealed class DateConstructor : Constructor
             static (engine, _, dateValue) => new JsDate(engine, dateValue), time);
     }
 
-    private static long FromDateTimeOffset(DateTimeOffset dt, bool negative = false)
-    {
-        var dateAsUtc = dt.ToUniversalTime();
-
-        double result;
-        if (negative)
-        {
-            var zero = (Epoch - DateTime.MinValue).TotalMilliseconds;
-            result = zero - TimeSpan.FromTicks(dateAsUtc.Ticks).TotalMilliseconds;
-            result *= -1;
-        }
-        else
-        {
-            result = (dateAsUtc - Epoch).TotalMilliseconds;
-        }
-
-        return (long) System.Math.Floor(result);
-    }
-
     internal DatePresentation FromDateTime(DateTime dt, bool negative = false)
     {
         if (dt == DateTime.MinValue)
@@ -319,4 +230,5 @@ internal sealed class DateConstructor : Constructor
 
         return result;
     }
+
 }

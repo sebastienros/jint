@@ -57,7 +57,7 @@ public sealed class JsDate : ObjectInstance
             var dateTime = DateConstructor.Epoch.AddMilliseconds(_dateValue.Value);
             if (_engine.Options.Interop.DateTimeKind == DateTimeKind.Local)
             {
-                dateTime = TimeZoneInfo.ConvertTimeFromUtc(dateTime, _engine.Options.TimeZone);
+                dateTime = TimeZoneInfo.ConvertTimeFromUtc(dateTime, _engine.Options.TimeSystem.DefaultTimeZone);
                 dateTime = DateTime.SpecifyKind(dateTime, DateTimeKind.Local);
             }
             return dateTime;
