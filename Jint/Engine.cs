@@ -21,6 +21,9 @@ using Jint.Runtime.References;
 
 namespace Jint
 {
+    /// <summary>
+    /// Engine is the main API to JavaScript interpretation. Engine instances are not thread-safe.
+    /// </summary>
     public sealed partial class Engine : IDisposable
     {
         private readonly JavaScriptParser _defaultParser = new(ParserOptions.Default);
@@ -180,38 +183,59 @@ namespace Jint
             return context;
         }
 
+        /// <summary>
+        /// Registers a delegate with given name. Delegate becomes a JavaScript function that can be called.
+        /// </summary>
         public Engine SetValue(string name, Delegate value)
         {
             Realm.GlobalObject.FastSetProperty(name, new PropertyDescriptor(new DelegateWrapper(this, value), true, false, true));
             return this;
         }
 
+        /// <summary>
+        /// Registers a string value as variable.
+        /// </summary>
         public Engine SetValue(string name, string value)
         {
             return SetValue(name, JsString.Create(value));
         }
 
+        /// <summary>
+        /// Registers a double value as variable.
+        /// </summary>
         public Engine SetValue(string name, double value)
         {
             return SetValue(name, JsNumber.Create(value));
         }
 
+        /// <summary>
+        /// Registers an integer value as variable.
+        /// </summary>
         public Engine SetValue(string name, int value)
         {
             return SetValue(name, JsNumber.Create(value));
         }
 
+        /// <summary>
+        /// Registers a boolean value as variable.
+        /// </summary>
         public Engine SetValue(string name, bool value)
         {
             return SetValue(name, value ? JsBoolean.True : JsBoolean.False);
         }
 
+        /// <summary>
+        /// Registers a native JS value as variable.
+        /// </summary>
         public Engine SetValue(string name, JsValue value)
         {
             Realm.GlobalObject.Set(name, value);
             return this;
         }
 
+        /// <summary>
+        /// Registers an object value as variable, creates an interop wrapper when needed..
+        /// </summary>
         public Engine SetValue(string name, object? obj)
         {
             var value = obj is Type t
@@ -238,7 +262,7 @@ namespace Jint
         }
 
         /// <summary>
-        /// Initializes the statements count
+        /// Resets all execution constraints back to their initial state.
         /// </summary>
         public void ResetConstraints()
         {
@@ -256,15 +280,27 @@ namespace Jint
             CallStack.Clear();
         }
 
+        /// <summary>
+        /// Evaluates code and returns last return value.
+        /// </summary>
         public JsValue Evaluate(string code)
             => Evaluate(code, "<anonymous>", ParserOptions.Default);
 
+        /// <summary>
+        /// Evaluates code and returns last return value.
+        /// </summary>
         public JsValue Evaluate(string code, string source)
             => Evaluate(code, source, ParserOptions.Default);
 
+        /// <summary>
+        /// Evaluates code and returns last return value.
+        /// </summary>
         public JsValue Evaluate(string code, ParserOptions parserOptions)
             => Evaluate(code, "<anonymous>", parserOptions);
 
+        /// <summary>
+        /// Evaluates code and returns last return value.
+        /// </summary>
         public JsValue Evaluate(string code, string source, ParserOptions parserOptions)
         {
             var parser = ReferenceEquals(ParserOptions.Default, parserOptions)
@@ -276,15 +312,27 @@ namespace Jint
             return Evaluate(script);
         }
 
+        /// <summary>
+        /// Evaluates code and returns last return value.
+        /// </summary>
         public JsValue Evaluate(Script script)
             => Execute(script)._completionValue;
 
+        /// <summary>
+        /// Executes code into engine and returns the engine instance (useful for chaining).
+        /// </summary>
         public Engine Execute(string code, string? source = null)
             => Execute(code, source ?? "<anonymous>", ParserOptions.Default);
 
+        /// <summary>
+        /// Executes code into engine and returns the engine instance (useful for chaining).
+        /// </summary>
         public Engine Execute(string code, ParserOptions parserOptions)
             => Execute(code, "<anonymous>", parserOptions);
 
+        /// <summary>
+        /// Executes code into engine and returns the engine instance (useful for chaining).
+        /// </summary>
         public Engine Execute(string code, string source, ParserOptions parserOptions)
         {
             var parser = ReferenceEquals(ParserOptions.Default, parserOptions)
@@ -296,6 +344,9 @@ namespace Jint
             return Execute(script);
         }
 
+        /// <summary>
+        /// Executes code into engine and returns the engine instance (useful for chaining).
+        /// </summary>
         public Engine Execute(Script script)
         {
             var strict = _isStrict || script.Strict;
