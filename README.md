@@ -139,6 +139,9 @@ Here is a short video of how Jint works and some sample usage
 
 https://docs.microsoft.com/shows/code-conversations/sebastien-ros-on-jint-javascript-interpreter-net
 
+## Thread-safety
+
+Engine instances are not thread-safe and they should not accessed from multiple threads simultaneously. 
 
 ## Examples
 
