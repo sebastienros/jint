@@ -6,6 +6,7 @@
 
 using System.Collections;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace Jint.Collections

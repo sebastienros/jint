@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Using Remove="System.Linq" />
     <Using Remove="System.Net.Http" />
     <Using Remove="System.Threading" />
   </ItemGroup>

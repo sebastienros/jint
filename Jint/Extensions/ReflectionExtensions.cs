@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Native;
@@ -43,13 +44,13 @@ namespace Jint.Extensions
         internal static IEnumerable<MethodInfo> GetExtensionMethods(this Type type)
         {
             return type.GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .Where(m => m.IsExtensionMethod());
+                .Where(static m => m.IsExtensionMethod());
         }
 
         internal static IEnumerable<MethodInfo> GetOperatorOverloadMethods(this Type type)
         {
             return type.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
-                .Where(m => m.IsSpecialName);
+                .Where(static m => m.IsSpecialName);
         }
 
         private static bool IsExtensionMethod(this MethodBase methodInfo)

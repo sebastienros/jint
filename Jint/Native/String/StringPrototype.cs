@@ -939,10 +939,10 @@ namespace Jint.Native.String
                 return s;
             }
 
-            targetLength = targetLength - s.Length;
+            targetLength -= s.Length;
             if (targetLength > padString.Length)
             {
-                padString = string.Join("", Enumerable.Repeat(padString, (targetLength / padString.Length) + 1));
+                padString = string.Join("", System.Linq.Enumerable.Repeat(padString, (targetLength / padString.Length) + 1));
             }
 
             return padStart

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -56,9 +57,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var rightMethods = rightType.GetOperatorOverloadMethods();
 
                     var methods = leftMethods.Concat(rightMethods).Where(x => x.Name == clrName && x.GetParameters().Length == 2);
-                    var _methods = MethodDescriptor.Build(methods.ToArray());
+                    var methodDescriptors = MethodDescriptor.Build(methods.ToArray());
 
-                    return TypeConverter.FindBestMatch(context.Engine, _methods, _ => arguments).FirstOrDefault().Method;
+                    return TypeConverter.FindBestMatch(context.Engine, methodDescriptors, _ => arguments).FirstOrDefault().Method;
                 });
 
                 if (method != null)
