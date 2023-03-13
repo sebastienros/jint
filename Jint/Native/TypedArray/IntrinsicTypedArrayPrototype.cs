@@ -1,3 +1,4 @@
+using System.Linq;
 using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.ArrayBuffer;

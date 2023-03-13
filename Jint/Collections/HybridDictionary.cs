@@ -169,7 +169,7 @@ namespace Jint.Collections
                 return _list.GetEnumerator();
             }
 
-            return Enumerable.Empty<KeyValuePair<Key, TValue>>().GetEnumerator();
+            return System.Linq.Enumerable.Empty<KeyValuePair<Key, TValue>>().GetEnumerator();
 
         }
 
@@ -185,7 +185,7 @@ namespace Jint.Collections
                 return _list.GetEnumerator();
             }
 
-            return Enumerable.Empty<KeyValuePair<Key, TValue>>().GetEnumerator();
+            return System.Linq.Enumerable.Empty<KeyValuePair<Key, TValue>>().GetEnumerator();
         }
 
         public bool Remove(Key key)

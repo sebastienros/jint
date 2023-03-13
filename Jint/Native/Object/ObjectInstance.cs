@@ -272,7 +272,7 @@ namespace Jint.Native.Object
             return keys;
         }
 
-        internal virtual IEnumerable<JsValue> GetInitialOwnStringPropertyKeys() => Enumerable.Empty<JsValue>();
+        internal virtual IEnumerable<JsValue> GetInitialOwnStringPropertyKeys() => System.Linq.Enumerable.Empty<JsValue>();
 
         protected virtual void AddProperty(JsValue property, PropertyDescriptor descriptor)
         {

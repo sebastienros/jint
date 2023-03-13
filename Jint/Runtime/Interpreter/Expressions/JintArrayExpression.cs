@@ -113,7 +113,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal sealed class JintEmptyArrayExpression : JintExpression
         {
-            public static JintEmptyArrayExpression Instance = new(new ArrayExpression(NodeList.Create(Enumerable.Empty<Expression?>())));
+            public static JintEmptyArrayExpression Instance = new(new ArrayExpression(NodeList.Create(System.Linq.Enumerable.Empty<Expression?>())));
 
             private JintEmptyArrayExpression(Expression expression) : base(expression)
             {
