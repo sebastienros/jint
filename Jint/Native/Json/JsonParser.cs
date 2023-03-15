@@ -16,21 +16,20 @@ namespace Jint.Native.Json
         private readonly int _maxDepth;
 
         /// <summary>
-        /// The max. depth level used for new JsonParser instances.
-        /// The initial value is 64.
-        /// </summary>
-
-        /// <summary>
-        /// Creates a new parser using the recursion depth specified in <see cref="ConstraintOptions.MaxJsonParseDepth"/>.
+        /// Creates a new parser using the recursion depth specified in <see cref="JsonOptions.MaxParseDepth"/>.
         /// </summary>
         public JsonParser(Engine engine)
-            : this(engine, engine.Options.Constraints.MaxJsonParseDepth)
+            : this(engine, engine.Options.Json.MaxParseDepth)
         {
         }
 
-        public JsonParser(Engine engine, uint maxDepth)
+        public JsonParser(Engine engine, int maxDepth)
         {
-            _maxDepth = (int)maxDepth;
+            if (maxDepth < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxDepth), $"Max depth must be greater or equal to zero");
+            }
+            _maxDepth = maxDepth;
             _engine = engine;
             // Two tokens are "live" during parsing,
             // lookahead and the current one on the stack
@@ -55,32 +54,23 @@ namespace Jint.Native.Json
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsDecimalDigit(char ch)
         {
-            unchecked
-            {
-                // * For characters, which are before the '0', the equation will be negative and then wrap
-                //   around because of the unsigned short cast
-                // * For characters, which are after the '9', the equation will be positive, but >  9
-                // * For digits, the equation will be between int(0) and int(9)
-                return ((ushort) (ch - '0')) <= 9;
-            }
+            // * For characters, which are before the '0', the equation will be negative and then wrap
+            //   around because of the unsigned short cast
+            // * For characters, which are after the '9', the equation will be positive, but >  9
+            // * For digits, the equation will be between int(0) and int(9)
+            return ((uint) (ch - '0')) <= 9;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsLowerCaseHexAlpha(char ch)
         {
-            unchecked
-            {
-                return ((ushort) (ch - 'a')) <= 5;
-            }
+            return ((uint) (ch - 'a')) <= 5;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsUpperCaseHexAlpha(char ch)
         {
-            unchecked
-            {
-                return ((ushort) (ch - 'A')) <= 5;
-            }
+            return ((uint) (ch - 'A')) <= 5;
         }
 
         private static bool IsHexDigit(char ch)
@@ -131,7 +121,9 @@ namespace Jint.Native.Json
             while (IsWhiteSpace(result))
             {
                 if ((++_index) >= _length)
+                {
                     return char.MinValue;
+                }
                 result = _source[_index];
             }
             return result;
@@ -141,7 +133,9 @@ namespace Jint.Native.Json
         {
             Token result = _tokenBuffer[_tokenBufferIndex++];
             if (_tokenBufferIndex >= _tokenBuffer.Length)
+            {
                 _tokenBufferIndex = 0;
+            }
             result.Type = type;
             result.Text = text;
             result.FirstCharacter = firstCharacter;
@@ -155,12 +149,12 @@ namespace Jint.Native.Json
             int start = _index;
             char code = start < _source.Length ? _source[_index] : char.MinValue;
 
-            string value = ScanPuncatatorValue(start, code);
+            string value = ScanPunctuatorValue(start, code);
             ++_index;
             return CreateToken(Tokens.Punctuator, value, code, JsValue.Undefined, new TextRange(start, _index));
         }
 
-        private string ScanPuncatatorValue(int start, char code)
+        private string ScanPunctuatorValue(int start, char code)
         {
             switch (code)
             {
@@ -173,7 +167,7 @@ namespace Jint.Native.Json
                 case ':': return ":";
                 default:
                     ThrowError(start, Messages.UnexpectedToken, code);
-                    throw new Exception();
+                    return null!;
             }
         }
 
@@ -500,7 +494,10 @@ namespace Jint.Native.Json
         private ObjectInstance ParseJsonArray(ref State state)
         {
             if ((++state.CurrentDepth) > _maxDepth)
+            {
                 ThrowDepthLimitReached(_lookahead);
+            }
+
             /*
              To speed up performance, the list allocation is deferred.
 
@@ -539,9 +536,13 @@ namespace Jint.Native.Json
                     if (bufferIndex >= buffer.Length)
                     {
                         if (elements is null)
+                        {
                             elements = new List<JsValue>(buffer);
+                        }
                         else
+                        {
                             elements.AddRange(buffer);
+                        }
                         bufferIndex = 0;
                     }
                 }
@@ -555,27 +556,25 @@ namespace Jint.Native.Json
                     {
                         // No element list has been created, all values did fit into the array.
                         // The Jint-Array can get constructed from that array.
-                        result = _engine.Realm.Intrinsics.Array.ConstructFast(buffer, 0, bufferIndex);
+                        var data = new JsValue[bufferIndex];
+                        System.Array.Copy(buffer, data, length: bufferIndex);
+                        result = new JsArray(_engine, data);
                     }
                     else
                     {
                         // An element list has been created. Flush the
                         // remaining added items within the array to that list.
-                        // The bufferIndex == buffer.length allows to pass
-                        // full array directly which avoids any LINQ-call
-                        // Otherwise only the actual used elements are added.
-                        // The "ToArray()" turned out to be slightly faster
-                        // compared to passing the IEnumerable-result of "Take"
-                        // directly.
-                        elements.AddRange(bufferIndex == buffer.Length ? buffer : buffer.Take(bufferIndex).ToArray());
+                        for (var i = 0; i < bufferIndex; ++i)
+                        {
+                            elements.Add(buffer[i]);
+                        }
                     }
                 }
-                else
-                if (elements is null)
+                else if (elements is null)
                 {
                     // the JSON array did not have any elements
                     // aka: []
-                    result = _engine.Realm.Intrinsics.Array.ConstructFast(System.Array.Empty<JsValue>());
+                    result = new JsArray(_engine);
                 }
             }
             finally
@@ -586,16 +585,19 @@ namespace Jint.Native.Json
             Expect(ref state, ']');
             state.CurrentDepth--;
 
-            return result ?? _engine.Realm.Intrinsics.Array.ConstructFast(elements!);
+            return result ?? new JsArray(_engine, elements!.ToArray());
         }
 
         private ObjectInstance ParseJsonObject(ref State state)
         {
             if ((++state.CurrentDepth) > _maxDepth)
+            {
                 ThrowDepthLimitReached(_lookahead);
+            }
+
             Expect(ref state, '{');
 
-            var obj = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
+            var obj = new JsObject(_engine);
 
             while (!Match('}'))
             {
@@ -634,7 +636,9 @@ namespace Jint.Native.Json
             foreach (var c in propertyName)
             {
                 if (c != '\t' && c <= max)
+                {
                     return true;
+                }
             }
             return false;
         }
@@ -657,9 +661,13 @@ namespace Jint.Native.Json
                     return Lex(ref state).Value;
                 case Tokens.Punctuator:
                     if (_lookahead.FirstCharacter == '[')
+                    {
                         return ParseJsonArray(ref state);
+                    }
                     if (_lookahead.FirstCharacter == '{')
+                    {
                         return ParseJsonObject(ref state);
+                    }
                     ThrowUnexpected(Lex(ref state));
                     break;
             }
@@ -728,7 +736,7 @@ namespace Jint.Native.Json
             EOF,
         };
 
-        private class Token
+        private sealed class Token
         {
             public Tokens Type;
             public char FirstCharacter;
