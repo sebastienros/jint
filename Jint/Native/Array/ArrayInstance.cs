@@ -1187,7 +1187,7 @@ namespace Jint.Native.Array
         /// <inheritdoc />
         internal sealed override bool FindWithCallback(
             JsValue[] arguments,
-            out uint index,
+            out ulong index,
             out JsValue value,
             bool visitUnassigned,
             bool fromEnd = false)
