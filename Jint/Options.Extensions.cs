@@ -99,6 +99,16 @@ namespace Jint
             return options;
         }
 
+        /// <summary>
+        /// Disables calling 'eval' with custom code and function constructors taking function code as string.
+        /// By default eval and function code parsing is allowed.
+        /// </summary>
+        public static Options DisableStringCompilation(this Options options, bool disable = true)
+        {
+            options.StringCompilationAllowed = !disable;
+            return options;
+        }
+
         public static Options AddExtensionMethods(this Options options, params Type[] types)
         {
             options.Interop.ExtensionMethodTypes.AddRange(types);

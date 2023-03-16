@@ -110,7 +110,7 @@ namespace Jint.Runtime
         {
             if (!Engine.Options.StringCompilationAllowed)
             {
-                ExceptionHelper.ThrowJavaScriptException(callerRealm.Intrinsics.TypeError, "String compilation is not allowed");
+                ExceptionHelper.ThrowJavaScriptException(callerRealm.Intrinsics.TypeError, "String compilation has been disabled in engine options");
             }
         }
 
