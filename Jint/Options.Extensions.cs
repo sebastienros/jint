@@ -214,6 +214,11 @@ namespace Jint
             return options;
         }
 
+        public static Options MaxJsonParseDepth(this Options options, int maxDepth)
+        {
+            options.Json.MaxParseDepth = maxDepth;
+            return options;
+        }
 
         public static Options SetReferencesResolver(this Options options, IReferenceResolver resolver)
         {

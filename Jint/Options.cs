@@ -92,6 +92,12 @@ namespace Jint
         public bool StringCompilationAllowed { get; set; } = true;
 
         /// <summary>
+        /// Options for the built-in JSON (de)serializer which
+        /// gets used using <c>JSON.parse</c> or <c>JSON.stringify</c>
+        /// </summary>
+        public JsonOptions Json { get; set; } = new();
+
+        /// <summary>
         /// Called by the <see cref="Engine"/> instance that loads this <see cref="Options" />
         /// once it is loaded.
         /// </summary>
@@ -412,5 +418,17 @@ namespace Jint
         /// Module loader implementation, by default exception will be thrown if module loading is not enabled.
         /// </summary>
         public IModuleLoader ModuleLoader { get; set; } = FailFastModuleLoader.Instance;
+    }
+
+    /// <summary>
+    /// JSON.parse / JSON.stringify related customization
+    /// </summary>
+    public class JsonOptions
+    {
+        /// <summary>
+        /// The maximum depth allowed when parsing JSON files using "JSON.parse",
+        /// defaults to 64.
+        /// </summary>
+        public int MaxParseDepth { get; set; } = 64;
     }
 }
