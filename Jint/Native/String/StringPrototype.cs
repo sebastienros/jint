@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Collections;
+using Jint.Native.Json;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Native.Symbol;
@@ -39,7 +40,7 @@ namespace Jint.Native.String
 
             var trimStart = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trimStart", TrimStart, 0, lengthFlags), propertyFlags);
             var trimEnd = new PropertyDescriptor(new ClrFunctionInstance(Engine, "trimEnd", TrimEnd, 0, lengthFlags), propertyFlags);
-            var properties = new PropertyDictionary(35, checkExistingKeys: false)
+            var properties = new PropertyDictionary(37, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
                 ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToStringString, 0, lengthFlags), propertyFlags),
@@ -77,6 +78,8 @@ namespace Jint.Native.String
                 ["normalize"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "normalize", Normalize, 0, lengthFlags), propertyFlags),
                 ["repeat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "repeat", Repeat, 1, lengthFlags), propertyFlags),
                 ["at"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "at", At, 1, lengthFlags), propertyFlags),
+                ["isWellFormed"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isWellFormed", IsWellFormed, 0, lengthFlags), propertyFlags),
+                ["toWellFormed"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toWellFormed", ToWellFormed, 0, lengthFlags), propertyFlags),
             };
             SetProperties(properties);
 
@@ -862,16 +865,36 @@ namespace Jint.Native.String
                 return Undefined;
             }
 
-            var first = (long) s[position];
-            if (first >= 0xD800 && first <= 0xDBFF && s.Length > position + 1)
+            return CodePointAt(s, position).CodePoint;
+        }
+
+        private readonly record struct CodePointResult(int CodePoint, int CodeUnitCount, bool IsUnpairedSurrogate);
+
+        private static CodePointResult CodePointAt(string s, int position)
+        {
+            var size = s.Length;
+            var first = s.CharCodeAt(position);
+            var cp = s.CharCodeAt(position);
+
+            var firstIsLeading = char.IsHighSurrogate(first);
+            var firstIsTrailing = char.IsLowSurrogate(first);
+            if (!firstIsLeading && !firstIsTrailing)
             {
-                long second = s[position + 1];
-                if (second >= 0xDC00 && second <= 0xDFFF)
-                {
-                    return (first - 0xD800) * 0x400 + second - 0xDC00 + 0x10000;
-                }
+                return new CodePointResult(cp, 1, false);
             }
-            return first;
+
+            if (firstIsTrailing || position + 1 == size)
+            {
+                return new CodePointResult(cp, 1, true);
+            }
+
+            var second = s.CharCodeAt(position + 1);
+            if (!char.IsLowSurrogate(second))
+            {
+                return new CodePointResult(cp, 1, true);
+            }
+
+            return new CodePointResult(char.ConvertToUtf32(first, second), 2, false);
         }
 
         private JsValue CharAt(JsValue thisObj, JsValue[] arguments)
@@ -1120,6 +1143,69 @@ namespace Jint.Native.String
             }
 
             return sb.ToString();
+        }
+
+        private JsValue IsWellFormed(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(_engine, thisObj);
+            var s = TypeConverter.ToString(thisObj);
+
+            return IsStringWellFormedUnicode(s);
+        }
+
+        private JsValue ToWellFormed(JsValue thisObj, JsValue[] arguments)
+        {
+            TypeConverter.CheckObjectCoercible(_engine, thisObj);
+            var s = TypeConverter.ToString(thisObj);
+
+            var strLen = s.Length;
+            var k = 0;
+
+            using var builder = StringBuilderPool.Rent();
+            var result = builder.Builder;
+            while (k < strLen)
+            {
+                var cp = CodePointAt(s, k);
+                if (cp.IsUnpairedSurrogate)
+                {
+                    result.Append("\uFFFD");
+                }
+                else
+                {
+                    result.Append(s, k, cp.CodeUnitCount);
+                }
+                k += cp.CodeUnitCount;
+            }
+
+            return result.ToString();
+        }
+
+        private static bool IsStringWellFormedUnicode(string s)
+        {
+            for (var i = 0; i < s.Length; ++i)
+            {
+                var isSurrogate = (s.CharCodeAt(i) & 0xF800) == 0xD800;
+                if (!isSurrogate)
+                {
+                    continue;
+                }
+
+                var isLeadingSurrogate = s.CharCodeAt(i) < 0xDC00;
+                if (!isLeadingSurrogate)
+                {
+                    return false; // unpaired trailing surrogate
+                }
+
+                var isFollowedByTrailingSurrogate = i + 1 < s.Length && (s.CharCodeAt(i + 1) & 0xFC00) == 0xDC00;
+                if (!isFollowedByTrailingSurrogate)
+                {
+                    return false; // unpaired leading surrogate
+                }
+
+                ++i;
+            }
+
+            return true;
         }
     }
 }

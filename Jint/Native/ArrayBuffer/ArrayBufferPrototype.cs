@@ -26,10 +26,11 @@ namespace Jint.Native.ArrayBuffer
         protected override void Initialize()
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
-            var properties = new PropertyDictionary(3, checkExistingKeys: false)
+            var properties = new PropertyDictionary(4, checkExistingKeys: false)
             {
                 ["byteLength"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get byteLength", ByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
                 ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
+                ["detached"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get detached", Detached, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
                 ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "slice", Slice, 2, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable)
             };
             SetProperties(properties);
@@ -39,6 +40,22 @@ namespace Jint.Native.ArrayBuffer
                 [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("ArrayBuffer", PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
+        }
+
+        private JsValue Detached(JsValue thisObj, JsValue[] arguments)
+        {
+            var o = thisObj as ArrayBufferInstance;
+            if (o is null)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.detached called on incompatible receiver " + thisObj);
+            }
+
+            if (o.IsSharedArrayBuffer)
+            {
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
+
+            return o.IsDetachedBuffer;
         }
 
         /// <summary>

@@ -1046,22 +1046,22 @@ namespace Jint.Native.Object
         /// </summary>
         internal virtual bool FindWithCallback(
             JsValue[] arguments,
-            out uint index,
+            out ulong index,
             out JsValue value,
             bool visitUnassigned,
             bool fromEnd = false)
         {
-            long GetLength()
+            ulong GetLength()
             {
                 var descValue = Get(CommonProperties.Length);
                 var len = TypeConverter.ToNumber(descValue);
 
-                return (long) System.Math.Max(
+                return (ulong) System.Math.Max(
                     0,
                     System.Math.Min(len, ArrayOperations.MaxArrayLikeLength));
             }
 
-            bool TryGetValue(uint idx, out JsValue jsValue)
+            bool TryGetValue(ulong idx, out JsValue jsValue)
             {
                 var property = JsString.Create(idx);
                 var kPresent = HasProperty(property);
@@ -1083,18 +1083,41 @@ namespace Jint.Native.Object
 
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
-            for (uint k = 0; k < length; k++)
+
+            if (!fromEnd)
             {
-                if (TryGetValue(k, out var kvalue) || visitUnassigned)
+                for (ulong k = 0; k < length; k++)
                 {
-                    args[0] = kvalue;
-                    args[1] = k;
-                    var testResult = callable.Call(thisArg, args);
-                    if (TypeConverter.ToBoolean(testResult))
+                    if (TryGetValue(k, out var kvalue) || visitUnassigned)
                     {
-                        index = k;
-                        value = kvalue;
-                        return true;
+                        args[0] = kvalue;
+                        args[1] = k;
+                        var testResult = callable.Call(thisArg, args);
+                        if (TypeConverter.ToBoolean(testResult))
+                        {
+                            index = k;
+                            value = kvalue;
+                            return true;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (ulong k = length - 1; k >= 0; k--)
+                {
+                    if (TryGetValue(k, out var kvalue) || visitUnassigned)
+                    {
+                        kvalue ??= Undefined;
+                        args[0] = kvalue;
+                        args[1] = k;
+                        var testResult = callable.Call(thisArg, args);
+                        if (TypeConverter.ToBoolean(testResult))
+                        {
+                            index = k;
+                            value = kvalue;
+                            return true;
+                        }
                     }
                 }
             }
