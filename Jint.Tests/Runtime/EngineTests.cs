@@ -2890,14 +2890,16 @@ x.test = {
         {
             var engine = new Engine(options =>
             {
-                options.StringCompilationAllowed = false;
+                options.DisableStringCompilation();
             });
 
+            const string ExpectedExceptionMessage = "String compilation has been disabled in engine options";
+
             var ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("eval('1+1');"));
-            Assert.Equal("String compilation is not allowed", ex.Message);
+            Assert.Equal(ExpectedExceptionMessage, ex.Message);
 
             ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Function('1+1');"));
-            Assert.Equal("String compilation is not allowed", ex.Message);
+            Assert.Equal(ExpectedExceptionMessage, ex.Message);
         }
 
         [Fact]
