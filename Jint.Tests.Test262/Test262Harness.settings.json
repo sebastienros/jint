@@ -95,9 +95,6 @@
     // Windows line ending differences
     "built-ins/String/raw/special-characters.js",
 
-    // parsing of large/small years not implemented in .NET (-271821, +271821)
-    "built-ins/Date/parse/time-value-maximum-range.js",
-
     // delete/add detection not implemented for map iterator during iteration
     "built-ins/Map/prototype/forEach/iterates-values-deleted-then-readded.js",
     "built-ins/MapIteratorPrototype/next/iteration-mutable.js",
@@ -182,9 +179,6 @@
 
     // special casing data
     "built-ins/**/special_casing*.js",
-
-    // negative years, we can partially handle but not values too big due to .NET parsing limitations
-    "built-ins/Date/prototype/*/negative-year.js",
 
     // failing tests in new test suite (due to updating to latest and using whole set)
     "language/arguments-object/mapped/nonconfigurable-descriptors-define-failure.js",

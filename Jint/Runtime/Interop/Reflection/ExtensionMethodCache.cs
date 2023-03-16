@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using Jint.Extensions;

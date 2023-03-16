@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Text;
 using Esprima;
 using Esprima.Ast;
@@ -25,7 +26,7 @@ namespace Jint.Runtime.CallStack
             var lex = LexicalEnvironment;
             while (true)
             {
-                if (lex != null)
+                if (lex is not null)
                 {
                     if (lex.HasThisBinding())
                     {
@@ -108,7 +109,7 @@ namespace Jint.Runtime.CallStack
 
         public override string ToString()
         {
-            return string.Join("->", _stack.Select(cse => cse.ToString()).Reverse());
+            return string.Join("->", _stack.Select(static cse => cse.ToString()).Reverse());
         }
 
         internal string BuildCallStackString(Location location, int excludeTop = 0)

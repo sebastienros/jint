@@ -17,7 +17,7 @@ internal sealed class BuilderModuleRecord : SourceTextModuleRecord
 
     internal void BindExportedValue(string name, JsValue value)
     {
-        if (_environment != null)
+        if (_environment is not null)
         {
             ExceptionHelper.ThrowInvalidOperationException("Cannot bind exported values after the environment has been initialized");
         }

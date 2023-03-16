@@ -185,6 +185,13 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldAllowNullAsStringValue()
+        {
+            var engine = new Engine().SetValue("name", (string) null);
+            Assert.True(engine.Evaluate("name").IsNull());
+        }
+
+        [Fact]
         public void FunctionConstructorsShouldCreateNewObjects()
         {
             RunTest(@"

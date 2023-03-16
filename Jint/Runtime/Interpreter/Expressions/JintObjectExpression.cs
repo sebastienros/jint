@@ -244,7 +244,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal sealed class JintEmptyObjectExpression : JintExpression
         {
-            public static JintEmptyObjectExpression Instance = new(new ObjectExpression(NodeList.Create(Enumerable.Empty<Node>())));
+            public static JintEmptyObjectExpression Instance = new(new ObjectExpression(NodeList.Create(System.Linq.Enumerable.Empty<Node>())));
 
             private JintEmptyObjectExpression(Expression expression) : base(expression)
             {

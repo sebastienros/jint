@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Object;
@@ -21,6 +20,7 @@ namespace Jint.Native.Date
         private const double MaxMonth = -MinMonth;
 
         private readonly DateConstructor _constructor;
+        private readonly ITimeSystem _timeSystem;
 
         internal DatePrototype(
             Engine engine,
@@ -30,6 +30,7 @@ namespace Jint.Native.Date
         {
             _prototype = objectPrototype;
             _constructor = constructor;
+            _timeSystem = engine.Options.TimeSystem;
         }
 
         protected override  void Initialize()
@@ -84,7 +85,7 @@ namespace Jint.Native.Date
                 ["setUTCFullYear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "setUTCFullYear", SetUTCFullYear, 3, lengthFlags), propertyFlags),
                 ["toUTCString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toUTCString", ToUtcString, 0, lengthFlags), propertyFlags),
                 ["toISOString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toISOString", ToISOString, 0, lengthFlags), propertyFlags),
-                ["toJSON"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toJSON", ToJSON, 1, lengthFlags), propertyFlags)
+                ["toJSON"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toJSON", ToJson, 1, lengthFlags), propertyFlags)
             };
             SetProperties(properties);
 
@@ -772,10 +773,13 @@ namespace Jint.Native.Date
                 return "Invalid Date";
             }
 
+            var weekday = _dayNames[WeekDay(tv)];
+            var month = _monthNames[MonthFromTime(tv)];
+            var day = DateFromTime(tv).ToString("00");
             var yv = YearFromTime(tv);
-            var universalTime = tv.ToDateTime().ToUniversalTime();
-            var paddedYear = yv.ToString().PadLeft(4, '0');
-            return universalTime.ToString($"ddd, dd MMM {paddedYear} HH:mm:ss 'GMT'", CultureInfo.InvariantCulture);
+            var paddedYear = yv.ToString("0000");
+
+            return $"{weekday}, {day} {month} {paddedYear} {TimeString(tv)}";
         }
 
         /// <summary>
@@ -807,10 +811,18 @@ namespace Jint.Native.Date
             if (ms < 0) { ms += MsPerSecond; }
 
             var (year, month, day) = YearMonthDayFromTime(t);
-            return $"{year:0000}-{month:00}-{day:00}T{h:00}:{m:00}:{s:00}.{ms:000}Z";
+            month++;
+
+            var formatted = $"{year:0000}-{month:00}-{day:00}T{h:00}:{m:00}:{s:00}.{ms:000}Z";
+            if (year > 9999)
+            {
+                formatted = "+" + formatted;
+            }
+
+            return formatted;
         }
 
-        private JsValue ToJSON(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToJson(JsValue thisObj, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_realm, thisObj);
             var tv = TypeConverter.ToPrimitive(o, Types.Number);
@@ -1094,7 +1106,7 @@ namespace Jint.Native.Date
 
         private DateTime ToLocalTime(DatePresentation t)
         {
-            var utcOffset = _engine.Options.GetUtcOffset(t.Value).TotalMilliseconds;
+            var utcOffset = _timeSystem.GetUtcOffset(t.Value).TotalMilliseconds;
             return (t + utcOffset).ToDateTime();
         }
 
@@ -1108,13 +1120,13 @@ namespace Jint.Native.Date
                 return DatePresentation.NaN;
             }
 
-            var offset = Engine.Options.GetUtcOffset(t.Value).TotalMilliseconds;
+            var offset = _timeSystem.GetUtcOffset(t.Value).TotalMilliseconds;
             return t + offset;
         }
 
         internal DatePresentation Utc(DatePresentation t)
         {
-            var offset = Engine.Options.GetUtcOffset(t.Value).TotalMilliseconds;
+            var offset = _timeSystem.GetUtcOffset(t.Value).TotalMilliseconds;
             return t - offset;
         }
 
@@ -1376,7 +1388,7 @@ namespace Jint.Native.Date
         /// </summary>
         private string TimeZoneString(DatePresentation tv)
         {
-            var offset = Engine.Options.GetUtcOffset(tv.Value).TotalMilliseconds;
+            var offset = _timeSystem.GetUtcOffset(tv.Value).TotalMilliseconds;
 
             string offsetSign;
             double absOffset;
@@ -1394,7 +1406,7 @@ namespace Jint.Native.Date
             var offsetMin = MinFromTime(absOffset).ToString("00");
             var offsetHour = HourFromTime(absOffset).ToString("00");
 
-            var tzName = " (" + _engine.Options.TimeZone.StandardName + ")";
+            var tzName = " (" + _timeSystem.DefaultTimeZone.StandardName + ")";
 
             return offsetSign + offsetHour + offsetMin + tzName;
         }

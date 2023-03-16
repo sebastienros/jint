@@ -224,7 +224,7 @@ namespace Jint.Native.Promise
                 // Note that "Undefined" is not null, thus the logic is sound, even though awkward
                 // also note that it is important to check if we are done iterating.
                 // if "then" method is sync then it will be resolved BEFORE the next iteration cycle
-                if (results.TrueForAll(static x => x != null) && doneIterating)
+                if (results.TrueForAll(static x => x is not null) && doneIterating)
                 {
                     var array = _realm.Intrinsics.Array.ConstructFast(results);
                     resolve.Call(Undefined, new JsValue[] { array });
@@ -320,7 +320,7 @@ namespace Jint.Native.Promise
                 // Note that "Undefined" is not null, thus the logic is sound, even though awkward
                 // also note that it is important to check if we are done iterating.
                 // if "then" method is sync then it will be resolved BEFORE the next iteration cycle
-                if (results.TrueForAll(static x => x != null) && doneIterating)
+                if (results.TrueForAll(static x => x is not null) && doneIterating)
                 {
                     var array = _realm.Intrinsics.Array.ConstructFast(results);
                     resolve.Call(Undefined, new JsValue[] { array });
@@ -441,7 +441,7 @@ namespace Jint.Native.Promise
                 // also note that it is important to check if we are done iterating.
                 // if "then" method is sync then it will be resolved BEFORE the next iteration cycle
 
-                if (errors.TrueForAll(static x => x != null) && doneIterating)
+                if (errors.TrueForAll(static x => x is not null) && doneIterating)
                 {
                     var array = _realm.Intrinsics.Array.ConstructFast(errors);
 
@@ -636,8 +636,8 @@ namespace Jint.Native.Promise
                 // 4. If promiseCapability.[[Reject]] is not undefined, throw a TypeError exception.
                 // 5. Set promiseCapability.[[Resolve]] to resolve.
                 // 6. Set promiseCapability.[[Reject]] to reject.
-                if (resolveArg != null && resolveArg != Undefined ||
-                    rejectArg != null && rejectArg != Undefined)
+                if (resolveArg is not null && resolveArg != Undefined ||
+                    rejectArg is not null && rejectArg != Undefined)
                 {
                     ExceptionHelper.ThrowTypeError(engine.Realm, "executor was already called with not undefined args");
                 }

@@ -79,6 +79,11 @@ internal readonly record struct DatePresentation(long Value, DateFlags Flags)
 
     internal JsNumber ToJsValue()
     {
-        return IsNaN ? JsNumber.DoubleNaN : JsNumber.Create(Value);
+        if (IsNaN || Value is < -8640000000000000 or > 8640000000000000)
+        {
+            return JsNumber.DoubleNaN;
+        }
+
+        return JsNumber.Create(Value);
     }
 }

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Jint.Extensions;
@@ -101,19 +102,6 @@ namespace Jint.Runtime.Interop
             }
 
             var valueType = value.GetType();
-
-            if (valueType == typeof(double) || valueType == typeof(float) || valueType == typeof(decimal))
-            {
-                // conversion can be dangerous
-                var doubleValue = (double) value;
-                if (!TypeConverter.IsIntegralNumber(doubleValue)
-                    && (type == typeof(long) || type == typeof(int) || type == typeof(short) || type == typeof(byte) || type == typeof(ulong) || type == typeof(uint) || type == typeof(ushort) || type == typeof(sbyte)))
-                {
-                    // this is not safe
-                    problemMessage = $"Cannot convert floating point number {doubleValue} with decimals to integral type {type}";
-                    return false;
-                }
-            }
 
             // is the javascript value an ICallable instance ?
             if (valueType == iCallableType)

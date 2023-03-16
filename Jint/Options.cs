@@ -1,5 +1,6 @@
 ﻿using System.Dynamic;
 using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
@@ -19,22 +20,9 @@ namespace Jint
 
     public class Options
     {
+        private ITimeSystem? _timeSystem;
+
         internal List<Action<Engine>> _configurations { get; } = new();
-
-        public Options()
-        {
-            GetUtcOffset = milliseconds =>
-            {
-                // we have limited capabilities without addon like NodaTime
-                if (milliseconds is < -62135596800000L or > 253402300799999L)
-                {
-                    return this.TimeZone.BaseUtcOffset;
-                }
-
-                var utcOffset = this.TimeZone.GetUtcOffset(DateTimeOffset.FromUnixTimeMilliseconds(milliseconds));
-                return utcOffset;
-            };
-        }
 
         /// <summary>
         /// Execution constraints for the engine.
@@ -71,17 +59,20 @@ namespace Jint
         /// </summary>
         public CultureInfo Culture { get; set; } = CultureInfo.CurrentCulture;
 
-        /// <summary>
-        /// The time zone the engine runs on, defaults to local.
-        /// </summary>
-        public TimeZoneInfo TimeZone { get; set; } = TimeZoneInfo.Local;
 
         /// <summary>
-        /// Retrieves UTC offset for given date presented as milliseconds since the Unix epoch. May be negative (for instants before the epoch).
-        /// Defaults to using <see cref="TimeZoneInfo.GetUtcOffset(System.DateTimeOffset)"/> using the configured time zone.
+        /// Configures a time system to use. Defaults to DefaultTimeSystem using local time.
         /// </summary>
-        /// <seealso cref="TimeZone"/>
-        public Func<long, TimeSpan> GetUtcOffset { get; set; }
+        public ITimeSystem TimeSystem
+        {
+            get => _timeSystem ??= new DefaultTimeSystem(TimeZone, Culture);
+            set => _timeSystem = value;
+        }
+
+        /// <summary>
+        /// The time zone the engine runs on, defaults to local. Same as setting DefaultTimeSystem with the time zone.
+        /// </summary>
+        public TimeZoneInfo TimeZone { get; set; } = TimeZoneInfo.Local;
 
         /// <summary>
         /// Reference resolver allows customizing behavior for reference resolving. This can be useful in cases where
