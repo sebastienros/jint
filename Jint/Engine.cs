@@ -96,6 +96,8 @@ namespace Jint
         /// <remarks>The provided engine instance in callback is not guaranteed to be fully configured</remarks>
         public Engine(Action<Engine, Options> options)
         {
+            Advanced = new AdvancedOperations(this);
+
             _executionContexts = new ExecutionContextStack(2);
 
             Options = new Options();
