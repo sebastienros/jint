@@ -37,15 +37,15 @@ namespace Jint.Runtime.Interop
             {
                 return _func(thisObject, arguments);
             }
-            catch (Exception exc)
+            catch (Exception e) when (e is not JavaScriptException)
             {
-                if (_engine.Options.Interop.ExceptionHandler(exc))
+                if (_engine.Options.Interop.ExceptionHandler(e))
                 {
-                    ExceptionHelper.ThrowJavaScriptException(_realm.Intrinsics.Error, exc.Message);
+                    ExceptionHelper.ThrowJavaScriptException(_realm.Intrinsics.Error, e.Message);
                 }
                 else
                 {
-                    ExceptionDispatchInfo.Capture(exc).Throw();
+                    ExceptionDispatchInfo.Capture(e).Throw();
                 }
 
                 return Undefined;

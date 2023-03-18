@@ -2071,6 +2071,31 @@ namespace Jint.Tests.Runtime
             Assert.Equal(engine.Invoke("throwException2").AsString(), exceptionMessage);
         }
 
+        [Fact]
+        public void ShouldNotCatchClrFromApply()
+        {
+            var engine = new Engine(options =>
+            {
+                options.CatchClrExceptions(e =>
+                {
+                    Assert.Fail("was called");
+                    return true;
+                });
+            });
+
+            engine.Execute(@"
+                function throwError() {
+                    throw new Error();
+                }
+
+                // doesn't cause ExceptionDelegateHandler call
+                try { throwError(); } catch {}
+
+                // does cause ExceptionDelegateHandler call
+                try { throwError.apply(); } catch {}
+            ");
+        }
+
         private class MemberExceptionTest
         {
             public MemberExceptionTest(bool throwOnCreate)
