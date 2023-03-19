@@ -36,9 +36,6 @@
     "intl402"
   ],
   "ExcludedFiles": [
-    // Esprima problem, Unexpected token *
-    "language/expressions/object/dstr-async-gen-meth-*",
-
     // Esprima problem for regex, https://github.com/sebastienros/esprima-dotnet/pull/364
     "built-ins/RegExp/S15.10.4.1_A9_T3.js",
 
@@ -101,11 +98,6 @@
     "built-ins/MapIteratorPrototype/next/iteration-mutable.js",
     "built-ins/Set/prototype/forEach/iterates-values-revisits-after-delete-re-add.js",
 
-    // requires toLocaleString changes
-    "built-ins/Array/prototype/toLocaleString/primitive_this_value.js",
-    "built-ins/Array/prototype/toLocaleString/primitive_this_value_getter.js",
-    "built-ins/Object/prototype/toLocaleString/primitive_this_value_getter.js",
-
     // Line feed problems (git, windows, linux)
     "language/expressions/template-literal/tv-line-terminator-sequence.js",
 
@@ -126,12 +118,6 @@
     "language/expressions/object/accessor-name-computed.js",
     "built-ins/TypedArrayConstructors/ctors/object-arg/as-generator-iterable-returns.js",
     "language/expressions/object/method-definition/name-prop-name-yield-id.js",
-
-    // not implemented: Creation of new variable environment for the function body (as distinct from that for the function's parameters)
-    "language/expressions/arrow-function/scope-paramsbody-var-open.js",
-    "language/expressions/function/scope-paramsbody-var-open.js",
-    "language/expressions/object/scope-meth-paramsbody-var-open.js",
-    "language/expressions/object/scope-setter-paramsbody-var-open.js",
 
     // generators not implemented
     "built-ins/Object/prototype/toString/proxy-function.js",
@@ -358,46 +344,12 @@
     "language/expressions/assignment/target-member-identifier-reference-undefined.js",
     "language/expressions/assignment/target-super-computed-reference-null.js",
     "language/expressions/assignment/target-super-identifier-reference-null.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--1.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--10.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--11.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--12.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--13.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--14.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--15.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--16.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--17.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--18.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--19.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--2.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--20.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--21.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--3.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--4.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--5.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--6.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--7.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--8.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--9.js",
-    "language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v-.js",
     "language/expressions/delete/super-property-null-base.js",
-    "language/expressions/function/dstr/ary-init-iter-get-err-array-prototype.js",
-    "language/expressions/function/dstr/dflt-ary-init-iter-get-err-array-prototype.js",
     "language/expressions/function/eval-var-scope-syntax-err.js",
-    "language/expressions/function/name.js",
-    "language/expressions/function/named-no-strict-reassign-fn-name-in-body-in-arrow.js",
-    "language/expressions/function/named-no-strict-reassign-fn-name-in-body-in-eval.js",
-    "language/expressions/function/named-no-strict-reassign-fn-name-in-body.js",
-    "language/expressions/function/named-strict-error-reassign-fn-name-in-body-in-arrow.js",
-    "language/expressions/function/named-strict-error-reassign-fn-name-in-body-in-eval.js",
-    "language/expressions/function/named-strict-error-reassign-fn-name-in-body.js",
     "language/expressions/function/scope-param-elem-var-close.js",
     "language/expressions/function/scope-param-elem-var-open.js",
     "language/expressions/function/scope-param-rest-elem-var-close.js",
     "language/expressions/function/scope-param-rest-elem-var-open.js",
-    "language/expressions/object/__proto__-duplicate-computed.js",
-    "language/expressions/object/__proto__-fn-name.js",
-    "language/expressions/object/__proto__-value-non-object.js",
     "language/expressions/object/cpn-obj-lit-computed-property-name-from-null.js",
     "language/expressions/object/dstr/meth-ary-init-iter-get-err-array-prototype.js",
     "language/expressions/object/dstr/meth-dflt-ary-init-iter-get-err-array-prototype.js",
@@ -462,10 +414,6 @@
     "language/statements/function/scope-param-elem-var-open.js",
     "language/statements/function/scope-param-rest-elem-var-close.js",
     "language/statements/function/scope-param-rest-elem-var-open.js",
-    "language/statements/variable/12.2.1-10-s.js",
-    "language/statements/variable/12.2.1-17-s.js",
-    "language/statements/variable/12.2.1-21-s.js",
-    "language/statements/variable/12.2.1-6-s.js",
     "language/statements/with/cptn-abrupt-empty.js"
   ]
 }

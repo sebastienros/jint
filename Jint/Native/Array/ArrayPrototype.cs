@@ -1288,7 +1288,7 @@ namespace Jint.Native.Array
         {
             var array = ArrayOperations.For(_realm, thisObj);
             var len = array.GetLength();
-            const string separator = ",";
+            const string Separator = ",";
             if (len == 0)
             {
                 return JsString.Empty;
@@ -1301,32 +1301,19 @@ namespace Jint.Native.Array
             }
             else
             {
-                var elementObj = TypeConverter.ToObject(_realm, firstElement);
-                var func = elementObj.Get("toLocaleString") as ICallable;
-                if (func is null)
-                {
-                    ExceptionHelper.ThrowTypeError(_realm);
-                }
-
-                r = func.Call(elementObj, Arguments.Empty);
+                r = Invoke(firstElement, "toLocaleString", System.Array.Empty<JsValue>());
             }
 
             for (uint k = 1; k < len; k++)
             {
-                string s = r + separator;
+                var s = r + Separator;
                 if (!array.TryGetValue(k, out var nextElement) || nextElement.IsNull())
                 {
                     r = JsString.Empty;
                 }
                 else
                 {
-                    var elementObj = TypeConverter.ToObject(_realm, nextElement);
-                    var func = elementObj.Get("toLocaleString") as ICallable;
-                    if (func is null)
-                    {
-                        ExceptionHelper.ThrowTypeError(_realm);
-                    }
-                    r = func.Call(elementObj, Arguments.Empty);
+                    r = Invoke(nextElement, "toLocaleString", System.Array.Empty<JsValue>());
                 }
 
                 r = s + r;

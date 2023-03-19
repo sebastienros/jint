@@ -831,14 +831,7 @@ namespace Jint.Native.Date
                 return Null;
             }
 
-            var toIso = o.Get("toISOString");
-            var callable = toIso as ICallable;
-            if (callable is null)
-            {
-                ExceptionHelper.ThrowTypeError(_realm);
-            }
-
-            return callable.Call(o, Arguments.Empty);
+            return Invoke(o, "toISOString", Arguments.Empty);
         }
 
         private const int HoursPerDay = 24;

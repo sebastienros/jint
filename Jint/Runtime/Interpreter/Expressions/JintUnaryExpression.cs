@@ -32,6 +32,23 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return new JintConstantExpression(expression, cached);
             }
 
+            if (expression.Operator == UnaryOperator.TypeOf)
+            {
+                if (expression.Argument is Literal l)
+                {
+                    var value = JintLiteralExpression.ConvertToJsValue(l);
+                    if (value is not null)
+                    {
+                        // valid for caching
+                        var evaluatedValue = JintTypeOfExpression.GetTypeOfString(value);
+                        expression.AssociatedData = evaluatedValue;
+                        return new JintConstantExpression(expression, evaluatedValue);
+                    }
+                }
+
+                return new JintTypeOfExpression(expression);
+            }
+
             if (expression.Operator == UnaryOperator.Minus
                 && expression.Argument is Literal literal)
             {
@@ -46,6 +63,76 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             return new JintUnaryExpression(expression);
+        }
+
+        private sealed class JintTypeOfExpression : JintExpression
+        {
+            private readonly JintExpression _argument;
+
+            public JintTypeOfExpression(UnaryExpression expression) : base(expression)
+            {
+                _argument = Build(expression.Argument);
+            }
+
+            public override JsValue GetValue(EvaluationContext context)
+            {
+                // need to notify correct node when taking shortcut
+                context.LastSyntaxElement = _expression;
+                return (JsValue) EvaluateInternal(context);
+            }
+
+            protected override object EvaluateInternal(EvaluationContext context)
+            {
+                var engine = context.Engine;
+                var result = _argument.Evaluate(context);
+                JsValue v;
+
+                if (result is Reference rf)
+                {
+                    if (rf.IsUnresolvableReference())
+                    {
+                        engine._referencePool.Return(rf);
+                        return JsString.UndefinedString;
+                    }
+
+                    v = engine.GetValue(rf, true);
+                }
+                else
+                {
+                    v = (JsValue) result;
+                }
+
+                return GetTypeOfString(v);
+            }
+
+            internal static JsString GetTypeOfString(JsValue v)
+            {
+                if (v.IsUndefined())
+                {
+                    return JsString.UndefinedString;
+                }
+
+                if (v.IsNull())
+                {
+                    return JsString.ObjectString;
+                }
+
+                switch (v.Type)
+                {
+                    case Types.Boolean: return JsString.BooleanString;
+                    case Types.Number: return JsString.NumberString;
+                    case Types.BigInt: return JsString.BigIntString;
+                    case Types.String: return JsString.StringString;
+                    case Types.Symbol: return JsString.SymbolString;
+                }
+
+                if (v.IsCallable)
+                {
+                    return JsString.FunctionString;
+                }
+
+                return JsString.ObjectString;
+            }
         }
 
         public override JsValue GetValue(EvaluationContext context)
@@ -176,52 +263,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                     _argument.GetValue(context);
                     return JsValue.Undefined;
 
-                case UnaryOperator.TypeOf:
-                {
-                    var result = _argument.Evaluate(context);
-                    JsValue v;
-
-                    if (result is Reference rf)
-                    {
-                        if (rf.IsUnresolvableReference())
-                        {
-                            engine._referencePool.Return(rf);
-                            return JsString.UndefinedString;
-                        }
-
-                        v = engine.GetValue(rf, true);
-                    }
-                    else
-                    {
-                        v = (JsValue) result;
-                    }
-
-                    if (v.IsUndefined())
-                    {
-                        return JsString.UndefinedString;
-                    }
-
-                    if (v.IsNull())
-                    {
-                        return JsString.ObjectString;
-                    }
-
-                    switch (v.Type)
-                    {
-                        case Types.Boolean: return JsString.BooleanString;
-                        case Types.Number: return JsString.NumberString;
-                        case Types.BigInt: return JsString.BigIntString;
-                        case Types.String: return JsString.StringString;
-                        case Types.Symbol: return JsString.SymbolString;
-                    }
-
-                    if (v.IsCallable)
-                    {
-                        return JsString.FunctionString;
-                    }
-
-                    return JsString.ObjectString;
-                }
                 default:
                     ExceptionHelper.ThrowArgumentException();
                     return null;

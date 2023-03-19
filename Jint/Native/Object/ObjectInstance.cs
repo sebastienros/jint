@@ -1496,6 +1496,22 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
+        /// https://tc39.es/ecma262/#sec-invoke
+        /// </summary>
+        internal JsValue Invoke(JsValue v, JsValue p, JsValue[] arguments)
+        {
+            var func = v.GetV(_engine.Realm, p);
+            if (func is not ICallable callable)
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm, "Can only invoke functions");
+                return default;
+            }
+
+            return callable.Call(v, arguments);
+        }
+
+
+        /// <summary>
         /// https://tc39.es/ecma262/#sec-setintegritylevel
         /// </summary>
         internal bool SetIntegrityLevel(IntegrityLevel level)

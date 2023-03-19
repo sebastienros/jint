@@ -22,15 +22,16 @@ namespace Jint.Runtime.Interpreter.Expressions
         public override JsValue GetValue(EvaluationContext context)
         {
             ScriptFunctionInstance closure;
+            var functionName = _function.Name ?? "";
             if (!_function.Function.Generator)
             {
                 closure = _function.Function.Async
-                    ? InstantiateAsyncFunctionExpression(context, _function.Name)
-                    : InstantiateOrdinaryFunctionExpression(context, _function.Name);
+                    ? InstantiateAsyncFunctionExpression(context, functionName)
+                    : InstantiateOrdinaryFunctionExpression(context, functionName);
             }
             else
             {
-                closure = InstantiateGeneratorFunctionExpression(context, _function.Name);
+                closure = InstantiateGeneratorFunctionExpression(context, functionName);
             }
 
             return closure;

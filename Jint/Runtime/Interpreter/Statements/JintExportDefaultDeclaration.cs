@@ -68,9 +68,10 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
             value = _simpleExpression!.GetValue(context);
         }
 
-        if (value is ObjectInstance oi && !oi.HasOwnProperty("name"))
+        if (value is FunctionInstance functionInstance
+            && string.IsNullOrWhiteSpace(functionInstance._nameDescriptor?._value?.ToString()))
         {
-            oi.SetFunctionName("default");
+            functionInstance.SetFunctionName("default");
         }
 
         env.InitializeBinding("*default*", value);

@@ -230,16 +230,12 @@ namespace Jint.Native.Object
             }
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-object.prototype.tolocalestring
+        /// </summary>
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
         {
-            var o = TypeConverter.ToObject(_realm, thisObject);
-            var func = o.Get("toString");
-            var callable = func as ICallable;
-            if (callable is null)
-            {
-                ExceptionHelper.ThrowTypeError(_realm, "Can only invoke functions");
-            }
-            return TypeConverter.ToJsString(callable.Call(thisObject, arguments));
+            return Invoke(thisObject, "toString", System.Array.Empty<JsValue>());
         }
 
         /// <summary>

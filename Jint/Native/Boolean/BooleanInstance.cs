@@ -15,5 +15,5 @@ internal class BooleanInstance : ObjectInstance, IPrimitiveInstance
 
     JsValue IPrimitiveInstance.PrimitiveValue => BooleanData;
 
-    public JsValue BooleanData { get; }
+    public JsBoolean BooleanData { get; }
 }

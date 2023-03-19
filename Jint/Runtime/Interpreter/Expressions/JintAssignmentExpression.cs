@@ -403,7 +403,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     left.Identifier,
                     out var environmentRecord))
                 {
-                    if (strict && hasEvalOrArguments)
+                    if (strict && hasEvalOrArguments && left.Identifier.Key != KnownKeys.Eval)
                     {
                         ExceptionHelper.ThrowSyntaxError(engine.Realm, "Invalid assignment target");
                     }
