@@ -200,19 +200,19 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     var propValue = completion.Clone();
-                    if (expr._expression.IsFunctionDefinition())
-                    {
-                        var closure = (FunctionInstance) propValue;
-                        closure.SetFunctionName(propName);
-                    }
-
-                    if (objectProperty._key == "__proto__")
+                    if (objectProperty._key == "__proto__" && !objectProperty._value.Computed && !objectProperty._value.Shorthand)
                     {
                         if (propValue.IsObject() || propValue.IsNull())
                         {
                             obj.SetPrototypeOf(propValue);
-                            continue;
                         }
+                        continue;
+                    }
+
+                    if (expr._expression.IsAnonymousFunctionDefinition())
+                    {
+                        var closure = (FunctionInstance) propValue;
+                        closure.SetFunctionName(propName);
                     }
 
                     var propDesc = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);

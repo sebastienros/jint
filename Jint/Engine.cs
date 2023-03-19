@@ -635,7 +635,7 @@ namespace Jint
             var baseValue = reference.GetBase();
             if (reference.IsUnresolvableReference())
             {
-                if (reference.IsStrictReference())
+                if (reference.IsStrictReference() && reference.GetReferencedName() != CommonProperties.Arguments)
                 {
                     ExceptionHelper.ThrowReferenceError(Realm, reference);
                 }
