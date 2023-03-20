@@ -260,91 +260,76 @@ namespace Jint.Runtime
 
         private static double ToNumber(string input)
         {
-            // eager checks to save time and trimming
-            if (string.IsNullOrEmpty(input))
+            if (string.IsNullOrWhiteSpace(input))
             {
                 return 0;
             }
 
-            var first = input[0];
-            if (input.Length == 1 && first >= '0' && first <= '9')
+            var firstChar = input[0];
+            if (input.Length == 1)
             {
-                // simple constant number
-                return first - '0';
+                return firstChar is >= '0' and <= '9' ? firstChar - '0' : double.NaN;
             }
 
-            var s = StringPrototype.TrimEx(input);
+            input = StringPrototype.TrimEx(input);
+            firstChar = input[0];
 
-            if (s.Length == 0)
+            const NumberStyles NumberStyles = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
+                                              NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
+                                              NumberStyles.AllowExponent;
+
+            if (long.TryParse(input, NumberStyles, CultureInfo.InvariantCulture, out var longValue))
             {
-                return 0;
+                return longValue == 0 && firstChar == '-' ? -0.0 : longValue;
             }
 
-            if (s.Length == 8 || s.Length == 9)
+            if (input.Length is 8 or 9)
             {
-                if ("+Infinity" == s || "Infinity" == s)
+                switch (input)
                 {
-                    return double.PositiveInfinity;
+                    case "+Infinity":
+                    case "Infinity":
+                        return double.PositiveInfinity;
+                    case "-Infinity":
+                        return double.NegativeInfinity;
                 }
 
-                if ("-Infinity" == s)
+                if (input.EndsWith("infinity", StringComparison.OrdinalIgnoreCase))
                 {
-                    return double.NegativeInfinity;
-                }
-            }
-
-            // todo: use a common implementation with JavascriptParser
-            try
-            {
-                if (s.Length > 2 && s[0] == '0' && char.IsLetter(s[1]))
-                {
-                    var fromBase = 0;
-                    if (s[1] == 'x' || s[1] == 'X')
-                    {
-                        fromBase = 16;
-                    }
-
-                    if (s[1] == 'o' || s[1] == 'O')
-                    {
-                        fromBase = 8;
-                    }
-
-                    if (s[1] == 'b' || s[1] == 'B')
-                    {
-                        fromBase = 2;
-                    }
-
-                    if (fromBase > 0)
-                    {
-                        return Convert.ToInt32(s.Substring(2), fromBase);
-                    }
-                }
-
-                var start = s[0];
-                if (start != '+' && start != '-' && start != '.' && !char.IsDigit(start))
-                {
+                    // we don't accept other that case-sensitive
                     return double.NaN;
                 }
+            }
 
-                var n = double.Parse(s,
-                    NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
-                    NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
-                    NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
-                if (s.StartsWith("-") && n == 0)
+            if (input.Length > 2 && firstChar == '0' && char.IsLetter(input[1]))
+            {
+                var fromBase = input[1] switch
                 {
-                    return -0.0;
-                }
+                    'x' or 'X' => 16,
+                    'o' or 'O' => 8,
+                    'b' or 'B' => 2,
+                    _ => 0
+                };
 
-                return n;
+                if (fromBase > 0)
+                {
+                    try
+                    {
+                        return Convert.ToInt32(input.Substring(2), fromBase);
+                    }
+                    catch
+                    {
+                        return double.NaN;
+                    }
+                }
             }
-            catch (OverflowException)
+
+            if (double.TryParse(input, NumberStyles, CultureInfo.InvariantCulture, out var n))
             {
-                return s.StartsWith("-") ? double.NegativeInfinity : double.PositiveInfinity;
+                return n == 0 && firstChar == '-' ? -0.0 : n;
             }
-            catch
-            {
-                return double.NaN;
-            }
+
+            return double.NaN;
         }
 
         /// <summary>
