@@ -265,14 +265,18 @@ namespace Jint.Runtime
                 return 0;
             }
 
+            var firstChar = input[0];
+            if (input.Length == 1)
+            {
+                return firstChar is >= '0' and <= '9' ? firstChar - '0' : double.NaN;
+            }
+
             input = StringPrototype.TrimEx(input);
+            firstChar = input[0];
 
             const NumberStyles NumberStyles = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
                                               NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
                                               NumberStyles.AllowExponent;
-
-
-            var firstChar = input[0];
 
             if (long.TryParse(input, NumberStyles, CultureInfo.InvariantCulture, out var longValue))
             {
@@ -299,8 +303,7 @@ namespace Jint.Runtime
 
             if (input.Length > 2 && firstChar == '0' && char.IsLetter(input[1]))
             {
-                var c = input[1];
-                var fromBase = c switch
+                var fromBase = input[1] switch
                 {
                     'x' or 'X' => 16,
                     'o' or 'O' => 8,
