@@ -882,7 +882,7 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(double d)
         {
-            if (d > long.MinValue && d < long.MaxValue && Math.Abs(d % 1) <= DoubleIsIntegerTolerance)
+            if (CanBeStringifiedAsLong(d))
             {
                 // we are dealing with integer that can be cached
                 return ToString((long) d);
@@ -890,7 +890,27 @@ namespace Jint.Runtime
 
             using var stringBuilder = StringBuilderPool.Rent();
             // we can create smaller array as we know the format to be short
-            return NumberPrototype.NumberToString(d, new DtoaBuilder(17), stringBuilder.Builder);
+            return NumberPrototype.NumberToString(d, CreateDtoaBuilderForDouble(), stringBuilder.Builder);
+        }
+
+        /// <summary>
+        /// Creates a new <see cref="DtoaBuilder"/> with the default buffer
+        /// size for <see cref="ToString(double)"/>
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static DtoaBuilder CreateDtoaBuilderForDouble()
+        {
+            return new DtoaBuilder(17);
+        }
+
+        /// <summary>
+        /// Returns true if <see cref="ToString(long)"/> can be used for the
+        /// provided value <paramref name="d"/>, otherwise false.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool CanBeStringifiedAsLong(double d)
+        {
+            return d > long.MinValue && d < long.MaxValue && Math.Abs(d % 1) <= DoubleIsIntegerTolerance;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
