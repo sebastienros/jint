@@ -1,14 +1,7 @@
 ﻿using System.Reflection;
 using BenchmarkDotNet.Running;
+using Jint.Benchmark;
 
-namespace Jint.Benchmark;
-
-public static class Program
-{
-    public static void Main(string[] args)
-    {
-        BenchmarkSwitcher
-            .FromAssembly(typeof(Program).GetTypeInfo().Assembly)
-            .Run(args);
-    }
-}
+BenchmarkSwitcher
+    .FromAssembly(typeof(ArrayBenchmark).GetTypeInfo().Assembly)
+    .Run(args);
