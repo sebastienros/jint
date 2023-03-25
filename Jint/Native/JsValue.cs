@@ -1,7 +1,9 @@
+using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Numerics;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Native.Generator;
 using Jint.Native.Iterator;
@@ -9,6 +11,7 @@ using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native
 {
@@ -209,7 +212,16 @@ namespace Jint.Native
             var instOfHandler = oi.GetMethod(GlobalSymbolRegistry.HasInstance);
             if (instOfHandler is not null)
             {
-                return TypeConverter.ToBoolean(instOfHandler.Call(target, new[] {this}));
+                var result = TypeConverter.ToBoolean(instOfHandler.Call(target, new[] { this }));
+                if (result)
+                {
+                    return true;
+                }
+
+                var derivedType = (this as ObjectWrapper)?.Target?.GetType();
+                var baseType = (target as TypeReference)?.ReferenceType;
+
+                return (derivedType != null && baseType != null && (derivedType == baseType || derivedType.IsSubclassOf(baseType)));
             }
 
             if (!target.IsCallable)
