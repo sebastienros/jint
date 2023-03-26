@@ -1,9 +1,7 @@
-using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Numerics;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Native.Generator;
 using Jint.Native.Iterator;
@@ -11,7 +9,6 @@ using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native
 {
@@ -203,30 +200,21 @@ namespace Jint.Native
         /// </summary>
         internal bool InstanceofOperator(JsValue target)
         {
-            var oi = target as ObjectInstance;
-            if (oi is null)
+            if (target is not ObjectInstance oi)
             {
-                ExceptionHelper.ThrowTypeErrorNoEngine("not an object");
+                ExceptionHelper.ThrowTypeErrorNoEngine("Right-hand side of 'instanceof' is not an object");
+                return false;
             }
 
             var instOfHandler = oi.GetMethod(GlobalSymbolRegistry.HasInstance);
             if (instOfHandler is not null)
             {
-                var result = TypeConverter.ToBoolean(instOfHandler.Call(target, new[] { this }));
-                if (result)
-                {
-                    return true;
-                }
-
-                var derivedType = (this as ObjectWrapper)?.Target?.GetType();
-                var baseType = (target as TypeReference)?.ReferenceType;
-
-                return (derivedType != null && baseType != null && (derivedType == baseType || derivedType.IsSubclassOf(baseType)));
+                return TypeConverter.ToBoolean(instOfHandler.Call(target, new[] { this }));
             }
 
             if (!target.IsCallable)
             {
-                ExceptionHelper.ThrowTypeErrorNoEngine("not callable");
+                ExceptionHelper.ThrowTypeErrorNoEngine("Right-hand side of 'instanceof' is not callable");
             }
 
             return target.OrdinaryHasInstance(this);
