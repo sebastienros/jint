@@ -47,7 +47,7 @@ namespace Jint.Pooling
                 var builder = Builder;
 
                 // do not store builders that are too large.
-                if (builder.Capacity <= 1024)
+                if (builder.Capacity <= 1024 * 1024)
                 {
                     builder.Clear();
                     _pool.Free(builder);

@@ -170,7 +170,7 @@ namespace Jint.Runtime.Interop.Reflection
                 }
             }
 
-            return new ReflectionDescriptor(engine, this, target, false);
+            return new ReflectionDescriptor(engine, this, target, enumerable: true);
         }
     }
 }

@@ -225,16 +225,66 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
+            var returningSymbols = (types & Types.Symbol) != 0 && _symbols?.Count > 0;
+            var returningStringKeys = (types & Types.String) != 0 && _properties?.Count > 0;
+
             var propertyKeys = new List<JsValue>();
             if ((types & Types.String) != 0)
             {
-                propertyKeys.AddRange(GetInitialOwnStringPropertyKeys());
+                var initialOwnStringPropertyKeys = GetInitialOwnStringPropertyKeys();
+                if (!ReferenceEquals(initialOwnStringPropertyKeys, System.Linq.Enumerable.Empty<JsValue>()))
+                {
+                    propertyKeys.AddRange(initialOwnStringPropertyKeys);
+                }
             }
 
-            var keys = new List<JsValue>(_properties?.Count ?? 0 + _symbols?.Count ?? 0 + propertyKeys.Count);
-            List<JsValue>? symbolKeys = null;
+            // check fast case where we don't need to sort, which should be the common case
+            if (!returningSymbols)
+            {
+                if (!returningStringKeys)
+                {
+                    return propertyKeys;
+                }
 
-            if ((types & Types.String) != 0 && _properties != null)
+                var propertyKeyCount = propertyKeys.Count;
+                propertyKeys.Capacity += _properties!.Count;
+                foreach (var pair in _properties)
+                {
+                    // check if we can rely on the property name not being an unsigned number
+                    var c = pair.Key.Name.Length > 0 ? pair.Key.Name[0] : 'a';
+                    if (char.IsDigit(c) && propertyKeyCount + _properties.Count > 1)
+                    {
+                        // jump to slow path, return list to original state
+                        propertyKeys.RemoveRange(propertyKeyCount, propertyKeys.Count - propertyKeyCount);
+                        return GetOwnPropertyKeysSorted(propertyKeys, returningStringKeys, returningSymbols);
+                    }
+                    propertyKeys.Add(new JsString(pair.Key.Name));
+                }
+
+                // seems good
+                return propertyKeys;
+            }
+
+            if ((types & Types.String) == 0 && (types & Types.Symbol) != 0)
+            {
+                // only symbols requested
+                if (_symbols != null)
+                {
+                    foreach (var pair in _symbols!)
+                    {
+                        propertyKeys.Add(pair.Key);
+                    }
+                }
+                return propertyKeys;
+            }
+
+            return GetOwnPropertyKeysSorted(propertyKeys, returningStringKeys, returningSymbols);
+        }
+
+        private List<JsValue> GetOwnPropertyKeysSorted(List<JsValue> initialOwnPropertyKeys, bool returningStringKeys, bool returningSymbols)
+        {
+            var keys = new List<JsValue>(_properties?.Count ?? 0 + _symbols?.Count ?? 0 + initialOwnPropertyKeys.Count);
+            if (returningStringKeys && _properties != null)
             {
                 foreach (var pair in _properties)
                 {
@@ -247,26 +297,20 @@ namespace Jint.Native.Object
                     }
                     else
                     {
-                        propertyKeys.Add(new JsString(propertyName));
+                        initialOwnPropertyKeys.Add(new JsString(propertyName));
                     }
                 }
             }
 
             keys.Sort((v1, v2) => TypeConverter.ToNumber(v1).CompareTo(TypeConverter.ToNumber(v2)));
-            keys.AddRange(propertyKeys);
+            keys.AddRange(initialOwnPropertyKeys);
 
-            if ((types & Types.Symbol) != 0 && _symbols != null)
+            if (returningSymbols)
             {
-                foreach (var pair in _symbols)
+                foreach (var pair in _symbols!)
                 {
-                    symbolKeys ??= new List<JsValue>();
-                    symbolKeys.Add(pair.Key);
+                    keys.Add(pair.Key);
                 }
-            }
-
-            if (symbolKeys != null)
-            {
-                keys.AddRange(symbolKeys);
             }
 
             return keys;
