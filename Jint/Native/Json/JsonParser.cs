@@ -174,8 +174,9 @@ namespace Jint.Native.Json
         private Token ScanNumericLiteral(ref State state)
         {
             var sb = state.TokenBuffer;
-            int start = _index;
-            char ch = _source.CharCodeAt(_index);
+            var start = _index;
+            var ch = _source.CharCodeAt(_index);
+            var canBeInteger = true;
 
             // Number start with a -
             if (ch == '-')
@@ -186,7 +187,7 @@ namespace Jint.Native.Json
 
             if (ch != '.')
             {
-                char firstCharacter = ch;
+                var firstCharacter = ch;
                 sb.Append(ch);
                 ch = _source.CharCodeAt(++_index);
 
@@ -194,6 +195,7 @@ namespace Jint.Native.Json
                 // Octal number starts with '0'.
                 if (sb.Length == 1 && firstCharacter == '0')
                 {
+                    canBeInteger = false;
                     // decimal number starts with '0' such as '09' is illegal.
                     if (ch > 0 && IsDecimalDigit(ch))
                     {
@@ -210,6 +212,7 @@ namespace Jint.Native.Json
 
             if (ch == '.')
             {
+                canBeInteger = false;
                 sb.Append(ch);
                 _index++;
 
@@ -220,11 +223,12 @@ namespace Jint.Native.Json
                 }
             }
 
-            if (ch == 'e' || ch == 'E')
+            if (ch is 'e' or 'E')
             {
+                canBeInteger = false;
                 sb.Append(ch);
                 ch = _source.CharCodeAt(++_index);
-                if (ch == '+' || ch == '-')
+                if (ch is '+' or '-')
                 {
                     sb.Append(ch);
                     ch = _source.CharCodeAt(++_index);
@@ -243,9 +247,19 @@ namespace Jint.Native.Json
                 }
             }
 
-            string number = sb.ToString();
+            var number = sb.ToString();
             sb.Clear();
-            JsNumber value = new JsNumber(double.Parse(number, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture));
+
+            JsNumber value;
+            if (canBeInteger && long.TryParse(number, out var longResult) && longResult != -0)
+            {
+                value = JsNumber.Create(longResult);
+            }
+            else
+            {
+                value = new JsNumber(double.Parse(number, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture));
+            }
+
             return CreateToken(Tokens.Number, number, '\0', value, new TextRange(start, _index));
         }
 

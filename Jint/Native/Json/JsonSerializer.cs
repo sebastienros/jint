@@ -53,19 +53,16 @@ namespace Jint.Native.Json
             var wrapper = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
             wrapper.DefineOwnProperty(JsString.Empty, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
 
-            SerializeTarget target = new SerializeTarget();
-            try
+            using var jsonBuilder = StringBuilderPool.Rent();
+            using var numberBuilder = StringBuilderPool.Rent();
+
+            var target = new SerializerState(jsonBuilder.Builder, numberBuilder.Builder);
+            if (SerializeJSONProperty(JsString.Empty, wrapper, ref target) == SerializeResult.Undefined)
             {
-                if (SerializeJSONProperty(JsString.Empty, wrapper, ref target) == SerializeResult.Undefined)
-                {
-                    return JsValue.Undefined;
-                }
-                return new JsString(target.Json.ToString());
+                return JsValue.Undefined;
             }
-            finally
-            {
-                target.Return();
-            }
+
+            return new JsString(target.Json.ToString());
         }
 
         private void SetupReplacer(JsValue replacer)
@@ -157,21 +154,19 @@ namespace Jint.Native.Json
         /// <summary>
         /// https://tc39.es/ecma262/#sec-serializejsonproperty
         /// </summary>
-        private SerializeResult SerializeJSONProperty(JsValue key, JsValue holder, ref SerializeTarget target)
+        private SerializeResult SerializeJSONProperty(JsValue key, JsValue holder, ref SerializerState target)
         {
             var value = ReadUnwrappedValue(key, holder);
 
             if (ReferenceEquals(value, JsValue.Null))
             {
-                target.Json.Append(JsString.NullString.ToString());
+                target.Json.Append(JsString.NullString);
                 return SerializeResult.NotUndefined;
             }
 
             if (value.IsBoolean())
             {
-                target.Json.Append(((JsBoolean) value)._value
-                    ? JsString.TrueString.ToString()
-                    : JsString.FalseString.ToString());
+                target.Json.Append(((JsBoolean) value)._value ? "true" : "false");
                 return SerializeResult.NotUndefined;
             }
 
@@ -183,13 +178,20 @@ namespace Jint.Native.Json
 
             if (value.IsNumber())
             {
-                var doubleValue = TypeConverter.ToNumber(value);
+                var doubleValue = ((JsNumber) value)._value;
+
+                if (value.IsInteger())
+                {
+                    target.Json.Append((long) doubleValue);
+                    return SerializeResult.NotUndefined;
+                }
+
                 var isFinite = !double.IsNaN(doubleValue) && !double.IsInfinity(doubleValue);
                 if (isFinite)
                 {
                     if (TypeConverter.CanBeStringifiedAsLong(doubleValue))
                     {
-                        target.Json.Append(TypeConverter.ToString((long) doubleValue));
+                        target.Json.Append((long) doubleValue);
                         return SerializeResult.NotUndefined;
                     }
 
@@ -234,6 +236,12 @@ namespace Jint.Native.Json
         private JsValue ReadUnwrappedValue(JsValue key, JsValue holder)
         {
             var value = holder.Get(key);
+
+            if (value._type <= InternalTypes.Integer && _replacerFunction.IsUndefined())
+            {
+                return value;
+            }
+
             var isBigInt = value is BigIntInstance || value.IsBigInt();
             if (value.IsObject() || isBigInt)
             {
@@ -295,17 +303,16 @@ namespace Jint.Native.Json
         /// <summary>
         /// https://tc39.es/ecma262/#sec-quotejsonstring
         /// </summary>
-        private static void QuoteJSONString(string value, ref SerializeTarget target)
+        private static void QuoteJSONString(string value, ref SerializerState target)
         {
-            int len = value.Length;
-            if (len == 0)
+            if (value.Length == 0)
             {
                 target.Json.Append("\"\"");
                 return;
             }
 
             target.Json.Append('"');
-            for (var i = 0; i < len; i++)
+            for (var i = 0; i < value.Length; i++)
             {
                 var c = value[i];
                 switch (c)
@@ -358,7 +365,7 @@ namespace Jint.Native.Json
         /// <summary>
         /// https://tc39.es/ecma262/#sec-serializejsonarray
         /// </summary>
-        private void SerializeJSONArray(ObjectInstance value, ref SerializeTarget target)
+        private void SerializeJSONArray(ObjectInstance value, ref SerializerState target)
         {
             var len = TypeConverter.ToUint32(value.Get(CommonProperties.Length));
             if (len == 0)
@@ -424,7 +431,7 @@ namespace Jint.Native.Json
         /// <summary>
         /// https://tc39.es/ecma262/#sec-serializejsonobject
         /// </summary>
-        private void SerializeJSONObject(ObjectInstance value, ref SerializeTarget target)
+        private void SerializeJSONObject(ObjectInstance value, ref SerializerState target)
         {
             var enumeration = _propertyList is null
                 ? PropertyEnumeration.FromObjectInstance(value)
@@ -444,9 +451,10 @@ namespace Jint.Native.Json
 
             const string separator = ",";
 
-            bool hasPrevious = false;
-            foreach (var p in enumeration.Keys)
+            var hasPrevious = false;
+            for (var i = 0; i < enumeration.Keys.Count; i++)
             {
+                var p = enumeration.Keys[i];
                 int position = target.Json.Length;
 
                 if (hasPrevious)
@@ -500,30 +508,17 @@ namespace Jint.Native.Json
             _indent = stepback;
         }
 
-        private readonly ref struct SerializeTarget
+        private readonly ref struct SerializerState
         {
-            private readonly StringBuilderPool.BuilderWrapper _jsonBuilder;
-            private readonly StringBuilderPool.BuilderWrapper _numberBuilder;
-
-            public SerializeTarget()
+            public SerializerState(StringBuilder jsonBuilder, StringBuilder numberBuffer)
             {
-                _jsonBuilder = StringBuilderPool.Rent();
-                _numberBuilder = StringBuilderPool.Rent();
-                Json = _jsonBuilder.Builder;
-                NumberBuffer = _numberBuilder.Builder;
+                Json = jsonBuilder;
+                NumberBuffer = numberBuffer;
             }
 
-            public StringBuilder Json { get; }
-
-            public StringBuilder NumberBuffer { get; }
-
-            public DtoaBuilder DtoaBuilder { get; } = TypeConverter.CreateDtoaBuilderForDouble();
-
-            public void Return()
-            {
-                _jsonBuilder.Dispose();
-                _numberBuilder.Dispose();
-            }
+            public readonly StringBuilder Json;
+            public readonly StringBuilder NumberBuffer;
+            public readonly DtoaBuilder DtoaBuilder = TypeConverter.CreateDtoaBuilderForDouble();
         }
 
         private enum SerializeResult
@@ -534,7 +529,7 @@ namespace Jint.Native.Json
 
         private readonly struct PropertyEnumeration
         {
-            private PropertyEnumeration(IEnumerable<JsValue> keys, bool isEmpty)
+            private PropertyEnumeration(List<JsValue> keys, bool isEmpty)
             {
                 Keys = keys;
                 IsEmpty = isEmpty;
@@ -545,26 +540,27 @@ namespace Jint.Native.Json
 
             public static PropertyEnumeration FromObjectInstance(ObjectInstance instance)
             {
-                List<JsValue> allKeys = instance.GetOwnPropertyKeys(Types.String);
+                var allKeys = instance.GetOwnPropertyKeys(Types.String);
                 RemoveUnserializableProperties(instance, allKeys);
                 return new PropertyEnumeration(allKeys, allKeys.Count == 0);
             }
 
             private static void RemoveUnserializableProperties(ObjectInstance instance, List<JsValue> keys)
             {
-                keys.RemoveAll(key =>
+                for (var i = 0; i < keys.Count; i++)
                 {
-                    if (!key.IsString())
+                    var key = keys[i];
+                    var desc = instance.GetOwnProperty(key);
+                    if (desc == PropertyDescriptor.Undefined || !desc.Enumerable)
                     {
-                        return true;
+                        keys.RemoveAt(i);
+                        i--;
                     }
 
-                    var desc = instance.GetOwnProperty(key);
-                    return desc == PropertyDescriptor.Undefined || !desc.Enumerable;
-                });
+                }
             }
 
-            public IEnumerable<JsValue> Keys { get; }
+            public List<JsValue> Keys { get; }
 
             public bool IsEmpty { get; }
         }
