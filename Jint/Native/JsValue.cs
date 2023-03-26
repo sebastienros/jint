@@ -200,21 +200,21 @@ namespace Jint.Native
         /// </summary>
         internal bool InstanceofOperator(JsValue target)
         {
-            var oi = target as ObjectInstance;
-            if (oi is null)
+            if (target is not ObjectInstance oi)
             {
-                ExceptionHelper.ThrowTypeErrorNoEngine("not an object");
+                ExceptionHelper.ThrowTypeErrorNoEngine("Right-hand side of 'instanceof' is not an object");
+                return false;
             }
 
             var instOfHandler = oi.GetMethod(GlobalSymbolRegistry.HasInstance);
             if (instOfHandler is not null)
             {
-                return TypeConverter.ToBoolean(instOfHandler.Call(target, new[] {this}));
+                return TypeConverter.ToBoolean(instOfHandler.Call(target, new[] { this }));
             }
 
             if (!target.IsCallable)
             {
-                ExceptionHelper.ThrowTypeErrorNoEngine("not callable");
+                ExceptionHelper.ThrowTypeErrorNoEngine("Right-hand side of 'instanceof' is not callable");
             }
 
             return target.OrdinaryHasInstance(this);

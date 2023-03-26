@@ -3,6 +3,7 @@ using System.Reflection;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop.Reflection;
 
@@ -141,13 +142,26 @@ namespace Jint.Runtime.Interop
         {
             if (property is not JsString jsString)
             {
+                if (property == GlobalSymbolRegistry.HasInstance)
+                {
+                    var hasInstanceFunction = new ClrFunctionInstance(
+                        Engine,
+                        "[Symbol.hasInstance]",
+                        HasInstance,
+                        1,
+                        PropertyFlag.Configurable);
+
+                    var hasInstanceProperty = new PropertyDescriptor(hasInstanceFunction, PropertyFlag.AllForbidden);
+                    SetProperty(GlobalSymbolRegistry.HasInstance, hasInstanceProperty);
+                    return hasInstanceProperty;
+                }
+
                 return PropertyDescriptor.Undefined;
             }
 
             var key = jsString._value;
-            var descriptor = PropertyDescriptor.Undefined;
 
-            if (_properties?.TryGetValue(key, out descriptor) != true)
+            if (_properties?.TryGetValue(key, out var descriptor) != true)
             {
                 descriptor = CreatePropertyDescriptor(key);
                 if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
@@ -204,5 +218,21 @@ namespace Jint.Runtime.Interop
         }
 
         public object Target => ReferenceType;
+
+        private static JsValue HasInstance(JsValue thisObject, JsValue[] arguments)
+        {
+            var typeReference = thisObject as TypeReference;
+            var objectWrapper = arguments.At(0) as ObjectWrapper;
+
+            if (typeReference is null || objectWrapper is null)
+            {
+                return JsBoolean.False;
+            }
+
+            var derivedType = objectWrapper.Target?.GetType();
+            var baseType = typeReference.ReferenceType;
+
+            return derivedType != null && baseType != null && (derivedType == baseType || derivedType.IsSubclassOf(baseType));
+        }
     }
 }
