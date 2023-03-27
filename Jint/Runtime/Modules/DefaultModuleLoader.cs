@@ -22,7 +22,7 @@ public sealed class DefaultModuleLoader : IModuleLoader
 
         _restrictToBasePath = restrictToBasePath;
 
-        if (!Uri.TryCreate(basePath, UriKind.Absolute, out _basePath))
+        if (!Uri.TryCreate(basePath, UriKind.Absolute, out var temp))
         {
             if (!Path.IsPathRooted(basePath))
             {
@@ -31,6 +31,10 @@ public sealed class DefaultModuleLoader : IModuleLoader
 
             basePath = Path.GetFullPath(basePath);
             _basePath = new Uri(basePath, UriKind.Absolute);
+        }
+        else
+        {
+            _basePath = temp;
         }
 
         if (_basePath.AbsolutePath[_basePath.AbsolutePath.Length - 1] != '/')

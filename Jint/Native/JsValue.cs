@@ -337,7 +337,7 @@ namespace Jint.Native
         /// <summary>
         /// Strict equality.
         /// </summary>
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return Equals(obj as JsValue);
         }
