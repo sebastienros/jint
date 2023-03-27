@@ -311,12 +311,12 @@ namespace Jint.Runtime.Interop
         {
             public static readonly StringComparer Instance = new DefaultMemberNameComparer();
 
-            public override int Compare(string x, string y)
+            public override int Compare(string? x, string? y)
             {
                 throw new NotImplementedException();
             }
 
-            public override bool Equals(string x, string y)
+            public override bool Equals(string? x, string? y)
             {
                 if (ReferenceEquals(x, y))
                 {

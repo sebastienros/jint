@@ -14,7 +14,7 @@ namespace Jint.Runtime.Interop.Reflection
 
         public override bool Writable => !_fieldInfo.Attributes.HasFlag(FieldAttributes.InitOnly);
 
-        protected override object DoGetValue(object target)
+        protected override object? DoGetValue(object target)
         {
             return _fieldInfo.GetValue(target);
         }

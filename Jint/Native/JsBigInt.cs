@@ -95,7 +95,7 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
         return false;
     }
 
-    public override bool Equals(object other)
+    public override bool Equals(object? other)
     {
         return Equals(other as JsBigInt);
     }

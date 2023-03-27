@@ -31,6 +31,6 @@ public class ErrorInstance : ObjectInstance
 
     public override string ToString()
     {
-        return Engine.Realm.Intrinsics.Error.PrototypeObject.ToString(this, Arguments.Empty).ToObject().ToString();
+        return Engine.Realm.Intrinsics.Error.PrototypeObject.ToString(this, Arguments.Empty).ToObject().ToString() ?? "";
     }
 }

@@ -1761,7 +1761,7 @@ namespace Jint.Native.Array
                 _compare = compare;
             }
 
-            public int Compare(JsValue x, JsValue y)
+            public int Compare(JsValue? x, JsValue? y)
             {
                 var xIsNull = ReferenceEquals(x, null);
                 var yIsNull = ReferenceEquals(y, null);

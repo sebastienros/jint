@@ -118,7 +118,7 @@ namespace Jint.Runtime.Interop
                     {
                         converted = Engine.ClrTypeConverter.Convert(
                             value.ToObject(),
-                            paramsParameterType,
+                            paramsParameterType!,
                             CultureInfo.InvariantCulture);
                     }
 

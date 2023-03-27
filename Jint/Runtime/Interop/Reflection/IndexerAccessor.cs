@@ -13,11 +13,11 @@ namespace Jint.Runtime.Interop.Reflection
         private readonly object _key;
 
         private readonly PropertyInfo _indexer;
-        private readonly MethodInfo _getter;
-        private readonly MethodInfo _setter;
+        private readonly MethodInfo? _getter;
+        private readonly MethodInfo? _setter;
         private readonly MethodInfo? _containsKey;
 
-        private static readonly PropertyInfo _iListIndexer = typeof(IList).GetProperty("Item");
+        private static readonly PropertyInfo _iListIndexer = typeof(IList).GetProperty("Item")!;
 
         private IndexerAccessor(PropertyInfo indexer, MethodInfo? containsKey, object key)
             : base(indexer.PropertyType, key)
@@ -121,7 +121,7 @@ namespace Jint.Runtime.Interop.Reflection
 
         public override bool Writable => _indexer.CanWrite;
 
-        protected override object DoGetValue(object target)
+        protected override object? DoGetValue(object target)
         {
             if (_getter is null)
             {
