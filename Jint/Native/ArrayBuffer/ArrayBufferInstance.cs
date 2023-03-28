@@ -64,8 +64,9 @@ namespace Jint.Native.ArrayBuffer
         {
             var targetBuffer = constructor.AllocateArrayBuffer(_engine.Realm.Intrinsics.ArrayBuffer, srcLength);
             AssertNotDetached();
-            var srcBlock = _arrayBufferData;
-            var targetBlock = targetBuffer.ArrayBufferData;
+
+            var srcBlock = _arrayBufferData!;
+            var targetBlock = targetBuffer.ArrayBufferData!;
 
             // TODO SharedArrayBuffer would use this
             //CopyDataBlockBytes(targetBlock, 0, srcBlock, srcByteOffset, srcLength).
@@ -202,7 +203,7 @@ namespace Jint.Native.ArrayBuffer
             ArrayBufferOrder order,
             bool? isLittleEndian = null)
         {
-            var block = _arrayBufferData;
+            var block = _arrayBufferData!;
             if (!IsSharedArrayBuffer)
             {
                 // If isLittleEndian is not present, set isLittleEndian to the value of the [[LittleEndian]] field of the surrounding agent's Agent Record.

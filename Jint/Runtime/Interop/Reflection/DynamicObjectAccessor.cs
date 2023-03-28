@@ -20,7 +20,7 @@ namespace Jint.Runtime.Interop.Reflection
 
         public override bool Writable => true;
 
-        protected override object DoGetValue(object target)
+        protected override object? DoGetValue(object target)
         {
             var dynamicObject = (DynamicObject) target;
             var getter = _getter ??= new JintGetMemberBinder(_memberName, ignoreCase: true);
@@ -55,7 +55,7 @@ namespace Jint.Runtime.Interop.Reflection
             {
             }
 
-            public override DynamicMetaObject FallbackGetMember(DynamicMetaObject target, DynamicMetaObject errorSuggestion)
+            public override DynamicMetaObject FallbackGetMember(DynamicMetaObject target, DynamicMetaObject? errorSuggestion)
             {
                 throw new NotImplementedException(nameof(FallbackGetMember) + " not implemented");
             }
@@ -70,7 +70,7 @@ namespace Jint.Runtime.Interop.Reflection
             public override DynamicMetaObject FallbackSetMember(
                 DynamicMetaObject target,
                 DynamicMetaObject value,
-                DynamicMetaObject errorSuggestion)
+                DynamicMetaObject? errorSuggestion)
             {
                 throw new NotImplementedException(nameof(FallbackSetMember) + " not implemented");
             }

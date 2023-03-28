@@ -33,7 +33,7 @@ internal class StringInstance : ObjectInstance, IPrimitiveInstance
         return false;
     }
 
-    public override PropertyDescriptor GetOwnProperty(JsValue property)
+    public sealed override PropertyDescriptor GetOwnProperty(JsValue property)
     {
         if (property == CommonProperties.Infinity)
         {
@@ -66,7 +66,7 @@ internal class StringInstance : ObjectInstance, IPrimitiveInstance
         return new PropertyDescriptor(str[index], PropertyFlag.OnlyEnumerable);
     }
 
-    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
+    public sealed override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
         foreach (var entry in base.GetOwnProperties())
         {
@@ -79,12 +79,12 @@ internal class StringInstance : ObjectInstance, IPrimitiveInstance
         }
     }
 
-    internal override IEnumerable<JsValue> GetInitialOwnStringPropertyKeys()
+    internal sealed override IEnumerable<JsValue> GetInitialOwnStringPropertyKeys()
     {
-        return new[] { JsString.LengthString };
+        yield return JsString.LengthString;
     }
 
-    public override List<JsValue> GetOwnPropertyKeys(Types types)
+    public sealed override List<JsValue> GetOwnPropertyKeys(Types types)
     {
         var keys = new List<JsValue>(StringData.Length + 1);
         if ((types & Types.String) != 0)
@@ -105,7 +105,7 @@ internal class StringInstance : ObjectInstance, IPrimitiveInstance
         return keys;
     }
 
-    protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
+    protected internal sealed override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
     {
         if (property == CommonProperties.Length)
         {
@@ -117,7 +117,7 @@ internal class StringInstance : ObjectInstance, IPrimitiveInstance
         }
     }
 
-    public override void RemoveOwnProperty(JsValue property)
+    public sealed override void RemoveOwnProperty(JsValue property)
     {
         if (property == CommonProperties.Length)
         {

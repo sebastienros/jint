@@ -1,3 +1,5 @@
+#if !NET6_0_OR_GREATER
+
 namespace System.Runtime.CompilerServices;
 
 [AttributeUsage(
@@ -13,3 +15,5 @@ internal sealed class SkipLocalsInitAttribute : Attribute
 {
     public SkipLocalsInitAttribute() { }
 }
+
+#endif

@@ -96,7 +96,7 @@ namespace Jint.Runtime.Interop
             try
             {
                 var parameters = new[] { member, _valueType!.IsValueType ? Activator.CreateInstance(_valueType) : null };
-                var result = (bool) _tryGetValueMethod!.Invoke(target, parameters);
+                var result = (bool) _tryGetValueMethod!.Invoke(target, parameters)!;
                 o = parameters[1];
                 return result;
             }
@@ -114,7 +114,7 @@ namespace Jint.Runtime.Interop
                 return false;
             }
 
-            return (bool) _removeMethod.Invoke(target , new object[] { key });
+            return (bool) _removeMethod.Invoke(target , new object[] { key })!;
         }
 
         public ICollection<string> GetKeys(object target)
@@ -124,7 +124,7 @@ namespace Jint.Runtime.Interop
                 ExceptionHelper.ThrowInvalidOperationException("Not a string-keyed dictionary");
             }
 
-            return (ICollection<string>) _keysAccessor!.GetValue(target);
+            return (ICollection<string>) _keysAccessor!.GetValue(target)!;
         }
     }
 }
