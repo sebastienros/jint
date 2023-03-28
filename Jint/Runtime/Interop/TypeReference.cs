@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Reflection;
 using Jint.Collections;
 using Jint.Native;
@@ -73,9 +74,31 @@ namespace Jint.Runtime.Interop
                         referenceType,
                         t => MethodDescriptor.Build(t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)));
 
-                    foreach (var (method, _, _) in TypeConverter.FindBestMatch(engine, constructors, _ => arguments))
+                    var argumentProvider = new Func<MethodDescriptor, JsValue[]>(method =>
                     {
-                        var retVal = method.Call(engine, null, arguments);
+                        var parameters = method.Parameters;
+                        var list = new List<JsValue>(arguments);
+                        list.AddRange(Enumerable.Repeat(JsValue.Undefined, Math.Max(0, parameters.Length - arguments.Length)));
+                        for (var i = list.Count - 1; i >= 0; i--)
+                        {
+                            if (i < parameters.Length)
+                            {
+                                if (!parameters[i].IsOptional)
+                                {
+                                    break;
+                                }
+                                else if (list[i] == JsValue.Undefined)
+                                {
+                                    list[i] = JsValue.FromObject(engine, parameters[i].DefaultValue);
+                                }
+                            }
+                        }
+                        return list.ToArray();
+                    });
+
+                    foreach (var (method, _, _) in TypeConverter.FindBestMatch(engine, constructors, argumentProvider))
+                    {
+                        var retVal = method.Call(engine, null, argumentProvider(method));
                         result = TypeConverter.ToObject(realm, retVal);
 
                         // todo: cache method info
