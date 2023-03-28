@@ -1205,7 +1205,7 @@ namespace Jint.Runtime
                 return new AssignableResult(0, givenType);
             }
 
-            Type baseType = givenType.BaseType;
+            var baseType = givenType.BaseType;
             if (baseType == null)
             {
                 return new AssignableResult(-1, givenType);

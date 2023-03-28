@@ -9,93 +9,91 @@ dotnet run -c Release --allCategories EngineComparison
 * tests are run in global engine strict mode, as YantraJS always uses strict mode which improves performance
 * `Jint` and `Jint_ParsedScript` shows the difference between always parsing the script source file and reusing parsed `Script` instance.
 
-Last updated 2022-10-14
+Last updated 2023-03-26
 
 * Jint main
 * Jurassic 3.2.6
-* NiL.JS 2.5.1600
-* YantraJS.Core 1.2.51
+* NiL.JS 2.5.1650
+* YantraJS.Core 1.2.117
 
 
 ``` ini
 
-BenchmarkDotNet=v0.13.2, OS=Windows 11 (10.0.22621.675)
+BenchmarkDotNet=v0.13.5, OS=Windows 11 (10.0.22621.1483/22H2/2022Update/SunValley2)
 AMD Ryzen 9 5950X, 1 CPU, 32 logical and 16 physical cores
-.NET SDK=7.0.100-rc.2.22477.23
-  [Host]     : .NET 6.0.10 (6.0.1022.47605), X64 RyuJIT AVX2
-  DefaultJob : .NET 6.0.10 (6.0.1022.47605), X64 RyuJIT AVX2
+.NET SDK=7.0.202
+  [Host]     : .NET 6.0.15 (6.0.1523.11507), X64 RyuJIT AVX2
+  DefaultJob : .NET 6.0.15 (6.0.1523.11507), X64 RyuJIT AVX2
 
 
 ```
 |            Method |             FileName |             Mean |         StdDev | Rank |     Allocated |
 |------------------ |--------------------- |-----------------:|---------------:|-----:|--------------:|
-|              **Jint** |         **array-stress** |    **10,215.696 μs** |     **14.2525 μs** |    **4** |     **7577235 B** |
-| Jint_ParsedScript |         array-stress |     9,888.694 μs |     20.5964 μs |    3 |     7550403 B |
-|          Jurassic |         array-stress |    11,085.546 μs |     18.8502 μs |    5 |    11926461 B |
-|             NilJS |         array-stress |     5,636.598 μs |      5.7896 μs |    2 |    14746566 B |
-|          YantraJS |         array-stress |     5,076.093 μs |     29.8884 μs |    1 |     6314988 B |
+|              **Jint** |         **array-stress** |    **10,799.249 μs** |     **24.4948 μs** |    **4** |     **7473326 B** |
+| Jint_ParsedScript |         array-stress |    10,568.342 μs |     44.6133 μs |    3 |     7446494 B |
+|          Jurassic |         array-stress |    11,280.104 μs |     27.9486 μs |    5 |    11926463 B |
+|             NilJS |         array-stress |     5,600.761 μs |     74.2339 μs |    2 |     4241527 B |
+|          YantraJS |         array-stress |     4,891.973 μs |     18.8130 μs |    1 |     6518316 B |
 |                   |                      |                  |                |      |               |
-|              **Jint** |      **dromaeo-3d-cube** |    **24,287.978 μs** |     **43.1781 μs** |    **4** |     **6726806 B** |
-| Jint_ParsedScript |      dromaeo-3d-cube |    23,464.073 μs |     28.5274 μs |    3 |     6419862 B |
-|          Jurassic |      dromaeo-3d-cube |    39,704.937 μs |     68.4706 μs |    5 |    10926049 B |
-|             NilJS |      dromaeo-3d-cube |     9,205.576 μs |     14.4517 μs |    2 |     4240315 B |
-|          YantraJS |      dromaeo-3d-cube |     4,528.786 μs |     16.8094 μs |    1 |     8783571 B |
+|              **Jint** |      **dromaeo-3d-cube** |    **25,234.322 μs** |     **28.3103 μs** |    **4** |     **6307004 B** |
+| Jint_ParsedScript |      dromaeo-3d-cube |    24,227.022 μs |     30.4230 μs |    3 |     6000208 B |
+|          Jurassic |      dromaeo-3d-cube |    40,155.874 μs |     83.9446 μs |    5 |    10925739 B |
+|             NilJS |      dromaeo-3d-cube |     9,203.608 μs |     18.2137 μs |    2 |     4671638 B |
+|          YantraJS |      dromaeo-3d-cube |     4,478.599 μs |     35.6857 μs |    1 |     8885293 B |
 |                   |                      |                  |                |      |               |
-|              **Jint** |    **dromaeo-core-eval** |     **5,432.432 μs** |     **10.3033 μs** |    **2** |      **355182 B** |
-| Jint_ParsedScript |    dromaeo-core-eval |     5,458.993 μs |     10.4310 μs |    2 |      335335 B |
-|          Jurassic |    dromaeo-core-eval |    13,607.238 μs |     43.2512 μs |    4 |     2971060 B |
-|             NilJS |    dromaeo-core-eval |     2,104.603 μs |      4.1631 μs |    1 |     1636803 B |
-|          YantraJS |    dromaeo-core-eval |     8,146.161 μs |     27.3940 μs |    3 |    37128558 B |
+|              **Jint** |    **dromaeo-core-eval** |     **5,496.472 μs** |     **20.8861 μs** |    **2** |      **359439 B** |
+| Jint_ParsedScript |    dromaeo-core-eval |     5,555.814 μs |     29.8913 μs |    2 |      339647 B |
+|          Jurassic |    dromaeo-core-eval |    13,739.640 μs |     52.5257 μs |    4 |     2971062 B |
+|             NilJS |    dromaeo-core-eval |     2,099.576 μs |     13.3939 μs |    1 |     1637011 B |
+|          YantraJS |    dromaeo-core-eval |     8,068.664 μs |     41.8267 μs |    3 |    37131162 B |
 |                   |                      |                  |                |      |               |
-|              **Jint** | **dromaeo-object-array** |    **67,516.323 μs** |    **206.4093 μs** |    **5** |   **104398774 B** |
-| Jint_ParsedScript | dromaeo-object-array |    64,823.739 μs |    140.2733 μs |    4 |   104351697 B |
-|          Jurassic | dromaeo-object-array |    40,609.674 μs |     59.2756 μs |    1 |    26433897 B |
-|             NilJS | dromaeo-object-array |    55,900.598 μs |    138.4180 μs |    3 |   184599926 B |
-|          YantraJS | dromaeo-object-array |    46,439.103 μs |     75.7535 μs |    2 |    24731921 B |
+|              **Jint** | **dromaeo-object-array** |    **68,157.350 μs** |    **106.5991 μs** |    **4** |   **103974805 B** |
+| Jint_ParsedScript | dromaeo-object-array |    70,379.819 μs |    412.9971 μs |    5 |   103928047 B |
+|          Jurassic | dromaeo-object-array |    41,917.036 μs |    147.6689 μs |    1 |    26433545 B |
+|             NilJS | dromaeo-object-array |    50,941.149 μs |    116.1891 μs |    3 |    16518497 B |
+|          YantraJS | dromaeo-object-array |    43,952.908 μs |     52.7966 μs |    2 |    25538081 B |
 |                   |                      |                  |                |      |               |
-|              **Jint** | **droma(...)egexp [21]** |   **242,184.582 μs** |  **2,540.4568 μs** |    **2** |   **177719160 B** |
-| Jint_ParsedScript | droma(...)egexp [21] |   224,182.131 μs |  3,085.4110 μs |    1 |   177744853 B |
-|          Jurassic | droma(...)egexp [21] |   668,193.653 μs | 13,262.9937 μs |    3 |   843971400 B |
-|             NilJS | droma(...)egexp [21] |   667,795.640 μs | 12,173.5871 μs |    3 |   799041960 B |
-|          YantraJS | droma(...)egexp [21] | 1,017,836.340 μs | 14,200.0239 μs |    4 |   962355680 B |
+|              **Jint** | **droma(...)egexp [21]** |   **202,513.639 μs** |  **6,280.4683 μs** |    **2** |   **169538072 B** |
+| Jint_ParsedScript | droma(...)egexp [21] |   194,203.576 μs |  2,648.5440 μs |    1 |   176401621 B |
+|          Jurassic | droma(...)egexp [21] |   673,099.103 μs | 19,449.6381 μs |    4 |   845159056 B |
+|             NilJS | droma(...)egexp [21] |   498,404.131 μs |  9,389.0173 μs |    3 |   785342384 B |
+|          YantraJS | droma(...)egexp [21] | 1,021,021.213 μs | 10,171.5386 μs |    5 |   965363992 B |
 |                   |                      |                  |                |      |               |
-|              **Jint** | **droma(...)tring [21]** |   **523,799.294 μs** | **17,239.4929 μs** |    **2** |  **1358370968 B** |
-| Jint_ParsedScript | droma(...)tring [21] |   587,293.097 μs | 59,293.9537 μs |    4 |  1358240112 B |
-|          Jurassic | droma(...)tring [21] |   555,974.511 μs | 25,269.6502 μs |    3 |  1492965432 B |
-|             NilJS | droma(...)tring [21] |   388,563.930 μs | 10,811.7627 μs |    1 |  1418390840 B |
-|          YantraJS | droma(...)tring [21] | 2,981,204.866 μs | 92,355.9688 μs |    5 | 16097451064 B |
+|              **Jint** | **droma(...)tring [21]** |   **513,139.116 μs** | **21,598.0545 μs** |    **2** |  **1353627632 B** |
+| Jint_ParsedScript | droma(...)tring [21] |   598,346.054 μs | 62,241.8961 μs |    4 |  1353603760 B |
+|          Jurassic | droma(...)tring [21] |   547,882.282 μs | 15,131.8012 μs |    3 |  1492956848 B |
+|             NilJS | droma(...)tring [21] |   380,880.402 μs | 17,953.6040 μs |    1 |  1410785672 B |
+|          YantraJS | droma(...)tring [21] | 3,146,801.586 μs | 75,534.4740 μs |    5 | 16097426568 B |
 |                   |                      |                  |                |      |               |
-|              **Jint** | **droma(...)ase64 [21]** |    **68,781.989 μs** |    **155.3771 μs** |    **4** |     **7914940 B** |
-| Jint_ParsedScript | droma(...)ase64 [21] |    66,471.309 μs |    241.4502 μs |    3 |     7817337 B |
-|          Jurassic | droma(...)ase64 [21] |    67,141.458 μs |    187.7398 μs |    3 |    76103581 B |
-|             NilJS | droma(...)ase64 [21] |    41,305.925 μs |     94.0063 μs |    2 |    23963321 B |
-|          YantraJS | droma(...)ase64 [21] |    38,200.686 μs |    122.9918 μs |    1 |   778587651 B |
+|              **Jint** | **droma(...)ase64 [21]** |    **54,972.605 μs** |    **123.8465 μs** |    **3** |     **6764151 B** |
+| Jint_ParsedScript | droma(...)ase64 [21] |    53,534.261 μs |    272.9451 μs |    2 |     6665682 B |
+|          Jurassic | droma(...)ase64 [21] |    69,111.283 μs |    166.1184 μs |    4 |    76105181 B |
+|             NilJS | droma(...)ase64 [21] |    40,131.392 μs |    385.5791 μs |    1 |    20074818 B |
+|          YantraJS | droma(...)ase64 [21] |   108,860.979 μs |    697.7800 μs |    5 |   778591469 B |
 |                   |                      |                  |                |      |               |
-|              **Jint** |           **evaluation** |        **27.771 μs** |      **0.0516 μs** |    **2** |       **34880 B** |
-| Jint_ParsedScript |           evaluation |        11.306 μs |      0.0192 μs |    1 |       25152 B |
-|          Jurassic |           evaluation |     1,288.449 μs |      1.1880 μs |    5 |      430506 B |
-|             NilJS |           evaluation |        44.453 μs |      0.0368 μs |    3 |       23792 B |
-|          YantraJS |           evaluation |       122.653 μs |      0.2922 μs |    4 |      175486 B |
+|              **Jint** |           **evaluation** |        **28.773 μs** |      **0.0494 μs** |    **2** |       **36792 B** |
+| Jint_ParsedScript |           evaluation |        11.296 μs |      0.0295 μs |    1 |       27072 B |
+|          Jurassic |           evaluation |     1,291.843 μs |      3.3295 μs |    5 |      430510 B |
+|             NilJS |           evaluation |        45.473 μs |      0.1385 μs |    3 |       24032 B |
+|          YantraJS |           evaluation |       120.995 μs |      0.3959 μs |    4 |      177876 B |
 |                   |                      |                  |                |      |               |
-|              **Jint** |              **linq-js** |     **1,699.223 μs** |      **1.3486 μs** |    **2** |     **1295937 B** |
-| Jint_ParsedScript |              linq-js |        82.746 μs |      0.1714 μs |    1 |      206064 B |
-|          Jurassic |              linq-js |    39,257.886 μs |    618.5241 μs |    3 |     9540326 B |
-|             NilJS |              linq-js |               NA |             NA |    ? |             - |
+|              **Jint** |              **linq-js** |     **1,774.118 μs** |      **8.6162 μs** |    **2** |     **1303058 B** |
+| Jint_ParsedScript |              linq-js |        90.567 μs |      0.2234 μs |    1 |      213218 B |
+|          Jurassic |              linq-js |    39,199.309 μs |    614.5447 μs |    4 |     9525761 B |
+|             NilJS |              linq-js |     7,630.382 μs |     11.3679 μs |    3 |     4226480 B |
 |          YantraJS |              linq-js |               NA |             NA |    ? |             - |
 |                   |                      |                  |                |      |               |
-|              **Jint** |              **minimal** |         **5.252 μs** |      **0.0302 μs** |    **3** |       **13992 B** |
-| Jint_ParsedScript |              minimal |         3.597 μs |      0.0130 μs |    1 |       12496 B |
-|          Jurassic |              minimal |       237.108 μs |      0.2916 μs |    5 |      395505 B |
-|             NilJS |              minimal |         4.659 μs |      0.0061 μs |    2 |        4816 B |
-|          YantraJS |              minimal |       118.594 μs |      0.1637 μs |    4 |      171638 B |
+|              **Jint** |              **minimal** |         **4.937 μs** |      **0.0103 μs** |    **3** |       **14664 B** |
+| Jint_ParsedScript |              minimal |         3.124 μs |      0.0123 μs |    1 |       13168 B |
+|          Jurassic |              minimal |       238.384 μs |      0.6775 μs |    5 |      395506 B |
+|             NilJS |              minimal |         4.751 μs |      0.0103 μs |    2 |        4928 B |
+|          YantraJS |              minimal |       117.579 μs |      0.5920 μs |    4 |      173770 B |
 |                   |                      |                  |                |      |               |
-|              **Jint** |            **stopwatch** |   **384,738.880 μs** |    **920.0042 μs** |    **4** |    **38907168 B** |
-| Jint_ParsedScript |            stopwatch |   383,749.193 μs |    787.7331 μs |    4 |    38877848 B |
-|          Jurassic |            stopwatch |   207,564.195 μs |    656.0519 μs |    2 |   160703632 B |
-|             NilJS |            stopwatch |   240,530.110 μs |    713.6901 μs |    3 |    76378037 B |
-|          YantraJS |            stopwatch |    74,697.115 μs |    247.4887 μs |    1 |   259044927 B |
+|              **Jint** |            **stopwatch** |   **368,697.936 μs** |  **1,043.7863 μs** |    **4** |    **52946080 B** |
+| Jint_ParsedScript |            stopwatch |   408,149.533 μs |  1,052.2644 μs |    5 |    52912288 B |
+|          Jurassic |            stopwatch |   211,731.362 μs |    544.2606 μs |    2 |   160704435 B |
+|             NilJS |            stopwatch |   238,188.624 μs |    480.6546 μs |    3 |    76378157 B |
+|          YantraJS |            stopwatch |    78,043.391 μs |    228.5660 μs |    1 |   264535415 B |
 
 Benchmarks with issues:
-  EngineComparisonBenchmark.NilJS: DefaultJob [FileName=linq-js]
-  EngineComparisonBenchmark.YantraJS: DefaultJob [FileName=linq-js]
-
+EngineComparisonBenchmark.YantraJS: DefaultJob [FileName=linq-js]

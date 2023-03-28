@@ -944,7 +944,14 @@ namespace Jint.Native.Array
 
         internal void EnsureCapacity(uint capacity, bool force = false)
         {
-            if (!force && (capacity > MaxDenseArrayLength || _dense is null || capacity <= (uint) _dense.Length))
+            var dense = _dense;
+
+            if (dense is null)
+            {
+                return;
+            }
+
+            if (!force && (capacity > MaxDenseArrayLength || capacity <= (uint) dense.Length))
             {
                 return;
             }
@@ -956,7 +963,7 @@ namespace Jint.Native.Array
 
             // need to grow
             var newArray = new object[capacity];
-            System.Array.Copy(_dense, newArray, _dense!.Length);
+            System.Array.Copy(dense, newArray, dense.Length);
             _dense = newArray;
             _isObjectArray = true;
         }

@@ -104,7 +104,7 @@ namespace Jint.Native.Function
             }
         }
 
-        internal override IEnumerable<JsValue> GetInitialOwnStringPropertyKeys()
+        internal sealed override IEnumerable<JsValue> GetInitialOwnStringPropertyKeys()
         {
             if (_length != null)
             {

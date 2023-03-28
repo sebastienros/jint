@@ -27,9 +27,9 @@ namespace Jint.Runtime.Interop
         private static readonly Type engineType = typeof(Engine);
         private static readonly Type typeType = typeof(Type);
 
-        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new[] { objectType, typeType, typeof(IFormatProvider) });
-        private static readonly MethodInfo jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject));
-        private static readonly MethodInfo jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject));
+        private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new[] { objectType, typeType, typeof(IFormatProvider) })!;
+        private static readonly MethodInfo jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject))!;
+        private static readonly MethodInfo jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject))!;
 
 
         public DefaultTypeConverter(Engine engine)
@@ -86,7 +86,7 @@ namespace Jint.Runtime.Interop
 
             if (type.IsNullable())
             {
-                type = Nullable.GetUnderlyingType(type);
+                type = Nullable.GetUnderlyingType(type)!;
             }
 
             if (type.IsEnum)
@@ -136,7 +136,7 @@ namespace Jint.Runtime.Interop
                     return false;
                 }
 
-                var targetElementType = type.GetElementType();
+                var targetElementType = type.GetElementType()!;
                 var itemsConverted = new object?[source.Length];
                 for (var i = 0; i < source.Length; i++)
                 {
@@ -197,7 +197,7 @@ namespace Jint.Runtime.Interop
                     }
                 }
 
-                var obj = Activator.CreateInstance(type, constructorParameters);
+                var obj = Activator.CreateInstance(type, constructorParameters)!;
 
                 var members = type.GetMembers();
                 foreach (var member in members)
@@ -248,7 +248,7 @@ namespace Jint.Runtime.Interop
         private Delegate BuildDelegate(Type type, Func<JsValue, JsValue[], JsValue> function)
         {
             var method = type.GetMethod("Invoke");
-            var arguments = method.GetParameters();
+            var arguments = method!.GetParameters();
 
             var parameters = new ParameterExpression[arguments.Length];
             for (var i = 0; i < parameters.Length; i++)
@@ -336,7 +336,7 @@ namespace Jint.Runtime.Interop
                 try
                 {
                     converted = castOperator.Invoke(null, new[] { value });
-                    return true;
+                    return converted is not null;
                 }
                 catch
                 {

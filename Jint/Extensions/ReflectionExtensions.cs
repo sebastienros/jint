@@ -127,7 +127,7 @@ namespace Jint.Extensions
         }
 
         public static bool TryConvertViaTypeCoercion(
-            Type memberType,
+            Type? memberType,
             ValueCoercionType valueCoercionType,
             JsValue value,
             [NotNullWhen(true)] out object? converted)
@@ -155,7 +155,7 @@ namespace Jint.Extensions
                 return true;
             }
 
-            if (memberType.IsClrNumericCoercible() && (valueCoercionType & ValueCoercionType.Number) != 0)
+            if (memberType is not null && memberType.IsClrNumericCoercible() && (valueCoercionType & ValueCoercionType.Number) != 0)
             {
                 // we know how to print out correct string presentation for primitives
                 // that are non-null and non-undefined
