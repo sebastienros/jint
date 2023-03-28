@@ -196,13 +196,13 @@ namespace Jint.Runtime.Interop
 
                 for (var i = 0; i < enumValues.Length; i++)
                 {
-                    var enumOriginalName = enumNames.GetValue(i).ToString();
+                    var enumOriginalName = enumNames.GetValue(i)?.ToString() ?? "";
                     var member = type.GetMember(enumOriginalName)[0];
                     foreach (var exposedName in typeResolverMemberNameCreator(member))
                     {
                         if (memberNameComparer.Equals(name, exposedName))
                         {
-                            var value = enumValues.GetValue(i);
+                            var value = enumValues.GetValue(i)!;
                             return new ConstantValueAccessor(JsNumber.Create(value));
                         }
                     }

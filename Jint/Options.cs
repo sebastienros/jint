@@ -319,7 +319,7 @@ namespace Jint
         /// <summary>
         /// Strategy to create a CLR object to hold converted <see cref="ObjectInstance"/>.
         /// </summary>
-        public Func<ObjectInstance, IDictionary<string, object>> CreateClrObject = _ => new ExpandoObject();
+        public Func<ObjectInstance, IDictionary<string, object?>> CreateClrObject = _ => new ExpandoObject();
 
         /// <summary>
         /// Strategy to create a CLR object from TypeReference.
