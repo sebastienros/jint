@@ -290,7 +290,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return base.IsLooselyEqual(value);
     }
 
-    public sealed override bool Equals(object obj)
+    public sealed override bool Equals(object? obj)
     {
         return Equals(obj as JsString);
     }

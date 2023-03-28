@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -46,7 +47,7 @@ namespace Jint.Runtime.Interop.Reflection
 
         public bool HasMethods => _allExtensionMethods.Count > 0;
 
-        public bool TryGetExtensionMethods(Type objectType, out MethodInfo[] methods)
+        public bool TryGetExtensionMethods(Type objectType, [NotNullWhen((true))] out MethodInfo[]? methods)
         {
             var methodLookup = _extensionMethods;
 

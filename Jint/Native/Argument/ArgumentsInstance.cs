@@ -73,7 +73,7 @@ namespace Jint.Native.Argument
                 ObjectInstance? map = null;
                 if (args.Length > 0)
                 {
-                    var mappedNamed = _mappedNamed.Value;
+                    var mappedNamed = _mappedNamed.Value!;
                     mappedNamed.Clear();
 
                     map = Engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);

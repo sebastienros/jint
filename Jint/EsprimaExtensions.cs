@@ -158,7 +158,7 @@ namespace Jint
                 return TypeConverter.ToString(d);
             }
 
-            return literal.Value as string ?? Convert.ToString(literal.Value, provider: null);
+            return literal.Value as string ?? Convert.ToString(literal.Value, provider: null) ?? "";
         }
 
         internal static void GetBoundNames(this VariableDeclaration variableDeclaration, List<string> target)

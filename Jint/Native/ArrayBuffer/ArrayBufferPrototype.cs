@@ -165,7 +165,7 @@ namespace Jint.Native.ArrayBuffer
 
             var fromBuf = o.ArrayBufferData;
             var toBuf = bufferInstance.ArrayBufferData;
-            System.Array.Copy(fromBuf, first, toBuf, 0, newLen);
+            System.Array.Copy(fromBuf!, first, toBuf!, 0, newLen);
             return bufferInstance;
         }
     }

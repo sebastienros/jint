@@ -1435,8 +1435,28 @@ namespace Jint.Native.TypedArray
                 _compare = compare;
             }
 
-            public int Compare(JsValue x, JsValue y)
+            public int Compare(JsValue? x, JsValue? y)
             {
+                if (x is null && y is null)
+                {
+                    return 0;
+                }
+
+                if (x is not null && y is null)
+                {
+                    return 1;
+                }
+
+                if (x is null)
+                {
+                    return -1;
+                }
+
+                if (y is null)
+                {
+                    return 1;
+                }
+
                 if (_compare is not null)
                 {
                     _comparableArray[0] = x;

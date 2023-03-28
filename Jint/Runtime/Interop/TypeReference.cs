@@ -96,9 +96,9 @@ namespace Jint.Runtime.Interop
                         return list.ToArray();
                     });
 
-                    foreach (var (method, _, _) in TypeConverter.FindBestMatch(engine, constructors, argumentProvider))
+                    foreach (var (method, methodArguments, _) in TypeConverter.FindBestMatch(engine, constructors, argumentProvider))
                     {
-                        var retVal = method.Call(engine, null, argumentProvider(method));
+                        var retVal = method.Call(engine, null, methodArguments);
                         result = TypeConverter.ToObject(realm, retVal);
 
                         // todo: cache method info
@@ -219,13 +219,13 @@ namespace Jint.Runtime.Interop
 
                 for (var i = 0; i < enumValues.Length; i++)
                 {
-                    var enumOriginalName = enumNames.GetValue(i).ToString();
+                    var enumOriginalName = enumNames.GetValue(i)?.ToString() ?? "";
                     var member = type.GetMember(enumOriginalName)[0];
                     foreach (var exposedName in typeResolverMemberNameCreator(member))
                     {
                         if (memberNameComparer.Equals(name, exposedName))
                         {
-                            var value = enumValues.GetValue(i);
+                            var value = enumValues.GetValue(i)!;
                             return new ConstantValueAccessor(JsNumber.Create(value));
                         }
                     }
