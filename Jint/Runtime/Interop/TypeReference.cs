@@ -73,9 +73,93 @@ namespace Jint.Runtime.Interop
                         referenceType,
                         t => MethodDescriptor.Build(t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)));
 
-                    foreach (var (method, _, _) in TypeConverter.FindBestMatch(engine, constructors, _ => arguments))
+                    var argumentProvider = new Func<MethodDescriptor, JsValue[]>(method =>
                     {
-                        var retVal = method.Call(engine, null, arguments);
+                        var parameters = method.Parameters;
+
+                        if (parameters.Length == 0)
+                        {
+                            return arguments;
+                        }
+
+                        var newArguments = new JsValue[parameters.Length];
+                        var currentParameter = parameters[parameters.Length - 1];
+                        var isParamArray = currentParameter.ParameterType.IsArray &&
+                                           currentParameter.GetCustomAttribute(typeof(ParamArrayAttribute)) is not null;
+
+                        // last parameter is a ParamArray
+                        if (isParamArray && arguments.Length >= parameters.Length - 1)
+                        {
+                            var currentArgument = JsValue.Undefined;
+
+                            if (arguments.Length > parameters.Length - 1)
+                            {
+                                currentArgument = arguments[parameters.Length - 1];
+                            }
+
+                            // nothing to do, is an array as expected
+                            if (currentArgument.IsArray())
+                            {
+                                return arguments;
+                            }
+
+                            Array.Copy(arguments, 0, newArguments, 0, parameters.Length - 1);
+
+                            // the last argument is null or undefined and there are exactly the same arguments and parameters
+                            if (currentArgument.IsNullOrUndefined() && parameters.Length == arguments.Length)
+                            {
+                                // this fix the issue with CLR that receives a null ParamArray instead of an empty one
+                                newArguments[parameters.Length - 1] = new JsArray(engine, 0);
+                                return newArguments;
+                            }
+
+                            // pack the rest of the arguments into an array, as CLR expects
+                            var paramArray = new JsValue[Math.Max(0, arguments.Length - (parameters.Length - 1))];
+                            if (paramArray.Length > 0)
+                            {
+                                Array.Copy(arguments, parameters.Length - 1, paramArray, 0, paramArray.Length);
+                            }
+                            newArguments[parameters.Length - 1] = new JsArray(engine, paramArray);
+
+                            return newArguments;
+                        }
+                        // TODO: edge case, last parameter is ParamArray with optional parameter before?
+                        else if (isParamArray && arguments.Length < parameters.Length - 1)
+                        {
+                            return arguments;
+                        }
+                        // optional parameters
+                        else if (parameters.Length >= arguments.Length)
+                        {
+                            Array.Copy(arguments, 0, newArguments, 0, arguments.Length);
+
+                            for (var i = parameters.Length - 1; i >= 0; i--)
+                            {
+                                currentParameter = parameters[i];
+
+                                if (i >= arguments.Length - 1)
+                                {
+                                    if (!currentParameter.IsOptional)
+                                    {
+                                        break;
+                                    }
+
+                                    if (arguments.Length - 1 < i || arguments[i].IsUndefined())
+                                    {
+                                        newArguments[i] = JsValue.FromObject(engine, currentParameter.DefaultValue);
+                                    }
+                                }
+                            }
+
+                            return newArguments;
+                        }
+
+                        return arguments;
+                    });
+
+                    foreach (var (method, methodArguments, _) in TypeConverter.FindBestMatch(engine, constructors, argumentProvider))
+                    {
+                        var retVal = method.Call(engine, null, methodArguments);
                         result = TypeConverter.ToObject(realm, retVal);
 
                         // todo: cache method info
