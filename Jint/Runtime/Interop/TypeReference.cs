@@ -25,7 +25,7 @@ namespace Jint.Runtime.Interop
             _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
 
-            var proto = new TypeReferencePrototypeDescriptor(engine, this);
+            var proto = new TypeReferencePrototype(engine, this);
             _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.AllForbidden);
 
             PreventExtensions();
@@ -191,7 +191,7 @@ namespace Jint.Runtime.Interop
 
         public override bool Equals(JsValue? obj)
         {
-            if (obj is not null && obj is TypeReference typeReference)
+            if (obj is TypeReference typeReference)
             {
                 return this.ReferenceType == typeReference.ReferenceType;
             }
@@ -304,8 +304,8 @@ namespace Jint.Runtime.Interop
                 return ConstantValueAccessor.NullAccessor;
             }
 
-            const BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
-            return typeResolver.TryFindMemberAccessor(engine, type, name, bindingFlags, indexerToTry: null, out var accessor)
+            const BindingFlags BindingFlags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+            return typeResolver.TryFindMemberAccessor(engine, type, name, BindingFlags, indexerToTry: null, out var accessor)
                 ? accessor
                 : ConstantValueAccessor.NullAccessor;
         }
@@ -316,27 +316,20 @@ namespace Jint.Runtime.Interop
         {
             var typeReference = thisObject as TypeReference;
             var other = arguments.At(0);
-            Type baseType, derivedType;
 
             if (typeReference is null)
             {
                 return JsBoolean.False;
             }
 
-            baseType = typeReference.ReferenceType;
+            var baseType = typeReference.ReferenceType;
 
-            if (other is ObjectWrapper wrapper)
+            var derivedType = other switch
             {
-                derivedType = wrapper.Target.GetType();
-            }
-            else if (other is TypeReferencePrototypeDescriptor otherTypeReference)
-            {
-                derivedType = otherTypeReference.TypeReference.ReferenceType;
-            }
-            else
-            {
-                return JsBoolean.False;
-            }
+                ObjectWrapper wrapper => wrapper.Target.GetType(),
+                TypeReferencePrototype otherTypeReference => otherTypeReference.TypeReference.ReferenceType,
+                _ => null
+            };
 
             return derivedType != null && baseType != null && (derivedType == baseType || derivedType.IsSubclassOf(baseType));
         }

@@ -1,40 +1,14 @@
-//using Jint.Native;
-//using Jint.Native.Object;
+﻿using Jint.Native.Object;
 
-//namespace Jint.Runtime.Interop
-//{
-//    public sealed class TypeReferencePrototype : ObjectInstance
-//    {
-//        private TypeReferencePrototype(Engine engine)
-//            : base(engine)
-//        {
-//        }
+namespace Jint.Runtime.Interop;
 
-//        public static TypeReferencePrototype CreatePrototypeObject(Engine engine, TypeReference typeReferenceConstructor)
-//        {
-//            var obj = new TypeReferencePrototype(engine);
-//            obj.Prototype = engine.Object.PrototypeObject;
-//            obj.Extensible = false;
+internal sealed class TypeReferencePrototype : ObjectInstance
+{
+    public TypeReferencePrototype(Engine engine, TypeReference typeReference) : base(engine)
+    {
+        TypeReference = typeReference;
+        _prototype = engine.Realm.Intrinsics.Object.PrototypeObject;
+    }
 
-//            obj.FastAddProperty("constructor", typeReferenceConstructor, true, false, true);
-
-//            return obj;
-//        }
-
-//        public void Configure()
-//        {
-//            FastAddProperty("toString", new ClrFunctionInstance(Engine, ToTypeReferenceString), true, false, true);
-//        }
-
-//        private JsValue ToTypeReferenceString(JsValue thisObj, JsValue[] arguments)
-//        {
-//            var typeReference = thisObj.As<TypeReference>();
-//            if (typeReference == null)
-//            {
-//                ExceptionHelper.ThrowTypeError(Engine);
-//            }
-
-//            return typeReference.Type.FullName;
-//        }
-//    }
-//}
+    public TypeReference TypeReference { get; }
+}
