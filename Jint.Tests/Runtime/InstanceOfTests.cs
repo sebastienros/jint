@@ -19,6 +19,7 @@ public class InstanceOfTests
         Assert.True(engine.Evaluate("A == AToo").AsBoolean());
         Assert.True(engine.Evaluate("A === AToo").AsBoolean());
 
+        Assert.True(engine.Evaluate("A.prototype instanceof A").AsBoolean());
         Assert.True(engine.Evaluate("B.prototype instanceof A").AsBoolean());
         Assert.False(engine.Evaluate("A.prototype instanceof B").AsBoolean());
         Assert.True(engine.Evaluate("C.prototype instanceof A").AsBoolean());
