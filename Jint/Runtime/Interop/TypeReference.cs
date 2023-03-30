@@ -25,7 +25,7 @@ namespace Jint.Runtime.Interop
             _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
 
-            var proto = new JsObject(engine);
+            var proto = new TypeReferencePrototypeDescriptor(engine, this);
             _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.AllForbidden);
 
             PreventExtensions();
@@ -184,11 +184,20 @@ namespace Jint.Runtime.Interop
                 ObjectCreator,
                 new ObjectCreateState(this, arguments));
 
-
             return thisArgument;
         }
 
         private readonly record struct ObjectCreateState(TypeReference TypeReference, JsValue[] Arguments);
+
+        public override bool Equals(JsValue? obj)
+        {
+            if (obj is not null && obj is TypeReference typeReference)
+            {
+                return this.ReferenceType == typeReference.ReferenceType;
+            }
+
+            return base.Equals(obj);
+        }
 
         internal override bool OrdinaryHasInstance(JsValue v)
         {
@@ -306,15 +315,28 @@ namespace Jint.Runtime.Interop
         private static JsValue HasInstance(JsValue thisObject, JsValue[] arguments)
         {
             var typeReference = thisObject as TypeReference;
-            var objectWrapper = arguments.At(0) as ObjectWrapper;
+            var other = arguments.At(0);
+            Type baseType, derivedType;
 
-            if (typeReference is null || objectWrapper is null)
+            if (typeReference is null)
             {
                 return JsBoolean.False;
             }
 
-            var derivedType = objectWrapper.Target?.GetType();
-            var baseType = typeReference.ReferenceType;
+            baseType = typeReference.ReferenceType;
+
+            if (other is ObjectWrapper wrapper)
+            {
+                derivedType = wrapper.Target.GetType();
+            }
+            else if (other is TypeReferencePrototypeDescriptor otherTypeReference)
+            {
+                derivedType = otherTypeReference.TypeReference.ReferenceType;
+            }
+            else
+            {
+                return JsBoolean.False;
+            }
 
             return derivedType != null && baseType != null && (derivedType == baseType || derivedType.IsSubclassOf(baseType));
         }
