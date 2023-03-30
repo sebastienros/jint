@@ -25,7 +25,7 @@ namespace Jint.Runtime.Interop
             _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
             _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
 
-            var proto = new JsObject(engine);
+            var proto = new TypeReferencePrototype(engine, this);
             _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.AllForbidden);
 
             PreventExtensions();
@@ -184,11 +184,20 @@ namespace Jint.Runtime.Interop
                 ObjectCreator,
                 new ObjectCreateState(this, arguments));
 
-
             return thisArgument;
         }
 
         private readonly record struct ObjectCreateState(TypeReference TypeReference, JsValue[] Arguments);
+
+        public override bool Equals(JsValue? obj)
+        {
+            if (obj is TypeReference typeReference)
+            {
+                return this.ReferenceType == typeReference.ReferenceType;
+            }
+
+            return base.Equals(obj);
+        }
 
         internal override bool OrdinaryHasInstance(JsValue v)
         {
@@ -295,8 +304,8 @@ namespace Jint.Runtime.Interop
                 return ConstantValueAccessor.NullAccessor;
             }
 
-            const BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
-            return typeResolver.TryFindMemberAccessor(engine, type, name, bindingFlags, indexerToTry: null, out var accessor)
+            const BindingFlags BindingFlags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+            return typeResolver.TryFindMemberAccessor(engine, type, name, BindingFlags, indexerToTry: null, out var accessor)
                 ? accessor
                 : ConstantValueAccessor.NullAccessor;
         }
@@ -306,15 +315,21 @@ namespace Jint.Runtime.Interop
         private static JsValue HasInstance(JsValue thisObject, JsValue[] arguments)
         {
             var typeReference = thisObject as TypeReference;
-            var objectWrapper = arguments.At(0) as ObjectWrapper;
+            var other = arguments.At(0);
 
-            if (typeReference is null || objectWrapper is null)
+            if (typeReference is null)
             {
                 return JsBoolean.False;
             }
 
-            var derivedType = objectWrapper.Target?.GetType();
             var baseType = typeReference.ReferenceType;
+
+            var derivedType = other switch
+            {
+                ObjectWrapper wrapper => wrapper.Target.GetType(),
+                TypeReferencePrototype otherTypeReference => otherTypeReference.TypeReference.ReferenceType,
+                _ => null
+            };
 
             return derivedType != null && baseType != null && (derivedType == baseType || derivedType.IsSubclassOf(baseType));
         }
