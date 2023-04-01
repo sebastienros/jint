@@ -70,14 +70,6 @@ internal sealed class JintFunctionDefinition
         }
         else
         {
-            // check the stack for the presence of a DelegateWrapper with SpreadParameters set to true
-            if (context.Engine.CallStack.TryPeek(out var stackItem) &&
-                stackItem.Function is DelegateWrapper wrapper &&
-                wrapper.SpreadParameters)
-            {
-                argumentsList = DelegateWrapper.GetSpreadParameters(argumentsList);
-            }
-
             if (Function.Async)
             {
                 var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);

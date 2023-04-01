@@ -18,11 +18,10 @@ namespace Jint.Runtime.Interop
         private readonly bool _delegateContainsParamsArgument;
 
         public DelegateWrapper(
-            Engine engine, Delegate d, bool spreadParameters = false)
+            Engine engine, Delegate d)
             : base(engine, engine.Realm, _name, FunctionThisMode.Global)
         {
             _d = d;
-            SpreadParameters = spreadParameters;
             _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
 
             var parameterInfos = _d.Method.GetParameters();
@@ -37,8 +36,6 @@ namespace Jint.Runtime.Interop
                 }
             }
         }
-
-        public bool SpreadParameters { get; }
 
         protected internal override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
         {

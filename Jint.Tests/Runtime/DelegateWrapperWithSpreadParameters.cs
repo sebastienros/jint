@@ -8,7 +8,7 @@ namespace Jint.Tests.Runtime
         public void ShouldSpreadParameters()
         {
             var engine = new Engine();
-            engine.SetValue("registerCallback", new DelegateWrapper(engine, new RegisterCallbackDelegate(RegisterCallback), true));
+            engine.SetValue("registerCallback", new DelegateWrapper(engine, new RegisterCallbackDelegate(RegisterCallback)));
 
             engine.Execute(@"
                 var argsConcat = '';
@@ -29,7 +29,7 @@ namespace Jint.Tests.Runtime
 
         private delegate void RegisterCallbackDelegate(CallbackAction callback, params object[] arguments);
 
-        private delegate void CallbackAction(params object[] arguments);
+        private delegate void CallbackAction([SpreadParameters] params object[] arguments);
 
     }
 }
