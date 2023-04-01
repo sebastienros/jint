@@ -5,6 +5,7 @@ using Jint.Native.Argument;
 using Jint.Native.Function;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter;
@@ -69,14 +70,22 @@ internal sealed class JintFunctionDefinition
         }
         else
         {
+            // check the stack for the presence of a DelegateWrapper with SpreadParameters set to true
+            if (context.Engine.CallStack.TryPeek(out var stackItem) &&
+                stackItem.Function is DelegateWrapper wrapper &&
+                wrapper.SpreadParameters)
+            {
+                argumentsList = DelegateWrapper.GetSpreadParameters(argumentsList);
+            }
+
             if (Function.Async)
             {
                 var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
                 _bodyStatementList ??= new JintStatementList(Function);
                 AsyncFunctionStart(context, promiseCapability, context =>
                 {
-                     context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
-                     return _bodyStatementList.Execute(context);
+                    context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+                    return _bodyStatementList.Execute(context);
                 });
                 result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
             }

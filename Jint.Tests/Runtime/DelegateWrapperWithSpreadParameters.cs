@@ -1,16 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Jint.Runtime.Interop;
+﻿using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime
 {
     public class DelegateWrapperWithSpreadParameters
     {
         [Fact]
-        public void Test()
+        public void ShouldSpreadParameters()
         {
             var engine = new Engine();
             engine.SetValue("registerCallback", new DelegateWrapper(engine, new RegisterCallbackDelegate(RegisterCallback), true));

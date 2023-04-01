@@ -59,22 +59,6 @@ namespace Jint.Native.Function
             var strict = _functionDefinition.Strict || _thisMode == FunctionThisMode.Strict;
             using (new StrictModeScope(strict, true))
             {
-                // check the stack for the presence of a DelegateWrapper with SpreadParameters set to true
-                if (_engine.CallStack.TryPeek(out var stackItem) &&
-                    stackItem.Function is DelegateWrapper wrapper &&
-                    wrapper.SpreadParameters &&
-                    arguments.Length == 1 &&
-                    arguments[0] is JsArray array)
-                {
-                    var oldArguments = array.ToArray();
-                    var newArguments = new JsValue[array.Length];
-                    for (int i = 0; i < newArguments.Length; i++)
-                    {
-                        newArguments[i] = oldArguments[i];
-                    }
-                    arguments = newArguments;
-                }
-
                 try
                 {
                     var calleeContext = PrepareForOrdinaryCall(Undefined);
