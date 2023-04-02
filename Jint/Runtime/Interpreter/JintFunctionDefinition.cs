@@ -75,8 +75,8 @@ internal sealed class JintFunctionDefinition
                 _bodyStatementList ??= new JintStatementList(Function);
                 AsyncFunctionStart(context, promiseCapability, context =>
                 {
-                     context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
-                     return _bodyStatementList.Execute(context);
+                    context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+                    return _bodyStatementList.Execute(context);
                 });
                 result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
             }

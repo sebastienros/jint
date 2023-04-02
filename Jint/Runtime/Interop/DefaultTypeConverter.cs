@@ -256,18 +256,33 @@ namespace Jint.Runtime.Interop
                 parameters[i] = Expression.Parameter(arguments[i].ParameterType, arguments[i].Name);
             }
 
-            var initializers = new MethodCallExpression[parameters.Length];
+            var initializers = new List<MethodCallExpression>(parameters.Length);
+
             for (var i = 0; i < parameters.Length; i++)
             {
                 var param = parameters[i];
                 if (param.Type.IsValueType)
                 {
                     var boxing = Expression.Convert(param, objectType);
-                    initializers[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), boxing);
+                    initializers.Add(Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), boxing));
+                }
+                else if (param.Type.IsArray &&
+                         arguments[i].GetCustomAttribute<ParamArrayAttribute>() is not null &&
+                         function.Target is FunctionInstance instance)
+                {
+                    for (var j = 0; j < instance.Length; j++)
+                    {
+                        var returnLabel = Expression.Label(typeof(object));
+                        var checkIndex = Expression.GreaterThanOrEqual(Expression.Property(param, nameof(Array.Length)), Expression.Constant(j));
+                        var condition = Expression.IfThen(checkIndex, Expression.Return(returnLabel, Expression.ArrayAccess(param, Expression.Constant(j))));
+                        var block = Expression.Block(condition, Expression.Label(returnLabel, Expression.Constant(JsValue.Undefined)));
+
+                        initializers.Add(Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), block));
+                    }
                 }
                 else
                 {
-                    initializers[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), param);
+                    initializers.Add(Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), param));
                 }
             }
 
