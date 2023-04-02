@@ -5,7 +5,6 @@ using Jint.Native.Argument;
 using Jint.Native.Function;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
-using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter;

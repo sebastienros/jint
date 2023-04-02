@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
@@ -138,22 +137,6 @@ namespace Jint.Runtime.Interop
                 ExceptionHelper.ThrowMeaningfulException(_engine, exception);
                 throw;
             }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static JsValue[] GetSpreadParameters(JsValue[] parameters)
-        {
-            if (parameters is not null &&
-                parameters.Length == 1 &&
-                parameters[0] is JsArray array)
-            {
-                var oldParameters = array.ToArray();
-                var newParameters = new JsValue[array.Length];
-                Array.Copy(oldParameters, 0, newParameters, 0, newParameters.Length);
-                return newParameters;
-            }
-
-            return parameters!;
         }
     }
 }
