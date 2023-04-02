@@ -29,7 +29,6 @@ namespace Jint.Tests.Runtime
 
         private delegate void RegisterCallbackDelegate(CallbackAction callback, params object[] arguments);
 
-        private delegate void CallbackAction([SpreadParameters] params object[] arguments);
-
+        private delegate void CallbackAction(params object[] arguments);
     }
 }

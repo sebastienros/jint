@@ -256,43 +256,33 @@ namespace Jint.Runtime.Interop
                 parameters[i] = Expression.Parameter(arguments[i].ParameterType, arguments[i].Name);
             }
 
-            MethodCallExpression[] initializers;
+            var initializers = new List<MethodCallExpression>(parameters.Length);
 
-            if (arguments.Length == 1 &&
-                arguments[0] is ParameterInfo argument &&
-                argument.GetCustomAttribute<ParamArrayAttribute>() is not null &&
-                argument.GetCustomAttribute<SpreadParametersAttribute>() is not null &&
-                function.Target is FunctionInstance instance)
+            for (var i = 0; i < parameters.Length; i++)
             {
-                initializers = new MethodCallExpression[instance.Length];
-                for (var i = 0; i < instance.Length; i++)
+                var param = parameters[i];
+                if (param.Type.IsValueType)
                 {
-                    var array = parameters[0];
-                    var returnLabel = Expression.Label(typeof(object));
-                    var checkIndex = Expression.GreaterThanOrEqual(Expression.Property(array, "Length"), Expression.Constant(i));
-                    var condition = Expression.IfThenElse(checkIndex,
-                        Expression.Return(returnLabel, Expression.ArrayAccess(array, Expression.Constant(i))),
-                        Expression.Return(returnLabel, Expression.Constant(JsValue.Undefined)));
-                    var block = Expression.Block(condition, Expression.Label(returnLabel, Expression.Constant(JsValue.Undefined)));
-
-                    initializers[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), block);
+                    var boxing = Expression.Convert(param, objectType);
+                    initializers.Add(Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), boxing));
                 }
-            }
-            else
-            {
-                initializers = new MethodCallExpression[parameters.Length];
-                for (var i = 0; i < parameters.Length; i++)
+                else if (param.Type.IsArray &&
+                         arguments[i].GetCustomAttribute<ParamArrayAttribute>() is not null &&
+                         function.Target is FunctionInstance instance)
                 {
-                    var param = parameters[i];
-                    if (param.Type.IsValueType)
+                    for (var j = 0; j < instance.Length; j++)
                     {
-                        var boxing = Expression.Convert(param, objectType);
-                        initializers[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), boxing);
+                        var returnLabel = Expression.Label(typeof(object));
+                        var checkIndex = Expression.GreaterThanOrEqual(Expression.Property(param, nameof(Array.Length)), Expression.Constant(j));
+                        var condition = Expression.IfThen(checkIndex, Expression.Return(returnLabel, Expression.ArrayAccess(param, Expression.Constant(j))));
+                        var block = Expression.Block(condition, Expression.Label(returnLabel, Expression.Constant(JsValue.Undefined)));
+
+                        initializers.Add(Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), block));
                     }
-                    else
-                    {
-                        initializers[i] = Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), param);
-                    }
+                }
+                else
+                {
+                    initializers.Add(Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), param));
                 }
             }
 
