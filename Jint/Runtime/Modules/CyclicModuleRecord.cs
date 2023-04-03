@@ -1,5 +1,6 @@
 ﻿#nullable disable
 
+using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Promise;
@@ -39,6 +40,8 @@ public abstract class CyclicModuleRecord : ModuleRecord
     }
 
     internal ModuleStatus Status { get; private set; }
+
+    internal Location AbnormalCompletionLocation { get; private set; }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-moduledeclarationlinking
@@ -121,7 +124,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
         module._topLevelCapability = capability;
 
         var result = module.InnerModuleEvaluation(stack, 0, ref asyncEvalOrder);
-
+        
         if (result.Type != CompletionType.Normal)
         {
             foreach (var m in stack)
@@ -130,6 +133,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
                 m._evalError = result;
             }
 
+            AbnormalCompletionLocation = result.Location;
             capability.Reject.Call(Undefined, new[] { result.Value });
         }
         else

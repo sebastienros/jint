@@ -154,7 +154,11 @@ namespace Jint
             }
             else if (promise.State == PromiseState.Rejected)
             {
-                var node = EsprimaExtensions.CreateLocationNode(Location.From(new Position(), new Position(), specifier));
+                var location = cyclicModule is CyclicModuleRecord cyclicModuleRecord
+                    ? cyclicModuleRecord.AbnormalCompletionLocation
+                    : Location.From(new Position(), new Position());
+
+                var node = EsprimaExtensions.CreateLocationNode(location);
                 ExceptionHelper.ThrowJavaScriptException(this, promise.Value, node.Location);
             }
             else if (promise.State != PromiseState.Fulfilled)
