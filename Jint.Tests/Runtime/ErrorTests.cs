@@ -459,6 +459,23 @@ $variable1 + -variable2 - variable3;");
             Assert.Equal("foo is not defined", exception.Message);
         }
 
+        [Fact]
+        public void JavaScriptExceptionLocationOnModuleShouldBeRight()
+        {
+            var engine = new Engine();
+            engine.AddModule("my_module", @"
+function throw_error(){
+    throw Error(""custom error"")
+}
+
+throw_error();
+            ");
+
+            var ex= Assert.Throws<JavaScriptException>(() => engine.ImportModule("my_module"));
+            Assert.Equal(ex.Location.Start.Line, 3);
+            Assert.Equal(ex.Location.Start.Column, 10);
+        }
+
         private static void EqualIgnoringNewLineDifferences(string expected, string actual)
         {
             expected = expected.Replace("\r\n", "\n");
