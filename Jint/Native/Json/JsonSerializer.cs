@@ -301,9 +301,10 @@ namespace Jint.Native.Json
         /// <summary>
         /// https://tc39.es/ecma262/#sec-quotejsonstring
         /// </summary>
-#if NETCOREAPP1_0_OR_GREATER
-        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-#endif
+        /// <remarks>
+        /// MethodImplOptions.AggressiveOptimization = 512 which is only exposed in .NET Core.
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions)512)]
         private static unsafe void QuoteJSONString(string value, StringBuilder target)
         {
             if (value.Length == 0)
@@ -355,7 +356,6 @@ namespace Jint.Native.Json
             target.Append('"');
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void AppendJsonStringCharacter(string value, ref int index, StringBuilder target)
         {
             var c = value[index];
