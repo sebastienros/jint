@@ -890,7 +890,8 @@ namespace Jint.Runtime
 
             using var stringBuilder = StringBuilderPool.Rent();
             // we can create smaller array as we know the format to be short
-            return NumberPrototype.NumberToString(d, CreateDtoaBuilderForDouble(), stringBuilder.Builder);
+            NumberPrototype.NumberToString(d, CreateDtoaBuilderForDouble(), stringBuilder.Builder);
+            return stringBuilder.Builder.ToString();
         }
 
         /// <summary>
