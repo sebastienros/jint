@@ -54,9 +54,8 @@ namespace Jint.Native.Json
             wrapper.DefineOwnProperty(JsString.Empty, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
 
             using var jsonBuilder = StringBuilderPool.Rent();
-            using var numberBuilder = StringBuilderPool.Rent();
 
-            var target = new SerializerState(jsonBuilder.Builder, numberBuilder.Builder);
+            var target = new SerializerState(jsonBuilder.Builder);
             if (SerializeJSONProperty(JsString.Empty, wrapper, ref target) == SerializeResult.Undefined)
             {
                 return JsValue.Undefined;
@@ -160,7 +159,7 @@ namespace Jint.Native.Json
 
             if (ReferenceEquals(value, JsValue.Null))
             {
-                target.Json.Append(JsString.NullString);
+                target.Json.Append("null");
                 return SerializeResult.NotUndefined;
             }
 
@@ -172,7 +171,7 @@ namespace Jint.Native.Json
 
             if (value.IsString())
             {
-                QuoteJSONString(value.ToString(), ref target);
+                QuoteJSONString(value.ToString(), target.Json);
                 return SerializeResult.NotUndefined;
             }
 
@@ -195,9 +194,8 @@ namespace Jint.Native.Json
                         return SerializeResult.NotUndefined;
                     }
 
-                    target.NumberBuffer.Clear();
                     target.DtoaBuilder.Reset();
-                    target.Json.Append(NumberPrototype.NumberToString(doubleValue, target.DtoaBuilder, target.NumberBuffer));
+                    NumberPrototype.NumberToString(doubleValue, target.DtoaBuilder, target.Json);
                     return SerializeResult.NotUndefined;
                 }
 
@@ -303,63 +301,110 @@ namespace Jint.Native.Json
         /// <summary>
         /// https://tc39.es/ecma262/#sec-quotejsonstring
         /// </summary>
-        private static void QuoteJSONString(string value, ref SerializerState target)
+#if NETCOREAPP1_0_OR_GREATER
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+#endif
+        private static unsafe void QuoteJSONString(string value, StringBuilder target)
         {
             if (value.Length == 0)
             {
-                target.Json.Append("\"\"");
+                target.Append("\"\"");
                 return;
             }
 
-            target.Json.Append('"');
-            for (var i = 0; i < value.Length; i++)
-            {
-                var c = value[i];
-                switch (c)
-                {
-                    case '\"':
-                        target.Json.Append("\\\"");
-                        break;
-                    case '\\':
-                        target.Json.Append("\\\\");
-                        break;
-                    case '\b':
-                        target.Json.Append("\\b");
-                        break;
-                    case '\f':
-                        target.Json.Append("\\f");
-                        break;
-                    case '\n':
-                        target.Json.Append("\\n");
-                        break;
-                    case '\r':
-                        target.Json.Append("\\r");
-                        break;
-                    case '\t':
-                        target.Json.Append("\\t");
-                        break;
-                    default:
-                        if (char.IsSurrogatePair(value, i))
-                        {
-                            target.Json.Append(value[i]);
-                            i++;
-                            target.Json.Append(value[i]);
-                        }
-                        else if (c < 0x20 || char.IsSurrogate(c))
-                        {
-                            target.Json.Append("\\u");
-                            target.Json.Append(((int) c).ToString("x4"));
-                        }
-                        else
-                        {
-                            target.Json.Append(c);
-                        }
+            target.Append('"');
 
+#if NETCOREAPP1_0_OR_GREATER
+            fixed (char* ptr = value)
+            {
+                int remainingLength = value.Length;
+                int offset = 0;
+                while (true)
+                {
+                    int index = System.Text.Encodings.Web.JavaScriptEncoder.Default.FindFirstCharacterToEncode(ptr + offset, remainingLength);
+                    if (index < 0)
+                    {
+                        // append the remaining text which doesn't need any encoding.
+                        target.Append(value.AsSpan(offset));
                         break;
+                    }
+
+                    index += offset;
+                    if (index - offset > 0)
+                    {
+                        // append everything which does not need any encoding until the found index.
+                        target.Append(value.AsSpan(offset, index - offset));
+                    }
+
+                    AppendJsonStringCharacter(value, ref index, target);
+
+                    offset = index + 1;
+                    remainingLength = value.Length - offset;
+                    if (remainingLength == 0)
+                    {
+                        break;
+                    }
                 }
             }
+#else
+            for (var i = 0; i < value.Length; i++)
+            {
+                AppendJsonStringCharacter(value, ref i, target);
+            }
+#endif
+            target.Append('"');
+        }
 
-            target.Json.Append('"');
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void AppendJsonStringCharacter(string value, ref int index, StringBuilder target)
+        {
+            var c = value[index];
+            switch (c)
+            {
+                case '\"':
+                    target.Append("\\\"");
+                    break;
+                case '\\':
+                    target.Append("\\\\");
+                    break;
+                case '\b':
+                    target.Append("\\b");
+                    break;
+                case '\f':
+                    target.Append("\\f");
+                    break;
+                case '\n':
+                    target.Append("\\n");
+                    break;
+                case '\r':
+                    target.Append("\\r");
+                    break;
+                case '\t':
+                    target.Append("\\t");
+                    break;
+                default:
+                    if (char.IsSurrogatePair(value, index))
+                    {
+#if NETCOREAPP1_0_OR_GREATER
+                        target.Append(value.AsSpan(index, 2));
+                        index++;
+#else
+                        target.Append(c);
+                        index++;
+                        target.Append(value[index]);
+#endif
+                    }
+                    else if (c < 0x20 || char.IsSurrogate(c))
+                    {
+                        target.Append("\\u");
+                        target.Append(((int) c).ToString("x4"));
+                    }
+                    else
+                    {
+                        target.Append(c);
+                    }
+                    break;
+            }
         }
 
         /// <summary>
@@ -381,7 +426,7 @@ namespace Jint.Native.Json
                 _indent += _gap;
             }
 
-            const string separator = ",";;
+            const char separator = ',';
             bool hasPrevious = false;
 
             for (int i = 0; i < len; i++)
@@ -449,8 +494,7 @@ namespace Jint.Native.Json
                 _indent += _gap;
             }
 
-            const string separator = ",";
-
+            const char separator = ',';
             var hasPrevious = false;
             for (var i = 0; i < enumeration.Keys.Count; i++)
             {
@@ -472,7 +516,7 @@ namespace Jint.Native.Json
                     target.Json.Append(_indent);
                 }
 
-                QuoteJSONString(p.ToString(), ref target);
+                QuoteJSONString(p.ToString(), target.Json);
                 target.Json.Append(':');
                 if (_gap.Length > 0)
                 {
@@ -510,15 +554,14 @@ namespace Jint.Native.Json
 
         private readonly ref struct SerializerState
         {
-            public SerializerState(StringBuilder jsonBuilder, StringBuilder numberBuffer)
+            public SerializerState(StringBuilder jsonBuilder)
             {
                 Json = jsonBuilder;
-                NumberBuffer = numberBuffer;
+                DtoaBuilder = TypeConverter.CreateDtoaBuilderForDouble();
             }
 
             public readonly StringBuilder Json;
-            public readonly StringBuilder NumberBuffer;
-            public readonly DtoaBuilder DtoaBuilder = TypeConverter.CreateDtoaBuilderForDouble();
+            public readonly DtoaBuilder DtoaBuilder;
         }
 
         private enum SerializeResult
@@ -547,22 +590,19 @@ namespace Jint.Native.Json
 
             private static void RemoveUnserializableProperties(ObjectInstance instance, List<JsValue> keys)
             {
-                for (var i = 0; i < keys.Count; i++)
+                for (var i = keys.Count - 1; i >= 0; i--)
                 {
                     var key = keys[i];
                     var desc = instance.GetOwnProperty(key);
                     if (desc == PropertyDescriptor.Undefined || !desc.Enumerable)
                     {
                         keys.RemoveAt(i);
-                        i--;
                     }
-
                 }
             }
 
-            public List<JsValue> Keys { get; }
-
-            public bool IsEmpty { get; }
+            public readonly List<JsValue> Keys;
+            public readonly bool IsEmpty;
         }
     }
 }

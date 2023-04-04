@@ -143,5 +143,21 @@ namespace Jint.Tests.Runtime
             string actual = serializer.Serialize(instance, replacer, JsValue.Undefined).ToString();
             Assert.Equal("{\"b\":42}", actual);
         }
+
+        [Theory]
+        [InlineData("test123\n456", "\"test123\\n456\"")]
+        [InlineData("test123456\n", "\"test123456\\n\"")]
+        [InlineData("\u0002test\u0002", "\"\\u0002test\\u0002\"")]
+        [InlineData("\u0002tes\tt\u0002", "\"\\u0002tes\\tt\\u0002\"")]
+        [InlineData("t\u0002est\u0002", "\"t\\u0002est\\u0002\"")]
+        [InlineData("test😀123456\n", "\"test😀123456\\n\"")]
+        public void JsonStringEncodingFormatsContentCorrectly(string inputString, string expectedOutput)
+        {
+            using var engine = new Engine();
+            var serializer = new JsonSerializer(engine);
+
+            string actual = serializer.Serialize(new JsString(inputString)).ToString();
+            Assert.Equal(expectedOutput, actual);
+        }
     }
 }

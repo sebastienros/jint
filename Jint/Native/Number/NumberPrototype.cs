@@ -442,35 +442,32 @@ namespace Jint.Native.Number
 
         private string ToNumberString(double m)
         {
-            using (var stringBuilder = StringBuilderPool.Rent())
-            {
-                return NumberToString(m, new DtoaBuilder(), stringBuilder.Builder);
-            }
+            using var stringBuilder = StringBuilderPool.Rent();
+            NumberToString(m, new DtoaBuilder(), stringBuilder.Builder);
+            return stringBuilder.Builder.ToString();
         }
 
-        internal static string NumberToString(
+        internal static void NumberToString(
             double m,
             DtoaBuilder builder,
             StringBuilder stringBuilder)
         {
             if (double.IsNaN(m))
             {
-                return "NaN";
+                stringBuilder.Append("NaN");
+                return;
             }
 
             if (m == 0)
             {
-                return "0";
+                stringBuilder.Append('0');
+                return;
             }
 
-            if (double.IsPositiveInfinity(m))
+            if (double.IsInfinity(m))
             {
-                return "Infinity";
-            }
-
-            if (double.IsNegativeInfinity(m))
-            {
-                return "-Infinity";
+                stringBuilder.Append(double.IsNegativeInfinity(m) ? "-Infinity" : "Infinity");
+                return;
             }
 
             DtoaNumberFormatter.DoubleToAscii(
@@ -526,8 +523,6 @@ namespace Jint.Native.Number
 
                 stringBuilder.Append(exponent);
             }
-
-            return stringBuilder.ToString();
         }
     }
 }
