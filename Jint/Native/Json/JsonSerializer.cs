@@ -590,13 +590,14 @@ namespace Jint.Native.Json
 
             private static void RemoveUnserializableProperties(ObjectInstance instance, List<JsValue> keys)
             {
-                for (var i = keys.Count - 1; i >= 0; i--)
+                for (var i = 0; i < keys.Count; i++)
                 {
                     var key = keys[i];
                     var desc = instance.GetOwnProperty(key);
                     if (desc == PropertyDescriptor.Undefined || !desc.Enumerable)
                     {
                         keys.RemoveAt(i);
+                        i--;
                     }
                 }
             }
