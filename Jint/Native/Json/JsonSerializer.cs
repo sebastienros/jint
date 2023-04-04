@@ -356,6 +356,7 @@ namespace Jint.Native.Json
             target.Append('"');
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void AppendJsonStringCharacter(string value, ref int index, StringBuilder target)
         {
             var c = value[index];
