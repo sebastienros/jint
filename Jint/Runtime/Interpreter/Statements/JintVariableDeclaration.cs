@@ -75,7 +75,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         value = declaration.Init.GetValue(context).Clone();
                         if (declaration.Init._expression.IsFunctionDefinition())
                         {
-                            ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
+                            ((FunctionInstance) value).SetFunctionName(lhs.ReferencedName);
                         }
                     }
 
@@ -114,7 +114,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                         if (declaration.Init._expression.IsFunctionDefinition())
                         {
-                            ((FunctionInstance) value).SetFunctionName(lhs.GetReferencedName());
+                            ((FunctionInstance) value).SetFunctionName(lhs.ReferencedName);
                         }
 
                         engine.PutValue(lhs, value);

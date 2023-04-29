@@ -444,7 +444,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else
             {
-                if (checkReference && lhs.IsUnresolvableReference() && StrictModeScope.IsStrictModeCode)
+                if (checkReference && lhs.IsUnresolvableReference && StrictModeScope.IsStrictModeCode)
                 {
                     ExceptionHelper.ThrowReferenceError(engine.Realm, lhs);
                 }

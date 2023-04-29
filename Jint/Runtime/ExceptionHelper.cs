@@ -40,7 +40,7 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowReferenceError(Realm realm, Reference reference)
         {
-            ThrowReferenceNameError(realm, reference?.GetReferencedName()?.ToString());
+            ThrowReferenceNameError(realm, reference?.ReferencedName?.ToString());
         }
 
         [DoesNotReturn]

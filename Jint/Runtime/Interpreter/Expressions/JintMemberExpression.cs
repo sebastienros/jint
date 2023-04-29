@@ -27,7 +27,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (!_memberExpression.Computed)
             {
-                _determinedProperty = ((Identifier) _memberExpression.Property).Name;
+                _determinedProperty = (_memberExpression.Property as Identifier)?.Name;
+                _determinedProperty ??= (_memberExpression.Property as PrivateIdentifier)?.Name;
             }
             else if (_memberExpression.Property.Type == Nodes.Literal)
             {
@@ -81,7 +82,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 if (baseReference is Reference reference)
                 {
-                    baseReferenceName = reference.GetReferencedName().ToString();
+                    baseReferenceName = reference.ReferencedName.ToString();
                     baseValue = engine.GetValue(reference, false);
                     engine._referencePool.Return(reference);
                 }

@@ -44,6 +44,10 @@ namespace Jint
             {
                 key = identifier.Name;
             }
+            else if (!resolveComputed && expression is PrivateIdentifier privateIdentifier)
+            {
+                key = privateIdentifier.Name;
+            }
             else if (resolveComputed)
             {
                 return TryGetComputedPropertyKey(expression, engine);

@@ -11,7 +11,7 @@ namespace Jint.Tests.Runtime
         {
             public bool TryUnresolvableReference(Engine engine, Reference reference, out JsValue value)
             {
-                value = reference.GetBase();
+                value = reference.Base;
                 return true;
             }
 
@@ -24,7 +24,7 @@ namespace Jint.Tests.Runtime
             {
                 if (callee is Reference reference)
                 {
-                    var name = reference.GetReferencedName().AsString();
+                    var name = reference.ReferencedName.AsString();
                     if (name == "filter")
                     {
                         value = new ClrFunctionInstance(engine, "map", (thisObj, values) => engine.Realm.Intrinsics.Array.ArrayCreate(0));

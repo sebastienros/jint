@@ -506,7 +506,7 @@ namespace Jint
 
         internal JsValue GetValue(Reference reference, bool returnReferenceToPool)
         {
-            var baseValue = reference.GetBase();
+            var baseValue = reference.Base;
 
             if (baseValue.IsUndefined())
             {
@@ -524,9 +524,9 @@ namespace Jint
                 return baseValue;
             }
 
-            if (reference.IsPropertyReference())
+            if (reference.IsPropertyReference)
             {
-                var property = reference.GetReferencedName();
+                var property = reference.ReferencedName;
                 if (returnReferenceToPool)
                 {
                     _referencePool.Return(reference);
@@ -535,7 +535,7 @@ namespace Jint
                 if (baseValue.IsObject())
                 {
                     var o = TypeConverter.ToObject(Realm, baseValue);
-                    var v = o.Get(property, reference.GetThisValue());
+                    var v = o.Get(property, reference.ThisValue);
                     return v;
                 }
                 else
@@ -583,7 +583,7 @@ namespace Jint
                 ExceptionHelper.ThrowArgumentException();
             }
 
-            var bindingValue = record.GetBindingValue(reference.GetReferencedName().ToString(), reference.IsStrictReference());
+            var bindingValue = record.GetBindingValue(reference.ReferencedName.ToString(), reference.Strict);
 
             if (returnReferenceToPool)
             {
@@ -632,32 +632,32 @@ namespace Jint
         /// </summary>
         internal void PutValue(Reference reference, JsValue value)
         {
-            var baseValue = reference.GetBase();
-            if (reference.IsUnresolvableReference())
+            var baseValue = reference.Base;
+            if (reference.IsUnresolvableReference)
             {
-                if (reference.IsStrictReference() && reference.GetReferencedName() != CommonProperties.Arguments)
+                if (reference.Strict && reference.ReferencedName != CommonProperties.Arguments)
                 {
                     ExceptionHelper.ThrowReferenceError(Realm, reference);
                 }
 
-                Realm.GlobalObject.Set(reference.GetReferencedName(), value, throwOnError: false);
+                Realm.GlobalObject.Set(reference.ReferencedName, value, throwOnError: false);
             }
-            else if (reference.IsPropertyReference())
+            else if (reference.IsPropertyReference)
             {
-                if (reference.HasPrimitiveBase())
+                if (reference.HasPrimitiveBase)
                 {
                     baseValue = TypeConverter.ToObject(Realm, baseValue);
                 }
 
-                var succeeded = baseValue.Set(reference.GetReferencedName(), value, reference.GetThisValue());
-                if (!succeeded && reference.IsStrictReference())
+                var succeeded = baseValue.Set(reference.ReferencedName, value, reference.ThisValue);
+                if (!succeeded && reference.Strict)
                 {
-                    ExceptionHelper.ThrowTypeError(Realm, "Cannot assign to read only property '" + reference.GetReferencedName() + "' of " + baseValue);
+                    ExceptionHelper.ThrowTypeError(Realm, "Cannot assign to read only property '" + reference.ReferencedName + "' of " + baseValue);
                 }
             }
             else
             {
-                ((EnvironmentRecord) baseValue).SetMutableBinding(TypeConverter.ToString(reference.GetReferencedName()), value, reference.IsStrictReference());
+                ((EnvironmentRecord) baseValue).SetMutableBinding(TypeConverter.ToString(reference.ReferencedName), value, reference.Strict);
             }
         }
 

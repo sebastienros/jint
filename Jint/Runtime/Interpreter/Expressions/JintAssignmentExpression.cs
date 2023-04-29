@@ -316,7 +316,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             // if we did string concatenation in-place, we don't need to update records, objects might have evil setters
-            if (!wasMutatedInPlace || lref.GetBase() is not EnvironmentRecord)
+            if (!wasMutatedInPlace || lref.Base is not EnvironmentRecord)
             {
                 engine.PutValue(lref, newLeftValue!);
             }
