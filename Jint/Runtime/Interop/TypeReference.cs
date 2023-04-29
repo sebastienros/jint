@@ -123,14 +123,26 @@ namespace Jint.Runtime.Interop
 
                             return newArguments;
                         }
+
                         // TODO: edge case, last parameter is ParamArray with optional parameter before?
-                        else if (isParamArray && arguments.Length < parameters.Length - 1)
+                        if (isParamArray && arguments.Length < parameters.Length - 1)
                         {
                             return arguments;
                         }
+
                         // optional parameters
-                        else if (parameters.Length >= arguments.Length)
+                        if (parameters.Length >= arguments.Length)
                         {
+                            // all missing ones must be optional
+                            foreach (var parameter in parameters.AsSpan(parameters.Length - arguments.Length + 1))
+                            {
+                                if (!parameter.IsOptional)
+                                {
+                                    // use original arguments
+                                    return arguments;
+                                }
+                            }
+
                             Array.Copy(arguments, 0, newArguments, 0, arguments.Length);
 
                             for (var i = parameters.Length - 1; i >= 0; i--)
@@ -146,7 +158,7 @@ namespace Jint.Runtime.Interop
 
                                     if (arguments.Length - 1 < i || arguments[i].IsUndefined())
                                     {
-                                        newArguments[i] = JsValue.FromObject(engine, currentParameter.DefaultValue);
+                                        newArguments[i] = FromObject(engine, currentParameter.DefaultValue);
                                     }
                                 }
                             }
