@@ -229,7 +229,7 @@ internal sealed class ClassDefinition
                 var elementRecord = staticElements[i];
                 if (elementRecord is ClassFieldDefinition classFieldDefinition)
                 {
-                    ObjectInstance.DefineField(F, classFieldDefinition);
+                    ObjectInstance.DefineField(engine, F, classFieldDefinition);
                 }
                 else
                 {
@@ -269,18 +269,19 @@ internal sealed class ClassDefinition
     private static ClassFieldDefinition ClassFieldDefinitionEvaluation(Engine engine, ObjectInstance homeObject, PropertyDefinition fieldDefinition)
     {
         var name = fieldDefinition.Key.GetKey(engine);
-        ScriptFunctionInstance? initializer = null;
+        JintExpression? initializer = null;
         if (fieldDefinition.Value is not null)
         {
-            var intrinsics = engine.Realm.Intrinsics;
-            var env = engine.ExecutionContext.LexicalEnvironment;
-            var privateEnv = engine.ExecutionContext.PrivateEnvironment;
-
-            var definition = new JintFunctionDefinition((IFunction) fieldDefinition.Value);
-            initializer = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, FunctionThisMode.Global, env, privateEnv);
-
-            initializer.MakeMethod(homeObject);
-            //   g. Set initializer.[[ClassFieldInitializerName]] to name.
+            //var intrinsics = engine.Realm.Intrinsics;
+            //var env = engine.ExecutionContext.LexicalEnvironment;
+            //var privateEnv = engine.ExecutionContext.PrivateEnvironment;
+            //
+            //var definition = new JintFunctionDefinition((IFunction) fieldDefinition.Value);
+            //initializer = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, FunctionThisMode.Global, env, privateEnv);
+            //
+            //initializer.MakeMethod(homeObject);
+            ////   g. Set initializer.[[ClassFieldInitializerName]] to name.
+            initializer = JintExpression.Build(fieldDefinition.Value);
         }
 
         return new ClassFieldDefinition { Name = name, Initializer = initializer };

@@ -9,11 +9,11 @@ namespace Jint.Runtime.Interpreter.Expressions;
 
 internal sealed class JintPrivateIdentifierExpression : JintExpression
 {
-    private readonly PrivateName _privateName;
+    private readonly EnvironmentRecord.BindingName _privateName;
 
     public JintPrivateIdentifierExpression(PrivateIdentifier expression) : base(expression)
     {
-        _privateName = new PrivateName(expression.Name);
+        _privateName = new EnvironmentRecord.BindingName(new PrivateName(expression.Name));
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
@@ -21,11 +21,11 @@ internal sealed class JintPrivateIdentifierExpression : JintExpression
         var engine = context.Engine;
         var env = engine.ExecutionContext.LexicalEnvironment;
         var strict = StrictModeScope.IsStrictModeCode;
-        var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, new EnvironmentRecord.BindingName("tODO"), out var temp)
+        var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, _privateName, out var temp)
             ? temp
             : JsValue.Undefined;
 
-        return engine._referencePool.Rent(identifierEnvironment, _privateName, strict, thisValue: null);
+        return engine._referencePool.Rent(identifierEnvironment, _privateName.Value, strict, thisValue: null);
     }
 
     public override JsValue GetValue(EvaluationContext context)
@@ -39,7 +39,7 @@ internal sealed class JintPrivateIdentifierExpression : JintExpression
 
         if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 env,
-                new EnvironmentRecord.BindingName("TODO"),
+                _privateName,
                 strict,
                 out _,
                 out var value))
@@ -51,7 +51,7 @@ internal sealed class JintPrivateIdentifierExpression : JintExpression
         }
         else
         {
-            var reference = engine._referencePool.Rent(JsValue.Undefined, _privateName, strict, thisValue: null);
+            var reference = engine._referencePool.Rent(JsValue.Undefined, _privateName.Value, strict, thisValue: null);
             value = engine.GetValue(reference, true);
         }
 

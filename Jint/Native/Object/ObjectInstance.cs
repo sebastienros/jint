@@ -13,6 +13,7 @@ using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Object
 {
@@ -1604,14 +1605,14 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-definefield
         /// </summary>
-        internal static void DefineField(ObjectInstance receiver, ClassFieldDefinition fieldRecord)
+        internal static void DefineField(Engine engine, ObjectInstance receiver, ClassFieldDefinition fieldRecord)
         {
             var fieldName = fieldRecord.Name;
             var initializer = fieldRecord.Initializer;
             var initValue = Undefined;
             if (initializer is not null)
             {
-                initValue = initializer.Call(receiver);
+                initValue = initializer.GetValue(new EvaluationContext(engine));
             }
 
             if (fieldName is PrivateName privateName)
