@@ -57,7 +57,7 @@ namespace Jint.Runtime.Environments
                 return _globalObject.HasProperty(name.Key);
             }
 
-            return _global.HasProperty(name.StringValue);
+            return _global.HasProperty(name.Value);
         }
 
         internal override bool TryGetBinding(
@@ -99,7 +99,7 @@ namespace Jint.Runtime.Environments
             value = default;
 
             var parent = _global._prototype!;
-            var property = parent.GetOwnProperty(name.StringValue);
+            var property = parent.GetOwnProperty(name.Value);
 
             if (property == PropertyDescriptor.Undefined)
             {

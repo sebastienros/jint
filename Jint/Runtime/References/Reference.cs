@@ -27,7 +27,8 @@ public sealed class Reference
     /// </summary>
     public JsValue Base
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)] get => _base;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _base;
     }
 
     /// <summary>
@@ -35,7 +36,8 @@ public sealed class Reference
     /// </summary>
     public JsValue ReferencedName
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)] get => _referencedName;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _referencedName;
     }
 
     /// <summary>
@@ -43,17 +45,20 @@ public sealed class Reference
     /// </summary>
     public bool Strict
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)] get => _strict;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _strict;
     }
 
     public bool HasPrimitiveBase
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)] get => (_base._type & InternalTypes.Primitive) != 0;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => (_base._type & InternalTypes.Primitive) != 0;
     }
 
     public bool IsUnresolvableReference
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)] get => _base._type == InternalTypes.Undefined;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _base._type == InternalTypes.Undefined;
     }
 
     public bool IsSuperReference => _thisValue is not null;
@@ -62,13 +67,20 @@ public sealed class Reference
 
     public bool IsPropertyReference
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)] get => (_base._type & (InternalTypes.Primitive | InternalTypes.Object)) != 0;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => (_base._type & (InternalTypes.Primitive | InternalTypes.Object)) != 0;
     }
 
     public JsValue ThisValue
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => IsSuperReference ? _thisValue! : Base;
+    }
+
+    public bool IsPrivateReference
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _referencedName._type == InternalTypes.PrivateName;
     }
 
     internal Reference Reassign(JsValue baseValue, JsValue name, bool strict, JsValue? thisValue)

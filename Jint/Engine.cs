@@ -534,8 +534,14 @@ namespace Jint
 
                 if (baseValue.IsObject())
                 {
-                    var o = TypeConverter.ToObject(Realm, baseValue);
-                    var v = o.Get(property, reference.ThisValue);
+                    var baseObj = TypeConverter.ToObject(Realm, baseValue);
+
+                    if (reference.IsPrivateReference)
+                    {
+                        return baseObj.PrivateGet((PrivateName) reference.ReferencedName);
+                    }
+
+                    var v = baseObj.Get(property, reference.ThisValue);
                     return v;
                 }
                 else

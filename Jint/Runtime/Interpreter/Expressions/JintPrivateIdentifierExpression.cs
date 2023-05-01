@@ -7,29 +7,25 @@ using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
-internal sealed class JintIdentifierExpression : JintExpression
+internal sealed class JintPrivateIdentifierExpression : JintExpression
 {
-    public JintIdentifierExpression(Identifier expression) : base(expression)
-    {
-    }
+    private readonly PrivateName _privateName;
 
-    internal EnvironmentRecord.BindingName Identifier
+    public JintPrivateIdentifierExpression(PrivateIdentifier expression) : base(expression)
     {
-        get => (EnvironmentRecord.BindingName) (_expression.AssociatedData ??= new EnvironmentRecord.BindingName(((Identifier) _expression).Name));
+        _privateName = new PrivateName(expression.Name);
     }
-
-    public bool HasEvalOrArguments => Identifier.HasEvalOrArguments;
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
         var engine = context.Engine;
         var env = engine.ExecutionContext.LexicalEnvironment;
         var strict = StrictModeScope.IsStrictModeCode;
-        var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, Identifier, out var temp)
+        var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, new EnvironmentRecord.BindingName("tODO"), out var temp)
             ? temp
             : JsValue.Undefined;
 
-        return engine._referencePool.Rent(identifierEnvironment, Identifier.Value, strict, thisValue: null);
+        return engine._referencePool.Rent(identifierEnvironment, _privateName, strict, thisValue: null);
     }
 
     public override JsValue GetValue(EvaluationContext context)
@@ -37,18 +33,13 @@ internal sealed class JintIdentifierExpression : JintExpression
         // need to notify correct node when taking shortcut
         context.LastSyntaxElement = _expression;
 
-        if (Identifier.CalculatedValue is not null)
-        {
-            return Identifier.CalculatedValue;
-        }
-
         var strict = StrictModeScope.IsStrictModeCode;
         var engine = context.Engine;
         var env = engine.ExecutionContext.LexicalEnvironment;
 
         if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 env,
-                Identifier,
+                new EnvironmentRecord.BindingName("TODO"),
                 strict,
                 out _,
                 out var value))
@@ -60,7 +51,7 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
         else
         {
-            var reference = engine._referencePool.Rent(JsValue.Undefined, Identifier.Value, strict, thisValue: null);
+            var reference = engine._referencePool.Rent(JsValue.Undefined, _privateName, strict, thisValue: null);
             value = engine.GetValue(reference, true);
         }
 
@@ -77,6 +68,6 @@ internal sealed class JintIdentifierExpression : JintExpression
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ThrowNotInitialized(Engine engine)
     {
-        ExceptionHelper.ThrowReferenceError(engine.Realm, Identifier.Key.Name + " has not been initialized");
+        ExceptionHelper.ThrowReferenceError(engine.Realm, _privateName + " has not been initialized");
     }
 }

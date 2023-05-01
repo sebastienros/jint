@@ -418,7 +418,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (right._expression.IsFunctionDefinition())
                     {
-                        ((FunctionInstance) rval).SetFunctionName(left.Identifier.StringValue);
+                        ((FunctionInstance) rval).SetFunctionName(left.Identifier.Value);
                     }
 
                     environmentRecord.SetMutableBinding(left.Identifier, rval, strict);

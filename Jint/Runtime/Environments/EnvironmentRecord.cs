@@ -116,19 +116,22 @@ namespace Jint.Runtime.Environments
         internal sealed class BindingName
         {
             public readonly Key Key;
-            public readonly JsString StringValue;
+            public readonly JsValue Value;
             public readonly bool HasEvalOrArguments;
             public readonly JsValue? CalculatedValue;
 
-            public BindingName(string value)
+            public BindingName(JsValue value)
             {
-                var key = (Key) value;
+                var key = (Key) value.ToString();
                 Key = key;
-                StringValue = JsString.Create(value);
-                HasEvalOrArguments = key == KnownKeys.Eval || key == KnownKeys.Arguments;
-                if (key == KnownKeys.Undefined)
+                Value = value;
+                if (value.IsString())
                 {
-                    CalculatedValue = Undefined;
+                    HasEvalOrArguments = key == KnownKeys.Eval || key == KnownKeys.Arguments;
+                    if (key == KnownKeys.Undefined)
+                    {
+                        CalculatedValue = Undefined;
+                    }
                 }
             }
         }

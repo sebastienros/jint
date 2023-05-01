@@ -124,6 +124,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 Nodes.ConditionalExpression => new JintConditionalExpression((ConditionalExpression) expression),
                 Nodes.FunctionExpression => new JintFunctionExpression((FunctionExpression) expression),
                 Nodes.Identifier => new JintIdentifierExpression((Identifier) expression),
+                Nodes.PrivateIdentifier => new JintPrivateIdentifierExpression((PrivateIdentifier) expression),
                 Nodes.Literal => JintLiteralExpression.Build((Literal) expression),
                 Nodes.LogicalExpression => ((BinaryExpression) expression).Operator switch
                 {

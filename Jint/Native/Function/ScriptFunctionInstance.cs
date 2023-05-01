@@ -12,6 +12,9 @@ namespace Jint.Native.Function
     {
         internal bool _isClassConstructor;
 
+        internal List<PrivateElement>? _privateMethods;
+        internal List<object>? _fields;
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
         /// </summary>

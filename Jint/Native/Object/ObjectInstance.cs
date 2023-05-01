@@ -1601,6 +1601,29 @@ namespace Jint.Native.Object
             return true;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-definefield
+        /// </summary>
+        internal static void DefineField(ObjectInstance receiver, ClassFieldDefinition fieldRecord)
+        {
+            var fieldName = fieldRecord.Name;
+            var initializer = fieldRecord.Initializer;
+            var initValue = Undefined;
+            if (initializer is not null)
+            {
+                initValue = initializer.Call(receiver);
+            }
+
+            if (fieldName is PrivateName privateName)
+            {
+                receiver.PrivateFieldAdd(privateName, initValue);
+            }
+            else
+            {
+                receiver.CreateDataPropertyOrThrow(fieldName, initValue);
+            }
+        }
+
         internal enum IntegrityLevel
         {
             Sealed,

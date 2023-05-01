@@ -27,8 +27,14 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (!_memberExpression.Computed)
             {
-                _determinedProperty = (_memberExpression.Property as Identifier)?.Name;
-                _determinedProperty ??= (_memberExpression.Property as PrivateIdentifier)?.Name;
+                if (_memberExpression.Property is Identifier identifier)
+                {
+                    _determinedProperty = identifier.Name;
+                }
+                else if (_memberExpression.Property is PrivateIdentifier privateIdentifier)
+                {
+                    _determinedProperty = new PrivateName(privateIdentifier.Name);
+                }
             }
             else if (_memberExpression.Property.Type == Nodes.Literal)
             {
