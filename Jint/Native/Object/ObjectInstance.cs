@@ -413,7 +413,7 @@ namespace Jint.Native.Object
             }
 
             var functionInstance = (FunctionInstance) getter;
-            return functionInstance._engine.Call(functionInstance, thisObject, Arguments.Empty, expression: null);
+            return functionInstance._engine.Call(functionInstance, thisObject);
         }
 
         /// <summary>

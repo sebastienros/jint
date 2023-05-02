@@ -1452,6 +1452,9 @@ namespace Jint
             return ((IConstructor) constructor).Construct(arguments, newTarget);
         }
 
+        internal JsValue Call(FunctionInstance functionInstance, JsValue thisObject)
+            => Call(functionInstance, thisObject, Arguments.Empty, null);
+
         internal JsValue Call(
             FunctionInstance functionInstance,
             JsValue thisObject,

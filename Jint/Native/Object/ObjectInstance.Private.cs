@@ -95,7 +95,7 @@ public partial class ObjectInstance
         }
 
         var functionInstance = (FunctionInstance) getter;
-        var privateGet = functionInstance._engine.Call(functionInstance, this, Arguments.Empty, expression: null);
+        var privateGet = functionInstance._engine.Call(functionInstance, this);
         return privateGet;
     }
 
@@ -126,7 +126,7 @@ public partial class ObjectInstance
                 ExceptionHelper.ThrowTypeError(_engine.Realm, "Setter missing");
             }
 
-            setter.Call(setter, new[] { value });
+            _engine.Call(setter, this, new[] { value });
         }
     }
 

@@ -118,7 +118,8 @@ internal sealed class ClassDefinition
 
         var privateBoundNames = new List<string>();
         MethodDefinition? constructor = null;
-        var classBody = _body.Body;
+        ref readonly var elements = ref _body.Body;
+        var classBody = elements;
         for (var i = 0; i < classBody.Count; ++i)
         {
             var element = classBody[i];
@@ -164,7 +165,7 @@ internal sealed class ClassDefinition
             var instanceFields = new List<object>();
             var staticElements = new List<object>();
 
-            foreach (var e in _body.Body)
+            foreach (var e in elements)
             {
                 if (e is MethodDefinition { Kind: PropertyKind.Constructor })
                 {
