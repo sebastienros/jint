@@ -94,7 +94,9 @@ public partial class ObjectInstance
             ExceptionHelper.ThrowTypeError(_engine.Realm, "Getter missing");
         }
 
-        return _engine.Call(getter);
+        var functionInstance = (FunctionInstance) getter;
+        var privateGet = functionInstance._engine.Call(functionInstance, this, Arguments.Empty, expression: null);
+        return privateGet;
     }
 
     /// <summary>

@@ -355,6 +355,8 @@ internal sealed class ClassDefinition
             ExceptionHelper.ThrowSyntaxError(obj.Engine.Realm);
         }
 
+        var getter = method.Kind == PropertyKind.Get;
+
         var closure = new ScriptFunctionInstance(
             obj.Engine,
             function,
@@ -362,16 +364,22 @@ internal sealed class ClassDefinition
             true);
 
         closure.MakeMethod(obj);
-        closure.SetFunctionName(propKey, method.Kind == PropertyKind.Get ? "get" : "set");
+        closure.SetFunctionName(propKey, getter ? "get" : "set");
 
         if (method.Key is PrivateIdentifier privateIdentifier)
         {
-            return new PrivateElement { Key = new PrivateName(privateIdentifier.Name), Kind = PrivateElementKind.Accessor, Get = closure };
+            return new PrivateElement
+            {
+                Key = new PrivateName(privateIdentifier.Name),
+                Kind = PrivateElementKind.Accessor,
+                Get = getter ? closure : null,
+                Set = !getter ? closure : null
+            };
         }
 
         var propDesc = new GetSetPropertyDescriptor(
-            method.Kind == PropertyKind.Get ? closure : null,
-            method.Kind == PropertyKind.Set ? closure : null,
+            getter ? closure : null,
+            !getter ? closure : null,
             PropertyFlag.Configurable);
 
         obj.DefinePropertyOrThrow(propKey, propDesc);
