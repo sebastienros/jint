@@ -133,7 +133,7 @@ internal sealed class ClassDefinition
             for (var j = 0; j < privateBoundNames.Count; j++)
             {
                 var identifier = privateBoundNames[j];
-                classPrivateEnvironment.Names.Add(new PrivateName(identifier));
+                classPrivateEnvironment.Names.Add(new PrivateName(new PrivateIdentifier(identifier)));
             }
         }
 
@@ -371,7 +371,7 @@ internal sealed class ClassDefinition
         {
             return new PrivateElement
             {
-                Key = new PrivateName(privateIdentifier.Name),
+                Key = new PrivateName(privateIdentifier),
                 Kind = PrivateElementKind.Accessor,
                 Get = getter ? closure : null,
                 Set = !getter ? closure : null

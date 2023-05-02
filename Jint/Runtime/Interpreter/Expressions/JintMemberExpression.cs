@@ -33,7 +33,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else if (_memberExpression.Property is PrivateIdentifier privateIdentifier)
                 {
-                    _determinedProperty = new PrivateName(privateIdentifier.Name);
+                    _determinedProperty = new PrivateName(privateIdentifier);
                 }
             }
             else if (_memberExpression.Property.Type == Nodes.Literal)

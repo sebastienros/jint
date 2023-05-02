@@ -1,20 +1,21 @@
+using Esprima.Ast;
 using Jint.Runtime;
 
 namespace Jint.Native;
 
 internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
 {
-    private readonly string _name;
+    private readonly PrivateIdentifier _identifier;
 
-    public PrivateName(string name) : base(InternalTypes.PrivateName)
+    public PrivateName(PrivateIdentifier identifier) : base(InternalTypes.PrivateName)
     {
-        _name = name;
-        Description = "#" + name;
+        _identifier = identifier;
+        Description = "#" + identifier.Name;
     }
 
     public string Description { get; }
 
-    public override string ToString() => _name;
+    public override string ToString() => _identifier.Name;
 
     public override object ToObject()
     {
@@ -43,11 +44,11 @@ internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
             return true;
         }
 
-        return Description == other.Description;
+        return _identifier.Name == other._identifier.Name;
     }
 
     public override int GetHashCode()
     {
-        return _name.GetHashCode();
+        return _identifier.Name.GetHashCode();
     }
 }

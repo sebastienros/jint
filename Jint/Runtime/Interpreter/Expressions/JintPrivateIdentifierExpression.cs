@@ -10,7 +10,7 @@ internal sealed class JintPrivateIdentifierExpression : JintExpression
 
     public JintPrivateIdentifierExpression(PrivateIdentifier expression) : base(expression)
     {
-        _privateName = new PrivateName(expression.Name);
+        _privateName = new PrivateName(expression);
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
