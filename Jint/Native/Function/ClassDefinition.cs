@@ -71,16 +71,6 @@ internal sealed class ClassDefinition
         var outerPrivateEnvironment = engine.ExecutionContext.PrivateEnvironment;
         var classPrivateEnvironment = JintEnvironment.NewPrivateEnvironment(engine, outerPrivateEnvironment);
 
-        /*
-            6. If ClassBodyopt is present, then
-                a. For each String dn of the PrivateBoundIdentifiers of ClassBodyopt, do
-                i. If classPrivateEnvironment.[[Names]] contains a Private Name whose [[Description]] is dn, then
-                1. Assert: This is only possible for getter/setter pairs.
-            ii. Else,
-                1. Let name be a new Private Name whose [[Description]] value is dn.
-                2. Append name to classPrivateEnvironment.[[Names]].
-         */
-
         ObjectInstance? protoParent = null;
         ObjectInstance? constructorParent = null;
         if (_superClass is null)
@@ -126,14 +116,23 @@ internal sealed class ClassDefinition
 
         ObjectInstance proto = new JsObject(engine) { _prototype = protoParent };
 
+        var privateBoundNames = new List<string>();
         MethodDefinition? constructor = null;
         var classBody = _body.Body;
         for (var i = 0; i < classBody.Count; ++i)
         {
-            if (classBody[i] is MethodDefinition { Kind: PropertyKind.Constructor } c)
+            var element = classBody[i];
+            if (element is MethodDefinition { Kind: PropertyKind.Constructor } c)
             {
                 constructor = c;
-                break;
+            }
+
+            privateBoundNames.Clear();
+            element.GetBoundNames(privateBoundNames, privateIdentifiers: true);
+            for (var j = 0; j < privateBoundNames.Count; j++)
+            {
+                var identifier = privateBoundNames[j];
+                classPrivateEnvironment.Names.Add(new PrivateName(identifier));
             }
         }
 
@@ -229,7 +228,7 @@ internal sealed class ClassDefinition
                 var elementRecord = staticElements[i];
                 if (elementRecord is ClassFieldDefinition classFieldDefinition)
                 {
-                    ObjectInstance.DefineField(engine, F, classFieldDefinition);
+                    ObjectInstance.DefineField(F, classFieldDefinition);
                 }
                 else
                 {

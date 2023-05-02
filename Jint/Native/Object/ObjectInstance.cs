@@ -1605,14 +1605,14 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-definefield
         /// </summary>
-        internal static void DefineField(Engine engine, ObjectInstance receiver, ClassFieldDefinition fieldRecord)
+        internal static void DefineField(ObjectInstance receiver, ClassFieldDefinition fieldRecord)
         {
             var fieldName = fieldRecord.Name;
             var initializer = fieldRecord.Initializer;
             var initValue = Undefined;
             if (initializer is not null)
             {
-                initValue = initializer.GetValue(new EvaluationContext(engine));
+                initValue = initializer.GetValue(new EvaluationContext(receiver._engine));
             }
 
             if (fieldName is PrivateName privateName)

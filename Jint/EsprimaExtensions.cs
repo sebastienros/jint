@@ -175,7 +175,7 @@ namespace Jint
             }
         }
 
-        internal static void GetBoundNames(this Node? parameter, List<string> target)
+        internal static void GetBoundNames(this Node? parameter, List<string> target, bool privateIdentifiers = false)
         {
             if (parameter is null || parameter.Type == Nodes.Literal)
             {
@@ -183,9 +183,15 @@ namespace Jint
             }
 
             // try to get away without a loop
-            if (parameter is Identifier id)
+            if (!privateIdentifiers && parameter is Identifier id)
             {
                 target.Add(id.Name);
+                return;
+            }
+
+            if (privateIdentifiers && parameter is PrivateIdentifier privateId)
+            {
+                target.Add(privateId.Name);
                 return;
             }
 
@@ -197,9 +203,15 @@ namespace Jint
 
             while (true)
             {
-                if (parameter is Identifier identifier)
+                if (!privateIdentifiers && parameter is Identifier identifier)
                 {
                     target.Add(identifier.Name);
+                    return;
+                }
+
+                if (privateIdentifiers && parameter is PrivateIdentifier privateIdentifier)
+                {
+                    target.Add(privateIdentifier.Name);
                     return;
                 }
 
@@ -245,6 +257,13 @@ namespace Jint
                     if (name != null)
                     {
                         target.Add(name);
+                    }
+                }
+                else if (privateIdentifiers && parameter is IProperty property)
+                {
+                    if (property.Key is PrivateIdentifier privateKeyIdentifier)
+                    {
+                        target.Add(privateKeyIdentifier.Name);
                     }
                 }
 

@@ -253,8 +253,14 @@ namespace Jint.Runtime.Interpreter.Expressions
             var defaultSuperCall = ReferenceEquals(_expression, ClassDefinition._defaultSuperCall);
             var argList = defaultSuperCall ? DefaultSuperCallArgumentListEvaluation(context) : ArgumentListEvaluation(context);
             var result = ((IConstructor) func).Construct(argList, newTarget);
+
             var thisER = (FunctionEnvironmentRecord) engine.ExecutionContext.GetThisEnvironment();
-            return thisER.BindThisValue(result);
+            thisER.BindThisValue(result);
+            var F = thisER._functionObject;
+
+            result.InitializeInstanceElements((ScriptFunctionInstance) F);
+
+            return result;
         }
 
         /// <summary>

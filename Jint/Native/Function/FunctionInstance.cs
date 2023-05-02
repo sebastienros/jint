@@ -194,6 +194,11 @@ namespace Jint.Native.Function
                     ? JsString.Empty
                     : new JsString("[" + symbol._value + "]");
             }
+            else if (name is PrivateName privateName)
+            {
+                name = privateName.Description;
+            }
+
             if (!string.IsNullOrWhiteSpace(prefix))
             {
                 name = prefix + " " + name;

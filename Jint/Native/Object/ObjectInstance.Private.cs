@@ -10,6 +10,33 @@ public partial class ObjectInstance
     private Dictionary<string, PrivateElement>? _privateElements;
 
     /// <summary>
+    /// https://tc39.es/ecma262/#sec-initializeinstanceelements
+    /// </summary>
+    internal void InitializeInstanceElements(ScriptFunctionInstance constructor)
+    {
+        var methods = constructor._privateMethods;
+        if (methods is not null)
+        {
+            for (var i = 0; i < methods.Count; i++)
+            {
+                PrivateMethodOrAccessorAdd(methods[i]);
+            }
+        }
+
+        var fields = constructor._fields;
+        if (fields is not null)
+        {
+            for (var i = 0; i < fields.Count; i++)
+            {
+                if (fields[i] is ClassFieldDefinition classFieldDefinition)
+                {
+                    DefineField(this, classFieldDefinition);
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-privatemethodoraccessoradd
     /// </summary>
     internal void PrivateMethodOrAccessorAdd(PrivateElement method)
@@ -24,7 +51,7 @@ public partial class ObjectInstance
         }
 
         _privateElements ??= new Dictionary<string, PrivateElement>();
-        _privateElements[method.Key.ToString()] = method;
+        _privateElements.Add(method.Key.ToString(), method);
     }
 
     /// <summary>

@@ -4,14 +4,17 @@ namespace Jint.Native;
 
 internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
 {
-    private readonly string _description;
+    private readonly string _name;
 
-    public PrivateName(string description) : base(InternalTypes.PrivateName)
+    public PrivateName(string name) : base(InternalTypes.PrivateName)
     {
-        _description = description;
+        _name = name;
+        Description = "#" + name;
     }
 
-    public override string ToString() => _description;
+    public string Description { get; }
+
+    public override string ToString() => _name;
 
     public override object ToObject()
     {
@@ -40,11 +43,11 @@ internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
             return true;
         }
 
-        return _description == other._description;
+        return Description == other.Description;
     }
 
     public override int GetHashCode()
     {
-        return base.GetHashCode();
+        return _name.GetHashCode();
     }
 }

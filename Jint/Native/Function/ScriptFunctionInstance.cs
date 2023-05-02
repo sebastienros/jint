@@ -147,7 +147,7 @@ namespace Jint.Native.Function
             if (kind == ConstructorKind.Base)
             {
                 OrdinaryCallBindThis(calleeContext, thisArgument);
-                InitializeInstanceElements((ObjectInstance) thisArgument, this);
+                ((ObjectInstance) thisArgument).InitializeInstanceElements(this);
             }
 
             var constructorEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment;
@@ -205,35 +205,6 @@ namespace Jint.Native.Function
             }
 
             return (ObjectInstance) constructorEnv.GetThisBinding();
-        }
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-initializeinstanceelements
-        /// </summary>
-        private void InitializeInstanceElements(ObjectInstance o, JsValue constructor)
-        {
-            var methods = _privateMethods;
-            if (methods is not null)
-            {
-                for (var i = 0; i < methods.Count; i++)
-                {
-                    var method = methods[i];
-                    o.PrivateMethodOrAccessorAdd(method);
-                }
-            }
-
-            var fields = _fields;
-            if (fields is not null)
-            {
-                for (var i = 0; i < fields.Count; i++)
-                {
-                    var fieldRecord = fields[i];
-                    if (fieldRecord is ClassFieldDefinition classFieldDefinition)
-                    {
-                        DefineField(_engine, o, classFieldDefinition);
-                    }
-                }
-            }
         }
 
         internal void MakeClassConstructor()

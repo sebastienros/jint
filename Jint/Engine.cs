@@ -1204,6 +1204,18 @@ namespace Jint
                 }
             }
 
+            var privateIdentifiers = new List<PrivateName>();
+            var pointer = privateEnv;
+            while (pointer is not null)
+            {
+                foreach (var name in pointer.Names)
+                {
+                    privateIdentifiers.Add(name);
+                }
+
+                pointer = pointer.OuterPrivateEnvironment;
+            }
+
             var functionDeclarations = hoistingScope._functionDeclarations;
             var functionsToInitialize = new LinkedList<JintFunctionDefinition>();
             var declaredFunctionNames = new HashSet<string>();
