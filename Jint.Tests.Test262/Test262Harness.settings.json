@@ -111,6 +111,19 @@
     "language/expressions/object/accessor-name-computed.js",
     "built-ins/TypedArrayConstructors/ctors/object-arg/as-generator-iterable-returns.js",
     "language/expressions/object/method-definition/name-prop-name-yield-id.js",
+    "language/statements/class/elements/after-same-line-method-rs-static-async-generator-method-privatename-identifier-alt.js",
+    "language/statements/class/elements/after-same-line-method-rs-static-async-generator-method-privatename-identifier.js",
+    "language/statements/class/elements/after-same-line-method-rs-static-generator-method-privatename-identifier-alt.js",
+    "language/statements/class/elements/after-same-line-method-rs-static-generator-method-privatename-identifier.js",
+    "language/statements/class/elements/after-same-line-static-async-method-rs-static-async-generator-method-privatename-identifier-alt.js",
+    "language/statements/class/elements/after-same-line-static-async-method-rs-static-async-generator-method-privatename-identifier.js",
+    "language/statements/class/elements/after-same-line-static-async-method-rs-static-generator-method-privatename-identifier-alt.js",
+    "language/statements/class/elements/after-same-line-static-async-method-rs-static-generator-method-privatename-identifier.js",
+    "language/statements/class/elements/after-same-line-static-method-rs-static-async-generator-method-privatename-identifier-alt.js",
+    "language/statements/class/elements/after-same-line-static-method-rs-static-async-generator-method-privatename-identifier.js",
+    "language/statements/class/elements/after-same-line-static-method-rs-static-generator-method-privatename-identifier-alt.js",
+    "language/statements/class/elements/after-same-line-static-method-rs-static-generator-method-privatename-identifier.js",
+
 
     // generators not implemented
     "built-ins/Object/prototype/toString/proxy-function.js",
