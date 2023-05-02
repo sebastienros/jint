@@ -91,7 +91,7 @@ public partial class ObjectInstance
         var getter = entry.Get;
         if (getter is null)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Getter missing");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, $"'#{property}' was defined without a getter");
         }
 
         var functionInstance = (FunctionInstance) getter;
@@ -123,7 +123,7 @@ public partial class ObjectInstance
             var setter = entry.Set;
             if (setter is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Setter missing");
+                ExceptionHelper.ThrowTypeError(_engine.Realm, $"'#{property}' was defined without a setter");
             }
 
             _engine.Call(setter, this, new[] { value });
