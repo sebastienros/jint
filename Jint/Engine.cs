@@ -638,7 +638,6 @@ namespace Jint
         /// </summary>
         internal void PutValue(Reference reference, JsValue value)
         {
-            var baseValue = reference.Base;
             if (reference.IsUnresolvableReference)
             {
                 if (reference.Strict && reference.ReferencedName != CommonProperties.Arguments)
@@ -650,20 +649,22 @@ namespace Jint
             }
             else if (reference.IsPropertyReference)
             {
-                if (reference.HasPrimitiveBase)
+                var baseObject = TypeConverter.ToObject(Realm, reference.Base);
+                if (reference.IsPrivateReference)
                 {
-                    baseValue = TypeConverter.ToObject(Realm, baseValue);
+                    baseObject.PrivateSet((PrivateName) reference.ReferencedName, value);
+                    return;
                 }
 
-                var succeeded = baseValue.Set(reference.ReferencedName, value, reference.ThisValue);
+                var succeeded = baseObject.Set(reference.ReferencedName, value, reference.ThisValue);
                 if (!succeeded && reference.Strict)
                 {
-                    ExceptionHelper.ThrowTypeError(Realm, "Cannot assign to read only property '" + reference.ReferencedName + "' of " + baseValue);
+                    ExceptionHelper.ThrowTypeError(Realm, "Cannot assign to read only property '" + reference.ReferencedName + "' of " + baseObject);
                 }
             }
             else
             {
-                ((EnvironmentRecord) baseValue).SetMutableBinding(TypeConverter.ToString(reference.ReferencedName), value, reference.Strict);
+                ((EnvironmentRecord) reference.Base).SetMutableBinding(TypeConverter.ToString(reference.ReferencedName), value, reference.Strict);
             }
         }
 

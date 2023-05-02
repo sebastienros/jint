@@ -268,7 +268,8 @@ internal sealed class ClassDefinition
     /// </summary>
     private static ClassFieldDefinition ClassFieldDefinitionEvaluation(Engine engine, ObjectInstance homeObject, PropertyDefinition fieldDefinition)
     {
-        var name = fieldDefinition.Key.GetKey(engine);
+        var name = fieldDefinition.GetKey(engine);
+
         JintExpression? initializer = null;
         if (fieldDefinition.Value is not null)
         {
@@ -364,9 +365,9 @@ internal sealed class ClassDefinition
         closure.MakeMethod(obj);
         closure.SetFunctionName(propKey, method.Kind == PropertyKind.Get ? "get" : "set");
 
-        if (method.Key is PrivateIdentifier)
+        if (method.Key is PrivateIdentifier privateIdentifier)
         {
-            return new PrivateElement { Key = new PrivateName(method.Key.ToString()), Kind = PrivateElementKind.Accessor, Get = closure };
+            return new PrivateElement { Key = new PrivateName(privateIdentifier.Name), Kind = PrivateElementKind.Accessor, Get = closure };
         }
 
         var propDesc = new GetSetPropertyDescriptor(

@@ -67,7 +67,7 @@ public partial class ObjectInstance
             ExceptionHelper.ThrowTypeError(_engine.Realm, "Getter missing");
         }
 
-        return getter.Call(this);
+        return _engine.Call(getter);
     }
 
     /// <summary>
