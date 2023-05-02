@@ -61,11 +61,11 @@ internal sealed class ClassDefinition
         using var _ = new StrictModeScope(true, true);
 
         var engine = context.Engine;
-        var classScope = JintEnvironment.NewDeclarativeEnvironment(engine, env);
+        var classEnv = JintEnvironment.NewDeclarativeEnvironment(engine, env);
 
         if (_className is not null)
         {
-            classScope.CreateImmutableBinding(_className, true);
+            classEnv.CreateImmutableBinding(_className, true);
         }
 
         var outerPrivateEnvironment = engine.ExecutionContext.PrivateEnvironment;
@@ -80,7 +80,7 @@ internal sealed class ClassDefinition
         }
         else
         {
-            engine.UpdateLexicalEnvironment(classScope);
+            engine.UpdateLexicalEnvironment(classEnv);
             var superclass = JintExpression.Build(_superClass).GetValue(context);
             engine.UpdateLexicalEnvironment(env);
 
@@ -141,7 +141,8 @@ internal sealed class ClassDefinition
             ? _superConstructor
             : _emptyConstructor;
 
-        engine.UpdateLexicalEnvironment(classScope);
+        engine.UpdateLexicalEnvironment(classEnv);
+        engine.UpdatePrivateEnvironment(classPrivateEnvironment);
 
         ScriptFunctionInstance F;
         try
@@ -213,7 +214,7 @@ internal sealed class ClassDefinition
 
             if (_className is not null)
             {
-                classScope.InitializeBinding(_className, F);
+                classEnv.InitializeBinding(_className, F);
             }
 
             F._privateMethods = instancePrivateMethods;
@@ -242,9 +243,6 @@ internal sealed class ClassDefinition
             engine.UpdateLexicalEnvironment(env);
             engine.UpdatePrivateEnvironment(outerPrivateEnvironment);
         }
-
-
-        engine.UpdatePrivateEnvironment(outerPrivateEnvironment);
 
         return F;
     }
