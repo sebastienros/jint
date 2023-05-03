@@ -13,7 +13,7 @@ internal sealed class PrivateEnvironmentRecord
     }
 
     public PrivateEnvironmentRecord? OuterPrivateEnvironment { get; }
-    public HashSet<PrivateName> Names { get; } = new();
+    public HashSet<PrivateName> Names { get; } = new(PrivateNameDescriptionComparer._instance);
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-resolve-private-identifier
@@ -29,5 +29,23 @@ internal sealed class PrivateEnvironmentRecord
         }
 
         return OuterPrivateEnvironment?.ResolvePrivateIdentifier(identifier);
+    }
+
+    /// <summary>
+    /// Names are compared by description when they are inserted to environment, so first one winds (get/set pair).
+    /// </summary>
+    internal sealed class PrivateNameDescriptionComparer : IEqualityComparer<PrivateName>
+    {
+        internal static readonly PrivateNameDescriptionComparer _instance = new();
+
+        public bool Equals(PrivateName? x, PrivateName? y)
+        {
+            return x?.Description == y?.Description;
+        }
+
+        public int GetHashCode(PrivateName obj)
+        {
+            return obj.Description.GetHashCode();
+        }
     }
 }

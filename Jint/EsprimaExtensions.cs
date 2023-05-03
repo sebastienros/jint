@@ -251,7 +251,10 @@ namespace Jint
             }
         }
 
-        internal static void GetPrivateNames(this Node? parameter, List<PrivateIdentifier> target)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-static-semantics-privateboundidentifiers
+        /// </summary>
+        internal static void PrivateBoundIdentifiers(this Node? parameter, List<PrivateIdentifier> target)
         {
             if (parameter is null || parameter.Type == Nodes.Literal)
             {
@@ -268,7 +271,7 @@ namespace Jint
             // TODO remove extras
             if (parameter is VariableDeclaration variableDeclaration)
             {
-                variableDeclaration.GetPrivateNames(target);
+                variableDeclaration.PrivateBoundIdentifiers(target);
                 return;
             }
 
@@ -292,7 +295,7 @@ namespace Jint
                     for (var i = 0; i < arrayPatternElements.Count; i++)
                     {
                         var expression = arrayPatternElements[i];
-                        GetPrivateNames(expression, target);
+                        PrivateBoundIdentifiers(expression, target);
                     }
                 }
                 else if (parameter is ObjectPattern objectPattern)
@@ -303,11 +306,11 @@ namespace Jint
                         var property = objectPatternProperties[i];
                         if (property is Property p)
                         {
-                            GetPrivateNames(p.Value, target);
+                            PrivateBoundIdentifiers(p.Value, target);
                         }
                         else
                         {
-                            GetPrivateNames((RestElement) property, target);
+                            PrivateBoundIdentifiers((RestElement) property, target);
                         }
                     }
                 }

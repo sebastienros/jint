@@ -116,7 +116,7 @@ internal sealed class ClassDefinition
 
         ObjectInstance proto = new JsObject(engine) { _prototype = protoParent };
 
-        var privateBoundNames = new List<PrivateIdentifier>();
+        var privateBoundIdentifiers = new List<PrivateIdentifier>();
         MethodDefinition? constructor = null;
         ref readonly var elements = ref _body.Body;
         var classBody = elements;
@@ -128,11 +128,11 @@ internal sealed class ClassDefinition
                 constructor = c;
             }
 
-            privateBoundNames.Clear();
-            element.GetPrivateNames(privateBoundNames);
-            for (var j = 0; j < privateBoundNames.Count; j++)
+            privateBoundIdentifiers.Clear();
+            element.PrivateBoundIdentifiers(privateBoundIdentifiers);
+            for (var j = 0; j < privateBoundIdentifiers.Count; j++)
             {
-                classPrivateEnvironment.Names.Add(new PrivateName(privateBoundNames[j]));
+                classPrivateEnvironment.Names.Add(new PrivateName(privateBoundIdentifiers[j]));
             }
         }
 
@@ -179,13 +179,13 @@ internal sealed class ClassDefinition
                 if (element is PrivateElement privateElement)
                 {
                     var container = !isStatic ? instancePrivateMethods : staticPrivateMethods;
-                    var index = container.FindIndex(x => x.Key == privateElement.Key);
+                    var index = container.FindIndex(x => x.Key.Description == privateElement.Key.Description);
                     if (index != -1)
                     {
                         var pe = container[index];
                         var combined = privateElement.Get is null
-                            ? new PrivateElement { Key = privateElement.Key, Kind = PrivateElementKind.Accessor, Get = pe.Get, Set = privateElement.Set }
-                            : new PrivateElement { Key = privateElement.Key, Kind = PrivateElementKind.Accessor, Get = privateElement.Get, Set = pe.Set };
+                            ? new PrivateElement { Key = pe.Key, Kind = PrivateElementKind.Accessor, Get = pe.Get, Set = privateElement.Set }
+                            : new PrivateElement { Key = pe.Key, Kind = PrivateElementKind.Accessor, Get = privateElement.Get, Set = pe.Set };
 
                         container[index] = combined;
                     }
