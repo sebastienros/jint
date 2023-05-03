@@ -6,7 +6,7 @@ namespace Jint.Native.Object;
 
 public partial class ObjectInstance
 {
-    private Dictionary<string, PrivateElement>? _privateElements;
+    private Dictionary<PrivateName, PrivateElement>? _privateElements;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-initializeinstanceelements
@@ -49,8 +49,8 @@ public partial class ObjectInstance
             ExceptionHelper.ThrowTypeError(_engine.Realm, "Already present");
         }
 
-        _privateElements ??= new Dictionary<string, PrivateElement>();
-        _privateElements.Add(method.Key.ToString(), method);
+        _privateElements ??= new Dictionary<PrivateName, PrivateElement>();
+        _privateElements.Add(method.Key, method);
     }
 
     /// <summary>
@@ -67,8 +67,8 @@ public partial class ObjectInstance
             ExceptionHelper.ThrowTypeError(_engine.Realm, "Already present");
         }
 
-        _privateElements ??= new Dictionary<string, PrivateElement>();
-        _privateElements.Add(property.ToString(), new PrivateElement { Key = property, Kind = PrivateElementKind.Field, Value = value });
+        _privateElements ??= new Dictionary<PrivateName, PrivateElement>();
+        _privateElements.Add(property, new PrivateElement { Key = property, Kind = PrivateElementKind.Field, Value = value });
     }
 
     /// <summary>
@@ -135,7 +135,7 @@ public partial class ObjectInstance
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private PrivateElement? PrivateElementFind(PrivateName property)
     {
-        return _privateElements?.TryGetValue(property.ToString(), out var pe) == true ? pe : null;
+        return _privateElements?.TryGetValue(property, out var pe) == true ? pe : null;
     }
 }
 

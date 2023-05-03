@@ -44,7 +44,7 @@ internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
             return true;
         }
 
-        return _identifier.Name == other._identifier.Name;
+        return ReferenceEquals(_identifier, other._identifier);
     }
 
     public override int GetHashCode()
