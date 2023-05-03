@@ -6,34 +6,25 @@ namespace Jint.Runtime.Interpreter.Expressions;
 
 internal sealed class JintPrivateIdentifierExpression : JintExpression
 {
-    private readonly PrivateName _privateName;
+    private readonly string _privateIdentifierString;
 
     public JintPrivateIdentifierExpression(PrivateIdentifier expression) : base(expression)
     {
-        _privateName = new PrivateName(expression);
+        _privateIdentifierString = expression.Name;
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
         var engine = context.Engine;
-        var strict = StrictModeScope.IsStrictModeCode;
-        var env = engine.ExecutionContext.LexicalEnvironment;
+        var env = engine.ExecutionContext.PrivateEnvironment;
 
-        if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
-                env,
-                new EnvironmentRecord.BindingName(_privateName),
-                strict,
-                out _,
-                out var value))
+        var privateIdentifier = env!.ResolvePrivateIdentifier(_privateIdentifierString);
+        if (privateIdentifier is not null)
         {
-        }
-        else
-        {
-            var reference = engine._referencePool.Rent(JsValue.Undefined, _privateName, strict, thisValue: null);
-            value = engine.GetValue(reference, true);
+            return privateIdentifier;
         }
 
-
-        return value;
+        ExceptionHelper.ThrowReferenceError(engine.Realm, "TODO Not found!!");
+        return null;
     }
 }

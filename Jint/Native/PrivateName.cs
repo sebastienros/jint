@@ -10,7 +10,7 @@ internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
     public PrivateName(PrivateIdentifier identifier) : base(InternalTypes.PrivateName)
     {
         _identifier = identifier;
-        Description = "#" + identifier.Name;
+        Description = identifier.Name;
     }
 
     public string Description { get; }

@@ -31,10 +31,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     _determinedProperty = identifier.Name;
                 }
-                else if (_memberExpression.Property is PrivateIdentifier privateIdentifier)
-                {
-                    _determinedProperty = new PrivateName(privateIdentifier);
-                }
             }
             else if (_memberExpression.Property.Type == Nodes.Literal)
             {

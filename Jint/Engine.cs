@@ -1204,17 +1204,19 @@ namespace Jint
                 }
             }
 
-            var privateIdentifiers = new List<PrivateName>();
+            List<PrivateName>? privateIdentifiers = null;
             var pointer = privateEnv;
             while (pointer is not null)
             {
                 foreach (var name in pointer.Names)
                 {
+                    privateIdentifiers??= new List<PrivateName>();
                     privateIdentifiers.Add(name);
                 }
 
                 pointer = pointer.OuterPrivateEnvironment;
             }
+            // 7. If AllPrivateIdentifiersValid of body with argument privateIdentifiers is false, throw a SyntaxError exception.
 
             var functionDeclarations = hoistingScope._functionDeclarations;
             var functionsToInitialize = new LinkedList<JintFunctionDefinition>();

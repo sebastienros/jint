@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 using Jint.Native.Function;
 using Jint.Runtime;
-using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Native.Object;
 
@@ -144,7 +143,7 @@ public partial class ObjectInstance
 internal sealed class ClassFieldDefinition
 {
     public required JsValue Name { get; set; }
-    public JintExpression? Initializer { get; set; }
+    public ScriptFunctionInstance? Initializer { get; set; }
 }
 
 internal sealed class ClassStaticBlockDefinition

@@ -149,10 +149,10 @@ public partial class FunctionInstance
         var proto = GetPrototypeFromConstructor(newTarget, fallbackProto);
         var realmF = _realm;
         var scope = realmF.GlobalEnv;
-        PrivateEnvironmentRecord? privateScope = null;
+        PrivateEnvironmentRecord? privateEnv = null;
 
         var definition = new JintFunctionDefinition(function);
-        FunctionInstance F = OrdinaryFunctionCreate(proto, definition, function.Strict ? FunctionThisMode.Strict : FunctionThisMode.Global, scope, privateScope);
+        FunctionInstance F = OrdinaryFunctionCreate(proto, definition, function.Strict ? FunctionThisMode.Strict : FunctionThisMode.Global, scope, privateEnv);
         F.SetFunctionName(_functionNameAnonymous, force: true);
 
         if (kind == FunctionKind.Generator)

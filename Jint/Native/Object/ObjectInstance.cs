@@ -1612,7 +1612,7 @@ namespace Jint.Native.Object
             var initValue = Undefined;
             if (initializer is not null)
             {
-                initValue = initializer.GetValue(new EvaluationContext(receiver._engine));
+                initValue = receiver._engine.Call(initializer, receiver);
             }
 
             if (fieldName is PrivateName privateName)

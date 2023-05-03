@@ -50,6 +50,7 @@ namespace Jint.Native.Function
             var inFunction = false;
             var inMethod = false;
             var inDerivedConstructor = false;
+            var inClassFieldInitializer = false;
 
             if (direct)
             {
@@ -63,6 +64,12 @@ namespace Jint.Native.Function
                     if (F._constructorKind == ConstructorKind.Derived)
                     {
                         inDerivedConstructor = true;
+                    }
+
+                    var classFieldInitializerName = (F as ScriptFunctionInstance)?._classFieldInitializerName;
+                    if (!string.IsNullOrEmpty(classFieldInitializerName?.ToString()))
+                    {
+                        inClassFieldInitializer = true;
                     }
                 }
             }
@@ -101,6 +108,10 @@ namespace Jint.Native.Function
             if (!inDerivedConstructor)
             {
                 // if body Contains SuperCall, throw a SyntaxError exception.
+            }
+            if (inClassFieldInitializer)
+            {
+                // if ContainsArguments of body is true, throw a SyntaxError exception.
             }
 
             var strictEval = script.Strict || _engine._isStrict;

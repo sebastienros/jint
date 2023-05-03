@@ -175,7 +175,7 @@ namespace Jint
             }
         }
 
-        internal static void GetBoundNames(this Node? parameter, List<string> target, bool privateIdentifiers = false)
+        internal static void GetBoundNames(this Node? parameter, List<string> target)
         {
             if (parameter is null || parameter.Type == Nodes.Literal)
             {
@@ -183,15 +183,9 @@ namespace Jint
             }
 
             // try to get away without a loop
-            if (!privateIdentifiers && parameter is Identifier id)
+            if (parameter is Identifier id)
             {
                 target.Add(id.Name);
-                return;
-            }
-
-            if (privateIdentifiers && parameter is PrivateIdentifier privateId)
-            {
-                target.Add(privateId.Name);
                 return;
             }
 
@@ -203,15 +197,9 @@ namespace Jint
 
             while (true)
             {
-                if (!privateIdentifiers && parameter is Identifier identifier)
+                if (parameter is Identifier identifier)
                 {
                     target.Add(identifier.Name);
-                    return;
-                }
-
-                if (privateIdentifiers && parameter is PrivateIdentifier privateIdentifier)
-                {
-                    target.Add(privateIdentifier.Name);
                     return;
                 }
 
@@ -259,17 +247,87 @@ namespace Jint
                         target.Add(name);
                     }
                 }
-                else if (privateIdentifiers && parameter is IProperty property)
+                break;
+            }
+        }
+
+        internal static void GetPrivateNames(this Node? parameter, List<PrivateIdentifier> target)
+        {
+            if (parameter is null || parameter.Type == Nodes.Literal)
+            {
+                return;
+            }
+
+            // try to get away without a loop
+            if (parameter is PrivateIdentifier privateId)
+            {
+                target.Add(privateId);
+                return;
+            }
+
+            // TODO remove extras
+            if (parameter is VariableDeclaration variableDeclaration)
+            {
+                variableDeclaration.GetPrivateNames(target);
+                return;
+            }
+
+            while (true)
+            {
+                if (parameter is PrivateIdentifier privateIdentifier)
+                {
+                    target.Add(privateIdentifier);
+                    return;
+                }
+
+                if (parameter is RestElement restElement)
+                {
+                    parameter = restElement.Argument;
+                    continue;
+                }
+
+                if (parameter is ArrayPattern arrayPattern)
+                {
+                    ref readonly var arrayPatternElements = ref arrayPattern.Elements;
+                    for (var i = 0; i < arrayPatternElements.Count; i++)
+                    {
+                        var expression = arrayPatternElements[i];
+                        GetPrivateNames(expression, target);
+                    }
+                }
+                else if (parameter is ObjectPattern objectPattern)
+                {
+                    ref readonly var objectPatternProperties = ref objectPattern.Properties;
+                    for (var i = 0; i < objectPatternProperties.Count; i++)
+                    {
+                        var property = objectPatternProperties[i];
+                        if (property is Property p)
+                        {
+                            GetPrivateNames(p.Value, target);
+                        }
+                        else
+                        {
+                            GetPrivateNames((RestElement) property, target);
+                        }
+                    }
+                }
+                else if (parameter is AssignmentPattern assignmentPattern)
+                {
+                    parameter = assignmentPattern.Left;
+                    continue;
+                }
+                else if (parameter is IProperty property)
                 {
                     if (property.Key is PrivateIdentifier privateKeyIdentifier)
                     {
-                        target.Add(privateKeyIdentifier.Name);
+                        target.Add(privateKeyIdentifier);
                     }
                 }
 
                 break;
             }
         }
+
 
         internal static void BindingInitialization(
             this Node? expression,
@@ -302,8 +360,8 @@ namespace Jint
             var intrinsics = engine.Realm.Intrinsics;
 
             var runningExecutionContext = engine.ExecutionContext;
-            var scope = runningExecutionContext.LexicalEnvironment;
-            var privateScope= runningExecutionContext.PrivateEnvironment;
+            var env = runningExecutionContext.LexicalEnvironment;
+            var privateEnv= runningExecutionContext.PrivateEnvironment;
 
             var prototype = functionPrototype ?? intrinsics.Function.PrototypeObject;
             var function = m.Value as IFunction;
@@ -313,7 +371,7 @@ namespace Jint
             }
 
             var definition = new JintFunctionDefinition(function);
-            var closure = intrinsics.Function.OrdinaryFunctionCreate(prototype, definition, definition.ThisMode, scope, privateScope);
+            var closure = intrinsics.Function.OrdinaryFunctionCreate(prototype, definition, definition.ThisMode, env, privateEnv);
             closure.MakeMethod(obj);
 
             return new Record(propKey, closure);

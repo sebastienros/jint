@@ -11,6 +11,7 @@ namespace Jint.Native.Function
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
         internal bool _isClassConstructor;
+        internal JsValue? _classFieldInitializerName;
 
         internal List<PrivateElement>? _privateMethods;
         internal List<object>? _fields;

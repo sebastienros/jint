@@ -116,7 +116,7 @@ internal sealed class ClassDefinition
 
         ObjectInstance proto = new JsObject(engine) { _prototype = protoParent };
 
-        var privateBoundNames = new List<string>();
+        var privateBoundNames = new List<PrivateIdentifier>();
         MethodDefinition? constructor = null;
         ref readonly var elements = ref _body.Body;
         var classBody = elements;
@@ -129,11 +129,10 @@ internal sealed class ClassDefinition
             }
 
             privateBoundNames.Clear();
-            element.GetBoundNames(privateBoundNames, privateIdentifiers: true);
+            element.GetPrivateNames(privateBoundNames);
             for (var j = 0; j < privateBoundNames.Count; j++)
             {
-                var identifier = privateBoundNames[j];
-                classPrivateEnvironment.Names.Add(new PrivateName(new PrivateIdentifier(identifier)));
+                classPrivateEnvironment.Names.Add(new PrivateName(privateBoundNames[j]));
             }
         }
 
@@ -268,22 +267,48 @@ internal sealed class ClassDefinition
     {
         var name = fieldDefinition.GetKey(engine);
 
-        JintExpression? initializer = null;
+        ScriptFunctionInstance? initializer = null;
         if (fieldDefinition.Value is not null)
         {
-            //var intrinsics = engine.Realm.Intrinsics;
-            //var env = engine.ExecutionContext.LexicalEnvironment;
-            //var privateEnv = engine.ExecutionContext.PrivateEnvironment;
-            //
-            //var definition = new JintFunctionDefinition((IFunction) fieldDefinition.Value);
-            //initializer = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, FunctionThisMode.Global, env, privateEnv);
-            //
-            //initializer.MakeMethod(homeObject);
-            ////   g. Set initializer.[[ClassFieldInitializerName]] to name.
-            initializer = JintExpression.Build(fieldDefinition.Value);
+            var intrinsics = engine.Realm.Intrinsics;
+            var env = engine.ExecutionContext.LexicalEnvironment;
+            var privateEnv = engine.ExecutionContext.PrivateEnvironment;
+
+            var definition = new JintFunctionDefinition(new ClassFieldFunction(fieldDefinition.Value));
+            initializer = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, FunctionThisMode.Global, env, privateEnv);
+
+            initializer.MakeMethod(homeObject);
+            initializer._classFieldInitializerName = name;
         }
 
         return new ClassFieldDefinition { Name = name, Initializer = initializer };
+    }
+
+    private sealed class ClassFieldFunction : Node, IFunction
+    {
+        private readonly NodeList<Node> _nodeList = new();
+        private readonly BlockStatement _statement;
+
+        public ClassFieldFunction(Expression expression) : base(Nodes.ExpressionStatement)
+        {
+            var nodeList = NodeList.Create<Statement>(new [] { new ReturnStatement(expression) });
+            _statement = new BlockStatement(nodeList);
+        }
+
+        protected override object? Accept(AstVisitor visitor)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Identifier? Id => null;
+
+        public ref readonly NodeList<Node> Params => ref _nodeList;
+
+        public StatementListItem Body => _statement;
+        public bool Generator => false;
+        public bool Expression => false;
+        public bool Strict => true;
+        public bool Async => false;
     }
 
     /// <summary>
@@ -346,8 +371,6 @@ internal sealed class ClassDefinition
             return DefineMethodProperty(obj, methodDef.Key, methodDef.Closure, enumerable);
         }
 
-        var value = method.TryGetKey(engine);
-        var propKey = TypeConverter.ToPropertyKey(value);
         var function = method.Value as IFunction;
         if (function is null)
         {
@@ -356,12 +379,15 @@ internal sealed class ClassDefinition
 
         var getter = method.Kind == PropertyKind.Get;
 
-        var closure = new ScriptFunctionInstance(
-            obj.Engine,
-            function,
-            obj.Engine.ExecutionContext.LexicalEnvironment,
-            true);
+        var definition = new JintFunctionDefinition(function);
+        var intrinsics = engine.Realm.Intrinsics;
 
+        var value = method.TryGetKey(engine);
+        var propKey = TypeConverter.ToPropertyKey(value);
+        var env = engine.ExecutionContext.LexicalEnvironment;
+        var privateEnv = engine.ExecutionContext.PrivateEnvironment;
+
+        var closure = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, definition.ThisMode, env, privateEnv);
         closure.MakeMethod(obj);
         closure.SetFunctionName(propKey, getter ? "get" : "set");
 
