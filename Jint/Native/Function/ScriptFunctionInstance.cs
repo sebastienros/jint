@@ -144,13 +144,6 @@ namespace Jint.Native.Function
             }
 
             var calleeContext = PrepareForOrdinaryCall(newTarget);
-
-            if (kind == ConstructorKind.Base)
-            {
-                OrdinaryCallBindThis(calleeContext, thisArgument);
-                ((ObjectInstance) thisArgument).InitializeInstanceElements(this);
-            }
-
             var constructorEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment;
 
             var strict = _thisMode == FunctionThisMode.Strict;
@@ -158,6 +151,12 @@ namespace Jint.Native.Function
             {
                 try
                 {
+                    if (kind == ConstructorKind.Base)
+                    {
+                        OrdinaryCallBindThis(calleeContext, thisArgument);
+                        ((ObjectInstance) thisArgument).InitializeInstanceElements(this);
+                    }
+
                     var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
 
                     var result = _functionDefinition.EvaluateBody(context, this, arguments);
