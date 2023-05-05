@@ -13,7 +13,6 @@ using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
-using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Object
 {

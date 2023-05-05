@@ -38,7 +38,7 @@ namespace Jint.Native.Function
             Engine engine,
             Realm realm,
             JintFunctionDefinition function,
-            EnvironmentRecord scope,
+            EnvironmentRecord env,
             FunctionThisMode thisMode)
             : this(
                 engine,
@@ -47,7 +47,7 @@ namespace Jint.Native.Function
                 thisMode)
         {
             _functionDefinition = function;
-            _environment = scope;
+            _environment = env;
         }
 
         internal FunctionInstance(
@@ -196,7 +196,7 @@ namespace Jint.Native.Function
             }
             else if (name is PrivateName privateName)
             {
-                name = privateName.Description;
+                name = "#" + privateName.Description;
             }
 
             if (!string.IsNullOrWhiteSpace(prefix))
@@ -357,6 +357,9 @@ namespace Jint.Native.Function
             DefinePropertyOrThrow(CommonProperties.Length, new PropertyDescriptor(length, writable: false, enumerable: false, configurable: true));
         }
 
+        // native syntax doesn't expect to have private identifier indicator
+        private static readonly char[] _functionNameTrimStartChars = { '#' };
+
         public override string ToString()
         {
             // TODO no way to extract SourceText from Esprima at the moment, just returning native code
@@ -366,6 +369,8 @@ namespace Jint.Native.Function
             {
                 name = TypeConverter.ToString(nameValue);
             }
+
+            name = name.TrimStart(_functionNameTrimStartChars);
 
             return "function " + name + "() { [native code] }";
         }

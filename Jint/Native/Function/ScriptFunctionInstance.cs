@@ -22,13 +22,13 @@ namespace Jint.Native.Function
         public ScriptFunctionInstance(
             Engine engine,
             IFunction functionDeclaration,
-            EnvironmentRecord scope,
+            EnvironmentRecord env,
             bool strict,
             ObjectInstance? proto = null)
             : this(
                 engine,
                 new JintFunctionDefinition(functionDeclaration),
-                scope,
+                env,
                 strict ? FunctionThisMode.Strict : FunctionThisMode.Global,
                 proto)
         {
@@ -37,10 +37,10 @@ namespace Jint.Native.Function
         internal ScriptFunctionInstance(
             Engine engine,
             JintFunctionDefinition function,
-            EnvironmentRecord scope,
+            EnvironmentRecord env,
             FunctionThisMode thisMode,
             ObjectInstance? proto = null)
-            : base(engine, engine.Realm, function, scope, thisMode)
+            : base(engine, engine.Realm, function, env, thisMode)
         {
             _prototype = proto ?? _engine.Realm.Intrinsics.Function.PrototypeObject;
             _length = new LazyPropertyDescriptor(null, _ => JsNumber.Create(function.Initialize().Length), PropertyFlag.Configurable);
