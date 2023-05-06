@@ -46,16 +46,10 @@ internal sealed class ClassDefinition
         _body = body;
     }
 
-    public void Initialize()
-    {
-    }
-
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation
     /// </summary>
-    public JsValue BuildConstructor(
-        EvaluationContext context,
-        EnvironmentRecord env)
+    public JsValue BuildConstructor(EvaluationContext context, EnvironmentRecord env)
     {
         // A class definition is always strict mode code.
         using var _ = new StrictModeScope(true, true);
@@ -149,11 +143,7 @@ internal sealed class ClassDefinition
             var constructorInfo = constructor.DefineMethod(proto, constructorParent);
             F = constructorInfo.Closure;
 
-            var name = env is ModuleEnvironmentRecord ? _className : _className ?? "";
-            if (name is not null)
-            {
-                F.SetFunctionName(name);
-            }
+            F.SetFunctionName(_className ?? "");
 
             F.MakeConstructor(writableProperty: false, proto);
             F._constructorKind = _superClass is null ? ConstructorKind.Base : ConstructorKind.Derived;

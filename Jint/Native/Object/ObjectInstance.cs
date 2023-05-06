@@ -1612,6 +1612,10 @@ namespace Jint.Native.Object
             if (initializer is not null)
             {
                 initValue = receiver._engine.Call(initializer, receiver);
+                if (initValue is FunctionInstance functionInstance)
+                {
+                    functionInstance.SetFunctionName(fieldName);
+                }
             }
 
             if (fieldName is PrivateName privateName)
