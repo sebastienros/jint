@@ -47,7 +47,7 @@ namespace Jint
             }
             else if (expression is PrivateIdentifier privateIdentifier)
             {
-                key = new PrivateName(privateIdentifier);
+                key = engine.ExecutionContext.PrivateEnvironment!.Names[privateIdentifier];
             }
             else if (resolveComputed)
             {

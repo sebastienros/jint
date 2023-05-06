@@ -1,3 +1,4 @@
+using Esprima.Ast;
 using Jint.Native;
 
 namespace Jint.Runtime.Environments;
@@ -13,7 +14,7 @@ internal sealed class PrivateEnvironmentRecord
     }
 
     public PrivateEnvironmentRecord? OuterPrivateEnvironment { get; }
-    public HashSet<PrivateName> Names { get; } = new(PrivateNameDescriptionComparer._instance);
+    public Dictionary<PrivateIdentifier, PrivateName> Names { get; } = new();
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-resolve-private-identifier
@@ -22,9 +23,9 @@ internal sealed class PrivateEnvironmentRecord
     {
         foreach (var pn in Names)
         {
-            if (pn.Description == identifier)
+            if (pn.Value.Description == identifier)
             {
-                return pn;
+                return pn.Value;
             }
         }
 

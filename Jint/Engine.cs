@@ -1220,7 +1220,7 @@ namespace Jint
                 foreach (var name in pointer.Names)
                 {
                     privateIdentifiers??= new HashSet<PrivateIdentifier>(PrivateIdentifierNameComparer._instance);
-                    privateIdentifiers.Add(name._identifier);
+                    privateIdentifiers.Add(name.Key);
                 }
 
                 pointer = pointer.OuterPrivateEnvironment;
