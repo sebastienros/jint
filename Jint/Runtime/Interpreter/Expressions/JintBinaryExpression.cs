@@ -621,6 +621,13 @@ namespace Jint.Runtime.Interpreter.Expressions
                     ExceptionHelper.ThrowTypeError(context.Engine.Realm, "in can only be used with an object");
                 }
 
+                if (left.IsPrivateName())
+                {
+                    var privateEnv = context.Engine.ExecutionContext.PrivateEnvironment!;
+                    var privateName = privateEnv.ResolvePrivateIdentifier(((PrivateName) left).ToString());
+                    return privateName is not null && oi.PrivateElementFind(privateName) is not null ? JsBoolean.True : JsBoolean.False;
+                }
+
                 return oi.HasProperty(left) ? JsBoolean.True : JsBoolean.False;
             }
         }

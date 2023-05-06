@@ -133,12 +133,11 @@ public partial class ObjectInstance
     /// https://tc39.es/ecma262/#sec-privateelementfind
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private PrivateElement? PrivateElementFind(PrivateName property)
+    internal PrivateElement? PrivateElementFind(PrivateName property)
     {
         return _privateElements?.TryGetValue(property, out var pe) == true ? pe : null;
     }
 }
-
 
 internal sealed class ClassFieldDefinition
 {
