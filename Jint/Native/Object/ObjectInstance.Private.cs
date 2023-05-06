@@ -79,7 +79,7 @@ public partial class ObjectInstance
         var entry = PrivateElementFind(property);
         if (entry is null)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Not found");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, $"Cannot read private member #{property} from an object whose class did not declare it");
         }
 
         if (entry.Kind is PrivateElementKind.Field or PrivateElementKind.Method)

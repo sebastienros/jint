@@ -9,7 +9,7 @@ namespace Jint.Native;
 /// </summary>
 internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
 {
-    private readonly PrivateIdentifier _identifier;
+    internal readonly PrivateIdentifier _identifier;
 
     public PrivateName(PrivateIdentifier identifier) : base(InternalTypes.PrivateName)
     {
@@ -56,3 +56,37 @@ internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
         return _identifier.Name.GetHashCode();
     }
 }
+
+/// <summary>
+/// Names are compared by description when they are inserted to environment, so first one wins (get/set pair).
+/// </summary>
+internal sealed class PrivateNameDescriptionComparer : IEqualityComparer<PrivateName>
+{
+    internal static readonly PrivateNameDescriptionComparer _instance = new();
+
+    public bool Equals(PrivateName? x, PrivateName? y)
+    {
+        return x?.Description == y?.Description;
+    }
+
+    public int GetHashCode(PrivateName obj)
+    {
+        return obj.Description.GetHashCode();
+    }
+}
+
+internal sealed class PrivateIdentifierNameComparer : IEqualityComparer<PrivateIdentifier>
+{
+    internal static readonly PrivateIdentifierNameComparer _instance = new();
+
+    public bool Equals(PrivateIdentifier? x, PrivateIdentifier? y)
+    {
+        return x?.Name == y?.Name;
+    }
+
+    public int GetHashCode(PrivateIdentifier obj)
+    {
+        return obj.Name.GetHashCode();
+    }
+}
+

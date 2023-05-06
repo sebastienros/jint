@@ -116,7 +116,7 @@ internal sealed class ClassDefinition
 
         ObjectInstance proto = new JsObject(engine) { _prototype = protoParent };
 
-        var privateBoundIdentifiers = new List<PrivateIdentifier>();
+        var privateBoundIdentifiers = new HashSet<PrivateIdentifier>(PrivateIdentifierNameComparer._instance);
         MethodDefinition? constructor = null;
         ref readonly var elements = ref _body.Body;
         var classBody = elements;
@@ -130,9 +130,9 @@ internal sealed class ClassDefinition
 
             privateBoundIdentifiers.Clear();
             element.PrivateBoundIdentifiers(privateBoundIdentifiers);
-            for (var j = 0; j < privateBoundIdentifiers.Count; j++)
+            foreach (var name in privateBoundIdentifiers)
             {
-                classPrivateEnvironment.Names.Add(new PrivateName(privateBoundIdentifiers[j]));
+                classPrivateEnvironment.Names.Add(new PrivateName(name));
             }
         }
 

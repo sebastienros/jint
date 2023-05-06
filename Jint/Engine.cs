@@ -26,7 +26,11 @@ namespace Jint
     /// </summary>
     public sealed partial class Engine : IDisposable
     {
-        private readonly JavaScriptParser _defaultParser = new(ParserOptions.Default);
+        private static readonly ParserOptions _defaultParserOptions = ParserOptions.Default with
+        {
+            AllowReturnOutsideFunction = true
+        };
+        private readonly JavaScriptParser _defaultParser = new(_defaultParserOptions);
 
         internal readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
@@ -286,13 +290,13 @@ namespace Jint
         /// Evaluates code and returns last return value.
         /// </summary>
         public JsValue Evaluate(string code)
-            => Evaluate(code, "<anonymous>", ParserOptions.Default);
+            => Evaluate(code, "<anonymous>", _defaultParserOptions);
 
         /// <summary>
         /// Evaluates code and returns last return value.
         /// </summary>
         public JsValue Evaluate(string code, string source)
-            => Evaluate(code, source, ParserOptions.Default);
+            => Evaluate(code, source, _defaultParserOptions);
 
         /// <summary>
         /// Evaluates code and returns last return value.
@@ -305,7 +309,7 @@ namespace Jint
         /// </summary>
         public JsValue Evaluate(string code, string source, ParserOptions parserOptions)
         {
-            var parser = ReferenceEquals(ParserOptions.Default, parserOptions)
+            var parser = ReferenceEquals(_defaultParserOptions, parserOptions)
                 ? _defaultParser
                 : new JavaScriptParser(parserOptions);
 
@@ -324,7 +328,7 @@ namespace Jint
         /// Executes code into engine and returns the engine instance (useful for chaining).
         /// </summary>
         public Engine Execute(string code, string? source = null)
-            => Execute(code, source ?? "<anonymous>", ParserOptions.Default);
+            => Execute(code, source ?? "<anonymous>", _defaultParserOptions);
 
         /// <summary>
         /// Executes code into engine and returns the engine instance (useful for chaining).
@@ -337,7 +341,7 @@ namespace Jint
         /// </summary>
         public Engine Execute(string code, string source, ParserOptions parserOptions)
         {
-            var parser = ReferenceEquals(ParserOptions.Default, parserOptions)
+            var parser = ReferenceEquals(_defaultParserOptions, parserOptions)
                 ? _defaultParser
                 : new JavaScriptParser(parserOptions);
 
@@ -559,6 +563,11 @@ namespace Jint
                     if (o is null)
                     {
                         o = TypeConverter.ToObject(Realm, baseValue);
+                    }
+
+                    if (reference.IsPrivateReference)
+                    {
+                        return o.PrivateGet((PrivateName) reference.ReferencedName);
                     }
 
                     var desc = o.GetProperty(property);
@@ -1204,19 +1213,20 @@ namespace Jint
                 }
             }
 
-            List<PrivateName>? privateIdentifiers = null;
+            HashSet<PrivateIdentifier>? privateIdentifiers = null;
             var pointer = privateEnv;
             while (pointer is not null)
             {
                 foreach (var name in pointer.Names)
                 {
-                    privateIdentifiers??= new List<PrivateName>();
-                    privateIdentifiers.Add(name);
+                    privateIdentifiers??= new HashSet<PrivateIdentifier>(PrivateIdentifierNameComparer._instance);
+                    privateIdentifiers.Add(name._identifier);
                 }
 
                 pointer = pointer.OuterPrivateEnvironment;
             }
-            // 7. If AllPrivateIdentifiersValid of body with argument privateIdentifiers is false, throw a SyntaxError exception.
+
+            script.AllPrivateIdentifiersValid(realm, privateIdentifiers);
 
             var functionDeclarations = hoistingScope._functionDeclarations;
             var functionsToInitialize = new LinkedList<JintFunctionDefinition>();

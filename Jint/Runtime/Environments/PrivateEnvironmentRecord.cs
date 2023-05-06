@@ -30,22 +30,4 @@ internal sealed class PrivateEnvironmentRecord
 
         return OuterPrivateEnvironment?.ResolvePrivateIdentifier(identifier);
     }
-
-    /// <summary>
-    /// Names are compared by description when they are inserted to environment, so first one winds (get/set pair).
-    /// </summary>
-    internal sealed class PrivateNameDescriptionComparer : IEqualityComparer<PrivateName>
-    {
-        internal static readonly PrivateNameDescriptionComparer _instance = new();
-
-        public bool Equals(PrivateName? x, PrivateName? y)
-        {
-            return x?.Description == y?.Description;
-        }
-
-        public int GetHashCode(PrivateName obj)
-        {
-            return obj.Description.GetHashCode();
-        }
-    }
 }

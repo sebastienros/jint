@@ -75,7 +75,8 @@ namespace Jint.Runtime.Interpreter.Expressions
             var expression = (Literal) _expression;
             if (expression.TokenType == TokenType.RegularExpression)
             {
-                return context.Engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex) expression.Value!, expression.Regex!.Pattern, expression.Regex.Flags);
+                var regExpLiteral = (RegExpLiteral) _expression;
+                return context.Engine.Realm.Intrinsics.RegExp.Construct((System.Text.RegularExpressions.Regex) regExpLiteral.Value!, regExpLiteral.Regex.Pattern, regExpLiteral.Regex.Flags);
             }
 
             return JsValue.FromObject(context.Engine, expression.Value);
