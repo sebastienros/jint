@@ -53,7 +53,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 funcEnv.CreateImmutableBinding(name!, strict: false);
             }
 
-            var privateScope = runningExecutionContext.PrivateEnvironment;
+            var privateEnv = runningExecutionContext.PrivateEnvironment;
 
             var thisMode = _function.Strict
                 ? FunctionThisMode.Strict
@@ -65,7 +65,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _function,
                 thisMode,
                 funcEnv ?? scope,
-                privateScope
+                privateEnv
             );
 
             if (name is not null)

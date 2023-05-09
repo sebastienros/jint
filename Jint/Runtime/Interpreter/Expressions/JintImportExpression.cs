@@ -8,7 +8,7 @@ internal sealed class JintImportExpression : JintExpression
 {
     private JintExpression _importExpression;
 
-    public JintImportExpression(Import expression) : base(expression)
+    public JintImportExpression(ImportExpression expression) : base(expression)
     {
         _initialized = false;
         _importExpression = null!;
@@ -16,7 +16,7 @@ internal sealed class JintImportExpression : JintExpression
 
     protected override void Initialize(EvaluationContext context)
     {
-        var expression = ((Import) _expression).Source;
+        var expression = ((ImportExpression) _expression).Source;
         _importExpression = Build(expression);
     }
 

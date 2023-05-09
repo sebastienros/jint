@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
+using Esprima.Utils;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -43,6 +44,10 @@ namespace Jint
             else if (!resolveComputed && expression is Identifier identifier)
             {
                 key = identifier.Name;
+            }
+            else if (expression is PrivateIdentifier privateIdentifier)
+            {
+                key = engine.ExecutionContext.PrivateEnvironment!.Names[privateIdentifier];
             }
             else if (resolveComputed)
             {
@@ -243,8 +248,34 @@ namespace Jint
                         target.Add(name);
                     }
                 }
-
                 break;
+            }
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-static-semantics-privateboundidentifiers
+        /// </summary>
+        internal static void PrivateBoundIdentifiers(this Node parameter, HashSet<PrivateIdentifier> target)
+        {
+            if (parameter.Type == Nodes.PrivateIdentifier)
+            {
+                target.Add((PrivateIdentifier) parameter);
+            }
+            else if (parameter.Type is Nodes.AccessorProperty or Nodes.MethodDefinition or Nodes.PropertyDefinition)
+            {
+                if (((ClassProperty) parameter).Key is PrivateIdentifier privateKeyIdentifier)
+                {
+                    target.Add(privateKeyIdentifier);
+                }
+            }
+            else if (parameter.Type == Nodes.ClassBody)
+            {
+                ref readonly var elements = ref ((ClassBody) parameter).Body;
+                for (var i = 0; i < elements.Count; i++)
+                {
+                    var element = elements[i];
+                    PrivateBoundIdentifiers(element, target);
+                }
             }
         }
 
@@ -279,8 +310,8 @@ namespace Jint
             var intrinsics = engine.Realm.Intrinsics;
 
             var runningExecutionContext = engine.ExecutionContext;
-            var scope = runningExecutionContext.LexicalEnvironment;
-            var privateScope= runningExecutionContext.PrivateEnvironment;
+            var env = runningExecutionContext.LexicalEnvironment;
+            var privateEnv= runningExecutionContext.PrivateEnvironment;
 
             var prototype = functionPrototype ?? intrinsics.Function.PrototypeObject;
             var function = m.Value as IFunction;
@@ -290,7 +321,7 @@ namespace Jint
             }
 
             var definition = new JintFunctionDefinition(function);
-            var closure = intrinsics.Function.OrdinaryFunctionCreate(prototype, definition, definition.ThisMode, scope, privateScope);
+            var closure = intrinsics.Function.OrdinaryFunctionCreate(prototype, definition, definition.ThisMode, env, privateEnv);
             closure.MakeMethod(obj);
 
             return new Record(propKey, closure);
@@ -438,13 +469,59 @@ namespace Jint
         {
             return new MinimalSyntaxElement(location);
         }
-    }
 
-    internal sealed class MinimalSyntaxElement : SyntaxElement
-    {
-        public MinimalSyntaxElement(in Location location)
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-static-semantics-allprivateidentifiersvalid
+        /// </summary>
+        internal static void AllPrivateIdentifiersValid(this Script script, Realm realm, HashSet<PrivateIdentifier>? privateIdentifiers)
         {
-            Location = location;
+            var validator = new PrivateIdentifierValidator(realm, privateIdentifiers);
+            validator.Visit(script);
+        }
+
+        private sealed class MinimalSyntaxElement : SyntaxElement
+        {
+            public MinimalSyntaxElement(in Location location)
+            {
+                Location = location;
+            }
+        }
+
+        private sealed class PrivateIdentifierValidator : AstVisitor
+        {
+            private readonly Realm _realm;
+            private HashSet<PrivateIdentifier>? _privateNames;
+
+            public PrivateIdentifierValidator(Realm realm, HashSet<PrivateIdentifier>? privateNames)
+            {
+                _realm = realm;
+                _privateNames = privateNames;
+            }
+
+            protected override object VisitPrivateIdentifier(PrivateIdentifier privateIdentifier)
+            {
+                if (_privateNames is null || !_privateNames.Contains(privateIdentifier))
+                {
+                    Throw(_realm, privateIdentifier);
+                }
+                return privateIdentifier;
+            }
+
+            protected override object VisitClassBody(ClassBody classBody)
+            {
+                var oldList = _privateNames;
+                _privateNames = new HashSet<PrivateIdentifier>(PrivateIdentifierNameComparer._instance);
+                classBody.PrivateBoundIdentifiers(_privateNames);
+                base.VisitClassBody(classBody);
+                _privateNames = oldList;
+                return classBody;
+            }
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            private static void Throw(Realm r, PrivateIdentifier id)
+            {
+                ExceptionHelper.ThrowSyntaxError(r, $"Private field '#{id.Name}' must be declared in an enclosing class");
+            }
         }
     }
 }

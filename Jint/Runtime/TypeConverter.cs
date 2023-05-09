@@ -49,15 +49,17 @@ namespace Jint.Runtime
         // primitive  types range end
         Object = 256,
 
+        PrivateName = 512,
+
         // internal usage
-        ObjectEnvironmentRecord = 512,
-        RequiresCloning = 1024,
-        Module = 2048,
+        ObjectEnvironmentRecord = 1024,
+        RequiresCloning = 2048,
+        Module = 4096,
 
         // the object doesn't override important GetOwnProperty etc which change behavior
-        PlainObject = 4096,
+        PlainObject = 8192,
         // our native array
-        Array = 8192,
+        Array = 16384,
 
         Primitive = Boolean | String | Number | Integer | BigInt | Symbol,
         InternalFlags = ObjectEnvironmentRecord | RequiresCloning | PlainObject | Array | Module
@@ -926,8 +928,8 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static JsValue ToPropertyKey(JsValue o)
         {
-            const InternalTypes stringOrSymbol = InternalTypes.String | InternalTypes.Symbol;
-            return (o._type & stringOrSymbol) != 0
+            const InternalTypes PropertyKeys = InternalTypes.String | InternalTypes.Symbol | InternalTypes.PrivateName;
+            return (o._type & PropertyKeys) != 0
                 ? o
                 : ToPropertyKeyNonString(o);
         }
@@ -935,9 +937,9 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static JsValue ToPropertyKeyNonString(JsValue o)
         {
-            const InternalTypes stringOrSymbol = InternalTypes.String | InternalTypes.Symbol;
+            const InternalTypes PropertyKeys = InternalTypes.String | InternalTypes.Symbol | InternalTypes.PrivateName;
             var primitive = ToPrimitive(o, Types.String);
-            return (primitive._type & stringOrSymbol) != 0
+            return (primitive._type & PropertyKeys) != 0
                 ? primitive
                 : ToStringNonString(primitive);
         }
@@ -982,6 +984,8 @@ namespace Jint.Runtime
                     return "undefined";
                 case InternalTypes.Null:
                     return "null";
+                case InternalTypes.PrivateName:
+                    return o.ToString();
                 case InternalTypes.Object when o is IObjectWrapper p:
                     return p.Target?.ToString()!;
                 default:

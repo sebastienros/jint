@@ -221,11 +221,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 else if (property.Kind == PropertyKind.Get || property.Kind == PropertyKind.Set)
                 {
                     var function = objectProperty.GetFunctionDefinition(engine);
-                    var closure = new ScriptFunctionInstance(
-                        engine,
+                    var closure = engine.Realm.Intrinsics.Function.OrdinaryFunctionCreate(
+                        engine.Realm.Intrinsics.Function.PrototypeObject,
                         function,
+                        function.ThisMode,
                         engine.ExecutionContext.LexicalEnvironment,
-                        function.ThisMode);
+                        engine.ExecutionContext.PrivateEnvironment);
 
                     closure.SetFunctionName(propName, property.Kind == PropertyKind.Get ? "get" : "set");
                     closure.MakeMethod(obj);

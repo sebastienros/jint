@@ -52,6 +52,10 @@ namespace Jint
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsPrivateName(this JsValue value) => value._type == InternalTypes.PrivateName;
+
+        [Pure]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsRegExp(this JsValue value)
         {
             if (value is not ObjectInstance oi)

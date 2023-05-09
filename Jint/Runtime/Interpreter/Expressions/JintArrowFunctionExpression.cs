@@ -2,35 +2,35 @@ using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
 
-namespace Jint.Runtime.Interpreter.Expressions
+namespace Jint.Runtime.Interpreter.Expressions;
+
+internal sealed class JintArrowFunctionExpression : JintExpression
 {
-    internal sealed class JintArrowFunctionExpression : JintExpression
+    private readonly JintFunctionDefinition _function;
+
+    public JintArrowFunctionExpression(ArrowFunctionExpression function) : base(function)
     {
-        private readonly JintFunctionDefinition _function;
+        _function = new JintFunctionDefinition(function);
+    }
 
-        public JintArrowFunctionExpression(ArrowFunctionExpression function) : base(function)
+    protected override object EvaluateInternal(EvaluationContext context)
+    {
+        var engine = context.Engine;
+        var env = engine.ExecutionContext.LexicalEnvironment;
+        var privateEnv = engine.ExecutionContext.PrivateEnvironment;
+
+        var closure = engine.Realm.Intrinsics.Function.OrdinaryFunctionCreate(
+            engine.Realm.Intrinsics.Function.PrototypeObject,
+            _function,
+            FunctionThisMode.Lexical,
+            env,
+            privateEnv);
+
+        if (_function.Name is null)
         {
-            _function = new JintFunctionDefinition(function);
+            closure.SetFunctionName(JsString.Empty);
         }
 
-        protected override object EvaluateInternal(EvaluationContext context)
-        {
-            var engine = context.Engine;
-            var scope = engine.ExecutionContext.LexicalEnvironment;
-
-            var closure = new ScriptFunctionInstance(
-                engine,
-                _function,
-                scope,
-                FunctionThisMode.Lexical,
-                proto: engine.Realm.Intrinsics.Function.PrototypeObject);
-
-            if (_function.Name is null)
-            {
-                closure.SetFunctionName(JsString.Empty);
-            }
-
-            return closure;
-        }
+        return closure;
     }
 }

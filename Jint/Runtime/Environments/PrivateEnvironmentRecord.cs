@@ -1,35 +1,34 @@
-namespace Jint.Runtime.Environments
+using Esprima.Ast;
+using Jint.Native;
+
+namespace Jint.Runtime.Environments;
+
+/// <summary>
+/// https://tc39.es/ecma262/#sec-privateenvironment-records
+/// </summary>
+internal sealed class PrivateEnvironmentRecord
 {
-    /// <summary>
-    /// https://tc39.es/ecma262/#sec-privateenvironment-records
-    /// </summary>
-    internal sealed class PrivateEnvironmentRecord
+    public PrivateEnvironmentRecord(PrivateEnvironmentRecord? outerPrivEnv)
     {
-        private readonly PrivateEnvironmentRecord? _outerPrivateEnvironment;
-        private readonly List<PrivateName> _names = new();
+        OuterPrivateEnvironment = outerPrivEnv;
+    }
 
-        private readonly record struct PrivateName(string Name, string Description);
+    public PrivateEnvironmentRecord? OuterPrivateEnvironment { get; }
+    public Dictionary<PrivateIdentifier, PrivateName> Names { get; } = new();
 
-        public PrivateEnvironmentRecord(PrivateEnvironmentRecord? outerPrivEnv)
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-resolve-private-identifier
+    /// </summary>
+    public PrivateName? ResolvePrivateIdentifier(string identifier)
+    {
+        foreach (var pn in Names)
         {
-            _outerPrivateEnvironment = outerPrivEnv;
-        }
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-resolve-private-identifier
-        /// </summary>
-        public string? ResolvePrivateIdentifier(string identifier)
-        {
-            var names = _names;
-            foreach (var privateName in names)
+            if (pn.Value.Description == identifier)
             {
-                if (privateName.Description == identifier)
-                {
-                    return privateName.Name;
-                }
+                return pn.Value;
             }
-
-            return _outerPrivateEnvironment?.ResolvePrivateIdentifier(identifier);
         }
+
+        return OuterPrivateEnvironment?.ResolvePrivateIdentifier(identifier);
     }
 }

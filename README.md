@@ -97,13 +97,13 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 
 #### ECMAScript 2022
 
-- ❌ Class Fields
+- ✔ Class Fields
 - ✔ RegExp Match Indices
 - ❌ Top-level await
-- ❌ Ergonomic brand checks for Private Fields
+- ✔ Ergonomic brand checks for Private Fields
 - ✔ `.at()`
 - ✔ Accessible `Object.prototype.hasOwnProperty` (`Object.hasOwn`)
-- ❌ Class Static Block
+- ✔ Class Static Block
 - ✔ Error Cause
 
 #### ECMAScript Stage 3 (no version yet)

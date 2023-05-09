@@ -21,7 +21,7 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
     {
         if (_statement.Declaration is ClassDeclaration classDeclaration)
         {
-            _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name, classDeclaration.SuperClass, classDeclaration.Body);
+            _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name ?? "default", classDeclaration.SuperClass, classDeclaration.Body);
         }
         else if (_statement.Declaration is FunctionDeclaration functionDeclaration)
         {

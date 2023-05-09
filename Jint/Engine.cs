@@ -26,7 +26,11 @@ namespace Jint
     /// </summary>
     public sealed partial class Engine : IDisposable
     {
-        private readonly JavaScriptParser _defaultParser = new(ParserOptions.Default);
+        private static readonly ParserOptions _defaultParserOptions = ParserOptions.Default with
+        {
+            AllowReturnOutsideFunction = true
+        };
+        private readonly JavaScriptParser _defaultParser = new(_defaultParserOptions);
 
         internal readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
@@ -286,13 +290,13 @@ namespace Jint
         /// Evaluates code and returns last return value.
         /// </summary>
         public JsValue Evaluate(string code)
-            => Evaluate(code, "<anonymous>", ParserOptions.Default);
+            => Evaluate(code, "<anonymous>", _defaultParserOptions);
 
         /// <summary>
         /// Evaluates code and returns last return value.
         /// </summary>
         public JsValue Evaluate(string code, string source)
-            => Evaluate(code, source, ParserOptions.Default);
+            => Evaluate(code, source, _defaultParserOptions);
 
         /// <summary>
         /// Evaluates code and returns last return value.
@@ -305,7 +309,7 @@ namespace Jint
         /// </summary>
         public JsValue Evaluate(string code, string source, ParserOptions parserOptions)
         {
-            var parser = ReferenceEquals(ParserOptions.Default, parserOptions)
+            var parser = ReferenceEquals(_defaultParserOptions, parserOptions)
                 ? _defaultParser
                 : new JavaScriptParser(parserOptions);
 
@@ -324,7 +328,7 @@ namespace Jint
         /// Executes code into engine and returns the engine instance (useful for chaining).
         /// </summary>
         public Engine Execute(string code, string? source = null)
-            => Execute(code, source ?? "<anonymous>", ParserOptions.Default);
+            => Execute(code, source ?? "<anonymous>", _defaultParserOptions);
 
         /// <summary>
         /// Executes code into engine and returns the engine instance (useful for chaining).
@@ -337,7 +341,7 @@ namespace Jint
         /// </summary>
         public Engine Execute(string code, string source, ParserOptions parserOptions)
         {
-            var parser = ReferenceEquals(ParserOptions.Default, parserOptions)
+            var parser = ReferenceEquals(_defaultParserOptions, parserOptions)
                 ? _defaultParser
                 : new JavaScriptParser(parserOptions);
 
@@ -506,7 +510,7 @@ namespace Jint
 
         internal JsValue GetValue(Reference reference, bool returnReferenceToPool)
         {
-            var baseValue = reference.GetBase();
+            var baseValue = reference.Base;
 
             if (baseValue.IsUndefined())
             {
@@ -524,9 +528,9 @@ namespace Jint
                 return baseValue;
             }
 
-            if (reference.IsPropertyReference())
+            if (reference.IsPropertyReference)
             {
-                var property = reference.GetReferencedName();
+                var property = reference.ReferencedName;
                 if (returnReferenceToPool)
                 {
                     _referencePool.Return(reference);
@@ -534,8 +538,14 @@ namespace Jint
 
                 if (baseValue.IsObject())
                 {
-                    var o = TypeConverter.ToObject(Realm, baseValue);
-                    var v = o.Get(property, reference.GetThisValue());
+                    var baseObj = TypeConverter.ToObject(Realm, baseValue);
+
+                    if (reference.IsPrivateReference)
+                    {
+                        return baseObj.PrivateGet((PrivateName) reference.ReferencedName);
+                    }
+
+                    var v = baseObj.Get(property, reference.ThisValue);
                     return v;
                 }
                 else
@@ -553,6 +563,11 @@ namespace Jint
                     if (o is null)
                     {
                         o = TypeConverter.ToObject(Realm, baseValue);
+                    }
+
+                    if (reference.IsPrivateReference)
+                    {
+                        return o.PrivateGet((PrivateName) reference.ReferencedName);
                     }
 
                     var desc = o.GetProperty(property);
@@ -583,7 +598,7 @@ namespace Jint
                 ExceptionHelper.ThrowArgumentException();
             }
 
-            var bindingValue = record.GetBindingValue(reference.GetReferencedName().ToString(), reference.IsStrictReference());
+            var bindingValue = record.GetBindingValue(reference.ReferencedName.ToString(), reference.Strict);
 
             if (returnReferenceToPool)
             {
@@ -632,32 +647,33 @@ namespace Jint
         /// </summary>
         internal void PutValue(Reference reference, JsValue value)
         {
-            var baseValue = reference.GetBase();
-            if (reference.IsUnresolvableReference())
+            if (reference.IsUnresolvableReference)
             {
-                if (reference.IsStrictReference() && reference.GetReferencedName() != CommonProperties.Arguments)
+                if (reference.Strict && reference.ReferencedName != CommonProperties.Arguments)
                 {
                     ExceptionHelper.ThrowReferenceError(Realm, reference);
                 }
 
-                Realm.GlobalObject.Set(reference.GetReferencedName(), value, throwOnError: false);
+                Realm.GlobalObject.Set(reference.ReferencedName, value, throwOnError: false);
             }
-            else if (reference.IsPropertyReference())
+            else if (reference.IsPropertyReference)
             {
-                if (reference.HasPrimitiveBase())
+                var baseObject = TypeConverter.ToObject(Realm, reference.Base);
+                if (reference.IsPrivateReference)
                 {
-                    baseValue = TypeConverter.ToObject(Realm, baseValue);
+                    baseObject.PrivateSet((PrivateName) reference.ReferencedName, value);
+                    return;
                 }
 
-                var succeeded = baseValue.Set(reference.GetReferencedName(), value, reference.GetThisValue());
-                if (!succeeded && reference.IsStrictReference())
+                var succeeded = baseObject.Set(reference.ReferencedName, value, reference.ThisValue);
+                if (!succeeded && reference.Strict)
                 {
-                    ExceptionHelper.ThrowTypeError(Realm, "Cannot assign to read only property '" + reference.GetReferencedName() + "' of " + baseValue);
+                    ExceptionHelper.ThrowTypeError(Realm, "Cannot assign to read only property '" + reference.ReferencedName + "' of " + baseObject);
                 }
             }
             else
             {
-                ((EnvironmentRecord) baseValue).SetMutableBinding(TypeConverter.ToString(reference.GetReferencedName()), value, reference.IsStrictReference());
+                ((EnvironmentRecord) reference.Base).SetMutableBinding(TypeConverter.ToString(reference.ReferencedName), value, reference.Strict);
             }
         }
 
@@ -1197,6 +1213,21 @@ namespace Jint
                 }
             }
 
+            HashSet<PrivateIdentifier>? privateIdentifiers = null;
+            var pointer = privateEnv;
+            while (pointer is not null)
+            {
+                foreach (var name in pointer.Names)
+                {
+                    privateIdentifiers??= new HashSet<PrivateIdentifier>(PrivateIdentifierNameComparer._instance);
+                    privateIdentifiers.Add(name.Key);
+                }
+
+                pointer = pointer.OuterPrivateEnvironment;
+            }
+
+            script.AllPrivateIdentifiersValid(realm, privateIdentifiers);
+
             var functionDeclarations = hoistingScope._functionDeclarations;
             var functionsToInitialize = new LinkedList<JintFunctionDefinition>();
             var declaredFunctionNames = new HashSet<string>();
@@ -1432,6 +1463,9 @@ namespace Jint
 
             return ((IConstructor) constructor).Construct(arguments, newTarget);
         }
+
+        internal JsValue Call(FunctionInstance functionInstance, JsValue thisObject)
+            => Call(functionInstance, thisObject, Arguments.Empty, null);
 
         internal JsValue Call(
             FunctionInstance functionInstance,

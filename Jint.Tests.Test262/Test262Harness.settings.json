@@ -8,13 +8,6 @@
     "Array.fromAsync",
     "async-iteration",
     "Atomics",
-    "class-fields-private",
-    "class-fields-public",
-    "class-methods-private",
-    "class-static-block",
-    "class-static-fields-private",
-    "class-static-fields-public",
-    "class-static-methods-private",
     "decorators",
     "generators",
     "import-assertions",
@@ -76,9 +69,9 @@
     "built-ins/RegExp/unicode_restricted_identity_escape.js",
     "built-ins/RegExp/unicode_restricted_quantifiable_assertion.js",
 
-
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",
+    "language/expressions/class/elements/class-name-static-initializer-anonymous.js",
 
     // http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics not implemented (block level functions)
     "language/statements/let/block-local-closure-set-before-initialization.js",
@@ -118,6 +111,8 @@
     "language/expressions/object/accessor-name-computed.js",
     "built-ins/TypedArrayConstructors/ctors/object-arg/as-generator-iterable-returns.js",
     "language/expressions/object/method-definition/name-prop-name-yield-id.js",
+    "language/statements/class/elements/*-generator-method-*.js",
+    "language/expressions/class/elements/*-generator-method-*.js",
 
     // generators not implemented
     "built-ins/Object/prototype/toString/proxy-function.js",

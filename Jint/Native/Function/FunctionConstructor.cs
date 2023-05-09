@@ -49,18 +49,18 @@ namespace Jint.Native.Function
         internal FunctionInstance InstantiateFunctionObject(
             JintFunctionDefinition functionDeclaration,
             EnvironmentRecord scope,
-            PrivateEnvironmentRecord? privateScope)
+            PrivateEnvironmentRecord? privateEnv)
         {
             var function = functionDeclaration.Function;
             if (!function.Generator)
             {
                 return function.Async
-                    ? InstantiateAsyncFunctionObject(functionDeclaration, scope, privateScope)
-                    : InstantiateOrdinaryFunctionObject(functionDeclaration, scope, privateScope);
+                    ? InstantiateAsyncFunctionObject(functionDeclaration, scope, privateEnv)
+                    : InstantiateOrdinaryFunctionObject(functionDeclaration, scope, privateEnv);
             }
             else
             {
-                return InstantiateGeneratorFunctionObject(functionDeclaration, scope, privateScope);
+                return InstantiateGeneratorFunctionObject(functionDeclaration, scope, privateEnv);
             }
         }
 

@@ -47,7 +47,7 @@ namespace Jint.Runtime.Environments
 
         internal override bool HasBinding(BindingName name)
         {
-            var foundBinding = HasProperty(name.StringValue);
+            var foundBinding = HasProperty(name.Value);
 
             if (!foundBinding)
             {
@@ -59,7 +59,7 @@ namespace Jint.Runtime.Environments
                 return true;
             }
 
-            return !IsBlocked(name.StringValue);
+            return !IsBlocked(name.Value);
         }
 
         private bool HasProperty(JsValue property)
@@ -76,19 +76,19 @@ namespace Jint.Runtime.Environments
             // we unwrap by name
             binding = default;
 
-            if (!HasProperty(name.StringValue))
+            if (!HasProperty(name.Value))
             {
                 value = default;
                 return false;
             }
 
-            if (_withEnvironment && IsBlocked(name.StringValue))
+            if (_withEnvironment && IsBlocked(name.Value))
             {
                 value = default;
                 return false;
             }
 
-            var desc = _bindingObject.GetProperty(name.StringValue);
+            var desc = _bindingObject.GetProperty(name.Value);
             value = ObjectInstance.UnwrapJsValue(desc, _bindingObject);
             return true;
         }
@@ -147,12 +147,12 @@ namespace Jint.Runtime.Environments
 
         internal override void SetMutableBinding(BindingName name, JsValue value, bool strict)
         {
-            if (strict && !_bindingObject.HasProperty(name.StringValue))
+            if (strict && !_bindingObject.HasProperty(name.Value))
             {
                 ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Key);
             }
 
-            _bindingObject.Set(name.StringValue, value);
+            _bindingObject.Set(name.Value, value);
         }
 
         public override JsValue GetBindingValue(string name, bool strict)

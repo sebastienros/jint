@@ -316,7 +316,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             // if we did string concatenation in-place, we don't need to update records, objects might have evil setters
-            if (!wasMutatedInPlace || lref.GetBase() is not EnvironmentRecord)
+            if (!wasMutatedInPlace || lref.Base is not EnvironmentRecord)
             {
                 engine.PutValue(lref, newLeftValue!);
             }
@@ -418,7 +418,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (right._expression.IsFunctionDefinition())
                     {
-                        ((FunctionInstance) rval).SetFunctionName(left.Identifier.StringValue);
+                        ((FunctionInstance) rval).SetFunctionName(left.Identifier.Value);
                     }
 
                     environmentRecord.SetMutableBinding(left.Identifier, rval, strict);

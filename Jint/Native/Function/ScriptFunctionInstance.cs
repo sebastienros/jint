@@ -11,6 +11,10 @@ namespace Jint.Native.Function
     public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
     {
         internal bool _isClassConstructor;
+        internal JsValue? _classFieldInitializerName;
+
+        internal List<PrivateElement>? _privateMethods;
+        internal List<ClassFieldDefinition>? _fields;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
@@ -18,13 +22,13 @@ namespace Jint.Native.Function
         public ScriptFunctionInstance(
             Engine engine,
             IFunction functionDeclaration,
-            EnvironmentRecord scope,
+            EnvironmentRecord env,
             bool strict,
             ObjectInstance? proto = null)
             : this(
                 engine,
                 new JintFunctionDefinition(functionDeclaration),
-                scope,
+                env,
                 strict ? FunctionThisMode.Strict : FunctionThisMode.Global,
                 proto)
         {
@@ -33,10 +37,10 @@ namespace Jint.Native.Function
         internal ScriptFunctionInstance(
             Engine engine,
             JintFunctionDefinition function,
-            EnvironmentRecord scope,
+            EnvironmentRecord env,
             FunctionThisMode thisMode,
             ObjectInstance? proto = null)
-            : base(engine, engine.Realm, function, scope, thisMode)
+            : base(engine, engine.Realm, function, env, thisMode)
         {
             _prototype = proto ?? _engine.Realm.Intrinsics.Function.PrototypeObject;
             _length = new LazyPropertyDescriptor(null, _ => JsNumber.Create(function.Initialize().Length), PropertyFlag.Configurable);
@@ -140,13 +144,6 @@ namespace Jint.Native.Function
             }
 
             var calleeContext = PrepareForOrdinaryCall(newTarget);
-
-            if (kind == ConstructorKind.Base)
-            {
-                OrdinaryCallBindThis(calleeContext, thisArgument);
-                InitializeInstanceElements(thisArgument, this);
-            }
-
             var constructorEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment;
 
             var strict = _thisMode == FunctionThisMode.Strict;
@@ -154,6 +151,12 @@ namespace Jint.Native.Function
             {
                 try
                 {
+                    if (kind == ConstructorKind.Base)
+                    {
+                        OrdinaryCallBindThis(calleeContext, thisArgument);
+                        ((ObjectInstance) thisArgument).InitializeInstanceElements(this);
+                    }
+
                     var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
 
                     var result = _functionDefinition.EvaluateBody(context, this, arguments);
@@ -202,14 +205,6 @@ namespace Jint.Native.Function
             }
 
             return (ObjectInstance) constructorEnv.GetThisBinding();
-        }
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-initializeinstanceelements
-        /// </summary>
-        private void InitializeInstanceElements(JsValue o, JsValue constructor)
-        {
-            // TODO private fields
         }
 
         internal void MakeClassConstructor()

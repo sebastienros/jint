@@ -1,5 +1,6 @@
 using Esprima;
 using Esprima.Ast;
+using Esprima.Utils;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -7,252 +8,406 @@ using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 
-namespace Jint.Native.Function
+namespace Jint.Native.Function;
+
+internal sealed class ClassDefinition
 {
-    internal sealed class ClassDefinition
+    private static readonly MethodDefinition _superConstructor;
+    internal static CallExpression _defaultSuperCall;
+
+    internal static readonly MethodDefinition _emptyConstructor;
+
+    internal readonly string? _className;
+    private readonly Expression? _superClass;
+    private readonly ClassBody _body;
+
+    static ClassDefinition()
     {
-        private static readonly MethodDefinition _superConstructor;
-        internal static CallExpression _defaultSuperCall;
-
-        internal static readonly MethodDefinition _emptyConstructor;
-
-        internal readonly string? _className;
-        private readonly Expression? _superClass;
-        private readonly ClassBody _body;
-
-        static ClassDefinition()
+        // generate missing constructor AST only once
+        static MethodDefinition CreateConstructorMethodDefinition(string source)
         {
-            // generate missing constructor AST only once
-            static MethodDefinition CreateConstructorMethodDefinition(string source)
-            {
-                var script = new JavaScriptParser().ParseScript(source);
-                var classDeclaration = (ClassDeclaration) script.Body[0];
-                return (MethodDefinition) classDeclaration.Body.Body[0];
-            }
-
-            _superConstructor = CreateConstructorMethodDefinition("class temp { constructor(...args) { super(...args); } }");
-            _defaultSuperCall = (CallExpression) ((ExpressionStatement) _superConstructor.Value.Body.Body[0]).Expression;
-            _emptyConstructor = CreateConstructorMethodDefinition("class temp { constructor() {} }");
+            var script = new JavaScriptParser().ParseScript(source);
+            var classDeclaration = (ClassDeclaration) script.Body[0];
+            return (MethodDefinition) classDeclaration.Body.Body[0];
         }
 
-        public ClassDefinition(
-            string? className,
-            Expression? superClass,
-            ClassBody body)
+        _superConstructor = CreateConstructorMethodDefinition("class temp { constructor(...args) { super(...args); } }");
+        _defaultSuperCall = (CallExpression) ((ExpressionStatement) _superConstructor.Value.Body.Body[0]).Expression;
+        _emptyConstructor = CreateConstructorMethodDefinition("class temp { constructor() {} }");
+    }
+
+    public ClassDefinition(
+        string? className,
+        Expression? superClass,
+        ClassBody body)
+    {
+        _className = className;
+        _superClass = superClass;
+        _body = body;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation
+    /// </summary>
+    public JsValue BuildConstructor(EvaluationContext context, EnvironmentRecord env)
+    {
+        // A class definition is always strict mode code.
+        using var _ = new StrictModeScope(true, true);
+
+        var engine = context.Engine;
+        var classEnv = JintEnvironment.NewDeclarativeEnvironment(engine, env);
+
+        if (_className is not null)
         {
-            _className = className;
-            _superClass = superClass;
-            _body = body;
+            classEnv.CreateImmutableBinding(_className, true);
         }
 
-        public void Initialize()
-        {
+        var outerPrivateEnvironment = engine.ExecutionContext.PrivateEnvironment;
+        var classPrivateEnvironment = JintEnvironment.NewPrivateEnvironment(engine, outerPrivateEnvironment);
 
+        ObjectInstance? protoParent = null;
+        ObjectInstance? constructorParent = null;
+        if (_superClass is null)
+        {
+            protoParent = engine.Realm.Intrinsics.Object.PrototypeObject;
+            constructorParent = engine.Realm.Intrinsics.Function.PrototypeObject;
         }
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation
-        /// </summary>
-        public JsValue BuildConstructor(
-            EvaluationContext context,
-            EnvironmentRecord env)
+        else
         {
-            // A class definition is always strict mode code.
-            using var _ = new StrictModeScope(true, true);
+            engine.UpdateLexicalEnvironment(classEnv);
+            var superclass = JintExpression.Build(_superClass).GetValue(context);
+            engine.UpdateLexicalEnvironment(env);
 
-            var engine = context.Engine;
-            var classScope = JintEnvironment.NewDeclarativeEnvironment(engine, env);
-
-            if (_className is not null)
+            if (superclass.IsNull())
             {
-                classScope.CreateImmutableBinding(_className, true);
-            }
-
-            var outerPrivateEnvironment = engine.ExecutionContext.PrivateEnvironment;
-            var classPrivateEnvironment = JintEnvironment.NewPrivateEnvironment(engine, outerPrivateEnvironment);
-
-            /*
-                6. If ClassBodyopt is present, then
-                    a. For each String dn of the PrivateBoundIdentifiers of ClassBodyopt, do
-                    i. If classPrivateEnvironment.[[Names]] contains a Private Name whose [[Description]] is dn, then
-                    1. Assert: This is only possible for getter/setter pairs.
-                ii. Else,
-                    1. Let name be a new Private Name whose [[Description]] value is dn.
-                    2. Append name to classPrivateEnvironment.[[Names]].
-             */
-
-            ObjectInstance? protoParent = null;
-            ObjectInstance? constructorParent = null;
-            if (_superClass is null)
-            {
-                protoParent = engine.Realm.Intrinsics.Object.PrototypeObject;
+                protoParent = null;
                 constructorParent = engine.Realm.Intrinsics.Function.PrototypeObject;
+            }
+            else if (!superclass.IsConstructor)
+            {
+                ExceptionHelper.ThrowTypeError(engine.Realm, "super class is not a constructor");
             }
             else
             {
-                engine.UpdateLexicalEnvironment(classScope);
-                var superclass = JintExpression.Build(_superClass).GetValue(context);
-                engine.UpdateLexicalEnvironment(env);
-
-                if (superclass.IsNull())
+                var temp = superclass.Get("prototype");
+                if (temp is ObjectInstance protoParentObject)
                 {
-                    protoParent = null;
-                    constructorParent = engine.Realm.Intrinsics.Function.PrototypeObject;
+                    protoParent = protoParentObject;
                 }
-                else if (!superclass.IsConstructor)
+                else if (temp.IsNull())
                 {
-                    ExceptionHelper.ThrowTypeError(engine.Realm, "super class is not a constructor");
+                    // OK
                 }
                 else
                 {
-                    var temp = superclass.Get("prototype");
-                    if (temp is ObjectInstance protoParentObject)
+                    ExceptionHelper.ThrowTypeError(engine.Realm, "cannot resolve super class prototype chain");
+                    return default;
+                }
+
+                constructorParent = (ObjectInstance) superclass;
+            }
+        }
+
+        ObjectInstance proto = new JsObject(engine) { _prototype = protoParent };
+
+        var privateBoundIdentifiers = new HashSet<PrivateIdentifier>(PrivateIdentifierNameComparer._instance);
+        MethodDefinition? constructor = null;
+        ref readonly var elements = ref _body.Body;
+        var classBody = elements;
+        for (var i = 0; i < classBody.Count; ++i)
+        {
+            var element = classBody[i];
+            if (element is MethodDefinition { Kind: PropertyKind.Constructor } c)
+            {
+                constructor = c;
+            }
+
+            privateBoundIdentifiers.Clear();
+            element.PrivateBoundIdentifiers(privateBoundIdentifiers);
+            foreach (var name in privateBoundIdentifiers)
+            {
+                classPrivateEnvironment.Names.Add(name, new PrivateName(name));
+            }
+        }
+
+        constructor ??= _superClass != null
+            ? _superConstructor
+            : _emptyConstructor;
+
+        engine.UpdateLexicalEnvironment(classEnv);
+        engine.UpdatePrivateEnvironment(classPrivateEnvironment);
+
+        ScriptFunctionInstance F;
+        try
+        {
+            var constructorInfo = constructor.DefineMethod(proto, constructorParent);
+            F = constructorInfo.Closure;
+
+            F.SetFunctionName(_className ?? "");
+
+            F.MakeConstructor(writableProperty: false, proto);
+            F._constructorKind = _superClass is null ? ConstructorKind.Base : ConstructorKind.Derived;
+            F.MakeClassConstructor();
+            proto.CreateMethodProperty(CommonProperties.Constructor, F);
+
+            var instancePrivateMethods = new List<PrivateElement>();
+            var staticPrivateMethods = new List<PrivateElement>();
+            var instanceFields = new List<ClassFieldDefinition>();
+            var staticElements = new List<object>();
+
+            foreach (var e in elements)
+            {
+                if (e is MethodDefinition { Kind: PropertyKind.Constructor })
+                {
+                    continue;
+                }
+
+                var isStatic = e is MethodDefinition { Static: true } or AccessorProperty { Static: true } or PropertyDefinition { Static: true } or StaticBlock;
+
+                var target = !isStatic ? proto : F;
+                var element = ClassElementEvaluation(engine, target, e);
+                if (element is PrivateElement privateElement)
+                {
+                    var container = !isStatic ? instancePrivateMethods : staticPrivateMethods;
+                    var index = container.FindIndex(x => x.Key.Description == privateElement.Key.Description);
+                    if (index != -1)
                     {
-                        protoParent = protoParentObject;
-                    }
-                    else if (temp.IsNull())
-                    {
-                        // OK
+                        var pe = container[index];
+                        var combined = privateElement.Get is null
+                            ? new PrivateElement { Key = pe.Key, Kind = PrivateElementKind.Accessor, Get = pe.Get, Set = privateElement.Set }
+                            : new PrivateElement { Key = pe.Key, Kind = PrivateElementKind.Accessor, Get = privateElement.Get, Set = pe.Set };
+
+                        container[index] = combined;
                     }
                     else
                     {
-                        ExceptionHelper.ThrowTypeError(engine.Realm, "cannot resolve super class prototype chain");
-                        return default;
+                        container.Add(privateElement);
                     }
-
-                    constructorParent = (ObjectInstance) superclass;
                 }
-            }
-
-            ObjectInstance proto = new JsObject(engine)
-            {
-                _prototype = protoParent
-            };
-
-            MethodDefinition? constructor = null;
-            var classBody = _body.Body;
-            for (var i = 0; i < classBody.Count; ++i)
-            {
-                if (classBody[i] is MethodDefinition { Kind: PropertyKind.Constructor } c)
+                else if (element is ClassFieldDefinition classFieldDefinition)
                 {
-                    constructor = c;
-                    break;
-                }
-            }
-
-            constructor ??= _superClass != null
-                ? _superConstructor
-                : _emptyConstructor;
-
-            engine.UpdateLexicalEnvironment(classScope);
-
-            ScriptFunctionInstance F;
-            try
-            {
-                var constructorInfo = constructor.DefineMethod(proto, constructorParent);
-                F = constructorInfo.Closure;
-
-                var name = env is ModuleEnvironmentRecord ? _className : _className ?? "";
-                if (name is not null)
-                {
-                    F.SetFunctionName(name);
-                }
-
-                F.MakeConstructor(writableProperty: false, proto);
-                F._constructorKind = _superClass is null ? ConstructorKind.Base : ConstructorKind.Derived;
-                F.MakeClassConstructor();
-                proto.CreateMethodProperty(CommonProperties.Constructor, F);
-
-                foreach (var classProperty in _body.Body)
-                {
-                    if (classProperty is not MethodDefinition m || m.Kind == PropertyKind.Constructor)
+                    if (!isStatic)
                     {
-                        continue;
+                        instanceFields.Add(classFieldDefinition);
                     }
-
-                    var target = !m.Static ? proto : F;
-                    var value = MethodDefinitionEvaluation(engine, target, m);
-                    if (engine._activeEvaluationContext!.IsAbrupt())
+                    else
                     {
-                        return value;
+                        staticElements.Add(element);
                     }
                 }
-            }
-            finally
-            {
-                engine.UpdateLexicalEnvironment(env);
-                engine.UpdatePrivateEnvironment(outerPrivateEnvironment);
+                else if (element is ClassStaticBlockDefinition)
+                {
+                    staticElements.Add(element);
+                }
             }
 
             if (_className is not null)
             {
-                classScope.InitializeBinding(_className, F);
+                classEnv.InitializeBinding(_className, F);
             }
 
-            /*
-            28. Set F.[[PrivateMethods]] to instancePrivateMethods.
-            29. Set F.[[Fields]] to instanceFields.
-            30. For each PrivateElement method of staticPrivateMethods, do
-                a. Perform ! PrivateMethodOrAccessorAdd(method, F).
-            31. For each element fieldRecord of staticFields, do
-                a. Let result be DefineField(F, fieldRecord).
-                b. If result is an abrupt completion, then
-            i. Set the running execution context's PrivateEnvironment to outerPrivateEnvironment.
-                ii. Return result.
-            */
+            F._privateMethods = instancePrivateMethods;
+            F._fields = instanceFields;
 
-            engine.UpdatePrivateEnvironment(outerPrivateEnvironment);
+            for (var i = 0; i < staticPrivateMethods.Count; i++)
+            {
+                F.PrivateMethodOrAccessorAdd(staticPrivateMethods[i]);
+            }
 
-            return F;
+            for (var i = 0; i < staticElements.Count; i++)
+            {
+                var elementRecord = staticElements[i];
+                if (elementRecord is ClassFieldDefinition classFieldDefinition)
+                {
+                    ObjectInstance.DefineField(F, classFieldDefinition);
+                }
+                else
+                {
+                    engine.Call(((ClassStaticBlockDefinition) elementRecord).BodyFunction, F);
+                }
+            }
         }
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-runtime-semantics-methoddefinitionevaluation
-        /// </summary>
-        private static JsValue MethodDefinitionEvaluation(
-            Engine engine,
-            ObjectInstance obj,
-            MethodDefinition method)
+        finally
         {
-            if (method.Kind != PropertyKind.Get && method.Kind != PropertyKind.Set)
-            {
-                var methodDef = method.DefineMethod(obj);
-                methodDef.Closure.SetFunctionName(methodDef.Key);
-                var desc = new PropertyDescriptor(methodDef.Closure, PropertyFlag.NonEnumerable);
-                obj.DefinePropertyOrThrow(methodDef.Key, desc);
-            }
-            else
-            {
-                var value = method.TryGetKey(engine);
-                if (engine._activeEvaluationContext!.IsAbrupt())
-                {
-                    return value;
-                }
-                var propKey = TypeConverter.ToPropertyKey(value);
-                var function = method.Value as IFunction;
-                if (function is null)
-                {
-                    ExceptionHelper.ThrowSyntaxError(obj.Engine.Realm);
-                }
-
-                var closure = new ScriptFunctionInstance(
-                    obj.Engine,
-                    function,
-                    obj.Engine.ExecutionContext.LexicalEnvironment,
-                    true);
-
-                closure.SetFunctionName(propKey, method.Kind == PropertyKind.Get ? "get" : "set");
-                closure.MakeMethod(obj);
-
-                var propDesc = new GetSetPropertyDescriptor(
-                    method.Kind == PropertyKind.Get ? closure : null,
-                    method.Kind == PropertyKind.Set ? closure : null,
-                    PropertyFlag.Configurable);
-
-                obj.DefinePropertyOrThrow(propKey, propDesc);
-            }
-
-            return obj;
+            engine.UpdateLexicalEnvironment(env);
+            engine.UpdatePrivateEnvironment(outerPrivateEnvironment);
         }
+
+        return F;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-static-semantics-classelementevaluation
+    /// </summary>
+    private static object? ClassElementEvaluation(Engine engine, ObjectInstance target, ClassElement e)
+    {
+        return e switch
+        {
+            PropertyDefinition p => ClassFieldDefinitionEvaluation(engine, target, p),
+            MethodDefinition m => MethodDefinitionEvaluation(engine, target, m, enumerable: false),
+            StaticBlock s => ClassStaticBlockDefinitionEvaluation(engine, target, s),
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// /https://tc39.es/ecma262/#sec-runtime-semantics-classfielddefinitionevaluation
+    /// </summary>
+    private static ClassFieldDefinition ClassFieldDefinitionEvaluation(Engine engine, ObjectInstance homeObject, PropertyDefinition fieldDefinition)
+    {
+        var name = fieldDefinition.GetKey(engine);
+
+        ScriptFunctionInstance? initializer = null;
+        if (fieldDefinition.Value is not null)
+        {
+            var intrinsics = engine.Realm.Intrinsics;
+            var env = engine.ExecutionContext.LexicalEnvironment;
+            var privateEnv = engine.ExecutionContext.PrivateEnvironment;
+
+            var definition = new JintFunctionDefinition(new ClassFieldFunction(fieldDefinition.Value));
+            initializer = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, FunctionThisMode.Global, env, privateEnv);
+
+            initializer.MakeMethod(homeObject);
+            initializer._classFieldInitializerName = name;
+        }
+
+        return new ClassFieldDefinition { Name = name, Initializer = initializer };
+    }
+
+    private sealed class ClassFieldFunction : Node, IFunction
+    {
+        private readonly NodeList<Node> _nodeList = new();
+        private readonly BlockStatement _statement;
+
+        public ClassFieldFunction(Expression expression) : base(Nodes.ExpressionStatement)
+        {
+            var nodeList = NodeList.Create<Statement>(new [] { new ReturnStatement(expression) });
+            _statement = new BlockStatement(nodeList);
+        }
+
+        protected override object Accept(AstVisitor visitor) => throw new NotImplementedException();
+
+        public Identifier? Id => null;
+
+        public ref readonly NodeList<Node> Params => ref _nodeList;
+
+        public StatementListItem Body => _statement;
+        public bool Generator => false;
+        public bool Expression => false;
+        public bool Strict => true;
+        public bool Async => false;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-classstaticblockdefinitionevaluation
+    /// </summary>
+    private static ClassStaticBlockDefinition ClassStaticBlockDefinitionEvaluation(Engine engine, ObjectInstance homeObject, StaticBlock o)
+    {
+        var intrinsics = engine.Realm.Intrinsics;
+
+        var definition = new JintFunctionDefinition(new ClassStaticBlockFunction(o));
+
+        var lex = engine.ExecutionContext.LexicalEnvironment;
+        var privateEnv = engine.ExecutionContext.PrivateEnvironment;
+
+        var bodyFunction = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, FunctionThisMode.Global, lex, privateEnv);
+
+        bodyFunction.MakeMethod(homeObject);
+
+        return new ClassStaticBlockDefinition { BodyFunction = bodyFunction };
+    }
+
+    private sealed class ClassStaticBlockFunction : Node, IFunction
+    {
+        private readonly BlockStatement _statement;
+        private readonly NodeList<Node> _params;
+
+        public ClassStaticBlockFunction(StaticBlock staticBlock) : base(Nodes.StaticBlock)
+        {
+            _statement = new BlockStatement(staticBlock.Body);
+            _params = new NodeList<Node>();
+        }
+
+        protected override object Accept(AstVisitor visitor) => throw new NotImplementedException();
+
+        public Identifier? Id => null;
+        public ref readonly NodeList<Node> Params => ref _params;
+        public StatementListItem Body => _statement;
+        public bool Generator => false;
+        public bool Expression => false;
+        public bool Strict => false;
+        public bool Async => false;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-runtime-semantics-methoddefinitionevaluation
+    /// </summary>
+    private static PrivateElement? MethodDefinitionEvaluation(
+        Engine engine,
+        ObjectInstance obj,
+        MethodDefinition method,
+        bool enumerable)
+    {
+        if (method.Kind != PropertyKind.Get && method.Kind != PropertyKind.Set)
+        {
+            var methodDef = method.DefineMethod(obj);
+            methodDef.Closure.SetFunctionName(methodDef.Key);
+            return DefineMethodProperty(obj, methodDef.Key, methodDef.Closure, enumerable);
+        }
+
+        var function = method.Value as IFunction;
+        if (function is null)
+        {
+            ExceptionHelper.ThrowSyntaxError(obj.Engine.Realm);
+        }
+
+        var getter = method.Kind == PropertyKind.Get;
+
+        var definition = new JintFunctionDefinition(function);
+        var intrinsics = engine.Realm.Intrinsics;
+
+        var value = method.TryGetKey(engine);
+        var propKey = TypeConverter.ToPropertyKey(value);
+        var env = engine.ExecutionContext.LexicalEnvironment;
+        var privateEnv = engine.ExecutionContext.PrivateEnvironment;
+
+        var closure = intrinsics.Function.OrdinaryFunctionCreate(intrinsics.Function.PrototypeObject, definition, definition.ThisMode, env, privateEnv);
+        closure.MakeMethod(obj);
+        closure.SetFunctionName(propKey, getter ? "get" : "set");
+
+        if (method.Key is PrivateIdentifier privateIdentifier)
+        {
+            return new PrivateElement
+            {
+                Key = privateEnv!.Names[privateIdentifier],
+                Kind = PrivateElementKind.Accessor,
+                Get = getter ? closure : null,
+                Set = !getter ? closure : null
+            };
+        }
+
+        var propDesc = new GetSetPropertyDescriptor(
+            getter ? closure : null,
+            !getter ? closure : null,
+            PropertyFlag.Configurable);
+
+        obj.DefinePropertyOrThrow(propKey, propDesc);
+
+        return null;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-definemethodproperty
+    /// </summary>
+    private static PrivateElement? DefineMethodProperty(ObjectInstance homeObject, JsValue key, ScriptFunctionInstance closure, bool enumerable)
+    {
+        if (key.IsPrivateName())
+        {
+            return new PrivateElement { Key = (PrivateName) key, Kind = PrivateElementKind.Method, Value = closure };
+        }
+
+        var desc = new PropertyDescriptor(closure, enumerable ? PropertyFlag.Enumerable : PropertyFlag.NonEnumerable);
+        homeObject.DefinePropertyOrThrow(key, desc);
+        return null;
     }
 }

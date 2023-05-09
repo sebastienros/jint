@@ -49,8 +49,8 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
             args[i + 1] = expressions[i].GetValue(context);
         }
 
-        var thisObject = identifier is Reference reference && reference.IsPropertyReference()
-            ? reference.GetBase()
+        var thisObject = identifier is Reference reference && reference.IsPropertyReference
+            ? reference.Base
             : JsValue.Undefined;
 
         var result = tagger.Call(thisObject, args);

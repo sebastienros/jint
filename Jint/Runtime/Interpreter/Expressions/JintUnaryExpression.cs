@@ -89,7 +89,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                 if (result is Reference rf)
                 {
-                    if (rf.IsUnresolvableReference())
+                    if (rf.IsUnresolvableReference)
                     {
                         engine._referencePool.Return(rf);
                         return JsString.UndefinedString;
@@ -210,9 +210,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return JsBoolean.True;
                     }
 
-                    if (r.IsUnresolvableReference())
+                    if (r.IsUnresolvableReference)
                     {
-                        if (r.IsStrictReference())
+                        if (r.Strict)
                         {
                             ExceptionHelper.ThrowSyntaxError(engine.Realm, "Delete of an unqualified identifier in strict mode.");
                         }
@@ -221,24 +221,24 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return JsBoolean.True;
                     }
 
-                    var referencedName = r.GetReferencedName();
-                    if (r.IsPropertyReference())
+                    var referencedName = r.ReferencedName;
+                    if (r.IsPropertyReference)
                     {
-                        if (r.IsSuperReference())
+                        if (r.IsSuperReference)
                         {
                             ExceptionHelper.ThrowReferenceError(engine.Realm, r);
                         }
 
-                        var o = TypeConverter.ToObject(engine.Realm, r.GetBase());
+                        var o = TypeConverter.ToObject(engine.Realm, r.Base);
                         var deleteStatus = o.Delete(referencedName);
                         if (!deleteStatus)
                         {
-                            if (r.IsStrictReference())
+                            if (r.Strict)
                             {
                                 ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{referencedName}' of {o}");
                             }
 
-                            if (StrictModeScope.IsStrictModeCode && !r.GetBase().AsObject().GetProperty(referencedName).Configurable)
+                            if (StrictModeScope.IsStrictModeCode && !r.Base.AsObject().GetProperty(referencedName).Configurable)
                             {
                                 ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{referencedName}' of {o}");
                             }
@@ -248,12 +248,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return deleteStatus ? JsBoolean.True : JsBoolean.False;
                     }
 
-                    if (r.IsStrictReference())
+                    if (r.Strict)
                     {
                         ExceptionHelper.ThrowSyntaxError(engine.Realm);
                     }
 
-                    var bindings = (EnvironmentRecord) r.GetBase();
+                    var bindings = (EnvironmentRecord) r.Base;
                     var property = referencedName;
                     engine._referencePool.Return(r);
 

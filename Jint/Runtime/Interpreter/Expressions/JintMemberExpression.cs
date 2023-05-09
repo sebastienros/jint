@@ -27,7 +27,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (!_memberExpression.Computed)
             {
-                _determinedProperty = ((Identifier) _memberExpression.Property).Name;
+                if (_memberExpression.Property is Identifier identifier)
+                {
+                    _determinedProperty = identifier.Name;
+                }
             }
             else if (_memberExpression.Property.Type == Nodes.Literal)
             {
@@ -81,7 +84,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 if (baseReference is Reference reference)
                 {
-                    baseReferenceName = reference.GetReferencedName().ToString();
+                    baseReferenceName = reference.ReferencedName.ToString();
                     baseValue = engine.GetValue(reference, false);
                     engine._referencePool.Return(reference);
                 }
@@ -107,12 +110,27 @@ namespace Jint.Runtime.Interpreter.Expressions
                 TypeConverter.CheckObjectCoercible(engine, baseValue, _memberExpression.Property, referenceName!);
             }
 
+            if (property.IsPrivateName())
+            {
+                return MakePrivateReference(engine, baseValue, property);
+            }
+
             // only convert if necessary
             var propertyKey = property.IsInteger() && baseValue.IsIntegerIndexedArray
                 ? property
                 : TypeConverter.ToPropertyKey(property);
 
             return context.Engine._referencePool.Rent(baseValue, propertyKey, isStrictModeCode, thisValue: actualThis);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-makeprivatereference
+        /// </summary>
+        private object MakePrivateReference(Engine engine, JsValue baseValue, JsValue privateIdentifier)
+        {
+            var privEnv = engine.ExecutionContext.PrivateEnvironment;
+            var privateName = privEnv!.ResolvePrivateIdentifier(privateIdentifier.ToString());
+            return engine._referencePool.Rent(baseValue, privateName!, strict: true, thisValue: null);
         }
     }
 }
