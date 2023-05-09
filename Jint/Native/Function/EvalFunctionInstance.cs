@@ -12,7 +12,7 @@ internal sealed class EvalFunctionInstance : FunctionInstance
 {
     private static readonly JsString _functionName = new("eval");
 
-    private static readonly ParserOptions _parserOptions = ParserOptions.Default with  { Tolerant = true };
+    private static readonly ParserOptions _parserOptions = ParserOptions.Default with { Tolerant = true };
     private readonly JavaScriptParser _parser = new(_parserOptions);
 
     public EvalFunctionInstance(
@@ -109,6 +109,7 @@ internal sealed class EvalFunctionInstance : FunctionInstance
                 ExceptionHelper.ThrowSyntaxError(evalRealm, "new.target expression is not allowed here");
             }
         }
+
         if (!inMethod)
         {
             // if body Contains SuperProperty, throw a SyntaxError exception.
@@ -117,6 +118,7 @@ internal sealed class EvalFunctionInstance : FunctionInstance
                 ExceptionHelper.ThrowSyntaxError(evalRealm, "'super' keyword unexpected here");
             }
         }
+
         if (!inDerivedConstructor)
         {
             // if body Contains SuperCall, throw a SyntaxError exception.
@@ -125,6 +127,7 @@ internal sealed class EvalFunctionInstance : FunctionInstance
                 ExceptionHelper.ThrowSyntaxError(evalRealm, "'super' keyword unexpected here");
             }
         }
+
         if (inClassFieldInitializer)
         {
             // if ContainsArguments of body is true, throw a SyntaxError exception.
@@ -193,7 +196,7 @@ internal sealed class EvalFunctionInstance : FunctionInstance
     {
         public bool _containsArguments;
         public bool _containsNewTarget;
-        public bool _containsSuperCall = false;
+        public bool _containsSuperCall;
         public bool _containsSuperProperty;
 
         protected override object VisitIdentifier(Identifier identifier)
@@ -218,11 +221,6 @@ internal sealed class EvalFunctionInstance : FunctionInstance
         {
             _containsSuperCall |= callExpression.Callee.Type == Nodes.Super;
             return base.VisitCallExpression(callExpression);
-        }
-
-        protected override object? VisitSuper(Super super)
-        {
-            return base.VisitSuper(super);
         }
     }
 }

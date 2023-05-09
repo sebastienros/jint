@@ -27,10 +27,7 @@ public partial class ObjectInstance
         {
             for (var i = 0; i < fields.Count; i++)
             {
-                if (fields[i] is ClassFieldDefinition classFieldDefinition)
-                {
-                    DefineField(this, classFieldDefinition);
-                }
+                DefineField(this, fields[i]);
             }
         }
     }

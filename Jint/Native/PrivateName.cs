@@ -4,12 +4,12 @@ using Jint.Runtime;
 namespace Jint.Native;
 
 /// <summary>
-/// Private names are a bit like symbols, they follow AST reference equality so that each one is globally unique,
+/// Private names are a bit like symbols, they follow reference equality so that each one is globally to object,
 /// only exception to the rule is get/set pair which should share same private name.
 /// </summary>
 internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
 {
-    internal readonly PrivateIdentifier _identifier;
+    private readonly PrivateIdentifier _identifier;
 
     public PrivateName(PrivateIdentifier identifier) : base(InternalTypes.PrivateName)
     {
@@ -21,10 +21,7 @@ internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
 
     public override string ToString() => _identifier.Name;
 
-    public override object ToObject()
-    {
-        throw new NotImplementedException();
-    }
+    public override object ToObject() => throw new NotImplementedException();
 
     public override bool Equals(object? obj)
     {
@@ -58,23 +55,8 @@ internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
 }
 
 /// <summary>
-/// Names are compared by description when they are inserted to environment, so first one wins (get/set pair).
+/// Compares private identifiers by their name instead of reference equality.
 /// </summary>
-internal sealed class PrivateNameDescriptionComparer : IEqualityComparer<PrivateName>
-{
-    internal static readonly PrivateNameDescriptionComparer _instance = new();
-
-    public bool Equals(PrivateName? x, PrivateName? y)
-    {
-        return x?.Description == y?.Description;
-    }
-
-    public int GetHashCode(PrivateName obj)
-    {
-        return obj.Description.GetHashCode();
-    }
-}
-
 internal sealed class PrivateIdentifierNameComparer : IEqualityComparer<PrivateIdentifier>
 {
     internal static readonly PrivateIdentifierNameComparer _instance = new();

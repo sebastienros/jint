@@ -257,30 +257,25 @@ namespace Jint
         /// </summary>
         internal static void PrivateBoundIdentifiers(this Node parameter, HashSet<PrivateIdentifier> target)
         {
-            while (true)
+            if (parameter.Type == Nodes.PrivateIdentifier)
             {
-                if (parameter.Type == Nodes.PrivateIdentifier)
+                target.Add((PrivateIdentifier) parameter);
+            }
+            else if (parameter.Type is Nodes.AccessorProperty or Nodes.MethodDefinition or Nodes.PropertyDefinition)
+            {
+                if (((ClassProperty) parameter).Key is PrivateIdentifier privateKeyIdentifier)
                 {
-                    target.Add((PrivateIdentifier) parameter);
+                    target.Add(privateKeyIdentifier);
                 }
-                else if (parameter.Type is Nodes.AccessorProperty or Nodes.MethodDefinition or Nodes.PropertyDefinition)
+            }
+            else if (parameter.Type == Nodes.ClassBody)
+            {
+                ref readonly var elements = ref ((ClassBody) parameter).Body;
+                for (var i = 0; i < elements.Count; i++)
                 {
-                    if (((ClassProperty) parameter).Key is PrivateIdentifier privateKeyIdentifier)
-                    {
-                        target.Add(privateKeyIdentifier);
-                    }
+                    var element = elements[i];
+                    PrivateBoundIdentifiers(element, target);
                 }
-                else if (parameter.Type == Nodes.ClassBody)
-                {
-                    ref readonly var elements = ref ((ClassBody) parameter).Body;
-                    for (var i = 0; i < elements.Count; i++)
-                    {
-                        var element = elements[i];
-                        PrivateBoundIdentifiers(element, target);
-                    }
-                }
-
-                break;
             }
         }
 

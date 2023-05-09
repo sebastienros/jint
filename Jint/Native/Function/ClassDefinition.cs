@@ -152,7 +152,7 @@ internal sealed class ClassDefinition
 
             var instancePrivateMethods = new List<PrivateElement>();
             var staticPrivateMethods = new List<PrivateElement>();
-            var instanceFields = new List<object>();
+            var instanceFields = new List<ClassFieldDefinition>();
             var staticElements = new List<object>();
 
             foreach (var e in elements)
@@ -184,11 +184,11 @@ internal sealed class ClassDefinition
                         container.Add(privateElement);
                     }
                 }
-                else if (element is ClassFieldDefinition)
+                else if (element is ClassFieldDefinition classFieldDefinition)
                 {
                     if (!isStatic)
                     {
-                        instanceFields.Add(element);
+                        instanceFields.Add(classFieldDefinition);
                     }
                     else
                     {
@@ -285,10 +285,7 @@ internal sealed class ClassDefinition
             _statement = new BlockStatement(nodeList);
         }
 
-        protected override object? Accept(AstVisitor visitor)
-        {
-            throw new NotImplementedException();
-        }
+        protected override object Accept(AstVisitor visitor) => throw new NotImplementedException();
 
         public Identifier? Id => null;
 
@@ -331,10 +328,7 @@ internal sealed class ClassDefinition
             _params = new NodeList<Node>();
         }
 
-        protected override object? Accept(AstVisitor visitor)
-        {
-            throw new NotImplementedException();
-        }
+        protected override object Accept(AstVisitor visitor) => throw new NotImplementedException();
 
         public Identifier? Id => null;
         public ref readonly NodeList<Node> Params => ref _params;

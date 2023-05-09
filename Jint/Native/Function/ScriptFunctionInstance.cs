@@ -14,7 +14,7 @@ namespace Jint.Native.Function
         internal JsValue? _classFieldInitializerName;
 
         internal List<PrivateElement>? _privateMethods;
-        internal List<object>? _fields;
+        internal List<ClassFieldDefinition>? _fields;
 
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
