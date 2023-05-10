@@ -18,7 +18,11 @@ public partial class Engine
     public static Script PrepareScript(string script, string? source = null, bool strict = false)
     {
         var astAnalyzer = new AstAnalyzer();
-        var options = ParserOptions.Default with { OnNodeCreated = astAnalyzer.NodeVisitor };
+        var options = ParserOptions.Default with
+        {
+            AllowReturnOutsideFunction = true,
+            OnNodeCreated = astAnalyzer.NodeVisitor
+        };
 
         return new JavaScriptParser(options).ParseScript(script, source, strict);
     }
