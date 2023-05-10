@@ -14,7 +14,7 @@ using Xunit.Abstractions;
 
 namespace Jint.Tests.Runtime
 {
-    public class EngineTests : IDisposable
+    public partial class EngineTests : IDisposable
     {
         private readonly Engine _engine;
         private int countBreak = 0;
