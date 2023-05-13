@@ -438,17 +438,7 @@ namespace Jint
 
                     break;
                 case VariableDeclaration variableDeclaration:
-                    ref readonly var declarators = ref variableDeclaration.Declarations;
-                    for (var i = 0; i < declarators.Count; i++)
-                    {
-                        var declarator = declarators[i];
-                        var varName = declarator.Id.As<Identifier>()?.Name;
-                        if (varName is not null)
-                        {
-                            result.Add(varName);
-                        }
-                    }
-
+                    variableDeclaration.GetBoundNames(result);
                     break;
             }
 

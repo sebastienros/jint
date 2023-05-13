@@ -18,7 +18,6 @@
     "resizable-arraybuffer",
     "SharedArrayBuffer",
     "tail-call-optimization",
-    "top-level-await",
     "Temporal",
     "u180e"
   ],

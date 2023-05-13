@@ -218,13 +218,17 @@ namespace Jint.Runtime.Interpreter.Statements
                             close = true;
                             status = context.Completion;
                         }
-                        else if (lhsKind == LhsKind.LexicalBinding)
-                        {
-                            ((Reference) lhsRef).InitializeReferencedBinding(nextValue);
-                        }
                         else
                         {
-                            engine.PutValue((Reference) lhsRef, nextValue);
+                            var reference = (Reference) lhsRef;
+                            if (lhsKind == LhsKind.LexicalBinding || _leftNode.Type == Nodes.Identifier && !reference.IsUnresolvableReference)
+                            {
+                                reference.InitializeReferencedBinding(nextValue);
+                            }
+                            else
+                            {
+                                engine.PutValue(reference, nextValue);
+                            }
                         }
                     }
                     else
