@@ -75,7 +75,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 #### ECMAScript 2020
 
 - ✔ `BigInt`
-- ❌ `export * as ns from`
+- ✔ `export * as ns from`
 - ✔ `for-in` enhancements
 - ✔ `globalThis` object
 - ✔ `import`
