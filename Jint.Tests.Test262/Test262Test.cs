@@ -88,8 +88,9 @@ public abstract partial class Test262Test
     {
         if (file.Type == ProgramType.Module)
         {
-            engine.AddModule(file.FileName, builder => builder.AddSource(file.Program));
-            engine.ImportModule(file.FileName);
+            var specifier = "./" + Path.GetFileName(file.FileName);
+            engine.AddModule(specifier, builder => builder.AddSource(file.Program));
+            engine.ImportModule(specifier);
         }
         else
         {
