@@ -94,16 +94,9 @@ namespace Jint.Native.Promise
             return promise;
         }
 
-        // The abstract operation PromiseResolve takes arguments C (a constructor) and x (an ECMAScript language value).
-        // It returns a new promise resolved with x. It performs the following steps when called:
-        //
-        // 1. Assert: Type(C) is Object.
-        // 2. If IsPromise(x) is true, then
-        //     a. Let xConstructor be ? Get(x, "constructor").
-        // b. If SameValue(xConstructor, C) is true, return x.
-        // 3. Let promiseCapability be ? NewPromiseCapability(C).
-        //     4. Perform ? Call(promiseCapability.[[Resolve]], undefined, « x »).
-        // 5. Return promiseCapability.[[Promise]].
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-promise.resolve
+        /// </summary>
         internal JsValue Resolve(JsValue thisObj, JsValue[] arguments)
         {
             if (!thisObj.IsObject())
@@ -116,7 +109,15 @@ namespace Jint.Native.Promise
                 ExceptionHelper.ThrowTypeError(_realm, "Promise.resolve invoked on a non-constructor value");
             }
 
-            JsValue x = arguments.At(0);
+            var x = arguments.At(0);
+            return PromiseResolve(thisObj, x);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-promise-resolve
+        /// </summary>
+        private JsValue PromiseResolve(JsValue thisObj, JsValue x)
+        {
             if (x.IsPromise())
             {
                 var xConstructor = x.Get(CommonProperties.Constructor);
@@ -133,6 +134,9 @@ namespace Jint.Native.Promise
             return instance;
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-promise.reject
+        /// </summary>
         private JsValue Reject(JsValue thisObj, JsValue[] arguments)
         {
             if (!thisObj.IsObject())

@@ -342,11 +342,17 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
             using (new StrictModeScope(true, force: true))
             {
                 _engine.EnterExecutionContext(moduleContext);
-                var statementList = new JintStatementList(null, _source.Body);
-                var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
-                var result = statementList.Execute(context); //Create new evaluation context when called from e.g. module tests
-                _engine.LeaveExecutionContext();
-                return result;
+                try
+                {
+                    var statementList = new JintStatementList(null, _source.Body);
+                    var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+                    var result = statementList.Execute(context); //Create new evaluation context when called from e.g. module tests
+                    return result;
+                }
+                finally
+                {
+                    _engine.LeaveExecutionContext();
+                }
             }
         }
         else

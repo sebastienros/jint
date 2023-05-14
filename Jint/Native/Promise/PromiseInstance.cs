@@ -85,9 +85,13 @@ internal sealed class PromiseInstance : ObjectInstance
     // https://tc39.es/ecma262/#sec-promise-resolve-functions
     private JsValue Resolve(JsValue thisObj, JsValue[] arguments)
     {
-        // Note that alreadyResolved logic lives in CreateResolvingFunctions method
-
         var result = arguments.At(0);
+        return Resolve(result);
+    }
+
+    internal JsValue Resolve(JsValue result)
+    {
+        // Note that alreadyResolved logic lives in CreateResolvingFunctions method
 
         if (ReferenceEquals(result, this))
         {
@@ -114,8 +118,9 @@ internal sealed class PromiseInstance : ObjectInstance
             return FulfillPromise(result);
         }
 
-        _engine.AddToEventLoop(
-            PromiseOperations.NewPromiseResolveThenableJob(this, resultObj, thenMethod));
+        var realm = _engine.Realm;
+        var job = PromiseOperations.NewPromiseResolveThenableJob(this, resultObj, thenMethod);
+        _engine._host.HostEnqueuePromiseJob(job, realm);
 
         return Undefined;
     }

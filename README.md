@@ -99,7 +99,7 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 
 - ✔ Class Fields
 - ✔ RegExp Match Indices
-- ❌ Top-level await
+- ✔ Top-level await
 - ✔ Ergonomic brand checks for Private Fields
 - ✔ `.at()`
 - ✔ Accessible `Object.prototype.hasOwnProperty` (`Object.hasOwn`)

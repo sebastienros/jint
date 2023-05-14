@@ -202,6 +202,14 @@ namespace Jint.Runtime
         {
             return new JobCallback(cleanupCallback, null);
         }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-hostenqueuepromisejob
+        /// </summary>
+        internal void HostEnqueuePromiseJob(Action job, Realm realm)
+        {
+            Engine.AddToEventLoop(job);
+        }
     }
 }
 

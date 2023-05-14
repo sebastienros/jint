@@ -98,7 +98,6 @@ public class ModuleTests
         _engine.AddModule("my-module", @"import('imported-module').then(ns => { ns.signal(); });");
 
         _engine.ImportModule("my-module");
-        _engine.RunAvailableContinuations();
 
         Assert.True(received);
     }
