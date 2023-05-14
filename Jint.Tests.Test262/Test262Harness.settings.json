@@ -125,40 +125,20 @@
     "language/module-code/instn-local-bndng-gen.js",
     "language/module-code/instn-local-bndng-export-gen.js",
 
-    // JavaScriptParser cannot handle direct 'super.property' script code
-    "language/expressions/super/prop-dot-cls-val-from-eval.js",
-    "language/expressions/super/prop-dot-obj-val-from-eval.js",
-    "language/expressions/super/prop-expr-cls-val-from-eval.js",
-    "language/expressions/super/prop-expr-obj-val-from-eval.js",
-
-    // Esprima problem
-
-    "language/literals/regexp/u-surrogate-pairs-atom-escape-decimal.js",
-    "language/literals/regexp/u-unicode-esc.js",
-    "language/statements/class/definition/methods-async-super-call-param.js",
-    "built-ins/AsyncFunction/AsyncFunction-construct.js\n",
-    "built-ins/String/prototype/split/separator-regexp.js",
-
-
-    "language/expressions/object/method-definition/async-super-call-param.js",
-    "language/expressions/object/method-definition/name-super-prop-param.js",
-    "language/expressions/optional-chaining/member-expression.js",
-    "language/expressions/tagged-template/invalid-escape-sequences.js",
-    "language/statements/for-of/dstr-obj-id-init-let.js",
-    "language/statements/for/head-lhs-let.js",
-    "language/expressions/object/yield-non-strict-access.js",
-    "language/expressions/object/yield-non-strict-syntax.js",
+     // Esprima problem
+     "built-ins/String/prototype/split/separator-regexp.js",
     "language/expressions/object/let-non-strict-access.js",
     "language/expressions/object/let-non-strict-syntax.js",
-    "language/expressions/assignment/dstr-obj-id-identifier-yield-ident-valid.js",
+    "language/expressions/object/yield-non-strict-access.js",
+    "language/expressions/object/yield-non-strict-syntax.js",
+    "language/expressions/tagged-template/invalid-escape-sequences.js",
+    "language/literals/regexp/u-surrogate-pairs-atom-escape-decimal.js",
+    "language/literals/regexp/u-unicode-esc.js",
     "language/statements/for-of/dstr-obj-id-identifier-yield-ident-valid.js",
-    "language/white-space/mongolian-vowel-separator-eval.js",
+    "language/statements/for/head-lhs-let.js",
 
     // SharedArrayBuffer not implemented
     "built-ins/SharedArrayBuffer/prototype/prop-desc.js",
-
-    // Esprima has parsing problems with weirdish unicode identifiers
-    "language/identifiers/*-unicode-*.js",
 
     // special casing data
     "built-ins/**/special_casing*.js",
