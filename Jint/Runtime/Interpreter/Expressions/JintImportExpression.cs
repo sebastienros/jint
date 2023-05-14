@@ -42,7 +42,6 @@ internal sealed class JintImportExpression : JintExpression
         }
 
         context.Engine._host.ImportModuleDynamically(referencingScriptOrModule, specifierString, promiseCapability);
-        context.Engine.RunAvailableContinuations();
         return promiseCapability.PromiseInstance;
     }
 }

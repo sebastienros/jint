@@ -404,12 +404,12 @@ namespace Jint
                     throw ex;
                 }
 
+                _completionValue = result.GetValueOrDefault();
+
                 // TODO what about callstack and thrown exceptions?
                 RunAvailableContinuations();
 
-                _completionValue = result.GetValueOrDefault();
-
-                return this;
+               return this;
             }
             finally
             {
@@ -459,7 +459,16 @@ namespace Jint
         internal void RunAvailableContinuations()
         {
             var queue = _eventLoop.Events;
+            if (queue.Count == 0)
+            {
+                return;
+            }
 
+            DoProcessEventLoop(queue);
+        }
+
+        private static void DoProcessEventLoop(Queue<Action> queue)
+        {
             while (true)
             {
                 if (queue.Count == 0)

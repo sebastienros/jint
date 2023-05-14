@@ -130,14 +130,14 @@ namespace Jint
             module.Link();
         }
 
-        private JsValue EvaluateModule(string specifier, ModuleRecord cyclicModule)
+        private JsValue EvaluateModule(string specifier, ModuleRecord module)
         {
             var ownsContext = _activeEvaluationContext is null;
             _activeEvaluationContext ??= new EvaluationContext(this);
             JsValue evaluationResult;
             try
             {
-                evaluationResult = cyclicModule.Evaluate();
+                evaluationResult = module.Evaluate();
             }
             finally
             {
@@ -154,7 +154,7 @@ namespace Jint
             }
             else if (promise.State == PromiseState.Rejected)
             {
-                var location = cyclicModule is CyclicModuleRecord cyclicModuleRecord
+                var location = module is CyclicModuleRecord cyclicModuleRecord
                     ? cyclicModuleRecord.AbnormalCompletionLocation
                     : Location.From(new Position(), new Position());
 

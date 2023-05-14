@@ -36,7 +36,9 @@ public sealed class ShadowRealm : ObjectInstance
     public JsValue ImportValue(string specifier, string exportName)
     {
         var callerRealm = _engine.Realm;
-        return ShadowRealmImportValue(specifier, exportName, callerRealm);
+        var value = ShadowRealmImportValue(specifier, exportName, callerRealm);
+        _engine.RunAvailableContinuations();
+        return value;
     }
 
     /// <summary>
@@ -209,8 +211,6 @@ public sealed class ShadowRealm : ObjectInstance
         var onFulfilled = new StepsFunction(_engine, callerRealm, exportNameString);
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
         var value = PromiseOperations.PerformPromiseThen(_engine, (PromiseInstance) innerCapability.PromiseInstance, onFulfilled, callerRealm.Intrinsics.ThrowTypeError, promiseCapability);
-
-        _engine.RunAvailableContinuations();
 
         return value;
     }

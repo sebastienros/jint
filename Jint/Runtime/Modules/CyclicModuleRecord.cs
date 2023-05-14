@@ -124,7 +124,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
         module._topLevelCapability = capability;
 
         var result = module.InnerModuleEvaluation(stack, 0, ref asyncEvalOrder);
-        
+
         if (result.Type != CompletionType.Normal)
         {
             foreach (var m in stack)
@@ -389,7 +389,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
                     requiredModule.Status = ModuleStatus.EvaluatingAsync;
                 }
 
-                done = requiredModule == this;
+                done = ReferenceEquals(requiredModule, this);
                 requiredModule._cycleRoot = this;
             }
         }
