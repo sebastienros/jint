@@ -106,13 +106,18 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - ✔ Class Static Block
 - ✔ Error Cause
 
+#### ECMAScript 2023
+
+- ✔ Array find from last
+- ✔ Change Array by copy
+- ✔ Hashbang Grammar
+- ✔ Symbols as WeakMap keys
+
 #### ECMAScript Stage 3 (no version yet)
 
 - ✔ Array find from last
 - ✔ Array.group and Array.groupToMap
-- ✔ Change Array by copy
 - ✔ ShadowRealm
-- ✔ Symbols as WeakMap keys
 
 #### Other
 
