@@ -6,20 +6,13 @@
 
 # Jint
 
-Jint is a __Javascript interpreter__ for .NET which can run on __any modern .NET platform__ as it supports .NET Standard 2.0 and .NET 4.6.2 targets (and up).
+Jint is a __Javascript interpreter__ for .NET which can run on __any modern .NET platform__ as it supports .NET Standard 2.0 and .NET 4.6.2 targets (and later).
 
-💡 You should prefer 3.x beta over the 2.x legacy version as all new features and improvements are targeted against version 3.x.
+💡 You should prefer 3.x beta versions from NuGet over the 2.x. All new features and improvements are targeted against version 3.x.
 
-## ECMAScipt Features
+## Supported features
 
-### Version 2.x
-
--  ✔ Full support for [ECMAScript 5.1 (ES5)](http://www.ecma-international.org/ecma-262/5.1/)
-- .NET Interoperability 
-
-### Version 3.x
-
-The entire execution engine was rebuild with performance in mind, in many cases at least twice as fast as the old engine.  All the features of 2.x and more:
+Following features are supported in version 3.x.
 
 #### ECMAScript 2015 (ES6)
 
@@ -115,7 +108,6 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 
 #### ECMAScript Stage 3 (no version yet)
 
-- ✔ Array find from last
 - ✔ Array.group and Array.groupToMap
 - ✔ ShadowRealm
 
@@ -125,6 +117,10 @@ The entire execution engine was rebuild with performance in mind, in many cases 
 - Constraints for execution (recursion, memory usage, duration)
 
 > Follow new features as they are being implemented, see https://github.com/sebastienros/jint/issues/343
+
+### Version 2.x
+
+Version 2.x is no longer maintained and you should consider moving to using version 3.
 
 ## Performance
 
