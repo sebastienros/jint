@@ -201,7 +201,7 @@ namespace Jint
         /// <summary>
         /// Registers a string value as variable.
         /// </summary>
-        public Engine SetValue(string name, string value)
+        public Engine SetValue(string name, string? value)
         {
             return SetValue(name, value is null ? JsValue.Null : JsString.Create(value));
         }
