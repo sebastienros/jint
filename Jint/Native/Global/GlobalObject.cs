@@ -332,7 +332,7 @@ namespace Jint.Native.Global
 
             // we should now have proper input part
 
-#if NETSTANDARD2_1_OR_GREATER
+#if SUPPORTS_SPAN_PARSE
             var substring = trimmedString.AsSpan(0, i);
 #else
             var substring = trimmedString.Substring(0, i);

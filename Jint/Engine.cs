@@ -1545,7 +1545,7 @@ namespace Jint
                 return;
             }
 
-#if NETSTANDARD2_1_OR_GREATER
+#if SUPPORTS_WEAK_TABLE_CLEAR
             _objectWrapperCache.Clear();
 #else
             // we can expect that reflection is OK as we've been generating object wrappers already

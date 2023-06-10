@@ -31,7 +31,7 @@ internal sealed class WeakMapInstance : ObjectInstance
             ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakMap key must be an object, got " + key);
         }
 
-#if NETSTANDARD2_1_OR_GREATER
+#if SUPPORTS_WEAK_TABLE_ADD_OR_UPDATE
          _table.AddOrUpdate(key, value);
 #else
         _table.Remove(key);
