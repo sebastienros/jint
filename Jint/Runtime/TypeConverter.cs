@@ -695,7 +695,7 @@ namespace Jint.Runtime
                 if (str.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
                 {
                     // we get better precision if we don't hit floating point parsing that is performed by Esprima
-#if NETSTANDARD2_1_OR_GREATER
+#if SUPPORTS_SPAN_PARSE
                     var source = str.AsSpan(2);
 #else
                     var source = str.Substring(2);

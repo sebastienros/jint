@@ -60,7 +60,7 @@ namespace Jint.Native.String
                 return JsString.Create((char) TypeConverter.ToUint16(arguments[0]));
             }
 
-#if NETSTANDARD2_1_OR_GREATER
+#if SUPPORTS_SPAN_PARSE
             var elements = length < 512 ? stackalloc char[length] : new char[length];
 #else
             var elements = new char[length];

@@ -11,6 +11,10 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'net6.0' or '$(TargetFramework)' == 'netstandard2.1' ">
+    <DefineConstants>$(DefineConstants);SUPPORTS_SPAN_PARSE;SUPPORTS_WEAK_TABLE_ADD_OR_UPDATE;SUPPORTS_WEAK_TABLE_CLEAR</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Esprima" Version="3.0.0-rc-02" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="all" />
