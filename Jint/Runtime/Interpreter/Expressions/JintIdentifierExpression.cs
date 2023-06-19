@@ -25,11 +25,12 @@ internal sealed class JintIdentifierExpression : JintExpression
         var engine = context.Engine;
         var env = engine.ExecutionContext.LexicalEnvironment;
         var strict = StrictModeScope.IsStrictModeCode;
-        var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, Identifier, out var temp)
+        var identifier = Identifier;
+        var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, identifier, out var temp)
             ? temp
             : JsValue.Undefined;
 
-        return engine._referencePool.Rent(identifierEnvironment, Identifier.Value, strict, thisValue: null);
+        return engine._referencePool.Rent(identifierEnvironment, identifier.Value, strict, thisValue: null);
     }
 
     public override JsValue GetValue(EvaluationContext context)
@@ -37,9 +38,10 @@ internal sealed class JintIdentifierExpression : JintExpression
         // need to notify correct node when taking shortcut
         context.LastSyntaxElement = _expression;
 
-        if (Identifier.CalculatedValue is not null)
+        var identifier = Identifier;
+        if (identifier.CalculatedValue is not null)
         {
-            return Identifier.CalculatedValue;
+            return identifier.CalculatedValue;
         }
 
         var strict = StrictModeScope.IsStrictModeCode;
@@ -48,7 +50,7 @@ internal sealed class JintIdentifierExpression : JintExpression
 
         if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 env,
-                Identifier,
+                identifier,
                 strict,
                 out _,
                 out var value))
@@ -60,7 +62,7 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
         else
         {
-            var reference = engine._referencePool.Rent(JsValue.Undefined, Identifier.Value, strict, thisValue: null);
+            var reference = engine._referencePool.Rent(JsValue.Undefined, identifier.Value, strict, thisValue: null);
             value = engine.GetValue(reference, true);
         }
 
