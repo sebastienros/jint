@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
+using Jint.Runtime.CallStack;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter.Statements
@@ -20,15 +21,22 @@ namespace Jint.Runtime.Interpreter.Statements
     {
         internal readonly Statement _statement;
         private bool _initialized;
+        private readonly StackGuard _stackGuard;
 
         protected JintStatement(Statement statement)
         {
             _statement = statement;
+            _stackGuard = new StackGuard();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Completion Execute(EvaluationContext context)
         {
+            if (!_stackGuard.TryEnterOnCurrentStack())
+            {
+                return _stackGuard.RunOnEmptyStack(Execute, context);
+            }
+
             if (_statement.Type != Nodes.BlockStatement)
             {
                 context.PrepareFor(_statement);
