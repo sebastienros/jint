@@ -1883,6 +1883,36 @@ var prep = function (fn) { fn(); };
             ");
         }
 
+
+        [Fact]
+        public void ShouldThrowErrorWhenMaxExecutionStackCountLimitExceeded()
+        {
+            try{
+                new Engine(options => options.Constraints.MaxExecutionStackCount = 1)
+                                .SetValue("assert", new Action<bool>(Assert.True))
+                                .Evaluate(@"
+                    var count = 0;
+                    function recurse() {
+                        count++;
+                        if(count > 100000) return;
+                        recurse();
+                        return null; // ensure no tail recursion
+                    }
+                    try {
+                        count = 0; 
+                        recurse();
+                        assert(false);
+                    } catch(err) {
+                        assert(true);
+                    }
+                ");
+                Assert.False(true);
+            } catch(InsufficientExecutionStackException){
+                Assert.True(true);
+            }
+        }
+
+
         [Fact]
         public void LocaleNumberShouldUseLocalCulture()
         {
