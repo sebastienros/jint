@@ -63,6 +63,7 @@ namespace Jint
         internal ConditionalWeakTable<object, ObjectInstance>? _objectWrapperCache;
 
         internal readonly JintCallStack CallStack;
+        internal readonly StackGuard _stackGuard;
 
         // needed in initial engine setup, for example CLR function construction
         internal Intrinsics _originalIntrinsics = null!;
@@ -129,6 +130,7 @@ namespace Jint
             Options.Apply(this);
 
             CallStack = new JintCallStack(Options.Constraints.MaxRecursionDepth >= 0);
+            _stackGuard = new StackGuard();
         }
 
         private void Reset()

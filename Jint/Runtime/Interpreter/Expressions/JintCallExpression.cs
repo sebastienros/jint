@@ -78,6 +78,11 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (!context.Engine._stackGuard.TryEnterOnCurrentStack())
+            {
+                return context.Engine._stackGuard.RunOnEmptyStack(EvaluateInternal, context);
+            }
+
             if (_calleeExpression._expression.Type == Nodes.Super)
             {
                 return SuperCall(context);
