@@ -130,7 +130,7 @@ namespace Jint
             Options.Apply(this);
 
             CallStack = new JintCallStack(Options.Constraints.MaxRecursionDepth >= 0);
-            _stackGuard = new StackGuard();
+            _stackGuard = new StackGuard(Options.Constraints.MaxExecutionStackCount);
         }
 
         private void Reset()

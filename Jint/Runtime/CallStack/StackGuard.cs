@@ -10,9 +10,13 @@ namespace Jint.Runtime.CallStack;
 
 internal sealed class StackGuard
 {
-    private const int MaxExecutionStackCount = 1024;
-
+    private readonly int _maxExecutionStackCount;
     private int _executionStackCount;
+
+    public StackGuard(int maxExecutionStackCount)
+    {
+        _maxExecutionStackCount = maxExecutionStackCount;
+    }
 
     public bool TryEnterOnCurrentStack()
     {
@@ -32,7 +36,7 @@ internal sealed class StackGuard
         }
 #endif
 
-        if (_executionStackCount < MaxExecutionStackCount)
+        if (_executionStackCount < _maxExecutionStackCount)
         {
             return false;
         }

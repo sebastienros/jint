@@ -386,6 +386,11 @@ namespace Jint
         public int MaxRecursionDepth { get; set; } = -1;
 
         /// <summary>
+        /// Maximum recursion stack count, defaults to 1024.
+        /// </summary>
+        public int MaxExecutionStackCount { get; set; } = 1024;
+
+        /// <summary>
         /// Maximum time a Regex is allowed to run, defaults to 10 seconds.
         /// </summary>
         public TimeSpan RegexTimeout { get; set; } = TimeSpan.FromSeconds(10);
