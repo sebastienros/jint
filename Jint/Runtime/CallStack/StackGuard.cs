@@ -52,7 +52,7 @@ internal sealed class StackGuard
         // Prefer ValueTuple when available to reduce dependencies on Tuple
         return RunOnEmptyStackCore(static s =>
         {
-            var t = ((Func<T1, TR>, T1))s;
+            var t = ((Func<T1, TR>, T1)) s;
             return t.Item1(t.Item2);
         }, (action, arg1));
 #endif
