@@ -78,7 +78,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            if (!context.Engine._stackGuard.TryEnterOnCurrentStack())
+            if (!context.Engine._stackGuard.TryEnterOnCurrentStack(context))
             {
                 return context.Engine._stackGuard.RunOnEmptyStack(EvaluateInternal, context);
             }

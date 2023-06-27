@@ -1887,14 +1887,13 @@ var prep = function (fn) { fn(); };
         [Fact]
         public void ShouldThrowErrorWhenMaxExecutionStackCountLimitExceeded()
         {
-            try{
-                new Engine(options => options.Constraints.MaxExecutionStackCount = 1)
-                                .SetValue("assert", new Action<bool>(Assert.True))
-                                .Evaluate(@"
+            new Engine(options => options.Constraints.MaxExecutionStackCount = 1000)
+                            .SetValue("assert", new Action<bool>(Assert.True))
+                            .SetValue("log", new Action<object>(Console.WriteLine))
+                            .Evaluate(@"
                     var count = 0;
                     function recurse() {
                         count++;
-                        if(count > 100000) return;
                         recurse();
                         return null; // ensure no tail recursion
                     }
@@ -1903,13 +1902,12 @@ var prep = function (fn) { fn(); };
                         recurse();
                         assert(false);
                     } catch(err) {
-                        assert(true);
+                        log(err);
+                        log(count);
+                        assert(count >= 1000);
                     }
-                ");
-                Assert.False(true);
-            } catch(InsufficientExecutionStackException){
-                Assert.True(true);
-            }
+            ");
+
         }
 
 

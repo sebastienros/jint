@@ -386,9 +386,9 @@ namespace Jint
         public int MaxRecursionDepth { get; set; } = -1;
 
         /// <summary>
-        /// Maximum recursion stack count, defaults to 1024.
+        /// Maximum recursion stack count, defaults to 14000 which comes from Chrome and V8 based engines (ClearScript) that can handle 13955.
         /// </summary>
-        public int MaxExecutionStackCount { get; set; } = 1024;
+        public int MaxExecutionStackCount { get; set; } = 14000;
 
         /// <summary>
         /// Maximum time a Regex is allowed to run, defaults to 10 seconds.

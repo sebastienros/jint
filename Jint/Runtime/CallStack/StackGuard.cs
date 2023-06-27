@@ -5,20 +5,20 @@
 
 using System.Runtime.CompilerServices;
 using System.Threading;
+using Jint.Runtime.Interpreter;
 
 namespace Jint.Runtime.CallStack;
 
 internal sealed class StackGuard
 {
     private readonly int _maxExecutionStackCount;
-    private int _executionStackCount;
 
     public StackGuard(int maxExecutionStackCount)
     {
         _maxExecutionStackCount = maxExecutionStackCount;
     }
 
-    public bool TryEnterOnCurrentStack()
+    public bool TryEnterOnCurrentStack(EvaluationContext context)
     {
 #if NETFRAMEWORK || NETSTANDARD2_0
         try
@@ -36,12 +36,12 @@ internal sealed class StackGuard
         }
 #endif
 
-        if (_executionStackCount < _maxExecutionStackCount)
+        if (context.Engine.CallStack.Count > _maxExecutionStackCount)
         {
-            return false;
+            ExceptionHelper.ThrowRangeError(context.Engine.Realm, "Maximum call stack size exceeded");
         }
 
-        throw new InsufficientExecutionStackException();
+        return false;
     }
 
     public TR RunOnEmptyStack<T1, TR>(Func<T1, TR> action, T1 arg1)
@@ -64,26 +64,17 @@ internal sealed class StackGuard
 
     private R RunOnEmptyStackCore<R>(Func<object, R> action, object state)
     {
-        _executionStackCount++;
+        // Using default scheduler rather than picking up the current scheduler.
+        Task<R> task = Task.Factory.StartNew((Func<object?, R>) action, state, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
 
-        try
+        // Avoid AsyncWaitHandle lazy allocation of ManualResetEvent in the rare case we finish quickly.
+        if (!task.IsCompleted)
         {
-            // Using default scheduler rather than picking up the current scheduler.
-            Task<R> task = Task.Factory.StartNew((Func<object?, R>) action, state, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
-
-            // Avoid AsyncWaitHandle lazy allocation of ManualResetEvent in the rare case we finish quickly.
-            if (!task.IsCompleted)
-            {
-                // Task.Wait has the potential of inlining the task's execution on the current thread; avoid this.
-                ((IAsyncResult) task).AsyncWaitHandle.WaitOne();
-            }
-
-            // Using awaiter here to propagate original exception
-            return task.GetAwaiter().GetResult();
+            // Task.Wait has the potential of inlining the task's execution on the current thread; avoid this.
+            ((IAsyncResult) task).AsyncWaitHandle.WaitOne();
         }
-        finally
-        {
-            _executionStackCount--;
-        }
+
+        // Using awaiter here to propagate original exception
+        return task.GetAwaiter().GetResult();
     }
 }
