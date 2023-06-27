@@ -11,14 +11,14 @@ namespace Jint.Runtime.CallStack;
 
 internal sealed class StackGuard
 {
-    private readonly int _maxExecutionStackCount;
+    private readonly Engine _engine;
 
-    public StackGuard(int maxExecutionStackCount)
+    public StackGuard(Engine engine)
     {
-        _maxExecutionStackCount = maxExecutionStackCount;
+        _engine = engine;
     }
 
-    public bool TryEnterOnCurrentStack(EvaluationContext context)
+    public bool TryEnterOnCurrentStack()
     {
 #if NETFRAMEWORK || NETSTANDARD2_0
         try
@@ -36,9 +36,9 @@ internal sealed class StackGuard
         }
 #endif
 
-        if (context.Engine.CallStack.Count > _maxExecutionStackCount)
+        if (_engine.CallStack.Count > _engine.Options.Constraints.MaxExecutionStackCount)
         {
-            ExceptionHelper.ThrowRangeError(context.Engine.Realm, "Maximum call stack size exceeded");
+            ExceptionHelper.ThrowRangeError(_engine.Realm, "Maximum call stack size exceeded");
         }
 
         return false;
@@ -60,6 +60,7 @@ internal sealed class StackGuard
             return t.Item1(t.Item2);
         }, (action, arg1));
 #endif
+
     }
 
     private R RunOnEmptyStackCore<R>(Func<object, R> action, object state)
