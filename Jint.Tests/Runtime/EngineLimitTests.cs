@@ -23,7 +23,7 @@ public class EngineLimitTests
 
         // generate call tree
         var sb = new StringBuilder();
-        sb.AppendLine("var x = 10;");
+        sb.AppendLine("var x = 1;");
         sb.AppendLine();
         for (var i = 1; i <= FunctionNestingCount; ++i)
         {
@@ -32,7 +32,7 @@ public class EngineLimitTests
             if (i != FunctionNestingCount)
             {
                 // just to create a bit more nesting add some constructs
-                sb.Append("return x++ > 1 ? func").Append(i + 1).Append("(func").Append(i).AppendLine("Param): undefined;");
+                sb.Append("return x++ >= 1 ? func").Append(i + 1).Append("(func").Append(i).AppendLine("Param): undefined;");
             }
             else
             {
@@ -47,6 +47,7 @@ public class EngineLimitTests
         var engine = new Engine();
         engine.Execute(sb.ToString());
         Assert.Equal(123, engine.Evaluate("func1(123);").AsNumber());
+        Assert.Equal(FunctionNestingCount, engine.Evaluate("x").AsNumber());
     }
 
     [Fact]
