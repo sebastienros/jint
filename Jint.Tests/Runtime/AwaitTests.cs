@@ -60,4 +60,23 @@ public class AsyncTests
             throw new Exception();
         }
     }
+
+    [Fact]
+    public void ShouldTaskAwaitCurrentStack()
+    {
+        //https://github.com/sebastienros/jint/issues/514#issuecomment-1507127509
+        var engine = new Engine();
+        string log = "";
+        engine.SetValue("myAsyncMethod", new Func<Task>(async () =>
+        {
+            await Task.Delay(1000);
+            log += "1";
+        }));
+        engine.SetValue("myAsyncMethod2", new Action(() =>
+        {
+            log += "2";
+        }));
+        engine.Execute("async function hello() {await myAsyncMethod();myAsyncMethod2();} hello();");
+        Assert.Equal("12", log);
+    }
 }
