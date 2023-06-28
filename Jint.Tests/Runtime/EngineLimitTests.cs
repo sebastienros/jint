@@ -53,8 +53,8 @@ public class EngineLimitTests
     [Fact]
     public void ShouldNotStackoverflowWhenStackGuardEnable()
     {
-        // Can be more than 1000, It does not hit stackoverflow anymore.
-        const int FunctionNestingCount = 1000;
+        // Can be more than 10000, It does not hit stackoverflow anymore.
+        const int FunctionNestingCount = 10000;
 
         // generate call tree
         var sb = new StringBuilder();
@@ -79,7 +79,7 @@ public class EngineLimitTests
             sb.AppendLine();
         }
 
-        var engine = new Engine(option => option.Constraints.MaxExecutionStackCount = 1000);
+        var engine = new Engine(option => option.Constraints.MaxExecutionStackCount = FunctionNestingCount);
         engine.Execute(sb.ToString());
         Assert.Equal(123, engine.Evaluate("func1(123);").AsNumber());
         Assert.Equal(FunctionNestingCount, engine.Evaluate("x").AsNumber());
