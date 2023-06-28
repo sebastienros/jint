@@ -5,12 +5,13 @@
 
 using System.Runtime.CompilerServices;
 using System.Threading;
-using Jint.Runtime.Interpreter;
 
 namespace Jint.Runtime.CallStack;
 
 internal sealed class StackGuard
 {
+    public const int Disabled = -1;
+
     private readonly Engine _engine;
 
     public StackGuard(Engine engine)
@@ -20,6 +21,11 @@ internal sealed class StackGuard
 
     public bool TryEnterOnCurrentStack()
     {
+        if (_engine.Options.Constraints.MaxExecutionStackCount == Disabled)
+        {
+            return true;
+        }
+
 #if NETFRAMEWORK || NETSTANDARD2_0
         try
         {

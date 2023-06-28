@@ -9,6 +9,7 @@ using Jint.Runtime.Interop;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Modules;
+using Jint.Runtime.CallStack;
 
 namespace Jint
 {
@@ -386,9 +387,9 @@ namespace Jint
         public int MaxRecursionDepth { get; set; } = -1;
 
         /// <summary>
-        /// Maximum recursion stack count, defaults to 14000 which comes from Chrome and V8 based engines (ClearScript) that can handle 13955.
+        /// Maximum recursion stack count, defaults to -1 (as-is dotnet stacktrace).
         /// </summary>
-        public int MaxExecutionStackCount { get; set; } = 14000;
+        public int MaxExecutionStackCount { get; set; } = StackGuard.Disabled;
 
         /// <summary>
         /// Maximum time a Regex is allowed to run, defaults to 10 seconds.
