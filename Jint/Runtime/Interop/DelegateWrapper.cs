@@ -131,52 +131,56 @@ namespace Jint.Runtime.Interop
             try
             {
                 var result = _d.DynamicInvoke(parameters);
-                if (result is Task task)
-                {
-                    var (promise, resolve, reject) = _engine.RegisterPromise();
-                    task = task.ContinueWith(continuationAction =>
-                    {
-                        if (continuationAction.IsFaulted)
-                        {
-                            reject(JsValue.FromObject(_engine, continuationAction.Exception));
-                        }
-                        else if (continuationAction.IsCanceled)
-                        {
-                            reject(JsValue.Undefined);
-                        }
-                        else
-                        {
-                            var result = continuationAction.GetType().GetProperty(nameof(Task<object>.Result));
-                            if (result is not null)
-                            {
-                                resolve(JsValue.FromObject(_engine, result.GetValue(continuationAction)));
-                            }
-                            else
-                            {
-                                resolve(JsValue.FromObject(_engine, JsValue.Undefined));
-                            }
-                        }
-                    });
-                    _engine.AddToEventLoop(() =>
-                    {
-                        if (!task.IsCompleted)
-                        {
-                            // Task.Wait has the potential of inlining the task's execution on the current thread; avoid this.
-                            ((IAsyncResult) task).AsyncWaitHandle.WaitOne();
-                        }
-                    });
-                    return promise;
-                }
-                else
+                if (result is not Task task)
                 {
                     return FromObject(Engine, result);
                 }
+                return ConvertTaskToPromise(task);
             }
             catch (TargetInvocationException exception)
             {
-                ExceptionHelper.ThrowMeaningfulException(_engine, exception);
+                ExceptionHelper.ThrowMeaningfulException(Engine, exception);
                 throw;
             }
+        }
+
+        private JsValue ConvertTaskToPromise(Task task)
+        {
+            var (promise, resolve, reject) = Engine.RegisterPromise();
+            task = task.ContinueWith(continuationAction =>
+            {
+                if (continuationAction.IsFaulted)
+                {
+                    reject(FromObject(Engine, continuationAction.Exception));
+                }
+                else if (continuationAction.IsCanceled)
+                {
+                    reject(FromObject(Engine, new ExecutionCanceledException()));
+                }
+                else
+                {
+                    var result = continuationAction.GetType().GetProperty(nameof(Task<object>.Result));
+                    if (result is not null)
+                    {
+                        resolve(FromObject(Engine, result.GetValue(continuationAction)));
+                    }
+                    else
+                    {
+                        resolve(FromObject(Engine, JsValue.Undefined));
+                    }
+                }
+            });
+
+            Engine.AddToEventLoop(() =>
+            {
+                if (!task.IsCompleted)
+                {
+                    // Task.Wait has the potential of inlining the task's execution on the current thread; avoid this.
+                    ((IAsyncResult) task).AsyncWaitHandle.WaitOne();
+                }
+            });
+
+            return promise;
         }
     }
 }

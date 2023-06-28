@@ -14,13 +14,13 @@ public class AsyncTests
     [Fact]
     public void ShouldTaskConvertedToPromiseInJS()
     {
-        var engine = new Engine();
+        Engine engine = new();
         engine.SetValue("callable", Callable);
         var result = engine.Evaluate("callable().then(x=>x*2)");
         result = result.UnwrapIfPromise();
         Assert.Equal(2, result);
 
-        async Task<int> Callable()
+        static async Task<int> Callable()
         {
             await Task.Delay(10);
             Assert.True(true);
@@ -31,30 +31,29 @@ public class AsyncTests
     [Fact]
     public void ShouldTaskCatchWhenCancelled()
     {
-        var engine = new Engine();
-        var cancel = new CancellationTokenSource();
+        Engine engine = new();
+        CancellationTokenSource cancel = new();
         cancel.Cancel();
         engine.SetValue("token", cancel.Token);
         engine.SetValue("callable", Callable);
         engine.SetValue("assert", new Action<bool>(Assert.True));
         var result = engine.Evaluate("callable(token).then(_ => assert(false)).catch(_ => assert(true))");
-
-        async Task Callable(CancellationToken token)
+        result = result.UnwrapIfPromise();
+        static async Task Callable(CancellationToken token)
         {
-            await Task.Delay(10);
-            token.ThrowIfCancellationRequested();
+            await Task.FromCanceled(token);
         }
     }
 
     [Fact]
     public void ShouldTaskCatchWhenThrowError()
     {
-        var engine = new Engine();
+        Engine engine = new();
         engine.SetValue("callable", Callable);
         engine.SetValue("assert", new Action<bool>(Assert.True));
         var result = engine.Evaluate("callable().then(_ => assert(false)).catch(_ => assert(true))");
 
-        async Task Callable(CancellationToken token)
+        static async Task Callable()
         {
             await Task.Delay(10);
             throw new Exception();
@@ -65,7 +64,7 @@ public class AsyncTests
     public void ShouldTaskAwaitCurrentStack()
     {
         //https://github.com/sebastienros/jint/issues/514#issuecomment-1507127509
-        var engine = new Engine();
+        Engine engine = new();
         string log = "";
         engine.SetValue("myAsyncMethod", new Func<Task>(async () =>
         {
