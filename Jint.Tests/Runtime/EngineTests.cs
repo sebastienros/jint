@@ -1889,7 +1889,6 @@ var prep = function (fn) { fn(); };
         {
             new Engine(options => options.Constraints.MaxExecutionStackCount = 1000)
                             .SetValue("assert", new Action<bool>(Assert.True))
-                            .SetValue("log", new Action<object>(Console.WriteLine))
                             .Evaluate(@"
                     var count = 0;
                     function recurse() {
@@ -1902,8 +1901,6 @@ var prep = function (fn) { fn(); };
                         recurse();
                         assert(false);
                     } catch(err) {
-                        log(err);
-                        log(count);
                         assert(count >= 1000);
                     }
             ");
