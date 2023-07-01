@@ -415,7 +415,7 @@ internal sealed class JintFunctionDefinition
         out bool hasArguments)
     {
         hasArguments = false;
-        state.IsSimpleParameterList  = true;
+        state.IsSimpleParameterList = true;
 
         var countParameters = true;
         ref readonly var functionDeclarationParams = ref function.Params;

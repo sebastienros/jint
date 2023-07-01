@@ -2,14 +2,16 @@
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Esprima.Ast;
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Interop;
+using Jint.Runtime.CallStack;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
-using Jint.Runtime.CallStack;
 
 namespace Jint
 {
@@ -333,6 +335,10 @@ namespace Jint
         /// <see cref="IObjectWrapper"/> passing through 'JSON.stringify'.
         /// </summary>
         public Func<object, string>? SerializeToJson { get; set; }
+
+        public Action<Engine, FunctionInstance, IFunction, JsValue[], Guid>? FunctionExecuting { get; set; }
+
+        public Action<Completion, Guid>? FunctionExecuted { get; set; }
 
         /// <summary>
         /// What kind of date time should be produced when JavaScript date is converted to DateTime. If Local, uses <see cref="Options.TimeZone"/>.

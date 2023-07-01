@@ -75,8 +75,17 @@ namespace Jint.Native.Function
 
                     // actual call
                     var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
-
+                    Guid? traceId = null;
+                    if (context.Engine.Options.Interop.FunctionExecuting is { } executing)
+                    {
+                        traceId = Guid.NewGuid();
+                        executing(context.Engine, this, _functionDefinition.Function, arguments, traceId.Value);
+                    }
                     var result = _functionDefinition.EvaluateBody(context, this, arguments);
+                    if (traceId.HasValue && context.Engine.Options.Interop.FunctionExecuted is { } executed)
+                    {
+                        executed(result, traceId.Value);
+                    }
 
                     if (result.Type == CompletionType.Throw)
                     {
