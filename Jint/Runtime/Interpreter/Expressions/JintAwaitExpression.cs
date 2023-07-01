@@ -1,6 +1,4 @@
 using Esprima.Ast;
-using Jint.Native;
-using Jint.Native.Object;
 using Jint.Native.Promise;
 
 namespace Jint.Runtime.Interpreter.Expressions;

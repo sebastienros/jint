@@ -131,10 +131,10 @@ namespace Jint.Runtime.Interop
                         }
 
                         // optional parameters
-                        if (parameters.Length >= arguments.Length)
+                        if (parameters.Length > arguments.Length)
                         {
                             // all missing ones must be optional
-                            foreach (var parameter in parameters.AsSpan(parameters.Length - arguments.Length + 1))
+                            foreach (var parameter in parameters.AsSpan(parameters.Length - arguments.Length))
                             {
                                 if (!parameter.IsOptional)
                                 {

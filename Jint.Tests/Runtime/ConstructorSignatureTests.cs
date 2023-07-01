@@ -42,6 +42,18 @@ public class ConstructorSignature
         Assert.Equal("A-30", engine.Evaluate("new B('A', 30).Result"));
     }
 
+
+    [Fact]
+    public void CanConstructWithMixedFloatAndEnumConstructorParameters()
+    {
+        var engine = new Engine();
+        engine.SetValue("Length", TypeReference.CreateTypeReference<Length>(engine));
+        Assert.Equal(12.3, engine.Evaluate("new Length(12.3).Value").AsNumber(), precision: 2);
+        Assert.Equal(12.3, engine.Evaluate("new Length(12.3, 0).Value").AsNumber(), precision: 2);
+        Assert.Equal(0, engine.Evaluate("new Length(12.3, 0).UnitValue").AsInteger());
+        Assert.Equal(LengthUnit.Pixel, (LengthUnit) engine.Evaluate("new Length(12.3, 42).UnitValue").AsInteger());
+    }
+
     private class A
     {
         public A(int param1, int param2 = 5) => Result = (param1 + param2).ToString();
@@ -62,8 +74,27 @@ public class ConstructorSignature
         public B(string param1, float param2)
         {
             Result = string.Join("-", param1, param2.ToString(CultureInfo.InvariantCulture));
-       }
+        }
 
-        public string Result { get;}
+        public string Result { get; }
+    }
+
+    private enum LengthUnit { Pixel = 42 }
+
+    private class Length
+    {
+        public Length(float value)
+            : this(value, LengthUnit.Pixel)
+        {
+        }
+
+        public Length(float value, LengthUnit unit)
+        {
+            Value = value;
+            UnitValue = unit;
+        }
+
+        public float Value { get; }
+        public LengthUnit UnitValue { get; }
     }
 }
