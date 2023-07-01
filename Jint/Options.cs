@@ -389,6 +389,11 @@ namespace Jint
         /// <summary>
         /// Maximum recursion stack count, defaults to -1 (as-is dotnet stacktrace).
         /// </summary>
+        /// <remarks>
+        /// Chrome and V8 based engines (ClearScript) that can handle 13955.
+        /// When set to a different value except -1, it can reduce slight performance/stack trace readability drawback. (after hitting the engine's own limit),
+        /// When max stack size to be exceeded, Engine throws an exception <see cref="JavaScriptException">.
+        /// </remarks>
         public int MaxExecutionStackCount { get; set; } = StackGuard.Disabled;
 
         /// <summary>
