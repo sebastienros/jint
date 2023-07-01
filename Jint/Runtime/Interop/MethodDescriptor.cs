@@ -111,13 +111,19 @@ namespace Jint.Runtime.Interop
             {
                 for (var i = 0; i < arguments.Length; i++)
                 {
-                    var parameterType = methodParameters[i].ParameterType;
+                    var methodParameter = methodParameters[i];
+                    var parameterType = methodParameter.ParameterType;
                     var value = arguments[i];
                     object? converted;
 
                     if (typeof(JsValue).IsAssignableFrom(parameterType))
                     {
                         converted = value;
+                    }
+                    else if (value.IsUndefined() && methodParameter.IsOptional)
+                    {
+                        // undefined is considered missing, null is consider explicit value
+                        converted = methodParameter.DefaultValue;
                     }
                     else if (!ReflectionExtensions.TryConvertViaTypeCoercion(parameterType, valueCoercionType, value, out converted))
                     {
