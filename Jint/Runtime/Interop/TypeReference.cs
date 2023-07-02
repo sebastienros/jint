@@ -134,9 +134,10 @@ namespace Jint.Runtime.Interop
                         if (parameters.Length > arguments.Length)
                         {
                             // all missing ones must be optional
-                            foreach (var parameter in parameters.AsSpan(parameters.Length - arguments.Length))
+                            int start = parameters.Length - arguments.Length + 1;
+                            for (var i = start; i < parameters.Length; i++)
                             {
-                                if (!parameter.IsOptional)
+                                if (!parameters[i].IsOptional)
                                 {
                                     // use original arguments
                                     return arguments;
