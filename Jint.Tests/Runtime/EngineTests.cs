@@ -1883,6 +1883,31 @@ var prep = function (fn) { fn(); };
             ");
         }
 
+
+        [Fact]
+        public void ShouldThrowErrorWhenMaxExecutionStackCountLimitExceeded()
+        {
+            new Engine(options => options.Constraints.MaxExecutionStackCount = 1000)
+                            .SetValue("assert", new Action<bool>(Assert.True))
+                            .Evaluate(@"
+                    var count = 0;
+                    function recurse() {
+                        count++;
+                        recurse();
+                        return null; // ensure no tail recursion
+                    }
+                    try {
+                        count = 0; 
+                        recurse();
+                        assert(false);
+                    } catch(err) {
+                        assert(count >= 1000);
+                    }
+            ");
+
+        }
+
+
         [Fact]
         public void LocaleNumberShouldUseLocalCulture()
         {
