@@ -1,3 +1,4 @@
+using Jint.Native;
 using Jint.Native.Object;
 
 namespace Jint.Tests.PublicInterface;
@@ -26,6 +27,70 @@ public class ShadowRealmTests
         var formatName = (ObjectInstance) importValue.UnwrapIfPromise();
         var result = engine.Invoke(formatName, "John", "Doe").AsString();
         Assert.Equal("John Doe", result);
+    }
+
+    [Fact]
+    public void MultipleShadowRealmsDoNotInterfere()
+    {
+        var engine = new Engine(options => options.EnableModules(GetBasePath()));
+        engine.SetValue("message", "world");
+        engine.Evaluate("function hello() {return message}");
+
+        Assert.Equal("world",engine.Evaluate("hello();"));
+
+        var shadowRealm = engine.Realm.Intrinsics.ShadowRealm.Construct();
+        shadowRealm.SetValue("message", "realm 1");
+        shadowRealm.Evaluate("function hello() {return message}");
+
+        var shadowRealm2 = engine.Realm.Intrinsics.ShadowRealm.Construct();
+        shadowRealm2.SetValue("message", "realm 2");
+        shadowRealm2.Evaluate("function hello() {return message}");
+
+        // Act & Assert
+        Assert.Equal("realm 1", shadowRealm.Evaluate("hello();"));
+        Assert.Equal("realm 2", shadowRealm2.Evaluate("hello();"));
+    }
+
+    [Fact]
+    public void MultipleShadowRealm_SettingGlobalVariable_DoNotInterfere()
+    {
+        var engine = new Engine(options => options.EnableModules(GetBasePath()));
+        engine.SetValue("message", "hello ");
+        engine.Evaluate("(function hello() {message += \"engine\"})();");
+
+        var shadowRealm = engine.Realm.Intrinsics.ShadowRealm.Construct();
+        shadowRealm.SetValue("message", "hello ");
+        shadowRealm.Evaluate("(function hello() {message += \"realm 1\"})();");
+
+        var shadowRealm2 = engine.Realm.Intrinsics.ShadowRealm.Construct();
+        shadowRealm2.SetValue("message", "hello ");
+        shadowRealm2.Evaluate("(function hello() {message += \"realm 2\"})();");
+
+        // Act & Assert
+        Assert.Equal("hello engine", engine.Evaluate("message"));
+        Assert.Equal("hello realm 1", shadowRealm.Evaluate("message"));
+        Assert.Equal("hello realm 2", shadowRealm2.Evaluate("message"));
+    }
+
+    [Fact]
+    public void CanReuseScriptWithShadowRealm()
+    {
+        var engine = new Engine(options => options.EnableModules(GetBasePath()));
+        engine.SetValue("message", "engine");
+
+        var shadowRealm = engine.Realm.Intrinsics.ShadowRealm.Construct();
+        shadowRealm.SetValue("message", "realm 1");
+
+        var shadowRealm2 = engine.Realm.Intrinsics.ShadowRealm.Construct();
+        shadowRealm2.SetValue("message", "realm 2");
+
+        var parser = new Esprima.JavaScriptParser();
+        var script = parser.ParseScript("(function hello() {return \"hello \" + message})();");
+
+        // Act & Assert
+        Assert.Equal("hello engine", engine.Evaluate(script));
+        Assert.Equal("hello realm 1", shadowRealm.Evaluate(script));
+        Assert.Equal("hello realm 2", shadowRealm2.Evaluate(script));
     }
 
     private static string GetBasePath()
