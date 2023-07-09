@@ -379,7 +379,7 @@ By default, the module resolution algorithm will be restricted to the base path 
 Defining modules using JavaScript source code:
 
 ```c#
-engine.CreateModule("user", "export const name = 'John';")
+engine.AddModule("user", "export const name = 'John';");
 
 var ns = engine.ImportModule("user");
 
@@ -390,13 +390,13 @@ Defining modules using the module builder, which allows you to export CLR classe
 
 ```c#
 // Create the module 'lib' with the class MyClass and the variable version
-engine.CreateModule("lib", builder => builder
+engine.AddModule("lib", builder => builder
     .ExportType<MyClass>()
     .ExportValue("version", 15)
 );
 
 // Create a user-defined module and do something with 'lib'
-engine.CreateModule("custom", @"
+engine.AddModule("custom", @"
     import { MyClass, version } from 'lib';
     const x = new MyClass();
     export const result as x.doSomething();
