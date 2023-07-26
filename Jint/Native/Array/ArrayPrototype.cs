@@ -1,7 +1,6 @@
 using System.Linq;
 using Jint.Collections;
 using Jint.Native.Iterator;
-using Jint.Native.Map;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -37,7 +36,7 @@ namespace Jint.Native.Array
         protected override void Initialize()
         {
             const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
-            var properties = new PropertyDictionary(40, checkExistingKeys: false)
+            var properties = new PropertyDictionary(38, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
 
@@ -55,8 +54,6 @@ namespace Jint.Native.Array
                 ["flat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flat", Flat, 0, PropertyFlag.Configurable), PropertyFlags),
                 ["flatMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "flatMap", FlatMap, 1, PropertyFlag.Configurable), PropertyFlags),
                 ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["group"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "group", Group, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["groupToMap"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "groupToMap", GroupToMap, 1, PropertyFlag.Configurable), PropertyFlags),
                 ["includes"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "includes", Includes, 1, PropertyFlag.Configurable), PropertyFlags),
                 ["indexOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), PropertyFlags),
                 ["join"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "join", Join, 1, PropertyFlag.Configurable), PropertyFlags),
@@ -105,10 +102,6 @@ namespace Jint.Native.Array
                     unscopables.FastSetDataProperty("findLastIndex", JsBoolean.True);
                     unscopables.FastSetDataProperty("flat", JsBoolean.True);
                     unscopables.FastSetDataProperty("flatMap", JsBoolean.True);
-                    unscopables.FastSetDataProperty("group", JsBoolean.True);
-                    unscopables.FastSetDataProperty("groupBy", JsBoolean.True);
-                    unscopables.FastSetDataProperty("groupByToMap", JsBoolean.True);
-                    unscopables.FastSetDataProperty("groupToMap", JsBoolean.True);
                     unscopables.FastSetDataProperty("includes", JsBoolean.True);
                     unscopables.FastSetDataProperty("keys", JsBoolean.True);
                     unscopables.FastSetDataProperty("toReversed", JsBoolean.True);
@@ -1653,76 +1646,6 @@ namespace Jint.Native.Array
             o.DeletePropertyOrThrow(len);
             o.SetLength(len);
             return element;
-        }
-
-        /// <summary>
-        /// https://tc39.es/proposal-array-grouping/#sec-array.prototype.group
-        /// </summary>
-        private JsValue Group(JsValue thisObject, JsValue[] arguments)
-        {
-            var grouping = BuildArrayGrouping(thisObject, arguments, mapMode: false);
-
-            var obj = OrdinaryObjectCreate(_engine, null);
-            foreach (var pair in grouping)
-            {
-                obj.FastSetProperty(pair.Key, new PropertyDescriptor(pair.Value, PropertyFlag.ConfigurableEnumerableWritable));
-            }
-
-            return obj;
-        }
-
-        /// <summary>
-        /// https://tc39.es/proposal-array-grouping/#sec-array.prototype.grouptomap
-        /// </summary>
-        private JsValue GroupToMap(JsValue thisObject, JsValue[] arguments)
-        {
-            var grouping = BuildArrayGrouping(thisObject, arguments, mapMode: true);
-            var map = (MapInstance) Construct(_realm.Intrinsics.Map);
-            foreach (var pair in grouping)
-            {
-                map.MapSet(pair.Key, pair.Value);
-            }
-
-            return map;
-        }
-
-        private Dictionary<JsValue, JsArray> BuildArrayGrouping(JsValue thisObject, JsValue[] arguments, bool mapMode)
-        {
-            var o = ArrayOperations.For(_realm, thisObject);
-            var len = o.GetLongLength();
-            var callbackfn = arguments.At(0);
-            var callable = GetCallable(callbackfn);
-            var thisArg = arguments.At(1);
-
-            var result = new Dictionary<JsValue, JsArray>();
-            var args = _engine._jsValueArrayPool.RentArray(3);
-            args[2] = o.Target;
-            for (uint k = 0; k < len; k++)
-            {
-                var kValue = o.Get(k);
-                args[0] = kValue;
-                args[1] = k;
-
-                var value = callable.Call(thisArg, args);
-                JsValue key;
-                if (mapMode)
-                {
-                    key = (value as JsNumber)?.IsNegativeZero() == true ? JsNumber.PositiveZero : value;
-                }
-                else
-                {
-                    key = TypeConverter.ToPropertyKey(value);
-                }
-                if (!result.TryGetValue(key, out var list))
-                {
-                    result[key] = list = new JsArray(_engine);
-                }
-
-                list.SetIndexValue(list.GetLength(), kValue, updateLength: true);
-            }
-
-            _engine._jsValueArrayPool.ReturnArray(args);
-            return result;
         }
 
         private object[] CreateBackingArray(ulong length)

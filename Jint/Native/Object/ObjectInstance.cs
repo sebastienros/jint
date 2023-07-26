@@ -1173,16 +1173,7 @@ namespace Jint.Native.Object
             return false;
         }
 
-        internal ICallable GetCallable(JsValue source)
-        {
-            if (source is ICallable callable)
-            {
-                return callable;
-            }
-
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Argument must be callable");
-            return null;
-        }
+        internal ICallable GetCallable(JsValue source) => source.GetCallable(_engine.Realm);
 
         internal bool IsConcatSpreadable
         {

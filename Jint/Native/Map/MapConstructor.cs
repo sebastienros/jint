@@ -30,6 +30,13 @@ internal sealed class MapConstructor : Constructor
 
     protected override void Initialize()
     {
+        const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
+        var properties = new PropertyDictionary(1, checkExistingKeys: false)
+        {
+            ["groupBy"] = new(new ClrFunctionInstance(Engine, "groupBy", GroupBy, 2, PropertyFlag.Configurable), PropertyFlags),
+        };
+        SetProperties(properties);
+
         var symbols = new SymbolDictionary(1)
         {
             [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
@@ -63,6 +70,24 @@ internal sealed class MapConstructor : Constructor
             var iterator = arguments.At(0).GetIterator(_realm);
 
             IteratorProtocol.AddEntriesFromIterable(map, iterator, adder);
+        }
+
+        return map;
+    }
+
+
+    /// <summary>
+    /// https://tc39.es/proposal-array-grouping/#sec-map.groupby
+    /// </summary>
+    private JsValue GroupBy(JsValue thisObject, JsValue[] arguments)
+    {
+        var items = arguments.At(0);
+        var callbackfn = arguments.At(1);
+        var grouping = GroupByHelper.GroupBy(_engine, _realm, items, callbackfn, mapMode: true);
+        var map = (MapInstance) Construct(_realm.Intrinsics.Map);
+        foreach (var pair in grouping)
+        {
+            map.MapSet(pair.Key, pair.Value);
         }
 
         return map;
