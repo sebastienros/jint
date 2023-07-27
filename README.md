@@ -108,7 +108,7 @@ Following features are supported in version 3.x.
 
 #### ECMAScript Stage 3 (no version yet)
 
-- ✔ Array.group and Array.groupToMap
+- ✔ Array Grouping - `Object.groupBy` and `Map.groupBy`
 - ✔ ShadowRealm
 
 #### Other

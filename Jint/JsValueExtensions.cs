@@ -582,5 +582,16 @@ namespace Jint
                 return default;
             }
         }
+
+        internal static ICallable GetCallable(this JsValue source, Realm realm)
+        {
+            if (source is ICallable callable)
+            {
+                return callable;
+            }
+
+            ExceptionHelper.ThrowTypeError(realm, "Argument must be callable");
+            return null;
+        }
     }
 }
