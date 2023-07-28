@@ -12,7 +12,7 @@ namespace Jint.Native.RegExp
                 return prototype.TryGetDefaultExec(prototype, out exec);
             }
 
-            if (o is RegExpInstance instance)
+            if (o is JsRegExp instance)
             {
                 exec = default;
                 return instance.Properties == null

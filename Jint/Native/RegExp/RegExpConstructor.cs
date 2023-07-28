@@ -72,7 +72,7 @@ namespace Jint.Native.RegExp
 
             JsValue p;
             JsValue f;
-            if (pattern is RegExpInstance regExpInstance)
+            if (pattern is JsRegExp regExpInstance)
             {
                 p = regExpInstance.Source;
                 f = flags.IsUndefined() ? regExpInstance.Flags : flags;
@@ -92,7 +92,7 @@ namespace Jint.Native.RegExp
             return RegExpInitialize(r, p, f);
         }
 
-        private ObjectInstance RegExpInitialize(RegExpInstance r, JsValue pattern, JsValue flags)
+        private ObjectInstance RegExpInitialize(JsRegExp r, JsValue pattern, JsValue flags)
         {
             var p = pattern.IsUndefined() ? "" : TypeConverter.ToString(pattern);
             if (string.IsNullOrEmpty(p))
@@ -129,18 +129,18 @@ namespace Jint.Native.RegExp
             return r;
         }
 
-        private RegExpInstance RegExpAlloc(JsValue newTarget)
+        private JsRegExp RegExpAlloc(JsValue newTarget)
         {
             var r = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.RegExp.PrototypeObject,
-                static (Engine engine, Realm _, object? _) => new RegExpInstance(engine));
+                static (Engine engine, Realm _, object? _) => new JsRegExp(engine));
             return r;
         }
 
-        public RegExpInstance Construct(Regex regExp, string source, string flags)
+        public JsRegExp Construct(Regex regExp, string source, string flags)
         {
-            var r = new RegExpInstance(Engine);
+            var r = new JsRegExp(Engine);
             r._prototype = PrototypeObject;
 
             r.Flags = flags;
@@ -161,9 +161,9 @@ namespace Jint.Native.RegExp
             return r;
         }
 
-        private static void RegExpInitialize(RegExpInstance r)
+        private static void RegExpInitialize(JsRegExp r)
         {
-            r.SetOwnProperty(RegExpInstance.PropertyLastIndex, new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
+            r.SetOwnProperty(JsRegExp.PropertyLastIndex, new PropertyDescriptor(0, PropertyFlag.OnlyWritable));
         }
     }
 }
