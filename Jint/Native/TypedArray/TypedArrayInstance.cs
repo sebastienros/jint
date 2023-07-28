@@ -12,7 +12,7 @@ namespace Jint.Native.TypedArray
     {
         internal readonly TypedArrayContentType _contentType;
         internal readonly TypedArrayElementType _arrayElementType;
-        internal ArrayBufferInstance _viewedArrayBuffer;
+        internal JsArrayBuffer _viewedArrayBuffer;
         internal uint _byteLength;
         internal int _byteOffset;
         private readonly Intrinsics _intrinsics;
@@ -25,7 +25,7 @@ namespace Jint.Native.TypedArray
             uint length) : base(engine)
         {
             _intrinsics = intrinsics;
-            _viewedArrayBuffer = new ArrayBufferInstance(engine, 0);
+            _viewedArrayBuffer = new JsArrayBuffer(engine, 0);
 
             _arrayElementType = type;
             _contentType = type != TypedArrayElementType.BigInt64 && type != TypedArrayElementType.BigUint64

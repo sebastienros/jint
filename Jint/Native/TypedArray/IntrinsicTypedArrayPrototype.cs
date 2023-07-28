@@ -1404,7 +1404,7 @@ namespace Jint.Native.TypedArray
             return compareFn;
         }
 
-        private static JsValue[] SortArray(ArrayBufferInstance buffer, ICallable? compareFn, TypedArrayInstance obj)
+        private static JsValue[] SortArray(JsArrayBuffer buffer, ICallable? compareFn, TypedArrayInstance obj)
         {
             var comparer = TypedArrayComparer.WithFunction(buffer, compareFn);
             var operations = ArrayOperations.For(obj);
@@ -1420,16 +1420,16 @@ namespace Jint.Native.TypedArray
 
         private sealed class TypedArrayComparer : IComparer<JsValue>
         {
-            public static TypedArrayComparer WithFunction(ArrayBufferInstance buffer, ICallable? compare)
+            public static TypedArrayComparer WithFunction(JsArrayBuffer buffer, ICallable? compare)
             {
                 return new TypedArrayComparer(buffer, compare);
             }
 
-            private readonly ArrayBufferInstance _buffer;
+            private readonly JsArrayBuffer _buffer;
             private readonly ICallable? _compare;
             private readonly JsValue[] _comparableArray = new JsValue[2];
 
-            private TypedArrayComparer(ArrayBufferInstance buffer, ICallable? compare)
+            private TypedArrayComparer(JsArrayBuffer buffer, ICallable? compare)
             {
                 _buffer = buffer;
                 _compare = compare;

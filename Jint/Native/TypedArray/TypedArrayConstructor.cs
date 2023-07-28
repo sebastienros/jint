@@ -78,7 +78,7 @@ namespace Jint.Native.TypedArray
                 {
                     InitializeTypedArrayFromTypedArray(o, typedArrayInstance);
                 }
-                else if (firstArgument is ArrayBufferInstance arrayBuffer)
+                else if (firstArgument is JsArrayBuffer arrayBuffer)
                 {
                     var byteOffset = numberOfArgs > 1 ? args[1] : Undefined;
                     var length = numberOfArgs > 2 ? args[2] : Undefined;
@@ -137,7 +137,7 @@ namespace Jint.Native.TypedArray
             var byteLength = elementSize * elementLength;
 
             var arrayBuffer = _realm.Intrinsics.ArrayBuffer;
-            ArrayBufferInstance data;
+            JsArrayBuffer data;
             if (elementType == srcType)
             {
                 data = srcData.CloneArrayBuffer(arrayBuffer, srcByteOffset, byteLength);
@@ -175,7 +175,7 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private void InitializeTypedArrayFromArrayBuffer(
             TypedArrayInstance o,
-            ArrayBufferInstance buffer,
+            JsArrayBuffer buffer,
             JsValue byteOffset,
             JsValue length)
         {

@@ -76,12 +76,12 @@ namespace Jint.Native.ArrayBuffer
             return AllocateArrayBuffer(newTarget, byteLength);
         }
 
-        internal ArrayBufferInstance AllocateArrayBuffer(JsValue constructor, ulong byteLength)
+        internal JsArrayBuffer AllocateArrayBuffer(JsValue constructor, ulong byteLength)
         {
             var obj = OrdinaryCreateFromConstructor(
                 constructor,
                 static intrinsics => intrinsics.ArrayBuffer.PrototypeObject,
-                static (engine, realm, state) => new ArrayBufferInstance(engine, (ulong) state!._value),
+                static (engine, realm, state) => new JsArrayBuffer(engine, (ulong) state!._value),
                 JsNumber.Create(byteLength));
 
             return obj;
