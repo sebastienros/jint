@@ -70,7 +70,7 @@ namespace Jint.Native.DataView
         /// </summary>
         private JsValue Buffer(JsValue thisObj, JsValue[] arguments)
         {
-            var o = thisObj as DataViewInstance;
+            var o = thisObj as JsDataView;
             if (o is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Method get DataView.prototype.buffer called on incompatible receiver " + thisObj);
@@ -84,7 +84,7 @@ namespace Jint.Native.DataView
         /// </summary>
         private JsValue ByteLength(JsValue thisObj, JsValue[] arguments)
         {
-            var o = thisObj as DataViewInstance;
+            var o = thisObj as JsDataView;
             if (o is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Method get DataView.prototype.byteLength called on incompatible receiver " + thisObj);
@@ -101,7 +101,7 @@ namespace Jint.Native.DataView
         /// </summary>
         private JsValue ByteOffset(JsValue thisObj, JsValue[] arguments)
         {
-            var o = thisObj as DataViewInstance;
+            var o = thisObj as JsDataView;
             if (o is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Method get DataView.prototype.byteOffset called on incompatible receiver " + thisObj);
@@ -222,7 +222,7 @@ namespace Jint.Native.DataView
             JsValue isLittleEndian,
             TypedArrayElementType type)
         {
-            var dataView = view as DataViewInstance;
+            var dataView = view as JsDataView;
             if (dataView is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Method called on incompatible receiver " + view);
@@ -256,7 +256,7 @@ namespace Jint.Native.DataView
             TypedArrayElementType type,
             JsValue value)
         {
-            var dataView = view as DataViewInstance;
+            var dataView = view as JsDataView;
             if (dataView is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Method called on incompatible receiver " + view);

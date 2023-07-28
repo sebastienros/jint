@@ -54,7 +54,7 @@ namespace Jint.Native.ArrayBuffer
         private static JsValue IsView(JsValue thisObject, JsValue[] arguments)
         {
             var arg = arguments.At(0);
-            return arg is DataViewInstance or JsTypedArray;
+            return arg is JsDataView or JsTypedArray;
         }
 
         /// <summary>
