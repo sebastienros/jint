@@ -56,7 +56,7 @@ public abstract partial class Test262Test
         o.FastSetProperty("detachArrayBuffer", new PropertyDescriptor(new ClrFunctionInstance(engine, "detachArrayBuffer",
             (_, args) =>
             {
-                var buffer = (ArrayBufferInstance) args.At(0);
+                var buffer = (JsArrayBuffer) args.At(0);
                 buffer.DetachArrayBuffer();
                 return JsValue.Undefined;
             }), true, true, true));

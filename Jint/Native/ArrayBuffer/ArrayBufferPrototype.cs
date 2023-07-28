@@ -44,7 +44,7 @@ namespace Jint.Native.ArrayBuffer
 
         private JsValue Detached(JsValue thisObj, JsValue[] arguments)
         {
-            var o = thisObj as ArrayBufferInstance;
+            var o = thisObj as JsArrayBuffer;
             if (o is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.detached called on incompatible receiver " + thisObj);
@@ -63,7 +63,7 @@ namespace Jint.Native.ArrayBuffer
         /// </summary>
         private JsValue ByteLength(JsValue thisObj, JsValue[] arguments)
         {
-            var o = thisObj as ArrayBufferInstance;
+            var o = thisObj as JsArrayBuffer;
             if (o is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.byteLength called on incompatible receiver " + thisObj);
@@ -87,7 +87,7 @@ namespace Jint.Native.ArrayBuffer
         /// </summary>
         private JsValue Slice(JsValue thisObj, JsValue[] arguments)
         {
-            var o = thisObj as ArrayBufferInstance;
+            var o = thisObj as JsArrayBuffer;
             if (o is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.slice called on incompatible receiver " + thisObj);
@@ -131,7 +131,7 @@ namespace Jint.Native.ArrayBuffer
 
             var newLen = System.Math.Max(final - first, 0);
             var ctor = SpeciesConstructor(o, _realm.Intrinsics.ArrayBuffer);
-            var bufferInstance = Construct(ctor, new JsValue[] { JsNumber.Create(newLen) }) as ArrayBufferInstance;
+            var bufferInstance = Construct(ctor, new JsValue[] { JsNumber.Create(newLen) }) as JsArrayBuffer;
 
             if (bufferInstance is null)
             {

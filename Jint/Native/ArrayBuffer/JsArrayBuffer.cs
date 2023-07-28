@@ -7,7 +7,7 @@ namespace Jint.Native.ArrayBuffer
     /// <summary>
     /// https://tc39.es/ecma262/#sec-arraybuffer-objects
     /// </summary>
-    internal sealed class ArrayBufferInstance : ObjectInstance
+    public sealed class JsArrayBuffer : ObjectInstance
     {
         // so that we don't need to allocate while or reading setting values
         private readonly byte[] _workBuffer = new byte[8];
@@ -15,7 +15,7 @@ namespace Jint.Native.ArrayBuffer
         private byte[]? _arrayBufferData;
         private readonly JsValue _arrayBufferDetachKey = Undefined;
 
-        internal ArrayBufferInstance(
+        internal JsArrayBuffer(
             Engine engine,
             ulong byteLength) : base(engine)
         {
@@ -57,7 +57,7 @@ namespace Jint.Native.ArrayBuffer
         /// <summary>
         /// https://tc39.es/ecma262/#sec-clonearraybuffer
         /// </summary>
-        internal ArrayBufferInstance CloneArrayBuffer(
+        internal JsArrayBuffer CloneArrayBuffer(
             ArrayBufferConstructor constructor,
             int srcByteOffset,
             uint srcLength)

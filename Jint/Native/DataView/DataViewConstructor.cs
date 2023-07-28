@@ -35,7 +35,7 @@ namespace Jint.Native.DataView
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var buffer = arguments.At(0) as ArrayBufferInstance;
+            var buffer = arguments.At(0) as JsArrayBuffer;
             var byteOffset = arguments.At(1);
             var byteLength = arguments.At(2);
 
