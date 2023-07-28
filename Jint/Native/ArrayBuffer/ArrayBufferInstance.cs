@@ -23,6 +23,13 @@ namespace Jint.Native.ArrayBuffer
             _arrayBufferData = block;
         }
 
+        internal ArrayBufferInstance(
+            Engine engine,
+            byte[] array) : base(engine)
+        {
+            _arrayBufferData = array;
+        }
+
         private byte[] CreateByteDataBlock(ulong byteLength)
         {
             if (byteLength > int.MaxValue)

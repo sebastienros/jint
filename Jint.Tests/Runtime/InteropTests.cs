@@ -1480,6 +1480,18 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void CanConvertByteArrayToArrayBuffer()
+        {
+            var engine1 = new Engine(o => o.AddObjectConverter(new BytesToArrayBufferConverter()))
+                .SetValue("assert", new Action<bool>(Assert.True));
+
+            engine1.SetValue("p", new byte[] { 17 });
+            engine1.Execute($"var result = p instanceof ArrayBuffer;");
+
+            Assert.True(engine1.GetValue("result").AsBoolean());
+        }
+
+        [Fact]
         public void CanUserIncrementOperator()
         {
             var p = new Person
