@@ -89,7 +89,7 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue Buffer(JsValue thisObj, JsValue[] arguments)
         {
-            var o = thisObj as TypedArrayInstance;
+            var o = thisObj as JsTypedArray;
             if (o is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
@@ -103,7 +103,7 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue ByteLength(JsValue thisObj, JsValue[] arguments)
         {
-            var o = thisObj as TypedArrayInstance;
+            var o = thisObj as JsTypedArray;
             if (o is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
@@ -122,7 +122,7 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue ByteOffset(JsValue thisObj, JsValue[] arguments)
         {
-            var o = thisObj as TypedArrayInstance;
+            var o = thisObj as JsTypedArray;
             if (o is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
@@ -141,7 +141,7 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue GetLength(JsValue thisObj, JsValue[] arguments)
         {
-            var o = thisObj as TypedArrayInstance;
+            var o = thisObj as JsTypedArray;
             if (o is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
@@ -846,7 +846,7 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue Set(JsValue thisObj, JsValue[] arguments)
         {
-            var target = thisObj as TypedArrayInstance;
+            var target = thisObj as JsTypedArray;
             if (target is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
@@ -861,7 +861,7 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowRangeError(_realm, "Invalid offset");
             }
 
-            if (source is TypedArrayInstance typedArrayInstance)
+            if (source is JsTypedArray typedArrayInstance)
             {
                 SetTypedArrayFromTypedArray(target, targetOffset, typedArrayInstance);
             }
@@ -876,7 +876,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-settypedarrayfromtypedarray
         /// </summary>
-        private void SetTypedArrayFromTypedArray(TypedArrayInstance target, double targetOffset, TypedArrayInstance source)
+        private void SetTypedArrayFromTypedArray(JsTypedArray target, double targetOffset, JsTypedArray source)
         {
             var targetBuffer = target._viewedArrayBuffer;
             targetBuffer.AssertNotDetached();
@@ -963,7 +963,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-settypedarrayfromarraylike
         /// </summary>
-        private void SetTypedArrayFromArrayLike(TypedArrayInstance target, int targetOffset, JsValue source)
+        private void SetTypedArrayFromArrayLike(JsTypedArray target, int targetOffset, JsValue source)
         {
             var targetBuffer = target._viewedArrayBuffer;
             targetBuffer.AssertNotDetached();
@@ -1170,7 +1170,7 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue Subarray(JsValue thisObj, JsValue[] arguments)
         {
-            var o = thisObj as TypedArrayInstance;
+            var o = thisObj as JsTypedArray;
             if (o is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
@@ -1299,7 +1299,7 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private static JsValue ToStringTag(JsValue thisObj, JsValue[] arguments)
         {
-            if (thisObj is not TypedArrayInstance o)
+            if (thisObj is not JsTypedArray o)
             {
                 return Undefined;
             }
@@ -1381,7 +1381,7 @@ namespace Jint.Native.TypedArray
             return a;
         }
 
-        private TypedArrayInstance TypedArrayCreateSameType(TypedArrayInstance exemplar, JsValue[] argumentList)
+        private JsTypedArray TypedArrayCreateSameType(JsTypedArray exemplar, JsValue[] argumentList)
         {
             var constructor = exemplar._arrayElementType.GetConstructor(_realm.Intrinsics);
             var result = IntrinsicTypedArrayConstructor.TypedArrayCreate(_realm, constructor, argumentList);
@@ -1404,7 +1404,7 @@ namespace Jint.Native.TypedArray
             return compareFn;
         }
 
-        private static JsValue[] SortArray(JsArrayBuffer buffer, ICallable? compareFn, TypedArrayInstance obj)
+        private static JsValue[] SortArray(JsArrayBuffer buffer, ICallable? compareFn, JsTypedArray obj)
         {
             var comparer = TypedArrayComparer.WithFunction(buffer, compareFn);
             var operations = ArrayOperations.For(obj);

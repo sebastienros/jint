@@ -147,7 +147,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#typedarray-species-create
         /// </summary>
-        internal TypedArrayInstance TypedArraySpeciesCreate(TypedArrayInstance exemplar, JsValue[] argumentList)
+        internal JsTypedArray TypedArraySpeciesCreate(JsTypedArray exemplar, JsValue[] argumentList)
         {
             var defaultConstructor = exemplar._arrayElementType.GetConstructor(_realm.Intrinsics)!;
             var constructor = SpeciesConstructor(exemplar, defaultConstructor);
@@ -163,7 +163,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#typedarray-create
         /// </summary>
-        internal static TypedArrayInstance TypedArrayCreate(Realm realm, IConstructor constructor, JsValue[] argumentList)
+        internal static JsTypedArray TypedArrayCreate(Realm realm, IConstructor constructor, JsValue[] argumentList)
         {
             var newTypedArray = Construct(constructor, argumentList).ValidateTypedArray(realm);
             if (argumentList.Length == 1 && argumentList[0] is JsNumber number)

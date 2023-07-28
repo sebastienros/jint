@@ -74,7 +74,7 @@ namespace Jint.Native.TypedArray
             if (firstArgument.IsObject())
             {
                 var o = AllocateTypedArray(newTarget, proto);
-                if (firstArgument is TypedArrayInstance typedArrayInstance)
+                if (firstArgument is JsTypedArray typedArrayInstance)
                 {
                     InitializeTypedArrayFromTypedArray(o, typedArrayInstance);
                 }
@@ -123,7 +123,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-initializetypedarrayfromtypedarray
         /// </summary>
-        private void InitializeTypedArrayFromTypedArray(TypedArrayInstance o, TypedArrayInstance srcArray)
+        private void InitializeTypedArrayFromTypedArray(JsTypedArray o, JsTypedArray srcArray)
         {
             var srcData = srcArray._viewedArrayBuffer;
             srcData.AssertNotDetached();
@@ -174,7 +174,7 @@ namespace Jint.Native.TypedArray
         /// https://tc39.es/ecma262/#sec-initializetypedarrayfromarraybuffer
         /// </summary>
         private void InitializeTypedArrayFromArrayBuffer(
-            TypedArrayInstance o,
+            JsTypedArray o,
             JsArrayBuffer buffer,
             JsValue byteOffset,
             JsValue length)
@@ -224,7 +224,7 @@ namespace Jint.Native.TypedArray
             o._byteOffset = offset;
         }
 
-        private static void InitializeTypedArrayFromList(TypedArrayInstance o, List<JsValue> values)
+        private static void InitializeTypedArrayFromList(JsTypedArray o, List<JsValue> values)
         {
             var len = values.Count;
             o.AllocateTypedArrayBuffer((uint) len);
@@ -237,7 +237,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-initializetypedarrayfromarraylike
         /// </summary>
-        private static void InitializeTypedArrayFromArrayLike(TypedArrayInstance o, ObjectInstance arrayLike)
+        private static void InitializeTypedArrayFromArrayLike(JsTypedArray o, ObjectInstance arrayLike)
         {
             var operations = ArrayOperations.For(arrayLike);
             var len = operations.GetLongLength();
@@ -251,11 +251,11 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-allocatetypedarray
         /// </summary>
-        private TypedArrayInstance AllocateTypedArray(JsValue newTarget, Func<Intrinsics, ObjectInstance> defaultProto, uint length = 0)
+        private JsTypedArray AllocateTypedArray(JsValue newTarget, Func<Intrinsics, ObjectInstance> defaultProto, uint length = 0)
         {
             var proto = GetPrototypeFromConstructor(newTarget, defaultProto);
             var realm = GetFunctionRealm(newTarget);
-            var obj = new TypedArrayInstance(_engine, realm.Intrinsics, _arrayElementType, length)
+            var obj = new JsTypedArray(_engine, realm.Intrinsics, _arrayElementType, length)
             {
                 _prototype = proto
             };
@@ -267,7 +267,7 @@ namespace Jint.Native.TypedArray
             return obj;
         }
 
-        internal static void FillTypedArrayInstance<T>(TypedArrayInstance target, T[] values)
+        internal static void FillTypedArrayInstance<T>(JsTypedArray target, T[] values)
         {
             for (var i = 0; i < values.Length; ++i)
             {
@@ -275,7 +275,7 @@ namespace Jint.Native.TypedArray
             }
         }
 
-        internal static void FillTypedArrayInstance(TypedArrayInstance target, ulong[] values)
+        internal static void FillTypedArrayInstance(JsTypedArray target, ulong[] values)
         {
             for (var i = 0; i < values.Length; ++i)
             {
@@ -283,7 +283,7 @@ namespace Jint.Native.TypedArray
             }
         }
 
-        internal static void FillTypedArrayInstance(TypedArrayInstance target, long[] values)
+        internal static void FillTypedArrayInstance(JsTypedArray target, long[] values)
         {
             for (var i = 0; i < values.Length; ++i)
             {

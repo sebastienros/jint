@@ -19,7 +19,7 @@ namespace Jint.Native.Array
                 return new ArrayInstanceOperations(arrayInstance);
             }
 
-            if (instance is TypedArrayInstance typedArrayInstance)
+            if (instance is JsTypedArray typedArrayInstance)
             {
                 return new TypedArrayInstanceOperations(typedArrayInstance);
             }
@@ -277,9 +277,9 @@ namespace Jint.Native.Array
 
         private sealed class TypedArrayInstanceOperations : ArrayOperations
         {
-            private readonly TypedArrayInstance _target;
+            private readonly JsTypedArray _target;
 
-            public TypedArrayInstanceOperations(TypedArrayInstance target)
+            public TypedArrayInstanceOperations(JsTypedArray target)
             {
                 _target = target;
             }

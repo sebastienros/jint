@@ -86,7 +86,7 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
     private sealed class ArrayLikeIterator : IteratorInstance
     {
         private readonly ArrayIteratorType _kind;
-        private readonly TypedArrayInstance? _typedArray;
+        private readonly JsTypedArray? _typedArray;
         private readonly ArrayOperations? _operations;
         private uint _position;
         private bool _closed;
@@ -94,7 +94,7 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
         public ArrayLikeIterator(Engine engine, ObjectInstance objectInstance, ArrayIteratorType kind) : base(engine)
         {
             _kind = kind;
-            _typedArray = objectInstance as TypedArrayInstance;
+            _typedArray = objectInstance as JsTypedArray;
             if (_typedArray is null)
             {
                 _operations = ArrayOperations.For(objectInstance);
