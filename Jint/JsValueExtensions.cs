@@ -69,7 +69,7 @@ namespace Jint
                 return TypeConverter.ToBoolean(matcher);
             }
 
-            return value is RegExpInstance;
+            return value is JsRegExp;
         }
 
         [Pure]
@@ -148,14 +148,14 @@ namespace Jint
         }
 
         [Pure]
-        public static RegExpInstance AsRegExp(this JsValue value)
+        public static JsRegExp AsRegExp(this JsValue value)
         {
             if (!value.IsRegExp())
             {
                 ExceptionHelper.ThrowArgumentException("The value is not a regex");
             }
 
-            return (RegExpInstance) value;
+            return (JsRegExp) value;
         }
 
         [Pure]

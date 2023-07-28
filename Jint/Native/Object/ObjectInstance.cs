@@ -1024,7 +1024,7 @@ namespace Jint.Native.Object
                     break;
 
                 case ObjectClass.RegExp:
-                    if (this is RegExpInstance regeExpInstance)
+                    if (this is JsRegExp regeExpInstance)
                     {
                         converted = regeExpInstance.Value;
                     }

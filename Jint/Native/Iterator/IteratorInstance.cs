@@ -132,7 +132,7 @@ namespace Jint.Native.Iterator
 
         internal sealed class RegExpStringIterator : IteratorInstance
         {
-            private readonly RegExpInstance _iteratingRegExp;
+            private readonly JsRegExp _iteratingRegExp;
             private readonly string _s;
             private readonly bool _global;
             private readonly bool _unicode;
@@ -141,7 +141,7 @@ namespace Jint.Native.Iterator
 
             public RegExpStringIterator(Engine engine, ObjectInstance iteratingRegExp, string iteratedString, bool global, bool unicode) : base(engine)
             {
-                var r = iteratingRegExp as RegExpInstance;
+                var r = iteratingRegExp as JsRegExp;
                 if (r is null)
                 {
                     ExceptionHelper.ThrowTypeError(engine.Realm);
@@ -174,9 +174,9 @@ namespace Jint.Native.Iterator
                     var macthStr = TypeConverter.ToString(match.Get(JsString.NumberZeroString));
                     if (macthStr == "")
                     {
-                        var thisIndex = TypeConverter.ToLength(_iteratingRegExp.Get(RegExpInstance.PropertyLastIndex));
+                        var thisIndex = TypeConverter.ToLength(_iteratingRegExp.Get(JsRegExp.PropertyLastIndex));
                         var nextIndex = thisIndex + 1;
-                        _iteratingRegExp.Set(RegExpInstance.PropertyLastIndex, nextIndex, true);
+                        _iteratingRegExp.Set(JsRegExp.PropertyLastIndex, nextIndex, true);
                     }
                 }
                 else

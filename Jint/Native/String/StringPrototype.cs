@@ -350,7 +350,7 @@ namespace Jint.Native.String
             var limit = arguments.At(1);
 
             // fast path for empty regexp
-            if (separator is RegExpInstance R && R.Source == RegExpInstance.regExpForMatchingAllCharacters)
+            if (separator is JsRegExp R && R.Source == JsRegExp.regExpForMatchingAllCharacters)
             {
                 separator = JsString.Empty;
             }
@@ -518,7 +518,7 @@ namespace Jint.Native.String
                 }
             }
 
-            var rx = (RegExpInstance) _realm.Intrinsics.RegExp.Construct(new[] {regex});
+            var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct(new[] {regex});
             var s = TypeConverter.ToJsString(thisObj);
             return _engine.Invoke(rx, GlobalSymbolRegistry.Search, new JsValue[] { s });
         }
@@ -686,7 +686,7 @@ namespace Jint.Native.String
                 }
             }
 
-            var rx = (RegExpInstance) _realm.Intrinsics.RegExp.Construct(new[] {regex});
+            var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct(new[] {regex});
 
             var s = TypeConverter.ToJsString(thisObj);
             return _engine.Invoke(rx, GlobalSymbolRegistry.Match, new JsValue[] { s });
@@ -716,7 +716,7 @@ namespace Jint.Native.String
             }
 
             var s = TypeConverter.ToJsString(thisObj);
-            var rx = (RegExpInstance) _realm.Intrinsics.RegExp.Construct(new[] { regex, "g" });
+            var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct(new[] { regex, "g" });
 
             return _engine.Invoke(rx, GlobalSymbolRegistry.MatchAll, new JsValue[] { s });
         }
