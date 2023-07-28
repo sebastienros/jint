@@ -242,7 +242,7 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsUint8Array(this JsValue value)
         {
-            return value is TypedArrayInstance { _arrayElementType: TypedArrayElementType.Uint8 };
+            return value is JsTypedArray { _arrayElementType: TypedArrayElementType.Uint8 };
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -253,13 +253,13 @@ namespace Jint
                 ThrowWrongTypeException(value, "Uint8Array");
             }
 
-            return ((TypedArrayInstance) value).ToNativeArray<byte>();
+            return ((JsTypedArray) value).ToNativeArray<byte>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsUint8ClampedArray(this JsValue value)
         {
-            return value is TypedArrayInstance { _arrayElementType: TypedArrayElementType.Uint8C };
+            return value is JsTypedArray { _arrayElementType: TypedArrayElementType.Uint8C };
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -270,13 +270,13 @@ namespace Jint
                 ThrowWrongTypeException(value, "Uint8ClampedArray");
             }
 
-            return ((TypedArrayInstance) value).ToNativeArray<byte>();
+            return ((JsTypedArray) value).ToNativeArray<byte>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsInt8Array(this JsValue value)
         {
-            return value is TypedArrayInstance { _arrayElementType: TypedArrayElementType.Int8 };
+            return value is JsTypedArray { _arrayElementType: TypedArrayElementType.Int8 };
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -287,13 +287,13 @@ namespace Jint
                 ThrowWrongTypeException(value, "Int8Array");
             }
 
-            return ((TypedArrayInstance) value).ToNativeArray<sbyte>();
+            return ((JsTypedArray) value).ToNativeArray<sbyte>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsInt16Array(this JsValue value)
         {
-            return value is TypedArrayInstance { _arrayElementType: TypedArrayElementType.Int16 };
+            return value is JsTypedArray { _arrayElementType: TypedArrayElementType.Int16 };
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -304,13 +304,13 @@ namespace Jint
                 ThrowWrongTypeException(value, "Int16Array");
             }
 
-            return ((TypedArrayInstance) value).ToNativeArray<short>();
+            return ((JsTypedArray) value).ToNativeArray<short>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsUint16Array(this JsValue value)
         {
-            return value is TypedArrayInstance { _arrayElementType: TypedArrayElementType.Uint16 };
+            return value is JsTypedArray { _arrayElementType: TypedArrayElementType.Uint16 };
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -321,13 +321,13 @@ namespace Jint
                 ThrowWrongTypeException(value, "Uint16Array");
             }
 
-            return ((TypedArrayInstance) value).ToNativeArray<ushort>();
+            return ((JsTypedArray) value).ToNativeArray<ushort>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsInt32Array(this JsValue value)
         {
-            return value is TypedArrayInstance { _arrayElementType: TypedArrayElementType.Int32 };
+            return value is JsTypedArray { _arrayElementType: TypedArrayElementType.Int32 };
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -338,13 +338,13 @@ namespace Jint
                 ThrowWrongTypeException(value, "Int32Array");
             }
 
-            return ((TypedArrayInstance) value).ToNativeArray<int>();
+            return ((JsTypedArray) value).ToNativeArray<int>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsUint32Array(this JsValue value)
         {
-            return value is TypedArrayInstance { _arrayElementType: TypedArrayElementType.Uint32 };
+            return value is JsTypedArray { _arrayElementType: TypedArrayElementType.Uint32 };
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -355,13 +355,13 @@ namespace Jint
                 ThrowWrongTypeException(value, "Uint32Array");
             }
 
-            return ((TypedArrayInstance) value).ToNativeArray<uint>();
+            return ((JsTypedArray) value).ToNativeArray<uint>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsBigInt64Array(this JsValue value)
         {
-            return value is TypedArrayInstance { _arrayElementType: TypedArrayElementType.BigInt64 };
+            return value is JsTypedArray { _arrayElementType: TypedArrayElementType.BigInt64 };
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -372,13 +372,13 @@ namespace Jint
                 ThrowWrongTypeException(value, "BigInt64Array");
             }
 
-            return ((TypedArrayInstance) value).ToNativeArray<long>();
+            return ((JsTypedArray) value).ToNativeArray<long>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsBigUint64Array(this JsValue value)
         {
-            return value is TypedArrayInstance { _arrayElementType: TypedArrayElementType.BigUint64 };
+            return value is JsTypedArray { _arrayElementType: TypedArrayElementType.BigUint64 };
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -389,7 +389,7 @@ namespace Jint
                 ThrowWrongTypeException(value, "BigUint64Array");
             }
 
-            return ((TypedArrayInstance) value).ToNativeArray<ulong>();
+            return ((JsTypedArray) value).ToNativeArray<ulong>();
         }
 
         [Pure]

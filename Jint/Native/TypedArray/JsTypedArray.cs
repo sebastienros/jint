@@ -8,7 +8,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.TypedArray
 {
-    public sealed class TypedArrayInstance : ObjectInstance
+    public sealed class JsTypedArray : ObjectInstance
     {
         internal readonly TypedArrayContentType _contentType;
         internal readonly TypedArrayElementType _arrayElementType;
@@ -18,7 +18,7 @@ namespace Jint.Native.TypedArray
         private readonly Intrinsics _intrinsics;
         internal uint _arrayLength;
 
-        internal TypedArrayInstance(
+        internal JsTypedArray(
             Engine engine,
             Intrinsics intrinsics,
             TypedArrayElementType type,

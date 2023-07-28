@@ -4,9 +4,9 @@ namespace Jint.Native.TypedArray;
 
 internal static class TypeArrayHelper
 {
-    internal static TypedArrayInstance ValidateTypedArray(this JsValue o, Realm realm)
+    internal static JsTypedArray ValidateTypedArray(this JsValue o, Realm realm)
     {
-        var typedArrayInstance = o as TypedArrayInstance;
+        var typedArrayInstance = o as JsTypedArray;
         if (typedArrayInstance is null)
         {
             ExceptionHelper.ThrowTypeError(realm);

@@ -12,9 +12,9 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(sbyte[] values)
+        public JsTypedArray Construct(sbyte[] values)
         {
-            var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
+            var array = (JsTypedArray) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
             return array;
         }
@@ -30,9 +30,9 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(byte[] values)
+        public JsTypedArray Construct(byte[] values)
         {
-            var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
+            var array = (JsTypedArray) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
             return array;
         }
@@ -48,9 +48,9 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(byte[] values)
+        public JsTypedArray Construct(byte[] values)
         {
-            var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
+            var array = (JsTypedArray) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
             return array;
         }
@@ -66,9 +66,9 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(short[] values)
+        public JsTypedArray Construct(short[] values)
         {
-            var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
+            var array = (JsTypedArray) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
             return array;
         }
@@ -84,9 +84,9 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(ushort[] values)
+        public JsTypedArray Construct(ushort[] values)
         {
-            var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
+            var array = (JsTypedArray) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
             return array;
         }
@@ -102,9 +102,9 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(int[] values)
+        public JsTypedArray Construct(int[] values)
         {
-            var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
+            var array = (JsTypedArray) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
             return array;
         }
@@ -120,9 +120,9 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(uint[] values)
+        public JsTypedArray Construct(uint[] values)
         {
-            var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
+            var array = (JsTypedArray) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
             return array;
         }
@@ -138,9 +138,9 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(float[] values)
+        public JsTypedArray Construct(float[] values)
         {
-            var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
+            var array = (JsTypedArray) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
             return array;
         }
@@ -156,9 +156,9 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(double[] values)
+        public JsTypedArray Construct(double[] values)
         {
-            var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
+            var array = (JsTypedArray) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
             return array;
         }
@@ -174,9 +174,9 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(long[] values)
+        public JsTypedArray Construct(long[] values)
         {
-            var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
+            var array = (JsTypedArray) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
             return array;
         }
@@ -192,9 +192,9 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public TypedArrayInstance Construct(ulong[] values)
+        public JsTypedArray Construct(ulong[] values)
         {
-            var array = (TypedArrayInstance) base.Construct(new JsValue[] { values.Length }, this);
+            var array = (JsTypedArray) base.Construct(new JsValue[] { values.Length }, this);
             FillTypedArrayInstance(array, values);
             return array;
         }
