@@ -17,12 +17,17 @@ namespace Jint.Native.ShadowRealm;
 /// </summary>
 public sealed class ShadowRealm : ObjectInstance
 {
-    private readonly JavaScriptParser _parser = new(new ParserOptions { Tolerant = false });
+    private readonly JavaScriptParser _parser;
     internal readonly Realm _shadowRealm;
     private readonly ExecutionContext _executionContext;
 
     internal ShadowRealm(Engine engine, ExecutionContext executionContext, Realm shadowRealm) : base(engine)
     {
+        _parser = new(new ParserOptions
+        {
+            Tolerant = false,
+            RegexTimeout = engine.Options.Constraints.RegexTimeout
+        });
         _executionContext = executionContext;
         _shadowRealm = shadowRealm;
     }

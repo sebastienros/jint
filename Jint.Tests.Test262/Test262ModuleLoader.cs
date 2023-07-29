@@ -39,7 +39,7 @@ internal sealed class Test262ModuleLoader : IModuleLoader
 
             var parserOptions = new ParserOptions
             {
-                AdaptRegexp = true,
+                RegExpParseMode = RegExpParseMode.AdaptToInterpreted,
                 Tolerant = true
             };
 

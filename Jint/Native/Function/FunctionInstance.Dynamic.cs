@@ -138,7 +138,11 @@ public partial class FunctionInstance
                 }
             }
 
-            JavaScriptParser parser = new(new ParserOptions { Tolerant = false });
+            JavaScriptParser parser = new(new ParserOptions
+            {
+                Tolerant = false,
+                RegexTimeout = _engine.Options.Constraints.RegexTimeout
+            });
             function = (IFunction) parser.ParseScript(functionExpression, source: null, _engine._isStrict).Body[0];
         }
         catch (ParserException ex)

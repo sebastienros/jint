@@ -30,26 +30,20 @@
     "intl402"
   ],
   "ExcludedFiles": [
-    // Esprima problem for regex, https://github.com/sebastienros/esprima-dotnet/pull/364
-    "built-ins/RegExp/S15.10.4.1_A9_T3.js",
 
     // Currently quite impossible to detect if assignment target is CoverParenthesizedExpression
     "language/expressions/assignment/fn-name-lhs-cover.js",
 
-    // Unicode support not built-in to .NET the same way, requires more work
-    "built-ins/RegExp/prototype/Symbol.match/builtin-infer-unicode.js",
-    "built-ins/RegExp/prototype/Symbol.search/u-lastindex-advance.js",
-    "built-ins/RegExp/prototype/exec/u-lastindex-adv.js",
-    "built-ins/RegExp/unicode_character_class_backspace_escape.js",
-    "built-ins/RegExp/unicode_restricted_identity_escape_alpha.js",
-    "built-ins/RegExp/unicode_restricted_identity_escape_c.js",
-    "built-ins/RegExp/unicode_restricted_identity_escape_u.js",
-    "built-ins/RegExp/unicode_restricted_identity_escape_x.js",
-    "language/literals/regexp/u-astral-char-class-invert.js",
-    "language/literals/regexp/u-astral.js",
-    "language/literals/regexp/u-case-mapping.js",
+    // RegExp conversion limitations
+    "built-ins/RegExp/S15.10.2.11_A1_T5.js",
+    "built-ins/RegExp/S15.10.2.11_A1_T7.js",
+    "built-ins/RegExp/S15.10.2.5_A1_T4.js",
+    "built-ins/RegExp/named-groups/non-unicode-references.js",
+    "built-ins/RegExp/named-groups/unicode-references.js",
+    "built-ins/RegExp/quantifier-integer-limit.js",
+    "language/literals/regexp/named-groups/forward-reference.js",
 
-    // cannot have characters like 𝒜 as group name or something starting with $ in .NET, other .NET limitations
+    // RegExp handling problems
     "built-ins/RegExp/match-indices/indices-array-unicode-property-names.js",
     "built-ins/RegExp/named-groups/non-unicode-match.js",
     "built-ins/RegExp/named-groups/non-unicode-property-names-valid.js",
@@ -58,17 +52,10 @@
     "built-ins/RegExp/named-groups/unicode-property-names-valid.js",
     "built-ins/RegExp/named-groups/unicode-property-names.js",
     "built-ins/RegExp/prototype/Symbol.replace/named-groups.js",
-    "built-ins/RegExp/quantifier-integer-limit.js",
-
-    // more validation and cleanup needed
-    "built-ins/RegExp/S15.10.2.13_A1_T1.js",
-    "built-ins/RegExp/S15.10.2.13_A1_T2.js",
-    "built-ins/RegExp/character-class-escape-non-whitespace.js",
-    "built-ins/RegExp/unicode_character_class_backspace_escape.js",
-    "built-ins/RegExp/unicode_identity_escape.js",
-    "built-ins/RegExp/unicode_restricted_character_class_escape.js",
-    "built-ins/RegExp/unicode_restricted_identity_escape.js",
-    "built-ins/RegExp/unicode_restricted_quantifiable_assertion.js",
+    "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
+    "built-ins/String/prototype/split/separator-regexp.js",
+    "language/literals/regexp/u-case-mapping.js",
+    "language/literals/regexp/u-surrogate-pairs-atom-escape-decimal.js",
 
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",
@@ -76,13 +63,6 @@
 
     // http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics not implemented (block level functions)
     "language/statements/let/block-local-closure-set-before-initialization.js",
-
-    // Logic difference in .NET RegExp / skipped in ECMA tests too
-    "built-ins/RegExp/S15.10.2.11_A1_T5.js",
-    "built-ins/RegExp/S15.10.2.11_A1_T7.js",
-    "built-ins/RegExp/S15.10.4.1_A8_T2.js",
-    "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
-    "built-ins/RegExp/S15.10.2.5_A1_T4.js",
 
     // Windows line ending differences
     "built-ins/String/raw/special-characters.js",
@@ -128,14 +108,11 @@
     "language/module-code/instn-local-bndng-export-gen.js",
 
      // Esprima problem
-     "built-ins/String/prototype/split/separator-regexp.js",
     "language/expressions/object/let-non-strict-access.js",
     "language/expressions/object/let-non-strict-syntax.js",
     "language/expressions/object/yield-non-strict-access.js",
     "language/expressions/object/yield-non-strict-syntax.js",
     "language/expressions/tagged-template/invalid-escape-sequences.js",
-    "language/literals/regexp/u-surrogate-pairs-atom-escape-decimal.js",
-    "language/literals/regexp/u-unicode-esc.js",
     "language/statements/for-of/dstr-obj-id-identifier-yield-ident-valid.js",
     "language/statements/for/head-lhs-let.js",
 
