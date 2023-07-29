@@ -108,7 +108,7 @@ namespace Jint.Native.RegExp
 
                 if (regExp is null)
                 {
-                    ExceptionHelper.ThrowSyntaxError(_realm, $"Could not parse regex '/{p}/{flags}'");
+                    ExceptionHelper.ThrowSyntaxError(_realm, $"Unsupported regular expression: '/{p}/{flags}'");
                 }
 
                 r.Value = regExp;
