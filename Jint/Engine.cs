@@ -26,11 +26,8 @@ namespace Jint
     /// </summary>
     public sealed partial class Engine : IDisposable
     {
-        private static readonly ParserOptions _defaultParserOptions = ParserOptions.Default with
-        {
-            AllowReturnOutsideFunction = true
-        };
-        private readonly JavaScriptParser _defaultParser = new(_defaultParserOptions);
+        private readonly ParserOptions _defaultParserOptions;
+        private readonly JavaScriptParser _defaultParser;
 
         internal readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
@@ -131,6 +128,14 @@ namespace Jint
 
             CallStack = new JintCallStack(Options.Constraints.MaxRecursionDepth >= 0);
             _stackGuard = new StackGuard(this);
+
+            _defaultParserOptions = ParserOptions.Default with
+            {
+                AllowReturnOutsideFunction = true,
+                RegexTimeout = Options.Constraints.RegexTimeout
+            };
+
+            _defaultParser = new JavaScriptParser(_defaultParserOptions);
         }
 
         private void Reset()

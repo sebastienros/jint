@@ -20,7 +20,10 @@ public sealed class ModuleBuilder
     {
         _engine = engine;
         _specifier = specifier;
-        _options = new ParserOptions();
+        _options = new ParserOptions
+        {
+            RegexTimeout = engine.Options.Constraints.RegexTimeout
+        };
     }
 
     public ModuleBuilder AddSource(string code)
