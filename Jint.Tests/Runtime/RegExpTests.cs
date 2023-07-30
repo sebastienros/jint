@@ -132,4 +132,12 @@ public class RegExpTests
         var result = engine.Evaluate("'abc'.replace(/(?<$group>b)/g, '-$<$group>-')").AsString();
         Assert.Equal("a-b-c", result);
     }
+
+    [Fact]
+    public void Issue506()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("/[^]?(:[rp][el]a[\\w-]+)[^]/.test(':reagent-')").AsBoolean();
+        Assert.True(result);
+    }
 }
