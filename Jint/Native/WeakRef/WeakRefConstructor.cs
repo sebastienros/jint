@@ -44,7 +44,7 @@ internal sealed class WeakRefConstructor : Constructor
         var weakRef = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.WeakRef.PrototypeObject,
-            static (engine, _, target) => new WeakRefInstance(engine, target!),
+            static (engine, _, target) => new JsWeakRef(engine, target!),
             target);
 
         _engine.AddToKeptObjects(target);
