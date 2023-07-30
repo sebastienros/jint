@@ -52,7 +52,7 @@ public class WeakSetMapTests
     public void WeakMapSetShouldThrowForPrimitiveKey(JsValue key)
     {
         var engine = new Engine();
-        var weakMap = new WeakMapInstance(engine);
+        var weakMap = new JsWeakMap(engine);
 
         var e = Assert.Throws<JavaScriptException>(() => weakMap.WeakMapSet(key, new JsObject(engine)));
         Assert.StartsWith("WeakMap key must be an object, got ", e.Message);

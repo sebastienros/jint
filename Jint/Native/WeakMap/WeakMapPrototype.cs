@@ -70,9 +70,9 @@ internal sealed class WeakMapPrototype : Prototype
         return map.WeakMapHas(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;
     }
 
-    private WeakMapInstance AssertWeakMapInstance(JsValue thisObject)
+    private JsWeakMap AssertWeakMapInstance(JsValue thisObject)
     {
-        if (thisObject is WeakMapInstance map)
+        if (thisObject is JsWeakMap map)
         {
             return map;
         }
