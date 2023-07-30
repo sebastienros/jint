@@ -28,14 +28,14 @@ internal class IteratorPrototype : Prototype
         SetSymbols(symbols);
     }
 
-    private static JsValue ToIterator(JsValue thisObj, JsValue[] arguments)
+    private static JsValue ToIterator(JsValue thisObject, JsValue[] arguments)
     {
-        return thisObj;
+        return thisObject;
     }
 
-    internal JsValue Next(JsValue thisObj, JsValue[] arguments)
+    internal JsValue Next(JsValue thisObject, JsValue[] arguments)
     {
-        var iterator = thisObj as IteratorInstance;
+        var iterator = thisObject as IteratorInstance;
         if (iterator is null)
         {
             ExceptionHelper.ThrowTypeError(_engine.Realm);

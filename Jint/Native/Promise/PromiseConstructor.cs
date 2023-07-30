@@ -97,37 +97,37 @@ namespace Jint.Native.Promise
         /// <summary>
         /// https://tc39.es/ecma262/#sec-promise.resolve
         /// </summary>
-        internal JsValue Resolve(JsValue thisObj, JsValue[] arguments)
+        internal JsValue Resolve(JsValue thisObject, JsValue[] arguments)
         {
-            if (!thisObj.IsObject())
+            if (!thisObject.IsObject())
             {
                 ExceptionHelper.ThrowTypeError(_realm, "PromiseResolve called on non-object");
             }
 
-            if (thisObj is not IConstructor)
+            if (thisObject is not IConstructor)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Promise.resolve invoked on a non-constructor value");
             }
 
             var x = arguments.At(0);
-            return PromiseResolve(thisObj, x);
+            return PromiseResolve(thisObject, x);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-promise-resolve
         /// </summary>
-        private JsValue PromiseResolve(JsValue thisObj, JsValue x)
+        private JsValue PromiseResolve(JsValue thisObject, JsValue x)
         {
             if (x.IsPromise())
             {
                 var xConstructor = x.Get(CommonProperties.Constructor);
-                if (SameValue(xConstructor, thisObj))
+                if (SameValue(xConstructor, thisObject))
                 {
                     return x;
                 }
             }
 
-            var (instance, resolve, _, _, _) = NewPromiseCapability(_engine, thisObj);
+            var (instance, resolve, _, _, _) = NewPromiseCapability(_engine, thisObject);
 
             resolve.Call(Undefined, new[] { x });
 
@@ -137,21 +137,21 @@ namespace Jint.Native.Promise
         /// <summary>
         /// https://tc39.es/ecma262/#sec-promise.reject
         /// </summary>
-        private JsValue Reject(JsValue thisObj, JsValue[] arguments)
+        private JsValue Reject(JsValue thisObject, JsValue[] arguments)
         {
-            if (!thisObj.IsObject())
+            if (!thisObject.IsObject())
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Promise.reject called on non-object");
             }
 
-            if (thisObj is not IConstructor)
+            if (thisObject is not IConstructor)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Promise.reject invoked on a non-constructor value");
             }
 
             var r = arguments.At(0);
 
-            var (instance, _, reject, _, _) = NewPromiseCapability(_engine, thisObj);
+            var (instance, _, reject, _, _) = NewPromiseCapability(_engine, thisObject);
 
             reject.Call(Undefined, new[] { r });
 
@@ -161,22 +161,22 @@ namespace Jint.Native.Promise
         // This helper methods executes the first 6 steps in the specs belonging to static Promise methods like all, any etc.
         // If it returns false, that means it has an error and it is already rejected
         // If it returns true, the logic specific to the calling function should continue executing
-        private bool TryGetPromiseCapabilityAndIterator(JsValue thisObj, JsValue[] arguments, string callerName, out PromiseCapability capability, out ICallable promiseResolve, out IteratorInstance iterator)
+        private bool TryGetPromiseCapabilityAndIterator(JsValue thisObject, JsValue[] arguments, string callerName, out PromiseCapability capability, out ICallable promiseResolve, out IteratorInstance iterator)
         {
-            if (!thisObj.IsObject())
+            if (!thisObject.IsObject())
             {
                 ExceptionHelper.ThrowTypeError(_realm, $"{callerName} called on non-object");
             }
 
             //2. Let promiseCapability be ? NewPromiseCapability(C).
-            capability = NewPromiseCapability(_engine, thisObj);
+            capability = NewPromiseCapability(_engine, thisObject);
             var reject = capability.Reject;
 
             //3. Let promiseResolve be GetPromiseResolve(C).
             // 4. IfAbruptRejectPromise(promiseResolve, promiseCapability).
             try
             {
-                promiseResolve = GetPromiseResolve(thisObj);
+                promiseResolve = GetPromiseResolve(thisObject);
             }
             catch (JavaScriptException e)
             {
@@ -212,9 +212,9 @@ namespace Jint.Native.Promise
         }
 
         // https://tc39.es/ecma262/#sec-promise.all
-        private JsValue All(JsValue thisObj, JsValue[] arguments)
+        private JsValue All(JsValue thisObject, JsValue[] arguments)
         {
-            if (!TryGetPromiseCapabilityAndIterator(thisObj, arguments, "Promise.all", out var capability, out var promiseResolve, out var iterator))
+            if (!TryGetPromiseCapabilityAndIterator(thisObject, arguments, "Promise.all", out var capability, out var promiseResolve, out var iterator))
                 return capability.PromiseInstance;
 
             var (resultingPromise, resolve, reject, _, rejectObj) = capability;
@@ -267,7 +267,7 @@ namespace Jint.Native.Promise
                     // In F# it would be Option<JsValue>
                     results.Add(null!);
 
-                    var item = promiseResolve.Call(thisObj, new JsValue[] { value });
+                    var item = promiseResolve.Call(thisObject, new JsValue[] { value });
                     var thenProps = item.Get("then");
                     if (thenProps is ICallable thenFunc)
                     {
@@ -308,9 +308,9 @@ namespace Jint.Native.Promise
         }
 
         // https://tc39.es/ecma262/#sec-promise.allsettled
-        private JsValue AllSettled(JsValue thisObj, JsValue[] arguments)
+        private JsValue AllSettled(JsValue thisObject, JsValue[] arguments)
         {
-            if (!TryGetPromiseCapabilityAndIterator(thisObj, arguments, "Promise.allSettled", out var capability, out var promiseResolve, out var iterator))
+            if (!TryGetPromiseCapabilityAndIterator(thisObject, arguments, "Promise.allSettled", out var capability, out var promiseResolve, out var iterator))
                 return capability.PromiseInstance;
 
             var (resultingPromise, resolve, reject, _, rejectObj) = capability;
@@ -363,7 +363,7 @@ namespace Jint.Native.Promise
                     // In F# it would be Option<JsValue>
                     results.Add(null!);
 
-                    var item = promiseResolve.Call(thisObj, new JsValue[] { value });
+                    var item = promiseResolve.Call(thisObject, new JsValue[] { value });
                     var thenProps = item.Get("then");
                     if (thenProps is ICallable thenFunc)
                     {
@@ -426,9 +426,9 @@ namespace Jint.Native.Promise
         }
 
         // https://tc39.es/ecma262/#sec-promise.any
-        private JsValue Any(JsValue thisObj, JsValue[] arguments)
+        private JsValue Any(JsValue thisObject, JsValue[] arguments)
         {
-            if (!TryGetPromiseCapabilityAndIterator(thisObj, arguments, "Promise.any", out var capability, out var promiseResolve, out var iterator))
+            if (!TryGetPromiseCapabilityAndIterator(thisObject, arguments, "Promise.any", out var capability, out var promiseResolve, out var iterator))
             {
                 return capability.PromiseInstance;
             }
@@ -488,7 +488,7 @@ namespace Jint.Native.Promise
                     // In F# it would be Option<JsValue>
                     errors.Add(null!);
 
-                    var item = promiseResolve.Call(thisObj, new JsValue[] { value });
+                    var item = promiseResolve.Call(thisObject, new JsValue[] { value });
                     var thenProps = item.Get("then");
                     if (thenProps is ICallable thenFunc)
                     {
@@ -530,9 +530,9 @@ namespace Jint.Native.Promise
         }
 
         // https://tc39.es/ecma262/#sec-promise.race
-        private JsValue Race(JsValue thisObj, JsValue[] arguments)
+        private JsValue Race(JsValue thisObject, JsValue[] arguments)
         {
-            if (!TryGetPromiseCapabilityAndIterator(thisObj, arguments, "Promise.race", out var capability, out var promiseResolve, out var iterator))
+            if (!TryGetPromiseCapabilityAndIterator(thisObject, arguments, "Promise.race", out var capability, out var promiseResolve, out var iterator))
                 return capability.PromiseInstance;
 
             var (resultingPromise, resolve, reject, _, rejectObj) = capability;
@@ -561,7 +561,7 @@ namespace Jint.Native.Promise
                     }
 
                     // h. Let nextPromise be ? Call(promiseResolve, constructor, « nextValue »).
-                    var nextPromise = promiseResolve.Call(thisObj, new JsValue[] { nextValue });
+                    var nextPromise = promiseResolve.Call(thisObject, new JsValue[] { nextValue });
 
                     // i. Perform ? Invoke(nextPromise, "then", « resultCapability.[[Resolve]], resultCapability.[[Reject]] »).
 
@@ -633,7 +633,7 @@ namespace Jint.Native.Promise
             JsValue? resolveArg = null;
             JsValue? rejectArg = null;
 
-            JsValue Executor(JsValue thisObj, JsValue[] arguments)
+            JsValue Executor(JsValue thisObject, JsValue[] arguments)
             {
                 // 25.4.1.5.1 GetCapabilitiesExecutor Functions
                 // 3. If promiseCapability.[[Resolve]] is not undefined, throw a TypeError exception.

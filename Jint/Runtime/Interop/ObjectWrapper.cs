@@ -259,18 +259,18 @@ namespace Jint.Runtime.Interop
             return engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, Factory).CreatePropertyDescriptor(engine, target);
         }
 
-        private static JsValue Iterator(JsValue thisObj, JsValue[] arguments)
+        private static JsValue Iterator(JsValue thisObject, JsValue[] arguments)
         {
-            var wrapper = (ObjectWrapper) thisObj;
+            var wrapper = (ObjectWrapper) thisObject;
 
             return wrapper._typeDescriptor.IsDictionary
                 ? new DictionaryIterator(wrapper._engine, wrapper)
                 : new EnumerableIterator(wrapper._engine, (IEnumerable) wrapper.Target);
         }
 
-        private static JsValue GetLength(JsValue thisObj, JsValue[] arguments)
+        private static JsValue GetLength(JsValue thisObject, JsValue[] arguments)
         {
-            var wrapper = (ObjectWrapper) thisObj;
+            var wrapper = (ObjectWrapper) thisObject;
             return JsNumber.Create((int) (wrapper._typeDescriptor.LengthProperty?.GetValue(wrapper.Target) ?? 0));
         }
 

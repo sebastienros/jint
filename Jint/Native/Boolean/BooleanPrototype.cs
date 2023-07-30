@@ -36,14 +36,14 @@ namespace Jint.Native.Boolean
             SetProperties(properties);
         }
 
-        private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
+        private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
         {
-            if (thisObj._type == InternalTypes.Boolean)
+            if (thisObject._type == InternalTypes.Boolean)
             {
-                return thisObj;
+                return thisObject;
             }
 
-            if (thisObj is BooleanInstance bi)
+            if (thisObject is BooleanInstance bi)
             {
                 return bi.BooleanData;
             }
@@ -52,9 +52,9 @@ namespace Jint.Native.Boolean
             return Undefined;
         }
 
-        private JsValue ToBooleanString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToBooleanString(JsValue thisObject, JsValue[] arguments)
         {
-            var b = ValueOf(thisObj, Arguments.Empty);
+            var b = ValueOf(thisObject, Arguments.Empty);
             return ((JsBoolean) b)._value ? JsString.TrueString : JsString.FalseString;
         }
     }

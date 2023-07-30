@@ -73,7 +73,7 @@ namespace Jint.Native.Symbol
         /// <summary>
         /// https://tc39.es/ecma262/#sec-symbol.for
         /// </summary>
-        private JsValue For(JsValue thisObj, JsValue[] arguments)
+        private JsValue For(JsValue thisObject, JsValue[] arguments)
         {
             var stringKey = TypeConverter.ToJsString(arguments.At(0));
 
@@ -91,7 +91,7 @@ namespace Jint.Native.Symbol
         /// <summary>
         /// https://tc39.es/ecma262/#sec-symbol.keyfor
         /// </summary>
-        private JsValue KeyFor(JsValue thisObj, JsValue[] arguments)
+        private JsValue KeyFor(JsValue thisObject, JsValue[] arguments)
         {
             var symbol = arguments.At(0) as JsSymbol;
             if (symbol is null)

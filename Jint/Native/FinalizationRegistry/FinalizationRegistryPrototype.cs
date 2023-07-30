@@ -29,10 +29,7 @@ internal sealed class FinalizationRegistryPrototype : Prototype
         const PropertyFlag PropertyFlags = PropertyFlag.NonEnumerable;
         var properties = new PropertyDictionary(4, checkExistingKeys: false)
         {
-            [KnownKeys.Constructor] = new(_constructor, PropertyFlag.NonEnumerable),
-            ["register"] = new(new ClrFunctionInstance(Engine, "register", Register, 2, PropertyFlag.Configurable), PropertyFlags),
-            ["unregister"] = new(new ClrFunctionInstance(Engine, "unregister", Unregister, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["cleanupSome"] = new(new ClrFunctionInstance(Engine, "cleanupSome", CleanupSome, 0, PropertyFlag.Configurable), PropertyFlags),
+            [KnownKeys.Constructor] = new(_constructor, PropertyFlag.NonEnumerable), ["register"] = new(new ClrFunctionInstance(Engine, "register", Register, 2, PropertyFlag.Configurable), PropertyFlags), ["unregister"] = new(new ClrFunctionInstance(Engine, "unregister", Unregister, 1, PropertyFlag.Configurable), PropertyFlags), ["cleanupSome"] = new(new ClrFunctionInstance(Engine, "cleanupSome", CleanupSome, 0, PropertyFlag.Configurable), PropertyFlags),
         };
         SetProperties(properties);
 
@@ -43,9 +40,9 @@ internal sealed class FinalizationRegistryPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-finalization-registry.prototype.register
     /// </summary>
-    private JsValue Register(JsValue thisObj, JsValue[] arguments)
+    private JsValue Register(JsValue thisObject, JsValue[] arguments)
     {
-        var finalizationRegistry = AssertFinalizationRegistryInstance(thisObj);
+        var finalizationRegistry = AssertFinalizationRegistryInstance(thisObject);
 
         var target = arguments.At(0);
         var heldValue = arguments.At(1);
@@ -67,8 +64,8 @@ internal sealed class FinalizationRegistryPrototype : Prototype
             {
                 ExceptionHelper.ThrowTypeError(_realm, unregisterToken + " must be an object");
             }
-
         }
+
         var cell = new Cell(target, heldValue, unregisterToken);
         finalizationRegistry.AddCell(cell);
         return Undefined;
@@ -77,9 +74,9 @@ internal sealed class FinalizationRegistryPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-finalization-registry.prototype.unregister
     /// </summary>
-    private JsValue Unregister(JsValue thisObj, JsValue[] arguments)
+    private JsValue Unregister(JsValue thisObject, JsValue[] arguments)
     {
-        var finalizationRegistry = AssertFinalizationRegistryInstance(thisObj);
+        var finalizationRegistry = AssertFinalizationRegistryInstance(thisObject);
 
         var unregisterToken = arguments.At(0);
 
@@ -91,9 +88,9 @@ internal sealed class FinalizationRegistryPrototype : Prototype
         return finalizationRegistry.Remove(unregisterToken);
     }
 
-    private JsValue CleanupSome(JsValue thisObj, JsValue[] arguments)
+    private JsValue CleanupSome(JsValue thisObject, JsValue[] arguments)
     {
-        var finalizationRegistry = AssertFinalizationRegistryInstance(thisObj);
+        var finalizationRegistry = AssertFinalizationRegistryInstance(thisObject);
         var callback = arguments.At(0);
 
         if (!callback.IsUndefined() && callback is not ICallable)
@@ -106,15 +103,14 @@ internal sealed class FinalizationRegistryPrototype : Prototype
         return Undefined;
     }
 
-    private FinalizationRegistryInstance AssertFinalizationRegistryInstance(JsValue thisObj)
+    private FinalizationRegistryInstance AssertFinalizationRegistryInstance(JsValue thisObject)
     {
-        if (thisObj is not FinalizationRegistryInstance finalizationRegistryInstance)
+        if (thisObject is FinalizationRegistryInstance finalizationRegistryInstance)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "object must be a FinalizationRegistry");
-            return null;
+            return finalizationRegistryInstance;
         }
 
-        return finalizationRegistryInstance;
+        ExceptionHelper.ThrowTypeError(_realm, "object must be a FinalizationRegistry");
+        return default;
     }
 }
-

@@ -53,7 +53,7 @@ namespace Jint.Native.Number
             SetProperties(properties);
         }
 
-        private static JsValue IsFinite(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsFinite(JsValue thisObject, JsValue[] arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {
@@ -63,7 +63,7 @@ namespace Jint.Native.Number
             return double.IsInfinity(num._value) || double.IsNaN(num._value) ? JsBoolean.False : JsBoolean.True;
         }
 
-        private static JsValue IsInteger(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsInteger(JsValue thisObject, JsValue[] arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {
@@ -80,7 +80,7 @@ namespace Jint.Native.Number
             return integer == num._value;
         }
 
-        private static JsValue IsNaN(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsNaN(JsValue thisObject, JsValue[] arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {
@@ -90,7 +90,7 @@ namespace Jint.Native.Number
             return double.IsNaN(num._value);
         }
 
-        private static JsValue IsSafeInteger(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsSafeInteger(JsValue thisObject, JsValue[] arguments)
         {
             if (!(arguments.At(0) is JsNumber num))
             {

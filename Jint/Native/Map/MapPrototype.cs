@@ -52,51 +52,51 @@ internal sealed class MapPrototype : Prototype
         SetSymbols(symbols);
     }
 
-    private JsValue Size(JsValue thisObj, JsValue[] arguments)
+    private JsValue Size(JsValue thisObject, JsValue[] arguments)
     {
-        AssertMapInstance(thisObj);
+        AssertMapInstance(thisObject);
         return JsNumber.Create(0);
     }
 
-    private JsValue Get(JsValue thisObj, JsValue[] arguments)
+    private JsValue Get(JsValue thisObject, JsValue[] arguments)
     {
-        var map = AssertMapInstance(thisObj);
+        var map = AssertMapInstance(thisObject);
         return map.MapGet(arguments.At(0));
     }
 
-    private JsValue Clear(JsValue thisObj, JsValue[] arguments)
+    private JsValue Clear(JsValue thisObject, JsValue[] arguments)
     {
-        var map = AssertMapInstance(thisObj);
+        var map = AssertMapInstance(thisObject);
         map.Clear();
         return Undefined;
     }
 
-    private JsValue Delete(JsValue thisObj, JsValue[] arguments)
+    private JsValue Delete(JsValue thisObject, JsValue[] arguments)
     {
-        var map = AssertMapInstance(thisObj);
+        var map = AssertMapInstance(thisObject);
         return map.MapDelete(arguments.At(0))
             ? JsBoolean.True
             : JsBoolean.False;
     }
 
-    private JsValue Set(JsValue thisObj, JsValue[] arguments)
+    private JsValue Set(JsValue thisObject, JsValue[] arguments)
     {
-        var map = AssertMapInstance(thisObj);
+        var map = AssertMapInstance(thisObject);
         map.MapSet(arguments.At(0), arguments.At(1));
-        return thisObj;
+        return thisObject;
     }
 
-    private JsValue Has(JsValue thisObj, JsValue[] arguments)
+    private JsValue Has(JsValue thisObject, JsValue[] arguments)
     {
-        var map = AssertMapInstance(thisObj);
+        var map = AssertMapInstance(thisObject);
         return map.Has(arguments.At(0))
             ? JsBoolean.True
             : JsBoolean.False;
     }
 
-    private JsValue ForEach(JsValue thisObj, JsValue[] arguments)
+    private JsValue ForEach(JsValue thisObject, JsValue[] arguments)
     {
-        var map = AssertMapInstance(thisObj);
+        var map = AssertMapInstance(thisObject);
         var callbackfn = arguments.At(0);
         var thisArg = arguments.At(1);
 
@@ -107,32 +107,32 @@ internal sealed class MapPrototype : Prototype
         return Undefined;
     }
 
-    private ObjectInstance Entries(JsValue thisObj, JsValue[] arguments)
+    private ObjectInstance Entries(JsValue thisObject, JsValue[] arguments)
     {
-        var map = AssertMapInstance(thisObj);
+        var map = AssertMapInstance(thisObject);
         return map.Iterator();
     }
 
-    private ObjectInstance Keys(JsValue thisObj, JsValue[] arguments)
+    private ObjectInstance Keys(JsValue thisObject, JsValue[] arguments)
     {
-        var map = AssertMapInstance(thisObj);
+        var map = AssertMapInstance(thisObject);
         return map.Keys();
     }
 
-    private ObjectInstance Values(JsValue thisObj, JsValue[] arguments)
+    private ObjectInstance Values(JsValue thisObject, JsValue[] arguments)
     {
-        var map = AssertMapInstance(thisObj);
+        var map = AssertMapInstance(thisObject);
         return map.Values();
     }
 
-    private MapInstance AssertMapInstance(JsValue thisObj)
+    private MapInstance AssertMapInstance(JsValue thisObject)
     {
-        var map = thisObj as MapInstance;
-        if (map is null)
+        if (thisObject is MapInstance map)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "object must be a Map");
+            return map;
         }
 
-        return map;
+        ExceptionHelper.ThrowTypeError(_realm, "object must be a Map");
+        return default;
     }
 }

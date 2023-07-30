@@ -42,7 +42,7 @@ internal static class GroupByHelper
             _mapMode = mapMode;
         }
 
-        protected override void ProcessItem(JsValue[] args, JsValue currentValue)
+        protected override void ProcessItem(JsValue[] arguments, JsValue currentValue)
         {
             if (_k >= ArrayOperations.MaxArrayLength)
             {

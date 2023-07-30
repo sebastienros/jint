@@ -41,7 +41,7 @@ internal sealed class BigIntConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.asintn
     /// </summary>
-    private JsValue AsIntN(JsValue thisObj, JsValue[] arguments)
+    private JsValue AsIntN(JsValue thisObject, JsValue[] arguments)
     {
         var bits = (int) TypeConverter.ToIndex(_realm, arguments.At(0));
         var bigint = arguments.At(1).ToBigInteger(_engine);
@@ -58,7 +58,7 @@ internal sealed class BigIntConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.asuintn
     /// </summary>
-    private JsValue AsUintN(JsValue thisObj, JsValue[] arguments)
+    private JsValue AsUintN(JsValue thisObject, JsValue[] arguments)
     {
         var bits = (int) TypeConverter.ToIndex(_realm, arguments.At(0));
         var bigint = arguments.At(1).ToBigInteger(_engine);

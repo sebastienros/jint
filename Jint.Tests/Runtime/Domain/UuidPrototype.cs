@@ -11,17 +11,14 @@ namespace Jint.Tests.Runtime.Domain
         {
         }
 
-        private UuidInstance EnsureUuidInstance(JsValue thisObj)
+        private UuidInstance EnsureUuidInstance(JsValue thisObject)
         {
-            return thisObj.TryCast<UuidInstance>(value =>
-            {
-                throw new JavaScriptException(Engine.Realm.Intrinsics.TypeError, "Invalid Uuid");
-            });
+            return thisObject.TryCast<UuidInstance>(value => throw new JavaScriptException(Engine.Realm.Intrinsics.TypeError, "Invalid Uuid"));
         }
 
-        private JsValue ToGuidString(JsValue thisObj, JsValue[] arguments) => EnsureUuidInstance(thisObj).PrimitiveValue.ToString();
+        private JsValue ToGuidString(JsValue thisObject, JsValue[] arguments) => EnsureUuidInstance(thisObject).PrimitiveValue.ToString();
 
-        private JsValue ValueOf(JsValue thisObj, JsValue[] arguments) => EnsureUuidInstance(thisObj).PrimitiveValue;
+        private JsValue ValueOf(JsValue thisObject, JsValue[] arguments) => EnsureUuidInstance(thisObject).PrimitiveValue;
 
         public static UuidPrototype CreatePrototypeObject(Engine engine, UuidConstructor ctor)
         {
