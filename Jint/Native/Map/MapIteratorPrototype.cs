@@ -35,7 +35,7 @@ internal sealed class MapIteratorPrototype : IteratorPrototype
         SetSymbols(symbols);
     }
 
-    internal IteratorInstance ConstructEntryIterator(MapInstance map)
+    internal IteratorInstance ConstructEntryIterator(JsMap map)
     {
         var instance = new MapIterator(Engine, map)
         {
@@ -45,7 +45,7 @@ internal sealed class MapIteratorPrototype : IteratorPrototype
         return instance;
     }
 
-    internal IteratorInstance ConstructKeyIterator(MapInstance map)
+    internal IteratorInstance ConstructKeyIterator(JsMap map)
     {
         var instance = new IteratorInstance.EnumerableIterator(Engine, map._map.Keys)
         {
@@ -55,7 +55,7 @@ internal sealed class MapIteratorPrototype : IteratorPrototype
         return instance;
     }
 
-    internal IteratorInstance ConstructValueIterator(MapInstance map)
+    internal IteratorInstance ConstructValueIterator(JsMap map)
     {
         var instance = new IteratorInstance.EnumerableIterator(Engine, map._map.Values)
         {
@@ -71,7 +71,7 @@ internal sealed class MapIteratorPrototype : IteratorPrototype
 
         private int _position;
 
-        public MapIterator(Engine engine, MapInstance map) : base(engine)
+        public MapIterator(Engine engine, JsMap map) : base(engine)
         {
             _map = map._map;
             _position = 0;

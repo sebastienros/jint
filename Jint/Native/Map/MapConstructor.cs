@@ -62,7 +62,7 @@ internal sealed class MapConstructor : Constructor
         var map = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.Map.PrototypeObject,
-            static (Engine engine, Realm realm, object? _) => new MapInstance(engine, realm));
+            static (Engine engine, Realm realm, object? _) => new JsMap(engine, realm));
 
         if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
         {
@@ -84,7 +84,7 @@ internal sealed class MapConstructor : Constructor
         var items = arguments.At(0);
         var callbackfn = arguments.At(1);
         var grouping = GroupByHelper.GroupBy(_engine, _realm, items, callbackfn, mapMode: true);
-        var map = (MapInstance) Construct(_realm.Intrinsics.Map);
+        var map = (JsMap) Construct(_realm.Intrinsics.Map);
         foreach (var pair in grouping)
         {
             map.MapSet(pair.Key, pair.Value);

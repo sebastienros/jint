@@ -1,17 +1,16 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Map;
 
-internal sealed class MapInstance : ObjectInstance
+internal sealed class JsMap : ObjectInstance
 {
     private readonly Realm _realm;
     internal readonly OrderedDictionary<JsValue, JsValue> _map;
 
-    public MapInstance(Engine engine, Realm realm) : base(engine)
+    public JsMap(Engine engine, Realm realm) : base(engine)
     {
         _realm = realm;
         _map = new OrderedDictionary<JsValue, JsValue>(SameValueZeroComparer.Instance);
@@ -100,11 +99,5 @@ internal sealed class MapInstance : ObjectInstance
     internal ObjectInstance Values()
     {
         return _realm.Intrinsics.MapIteratorPrototype.ConstructValueIterator(this);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal uint GetSize()
-    {
-        return (uint) _map.Count;
     }
 }
