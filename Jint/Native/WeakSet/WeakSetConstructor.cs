@@ -34,7 +34,7 @@ namespace Jint.Native.WeakSet
             var set = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.WeakSet.PrototypeObject,
-                static (Engine engine, Realm _, object? _) => new WeakSetInstance(engine));
+                static (Engine engine, Realm _, object? _) => new JsWeakSet(engine));
 
             var arg1 = arguments.At(0);
             if (!arg1.IsNullOrUndefined())

@@ -39,7 +39,7 @@ public class WeakSetMapTests
     public void WeakSetAddShouldThrowForPrimitiveKey(JsValue key)
     {
         var engine = new Engine();
-        var weakSet = new WeakSetInstance(engine);
+        var weakSet = new JsWeakSet(engine);
 
         var e = Assert.Throws<JavaScriptException>(() => weakSet.WeakSetAdd(key));
         Assert.StartsWith("WeakSet value must be an object or symbol, got ", e.Message);

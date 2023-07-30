@@ -66,9 +66,9 @@ internal sealed class WeakSetPrototype : Prototype
         return set.WeakSetHas(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;
     }
 
-    private WeakSetInstance AssertWeakSetInstance(JsValue thisObject)
+    private JsWeakSet AssertWeakSetInstance(JsValue thisObject)
     {
-        if (thisObject is WeakSetInstance set)
+        if (thisObject is JsWeakSet set)
         {
             return set;
         }
