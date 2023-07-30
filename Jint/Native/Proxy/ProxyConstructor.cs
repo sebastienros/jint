@@ -50,7 +50,7 @@ namespace Jint.Native.Proxy
         /// <summary>
         /// https://tc39.es/ecma262/#sec-proxy-target-handler
         /// </summary>
-        public ProxyInstance Construct(JsValue target, JsValue handler)
+        public JsProxy Construct(JsValue target, JsValue handler)
         {
             return ProxyCreate(target, handler);
         }
@@ -78,7 +78,7 @@ namespace Jint.Native.Proxy
         /// <summary>
         /// https://tc39.es/ecma262/#sec-proxycreate
         /// </summary>
-        private ProxyInstance ProxyCreate(JsValue target, JsValue handler)
+        private JsProxy ProxyCreate(JsValue target, JsValue handler)
         {
             if (target is not ObjectInstance targetObject)
             {
@@ -92,7 +92,7 @@ namespace Jint.Native.Proxy
                 return null;
             }
 
-            var p = new ProxyInstance(Engine, targetObject, targetHandler);
+            var p = new JsProxy(Engine, targetObject, targetHandler);
             return p;
         }
     }

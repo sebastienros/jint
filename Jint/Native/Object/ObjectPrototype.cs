@@ -269,7 +269,7 @@ namespace Jint.Native.Object
                 }
                 else
                 {
-                    tag = (o is ProxyInstance ? ObjectClass.Object : o.Class).ToString();
+                    tag = (o is JsProxy ? ObjectClass.Object : o.Class).ToString();
                 }
             }
 

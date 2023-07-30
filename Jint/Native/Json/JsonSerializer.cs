@@ -285,7 +285,7 @@ namespace Jint.Native.Json
                 return true;
             }
 
-            if (value is ProxyInstance proxyInstance && CanSerializesAsArray(proxyInstance._target))
+            if (value is JsProxy proxyInstance && CanSerializesAsArray(proxyInstance._target))
             {
                 return true;
             }

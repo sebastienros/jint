@@ -5,7 +5,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Proxy
 {
-    internal sealed class ProxyInstance : ObjectInstance, IConstructor, ICallable
+    internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     {
         internal ObjectInstance _target;
         internal ObjectInstance? _handler;
@@ -27,7 +27,7 @@ namespace Jint.Native.Proxy
         private static readonly JsString KeyFunctionRevoke = new JsString("revoke");
         private static readonly JsString KeyIsArray = new JsString("isArray");
 
-        public ProxyInstance(
+        public JsProxy(
             Engine engine,
             ObjectInstance target,
             ObjectInstance handler)
