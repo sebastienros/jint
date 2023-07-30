@@ -35,13 +35,13 @@ internal sealed class SetIteratorPrototype : IteratorPrototype
         SetSymbols(symbols);
     }
 
-    internal IteratorInstance ConstructEntryIterator(SetInstance set)
+    internal IteratorInstance ConstructEntryIterator(JsSet set)
     {
         var instance = new SetEntryIterator(Engine, set);
         return instance;
     }
 
-    internal IteratorInstance ConstructValueIterator(SetInstance set)
+    internal IteratorInstance ConstructValueIterator(JsSet set)
     {
         var instance = new SetValueIterator(Engine, set._set._list);
         return instance;
@@ -49,10 +49,10 @@ internal sealed class SetIteratorPrototype : IteratorPrototype
 
     private sealed class SetEntryIterator : IteratorInstance
     {
-        private readonly SetInstance _set;
+        private readonly JsSet _set;
         private int _position;
 
-        public SetEntryIterator(Engine engine, SetInstance set) : base(engine)
+        public SetEntryIterator(Engine engine, JsSet set) : base(engine)
         {
             _prototype = engine.Realm.Intrinsics.SetIteratorPrototype;
             _set = set;
