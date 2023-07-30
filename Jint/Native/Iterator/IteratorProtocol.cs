@@ -66,7 +66,7 @@ namespace Jint.Native.Iterator
         {
         }
 
-        protected abstract void ProcessItem(JsValue[] args, JsValue currentValue);
+        protected abstract void ProcessItem(JsValue[] arguments, JsValue currentValue);
 
         internal static void AddEntriesFromIterable(ObjectInstance target, IteratorInstance iterable, object adder)
         {

@@ -18,7 +18,7 @@ public partial class FunctionInstance
         ObjectInstance constructor,
         JsValue newTarget,
         FunctionKind kind,
-        JsValue[] args)
+        JsValue[] arguments)
     {
         // TODO var callerContext = _engine.GetExecutionContext(1);
         var callerContext = _engine.ExecutionContext;
@@ -48,25 +48,25 @@ public partial class FunctionInstance
                 break;
         }
 
-        var argCount = args.Length;
+        var argCount = arguments.Length;
         var p = "";
         var body = "";
 
         if (argCount == 1)
         {
-            body = TypeConverter.ToString(args[0]);
+            body = TypeConverter.ToString(arguments[0]);
         }
         else if (argCount > 1)
         {
-            var firstArg = args[0];
+            var firstArg = arguments[0];
             p = TypeConverter.ToString(firstArg);
             for (var k = 1; k < argCount - 1; k++)
             {
-                var nextArg = args[k];
+                var nextArg = arguments[k];
                 p += "," + TypeConverter.ToString(nextArg);
             }
 
-            body = TypeConverter.ToString(args[argCount - 1]);
+            body = TypeConverter.ToString(arguments[argCount - 1]);
         }
 
         IFunction? function = null;

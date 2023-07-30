@@ -49,7 +49,7 @@ namespace Jint.Native.Array
         /// <summary>
         /// https://tc39.es/ecma262/#sec-array.from
         /// </summary>
-        private JsValue From(JsValue thisObj, JsValue[] arguments)
+        private JsValue From(JsValue thisObject, JsValue[] arguments)
         {
             var items = arguments.At(0);
             var mapFunction = arguments.At(1);
@@ -65,9 +65,9 @@ namespace Jint.Native.Array
             if (usingIterator is not null)
             {
                 ObjectInstance instance;
-                if (!ReferenceEquals(this, thisObj) && thisObj is IConstructor constructor)
+                if (!ReferenceEquals(this, thisObject) && thisObject is IConstructor constructor)
                 {
-                    instance = constructor.Construct(System.Array.Empty<JsValue>(), thisObj);
+                    instance = constructor.Construct(System.Array.Empty<JsValue>(), thisObject);
                 }
                 else
                 {
@@ -86,7 +86,7 @@ namespace Jint.Native.Array
                 return ConstructArrayFromIEnumerable(enumerable);
             }
 
-            return ConstructArrayFromArrayLike(thisObj, objectInstance, callable, thisArg);
+            return ConstructArrayFromArrayLike(thisObject, objectInstance, callable, thisArg);
         }
 
         private ObjectInstance ConstructArrayFromArrayLike(
@@ -160,15 +160,15 @@ namespace Jint.Native.Array
                 _callable = callable;
             }
 
-            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
+            protected override void ProcessItem(JsValue[] arguments, JsValue currentValue)
             {
                 _index++;
                 JsValue jsValue;
                 if (!ReferenceEquals(_callable, null))
                 {
-                    args[0] = currentValue;
-                    args[1] = _index;
-                    jsValue = _callable.Call(_thisArg, args);
+                    arguments[0] = currentValue;
+                    arguments[1] = _index;
+                    jsValue = _callable.Call(_thisArg, arguments);
                 }
                 else
                 {
@@ -184,13 +184,13 @@ namespace Jint.Native.Array
             }
         }
 
-        private JsValue Of(JsValue thisObj, JsValue[] arguments)
+        private JsValue Of(JsValue thisObject, JsValue[] arguments)
         {
             var len = arguments.Length;
             ObjectInstance a;
-            if (thisObj.IsConstructor)
+            if (thisObject.IsConstructor)
             {
-                a = ((IConstructor) thisObj).Construct(new JsValue[] { len }, thisObj);
+                a = ((IConstructor) thisObject).Construct(new JsValue[] { len }, thisObject);
             }
             else
             {
@@ -227,7 +227,7 @@ namespace Jint.Native.Array
             return thisObject;
         }
 
-        private static JsValue IsArray(JsValue thisObj, JsValue[] arguments)
+        private static JsValue IsArray(JsValue thisObject, JsValue[] arguments)
         {
             var o = arguments.At(0);
 

@@ -43,9 +43,9 @@ internal sealed class ShadowRealmPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-shadowrealm.prototype.evaluate
     /// </summary>
-    private JsValue Evaluate(JsValue thisObj, JsValue[] arguments)
+    private JsValue Evaluate(JsValue thisObject, JsValue[] arguments)
     {
-        var shadowRealm = ValidateShadowRealmObject(thisObj);
+        var shadowRealm = ValidateShadowRealmObject(thisObject);
         var sourceText = arguments.At(0);
 
         if (!sourceText.IsString())
@@ -59,12 +59,12 @@ internal sealed class ShadowRealmPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-shadowrealm.prototype.importvalue
     /// </summary>
-    private JsValue ImportValue(JsValue thisObj, JsValue[] arguments)
+    private JsValue ImportValue(JsValue thisObject, JsValue[] arguments)
     {
         var specifier = arguments.At(0);
         var exportName = arguments.At(1);
 
-        var O = ValidateShadowRealmObject(thisObj);
+        var O = ValidateShadowRealmObject(thisObject);
         var specifierString = TypeConverter.ToJsString(specifier);
         if (!specifier.IsString())
         {
@@ -80,14 +80,14 @@ internal sealed class ShadowRealmPrototype : Prototype
         return O.ShadowRealmImportValue(specifierString.ToString(), exportName.ToString(), callerRealm);
     }
 
-    private ShadowRealm ValidateShadowRealmObject(JsValue thisObj)
+    private ShadowRealm ValidateShadowRealmObject(JsValue thisObject)
     {
-        var instance = thisObj as ShadowRealm;
-        if (instance is null)
+        if (thisObject is ShadowRealm shadowRealm)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "object must be a ShadowRealm");
+            return shadowRealm;
         }
 
-        return instance;
+        ExceptionHelper.ThrowTypeError(_realm, "object must be a ShadowRealm");
+        return default;
     }
 }

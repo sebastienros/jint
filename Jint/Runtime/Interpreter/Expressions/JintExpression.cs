@@ -477,7 +477,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 _instance = instance;
             }
 
-            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
+            protected override void ProcessItem(JsValue[] arguments, JsValue currentValue)
             {
                 _instance.Add(currentValue);
             }

@@ -50,59 +50,59 @@ internal sealed class SetPrototype : Prototype
         SetSymbols(symbols);
     }
 
-    private JsValue Size(JsValue thisObj, JsValue[] arguments)
+    private JsValue Size(JsValue thisObject, JsValue[] arguments)
     {
-        AssertSetInstance(thisObj);
+        AssertSetInstance(thisObject);
         return JsNumber.Create(0);
     }
 
-    private JsValue Add(JsValue thisObj, JsValue[] arguments)
+    private JsValue Add(JsValue thisObject, JsValue[] arguments)
     {
-        var set = AssertSetInstance(thisObj);
+        var set = AssertSetInstance(thisObject);
         var value = arguments.At(0);
         if (value is JsNumber number && number.IsNegativeZero())
         {
             value = JsNumber.PositiveZero;
         }
         set.Add(value);
-        return thisObj;
+        return thisObject;
     }
 
-    private JsValue Clear(JsValue thisObj, JsValue[] arguments)
+    private JsValue Clear(JsValue thisObject, JsValue[] arguments)
     {
-        var set = AssertSetInstance(thisObj);
+        var set = AssertSetInstance(thisObject);
         set.Clear();
         return Undefined;
     }
 
-    private JsValue Delete(JsValue thisObj, JsValue[] arguments)
+    private JsValue Delete(JsValue thisObject, JsValue[] arguments)
     {
-        var set = AssertSetInstance(thisObj);
+        var set = AssertSetInstance(thisObject);
         return set.SetDelete(arguments.At(0))
             ? JsBoolean.True
             : JsBoolean.False;
     }
 
-    private JsValue Has(JsValue thisObj, JsValue[] arguments)
+    private JsValue Has(JsValue thisObject, JsValue[] arguments)
     {
-        var set = AssertSetInstance(thisObj);
+        var set = AssertSetInstance(thisObject);
         return set.Has(arguments.At(0))
             ? JsBoolean.True
             : JsBoolean.False;
     }
 
-    private JsValue Entries(JsValue thisObj, JsValue[] arguments)
+    private JsValue Entries(JsValue thisObject, JsValue[] arguments)
     {
-        var set = AssertSetInstance(thisObj);
+        var set = AssertSetInstance(thisObject);
         return set.Entries();
     }
 
-    private JsValue ForEach(JsValue thisObj, JsValue[] arguments)
+    private JsValue ForEach(JsValue thisObject, JsValue[] arguments)
     {
         var callbackfn = arguments.At(0);
         var thisArg = arguments.At(1);
 
-        var set = AssertSetInstance(thisObj);
+        var set = AssertSetInstance(thisObject);
         var callable = GetCallable(callbackfn);
 
         set.ForEach(callable, thisArg);
@@ -110,20 +110,20 @@ internal sealed class SetPrototype : Prototype
         return Undefined;
     }
 
-    private ObjectInstance Values(JsValue thisObj, JsValue[] arguments)
+    private ObjectInstance Values(JsValue thisObject, JsValue[] arguments)
     {
-        var set = AssertSetInstance(thisObj);
+        var set = AssertSetInstance(thisObject);
         return set.Values();
     }
 
-    private SetInstance AssertSetInstance(JsValue thisObj)
+    private SetInstance AssertSetInstance(JsValue thisObject)
     {
-        var set = thisObj as SetInstance;
-        if (set is null)
+        if (thisObject is SetInstance set)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "object must be a Set");
+            return set;
         }
 
-        return set;
+        ExceptionHelper.ThrowTypeError(_realm, "object must be a Set");
+        return default;
     }
 }

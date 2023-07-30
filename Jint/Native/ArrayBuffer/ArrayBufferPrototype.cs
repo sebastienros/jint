@@ -42,12 +42,12 @@ namespace Jint.Native.ArrayBuffer
             SetSymbols(symbols);
         }
 
-        private JsValue Detached(JsValue thisObj, JsValue[] arguments)
+        private JsValue Detached(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObj as JsArrayBuffer;
+            var o = thisObject as JsArrayBuffer;
             if (o is null)
             {
-                ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.detached called on incompatible receiver " + thisObj);
+                ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.detached called on incompatible receiver " + thisObject);
             }
 
             if (o.IsSharedArrayBuffer)
@@ -61,12 +61,12 @@ namespace Jint.Native.ArrayBuffer
         /// <summary>
         /// https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
         /// </summary>
-        private JsValue ByteLength(JsValue thisObj, JsValue[] arguments)
+        private JsValue ByteLength(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObj as JsArrayBuffer;
+            var o = thisObject as JsArrayBuffer;
             if (o is null)
             {
-                ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.byteLength called on incompatible receiver " + thisObj);
+                ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.byteLength called on incompatible receiver " + thisObject);
             }
 
             if (o.IsSharedArrayBuffer)
@@ -85,12 +85,12 @@ namespace Jint.Native.ArrayBuffer
         /// <summary>
         /// https://tc39.es/ecma262/#sec-arraybuffer.prototype.slice
         /// </summary>
-        private JsValue Slice(JsValue thisObj, JsValue[] arguments)
+        private JsValue Slice(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObj as JsArrayBuffer;
+            var o = thisObject as JsArrayBuffer;
             if (o is null)
             {
-                ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.slice called on incompatible receiver " + thisObj);
+                ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.slice called on incompatible receiver " + thisObject);
             }
 
             if (o.IsSharedArrayBuffer)

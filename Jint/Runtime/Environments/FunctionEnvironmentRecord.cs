@@ -405,7 +405,7 @@ namespace Jint.Runtime.Environments
                 _max = max;
             }
 
-            protected override void ProcessItem(JsValue[] args, JsValue currentValue)
+            protected override void ProcessItem(JsValue[] arguments, JsValue currentValue)
             {
                 _instance.SetIndexValue((uint) _index, currentValue, updateLength: false);
                 _index++;

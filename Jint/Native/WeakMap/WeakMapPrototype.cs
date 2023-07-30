@@ -45,39 +45,39 @@ internal sealed class WeakMapPrototype : Prototype
         SetSymbols(symbols);
     }
 
-    private JsValue Get(JsValue thisObj, JsValue[] arguments)
+    private JsValue Get(JsValue thisObject, JsValue[] arguments)
     {
-        var map = AssertWeakMapInstance(thisObj);
+        var map = AssertWeakMapInstance(thisObject);
         return map.WeakMapGet(arguments.At(0));
     }
 
-    private JsValue Delete(JsValue thisObj, JsValue[] arguments)
+    private JsValue Delete(JsValue thisObject, JsValue[] arguments)
     {
-        var map = AssertWeakMapInstance(thisObj);
+        var map = AssertWeakMapInstance(thisObject);
         return arguments.Length > 0 && map.WeakMapDelete(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;
     }
 
-    private JsValue Set(JsValue thisObj, JsValue[] arguments)
+    private JsValue Set(JsValue thisObject, JsValue[] arguments)
     {
-        var map = AssertWeakMapInstance(thisObj);
+        var map = AssertWeakMapInstance(thisObject);
         map.WeakMapSet(arguments.At(0), arguments.At(1));
-        return thisObj;
+        return thisObject;
     }
 
-    private JsValue Has(JsValue thisObj, JsValue[] arguments)
+    private JsValue Has(JsValue thisObject, JsValue[] arguments)
     {
-        var map = AssertWeakMapInstance(thisObj);
+        var map = AssertWeakMapInstance(thisObject);
         return map.WeakMapHas(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;
     }
 
-    private WeakMapInstance AssertWeakMapInstance(JsValue thisObj)
+    private WeakMapInstance AssertWeakMapInstance(JsValue thisObject)
     {
-        var map = thisObj as WeakMapInstance;
-        if (map is null)
+        if (thisObject is WeakMapInstance map)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "object must be a WeakMap");
+            return map;
         }
 
-        return map;
+        ExceptionHelper.ThrowTypeError(_realm, "object must be a WeakMap");
+        return default;
     }
 }

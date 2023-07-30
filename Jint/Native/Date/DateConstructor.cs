@@ -49,7 +49,7 @@ internal sealed class DateConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.parse
     /// </summary>
-    private JsValue Parse(JsValue thisObj, JsValue[] arguments)
+    private JsValue Parse(JsValue thisObject, JsValue[] arguments)
     {
         var dateString = TypeConverter.ToString(arguments.At(0));
         var date = ParseFromString(dateString);
@@ -73,7 +73,7 @@ internal sealed class DateConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-date.utc
     /// </summary>
-    private static JsValue Utc(JsValue thisObj, JsValue[] arguments)
+    private static JsValue Utc(JsValue thisObject, JsValue[] arguments)
     {
         var y = TypeConverter.ToNumber(arguments.At(0));
         var m = TypeConverter.ToNumber(arguments.At(1, JsNumber.PositiveZero));
@@ -96,7 +96,7 @@ internal sealed class DateConstructor : Constructor
         return finalDate.TimeClip().ToJsValue();
     }
 
-    private static JsValue Now(JsValue thisObj, JsValue[] arguments)
+    private static JsValue Now(JsValue thisObject, JsValue[] arguments)
     {
         return (long) (DateTime.UtcNow - Epoch).TotalMilliseconds;
     }

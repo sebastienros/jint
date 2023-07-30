@@ -49,17 +49,17 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-function.prototype-@@hasinstance
         /// </summary>
-        private static JsValue HasInstance(JsValue thisObj, JsValue[] arguments)
+        private static JsValue HasInstance(JsValue thisObject, JsValue[] arguments)
         {
-            return thisObj.OrdinaryHasInstance(arguments.At(0));
+            return thisObject.OrdinaryHasInstance(arguments.At(0));
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-function.prototype.bind
         /// </summary>
-        private JsValue Bind(JsValue thisObj, JsValue[] arguments)
+        private JsValue Bind(JsValue thisObject, JsValue[] arguments)
         {
-            if (thisObj is not (ICallable and ObjectInstance oi))
+            if (thisObject is not (ICallable and ObjectInstance oi))
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Bind must be called on a function");
                 return default;
@@ -127,11 +127,11 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-function.prototype.tostring
         /// </summary>
-        private JsValue ToString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToString(JsValue thisObject, JsValue[] arguments)
         {
-            if (thisObj.IsObject() && thisObj.IsCallable)
+            if (thisObject.IsObject() && thisObject.IsCallable)
             {
-                return thisObj.ToString();
+                return thisObject.ToString();
             }
 
             ExceptionHelper.ThrowTypeError(_realm, "Function.prototype.toString requires that 'this' be a Function");

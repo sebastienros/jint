@@ -98,14 +98,14 @@ namespace Jint.Native.RegExp
         /// <summary>
         /// https://tc39.es/ecma262/#sec-get-regexp.prototype.source
         /// </summary>
-        private JsValue Source(JsValue thisObj, JsValue[] arguments)
+        private JsValue Source(JsValue thisObject, JsValue[] arguments)
         {
-            if (ReferenceEquals(thisObj, this))
+            if (ReferenceEquals(thisObject, this))
             {
                 return DefaultSource;
             }
 
-            var r = thisObj as JsRegExp;
+            var r = thisObject as JsRegExp;
             if (r is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
@@ -126,9 +126,9 @@ namespace Jint.Native.RegExp
         /// <summary>
         /// https://tc39.es/ecma262/#sec-regexp.prototype-@@replace
         /// </summary>
-        private JsValue Replace(JsValue thisObj, JsValue[] arguments)
+        private JsValue Replace(JsValue thisObject, JsValue[] arguments)
         {
-            var rx = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.replace");
+            var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.replace");
             var s = TypeConverter.ToString(arguments.At(0));
             var lengthS = s.Length;
             var replaceValue = arguments.At(1);
@@ -428,9 +428,9 @@ namespace Jint.Native.RegExp
         /// <summary>
         /// https://tc39.es/ecma262/#sec-regexp.prototype-@@split
         /// </summary>
-        private JsValue Split(JsValue thisObj, JsValue[] arguments)
+        private JsValue Split(JsValue thisObject, JsValue[] arguments)
         {
-            var rx = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.split");
+            var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.split");
             var s = TypeConverter.ToString(arguments.At(0));
             var limit = arguments.At(1);
             var c = SpeciesConstructor(rx, _realm.Intrinsics.RegExp);
@@ -585,9 +585,9 @@ namespace Jint.Native.RegExp
             return a;
         }
 
-        private JsValue Flags(JsValue thisObj, JsValue[] arguments)
+        private JsValue Flags(JsValue thisObject, JsValue[] arguments)
         {
-            var r = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.flags");
+            var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.flags");
 
             static string AddFlagIfPresent(JsValue o, JsValue p, char flag, string s)
             {
@@ -606,9 +606,9 @@ namespace Jint.Native.RegExp
             return result;
         }
 
-        private JsValue ToRegExpString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToRegExpString(JsValue thisObject, JsValue[] arguments)
         {
-            var r = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.toString");
+            var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.toString");
 
             var pattern = TypeConverter.ToString(r.Get(PropertySource));
             var flags = TypeConverter.ToString(r.Get(PropertyFlags));
@@ -616,9 +616,9 @@ namespace Jint.Native.RegExp
             return "/" + pattern + "/" + flags;
         }
 
-        private JsValue Test(JsValue thisObj, JsValue[] arguments)
+        private JsValue Test(JsValue thisObject, JsValue[] arguments)
         {
-            var r = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.test");
+            var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.test");
             var s = TypeConverter.ToString(arguments.At(0));
 
             // check couple fast paths
@@ -653,9 +653,9 @@ namespace Jint.Native.RegExp
         /// <summary>
         /// https://tc39.es/ecma262/#sec-regexp.prototype-@@search
         /// </summary>
-        private JsValue Search(JsValue thisObj, JsValue[] arguments)
+        private JsValue Search(JsValue thisObject, JsValue[] arguments)
         {
-            var rx = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.search");
+            var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.search");
 
             var s = TypeConverter.ToString(arguments.At(0));
             var previousLastIndex = rx.Get(JsRegExp.PropertyLastIndex);
@@ -682,9 +682,9 @@ namespace Jint.Native.RegExp
         /// <summary>
         /// https://tc39.es/ecma262/#sec-regexp.prototype-@@match
         /// </summary>
-        private JsValue Match(JsValue thisObj, JsValue[] arguments)
+        private JsValue Match(JsValue thisObject, JsValue[] arguments)
         {
-            var rx = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.match");
+            var rx = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.match");
 
             var s = TypeConverter.ToString(arguments.At(0));
             var flags = TypeConverter.ToString(rx.Get(PropertyFlags));
@@ -774,9 +774,9 @@ namespace Jint.Native.RegExp
         /// <summary>
         /// https://tc39.es/ecma262/#sec-regexp-prototype-matchall
         /// </summary>
-        private JsValue MatchAll(JsValue thisObj, JsValue[] arguments)
+        private JsValue MatchAll(JsValue thisObject, JsValue[] arguments)
         {
-            var r = AssertThisIsObjectInstance(thisObj, "RegExp.prototype.matchAll");
+            var r = AssertThisIsObjectInstance(thisObject, "RegExp.prototype.matchAll");
 
             var s = TypeConverter.ToString(arguments.At(0));
             var c = SpeciesConstructor(r, _realm.Intrinsics.RegExp);
@@ -1083,9 +1083,9 @@ namespace Jint.Native.RegExp
             return groupNameFromNumber;
         }
 
-        private JsValue Exec(JsValue thisObj, JsValue[] arguments)
+        private JsValue Exec(JsValue thisObject, JsValue[] arguments)
         {
-            var r = thisObj as JsRegExp;
+            var r = thisObject as JsRegExp;
             if (r is null)
             {
                 ExceptionHelper.ThrowTypeError(_engine.Realm);

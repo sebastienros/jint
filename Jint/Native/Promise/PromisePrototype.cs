@@ -50,7 +50,7 @@ namespace Jint.Native.Promise
         // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
         // 4. Let resultCapability be ? NewPromiseCapability(C).
         // 5. Return PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability).
-        private JsValue Then(JsValue thisValue, JsValue[] args)
+        private JsValue Then(JsValue thisValue, JsValue[] arguments)
         {
             // 1. Let promise be the this value.
             // 2. If IsPromise(promise) is false, throw a TypeError exception.
@@ -67,7 +67,7 @@ namespace Jint.Native.Promise
             var capability = PromiseConstructor.NewPromiseCapability(_engine, (JsValue) ctor);
 
             // 5. Return PerformPromiseThen(promise, onFulfilled, onRejected, resultCapability).
-            return PromiseOperations.PerformPromiseThen(_engine, promise, args.At(0), args.At(1), capability);
+            return PromiseOperations.PerformPromiseThen(_engine, promise, arguments.At(0), arguments.At(1), capability);
         }
 
         // https://tc39.es/ecma262/#sec-promise.prototype.catch
@@ -77,11 +77,11 @@ namespace Jint.Native.Promise
         //
         // 1. Let promise be the this value.
         // 2. Return ? Invoke(promise, "then", « undefined, onRejected »).
-        private JsValue Catch(JsValue thisValue, JsValue[] args) =>
-            _engine.Invoke(thisValue, "then", new[] {Undefined, args.At(0)});
+        private JsValue Catch(JsValue thisValue, JsValue[] arguments) =>
+            _engine.Invoke(thisValue, "then", new[] {Undefined, arguments.At(0)});
 
         // https://tc39.es/ecma262/#sec-promise.prototype.finally
-        private JsValue Finally(JsValue thisValue, JsValue[] args)
+        private JsValue Finally(JsValue thisValue, JsValue[] arguments)
         {
             // 1. Let promise be the this value.
             // 2. If Type(promise) is not Object, throw a TypeError exception.
@@ -97,7 +97,7 @@ namespace Jint.Native.Promise
 
             JsValue thenFinally;
             JsValue catchFinally;
-            var onFinally = args.At(0);
+            var onFinally = arguments.At(0);
 
             // 5. If IsCallable(onFinally) is false, then
             if (onFinally is not ICallable onFinallyFunc)

@@ -83,7 +83,7 @@ internal sealed class PromiseInstance : ObjectInstance
     }
 
     // https://tc39.es/ecma262/#sec-promise-resolve-functions
-    private JsValue Resolve(JsValue thisObj, JsValue[] arguments)
+    private JsValue Resolve(JsValue thisObject, JsValue[] arguments)
     {
         var result = arguments.At(0);
         return Resolve(result);
@@ -126,7 +126,7 @@ internal sealed class PromiseInstance : ObjectInstance
     }
 
     // https://tc39.es/ecma262/#sec-promise-reject-functions
-    private JsValue Reject(JsValue thisObj, JsValue[] arguments)
+    private JsValue Reject(JsValue thisObject, JsValue[] arguments)
     {
         // Note that alreadyResolved logic lives in CreateResolvingFunctions method
 

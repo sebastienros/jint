@@ -61,16 +61,16 @@ internal sealed class BigIntPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.prototype.valueof
     /// </summary>
-    private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
+    private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
     {
-        if (thisObj is BigIntInstance ni)
+        if (thisObject is BigIntInstance ni)
         {
             return ni.BigIntData;
         }
 
-        if (thisObj is JsBigInt)
+        if (thisObject is JsBigInt)
         {
-            return thisObj;
+            return thisObject;
         }
 
         ExceptionHelper.ThrowTypeError(_realm);

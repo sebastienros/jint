@@ -47,33 +47,33 @@ internal sealed class WeakSetPrototype : Prototype
         SetSymbols(symbols);
     }
 
-    private JsValue Add(JsValue thisObj, JsValue[] arguments)
+    private JsValue Add(JsValue thisObject, JsValue[] arguments)
     {
-        var set = AssertWeakSetInstance(thisObj);
+        var set = AssertWeakSetInstance(thisObject);
         set.WeakSetAdd(arguments.At(0));
-        return thisObj;
+        return thisObject;
     }
 
-    private JsValue Delete(JsValue thisObj, JsValue[] arguments)
+    private JsValue Delete(JsValue thisObject, JsValue[] arguments)
     {
-        var set = AssertWeakSetInstance(thisObj);
+        var set = AssertWeakSetInstance(thisObject);
         return set.WeakSetDelete(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;
     }
 
-    private JsValue Has(JsValue thisObj, JsValue[] arguments)
+    private JsValue Has(JsValue thisObject, JsValue[] arguments)
     {
-        var set = AssertWeakSetInstance(thisObj);
+        var set = AssertWeakSetInstance(thisObject);
         return set.WeakSetHas(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;
     }
 
-    private WeakSetInstance AssertWeakSetInstance(JsValue thisObj)
+    private WeakSetInstance AssertWeakSetInstance(JsValue thisObject)
     {
-        var set = thisObj as WeakSetInstance;
-        if (set is null)
+        if (thisObject is WeakSetInstance set)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "object must be a WeakSet");
+            return set;
         }
 
-        return set;
+        ExceptionHelper.ThrowTypeError(_realm, "object must be a WeakSet");
+        return default;
     }
 }

@@ -83,16 +83,16 @@ namespace Jint.Native.Number
             return m.ToString("n", Engine.Options.Culture);
         }
 
-        private JsValue ValueOf(JsValue thisObj, JsValue[] arguments)
+        private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
         {
-            if (thisObj is NumberInstance ni)
+            if (thisObject is NumberInstance ni)
             {
                 return ni.NumberData;
             }
 
-            if (thisObj is JsNumber)
+            if (thisObject is JsNumber)
             {
-                return thisObj;
+                return thisObject;
             }
 
             ExceptionHelper.ThrowTypeError(_realm);
@@ -101,7 +101,7 @@ namespace Jint.Native.Number
 
         private const double Ten21 = 1e21;
 
-        private JsValue ToFixed(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToFixed(JsValue thisObject, JsValue[] arguments)
         {
             var f = (int) TypeConverter.ToInteger(arguments.At(0, 0));
             if (f < 0 || f > 100)
@@ -115,7 +115,7 @@ namespace Jint.Native.Number
                 ExceptionHelper.ThrowRangeError(_realm, "100 fraction digits is not supported due to .NET format specifier limitation");
             }
 
-            var x = TypeConverter.ToNumber(thisObj);
+            var x = TypeConverter.ToNumber(thisObject);
 
             if (double.IsNaN(x))
             {
@@ -139,14 +139,14 @@ namespace Jint.Native.Number
         /// <summary>
         /// https://www.ecma-international.org/ecma-262/6.0/#sec-number.prototype.toexponential
         /// </summary>
-        private JsValue ToExponential(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToExponential(JsValue thisObject, JsValue[] arguments)
         {
-            if (!thisObj.IsNumber() && ReferenceEquals(thisObj.TryCast<NumberInstance>(), null))
+            if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
             {
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var x = TypeConverter.ToNumber(thisObj);
+            var x = TypeConverter.ToNumber(thisObject);
             var fractionDigits = arguments.At(0);
             if (fractionDigits.IsUndefined())
             {
@@ -162,7 +162,7 @@ namespace Jint.Native.Number
 
             if (double.IsInfinity(x))
             {
-                return thisObj.ToString();
+                return thisObject.ToString();
             }
 
             if (f < 0 || f > 100)
@@ -216,14 +216,14 @@ namespace Jint.Native.Number
             return result;
         }
 
-        private JsValue ToPrecision(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToPrecision(JsValue thisObject, JsValue[] arguments)
         {
-            if (!thisObj.IsNumber() && ReferenceEquals(thisObj.TryCast<NumberInstance>(), null))
+            if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
             {
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var x = TypeConverter.ToNumber(thisObj);
+            var x = TypeConverter.ToNumber(thisObject);
             var precisionArgument = arguments.At(0);
 
             if (precisionArgument.IsUndefined())
@@ -240,7 +240,7 @@ namespace Jint.Native.Number
 
             if (double.IsInfinity(x))
             {
-                return thisObj.ToString();
+                return thisObject.ToString();
             }
 
             if (p < 1 || p > 100)

@@ -132,9 +132,9 @@ namespace Jint.Native.Global
             SetProperties(properties);
         }
 
-        private JsValue ToStringString(JsValue thisObj, JsValue[] arguments)
+        private JsValue ToStringString(JsValue thisObject, JsValue[] arguments)
         {
-            return _realm.Intrinsics.Object.PrototypeObject.ToObjectString(thisObj, Arguments.Empty);
+            return _realm.Intrinsics.Object.PrototypeObject.ToObjectString(thisObject, Arguments.Empty);
         }
 
         /// <summary>
