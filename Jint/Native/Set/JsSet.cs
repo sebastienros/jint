@@ -5,11 +5,11 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Set;
 
-internal sealed class SetInstance : ObjectInstance
+internal sealed class JsSet : ObjectInstance
 {
     internal readonly OrderedSet<JsValue> _set;
 
-    public SetInstance(Engine engine) : base(engine)
+    public JsSet(Engine engine) : base(engine)
     {
         _set = new OrderedSet<JsValue>(SameValueZeroComparer.Instance);
     }

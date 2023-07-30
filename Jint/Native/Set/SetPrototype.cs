@@ -116,9 +116,9 @@ internal sealed class SetPrototype : Prototype
         return set.Values();
     }
 
-    private SetInstance AssertSetInstance(JsValue thisObject)
+    private JsSet AssertSetInstance(JsValue thisObject)
     {
-        if (thisObject is SetInstance set)
+        if (thisObject is JsSet set)
         {
             return set;
         }

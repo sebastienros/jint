@@ -55,7 +55,7 @@ internal sealed class SetConstructor : Constructor
         var set = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.Set.PrototypeObject,
-            static (Engine engine, Realm _, object? _) => new SetInstance(engine));
+            static (Engine engine, Realm _, object? _) => new JsSet(engine));
 
         if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
         {
