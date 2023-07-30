@@ -125,9 +125,9 @@ internal sealed class MapPrototype : Prototype
         return map.Values();
     }
 
-    private MapInstance AssertMapInstance(JsValue thisObject)
+    private JsMap AssertMapInstance(JsValue thisObject)
     {
-        if (thisObject is MapInstance map)
+        if (thisObject is JsMap map)
         {
             return map;
         }
