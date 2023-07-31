@@ -942,11 +942,7 @@ namespace Jint.Native.RegExp
 
             var e = match.Index + match.Length;
 
-            // .NET regexes doesn't returns code point indices
-            //if (fullUnicode)
-            //{
-            //    e = GetStringIndex(s, e);
-            //}
+            // NOTE: Even in Unicode mode, we don't need to translate indices as .NET regexes always return code unit indices.
 
             if (global || sticky)
             {
@@ -955,35 +951,6 @@ namespace Jint.Native.RegExp
 
             return CreateReturnValueArray(R.Engine, matcher, match, s, fullUnicode, hasIndices);
         }
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-getstringindex
-        /// </summary>
-        //private static int GetStringIndex(string s, int codePointIndex)
-        //{
-        //    if (s.Length == 0)
-        //    {
-        //        return 0;
-        //    }
-
-        //    var len = s.Length;
-        //    var codeUnitCount = 0;
-        //    var codePointCount = 0;
-
-        //    while (codeUnitCount < len)
-        //    {
-        //        if (codePointCount == codePointIndex)
-        //        {
-        //            return codeUnitCount;
-        //        }
-
-        //        var isSurrogatePair = char.IsSurrogatePair(s, codeUnitCount);
-        //        codeUnitCount += isSurrogatePair ? 2 : 1;
-        //        codePointCount += 1;
-        //    }
-
-        //    return len;
-        //}
 
         private static JsArray CreateReturnValueArray(
             Engine engine,
@@ -1113,7 +1080,7 @@ namespace Jint.Native.RegExp
             {
                 try
                 {
-                    var bytes = Shims.BytesFromHexString(groupNameFromNumber.AsSpan(encodedGroupNamePrefix.Length));
+                    var bytes = groupNameFromNumber.AsSpan(encodedGroupNamePrefix.Length).BytesFromHexString();
                     groupNameFromNumber = Encoding.UTF8.GetString(bytes);
                 }
                 catch { /* intentional no-op */ }

@@ -2,7 +2,7 @@ namespace Jint;
 
 internal static class Shims
 {
-    public static byte[] BytesFromHexString(ReadOnlySpan<char> value)
+    public static byte[] BytesFromHexString(this ReadOnlySpan<char> value)
     {
 #if NET6_0_OR_GREATER
         return Convert.FromHexString(value);
