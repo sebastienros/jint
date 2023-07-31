@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using System.Text.RegularExpressions;
 using Jint.Collections;
 using Jint.Native.Number;
@@ -824,7 +825,7 @@ namespace Jint.Native.RegExp
             var exec = r.Get(PropertyExec);
             if (exec is ICallable callable)
             {
-                var result = callable.Call(r, new JsValue[]  { s });
+                var result = callable.Call(r, new JsValue[] { s });
                 if (!result.IsNull() && !result.IsObject())
                 {
                     ExceptionHelper.ThrowTypeError(r.Engine.Realm);
@@ -902,30 +903,46 @@ namespace Jint.Native.RegExp
 
             // the stateful version
             Match match;
+
+            if (lastIndex > length)
+            {
+                R.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
+                return Null;
+            }
+
+            var startAt = (int) lastIndex;
             while (true)
             {
-                if (lastIndex > length)
-                {
-                    R.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
-                    return Null;
-                }
+                match = R.Value.Match(s, startAt);
 
-                match = R.Value.Match(s, (int) lastIndex);
-                var success = match.Success && (!sticky || match.Index == (int) lastIndex);
-                if (!success)
+                // The conversion of Unicode regex patterns to .NET Regex has some flaws:
+                // when the pattern may match empty strings, the adapted Regex will return empty string matches
+                // in the middle of surrogate pairs. As a best effort solution, we remove these fake positive matches.
+                // (See also: https://github.com/sebastienros/esprima-dotnet/pull/364#issuecomment-1606045259)
+
+                if (match.Success
+                    && fullUnicode
+                    && match.Length == 0
+                    && 0 < match.Index && match.Index < s.Length
+                    && char.IsHighSurrogate(s[match.Index - 1]) && char.IsLowSurrogate(s[match.Index]))
                 {
-                    R.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
-                    return Null;
+                    startAt++;
+                    continue;
                 }
 
                 break;
             }
 
-            var e = match.Index + match.Length;
-            if (fullUnicode)
+            var success = match.Success && (!sticky || match.Index == (int) lastIndex);
+            if (!success)
             {
-                e = GetStringIndex(s, e);
+                R.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
+                return Null;
             }
+
+            var e = match.Index + match.Length;
+
+            // NOTE: Even in Unicode mode, we don't need to translate indices as .NET regexes always return code unit indices.
 
             if (global || sticky)
             {
@@ -933,35 +950,6 @@ namespace Jint.Native.RegExp
             }
 
             return CreateReturnValueArray(R.Engine, matcher, match, s, fullUnicode, hasIndices);
-        }
-
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-getstringindex
-        /// </summary>
-        private static int GetStringIndex(string s, int codePointIndex)
-        {
-            if (s.Length == 0)
-            {
-                return 0;
-            }
-
-            var len = s.Length;
-            var codeUnitCount = 0;
-            var codePointCount = 0;
-
-            while (codeUnitCount < len)
-            {
-                if (codePointCount == codePointIndex)
-                {
-                    return codeUnitCount;
-                }
-
-                var isSurrogatePair = char.IsSurrogatePair(s, codeUnitCount);
-                codeUnitCount += isSurrogatePair ? 2 : 1;
-                codePointCount += 1;
-            }
-
-            return len;
         }
 
         private static JsArray CreateReturnValueArray(
@@ -1080,6 +1068,24 @@ namespace Jint.Native.RegExp
                 return null;
 
             }
+
+            // The characters allowed in group names differs between the JS and .NET regex engines.
+            // For example the group name "$group" is valid in JS but invalid in .NET.
+            // As a workaround for this issue, the parser make an attempt to encode the problematic group names to
+            // names which are valid in .NET and probably won't collide with other group names present in the pattern
+            // (https://github.com/sebastienros/esprima-dotnet/blob/v3.0.0-rc-03/src/Esprima/Scanner.RegExpParser.cs#L942).
+            // We need to decode such group names.
+            const string encodedGroupNamePrefix = "__utf8_";
+            if (groupNameFromNumber.StartsWith(encodedGroupNamePrefix, StringComparison.Ordinal))
+            {
+                try
+                {
+                    var bytes = groupNameFromNumber.AsSpan(encodedGroupNamePrefix.Length).BytesFromHexString();
+                    groupNameFromNumber = Encoding.UTF8.GetString(bytes);
+                }
+                catch { /* intentional no-op */ }
+            }
+
             return groupNameFromNumber;
         }
 

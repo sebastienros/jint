@@ -44,14 +44,10 @@
     "language/literals/regexp/named-groups/forward-reference.js",
 
     // RegExp handling problems
-    "built-ins/RegExp/match-indices/indices-array-unicode-property-names.js",
     "built-ins/RegExp/named-groups/non-unicode-match.js",
     "built-ins/RegExp/named-groups/non-unicode-property-names-valid.js",
-    "built-ins/RegExp/named-groups/non-unicode-property-names.js",
     "built-ins/RegExp/named-groups/unicode-match.js",
     "built-ins/RegExp/named-groups/unicode-property-names-valid.js",
-    "built-ins/RegExp/named-groups/unicode-property-names.js",
-    "built-ins/RegExp/prototype/Symbol.replace/named-groups.js",
     "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
     "built-ins/String/prototype/split/separator-regexp.js",
     "language/literals/regexp/u-case-mapping.js",

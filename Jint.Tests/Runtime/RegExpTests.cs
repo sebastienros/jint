@@ -35,7 +35,7 @@ public class RegExpTests
     public void PreventsInfiniteLoop()
     {
         var engine = new Engine();
-        var result = (ArrayInstance)engine.Evaluate("'x'.match(/|/g);");
+        var result = (ArrayInstance) engine.Evaluate("'x'.match(/|/g);");
         Assert.Equal((uint) 2, result.Length);
         Assert.Equal("", result[0]);
         Assert.Equal("", result[1]);
@@ -102,5 +102,42 @@ public class RegExpTests
         var engine = new Engine();
         var source = engine.Evaluate(@"/\/\//.source");
         Assert.Equal("\\/\\/", source);
+    }
+
+    [Theory]
+    [InlineData("", "/()/ug", new[] { "" }, new[] { 0 })]
+    [InlineData("💩", "/()/ug", new[] { "", "" }, new[] { 0, 2 })]
+    [InlineData("ᴜⁿᵢ𝒸ₒᵈₑ is a 💩", "/i?/ug",
+        new[] { "", "", "", "", "", "", "", "", "i", "", "", "", "", "", "" },
+        new[] { 0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16 })]
+    public void ShouldNotMatchEmptyStringsWithinSurrogatePairsInUnicodeMode(string input, string pattern, string[] expectedCaptures, int[] expectedIndices)
+    {
+        var engine = new Engine();
+        var matches = engine.Evaluate($"[...'{input}'.matchAll({pattern})]").AsArray();
+        Assert.Equal((ulong) expectedCaptures.Length, matches.Length);
+        Assert.Equal(expectedCaptures, matches.Select((m, i) => m.Get(0).AsString()));
+        Assert.Equal(expectedIndices, matches.Select(m => m.Get("index").AsInteger()));
+    }
+
+    [Fact]
+    public void ShouldAllowProblematicGroupNames()
+    {
+        var engine = new Engine();
+
+        var match = engine.Evaluate("'abc'.match(/(?<$group>b)/)").AsArray();
+        var groups = match.Get("groups").AsObject();
+        Assert.Equal(new[] { "$group" }, groups.GetOwnPropertyKeys().Select(k => k.AsString()));
+        Assert.Equal("b", groups["$group"]);
+
+        var result = engine.Evaluate("'abc'.replace(/(?<$group>b)/g, '-$<$group>-')").AsString();
+        Assert.Equal("a-b-c", result);
+    }
+
+    [Fact]
+    public void Issue506()
+    {
+        var engine = new Engine();
+        var result = engine.Evaluate("/[^]?(:[rp][el]a[\\w-]+)[^]/.test(':reagent-')").AsBoolean();
+        Assert.True(result);
     }
 }
