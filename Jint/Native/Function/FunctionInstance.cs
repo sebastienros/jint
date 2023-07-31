@@ -257,7 +257,7 @@ namespace Jint.Native.Function
                 return GetFunctionRealm(bindFunctionInstance.BoundTargetFunction);
             }
 
-            if (obj is ProxyInstance proxyInstance)
+            if (obj is JsProxy proxyInstance)
             {
                 if (proxyInstance._handler is null)
                 {
