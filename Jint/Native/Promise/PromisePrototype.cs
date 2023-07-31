@@ -54,7 +54,7 @@ namespace Jint.Native.Promise
         {
             // 1. Let promise be the this value.
             // 2. If IsPromise(promise) is false, throw a TypeError exception.
-            var promise = thisValue as PromiseInstance;
+            var promise = thisValue as JsPromise;
             if (promise is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Method Promise.prototype.then called on incompatible receiver");

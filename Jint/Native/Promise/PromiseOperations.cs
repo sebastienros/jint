@@ -78,7 +78,7 @@ namespace Jint.Native.Promise
         //  d. Return Completion(thenCallResult).
         // .....Realm stuff....
         // 6. Return the Record { [[Job]]: job, [[Realm]]: thenRealm }.
-        internal static Action NewPromiseResolveThenableJob(PromiseInstance promise, ObjectInstance thenable, ICallable thenMethod)
+        internal static Action NewPromiseResolveThenableJob(JsPromise promise, ObjectInstance thenable, ICallable thenMethod)
         {
             return () =>
             {
@@ -114,7 +114,7 @@ namespace Jint.Native.Promise
         // https://tc39.es/ecma262/#sec-performpromisethen
         internal static JsValue PerformPromiseThen(
             Engine engine,
-            PromiseInstance promise,
+            JsPromise promise,
             JsValue onFulfilled,
             JsValue onRejected,
             PromiseCapability resultCapability)

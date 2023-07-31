@@ -140,13 +140,13 @@ namespace Jint.Runtime
                 promise.Reject(ex.Error);
             }
 
-            FinishDynamicImport(referencingModule, specifier, promiseCapability, (PromiseInstance) promise.Promise);
+            FinishDynamicImport(referencingModule, specifier, promiseCapability, (JsPromise) promise.Promise);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-finishdynamicimport
         /// </summary>
-        internal virtual void FinishDynamicImport(IScriptOrModule? referencingModule, string specifier, PromiseCapability promiseCapability, PromiseInstance innerPromise)
+        internal virtual void FinishDynamicImport(IScriptOrModule? referencingModule, string specifier, PromiseCapability promiseCapability, JsPromise innerPromise)
         {
             var onFulfilled = new ClrFunctionInstance(Engine, "", (thisObj, args) =>
             {

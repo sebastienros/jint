@@ -26,9 +26,9 @@ internal sealed class JintAwaitExpression : JintExpression
         {
             var value = _awaitExpression.GetValue(context);
 
-            if (value is not PromiseInstance)
+            if (value is not JsPromise)
             {
-                var promiseInstance = new PromiseInstance(engine);
+                var promiseInstance = new JsPromise(engine);
                 promiseInstance.Resolve(value);
                 value = promiseInstance;
             }
