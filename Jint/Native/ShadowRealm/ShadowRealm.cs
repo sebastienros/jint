@@ -215,7 +215,7 @@ public sealed class ShadowRealm : ObjectInstance
 
         var onFulfilled = new StepsFunction(_engine, callerRealm, exportNameString);
         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Realm.Intrinsics.Promise);
-        var value = PromiseOperations.PerformPromiseThen(_engine, (PromiseInstance) innerCapability.PromiseInstance, onFulfilled, callerRealm.Intrinsics.ThrowTypeError, promiseCapability);
+        var value = PromiseOperations.PerformPromiseThen(_engine, (JsPromise) innerCapability.PromiseInstance, onFulfilled, callerRealm.Intrinsics.ThrowTypeError, promiseCapability);
 
         return value;
     }

@@ -128,7 +128,7 @@ public class PromiseTests
         var engine = new Engine();
         var promise = engine.Evaluate("new Promise((resolve, reject)=>{});");
 
-        Assert.IsType<PromiseInstance>(promise);
+        Assert.IsType<JsPromise>(promise);
     }
 
     [Fact(Timeout = 5000)]

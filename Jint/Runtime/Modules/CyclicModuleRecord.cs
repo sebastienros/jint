@@ -426,7 +426,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
         var onFullfilled = new ClrFunctionInstance(_engine, "fulfilled", AsyncModuleExecutionFulfilled, 1, PropertyFlag.Configurable);
         var onRejected = new ClrFunctionInstance(_engine, "rejected", AsyncModuleExecutionRejected, 1, PropertyFlag.Configurable);
 
-        PromiseOperations.PerformPromiseThen(_engine, (PromiseInstance) capability.PromiseInstance, onFullfilled, onRejected, null);
+        PromiseOperations.PerformPromiseThen(_engine, (JsPromise) capability.PromiseInstance, onFullfilled, onRejected, null);
 
         return ExecuteModule(capability);
     }

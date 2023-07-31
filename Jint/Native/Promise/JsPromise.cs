@@ -37,7 +37,7 @@ public sealed record ManualPromise(
 );
 
 
-internal sealed class PromiseInstance : ObjectInstance
+internal sealed class JsPromise : ObjectInstance
 {
     internal PromiseState State { get; private set; }
 
@@ -47,7 +47,7 @@ internal sealed class PromiseInstance : ObjectInstance
     internal List<PromiseReaction> PromiseRejectReactions = new();
     internal List<PromiseReaction> PromiseFulfillReactions = new();
 
-    internal PromiseInstance(Engine engine) : base(engine)
+    internal JsPromise(Engine engine) : base(engine)
     {
     }
 

@@ -47,7 +47,7 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsPromise(this JsValue value)
         {
-            return value is PromiseInstance;
+            return value is JsPromise;
         }
 
         [Pure]
@@ -543,7 +543,7 @@ namespace Jint
         /// <returns>inner value if Promise the value itself otherwise</returns>
         public static JsValue UnwrapIfPromise(this JsValue value)
         {
-            if (value is PromiseInstance promise)
+            if (value is JsPromise promise)
             {
                 switch (promise.State)
                 {

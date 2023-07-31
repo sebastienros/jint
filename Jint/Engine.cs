@@ -436,7 +436,7 @@ namespace Jint
         /// <returns>a Promise instance and functions to either resolve or reject it</returns>
         public ManualPromise RegisterPromise()
         {
-            var promise = new PromiseInstance(this)
+            var promise = new JsPromise(this)
             {
                 _prototype = Realm.Intrinsics.Promise.PrototypeObject
             };

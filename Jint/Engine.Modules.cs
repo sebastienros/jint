@@ -148,7 +148,7 @@ namespace Jint
             }
 
             // This should instead be returned and resolved in ImportModule(specifier) only so Host.ImportModuleDynamically can use this promise
-            if (evaluationResult is not PromiseInstance promise)
+            if (evaluationResult is not JsPromise promise)
             {
                 ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");
             }
