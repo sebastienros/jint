@@ -440,95 +440,95 @@ namespace Jint.Native.Global
             for (var k = 0; k < strLen; k++)
             {
                 var c = uriString[k];
+
                 if (unescapedUriSet != null && unescapedUriSet.Contains(c))
                 {
                     _stringBuilder.Append(c);
+                    continue;
+                }
+
+                if (c >= 0xDC00 && c <= 0xDBFF)
+                {
+                    ExceptionHelper.ThrowUriError(_realm);
+                }
+
+                int v;
+                if (c < 0xD800 || c > 0xDBFF)
+                {
+                    v = c;
                 }
                 else
                 {
-                    if (c >= 0xDC00 && c <= 0xDBFF)
+                    k++;
+                    if (k == strLen)
                     {
                         ExceptionHelper.ThrowUriError(_realm);
                     }
 
-                    int v;
-                    if (c < 0xD800 || c > 0xDBFF)
-                    {
-                        v = c;
-                    }
-                    else
-                    {
-                        k++;
-                        if (k == strLen)
-                        {
-                            ExceptionHelper.ThrowUriError(_realm);
-                        }
-
-                        var kChar = (int)uriString[k];
-                        if (kChar < 0xDC00 || kChar > 0xDFFF)
-                        {
-                            ExceptionHelper.ThrowUriError(_realm);
-                        }
-
-                        v = (c - 0xD800) * 0x400 + (kChar - 0xDC00) + 0x10000;
-                    }
-
-                    byte[] octets = System.Array.Empty<byte>();
-
-                    if (v >= 0 && v <= 0x007F)
-                    {
-                        // 00000000 0zzzzzzz -> 0zzzzzzz
-                        octets = new[] { (byte)v };
-                    }
-                    else if (v <= 0x07FF)
-                    {
-                        // 00000yyy yyzzzzzz ->	110yyyyy ; 10zzzzzz
-                        octets = new[]
-                        {
-                            (byte)(0xC0 | (v >> 6)),
-                            (byte)(0x80 | (v & 0x3F))
-                        };
-                    }
-                    else if (v <= 0xD7FF)
-                    {
-                        // xxxxyyyy yyzzzzzz -> 1110xxxx; 10yyyyyy; 10zzzzzz
-                        octets = new[]
-                        {
-                            (byte)(0xE0 | (v >> 12)),
-                            (byte)(0x80 | ((v >> 6) & 0x3F)),
-                            (byte)(0x80 | (v & 0x3F))
-                        };
-                    }
-                    else if (v <= 0xDFFF)
+                    var kChar = (int)uriString[k];
+                    if (kChar < 0xDC00 || kChar > 0xDFFF)
                     {
                         ExceptionHelper.ThrowUriError(_realm);
                     }
-                    else if (v <= 0xFFFF)
-                    {
-                        octets = new[]
-                        {
-                            (byte) (0xE0 | (v >> 12)),
-                            (byte) (0x80 | ((v >> 6) & 0x3F)),
-                            (byte) (0x80 | (v & 0x3F))
-                        };
-                    }
-                    else
-                    {
-                        octets = new[]
-                        {
-                            (byte) (0xF0 | (v >> 18)),
-                            (byte) (0x80 | (v >> 12 & 0x3F)),
-                            (byte) (0x80 | (v >> 6 & 0x3F)),
-                            (byte) (0x80 | (v >> 0 & 0x3F))
-                        };
-                    }
 
-                    foreach (var octet in octets)
+                    v = (c - 0xD800) * 0x400 + (kChar - 0xDC00) + 0x10000;
+                }
+
+                byte[] octets = System.Array.Empty<byte>();
+
+                if (v >= 0 && v <= 0x007F)
+                {
+                    // 00000000 0zzzzzzz -> 0zzzzzzz
+                    octets = new[] { (byte)v };
+                }
+                else if (v <= 0x07FF)
+                {
+                    // 00000yyy yyzzzzzz ->	110yyyyy ; 10zzzzzz
+                    octets = new[]
                     {
-                        var x1 = HexaMap[octet / 16];
-                        var x2 = HexaMap[octet % 16];
-                        _stringBuilder.Append('%').Append(x1).Append(x2);
-                    }
+                        (byte)(0xC0 | (v >> 6)),
+                        (byte)(0x80 | (v & 0x3F))
+                    };
+                }
+                else if (v <= 0xD7FF)
+                {
+                    // xxxxyyyy yyzzzzzz -> 1110xxxx; 10yyyyyy; 10zzzzzz
+                    octets = new[]
+                    {
+                        (byte)(0xE0 | (v >> 12)),
+                        (byte)(0x80 | ((v >> 6) & 0x3F)),
+                        (byte)(0x80 | (v & 0x3F))
+                    };
+                }
+                else if (v <= 0xDFFF)
+                {
+                    ExceptionHelper.ThrowUriError(_realm);
+                }
+                else if (v <= 0xFFFF)
+                {
+                    octets = new[]
+                    {
+                        (byte) (0xE0 | (v >> 12)),
+                        (byte) (0x80 | ((v >> 6) & 0x3F)),
+                        (byte) (0x80 | (v & 0x3F))
+                    };
+                }
+                else
+                {
+                    octets = new[]
+                    {
+                        (byte) (0xF0 | (v >> 18)),
+                        (byte) (0x80 | (v >> 12 & 0x3F)),
+                        (byte) (0x80 | (v >> 6 & 0x3F)),
+                        (byte) (0x80 | (v >> 0 & 0x3F))
+                    };
+                }
+
+                foreach (var octet in octets)
+                {
+                    var x1 = HexaMap[octet / 16];
+                    var x2 = HexaMap[octet % 16];
+                    _stringBuilder.Append('%').Append(x1).Append(x2);
                 }
             }
 
@@ -561,14 +561,64 @@ namespace Jint.Native.Global
             for (var k = 0; k < strLen; k++)
             {
                 var C = uriString[k];
+
                 if (C != '%')
                 {
                     _stringBuilder.Append(C);
+                    continue;
                 }
-                else
+
+                var start = k;
+                if (k + 2 >= strLen)
                 {
-                    var start = k;
-                    if (k + 2 >= strLen)
+                    ExceptionHelper.ThrowUriError(_realm);
+                }
+
+                if (!IsValidHexaChar(uriString[k + 1]) || !IsValidHexaChar(uriString[k + 2]))
+                {
+                    ExceptionHelper.ThrowUriError(_realm);
+                }
+
+                var B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
+
+                k += 2;
+                if ((B & 0x80) == 0)
+                {
+                    C = (char)B;
+                    if (reservedSet == null || !reservedSet.Contains(C))
+                    {
+                        _stringBuilder.Append(C);
+                    }
+                    else
+                    {
+                        _stringBuilder.Append(uriString, start, k - start + 1);
+                    }
+                    continue;
+                }
+
+                var n = 0;
+                for (; ((B << n) & 0x80) != 0; n++) ;
+
+                if (n == 1 || n > 4)
+                {
+                    ExceptionHelper.ThrowUriError(_realm);
+                }
+
+                octets = octets.Length == n
+                    ? octets
+                    : new byte[n];
+
+                octets[0] = B;
+
+                if (k + (3 * (n - 1)) >= strLen)
+                {
+                    ExceptionHelper.ThrowUriError(_realm);
+                }
+
+                for (var j = 1; j < n; j++)
+                {
+                    k++;
+                    if (uriString[k] != '%')
                     {
                         ExceptionHelper.ThrowUriError(_realm);
                     }
@@ -578,71 +628,20 @@ namespace Jint.Native.Global
                         ExceptionHelper.ThrowUriError(_realm);
                     }
 
-                    var B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
+                    B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
+
+                    // B & 11000000 != 10000000
+                    if ((B & 0xC0) != 0x80)
+                    {
+                        ExceptionHelper.ThrowUriError(_realm);
+                    }
 
                     k += 2;
-                    if ((B & 0x80) == 0)
-                    {
-                        C = (char)B;
-                        if (reservedSet == null || !reservedSet.Contains(C))
-                        {
-                            _stringBuilder.Append(C);
-                        }
-                        else
-                        {
-                            _stringBuilder.Append(uriString, start, k - start + 1);
-                        }
-                    }
-                    else
-                    {
-                        var n = 0;
-                        for (; ((B << n) & 0x80) != 0; n++) ;
 
-                        if (n == 1 || n > 4)
-                        {
-                            ExceptionHelper.ThrowUriError(_realm);
-                        }
-
-                        octets = octets.Length == n
-                            ? octets
-                            : new byte[n];
-
-                        octets[0] = B;
-
-                        if (k + (3 * (n - 1)) >= strLen)
-                        {
-                            ExceptionHelper.ThrowUriError(_realm);
-                        }
-
-                        for (var j = 1; j < n; j++)
-                        {
-                            k++;
-                            if (uriString[k] != '%')
-                            {
-                                ExceptionHelper.ThrowUriError(_realm);
-                            }
-
-                            if (!IsValidHexaChar(uriString[k + 1]) || !IsValidHexaChar(uriString[k + 2]))
-                            {
-                                ExceptionHelper.ThrowUriError(_realm);
-                            }
-
-                            B = Convert.ToByte(uriString[k + 1].ToString() + uriString[k + 2], 16);
-
-                            // B & 11000000 != 10000000
-                            if ((B & 0xC0) != 0x80)
-                            {
-                                ExceptionHelper.ThrowUriError(_realm);
-                            }
-
-                            k += 2;
-
-                            octets[j] = B;
-                        }
-
-                        _stringBuilder.Append(Encoding.UTF8.GetString(octets, 0, octets.Length));
-                    }
+                    octets[j] = B;
                 }
+
+                _stringBuilder.Append(Encoding.UTF8.GetString(octets, 0, octets.Length));
             }
 
             return _stringBuilder.ToString();

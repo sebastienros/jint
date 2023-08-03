@@ -81,13 +81,14 @@ namespace Jint.Native.Argument
                     for (uint i = 0; i < (uint) args.Length; i++)
                     {
                         SetOwnProperty(JsString.Create(i), new PropertyDescriptor(args[i], PropertyFlag.ConfigurableEnumerableWritable));
-                        if (i < _names.Length)
+                        if (i >= _names.Length)
                         {
-                            var name = _names[i];
-                            if (mappedNamed.Add(name))
-                            {
-                                map.SetOwnProperty(JsString.Create(i), new ClrAccessDescriptor(_env, Engine, name));
-                            }
+                            continue;
+                        }
+                        var name = _names[i];
+                        if (mappedNamed.Add(name))
+                        {
+                            map.SetOwnProperty(JsString.Create(i), new ClrAccessDescriptor(_env, Engine, name));
                         }
                     }
                 }

@@ -39,17 +39,16 @@ namespace Jint.Runtime.CallStack
 
         public override string ToString()
         {
+            const string DEFAULT = "(anonymous)";
+
             var name = TypeConverter.ToString(Function.Get(CommonProperties.Name));
 
-            if (string.IsNullOrWhiteSpace(name))
+            if (string.IsNullOrWhiteSpace(name) && Expression is not null)
             {
-                if (Expression is not null)
-                {
-                    name = JintExpression.ToString(Expression._expression);
-                }
+                name = JintExpression.ToString(Expression._expression);
             }
 
-            return name ?? "(anonymous)";
+            return name ?? DEFAULT;
         }
 
         public bool Equals(CallStackElement other)

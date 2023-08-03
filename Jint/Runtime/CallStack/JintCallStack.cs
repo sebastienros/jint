@@ -26,16 +26,17 @@ namespace Jint.Runtime.CallStack
             var lex = LexicalEnvironment;
             while (true)
             {
-                if (lex is not null)
+                if (lex is null)
                 {
-                    if (lex.HasThisBinding())
-                    {
-                        return lex;
-
-                    }
-
-                    lex = lex._outerEnv;
+                    continue;
                 }
+
+                if (lex.HasThisBinding())
+                {
+                    return lex;
+                }
+
+                lex = lex._outerEnv;
             }
         }
     }
@@ -59,21 +60,22 @@ namespace Jint.Runtime.CallStack
         public int Push(FunctionInstance functionInstance, JintExpression? expression, in ExecutionContext executionContext)
         {
             var item = new CallStackElement(functionInstance, expression, new CallStackExecutionContext(executionContext));
+
             _stack.Push(item);
-            if (_statistics is not null)
+
+            if (_statistics is null)
             {
-                if (_statistics.ContainsKey(item))
-                {
-                    return ++_statistics[item];
-                }
-                else
-                {
-                    _statistics.Add(item, 0);
-                    return 0;
-                }
+                return -1;
             }
 
-            return -1;
+            if (_statistics.ContainsKey(item))
+            {
+                return ++_statistics[item];
+            }
+
+            _statistics.Add(item, 0);
+
+            return 0;
         }
 
         public CallStackElement Pop()
