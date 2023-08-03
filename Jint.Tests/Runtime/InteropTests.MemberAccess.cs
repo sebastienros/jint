@@ -200,7 +200,7 @@ namespace Jint.Tests.Runtime
 
         private class CustomDictionary<TValue> : IDictionary<string, TValue>
         {
-            Dictionary<string, TValue> _dictionary = new Dictionary<string, TValue>();
+            readonly Dictionary<string, TValue> _dictionary = new Dictionary<string, TValue>();
 
             public TValue this[string key]
             {

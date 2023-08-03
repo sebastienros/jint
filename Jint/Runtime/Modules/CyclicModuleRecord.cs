@@ -29,7 +29,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     protected bool _hasTLA;
     private bool _asyncEvaluation;
     private PromiseCapability _topLevelCapability;
-    private List<CyclicModuleRecord> _asyncParentModules;
+    private readonly List<CyclicModuleRecord> _asyncParentModules;
     private int _asyncEvalOrder;
     private int _pendingAsyncDependencies;
 

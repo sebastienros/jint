@@ -7,7 +7,7 @@ namespace Jint;
 /// </summary>
 internal sealed class Agent
 {
-    private List<JsValue> _keptAlive = new();
+    private readonly List<JsValue> _keptAlive = new();
 
     public void AddToKeptObjects(JsValue target)
     {
