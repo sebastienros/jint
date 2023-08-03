@@ -5,7 +5,7 @@ namespace Jint.Tests.Runtime
 {
     public class JsValueConversionTests
     {
-        private Engine _engine;
+        private readonly Engine _engine;
 
         public JsValueConversionTests()
         {

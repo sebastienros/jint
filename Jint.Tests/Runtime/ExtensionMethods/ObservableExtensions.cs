@@ -6,7 +6,7 @@ namespace Jint.Tests.Runtime.ExtensionMethods
         private readonly Action<Exception> onError;
         private readonly Action onCompleted;
 
-        int isStopped = 0;
+        readonly int isStopped = 0;
 
         public Subscribe(Action<T> onNext, Action<Exception> onError, Action onCompleted)
         {
@@ -65,7 +65,7 @@ namespace Jint.Tests.Runtime.ExtensionMethods
 
     public class BaseObservable<T> : IObservable<T>
     {
-        private List<IObserver<T>> observers = new List<IObserver<T>>();
+        private readonly List<IObserver<T>> observers = new List<IObserver<T>>();
 
         public T Last { get; private set; }
 
@@ -78,8 +78,8 @@ namespace Jint.Tests.Runtime.ExtensionMethods
 
         private class Unsubscriber : IDisposable
         {
-            private List<IObserver<T>> _observers;
-            private IObserver<T> _observer;
+            private readonly List<IObserver<T>> _observers;
+            private readonly IObserver<T> _observer;
 
             public Unsubscriber(List<IObserver<T>> observers, IObserver<T> observer)
             {

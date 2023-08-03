@@ -19,7 +19,7 @@ namespace Jint.Runtime.Interpreter
 
         private Pair[]? _jintStatements;
         private bool _initialized;
-        private uint _index;
+        private readonly uint _index;
         private readonly bool _generator;
 
         public JintStatementList(IFunction function)

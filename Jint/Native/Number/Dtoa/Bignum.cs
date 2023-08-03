@@ -24,7 +24,7 @@ namespace Jint.Native.Number.Dtoa
         // grow. There are no checks if the stack-allocated space is sufficient.
         private const int kBigitCapacity = kMaxSignificantBits / kBigitSize;
 
-        private uint[] bigits_ = new uint[kBigitCapacity];
+        private readonly uint[] bigits_ = new uint[kBigitCapacity];
 
         // The Bignum's value equals value(bigits_) * 2^(exponent_ * kBigitSize).
         private int exponent_;
@@ -429,7 +429,8 @@ namespace Jint.Native.Number.Dtoa
         internal void MultiplyByUInt64(ulong factor)
         {
             if (factor == 1) return;
-            if (factor == 0) {
+            if (factor == 0)
+            {
                 Zero();
                 return;
             }
@@ -437,7 +438,8 @@ namespace Jint.Native.Number.Dtoa
             ulong carry = 0;
             ulong low = factor & 0xFFFFFFFF;
             ulong high = factor >> 32;
-            for (int i = 0; i < used_digits_; ++i) {
+            for (int i = 0; i < used_digits_; ++i)
+            {
                 ulong product_low = low * bigits_[i];
                 ulong product_high = high * bigits_[i];
                 ulong tmp = (carry & kBigitMask) + product_low;
@@ -445,7 +447,8 @@ namespace Jint.Native.Number.Dtoa
                 carry = (carry >> kBigitSize) + (tmp >> kBigitSize) +
                         (product_high << (32 - kBigitSize));
             }
-            while (carry != 0) {
+            while (carry != 0)
+            {
                 EnsureCapacity(used_digits_ + 1);
                 bigits_[used_digits_] = (uint) (carry & kBigitMask);
                 used_digits_++;

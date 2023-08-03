@@ -140,7 +140,7 @@ public class GenericMethodTests
 
     public class TestGenericBaseClass<T>
     {
-        private System.Collections.Generic.List<T> _list = new System.Collections.Generic.List<T>();
+        private readonly System.Collections.Generic.List<T> _list = new System.Collections.Generic.List<T>();
 
         public int Count
         {
