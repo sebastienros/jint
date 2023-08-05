@@ -220,6 +220,12 @@ namespace Jint.Runtime.Interop
                     continue;
                 }
 
+                Type? returnType = null;
+                if (method.Method is MethodInfo methodInfo)
+                {
+                    returnType = methodInfo.ReturnType;
+                }
+
                 // todo: cache method info
                 try
                 {
@@ -227,10 +233,10 @@ namespace Jint.Runtime.Interop
                     {
                         var genericMethodInfo = resolvedMethod;
                         var result = genericMethodInfo.Invoke(thisObj, parameters);
-                        return FromObject(Engine, result);
+                        return FromObjectWithType(Engine, result, returnType);
                     }
 
-                    return FromObject(Engine, method.Method.Invoke(thisObj, parameters));
+                    return FromObjectWithType(Engine, method.Method.Invoke(thisObj, parameters), returnType);
                 }
                 catch (TargetInvocationException exception)
                 {

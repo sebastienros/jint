@@ -111,6 +111,14 @@ namespace Jint.Native
         /// </summary>
         public static JsValue FromObject(Engine engine, object? value)
         {
+            return FromObjectWithType(engine, value, null);
+        }
+
+        /// <summary>
+        /// Creates a valid <see cref="JsValue"/> instance from any <see cref="Object"/> instance, with a type
+        /// </summary>
+        public static JsValue FromObjectWithType(Engine engine, object? value, Type? type)
+        {
             if (value is null)
             {
                 return Null;
@@ -132,7 +140,7 @@ namespace Jint.Native
                 }
             }
 
-            if (DefaultObjectConverter.TryConvert(engine, value, out var defaultConversion))
+            if (DefaultObjectConverter.TryConvert(engine, value, type, out var defaultConversion))
             {
                 return defaultConversion;
             }

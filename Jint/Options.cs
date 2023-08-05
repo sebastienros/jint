@@ -15,7 +15,7 @@ namespace Jint
 {
     public delegate JsValue? MemberAccessorDelegate(Engine engine, object target, string member);
 
-    public delegate ObjectInstance? WrapObjectDelegate(Engine engine, object target);
+    public delegate ObjectInstance? WrapObjectDelegate(Engine engine, object target, Type? type);
 
     public delegate bool ExceptionHandlerDelegate(Exception exception);
 
@@ -119,6 +119,22 @@ namespace Jint
                         "importNamespace",
                         (thisObj, arguments) =>
                             new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))),
+                    PropertyFlag.AllForbidden));
+                engine.Realm.GlobalObject.SetProperty("unwrapClr", new PropertyDescriptor(new ClrFunctionInstance(
+                    engine,
+                    "unwrapClr",
+                    (thisObj, arguments) =>
+                    {
+                        var arg = arguments.At(0);
+                        if (arg is ObjectWrapper obj)
+                        {
+                            return new ObjectWrapper(engine, obj.Target);
+                        }
+                        else
+                        {
+                            return arg;
+                        }
+                    }),
                     PropertyFlag.AllForbidden));
             }
 
@@ -282,7 +298,7 @@ namespace Jint
         /// ObjectInstance using class ObjectWrapper. This function can be used to
         /// change the behavior.
         /// </summary>
-        public WrapObjectDelegate WrapObjectHandler { get; set; } = static (engine, target) => new ObjectWrapper(engine, target);
+        public WrapObjectDelegate WrapObjectHandler { get; set; } = static (engine, target, type) => new ObjectWrapper(engine, target, type);
 
         /// <summary>
         ///

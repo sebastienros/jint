@@ -34,10 +34,10 @@ namespace Jint
             }
         };
 
-        public static bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue? result)
+        public static bool TryConvert(Engine engine, object value, Type? type, [NotNullWhen(true)] out JsValue? result)
         {
             result = null;
-            var valueType = value.GetType();
+            Type valueType = ObjectWrapper.ClrType(value, type);
 
             var typeMappers = _typeMappers;
 
@@ -109,7 +109,7 @@ namespace Jint
                         }
                         else
                         {
-                            var wrapped = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value);
+                            var wrapped = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value, type);
                             result = wrapped;
 
                             if (engine.Options.Interop.TrackObjectWrapperIdentity && wrapped is not null)
