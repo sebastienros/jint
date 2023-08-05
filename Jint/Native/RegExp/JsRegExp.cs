@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Esprima;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -61,6 +62,8 @@ namespace Jint.Native.RegExp
                 }
             }
         }
+
+        public RegExpParseResult ParseResult { get; set; }
 
         public bool DotAll { get; private set; }
         public bool Global { get; private set; }

@@ -76,12 +76,13 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (expression.TokenType == TokenType.RegularExpression)
             {
                 var regExpLiteral = (RegExpLiteral) _expression;
-                if (regExpLiteral.Value is System.Text.RegularExpressions.Regex regex)
+                var regExpParseResult = regExpLiteral.ParseResult;
+                if (regExpParseResult.Success)
                 {
-                    return context.Engine.Realm.Intrinsics.RegExp.Construct(regex, regExpLiteral.Regex.Pattern, regExpLiteral.Regex.Flags);
+                    return context.Engine.Realm.Intrinsics.RegExp.Construct(regExpParseResult.Regex!, regExpLiteral.Regex.Pattern, regExpLiteral.Regex.Flags, regExpParseResult);
                 }
 
-                ExceptionHelper.ThrowSyntaxError(context.Engine.Realm, $"Unsupported regular expression: '{regExpLiteral.Regex.Pattern}/{regExpLiteral.Regex.Flags}'");
+                ExceptionHelper.ThrowSyntaxError(context.Engine.Realm, $"Unsupported regular expression. {regExpParseResult.ConversionError!.Description}");
             }
 
             return JsValue.FromObject(context.Engine, expression.Value);
