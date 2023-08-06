@@ -29,7 +29,8 @@ namespace Jint.Runtime.Descriptors.Specialized
             get
             {
                 var value = _reflectionAccessor.GetValue(_engine, _target);
-                return JsValue.FromObject(_engine, value);
+                var type = _reflectionAccessor.MemberType;
+                return JsValue.FromObjectWithType(_engine, value, type);
             }
             set
             {

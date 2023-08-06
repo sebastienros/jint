@@ -16,6 +16,8 @@ namespace Jint.Runtime.Interop.Reflection
         private readonly object? _memberName;
         private readonly PropertyInfo? _indexer;
 
+        public Type MemberType => _memberType;
+
         protected ReflectionAccessor(
             Type memberType,
             object? memberName,
