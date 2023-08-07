@@ -120,21 +120,25 @@ namespace Jint
                         (thisObj, arguments) =>
                             new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))),
                     PropertyFlag.AllForbidden));
-                engine.Realm.GlobalObject.SetProperty("unwrapClr", new PropertyDescriptor(new ClrFunctionInstance(
+                engine.Realm.GlobalObject.SetProperty("clrUnwrap", new PropertyDescriptor(new ClrFunctionInstance(
                     engine,
-                    "unwrapClr",
-                    (thisObj, arguments) =>
-                    {
-                        var arg = arguments.At(0);
-                        if (arg is ObjectWrapper obj)
-                        {
-                            return new ObjectWrapper(engine, obj.Target);
-                        }
-                        else
-                        {
-                            return arg;
-                        }
-                    }),
+                    "clrUnwrap",
+                    ClrHelper.ClrUnwrap),
+                    PropertyFlag.AllForbidden));
+                engine.Realm.GlobalObject.SetProperty("clrWrap", new PropertyDescriptor(new ClrFunctionInstance(
+                    engine,
+                    "clrWrap",
+                    ClrHelper.ClrWrap),
+                    PropertyFlag.AllForbidden));
+                engine.Realm.GlobalObject.SetProperty("clrType", new PropertyDescriptor(new ClrFunctionInstance(
+                    engine,
+                    "clrType",
+                    ClrHelper.ClrType),
+                    PropertyFlag.AllForbidden));
+                engine.Realm.GlobalObject.SetProperty("clrToString", new PropertyDescriptor(new ClrFunctionInstance(
+                    engine,
+                    "clrToString",
+                    ClrHelper.ClrToString),
                     PropertyFlag.AllForbidden));
             }
 
@@ -183,11 +187,12 @@ namespace Jint
 
             foreach (var overloads in methods.GroupBy(x => x.Name))
             {
+                string name = overloads.Key;
                 PropertyDescriptor CreateMethodInstancePropertyDescriptor(ClrFunctionInstance? function)
                 {
                     var instance = function is null
-                        ? new MethodInfoFunctionInstance(engine, MethodDescriptor.Build(overloads.ToList()))
-                        : new MethodInfoFunctionInstance(engine, MethodDescriptor.Build(overloads.ToList()), function);
+                        ? new MethodInfoFunctionInstance(engine, MethodDescriptor.Build(overloads.ToList()), name)
+                        : new MethodInfoFunctionInstance(engine, MethodDescriptor.Build(overloads.ToList()), name, function);
 
                     return new PropertyDescriptor(instance, PropertyFlag.AllForbidden);
                 }
