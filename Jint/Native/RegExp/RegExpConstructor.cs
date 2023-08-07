@@ -104,14 +104,15 @@ namespace Jint.Native.RegExp
 
             try
             {
-                var regExp = Scanner.AdaptRegExp(p, f, compiled: false, _engine.Options.Constraints.RegexTimeout);
+                var regExpParseResult = Scanner.AdaptRegExp(p, f, compiled: false, _engine.Options.Constraints.RegexTimeout);
 
-                if (regExp is null)
+                if (!regExpParseResult.Success)
                 {
-                    ExceptionHelper.ThrowSyntaxError(_realm, $"Unsupported regular expression: '/{p}/{flags}'");
+                    ExceptionHelper.ThrowSyntaxError(_realm, $"Unsupported regular expression. {regExpParseResult.ConversionError!.Description}");
                 }
 
-                r.Value = regExp;
+                r.Value = regExpParseResult.Regex!;
+                r.ParseResult = regExpParseResult;
             }
             catch (Exception ex)
             {
@@ -135,12 +136,13 @@ namespace Jint.Native.RegExp
             return r;
         }
 
-        public JsRegExp Construct(Regex regExp, string source, string flags)
+        public JsRegExp Construct(Regex regExp, string source, string flags, RegExpParseResult regExpParseResult = default)
         {
             var r = RegExpAlloc(this);
             r.Value = regExp;
             r.Source = source;
             r.Flags = flags;
+            r.ParseResult = regExpParseResult;
 
             RegExpInitialize(r);
 

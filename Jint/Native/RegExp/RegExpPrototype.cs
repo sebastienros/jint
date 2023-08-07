@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using System.Text.RegularExpressions;
 using Jint.Collections;
 using Jint.Native.Number;
@@ -168,16 +167,17 @@ namespace Jint.Native.RegExp
                 {
                     string Evaluator(Match match)
                     {
-                        var replacerArgs = new List<JsValue>(match.Groups.Count + 2);
+                        var actualGroupCount = GetActualRegexGroupCount(rei, match);
+                        var replacerArgs = new List<JsValue>(actualGroupCount + 2);
                         replacerArgs.Add(match.Value);
 
                         ObjectInstance? groups = null;
-                        for (var i = 1; i < match.Groups.Count; i++)
+                        for (var i = 1; i < actualGroupCount; i++)
                         {
                             var capture = match.Groups[i];
                             replacerArgs.Add(capture.Success ? capture.Value : Undefined);
 
-                            var groupName = GetRegexGroupName(rei.Value, i);
+                            var groupName = GetRegexGroupName(rei, i);
                             if (!string.IsNullOrWhiteSpace(groupName))
                             {
                                 groups ??= OrdinaryObjectCreate(_engine, null);
@@ -475,21 +475,13 @@ namespace Jint.Native.RegExp
                 }
 
                 var a = _realm.Intrinsics.Array.Construct(Arguments.Empty);
-                var match = R.Value.Match(s, 0);
-
-                if (!match.Success) // No match at all return the string in an array
-                {
-                    a.SetIndexValue(0, s, updateLength: true);
-                    return a;
-                }
 
                 int lastIndex = 0;
                 uint index = 0;
-                while (match.Success && index < lim)
+                for (var match = R.Value.Match(s, 0); match.Success; match = match.NextMatch())
                 {
                     if (match.Length == 0 && (match.Index == 0 || match.Index == s.Length || match.Index == lastIndex))
                     {
-                        match = match.NextMatch();
                         continue;
                     }
 
@@ -502,7 +494,8 @@ namespace Jint.Native.RegExp
                     }
 
                     lastIndex = match.Index + match.Length;
-                    for (int i = 1; i < match.Groups.Count; i++)
+                    var actualGroupCount = GetActualRegexGroupCount(R, match);
+                    for (int i = 1; i < actualGroupCount; i++)
                     {
                         var group = match.Groups[i];
                         var item = Undefined;
@@ -518,13 +511,10 @@ namespace Jint.Native.RegExp
                             return a;
                         }
                     }
-
-                    match = match.NextMatch();
-                    if (!match.Success) // Add the last part of the split
-                    {
-                        a.SetIndexValue(index++, s.Substring(lastIndex), updateLength: true);
-                    }
                 }
+
+                // Add the last part of the split
+                a.SetIndexValue(index, s.Substring(lastIndex), updateLength: true);
 
                 return a;
             }
@@ -720,7 +710,7 @@ namespace Jint.Native.RegExp
                         match = match.NextMatch();
                         if (!match.Success || match.Index != ++li)
                             break;
-                        a.SetIndexValue(li,  match.Value, updateLength: false);
+                        a.SetIndexValue(li, match.Value, updateLength: false);
                     }
                     a.SetLength(li);
                     return a;
@@ -898,7 +888,7 @@ namespace Jint.Native.RegExp
                     return Null;
                 }
 
-                return CreateReturnValueArray(R.Engine, matcher, m, s, fullUnicode: false, hasIndices: false);
+                return CreateReturnValueArray(R, m, s, fullUnicode: false, hasIndices: false);
             }
 
             // the stateful version
@@ -949,25 +939,26 @@ namespace Jint.Native.RegExp
                 R.Set(JsRegExp.PropertyLastIndex, e, true);
             }
 
-            return CreateReturnValueArray(R.Engine, matcher, match, s, fullUnicode, hasIndices);
+            return CreateReturnValueArray(R, match, s, fullUnicode, hasIndices);
         }
 
         private static JsArray CreateReturnValueArray(
-            Engine engine,
-            Regex regex,
+            JsRegExp rei,
             Match match,
             string s,
             bool fullUnicode,
             bool hasIndices)
         {
-            var array = engine.Realm.Intrinsics.Array.ArrayCreate((ulong) match.Groups.Count);
+            var engine = rei.Engine;
+            var actualGroupCount = GetActualRegexGroupCount(rei, match);
+            var array = engine.Realm.Intrinsics.Array.ArrayCreate((ulong) actualGroupCount);
             array.CreateDataProperty(PropertyIndex, match.Index);
             array.CreateDataProperty(PropertyInput, s);
 
             ObjectInstance? groups = null;
             List<string>? groupNames = null;
-            var indices = hasIndices ? new List<JsNumber[]?>(match.Groups.Count) : null;
-            for (uint i = 0; i < match.Groups.Count; i++)
+            var indices = hasIndices ? new List<JsNumber[]?>(actualGroupCount) : null;
+            for (uint i = 0; i < actualGroupCount; i++)
             {
                 var capture = match.Groups[(int) i];
                 var capturedValue = Undefined;
@@ -988,7 +979,7 @@ namespace Jint.Native.RegExp
                     }
                 }
 
-                var groupName = GetRegexGroupName(regex, (int) i);
+                var groupName = GetRegexGroupName(rei, (int) i);
                 if (!string.IsNullOrWhiteSpace(groupName))
                 {
                     groups ??= OrdinaryObjectCreate(engine, null);
@@ -1055,35 +1046,28 @@ namespace Jint.Native.RegExp
             return engine.Realm.Intrinsics.Array.CreateArrayFromList(match);
         }
 
-        private static string? GetRegexGroupName(Regex regex, int index)
+        private static int GetActualRegexGroupCount(JsRegExp rei, Match match)
+        {
+            return rei.ParseResult.Success ? rei.ParseResult.ActualRegexGroupCount : match.Groups.Count;
+        }
+
+        private static string? GetRegexGroupName(JsRegExp rei, int index)
         {
             if (index == 0)
             {
                 return null;
             }
+            var regex = rei.Value;
+            if (rei.ParseResult.Success)
+            {
+                return rei.ParseResult.GetRegexGroupName(index);
+            }
+
             var groupNameFromNumber = regex.GroupNameFromNumber(index);
             if (groupNameFromNumber.Length == 1 && groupNameFromNumber[0] == 48 + index)
             {
                 // regex defaults to index as group name when it's not a named group
                 return null;
-
-            }
-
-            // The characters allowed in group names differs between the JS and .NET regex engines.
-            // For example the group name "$group" is valid in JS but invalid in .NET.
-            // As a workaround for this issue, the parser make an attempt to encode the problematic group names to
-            // names which are valid in .NET and probably won't collide with other group names present in the pattern
-            // (https://github.com/sebastienros/esprima-dotnet/blob/v3.0.0-rc-03/src/Esprima/Scanner.RegExpParser.cs#L942).
-            // We need to decode such group names.
-            const string encodedGroupNamePrefix = "__utf8_";
-            if (groupNameFromNumber.StartsWith(encodedGroupNamePrefix, StringComparison.Ordinal))
-            {
-                try
-                {
-                    var bytes = groupNameFromNumber.AsSpan(encodedGroupNamePrefix.Length).BytesFromHexString();
-                    groupNameFromNumber = Encoding.UTF8.GetString(bytes);
-                }
-                catch { /* intentional no-op */ }
             }
 
             return groupNameFromNumber;
