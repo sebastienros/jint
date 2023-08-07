@@ -73,8 +73,9 @@ namespace Jint.Tests.Runtime
         {
             holder = new InterfaceHolder();
             _engine = new Engine(cfg => cfg.AllowClr(
-                        typeof(Console).GetTypeInfo().Assembly,
-                        typeof(File).GetTypeInfo().Assembly))
+                        typeof(CI1).Assembly,
+                        typeof(Console).Assembly,
+                        typeof(File).Assembly))
                     .SetValue("log", new Action<object>(Console.WriteLine))
                     .SetValue("assert", new Action<bool>(Assert.True))
                     .SetValue("equal", new Action<object, object>(Assert.Equal))
@@ -177,10 +178,33 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void TestUnwrapClr()
+        public void TestClrUnwrap()
         {
             Assert.NotEqual(holder.CI1.Name, _engine.Evaluate("holder.I1.Name"));
-            Assert.Equal(holder.CI1.Name, _engine.Evaluate("unwrapClr(holder.I1).Name"));
+            Assert.Equal(holder.CI1.Name, _engine.Evaluate("clrUnwrap(holder.I1).Name"));
+        }
+
+        [Fact]
+        public void TestClrWrap()
+        {
+            Assert.NotEqual(holder.I1.Name, _engine.Evaluate("holder.CI1.Name"));
+            Assert.Equal(holder.I1.Name, _engine.Evaluate("clrWrap(holder.CI1, clrType(holder.I1)).Name"));
+        }
+
+        [Fact]
+        public void TestClrType()
+        {
+            _engine.SetValue("clrobj", new object());
+            Assert.Equal(_engine.Evaluate("System.Object"), _engine.Evaluate("clrType(clrobj)"));
+        }
+
+        [Fact]
+        public void TestNestedClrType()
+        {
+            // Important! nested type cannot be got from parent type, only from namespace
+            _engine.Execute("nsInteropExplicitTypeTests = importNamespace('Jint.Tests.Runtime.InteropExplicitTypeTests');");
+            Assert.Equal(_engine.Evaluate("nsInteropExplicitTypeTests.CI1"), _engine.Evaluate("clrType(holder.CI1)"));
+            Assert.Equal(_engine.Evaluate("nsInteropExplicitTypeTests.I1"), _engine.Evaluate("clrType(holder.I1)"));
         }
     }
 }
