@@ -160,7 +160,7 @@ namespace Jint.Runtime.Interop
 
             if (explicitMethods?.Count > 0)
             {
-                return new MethodAccessor(MethodDescriptor.Build(explicitMethods));
+                return new MethodAccessor(MethodDescriptor.Build(explicitMethods), memberName);
             }
 
             // try to find explicit indexer implementations
@@ -193,7 +193,7 @@ namespace Jint.Runtime.Interop
 
                 if (matches.Count > 0)
                 {
-                    return new MethodAccessor(MethodDescriptor.Build(matches));
+                    return new MethodAccessor(MethodDescriptor.Build(matches), memberName);
                 }
             }
 
@@ -299,7 +299,7 @@ namespace Jint.Runtime.Interop
 
             if (methods?.Count > 0)
             {
-                accessor = new MethodAccessor(MethodDescriptor.Build(methods));
+                accessor = new MethodAccessor(MethodDescriptor.Build(methods), memberName);
                 return true;
             }
 

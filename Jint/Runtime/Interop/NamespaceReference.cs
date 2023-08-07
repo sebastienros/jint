@@ -192,7 +192,7 @@ namespace Jint.Runtime.Interop
 
         public override string ToString()
         {
-            return "[Namespace: " + _path + "]";
+            return "[clr namespace: " + _path + "]";
         }
     }
 }

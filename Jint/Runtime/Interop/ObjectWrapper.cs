@@ -17,14 +17,13 @@ namespace Jint.Runtime.Interop
     public sealed class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWrapper>
     {
         private readonly TypeDescriptor _typeDescriptor;
-        private readonly Type _clrType;
 
         public ObjectWrapper(Engine engine, object obj, Type? type = null)
             : base(engine)
         {
             Target = obj;
-            _clrType = ClrType(obj, type);
-            _typeDescriptor = TypeDescriptor.Get(_clrType);
+            ClrType = GetClrType(obj, type);
+            _typeDescriptor = TypeDescriptor.Get(ClrType);
             if (_typeDescriptor.LengthProperty is not null)
             {
                 // create a forwarder to produce length from Count or Length if one of them is present
@@ -35,6 +34,7 @@ namespace Jint.Runtime.Interop
         }
 
         public object Target { get; }
+        public Type ClrType { get; }
 
         public override bool IsArrayLike => _typeDescriptor.IsArrayLike;
 
@@ -51,7 +51,7 @@ namespace Jint.Runtime.Interop
                 if (_properties is null || !_properties.ContainsKey(member))
                 {
                     // can try utilize fast path
-                    var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, _clrType, member, forWrite: true);
+                    var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, forWrite: true);
 
                     if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor))
                     {
@@ -163,7 +163,7 @@ namespace Jint.Runtime.Interop
             else if (includeStrings)
             {
                 // we take public properties and fields
-                var type = _clrType;
+                var type = ClrType;
                 foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
                     var indexParameters = p.GetIndexParameters();
@@ -235,7 +235,7 @@ namespace Jint.Runtime.Interop
                 return new PropertyDescriptor(result, PropertyFlag.OnlyEnumerable);
             }
 
-            var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, _clrType, member);
+            var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member);
             var descriptor = accessor.CreatePropertyDescriptor(_engine, Target, enumerable: !isDictionary);
             if (!isDictionary && !ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
             {
@@ -254,7 +254,7 @@ namespace Jint.Runtime.Interop
                 return member switch
                 {
                     PropertyInfo pi => new PropertyAccessor(pi.Name, pi),
-                    MethodBase mb => new MethodAccessor(MethodDescriptor.Build(new[] {mb})),
+                    MethodBase mb => new MethodAccessor(MethodDescriptor.Build(new[] {mb}), member.Name),
                     FieldInfo fi => new FieldAccessor(fi),
                     _ => null
                 };
@@ -262,7 +262,7 @@ namespace Jint.Runtime.Interop
             return engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, Factory).CreatePropertyDescriptor(engine, target);
         }
 
-        public static Type ClrType(object obj, Type? type)
+        public static Type GetClrType(object obj, Type? type)
         {
             if (type is null || type == typeof(object))
             {
@@ -319,14 +319,14 @@ namespace Jint.Runtime.Interop
                 return true;
             }
 
-            return Equals(Target, other.Target) && Equals(_clrType, other._clrType);
+            return Equals(Target, other.Target) && Equals(ClrType, other.ClrType);
         }
 
         public override int GetHashCode()
         {
             var hashCode = -1468639730;
             hashCode = hashCode * -1521134295 + Target.GetHashCode();
-            hashCode = hashCode * -1521134295 + _clrType.GetHashCode();
+            hashCode = hashCode * -1521134295 + ClrType.GetHashCode();
             return hashCode;
         }
 

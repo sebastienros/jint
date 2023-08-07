@@ -10,7 +10,6 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public sealed class ClrFunctionInstance : FunctionInstance, IEquatable<ClrFunctionInstance>
     {
-        private readonly string? _name;
         internal readonly Func<JsValue, JsValue[], JsValue> _func;
 
         public ClrFunctionInstance(
@@ -19,9 +18,8 @@ namespace Jint.Runtime.Interop
             Func<JsValue, JsValue[], JsValue> func,
             int length = 0,
             PropertyFlag lengthFlags = PropertyFlag.AllForbidden)
-            : base(engine, engine.Realm, name != null ? new JsString(name) : null)
+            : base(engine, engine.Realm, new JsString(name))
         {
-            _name = name;
             _func = func;
 
             _prototype = engine._originalIntrinsics.Function.PrototypeObject;
@@ -76,7 +74,5 @@ namespace Jint.Runtime.Interop
 
             return false;
         }
-
-        public override string ToString() => "function " + _name + "() { [native code] }";
     }
 }

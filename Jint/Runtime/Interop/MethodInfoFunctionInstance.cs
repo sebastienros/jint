@@ -9,19 +9,18 @@ namespace Jint.Runtime.Interop
 {
     internal sealed class MethodInfoFunctionInstance : FunctionInstance
     {
-        private static readonly JsString _name = new JsString("Function");
         private readonly MethodDescriptor[] _methods;
         private readonly ClrFunctionInstance? _fallbackClrFunctionInstance;
 
-        public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods)
-            : base(engine, engine.Realm, _name)
+        public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods, string name)
+            : base(engine, engine.Realm, new JsString(name))
         {
             _methods = methods;
             _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
         }
 
-        public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods, ClrFunctionInstance fallbackClrFunctionInstance)
-            : this(engine, methods)
+        public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods, string name, ClrFunctionInstance fallbackClrFunctionInstance)
+            : this(engine, methods, name)
         {
             _fallbackClrFunctionInstance = fallbackClrFunctionInstance;
         }
