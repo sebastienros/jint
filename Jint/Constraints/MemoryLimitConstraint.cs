@@ -14,7 +14,7 @@ public sealed class MemoryLimitConstraint : Constraint
 
         if (methodInfo != null)
         {
-            GetAllocatedBytesForCurrentThread = (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), null, methodInfo);
+            GetAllocatedBytesForCurrentThread = (Func<long>) Delegate.CreateDelegate(typeof(Func<long>), null, methodInfo);
         }
     }
 
@@ -25,20 +25,20 @@ public sealed class MemoryLimitConstraint : Constraint
 
     public override void Check()
     {
-        if (_memoryLimit > 0)
+        if (_memoryLimit <= 0)
         {
-            if (GetAllocatedBytesForCurrentThread != null)
-            {
-                var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
-                if (memoryUsage > _memoryLimit)
-                {
-                    ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {_memoryLimit}");
-                }
-            }
-            else
-            {
-                ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
-            }
+            return;
+        }
+
+        if (GetAllocatedBytesForCurrentThread == null)
+        {
+            ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
+        }
+
+        var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
+        if (memoryUsage > _memoryLimit)
+        {
+            ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {_memoryLimit}");
         }
     }
 

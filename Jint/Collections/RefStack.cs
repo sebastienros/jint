@@ -75,40 +75,43 @@ namespace Jint.Collections
         private void EnsureCapacity(int min)
         {
             var array = _array;
-            if (array.Length < min)
+
+            if (array.Length >= min)
             {
-                var newCapacity = array.Length == 0
-                    ? DefaultCapacity
-                    : array.Length * 2;
-
-                if (newCapacity < min)
-                {
-                    newCapacity = min;
-                }
-
-                Resize(newCapacity);
+                return;
             }
+
+            var newCapacity = array.Length == 0
+                ? DefaultCapacity
+                : array.Length * 2;
+
+            if (newCapacity < min)
+            {
+                newCapacity = min;
+            }
+
+            Resize(newCapacity);
         }
 
         private void Resize(int value)
         {
-            if (value != _array.Length)
+            if (value == _array.Length)
             {
-                if (value > 0)
-                {
-                    var newItems = new T[value];
-                    if (_size > 0)
-                    {
-                        Array.Copy(_array, 0, newItems, 0, _size);
-                    }
-
-                    _array = newItems;
-                }
-                else
-                {
-                    _array = Array.Empty<T>();
-                }
+                return;
             }
+
+            if (value <= 0)
+            {
+                _array = Array.Empty<T>();
+                return;
+            }
+
+            var newItems = new T[value];
+            if (_size > 0)
+            {
+                Array.Copy(_array, 0, newItems, 0, _size);
+            }
+            _array = newItems;
         }
 
         public void Clear()

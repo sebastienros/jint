@@ -155,47 +155,49 @@ namespace Jint
             indirectExportEntries = new();
             starExportEntries = new();
 
-            if (exportEntries != null)
+            if (exportEntries == null)
             {
-                for (var i = 0; i < exportEntries.Count; i++)
+                return;
+            }
+
+            for (var i = 0; i < exportEntries.Count; i++)
+            {
+                var ee = exportEntries[i];
+
+                if (ee.ModuleRequest is null)
                 {
-                    var ee = exportEntries[i];
-
-                    if (ee.ModuleRequest is null)
+                    if (!importedBoundNames.Contains(ee.LocalName))
                     {
-                        if (!importedBoundNames.Contains(ee.LocalName))
-                        {
-                            localExportEntries.Add(ee);
-                        }
-                        else
-                        {
-                            for (var j = 0; j < importEntries!.Count; j++)
-                            {
-                                var ie = importEntries[j];
-                                if (ie.LocalName == ee.LocalName)
-                                {
-                                    if (ie.ImportName == "*")
-                                    {
-                                        localExportEntries.Add(ee);
-                                    }
-                                    else
-                                    {
-                                        indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, ie.ImportName, null));
-                                    }
-
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    else if (ee.ImportName == "*" && ee.ExportName is null)
-                    {
-                        starExportEntries.Add(ee);
+                        localExportEntries.Add(ee);
                     }
                     else
                     {
-                        indirectExportEntries.Add(ee);
+                        for (var j = 0; j < importEntries!.Count; j++)
+                        {
+                            var ie = importEntries[j];
+                            if (ie.LocalName == ee.LocalName)
+                            {
+                                if (ie.ImportName == "*")
+                                {
+                                    localExportEntries.Add(ee);
+                                }
+                                else
+                                {
+                                    indirectExportEntries.Add(new(ee.ExportName, ie.ModuleRequest, ie.ImportName, null));
+                                }
+
+                                break;
+                            }
+                        }
                     }
+                }
+                else if (ee.ImportName == "*" && ee.ExportName is null)
+                {
+                    starExportEntries.Add(ee);
+                }
+                else
+                {
+                    indirectExportEntries.Add(ee);
                 }
             }
         }

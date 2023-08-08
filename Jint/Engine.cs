@@ -951,16 +951,18 @@ namespace Jint
                             ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{vn}' has already been declared");
                         }
 
-                        if (!declaredFunctionNames.Contains(vn))
+                        if (declaredFunctionNames.Contains(vn))
                         {
-                            var vnDefinable = env.CanDeclareGlobalVar(vn);
-                            if (!vnDefinable)
-                            {
-                                ExceptionHelper.ThrowTypeError(realm);
-                            }
-
-                            declaredVarNames.Add(vn);
+                            continue;
                         }
+
+                        var vnDefinable = env.CanDeclareGlobalVar(vn);
+                        if (!vnDefinable)
+                        {
+                            ExceptionHelper.ThrowTypeError(realm);
+                        }
+
+                        declaredVarNames.Add(vn);
                     }
                 }
             }
