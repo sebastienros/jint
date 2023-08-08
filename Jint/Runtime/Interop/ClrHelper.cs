@@ -31,12 +31,34 @@ namespace Jint.Runtime.Interop
             {
                 return TypeReference.CreateTypeReference(obj.Engine, obj.ClrType);
             }
-            return JsValue.Null;
+            return JsValue.Undefined;
         }
 
         public static JsValue ClrToString(JsValue thisObject, JsValue[] arguments)
         {
             return arguments.At(0).ToString();
+        }
+
+
+        public static JsValue ClrTypeToObject(JsValue thisObject, JsValue[] arguments)
+        {
+            var arg = arguments.At(0);
+            if (arg is TypeReference tr)
+            {
+                var engine = tr.Engine;
+                return engine.Options.Interop.WrapObjectHandler.Invoke(engine, tr.ReferenceType, null) ?? JsValue.Undefined;
+            }
+            return JsValue.Undefined;
+        }
+
+        public static JsValue ClrObjectToType(JsValue thisObject, JsValue[] arguments)
+        {
+            var arg = arguments.At(0);
+            if (arg is ObjectWrapper obj && obj.Target is Type t)
+            {
+                return TypeReference.CreateTypeReference(obj.Engine, t);
+            }
+            return JsValue.Undefined;
         }
     }
 }

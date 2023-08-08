@@ -120,26 +120,39 @@ namespace Jint
                         (thisObj, arguments) =>
                             new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))),
                     PropertyFlag.AllForbidden));
+                engine.Realm.GlobalObject.SetProperty("clrToString", new PropertyDescriptor(new ClrFunctionInstance(
+                        engine,
+                        "clrToString",
+                        ClrHelper.ClrToString),
+                    PropertyFlag.AllForbidden));
                 engine.Realm.GlobalObject.SetProperty("clrUnwrap", new PropertyDescriptor(new ClrFunctionInstance(
-                    engine,
-                    "clrUnwrap",
-                    ClrHelper.ClrUnwrap),
+                        engine,
+                        "clrUnwrap",
+                        ClrHelper.ClrUnwrap),
                     PropertyFlag.AllForbidden));
                 engine.Realm.GlobalObject.SetProperty("clrWrap", new PropertyDescriptor(new ClrFunctionInstance(
-                    engine,
-                    "clrWrap",
-                    ClrHelper.ClrWrap),
+                        engine,
+                        "clrWrap",
+                        ClrHelper.ClrWrap),
                     PropertyFlag.AllForbidden));
-                engine.Realm.GlobalObject.SetProperty("clrType", new PropertyDescriptor(new ClrFunctionInstance(
-                    engine,
-                    "clrType",
-                    ClrHelper.ClrType),
-                    PropertyFlag.AllForbidden));
-                engine.Realm.GlobalObject.SetProperty("clrToString", new PropertyDescriptor(new ClrFunctionInstance(
-                    engine,
-                    "clrToString",
-                    ClrHelper.ClrToString),
-                    PropertyFlag.AllForbidden));
+                if (Interop.AllowGetType)
+                {
+                    engine.Realm.GlobalObject.SetProperty("clrType", new PropertyDescriptor(new ClrFunctionInstance(
+                            engine,
+                            "clrType",
+                            ClrHelper.ClrType),
+                        PropertyFlag.AllForbidden));
+                    engine.Realm.GlobalObject.SetProperty("clrTypeToObject", new PropertyDescriptor(new ClrFunctionInstance(
+                            engine,
+                            "clrTypeToObject",
+                            ClrHelper.ClrTypeToObject),
+                        PropertyFlag.AllForbidden));
+                    engine.Realm.GlobalObject.SetProperty("clrObjectToType", new PropertyDescriptor(new ClrFunctionInstance(
+                            engine,
+                            "clrObjectToType",
+                            ClrHelper.ClrObjectToType),
+                        PropertyFlag.AllForbidden));
+                }
             }
 
             if (Interop.ExtensionMethodTypes.Count > 0)

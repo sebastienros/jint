@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿
+using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime
 {
@@ -166,7 +167,7 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void TestNullable()
+        public void TypedObjectWrapperForNullableType()
         {
             var nullableHolder = new NullableHolder();
             _engine.SetValue("nullableHolder", nullableHolder);
@@ -178,32 +179,115 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
-        public void TestClrUnwrap()
+        public void ClrUnwrap()
         {
             Assert.NotEqual(holder.CI1.Name, _engine.Evaluate("holder.I1.Name"));
             Assert.Equal(holder.CI1.Name, _engine.Evaluate("clrUnwrap(holder.I1).Name"));
         }
 
         [Fact]
-        public void TestClrWrap()
-        {
-            Assert.NotEqual(holder.I1.Name, _engine.Evaluate("holder.CI1.Name"));
-            Assert.Equal(holder.I1.Name, _engine.Evaluate("clrWrap(holder.CI1, clrType(holder.I1)).Name"));
-        }
-
-        [Fact]
-        public void TestClrType()
-        {
-            _engine.SetValue("clrobj", new object());
-            Assert.Equal(_engine.Evaluate("System.Object"), _engine.Evaluate("clrType(clrobj)"));
-        }
-
-        [Fact]
-        public void TestNestedClrType()
+        public void ClrWrap()
         {
             _engine.Execute("Jint = importNamespace('Jint');");
-            Assert.Equal(_engine.Evaluate("Jint.Tests.Runtime.InteropExplicitTypeTests.CI1"), _engine.Evaluate("clrType(holder.CI1)"));
-            Assert.Equal(_engine.Evaluate("Jint.Tests.Runtime.InteropExplicitTypeTests.I1"), _engine.Evaluate("clrType(holder.I1)"));
+            Assert.NotEqual(holder.I1.Name, _engine.Evaluate("holder.CI1.Name"));
+            Assert.Equal(holder.I1.Name, _engine.Evaluate("clrWrap(holder.CI1, Jint.Tests.Runtime.InteropExplicitTypeTests.I1).Name"));
+        }
+
+        [Fact]
+        public void ClrType()
+        {
+            Action<Engine> runner = engine =>
+            {
+                engine.SetValue("clrobj", new object());
+                Assert.Equal(engine.Evaluate("System.Object"), engine.Evaluate("clrType(clrobj)"));
+            };
+
+            runner.Invoke(new Engine(cfg =>
+            {
+                cfg.AllowClr();
+                cfg.Interop.AllowGetType = true;
+            }));
+
+            var ex = Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
+            {
+                runner.Invoke(new Engine(cfg =>
+                {
+                    cfg.AllowClr();
+                }));
+            });
+            Assert.Equal("clrType is not defined", ex.Message);
+        }
+
+        [Fact]
+        public void ClrTypeForNestedType()
+        {
+            var engine = new Engine(cfg =>
+            {
+                cfg.AllowClr(GetType().Assembly);
+                cfg.Interop.AllowGetType = true;
+            });
+
+            engine.SetValue("holder", holder);
+            engine.Execute("Jint = importNamespace('Jint');");
+            Assert.Equal(engine.Evaluate("Jint.Tests.Runtime.InteropExplicitTypeTests.CI1"), engine.Evaluate("clrType(holder.CI1)"));
+            Assert.Equal(engine.Evaluate("Jint.Tests.Runtime.InteropExplicitTypeTests.I1"), engine.Evaluate("clrType(holder.I1)"));
+        }
+
+        public class TypeHolder
+        {
+            public static Type Type => typeof(TypeHolder);
+        }
+
+        [Fact]
+        public void ClrTypeToObject()
+        {
+            Action<Engine> runner = engine =>
+            {
+                engine.SetValue("TypeHolder", typeof(TypeHolder));
+                Assert.True(engine.Evaluate("TypeHolder") is TypeReference);
+                Assert.True(engine.Evaluate("clrTypeToObject(TypeHolder)") is ObjectWrapper);
+            };
+
+            runner.Invoke(new Engine(cfg =>
+            {
+                cfg.AllowClr();
+                cfg.Interop.AllowGetType = true;
+            }));
+
+            var ex = Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
+            {
+                runner.Invoke(new Engine(cfg =>
+                {
+                    cfg.AllowClr();
+                }));
+            });
+            Assert.Equal("clrTypeToObject is not defined", ex.Message);
+        }
+
+        [Fact]
+        public void ClrObjectToType()
+        {
+            Action<Engine> runner = engine =>
+            {
+                engine.SetValue("TypeHolder", typeof(TypeHolder));
+                Assert.True(engine.Evaluate("TypeHolder.Type") is ObjectWrapper);
+                Assert.True(engine.Evaluate("clrObjectToType(TypeHolder.Type)") is TypeReference);
+            };
+
+            runner.Invoke(new Engine(cfg =>
+            {
+                cfg.AllowClr();
+                cfg.Interop.AllowGetType = true;
+            }));
+
+            var ex = Assert.Throws<Jint.Runtime.JavaScriptException>(() =>
+            {
+                runner.Invoke(new Engine(cfg =>
+                {
+                    cfg.AllowClr();
+                }));
+            });
+            Assert.Equal("clrObjectToType is not defined", ex.Message);
         }
     }
 }
