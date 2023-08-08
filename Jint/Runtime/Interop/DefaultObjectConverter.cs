@@ -100,10 +100,6 @@ namespace Jint
                             }
                         }
                     }
-                    else if (value is Type tt)
-                    {
-                        result = TypeReference.CreateTypeReference(engine, tt);
-                    }
                     else
                     {
                         // check global cache, have we already wrapped the value?

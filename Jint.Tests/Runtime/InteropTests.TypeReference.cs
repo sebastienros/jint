@@ -197,18 +197,4 @@ public partial class InteropTests
     {
         public string Value => "Hello world";
     }
-
-    public class TypeHolder
-    {
-        public static Type ThisType => typeof(TypeHolder);
-    }
-
-    [Fact]
-    public void ValueTypeAsTypeReferenceNotObjectWrapper()
-    {
-        var tt = TypeReference.CreateTypeReference<TypeHolder>(_engine);
-        _engine.SetValue("TypeHolder", tt);
-        Assert.Equal(tt, _engine.Evaluate("TypeHolder"));
-        Assert.Equal(tt, _engine.Evaluate("TypeHolder.ThisType"));
-    }
 }

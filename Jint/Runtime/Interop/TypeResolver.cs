@@ -307,7 +307,8 @@ namespace Jint.Runtime.Interop
             var nestedType = type.GetNestedType(memberName, bindingFlags);
             if (nestedType != null)
             {
-                accessor = new NestedTypeAccessor(nestedType, memberName);
+                var typeReference = TypeReference.CreateTypeReference(engine, nestedType);
+                accessor = new NestedTypeAccessor(typeReference, memberName);
                 return true;
             }
 
