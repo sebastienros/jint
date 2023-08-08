@@ -303,6 +303,14 @@ namespace Jint.Runtime.Interop
                 return true;
             }
 
+            // look for nested type
+            var nestedType = type.GetNestedType(memberName, bindingFlags);
+            if (nestedType != null)
+            {
+                accessor = new NestedTypeAccessor(nestedType, memberName);
+                return true;
+            }
+
             accessor = default;
             return false;
         }

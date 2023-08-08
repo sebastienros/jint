@@ -201,10 +201,9 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void TestNestedClrType()
         {
-            // Important! nested type cannot be got from parent type, only from namespace
-            _engine.Execute("nsInteropExplicitTypeTests = importNamespace('Jint.Tests.Runtime.InteropExplicitTypeTests');");
-            Assert.Equal(_engine.Evaluate("nsInteropExplicitTypeTests.CI1"), _engine.Evaluate("clrType(holder.CI1)"));
-            Assert.Equal(_engine.Evaluate("nsInteropExplicitTypeTests.I1"), _engine.Evaluate("clrType(holder.I1)"));
+            _engine.Execute("Jint = importNamespace('Jint');");
+            Assert.Equal(_engine.Evaluate("Jint.Tests.Runtime.InteropExplicitTypeTests.CI1"), _engine.Evaluate("clrType(holder.CI1)"));
+            Assert.Equal(_engine.Evaluate("Jint.Tests.Runtime.InteropExplicitTypeTests.I1"), _engine.Evaluate("clrType(holder.I1)"));
         }
     }
 }

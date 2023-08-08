@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interop.Reflection
     /// </summary>
     internal abstract class ReflectionAccessor
     {
-        private readonly Type _memberType;
+        protected readonly Type _memberType;
         private readonly object? _memberName;
         private readonly PropertyInfo? _indexer;
 
