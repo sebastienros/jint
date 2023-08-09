@@ -120,21 +120,8 @@ namespace Jint
                         (thisObj, arguments) =>
                             new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))),
                     PropertyFlag.AllForbidden));
-                engine.Realm.GlobalObject.SetProperty("unwrapClr", new PropertyDescriptor(new ClrFunctionInstance(
-                    engine,
-                    "unwrapClr",
-                    (thisObj, arguments) =>
-                    {
-                        var arg = arguments.At(0);
-                        if (arg is ObjectWrapper obj)
-                        {
-                            return new ObjectWrapper(engine, obj.Target);
-                        }
-                        else
-                        {
-                            return arg;
-                        }
-                    }),
+                engine.Realm.GlobalObject.SetProperty("clrHelper", new PropertyDescriptor(
+                    new ObjectWrapper(engine, new ClrHelper(Interop)),
                     PropertyFlag.AllForbidden));
             }
 
@@ -183,12 +170,10 @@ namespace Jint
 
             foreach (var overloads in methods.GroupBy(x => x.Name))
             {
+                string name = overloads.Key;
                 PropertyDescriptor CreateMethodInstancePropertyDescriptor(ClrFunctionInstance? function)
                 {
-                    var instance = function is null
-                        ? new MethodInfoFunctionInstance(engine, MethodDescriptor.Build(overloads.ToList()))
-                        : new MethodInfoFunctionInstance(engine, MethodDescriptor.Build(overloads.ToList()), function);
-
+                    var instance = new MethodInfoFunctionInstance(engine, objectType, name, MethodDescriptor.Build(overloads.ToList()), function);
                     return new PropertyDescriptor(instance, PropertyFlag.AllForbidden);
                 }
 

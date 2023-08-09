@@ -1894,6 +1894,18 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldGetNestedTypeFromParentType()
+        {
+            RunTest(@"
+                var Shapes = importNamespace('Shapes');
+                var usages = Shapes.Circle.Meta.Usage;
+                assert(usages.Public === 0);
+                assert(usages.Private === 1);
+                assert(usages.Internal === 11);
+            ");
+        }
+
+        [Fact]
         public void ShouldGetNestedNestedProp()
         {
             RunTest(@"

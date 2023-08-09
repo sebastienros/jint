@@ -9,21 +9,24 @@ namespace Jint.Runtime.Interop
 {
     internal sealed class MethodInfoFunctionInstance : FunctionInstance
     {
-        private static readonly JsString _name = new JsString("Function");
+        private readonly Type _targetType;
+        private readonly string _name;
         private readonly MethodDescriptor[] _methods;
         private readonly ClrFunctionInstance? _fallbackClrFunctionInstance;
 
-        public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods)
-            : base(engine, engine.Realm, _name)
+        public MethodInfoFunctionInstance(
+            Engine engine,
+            Type targetType,
+            string name,
+            MethodDescriptor[] methods,
+            ClrFunctionInstance? fallbackClrFunctionInstance = null)
+            : base(engine, engine.Realm, new JsString(name))
         {
+            _targetType = targetType;
+            _name = name;
             _methods = methods;
-            _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
-        }
-
-        public MethodInfoFunctionInstance(Engine engine, MethodDescriptor[] methods, ClrFunctionInstance fallbackClrFunctionInstance)
-            : this(engine, methods)
-        {
             _fallbackClrFunctionInstance = fallbackClrFunctionInstance;
+            _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
         }
 
         private static bool IsGenericParameter(object argObj, Type parameterType)
@@ -284,6 +287,11 @@ namespace Jint.Runtime.Interop
 
             newArgumentsCollection[nonParamsArgumentsCount] = jsArray;
             return newArgumentsCollection;
+        }
+
+        public override string ToString()
+        {
+            return $"function {_targetType}.{_name}() {{ [native code] }}";
         }
     }
 }

@@ -94,7 +94,7 @@ namespace Jint.Runtime.Interop
             // and only then in mscorlib. Probelm usage: System.IO.File.CreateText
 
             // search in loaded assemblies
-            var lookupAssemblies = new[] {Assembly.GetCallingAssembly(), Assembly.GetExecutingAssembly()};
+            var lookupAssemblies = new[] { Assembly.GetCallingAssembly(), Assembly.GetExecutingAssembly() };
 
             foreach (var assembly in lookupAssemblies)
             {
@@ -192,7 +192,7 @@ namespace Jint.Runtime.Interop
 
         public override string ToString()
         {
-            return "[Namespace: " + _path + "]";
+            return "[CLR namespace: " + _path + "]";
         }
     }
 }

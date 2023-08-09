@@ -66,22 +66,20 @@ namespace Jint.Repl
                 try
                 {
                     var result = engine.Evaluate(input, parserOptions);
+                    JsValue str = result;
                     if (!result.IsPrimitive() && result is not IPrimitiveInstance)
                     {
-                        var str = serializer.Serialize(result, JsValue.Undefined, "  ");
-                        Console.WriteLine(str);
+                        str = serializer.Serialize(result, JsValue.Undefined, "  ");
+                        if (str == JsValue.Undefined)
+                        {
+                            str = result;
+                        }
                     }
-                    else
+                    else if (result.IsString())
                     {
-                        if (result.IsString())
-                        {
-                            Console.WriteLine(serializer.Serialize(result, JsValue.Undefined, JsValue.Undefined));
-                        }
-                        else
-                        {
-                            Console.WriteLine(result);
-                        }
+                        str = serializer.Serialize(result, JsValue.Undefined, JsValue.Undefined);
                     }
+                    Console.WriteLine(str);
                 }
                 catch (JavaScriptException je)
                 {

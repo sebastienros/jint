@@ -346,5 +346,10 @@ namespace Jint.Runtime.Interop
 
             return derivedType != null && baseType != null && (derivedType == baseType || derivedType.IsSubclassOf(baseType));
         }
+
+        public override string ToString()
+        {
+            return "[CLR type: " + ReferenceType + "]";
+        }
     }
 }

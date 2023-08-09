@@ -37,7 +37,7 @@ namespace Jint
         public static bool TryConvert(Engine engine, object value, Type? type, [NotNullWhen(true)] out JsValue? result)
         {
             result = null;
-            Type valueType = ObjectWrapper.ClrType(value, type);
+            Type valueType = ObjectWrapper.GetClrType(value, type);
 
             var typeMappers = _typeMappers;
 
