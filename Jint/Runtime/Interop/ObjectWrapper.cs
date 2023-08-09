@@ -34,7 +34,7 @@ namespace Jint.Runtime.Interop
         }
 
         public object Target { get; }
-        public Type ClrType { get; }
+        internal Type ClrType { get; }
 
         public override bool IsArrayLike => _typeDescriptor.IsArrayLike;
 
@@ -254,7 +254,7 @@ namespace Jint.Runtime.Interop
                 return member switch
                 {
                     PropertyInfo pi => new PropertyAccessor(pi.Name, pi),
-                    MethodBase mb => new MethodAccessor(MethodDescriptor.Build(new[] {mb}), member.Name),
+                    MethodBase mb => new MethodAccessor(target.GetType(), member.Name, MethodDescriptor.Build(new[] { mb })),
                     FieldInfo fi => new FieldAccessor(fi),
                     _ => null
                 };
@@ -262,7 +262,7 @@ namespace Jint.Runtime.Interop
             return engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, Factory).CreatePropertyDescriptor(engine, target);
         }
 
-        public static Type GetClrType(object obj, Type? type)
+        internal static Type GetClrType(object obj, Type? type)
         {
             if (type is null || type == typeof(object))
             {
@@ -368,7 +368,7 @@ namespace Jint.Runtime.Interop
 
             public override void Close(CompletionType completion)
             {
-               (_enumerator as IDisposable)?.Dispose();
+                (_enumerator as IDisposable)?.Dispose();
                 base.Close(completion);
             }
 

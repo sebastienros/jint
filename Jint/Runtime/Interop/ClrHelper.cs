@@ -1,64 +1,85 @@
-﻿using Jint.Native;
+﻿namespace Jint.Runtime.Interop;
 
-namespace Jint.Runtime.Interop
+using Jint.Native;
+
+public class ClrHelper
 {
-    public static class ClrHelper
+    private readonly InteropOptions _interopOptions;
+
+    internal ClrHelper(InteropOptions interopOptions)
     {
-        public static JsValue ClrUnwrap(JsValue thisObject, JsValue[] arguments)
+        _interopOptions = interopOptions;
+    }
+
+    /// <summary>
+    /// Call JsValue.ToString(), mainly for NamespaceReference.
+    /// </summary>
+    public JsValue ToString(JsValue value)
+    {
+        return value.ToString();
+    }
+
+    /// <summary>
+    /// Cast `obj as ISomeInterface` to `obj`
+    /// </summary>
+    public JsValue Unwrap(ObjectWrapper obj)
+    {
+        return new ObjectWrapper(obj.Engine, obj.Target);
+    }
+
+    /// <summary>
+    /// Cast `obj` to `obj as ISomeInterface`
+    /// </summary>
+    public JsValue Wrap(ObjectWrapper obj, TypeReference type)
+    {
+        if (!type.ReferenceType.IsInstanceOfType(obj.Target))
         {
-            var arg = arguments.At(0);
-            if (arg is ObjectWrapper obj)
-            {
-                return new ObjectWrapper(obj.Engine, obj.Target);
-            }
-            return arg;
+            ExceptionHelper.ThrowTypeError(type.Engine.Realm, "Argument obj must be an instance of type");
         }
+        return new ObjectWrapper(obj.Engine, obj.Target, type.ReferenceType);
+    }
 
-        public static JsValue ClrWrap(JsValue thisObject, JsValue[] arguments)
+    /// <summary>
+    /// Get `TypeReference(ISomeInterface)` from `obj as ISomeInterface`
+    /// </summary>
+    public JsValue TypeOf(ObjectWrapper obj)
+    {
+        MustAllowGetType();
+        return TypeReference.CreateTypeReference(obj.Engine, obj.ClrType);
+    }
+
+    /// <summary>
+    /// Cast `TypeReference(SomeClass)` to `ObjectWrapper(SomeClass)`
+    /// </summary>
+    public JsValue TypeToObject(TypeReference type)
+    {
+        MustAllowGetType();
+        var engine = type.Engine;
+        return engine.Options.Interop.WrapObjectHandler.Invoke(engine, type.ReferenceType, null) ?? JsValue.Undefined;
+    }
+
+    /// <summary>
+    /// Cast `ObjectWrapper(SomeClass)` to `TypeReference(SomeClass)`
+    /// </summary>
+    public JsValue ObjectToType(ObjectWrapper obj)
+    {
+        MustAllowGetType();
+        if (obj.Target is Type t)
         {
-            var arg = arguments.At(0);
-            if (arg is ObjectWrapper obj && arguments.At(1) is TypeReference type)
-            {
-                return new ObjectWrapper(obj.Engine, obj.Target, type.ReferenceType);
-            }
-            return arg;
+            return TypeReference.CreateTypeReference(obj.Engine, t);
         }
-
-        public static JsValue ClrType(JsValue thisObject, JsValue[] arguments)
+        else
         {
-            var arg = arguments.At(0);
-            if (arg is ObjectWrapper obj)
-            {
-                return TypeReference.CreateTypeReference(obj.Engine, obj.ClrType);
-            }
-            return JsValue.Undefined;
+            ExceptionHelper.ThrowArgumentException("Must be an ObjectWrapper of Type", "obj");
         }
+        return JsValue.Undefined;
+    }
 
-        public static JsValue ClrToString(JsValue thisObject, JsValue[] arguments)
+    private void MustAllowGetType()
+    {
+        if (!_interopOptions.AllowGetType)
         {
-            return arguments.At(0).ToString();
-        }
-
-
-        public static JsValue ClrTypeToObject(JsValue thisObject, JsValue[] arguments)
-        {
-            var arg = arguments.At(0);
-            if (arg is TypeReference tr)
-            {
-                var engine = tr.Engine;
-                return engine.Options.Interop.WrapObjectHandler.Invoke(engine, tr.ReferenceType, null) ?? JsValue.Undefined;
-            }
-            return JsValue.Undefined;
-        }
-
-        public static JsValue ClrObjectToType(JsValue thisObject, JsValue[] arguments)
-        {
-            var arg = arguments.At(0);
-            if (arg is ObjectWrapper obj && obj.Target is Type t)
-            {
-                return TypeReference.CreateTypeReference(obj.Engine, t);
-            }
-            return JsValue.Undefined;
+            ExceptionHelper.ThrowInvalidOperationException("Invalid when Engine.Options.Interop.AllowGetType == false");
         }
     }
 }

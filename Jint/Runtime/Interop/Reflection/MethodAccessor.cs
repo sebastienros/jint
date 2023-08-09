@@ -4,13 +4,16 @@ namespace Jint.Runtime.Interop.Reflection
 {
     internal sealed class MethodAccessor : ReflectionAccessor
     {
+        private readonly Type _targetType;
         private readonly string _name;
         private readonly MethodDescriptor[] _methods;
 
-        public MethodAccessor(MethodDescriptor[] methods, string name) : base(null!, null!)
+        public MethodAccessor(Type targetType, string name, MethodDescriptor[] methods)
+            : base(null!, name)
         {
-            _methods = methods;
+            _targetType = targetType;
             _name = name;
+            _methods = methods;
         }
 
         public override bool Writable => false;
@@ -26,7 +29,7 @@ namespace Jint.Runtime.Interop.Reflection
 
         public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, bool enumerable = true)
         {
-            return new(new MethodInfoFunctionInstance(engine, _methods, _name), PropertyFlag.AllForbidden);
+            return new(new MethodInfoFunctionInstance(engine, _targetType, _name, _methods), PropertyFlag.AllForbidden);
         }
     }
 }

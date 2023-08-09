@@ -349,7 +349,7 @@ namespace Jint.Runtime.Interop
 
         public override string ToString()
         {
-            return "[clr type: " + ReferenceType + "]";
+            return "[CLR type: " + ReferenceType + "]";
         }
     }
 }
