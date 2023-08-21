@@ -13,7 +13,7 @@ namespace Jint.Runtime.Interop
     public sealed class DelegateWrapper : FunctionInstance
     {
         private static readonly JsString _name = new JsString("delegate");
-        private static readonly Type _voidTaskResultType = Task.CompletedTask.GetType.GetGenericArguments()[0];
+        private static readonly Type _voidTaskResultType = Task.CompletedTask.GetType().GetGenericArguments()[0];
         private readonly Delegate _d;
         private readonly bool _delegateContainsParamsArgument;
 
@@ -164,7 +164,7 @@ namespace Jint.Runtime.Interop
 
                     // Special case: Marshal `async Task` as undefined, as this is `Task<VoidTaskResult>` at runtime
                     // See https://github.com/sebastienros/jint/pull/1567#issuecomment-1681987702
-                    if (taskType.IsGenericType && taskType.GetGenericArguments()[0] == _voidTaskResult)
+                    if (taskType.IsGenericType && taskType.GetGenericArguments()[0] == _voidTaskResultType)
                     {
                         resolve(FromObject(Engine, JsValue.Undefined));
                         return;
