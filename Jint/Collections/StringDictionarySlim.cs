@@ -171,6 +171,15 @@ namespace Jint.Collections
             return ref AddKey(key, bucketIndex);
         }
 
+        /// <summary>
+        /// Adds a new item and expects key to not to exist.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AddDangerous(in Key key, TValue value)
+        {
+            AddKey(key, key.HashCode & (_buckets.Length - 1)) = value;
+        }
+
         public ref TValue this[Key key]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

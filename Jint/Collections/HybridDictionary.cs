@@ -28,6 +28,12 @@ namespace Jint.Collections
             }
         }
 
+        protected HybridDictionary(StringDictionarySlim<TValue> dictionary)
+        {
+            _checkExistingKeys = true;
+            _dictionary = dictionary;
+        }
+
         public TValue this[Key key]
         {
             get

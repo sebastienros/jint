@@ -26,16 +26,18 @@ namespace Jint
     /// </summary>
     public sealed partial class Engine : IDisposable
     {
+        private static readonly Options _defaultEngineOptions = new();
+
         private readonly ParserOptions _defaultParserOptions;
         private readonly JavaScriptParser _defaultParser;
 
-        internal readonly ExecutionContextStack _executionContexts;
+        private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         internal EvaluationContext? _activeEvaluationContext;
 
         private readonly EventLoop _eventLoop = new();
 
-        private readonly Agent _agent = new Agent();
+        private readonly Agent _agent = new();
 
         // lazy properties
         private DebugHandler? _debugHandler;
@@ -51,7 +53,7 @@ namespace Jint
         internal readonly JsValueArrayPool _jsValueArrayPool;
         internal readonly ExtensionMethodCache _extensionMethods;
 
-        public ITypeConverter ClrTypeConverter { get; internal set; } = null!;
+        public ITypeConverter ClrTypeConverter { get; internal set; }
 
         // cache of types used when resolving CLR type names
         internal readonly Dictionary<string, Type?> TypeCache = new();
@@ -73,7 +75,7 @@ namespace Jint
         /// <summary>
         /// Constructs a new engine instance.
         /// </summary>
-        public Engine() : this((Action<Options>?) null)
+        public Engine() : this(null, null)
         {
         }
 
@@ -81,14 +83,14 @@ namespace Jint
         /// Constructs a new engine instance and allows customizing options.
         /// </summary>
         public Engine(Action<Options>? options)
-            : this((engine, opts) => options?.Invoke(opts))
+            : this(null, options != null ? (_, opts) => options.Invoke(opts) : null)
         {
         }
 
         /// <summary>
         /// Constructs a new engine with a custom <see cref="Options"/> instance.
         /// </summary>
-        public Engine(Options options) : this((e, o) => e.Options = options)
+        public Engine(Options options) : this(options, null)
         {
         }
 
@@ -96,14 +98,21 @@ namespace Jint
         /// Constructs a new engine instance and allows customizing options.
         /// </summary>
         /// <remarks>The provided engine instance in callback is not guaranteed to be fully configured</remarks>
-        public Engine(Action<Engine, Options> options)
+        public Engine(Action<Engine, Options> options) : this(null, options)
+        {
+        }
+
+        private Engine(Options? options, Action<Engine, Options>? configure)
         {
             Advanced = new AdvancedOperations(this);
+            ClrTypeConverter = new DefaultTypeConverter(this);
 
             _executionContexts = new ExecutionContextStack(2);
 
-            Options = new Options();
-            options?.Invoke(this, Options);
+            // we can use default options if there's no action to modify it
+            Options = options ?? (configure is not null ? new Options() : _defaultEngineOptions);
+
+            configure?.Invoke(this, Options);
 
             _extensionMethods = ExtensionMethodCache.Build(Options.Interop.ExtensionMethodTypes);
 

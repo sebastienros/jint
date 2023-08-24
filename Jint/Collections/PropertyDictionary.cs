@@ -11,5 +11,9 @@ namespace Jint.Collections
         public PropertyDictionary(int capacity, bool checkExistingKeys) : base(capacity, checkExistingKeys)
         {
         }
+
+        public PropertyDictionary(StringDictionarySlim<PropertyDescriptor> properties) : base(properties)
+        {
+        }
     }
 }

@@ -21,8 +21,10 @@ namespace Jint
 
     public class Options
     {
-        private ITimeSystem? _timeSystem;
+        private static readonly CultureInfo _defaultCulture = CultureInfo.CurrentCulture;
+        private static readonly TimeZoneInfo _defaultTimeZone = TimeZoneInfo.Local;
 
+        private ITimeSystem? _timeSystem;
         internal List<Action<Engine>> _configurations { get; } = new();
 
         /// <summary>
@@ -58,7 +60,7 @@ namespace Jint
         /// <summary>
         /// The culture the engine runs on, defaults to current culture.
         /// </summary>
-        public CultureInfo Culture { get; set; } = CultureInfo.CurrentCulture;
+        public CultureInfo Culture { get; set; } = _defaultCulture;
 
 
         /// <summary>
@@ -73,7 +75,7 @@ namespace Jint
         /// <summary>
         /// The time zone the engine runs on, defaults to local. Same as setting DefaultTimeSystem with the time zone.
         /// </summary>
-        public TimeZoneInfo TimeZone { get; set; } = TimeZoneInfo.Local;
+        public TimeZoneInfo TimeZone { get; set; } = _defaultTimeZone;
 
         /// <summary>
         /// Reference resolver allows customizing behavior for reference resolving. This can be useful in cases where
@@ -106,7 +108,7 @@ namespace Jint
         {
             foreach (var configuration in _configurations)
             {
-                configuration?.Invoke(engine);
+                configuration(engine);
             }
 
             // add missing bits if needed
@@ -145,9 +147,6 @@ namespace Jint
             }
 
             engine.ModuleLoader = Modules.ModuleLoader;
-
-            // ensure defaults
-            engine.ClrTypeConverter ??= new DefaultTypeConverter(engine);
         }
 
         private static void AttachExtensionMethodsToPrototypes(Engine engine)
