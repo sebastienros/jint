@@ -130,6 +130,8 @@ namespace Jint.Native.Object
             return null;
         }
 
+        internal void SetProperties(StringDictionarySlim<PropertyDescriptor> properties) => SetProperties(new PropertyDictionary(properties));
+
         internal void SetProperties(PropertyDictionary? properties)
         {
             if (properties != null)

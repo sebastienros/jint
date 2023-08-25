@@ -18,11 +18,13 @@ namespace Jint.Runtime.Descriptors
         {
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected PropertyDescriptor(PropertyFlag flags)
         {
             _flags = flags;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected internal PropertyDescriptor(JsValue? value, PropertyFlag flags) : this(flags)
         {
             if ((_flags & PropertyFlag.CustomJsValue) != 0)
@@ -32,6 +34,7 @@ namespace Jint.Runtime.Descriptors
             _value = value;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PropertyDescriptor(JsValue? value, bool? writable, bool? enumerable, bool? configurable)
         {
             if ((_flags & PropertyFlag.CustomJsValue) != 0)

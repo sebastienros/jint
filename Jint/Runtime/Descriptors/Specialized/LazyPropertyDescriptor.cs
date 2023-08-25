@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Jint.Native;
 
 namespace Jint.Runtime.Descriptors.Specialized
@@ -7,6 +8,7 @@ namespace Jint.Runtime.Descriptors.Specialized
         private readonly object? _state;
         private readonly Func<object?, JsValue> _resolver;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal LazyPropertyDescriptor(object? state, Func<object?, JsValue> resolver, PropertyFlag flags)
             : base(null, flags | PropertyFlag.CustomJsValue)
         {
