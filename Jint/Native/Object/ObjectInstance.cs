@@ -555,6 +555,7 @@ namespace Jint.Native.Object
             return SetUnlikely(property, value, receiver);
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private bool SetUnlikely(JsValue property, JsValue value, JsValue receiver)
         {
             var ownDesc = GetOwnProperty(property);
@@ -1510,7 +1511,7 @@ namespace Jint.Native.Object
             }
 
             var min = length;
-            foreach (var entry in Properties)
+            foreach (var entry in GetOwnProperties())
             {
                 if (ulong.TryParse(entry.Key.ToString(), out var index))
                 {
@@ -1520,7 +1521,7 @@ namespace Jint.Native.Object
 
             if (Prototype?.Properties != null)
             {
-                foreach (var entry in Prototype.Properties)
+                foreach (var entry in Prototype.GetOwnProperties())
                 {
                     if (ulong.TryParse(entry.Key.ToString(), out var index))
                     {

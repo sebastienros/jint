@@ -3,7 +3,6 @@ using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.Array
 {
@@ -70,7 +69,7 @@ namespace Jint.Native.Array
 
         public abstract bool TryGetValue(ulong index, out JsValue value);
 
-        public bool HasProperty(ulong index) => Target.HasProperty(index);
+        public abstract bool HasProperty(ulong index);
 
         public abstract void CreateDataPropertyOrThrow(ulong index, JsValue value);
 
@@ -201,6 +200,8 @@ namespace Jint.Native.Array
 
             public override void DeletePropertyOrThrow(ulong index)
                 => _target.DeletePropertyOrThrow(JsString.Create(index));
+
+            public override bool HasProperty(ulong index) => Target.HasProperty(index);
         }
 
         private sealed class ArrayInstanceOperations : ArrayOperations<JsArray>
@@ -244,22 +245,18 @@ namespace Jint.Native.Array
                 var jsValues = new JsValue[n];
                 for (uint i = 0; i < (uint) jsValues.Length; i++)
                 {
-                    var prop = _target._dense[i];
-                    if (prop is null)
+                    var value = _target._dense[i];
+                    if (value is null)
                     {
-                        prop = _target.Prototype?.Get(i) ?? JsValue.Undefined;
-                    }
-                    else if (prop is not JsValue)
-                    {
-                        prop = _target.UnwrapJsValue((PropertyDescriptor) prop);
+                        value = _target.Prototype?.Get(i) ?? JsValue.Undefined;
                     }
 
-                    if (prop is JsValue jsValue && (jsValue.Type & elementTypes) == 0)
+                    if ((value.Type & elementTypes) == 0)
                     {
                         ExceptionHelper.ThrowTypeErrorNoEngine("invalid type");
                     }
 
-                    jsValues[writeIndex++] = (JsValue?) prop ?? JsValue.Undefined;
+                    jsValues[writeIndex++] = (JsValue?) value ?? JsValue.Undefined;
                 }
 
                 return jsValues;
@@ -273,6 +270,8 @@ namespace Jint.Native.Array
 
             public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
                 => _target.SetIndexValue((uint) index, value, updateLength);
+
+            public override bool HasProperty(ulong index) => _target.HasProperty(index);
         }
 
         private sealed class TypedArrayInstanceOperations : ArrayOperations
@@ -336,6 +335,8 @@ namespace Jint.Native.Array
 
             public override void DeletePropertyOrThrow(ulong index)
                 => _target.DeletePropertyOrThrow(index);
+
+            public override bool HasProperty(ulong index) => _target.HasProperty(index);
         }
 
     }

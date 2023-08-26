@@ -23,15 +23,13 @@ public sealed class JsArray : ArrayInstance
     {
     }
 
-    /// <summary>
-    /// Possibility to construct valid array fast, requires that supplied array does not have holes.
-    /// The array will be owned and modified by Jint afterwards.
-    /// </summary>
-    public JsArray(Engine engine, PropertyDescriptor[] items) : base(engine, items)
+    internal static JsArray CreateEmpty(Engine engine)
     {
-    }
-
-    internal JsArray(Engine engine, object[] items) : base(engine, items)
-    {
+        return new JsArray(engine)
+        {
+            _prototype = engine.Realm.Intrinsics.Array.PrototypeObject,
+            _dense = System.Array.Empty<JsValue>(),
+            _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.OnlyWritable)
+        };
     }
 }

@@ -845,40 +845,45 @@ namespace Jint.Runtime
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(long i)
         {
-            return i >= 0 && i < intToString.Length
-                ? intToString[i]
+            var temp = intToString;
+            return (ulong) i < (ulong) temp.Length
+                ? temp[i]
                 : i.ToString();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(int i)
         {
-            return i >= 0 && i < intToString.Length
-                ? intToString[i]
+            var temp = intToString;
+            return (uint) i < (uint) temp.Length
+                ? temp[i]
                 : i.ToString();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(uint i)
         {
-            return i < (uint) intToString.Length
-                ? intToString[i]
+            var temp = intToString;
+            return i < (uint) temp.Length
+                ? temp[i]
                 : i.ToString();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(char c)
         {
-            return c >= 0 && c < charToString.Length
-                ? charToString[c]
+            var temp = charToString;
+            return (uint) c < (uint) temp.Length
+                ? temp[c]
                 : c.ToString();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string ToString(ulong i)
         {
-            return i >= 0 && i < (ulong) intToString.Length
-                ? intToString[i]
+            var temp = intToString;
+            return i < (ulong) temp.Length
+                ? temp[i]
                 : i.ToString();
         }
 
