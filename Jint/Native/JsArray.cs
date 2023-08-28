@@ -1,5 +1,4 @@
 using Jint.Native.Array;
-using Jint.Runtime.Descriptors;
 
 namespace Jint.Native;
 
@@ -21,15 +20,5 @@ public sealed class JsArray : ArrayInstance
     /// </summary>
     public JsArray(Engine engine, JsValue[] items) : base(engine, items)
     {
-    }
-
-    internal static JsArray CreateEmpty(Engine engine)
-    {
-        return new JsArray(engine)
-        {
-            _prototype = engine.Realm.Intrinsics.Array.PrototypeObject,
-            _dense = System.Array.Empty<JsValue>(),
-            _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.OnlyWritable)
-        };
     }
 }
