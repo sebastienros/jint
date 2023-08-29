@@ -3,7 +3,6 @@ using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.PublicInterface;
@@ -58,20 +57,6 @@ public class RavenApiUsageTests
     }
 
     [Fact]
-    public void CanConstructArrayInstanceFromDescriptorArray()
-    {
-        var descriptors = new[]
-        {
-            new PropertyDescriptor(42, writable: false, enumerable: false, configurable: false),
-        };
-
-        var engine = new Engine();
-        var array = new JsArray(engine, descriptors);
-        Assert.Equal(1L, array.Length);
-        Assert.Equal(42, array[0]);
-    }
-
-    [Fact]
     public void CanGetPropertyDescriptor()
     {
         var engine = new Engine();
@@ -97,15 +82,6 @@ public class RavenApiUsageTests
 
         TestArrayAccess(engine, array1, "array1");
 
-        var array3 = new JsArray(engine, new[]
-        {
-            new PropertyDescriptor(JsNumber.Create(1), true, true, true),
-            new PropertyDescriptor(JsNumber.Create(2), true, true, true),
-            new PropertyDescriptor(JsNumber.Create(3), true, true, true),
-        });
-        engine.SetValue("array3", array3);
-        TestArrayAccess(engine, array3, "array3");
-
         engine.SetValue("obj", obj);
         Assert.Equal("test", engine.Evaluate("obj.name"));
 
@@ -114,10 +90,6 @@ public class RavenApiUsageTests
         Assert.Equal(1, engine.Evaluate("emptyArray.push(1); return emptyArray.length"));
 
         engine.SetValue("emptyArray", new JsArray(engine, Array.Empty<JsValue>()));
-        Assert.Equal(0, engine.Evaluate("emptyArray.length"));
-        Assert.Equal(1, engine.Evaluate("emptyArray.push(1); return emptyArray.length"));
-
-        engine.SetValue("emptyArray", new JsArray(engine, Array.Empty<PropertyDescriptor>()));
         Assert.Equal(0, engine.Evaluate("emptyArray.length"));
         Assert.Equal(1, engine.Evaluate("emptyArray.push(1); return emptyArray.length"));
 

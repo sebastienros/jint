@@ -1648,10 +1648,10 @@ namespace Jint.Native.Array
             return element;
         }
 
-        private object[] CreateBackingArray(ulong length)
+        private JsValue[] CreateBackingArray(ulong length)
         {
             ValidateArrayLength(length);
-            return new object[length];
+            return new JsValue[length];
         }
 
         private void ValidateArrayLength(ulong length)
