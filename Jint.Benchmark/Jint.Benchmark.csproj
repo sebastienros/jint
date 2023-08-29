@@ -24,10 +24,10 @@
     <ProjectReference Include="..\Jint\Jint.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.13.5" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.13.7" />
     <PackageReference Include="Jurassic" Version="3.2.6" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="NiL.JS" Version="2.5.1650" />
-    <PackageReference Include="YantraJS.Core" Version="1.2.117" />
+    <PackageReference Include="NiL.JS" Version="2.5.1665" />
+    <PackageReference Include="YantraJS.Core" Version="1.2.179" />
   </ItemGroup>
 </Project>

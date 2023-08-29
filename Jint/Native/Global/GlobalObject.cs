@@ -3,13 +3,10 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Esprima;
-using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
-using Jint.Runtime.Descriptors.Specialized;
-using Jint.Runtime.Interop;
 
 namespace Jint.Native.Global
 {

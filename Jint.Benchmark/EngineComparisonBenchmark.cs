@@ -1,5 +1,6 @@
 ﻿using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Order;
 using Esprima;
 using Esprima.Ast;
 
@@ -7,6 +8,7 @@ namespace Jint.Benchmark;
 
 [RankColumn]
 [MemoryDiagnoser]
+[Orderer(SummaryOrderPolicy.FastestToSlowest)]
 [GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByParams)]
 [HideColumns("Error", "Gen0", "Gen1", "Gen2")]
 [BenchmarkCategory("EngineComparison")]
