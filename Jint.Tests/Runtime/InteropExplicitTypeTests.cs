@@ -1,5 +1,6 @@
 ﻿namespace Jint.Tests.Runtime;
 
+using Jint.Native;
 using Jint.Runtime.Interop;
 
 public class InteropExplicitTypeTests
@@ -154,9 +155,9 @@ public class InteropExplicitTypeTests
         }
         public string name = "NullabeStruct";
 
-        public string Name { get => name; }
+        public string Name => name;
 
-        string I1.Name { get => "NullabeStruct as I1"; }
+        string I1.Name => "NullabeStruct as I1";
     }
 
     public class NullableHolder
@@ -172,7 +173,7 @@ public class InteropExplicitTypeTests
         _engine.SetValue("nullableHolder", nullableHolder);
         _engine.SetValue("nullabeStruct", new NullabeStruct());
 
-        Assert.Equal(_engine.Evaluate("nullableHolder.NullabeStruct"), Native.JsValue.Null);
+        Assert.Equal(_engine.Evaluate("nullableHolder.NullabeStruct"), JsValue.Null);
         _engine.Evaluate("nullableHolder.NullabeStruct = nullabeStruct");
         Assert.Equal(_engine.Evaluate("nullableHolder.NullabeStruct.Name"), nullableHolder.NullabeStruct?.Name);
     }
@@ -287,5 +288,58 @@ public class InteropExplicitTypeTests
             }));
         });
         Assert.Equal("Invalid when Engine.Options.Interop.AllowGetType == false", ex.Message);
+    }
+
+    public interface ICallObjectMethodFromInterface
+    {
+        ICallObjectMethodFromInterface Instance { get; }
+        // hide Object.GetHashCode
+        string GetHashCode();
+        // overload Object.Equals
+        string Equals();
+    }
+    public class CallObjectMethodFromInterface : ICallObjectMethodFromInterface
+    {
+        public ICallObjectMethodFromInterface Instance => this;
+        public override string ToString() => nameof(CallObjectMethodFromInterface);
+        public new string GetHashCode() => "new GetHashCode, hide Object.GetHashCode";
+        public string Equals() => "overload Object.Equals";
+    }
+
+    // issue#1626 ToString method is now unavailable in some CLR Interop scenarios
+    [Fact]
+    public void CallObjectMethodFromInterfaceWrapper()
+    {
+        var inst = new CallObjectMethodFromInterface();
+        _engine.SetValue("inst", inst);
+        Assert.Equal(inst.Instance.ToString(), _engine.Evaluate("inst.Instance.ToString()"));
+    }
+
+    [Fact]
+    public void CallInterfaceMethodWhichHideObjectMethod()
+    {
+        var inst = new CallObjectMethodFromInterface();
+        _engine.SetValue("inst", inst);
+        Assert.Equal(inst.Instance.GetHashCode(), _engine.Evaluate("inst.Instance.GetHashCode()"));
+    }
+
+    [Fact(Skip = "TODO, no solution now.")]
+    public void CallObjectMethodHiddenByInterface()
+    {
+        var inst = new CallObjectMethodFromInterface();
+        _engine.SetValue("inst", inst);
+        Assert.Equal(
+            (inst.Instance as object).GetHashCode(),
+            _engine.Evaluate("clrHelper.unwrap(inst.Instance).GetHashCode()")
+        );
+    }
+
+    [Fact]
+    public void CallInterfaceMethodWhichOverloadObjectMethod()
+    {
+        var inst = new CallObjectMethodFromInterface();
+        _engine.SetValue("inst", inst);
+        Assert.Equal(inst.Instance.Equals(), _engine.Evaluate("inst.Instance.Equals()"));
+        Assert.Equal(inst.Instance.Equals(inst), _engine.Evaluate("inst.Instance.Equals(inst)"));
     }
 }
