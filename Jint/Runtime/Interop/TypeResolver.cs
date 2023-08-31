@@ -267,11 +267,11 @@ namespace Jint.Runtime.Interop
 
             // if no properties were found then look for a method
             List<MethodInfo>? methods = null;
-            foreach (var m in type.GetMethods(bindingFlags))
+            void AddMethod(MethodInfo m)
             {
                 if (!Filter(engine, m))
                 {
-                    continue;
+                    return;
                 }
 
                 foreach (var name in typeResolverMemberNameCreator(m))
@@ -282,6 +282,10 @@ namespace Jint.Runtime.Interop
                         methods.Add(m);
                     }
                 }
+            }
+            foreach (var m in type.GetMethods(bindingFlags))
+            {
+                AddMethod(m);
             }
 
             // TPC: need to grab the extension methods here - for overloads
@@ -294,6 +298,15 @@ namespace Jint.Runtime.Interop
                         methods ??= new List<MethodInfo>();
                         methods.Add(methodInfo);
                     }
+                }
+            }
+
+            // Add Object methods to interface
+            if (type.IsInterface)
+            {
+                foreach (var m in typeof(object).GetMethods(bindingFlags))
+                {
+                    AddMethod(m);
                 }
             }
 
