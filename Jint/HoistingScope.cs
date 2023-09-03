@@ -281,7 +281,6 @@ namespace Jint
 
                     if (childType != Nodes.FunctionDeclaration
                         && childType != Nodes.ArrowFunctionExpression
-                        && childType != Nodes.ArrowParameterPlaceHolder
                         && childType != Nodes.FunctionExpression
                         && !childNode.ChildNodes.IsEmpty())
                     {

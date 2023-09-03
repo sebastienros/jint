@@ -91,7 +91,6 @@ namespace Jint
             return type
                 is Nodes.FunctionExpression
                 or Nodes.ArrowFunctionExpression
-                or Nodes.ArrowParameterPlaceHolder
                 or Nodes.ClassExpression;
         }
 
