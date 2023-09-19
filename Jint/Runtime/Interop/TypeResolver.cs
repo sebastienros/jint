@@ -287,6 +287,11 @@ namespace Jint.Runtime.Interop
             {
                 AddMethod(m);
             }
+            foreach (var iface in type.GetInterfaces())
+                foreach (var m in iface.GetMethods(bindingFlags))
+                {
+                    AddMethod(m);
+                }
 
             // TPC: need to grab the extension methods here - for overloads
             if (engine._extensionMethods.TryGetExtensionMethods(type, out var extensionMethods))
