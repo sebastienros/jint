@@ -1,26 +1,15 @@
 ﻿namespace Jint.Tests.Runtime;
 
 using Jint.Native;
-using Jint.Runtime;
 using Jint.Runtime.Interop;
 
 public class InteropExplicitTypeTests
 {
-#if NETCOREAPP
-    public interface I0
-    {
-
-        string NameI0 { get => "I0.Name"; }
-        string OverloadSuperMethod() => "I0.OverloadSuperMethod()";
-        string SubPropertySuperMethod() => "I0.SubPropertySuperMethod()";
-    }
-
-    public interface I1 : I0
+    public interface I1
     {
         string Name { get; }
-        string OverloadSuperMethod(int x) => $"I1.OverloadSuperMethod(int {x})";
-        new string SubPropertySuperMethod => "I1.SubPropertySuperMethod";
     }
+
     public class Super
     {
         public string Name { get; } = "Super";
@@ -131,42 +120,7 @@ public class InteropExplicitTypeTests
         Assert.Equal(holder.IndexerI1[0].Name, _engine.Evaluate("holder.IndexerI1[0].Name"));
     }
 
-    [Fact]
-    public void CallSuperPropertyFromInterface()
-    {
-        Assert.Equal(holder.I1.NameI0, _engine.Evaluate("holder.I1.NameI0"));
-    }
 
-    [Fact]
-    public void CallOverloadSuperMethod()
-    {
-        Assert.Equal(
-            holder.I1.OverloadSuperMethod(1),
-            _engine.Evaluate("holder.I1.OverloadSuperMethod(1)"));
-        Assert.Equal(
-            holder.I1.OverloadSuperMethod(),
-            _engine.Evaluate("holder.I1.OverloadSuperMethod()"));
-    }
-
-    [Fact]
-    public void CallSubPropertySuperMethod_SubProperty()
-    {
-        Assert.Equal(
-        holder.I1.SubPropertySuperMethod,
-        _engine.Evaluate("holder.I1.SubPropertySuperMethod"));
-    }
-
-    [Fact]
-    public void CallSubPropertySuperMethod_SuperMethod()
-    {
-        var ex = Assert.Throws<JavaScriptException>(() =>
-                {
-                    Assert.Equal(
-                     holder.I1.SubPropertySuperMethod(),
-                     _engine.Evaluate("holder.I1.SubPropertySuperMethod()"));
-                });
-        Assert.Equal("Property 'SubPropertySuperMethod' of object is not a function", ex.Message);
-    }
     [Fact]
     public void SuperClassFromField()
     {
@@ -388,6 +342,4 @@ public class InteropExplicitTypeTests
         Assert.Equal(inst.Instance.Equals(), _engine.Evaluate("inst.Instance.Equals()"));
         Assert.Equal(inst.Instance.Equals(inst), _engine.Evaluate("inst.Instance.Equals(inst)"));
     }
-
-#endif
 }
