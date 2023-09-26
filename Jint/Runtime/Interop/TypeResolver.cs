@@ -283,10 +283,12 @@ namespace Jint.Runtime.Interop
                     }
                 }
             }
+
             foreach (var m in type.GetMethods(bindingFlags))
             {
                 AddMethod(m);
             }
+
             foreach (var iface in type.GetInterfaces())
             {
                 foreach (var m in iface.GetMethods())
