@@ -283,9 +283,18 @@ namespace Jint.Runtime.Interop
                     }
                 }
             }
+
             foreach (var m in type.GetMethods(bindingFlags))
             {
                 AddMethod(m);
+            }
+
+            foreach (var iface in type.GetInterfaces())
+            {
+                foreach (var m in iface.GetMethods())
+                {
+                    AddMethod(m);
+                }
             }
 
             // TPC: need to grab the extension methods here - for overloads
@@ -293,11 +302,7 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var methodInfo in extensionMethods)
                 {
-                    if (memberNameComparer.Equals(methodInfo.Name, memberName))
-                    {
-                        methods ??= new List<MethodInfo>();
-                        methods.Add(methodInfo);
-                    }
+                    AddMethod(methodInfo);
                 }
             }
 
