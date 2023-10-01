@@ -221,7 +221,7 @@ namespace Jint.Runtime.Environments
                     {
                         if (((RestElement) property).Argument is Identifier restIdentifier)
                         {
-                            var rest = _engine.Realm.Intrinsics.Object.Construct(argumentObject.Properties!.Count - processedProperties!.Count);
+                            var rest = _engine.Realm.Intrinsics.Object.Construct((argumentObject.Properties?.Count ?? 0) - processedProperties!.Count);
                             argumentObject.CopyDataProperties(rest, processedProperties);
                             SetItemSafely(restIdentifier.Name, rest, initiallyEmpty);
                         }

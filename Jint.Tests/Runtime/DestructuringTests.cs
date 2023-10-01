@@ -62,4 +62,10 @@ public class DestructuringTests
     {
         _engine.Execute("return function([x, ...[y, ...z]]) { equal(1, x); equal(2, y); equal('3,4', z + ''); }([1, 2, 3, 4]);");
     }
+
+    [Fact]
+    public void EmptyRest()
+    {
+        _engine.Execute("function test({ ...props }){}; test({});");
+    }
 }
