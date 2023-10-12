@@ -190,6 +190,8 @@ public class ProxyTests
     [Fact]
     public void ProxyHandlerGetDataPropertyShouldNotUseReferenceEquals()
     {
+        // There are two JsString which should be treat as same value,
+        // but they are not ReferenceEquals.
         _engine.Execute("""
             let o = Object.defineProperty({}, 'value', {
               configurable: false,
@@ -198,6 +200,26 @@ public class ProxyTests
             const handler = {
               get(target, property, receiver) {
                 return 'Jint'.substring(1,3);
+              }
+            };
+            let p = new Proxy(o, handler);
+            let pv = p.value;
+        """);
+    }
+
+    [Fact]
+    public void ProxyHandlerGetDataPropertyShouldNotCheckClrType()
+    {
+        // There are a JsString and a ConcatenatedString which should be treat as same value,
+        // but they are different CLR Type.
+        _engine.Execute("""
+            let o = Object.defineProperty({}, 'value', {
+              configurable: false,
+              value: 'Jint',
+            });
+            const handler = {
+              get(target, property, receiver) {
+                return 'Ji'.concat('nt');
               }
             };
             let p = new Proxy(o, handler);

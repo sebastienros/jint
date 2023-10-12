@@ -138,7 +138,7 @@ namespace Jint.Native.Proxy
                 if (targetDesc.IsDataDescriptor())
                 {
                     var targetValue = targetDesc.Value;
-                    if (!targetDesc.Configurable && !targetDesc.Writable && !IsSameValue(result, targetValue))
+                    if (!targetDesc.Configurable && !targetDesc.Writable && !SameValue(result, targetValue))
                     {
                         ExceptionHelper.ThrowTypeError(_engine.Realm, $"'get' on proxy: property '{property}' is a read-only and non-configurable data property on the proxy target but the proxy did not return its actual value (expected '{targetValue}' but got '{result}')");
                     }
@@ -154,28 +154,6 @@ namespace Jint.Native.Proxy
             }
 
             return result;
-        }
-
-        private static bool IsSameValue(JsValue expected, JsValue actual)
-        {
-            if (ReferenceEquals(expected, actual))
-            {
-                return true;
-            }
-            if (expected.GetType() != actual.GetType())
-            {
-                return false;
-            }
-            if (expected.IsPrimitive())
-            {
-                return expected == actual;
-            }
-            if (expected is ObjectWrapper expectedObj && actual is ObjectWrapper actualObj)
-            {
-                return ReferenceEquals(expectedObj.Target, actualObj.Target)
-                    && expectedObj.ClrType == actualObj.ClrType;
-            }
-            return false;
         }
 
         /// <summary>
@@ -358,7 +336,7 @@ namespace Jint.Native.Proxy
                 if (targetDesc.IsDataDescriptor() && !targetDesc.Configurable && !targetDesc.Writable)
                 {
                     var targetValue = targetDesc.Value;
-                    if (!IsSameValue(targetValue, value))
+                    if (!SameValue(targetValue, value))
                     {
                         ExceptionHelper.ThrowTypeError(_engine.Realm, $"'set' on proxy: trap returned truish for property '{property}' which exists in the proxy target as a non-configurable and non-writable data property with a different value");
                     }
