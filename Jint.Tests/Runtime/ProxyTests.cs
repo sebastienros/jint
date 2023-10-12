@@ -1,4 +1,7 @@
-﻿namespace Jint.Tests.Runtime;
+﻿using Jint.Native.Error;
+using Jint.Runtime;
+
+namespace Jint.Tests.Runtime;
 
 public class ProxyTests
 {
@@ -182,5 +185,219 @@ public class ProxyTests
             return passed;";
 
         Assert.True(_engine.Evaluate(Script).AsBoolean());
+    }
+
+    [Fact]
+    public void ProxyHandlerGetDataPropertyShouldNotUseReferenceEquals()
+    {
+        _engine.Execute("""
+            let o = Object.defineProperty({}, 'value', {
+              configurable: false,
+              value: 'in',
+            });
+            const handler = {
+              get(target, property, receiver) {
+                return 'Jint'.substring(1,3);
+              }
+            };
+            let p = new Proxy(o, handler);
+            let pv = p.value;
+        """);
+    }
+
+    class TestClass
+    {
+        public static readonly TestClass Instance = new TestClass();
+        public string StringValue => "StringValue";
+        public int IntValue => 42424242; // avoid small numbers cache
+        public TestClass ObjectWrapper => Instance;
+    }
+
+    [Fact]
+    public void ProxyClrPropertyPrimitiveString()
+    {
+        _engine.SetValue("testClass", TestClass.Instance);
+        var result = _engine.Evaluate("""
+            const handler = {
+              get(target, property, receiver) {
+                return Reflect.get(target, property, receiver);
+              }
+            };
+            const p = new Proxy(testClass, handler);
+            return p.StringValue;
+        """);
+        Assert.Equal(TestClass.Instance.StringValue, result.AsString());
+    }
+
+    [Fact]
+    public void ProxyClrPropertyPrimitiveInt()
+    {
+        _engine.SetValue("testClass", TestClass.Instance);
+        var result = _engine.Evaluate("""
+            const handler = {
+              get(target, property, receiver) {
+                return Reflect.get(target, property, receiver);
+              }
+            };
+            const p = new Proxy(testClass, handler);
+            return p.IntValue;
+        """);
+        Assert.Equal(TestClass.Instance.IntValue, result.AsInteger());
+    }
+
+    [Fact]
+    public void ProxyClrPropertyObjectWrapper()
+    {
+        _engine.SetValue("testClass", TestClass.Instance);
+        var result = _engine.Evaluate("""
+            const handler = {
+              get(target, property, receiver) {
+                return Reflect.get(target, property, receiver);
+              }
+            };
+            const p = new Proxy(testClass, handler);
+            return p.ObjectWrapper;
+        """);
+    }
+
+    private static ErrorPrototype TypeErrorPrototype(Engine engine)
+        => engine.Realm.Intrinsics.TypeError.PrototypeObject;
+
+    private static void AssertJsTypeError(Engine engine, JavaScriptException ex, string msg)
+    {
+        Assert.Same(TypeErrorPrototype(engine), ex.Error.AsObject().Prototype);
+        Assert.Equal(msg, ex.Message);
+    }
+
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/get#invariants
+    // The value reported for a property must be the same as
+    // the value ofthe corresponding target object property,
+    // if the target object property is
+    // a non-writable, non-configurable own data property.
+    [Fact]
+    public void ProxyHandlerGetInvariantsDataPropertyReturnsDifferentValue()
+    {
+        _engine.Execute("""
+            let o = Object.defineProperty({}, 'value', {
+              writable: false,
+              configurable: false,
+              value: 42,
+            });
+            const handler = {
+              get(target, property, receiver) {
+                return 32;
+              }
+            };
+            let p = new Proxy(o, handler);
+        """);
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("p.value"));
+        AssertJsTypeError(_engine, ex, "'get' on proxy: property 'value' is a read-only and non-configurable data property on the proxy target but the proxy did not return its actual value (expected '42' but got '32')");
+    }
+
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/get#invariants
+    // The value reported for a property must be undefined,
+    // if the corresponding target object property is
+    // a non-configurable own accessor property
+    // that has undefined as its [[Get]] attribute.
+    [Fact]
+    public void ProxyHandlerGetInvariantsAccessorPropertyWithoutGetButReturnsValue()
+    {
+        _engine.Execute("""
+            let o = Object.defineProperty({}, 'value', {
+              configurable: false,
+              set() {},
+            });
+            const handler = {
+              get(target, property, receiver) {
+                return 32;
+              }
+            };
+            let p = new Proxy(o, handler);
+        """);
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("p.value"));
+        AssertJsTypeError(_engine, ex, "'get' on proxy: property 'value' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined' (got '32')");
+    }
+
+    private const string ScriptProxyHandlerSetInvariantsDataPropertyImmutable = """
+        let o = Object.defineProperty({}, 'value', {
+          writable: false,
+          configurable: false,
+          value: 42,
+        });
+        const handler = {
+          set(target, property, value, receiver) {
+            return true;
+          }
+        };
+        let p = new Proxy(o, handler);
+    """;
+
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/set#invariants
+    // Cannot change the value of a property to be different from
+    // the value of the corresponding target object property,
+    // if the corresponding target object property is
+    // a non-writable, non-configurable data property.
+    [Fact]
+    public void ProxyHandlerSetInvariantsDataPropertyImmutableChangeValue()
+    {
+        _engine.Execute(ScriptProxyHandlerSetInvariantsDataPropertyImmutable);
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("p.value = 32"));
+        AssertJsTypeError(_engine, ex, "'set' on proxy: trap returned truish for property 'value' which exists in the proxy target as a non-configurable and non-writable data property with a different value");
+    }
+
+    [Fact]
+    public void ProxyHandlerSetInvariantsDataPropertyImmutableSetSameValue()
+    {
+        _engine.Execute(ScriptProxyHandlerSetInvariantsDataPropertyImmutable);
+        _engine.Evaluate("p.value = 42");
+    }
+
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/set#invariants
+    // Cannot set the value of a property, 
+    // if the corresponding target object property is
+    // a non-configurable accessor property
+    // that has undefined as its [[Set]] attribute.
+    [Fact]
+    public void ProxyHandlerSetInvariantsAccessorPropertyWithoutSetChange()
+    {
+        _engine.Execute("""
+            let o = Object.defineProperty({}, 'value', {
+              configurable: false,
+              get() { return 42; },
+            });
+            const handler = {
+              set(target, property, value, receiver) {
+                return true;
+              }
+            };
+            let p = new Proxy(o, handler);
+        """);
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("p.value = 42"));
+        AssertJsTypeError(_engine, ex, "'set' on proxy: trap returned truish for property 'value' which exists in the proxy target as a non-configurable and non-writable accessor property without a setter");
+    }
+
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/set#invariants
+    // In strict mode, a false return value from the set() handler
+    // will throw a TypeError exception.
+    [Fact]
+    public void ProxyHandlerSetInvariantsReturnsFalseInStrictMode()
+    {
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate("""
+            'use strict';
+            let p = new Proxy({}, { set: () => false });
+            p.value = 42;
+        """));
+        // V8: "'set' on proxy: trap returned falsish for property 'value'",
+        AssertJsTypeError(_engine, ex, "Cannot assign to read only property 'value' of [object Object]");
+    }
+
+    [Fact]
+    public void ProxyHandlerSetInvariantsReturnsFalseInNonStrictMode()
+    {
+        _engine.Evaluate("""
+            // 'use strict';
+            let p = new Proxy({}, { set: () => false });
+            p.value = 42;
+        """);
     }
 }
