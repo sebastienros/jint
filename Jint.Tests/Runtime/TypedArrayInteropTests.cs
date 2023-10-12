@@ -120,6 +120,34 @@ namespace Jint.Tests.Runtime
             Assert.Equal(source, fromEngine.AsBigUint64Array());
         }
 
+        [Fact]
+        public void CanInteropWithFloat32()
+        {
+            var engine = new Engine();
+            var source = new float[] { 42f, 12f };
+            
+            engine.SetValue("testSubject", engine.Realm.Intrinsics.Float32Array.Construct(source));
+            ValidateCreatedTypeArray(engine, "Float32Array");
+            
+            var fromEngine = engine.GetValue("testSubject");
+            Assert.True(fromEngine.IsFloat32Array());
+            Assert.Equal(source, fromEngine.AsFloat32Array());
+        }
+
+        [Fact]
+        public void CanInteropWithFloat64()
+        {
+            var engine = new Engine();
+            var source = new double[] { 42f, 12f };
+            
+            engine.SetValue("testSubject", engine.Realm.Intrinsics.Float64Array.Construct(source));
+            ValidateCreatedTypeArray(engine, "Float64Array");
+            
+            var fromEngine = engine.GetValue("testSubject");
+            Assert.True(fromEngine.IsFloat64Array());
+            Assert.Equal(source, fromEngine.AsFloat64Array());
+        }
+        
         private static void ValidateCreatedTypeArray(Engine engine, string arrayName)
         {
             Assert.Equal(arrayName, engine.Evaluate("testSubject.constructor.name").AsString());

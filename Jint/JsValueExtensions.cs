@@ -391,6 +391,40 @@ namespace Jint
 
             return ((JsTypedArray) value).ToNativeArray<ulong>();
         }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsFloat32Array(this JsValue value)
+        {
+            return value is JsTypedArray { _arrayElementType: TypedArrayElementType.Float32 };
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float[] AsFloat32Array(this JsValue value)
+        {
+            if (!value.IsFloat32Array())
+            {
+                ThrowWrongTypeException(value, "Float32Array");
+            }
+
+            return ((JsTypedArray) value).ToNativeArray<float>();
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsFloat64Array(this JsValue value)
+        {
+            return value is JsTypedArray { _arrayElementType: TypedArrayElementType.Float64 };
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static double[] AsFloat64Array(this JsValue value)
+        {
+            if (!value.IsFloat64Array())
+            {
+                ThrowWrongTypeException(value, "Float64Array");
+            }
+
+            return ((JsTypedArray) value).ToNativeArray<double>();
+        }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
