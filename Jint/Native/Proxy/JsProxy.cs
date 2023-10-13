@@ -2,6 +2,7 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Proxy
 {
@@ -134,13 +135,21 @@ namespace Jint.Native.Proxy
             var targetDesc = target.GetOwnProperty(property);
             if (targetDesc != PropertyDescriptor.Undefined)
             {
-                if (targetDesc.IsDataDescriptor() && !targetDesc.Configurable && !targetDesc.Writable && !ReferenceEquals(result, targetDesc._value))
+                if (targetDesc.IsDataDescriptor())
                 {
-                   ExceptionHelper.ThrowTypeError(_engine.Realm);
+                    var targetValue = targetDesc.Value;
+                    if (!targetDesc.Configurable && !targetDesc.Writable && !SameValue(result, targetValue))
+                    {
+                        ExceptionHelper.ThrowTypeError(_engine.Realm, $"'get' on proxy: property '{property}' is a read-only and non-configurable data property on the proxy target but the proxy did not return its actual value (expected '{targetValue}' but got '{result}')");
+                    }
                 }
-                if (targetDesc.IsAccessorDescriptor() && !targetDesc.Configurable && (targetDesc.Get ?? Undefined).IsUndefined() && !result.IsUndefined())
+
+                if (targetDesc.IsAccessorDescriptor())
                 {
-                   ExceptionHelper.ThrowTypeError(_engine.Realm, $"'get' on proxy: property '{property}' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined' (got '{result}')");
+                    if (!targetDesc.Configurable && (targetDesc.Get ?? Undefined).IsUndefined() && !result.IsUndefined())
+                    {
+                        ExceptionHelper.ThrowTypeError(_engine.Realm, $"'get' on proxy: property '{property}' is a non-configurable accessor property on the proxy target and does not have a getter function, but the trap did not return 'undefined' (got '{result}')");
+                    }
                 }
             }
 
@@ -152,7 +161,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
         {
-            if (!TryCallHandler(TrapOwnKeys, new JsValue[] { _target }, out var result))
+            if (!TryCallHandler(TrapOwnKeys, new[] { _target }, out var result))
             {
                 return _target.GetOwnPropertyKeys(types);
             }
@@ -321,14 +330,15 @@ namespace Jint.Native.Proxy
                 return false;
             }
 
-            var targetDesc  = _target.GetOwnProperty(property);
+            var targetDesc = _target.GetOwnProperty(property);
             if (targetDesc != PropertyDescriptor.Undefined)
             {
                 if (targetDesc.IsDataDescriptor() && !targetDesc.Configurable && !targetDesc.Writable)
                 {
-                    if (targetDesc.Value != value)
+                    var targetValue = targetDesc.Value;
+                    if (!SameValue(targetValue, value))
                     {
-                        ExceptionHelper.ThrowTypeError(_engine.Realm);
+                        ExceptionHelper.ThrowTypeError(_engine.Realm, $"'set' on proxy: trap returned truish for property '{property}' which exists in the proxy target as a non-configurable and non-writable data property with a different value");
                     }
                 }
 
@@ -336,7 +346,7 @@ namespace Jint.Native.Proxy
                 {
                     if ((targetDesc.Set ?? Undefined).IsUndefined())
                     {
-                        ExceptionHelper.ThrowTypeError(_engine.Realm);
+                        ExceptionHelper.ThrowTypeError(_engine.Realm, $"'set' on proxy: trap returned truish for property '{property}' which exists in the proxy target as a non-configurable and non-writable accessor property without a setter");
                     }
                 }
             }
@@ -405,7 +415,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override bool HasProperty(JsValue property)
         {
-            if (!TryCallHandler(TrapHas, new [] { _target, TypeConverter.ToPropertyKey(property) }, out var jsValue))
+            if (!TryCallHandler(TrapHas, new[] { _target, TypeConverter.ToPropertyKey(property) }, out var jsValue))
             {
                 return _target.HasProperty(property);
             }
@@ -474,7 +484,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         public override bool PreventExtensions()
         {
-            if (!TryCallHandler(TrapPreventExtensions, new JsValue[] { _target }, out var result))
+            if (!TryCallHandler(TrapPreventExtensions, new[] { _target }, out var result))
             {
                 return _target.PreventExtensions();
             }
@@ -496,7 +506,7 @@ namespace Jint.Native.Proxy
         {
             get
             {
-                if (!TryCallHandler(TrapIsExtensible, new JsValue[] { _target }, out var result))
+                if (!TryCallHandler(TrapIsExtensible, new[] { _target }, out var result))
                 {
                     return _target.Extensible;
                 }
@@ -516,7 +526,7 @@ namespace Jint.Native.Proxy
         /// </summary>
         protected internal override ObjectInstance? GetPrototypeOf()
         {
-            if (!TryCallHandler(TrapGetProtoTypeOf, new JsValue[] { _target }, out var handlerProto ))
+            if (!TryCallHandler(TrapGetProtoTypeOf, new[] { _target }, out var handlerProto))
             {
                 return _target.Prototype;
             }

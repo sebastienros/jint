@@ -9,6 +9,7 @@ using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native
 {
@@ -465,6 +466,11 @@ namespace Jint.Native
 
         internal static bool SameValue(JsValue x, JsValue y)
         {
+            if (ReferenceEquals(x, y))
+            {
+                return true;
+            }
+
             var typea = x.Type;
             var typeb = y.Type;
 
@@ -510,8 +516,15 @@ namespace Jint.Native
                     return true;
                 case Types.Symbol:
                     return x == y;
+                case Types.Object:
+                    if (x is ObjectWrapper xo && y is ObjectWrapper yo)
+                    {
+                        return ReferenceEquals(xo.Target, yo.Target)
+                            && xo.ClrType == yo.ClrType;
+                    }
+                    return false;
                 default:
-                    return ReferenceEquals(x, y);
+                    return false;
             }
         }
 
