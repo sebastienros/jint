@@ -3037,6 +3037,21 @@ x.test = {
             Assert.Equal(2, beforeEvaluateTriggeredCount);
         }
 
+        [Fact]
+        public void ShouldConvertJsTypedArraysCorrectly()
+        {
+            var engine = new Engine();
+            
+            var float32 = new float [] { 42f, 23 };
+            
+            engine.SetValue("float32", float32); 
+            engine.SetValue("testFloat32Array", new Action<float[]>(v => Assert.Equal(v, float32)));
+            
+            engine.Evaluate(@"
+                testFloat32Array(new Float32Array(float32));
+            ");
+        }
+
         private static void TestBeforeEvaluateEvent(Action<Engine, string> call, string expectedSource)
         {
             var engine = new Engine();

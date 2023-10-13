@@ -10,6 +10,7 @@ using Jint.Native.Number;
 using Jint.Native.RegExp;
 using Jint.Native.String;
 using Jint.Native.Symbol;
+using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -1052,6 +1053,27 @@ namespace Jint.Native.Object
                             result[i] = valueToSet;
                         }
                         converted = result;
+                        break;
+                    }
+                    
+                    if (this is JsTypedArray typedArrayInstance)
+                    {
+                        converted = typedArrayInstance._arrayElementType switch
+                        {
+                            TypedArrayElementType.Int8 => typedArrayInstance.ToNativeArray<sbyte>(),
+                            TypedArrayElementType.Int16 => typedArrayInstance.ToNativeArray<short>(),
+                            TypedArrayElementType.Int32 => typedArrayInstance.ToNativeArray<int>(),
+                            TypedArrayElementType.BigInt64 => typedArrayInstance.ToNativeArray<long>(),
+                            TypedArrayElementType.Float32 => typedArrayInstance.ToNativeArray<float>(),
+                            TypedArrayElementType.Float64 => typedArrayInstance.ToNativeArray<double>(),
+                            TypedArrayElementType.Uint8 => typedArrayInstance.ToNativeArray<byte>(),
+                            TypedArrayElementType.Uint8C => typedArrayInstance.ToNativeArray<byte>(),
+                            TypedArrayElementType.Uint16 => typedArrayInstance.ToNativeArray<ushort>(),
+                            TypedArrayElementType.Uint32 => typedArrayInstance.ToNativeArray<uint>(),
+                            TypedArrayElementType.BigUint64 => typedArrayInstance.ToNativeArray<ulong>(),
+                            _ => throw new ArgumentOutOfRangeException()
+                        };
+
                         break;
                     }
 
