@@ -34,6 +34,7 @@ namespace Jint
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
         internal EvaluationContext? _activeEvaluationContext;
+        internal ErrorDispatchInfo? _error;
 
         private readonly EventLoop _eventLoop = new();
 
@@ -1552,6 +1553,11 @@ namespace Jint
             }
 
             return result;
+        }
+
+        internal void SignalError(ErrorDispatchInfo error)
+        {
+            _error = error;
         }
 
         public void Dispose()
