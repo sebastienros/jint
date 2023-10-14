@@ -10,6 +10,7 @@ namespace Jint.Runtime.Descriptors
         public GetSetPropertyDescriptor(JsValue? get, JsValue? set, bool? enumerable = null, bool? configurable = null)
         : base(null, writable: null, enumerable: enumerable, configurable: configurable)
         {
+            _flags |= PropertyFlag.NonData;
             _get = get;
             _set = set;
         }
@@ -17,12 +18,18 @@ namespace Jint.Runtime.Descriptors
         internal GetSetPropertyDescriptor(JsValue? get, JsValue? set, PropertyFlag flags)
             : base(null, flags)
         {
+            _flags |= PropertyFlag.NonData;
+            _flags &= ~PropertyFlag.WritableSet;
+            _flags &= ~PropertyFlag.Writable;
             _get = get;
             _set = set;
         }
 
         public GetSetPropertyDescriptor(PropertyDescriptor descriptor) : base(descriptor)
         {
+            _flags |= PropertyFlag.NonData;
+            _flags &= ~PropertyFlag.WritableSet;
+            _flags &= ~PropertyFlag.Writable;
             _get = descriptor.Get;
             _set = descriptor.Set;
         }
@@ -45,8 +52,10 @@ namespace Jint.Runtime.Descriptors
             private readonly Engine _engine;
             private JsValue? _thrower;
 
-            public ThrowerPropertyDescriptor(Engine engine, PropertyFlag flags) : base(flags)
+            public ThrowerPropertyDescriptor(Engine engine, PropertyFlag flags)
+                : base(flags | PropertyFlag.CustomJsValue)
             {
+                _flags |= PropertyFlag.NonData;
                 _engine = engine;
             }
 

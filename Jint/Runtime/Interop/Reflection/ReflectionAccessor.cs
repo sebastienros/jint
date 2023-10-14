@@ -28,6 +28,8 @@ namespace Jint.Runtime.Interop.Reflection
             _indexer = indexer;
         }
 
+        public virtual bool Readable => true;
+
         public abstract bool Writable { get; }
 
         protected abstract object? DoGetValue(object target);

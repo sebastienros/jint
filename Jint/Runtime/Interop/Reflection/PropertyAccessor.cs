@@ -15,6 +15,8 @@ namespace Jint.Runtime.Interop.Reflection
             _propertyInfo = propertyInfo;
         }
 
+        public override bool Readable => _propertyInfo.CanRead;
+
         public override bool Writable => _propertyInfo.CanWrite;
 
         protected override object? DoGetValue(object target)

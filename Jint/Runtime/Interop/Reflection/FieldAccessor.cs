@@ -1,4 +1,6 @@
 using System.Reflection;
+using Jint.Native;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Interop.Reflection
 {

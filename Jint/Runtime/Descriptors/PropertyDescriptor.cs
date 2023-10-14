@@ -21,7 +21,7 @@ namespace Jint.Runtime.Descriptors
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected PropertyDescriptor(PropertyFlag flags)
         {
-            _flags = flags;
+            _flags = flags & ~PropertyFlag.NonData;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -357,7 +357,7 @@ namespace Jint.Runtime.Descriptors
 
             if (desc.IsDataDescriptor())
             {
-                properties["value"] =  new PropertyDescriptor(desc.Value ?? JsValue.Undefined, PropertyFlag.ConfigurableEnumerableWritable);
+                properties["value"] = new PropertyDescriptor(desc.Value ?? JsValue.Undefined, PropertyFlag.ConfigurableEnumerableWritable);
                 if (desc._flags != PropertyFlag.None || desc.WritableSet)
                 {
                     properties["writable"] = new PropertyDescriptor(desc.Writable, PropertyFlag.ConfigurableEnumerableWritable);
@@ -392,9 +392,13 @@ namespace Jint.Runtime.Descriptors
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsDataDescriptor()
         {
+            if (_flags.HasFlag(PropertyFlag.NonData))
+            {
+                return false;
+            }
             return (_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0
-                   || (_flags & PropertyFlag.CustomJsValue) != 0 && !ReferenceEquals(CustomValue, null)
-                   || !ReferenceEquals(_value, null);
+                || (_flags & PropertyFlag.CustomJsValue) != 0 && !ReferenceEquals(CustomValue, null)
+                || !ReferenceEquals(_value, null);
         }
 
         /// <summary>
@@ -444,7 +448,8 @@ namespace Jint.Runtime.Descriptors
 
         private sealed class UndefinedPropertyDescriptor : PropertyDescriptor
         {
-            public UndefinedPropertyDescriptor() : base(PropertyFlag.None | PropertyFlag.CustomJsValue)
+            public UndefinedPropertyDescriptor()
+                : base(PropertyFlag.None | PropertyFlag.CustomJsValue)
             {
             }
 
