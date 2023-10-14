@@ -11,6 +11,11 @@ using Jint.Runtime.References;
 
 namespace Jint.Runtime
 {
+    /// <summary>
+    /// Wraps known runtime type error information.
+    /// </summary>
+    internal sealed record ErrorDispatchInfo(ErrorConstructor ErrorConstructor, string? Message = null);
+
     internal static class ExceptionHelper
     {
         [DoesNotReturn]
@@ -77,11 +82,9 @@ namespace Jint.Runtime
             throw new JavaScriptException(realm.Intrinsics.RangeError, message).SetJavaScriptLocation(location);
         }
 
-        [DoesNotReturn]
-        public static void ThrowUriError(Realm realm)
+        public static ErrorDispatchInfo CreateUriError(Realm realm, string message)
         {
-            var location = realm.GlobalObject.Engine.GetLastSyntaxElement()?.Location ?? default;
-            throw new JavaScriptException(realm.Intrinsics.UriError).SetJavaScriptLocation(location);
+            return new ErrorDispatchInfo(realm.Intrinsics.UriError, message);
         }
 
         [DoesNotReturn]
@@ -130,12 +133,6 @@ namespace Jint.Runtime
         public static void ThrowPromiseRejectedException(JsValue error)
         {
             throw new PromiseRejectedException(error);
-        }
-
-        [DoesNotReturn]
-        public static void ThrowJavaScriptException(JsValue value)
-        {
-            throw new JavaScriptException(value);
         }
 
         [DoesNotReturn]

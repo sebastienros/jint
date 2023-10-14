@@ -10,7 +10,7 @@ public class SunSpiderTests
     {
         var engine = new Engine()
             .SetValue("log", new Action<object>(Console.WriteLine))
-            .SetValue("assert", new Action<bool, string>((condition, message) => Assert.True(condition, message)));
+            .SetValue("assert", new Action<bool, string>((condition, message) => Assert.That(condition, message)));
 
         try
         {

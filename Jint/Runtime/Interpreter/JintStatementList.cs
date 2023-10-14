@@ -92,6 +92,10 @@ namespace Jint.Runtime.Interpreter
                     if (c.Value is null)
                     {
                         c = s.Execute(context);
+                        if (context.Engine._error is not null)
+                        {
+                            return HandleError(context.Engine, s);
+                        }
                     }
 
                     if (c.Type != CompletionType.Normal)
@@ -136,6 +140,19 @@ namespace Jint.Runtime.Interpreter
 
             // should not happen unless there's problem in the engine
             throw exception;
+        }
+
+        private static Completion HandleError(Engine engine, JintStatement? s)
+        {
+            var error = engine._error!;
+            engine._error = null;
+            return CreateThrowCompletion(error.ErrorConstructor, error.Message, engine._lastSyntaxElement ?? s!._statement);
+        }
+
+        private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, string? message, SyntaxElement s)
+        {
+            var error = errorConstructor.Construct(message);
+            return new Completion(CompletionType.Throw, error, s);
         }
 
         private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, Exception e, SyntaxElement s)
