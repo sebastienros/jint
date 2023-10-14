@@ -233,6 +233,9 @@ public class ProxyTests
         public string StringValue => "StringValue";
         public int IntValue => 42424242; // avoid small numbers cache
         public TestClass ObjectWrapper => Instance;
+
+        private int x = 1;
+        public int PropertySideEffect => x++;
     }
 
     [Fact]
@@ -421,5 +424,23 @@ public class ProxyTests
             let p = new Proxy({}, { set: () => false });
             p.value = 42;
         """);
+    }
+
+    [Fact]
+    public void ClrPropertySideEffect()
+    {
+        _engine.SetValue("testClass", TestClass.Instance);
+        _engine.Execute("""
+            const handler = {
+              get(target, property, receiver) {
+                return 2;
+              }
+            };
+            const p = new Proxy(testClass, handler);
+        """);
+
+        Assert.Equal(1, TestClass.Instance.PropertySideEffect); // first call to PropertySideEffect
+        Assert.Equal(2, _engine.Evaluate("p.PropertySideEffect").AsInteger()); // no call to PropertySideEffect
+        Assert.Equal(2, TestClass.Instance.PropertySideEffect); // second call to PropertySideEffect
     }
 }
