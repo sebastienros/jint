@@ -397,8 +397,8 @@ namespace Jint.Runtime.Descriptors
                 return false;
             }
             return (_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0
-                || (_flags & PropertyFlag.CustomJsValue) != 0 && !ReferenceEquals(CustomValue, null)
-                || !ReferenceEquals(_value, null);
+                   || (_flags & PropertyFlag.CustomJsValue) != 0 && !ReferenceEquals(CustomValue, null)
+                   || !ReferenceEquals(_value, null);
         }
 
         /// <summary>
@@ -448,8 +448,7 @@ namespace Jint.Runtime.Descriptors
 
         private sealed class UndefinedPropertyDescriptor : PropertyDescriptor
         {
-            public UndefinedPropertyDescriptor()
-                : base(PropertyFlag.None | PropertyFlag.CustomJsValue)
+            public UndefinedPropertyDescriptor() : base(PropertyFlag.None | PropertyFlag.CustomJsValue)
             {
             }
 

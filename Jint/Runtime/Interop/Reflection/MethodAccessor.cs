@@ -18,14 +18,9 @@ namespace Jint.Runtime.Interop.Reflection
 
         public override bool Writable => false;
 
-        protected override object? DoGetValue(object target)
-        {
-            return null;
-        }
+        protected override object? DoGetValue(object target) => null;
 
-        protected override void DoSetValue(object target, object? value)
-        {
-        }
+        protected override void DoSetValue(object target, object? value) { }
 
         public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, bool enumerable = true)
         {
