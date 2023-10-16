@@ -1,3 +1,5 @@
+using Jint.Runtime.Descriptors;
+
 namespace Jint.Runtime.Interop.Reflection;
 
 internal sealed class NestedTypeAccessor : ReflectionAccessor
@@ -11,12 +13,12 @@ internal sealed class NestedTypeAccessor : ReflectionAccessor
 
     public override bool Writable => false;
 
-    protected override object? DoGetValue(object target)
-    {
-        return _typeReference;
-    }
+    protected override object? DoGetValue(object target) => null;
 
-    protected override void DoSetValue(object target, object? value)
+    protected override void DoSetValue(object target, object? value) { }
+
+    public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, bool enumerable = true)
     {
+        return new(_typeReference, PropertyFlag.AllForbidden);
     }
 }

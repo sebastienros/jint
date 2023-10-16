@@ -19,6 +19,7 @@ namespace Jint.Runtime.Descriptors.Specialized
             string name)
             : base(value: null, PropertyFlag.Configurable)
         {
+            _flags |= PropertyFlag.NonData;
             _env = env;
             _engine = engine;
             _name = new EnvironmentRecord.BindingName(name);

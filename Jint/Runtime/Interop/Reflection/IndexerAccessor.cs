@@ -119,6 +119,8 @@ namespace Jint.Runtime.Interop.Reflection
             return false;
         }
 
+        public override bool Readable => _indexer.CanRead;
+
         public override bool Writable => _indexer.CanWrite;
 
         protected override object? DoGetValue(object target)

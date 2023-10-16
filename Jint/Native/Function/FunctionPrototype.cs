@@ -34,8 +34,8 @@ namespace Jint.Native.Function
                 ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "apply", Apply, 2, lengthFlags), propertyFlags),
                 ["call"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "call", CallImpl, 1, lengthFlags), propertyFlags),
                 ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "bind", Bind, 1, lengthFlags), propertyFlags),
-                ["arguments"] = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.Configurable | PropertyFlag.CustomJsValue),
-                ["caller"] = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.Configurable | PropertyFlag.CustomJsValue)
+                ["arguments"] = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.Configurable),
+                ["caller"] = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.Configurable)
             };
             SetProperties(properties);
 

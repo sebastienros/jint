@@ -1,5 +1,6 @@
 using System.Reflection;
 using Jint.Native;
+using Jint.Runtime.Interop;
 using Jint.Runtime.Interop.Reflection;
 
 namespace Jint.Runtime.Descriptors.Specialized
@@ -17,31 +18,46 @@ namespace Jint.Runtime.Descriptors.Specialized
             bool enumerable)
             : base((enumerable ? PropertyFlag.Enumerable : PropertyFlag.None) | PropertyFlag.CustomJsValue)
         {
+            _flags |= PropertyFlag.NonData;
             _engine = engine;
             _reflectionAccessor = reflectionAccessor;
             _target = target;
-            Writable = reflectionAccessor.Writable && engine.Options.Interop.AllowWrite;
+
+            if (reflectionAccessor.Writable && engine.Options.Interop.AllowWrite)
+            {
+                Set = new SetterFunctionInstance(_engine, DoSet);
+            }
+            if (reflectionAccessor.Readable)
+            {
+                Get = new GetterFunctionInstance(_engine, DoGet);
+            }
         }
+
+        public override JsValue? Get { get; }
+        public override JsValue? Set { get; }
 
 
         protected internal override JsValue? CustomValue
         {
-            get
+            get => DoGet(null);
+            set => DoSet(null, value);
+        }
+
+        JsValue DoGet(JsValue? thisObj)
+        {
+            var value = _reflectionAccessor.GetValue(_engine, _target);
+            var type = _reflectionAccessor.MemberType;
+            return JsValue.FromObjectWithType(_engine, value, type);
+        }
+        void DoSet(JsValue? thisObj, JsValue? v)
+        {
+            try
             {
-                var value = _reflectionAccessor.GetValue(_engine, _target);
-                var type = _reflectionAccessor.MemberType;
-                return JsValue.FromObjectWithType(_engine, value, type);
+                _reflectionAccessor.SetValue(_engine, _target, v!);
             }
-            set
+            catch (TargetInvocationException exception)
             {
-                try
-                {
-                    _reflectionAccessor.SetValue(_engine, _target, value!);
-                }
-                catch (TargetInvocationException exception)
-                {
-                    ExceptionHelper.ThrowMeaningfulException(_engine, exception);
-                }
+                ExceptionHelper.ThrowMeaningfulException(_engine, exception);
             }
         }
     }

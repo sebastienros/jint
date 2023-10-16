@@ -12,6 +12,7 @@ namespace Jint.Runtime.Descriptors.Specialized
         internal LazyPropertyDescriptor(object? state, Func<object?, JsValue> resolver, PropertyFlag flags)
             : base(null, flags | PropertyFlag.CustomJsValue)
         {
+            _flags &= ~PropertyFlag.NonData;
             _state = state;
             _resolver = resolver;
         }
