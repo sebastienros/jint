@@ -5,7 +5,9 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;
+using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Statements;
 using Jint.Runtime.Modules;
@@ -38,6 +40,12 @@ public sealed class ShadowRealm : ObjectInstance
         return PerformShadowRealmEval(sourceText, callerRealm);
     }
 
+    public JsValue Evaluate(Script script)
+    {
+        var callerRealm = _engine.Realm;
+        return PerformShadowRealmEval(script, callerRealm);
+    }
+
     public JsValue ImportValue(string specifier, string exportName)
     {
         var callerRealm = _engine.Realm;
@@ -45,6 +53,47 @@ public sealed class ShadowRealm : ObjectInstance
         _engine.RunAvailableContinuations();
         return value;
     }
+    public ShadowRealm SetValue(string name, Delegate value)
+    {
+        _shadowRealm.GlobalObject.FastSetProperty(name, new PropertyDescriptor(new DelegateWrapper(_engine, value), true, false, true));
+        return this;
+    }
+
+    public ShadowRealm SetValue(string name, string value)
+    {
+        return SetValue(name, JsString.Create(value));
+    }
+
+    public ShadowRealm SetValue(string name, double value)
+    {
+        return SetValue(name, JsNumber.Create(value));
+    }
+
+    public ShadowRealm SetValue(string name, int value)
+    {
+        return SetValue(name, JsNumber.Create(value));
+    }
+
+    public ShadowRealm SetValue(string name, bool value)
+    {
+        return SetValue(name, value ? JsBoolean.True : JsBoolean.False);
+    }
+
+    public ShadowRealm SetValue(string name, JsValue value)
+    {
+        _shadowRealm.GlobalObject.Set(name, value);
+        return this;
+    }
+
+    public ShadowRealm SetValue(string name, object obj)
+    {
+        var value = obj is Type t
+            ? TypeReference.CreateTypeReference(_engine, t)
+            : JsValue.FromObject(_engine, obj);
+
+        return SetValue(name, value);
+    }
+
 
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-performshadowrealmeval
@@ -73,6 +122,22 @@ public sealed class ShadowRealm : ObjectInstance
 
             return default;
         }
+
+        return PerformShadowRealmEvalInternal(script, callerRealm);
+    }
+
+    internal JsValue PerformShadowRealmEval(Script script, Realm callerRealm)
+    {
+        var evalRealm = _shadowRealm;
+
+        _engine._host.EnsureCanCompileStrings(callerRealm, evalRealm);
+
+        return PerformShadowRealmEvalInternal(script, callerRealm);
+    }
+
+    internal JsValue PerformShadowRealmEvalInternal(Script script, Realm callerRealm)
+    {
+        var evalRealm = _shadowRealm;
 
         ref readonly var body = ref script.Body;
         if (body.Count == 0)
