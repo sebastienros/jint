@@ -295,7 +295,7 @@ namespace Jint
         /// to the CLR host and interrupt the script execution. If handler returns true these exceptions are converted
         /// to JS errors that can be caught by the script.
         /// </summary>
-        public ExceptionHandlerDelegate ExceptionHandler { get; set; } = static exception => false;
+        public ExceptionHandlerDelegate ExceptionHandler { get; set; } = _defaultExceptionHandler;
 
         /// <summary>
         /// Assemblies to allow scripts to call CLR types directly like <example>System.IO.File</example>.
@@ -327,6 +327,8 @@ namespace Jint
         /// Defaults to retuning null which makes TypeReference attempt to find suitable constructor.
         /// </summary>
         public Func<Engine, Type, JsValue[], object?> CreateTypeReferenceObject = (_, _, _) => null;
+
+        internal static readonly ExceptionHandlerDelegate _defaultExceptionHandler = static exception => false;
 
         /// <summary>
         /// When not null, is used to serialize any CLR object in an
