@@ -21,8 +21,6 @@ namespace Jint.Native.Promise
     {
         private static readonly JsString _functionName = new JsString("Promise");
 
-        internal PromisePrototype PrototypeObject { get; private set; }
-
         internal PromiseConstructor(
             Engine engine,
             Realm realm,
@@ -36,18 +34,21 @@ namespace Jint.Native.Promise
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
+        internal PromisePrototype PrototypeObject { get; }
+
         protected override void Initialize()
         {
-            const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            const PropertyFlag lengthFlags = PropertyFlag.Configurable;
+            const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+            const PropertyFlag LengthFlags = PropertyFlag.Configurable;
             var properties = new PropertyDictionary(6, checkExistingKeys: false)
             {
-                ["resolve"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "resolve", Resolve, 1, lengthFlags), propertyFlags)),
-                ["reject"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "reject", Reject, 1, lengthFlags), propertyFlags)),
-                ["all"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "all", All, 1, lengthFlags), propertyFlags)),
-                ["allSettled"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "allSettled", AllSettled, 1, lengthFlags), propertyFlags)),
-                ["any"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "any", Any, 1, lengthFlags), propertyFlags)),
-                ["race"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "race", Race, 1, lengthFlags), propertyFlags)),
+                ["all"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "all", All, 1, LengthFlags), PropertyFlags)),
+                ["allSettled"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "allSettled", AllSettled, 1, LengthFlags), PropertyFlags)),
+                ["any"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "any", Any, 1, LengthFlags), PropertyFlags)),
+                ["race"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "race", Race, 1, LengthFlags), PropertyFlags)),
+                ["reject"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "reject", Reject, 1, LengthFlags), PropertyFlags)),
+                ["resolve"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "resolve", Resolve, 1, LengthFlags), PropertyFlags)),
+                ["withResolvers"] = new(new PropertyDescriptor(new ClrFunctionInstance(Engine, "withResolvers", WithResolvers , 0, LengthFlags), PropertyFlags)),
             };
             SetProperties(properties);
 
@@ -111,6 +112,16 @@ namespace Jint.Native.Promise
 
             var x = arguments.At(0);
             return PromiseResolve(thisObject, x);
+        }
+
+        private JsValue WithResolvers(JsValue thisObject, JsValue[] arguments)
+        {
+            var promiseCapability = NewPromiseCapability(_engine, thisObject);
+            var obj = OrdinaryObjectCreate(_engine, _engine.Realm.Intrinsics.Object.PrototypeObject);
+            obj.CreateDataPropertyOrThrow("promise", promiseCapability.PromiseInstance);
+            obj.CreateDataPropertyOrThrow("resolve", promiseCapability.ResolveObj);
+            obj.CreateDataPropertyOrThrow("reject", promiseCapability.RejectObj);
+            return obj;
         }
 
         /// <summary>
