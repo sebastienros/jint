@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "9437cab774ab2f22c5cb971b11b8512eca705721",
+  "SuiteGitSha": "6396ebde0316639292530460d1ef961fd9bbe0d4",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -46,6 +46,7 @@
     // RegExp handling problems
     "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
     "language/literals/regexp/u-case-mapping.js",
+    "built-ins/RegExp/lookahead-quantifier-match-groups.js",
 
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",

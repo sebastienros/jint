@@ -1,4 +1,3 @@
-using Jint.Native;
 using Jint.Native.Object;
 
 namespace Jint.Tests.PublicInterface;

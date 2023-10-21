@@ -109,6 +109,7 @@ Following features are supported in version 3.x.
 #### ECMAScript Stage 3 (no version yet)
 
 - ✔ Array Grouping - `Object.groupBy` and `Map.groupBy`
+- ✔ Promise.withResolvers
 - ✔ ShadowRealm
 
 #### Other

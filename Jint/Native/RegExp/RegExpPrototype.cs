@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Jint.Collections;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -158,7 +157,7 @@ namespace Jint.Native.RegExp
             if (!fullUnicode
                 && !mayHaveNamedCaptures
                 && !TypeConverter.ToBoolean(rx.Get(PropertySticky))
-                && rx is JsRegExp rei && rei.TryGetDefaultRegExpExec(out _))
+                && rx is JsRegExp rei && rei.HasDefaultRegExpExec)
             {
                 var count = global ? int.MaxValue : 1;
 
@@ -464,7 +463,7 @@ namespace Jint.Native.RegExp
                 return a;
             }
 
-            if (!unicodeMatching && rx is JsRegExp R && R.TryGetDefaultRegExpExec(out _))
+            if (!unicodeMatching && rx is JsRegExp R && R.HasDefaultRegExpExec)
             {
                 // we can take faster path
 
@@ -690,7 +689,7 @@ namespace Jint.Native.RegExp
 
             if (!fullUnicode
                 && rx is JsRegExp rei
-                && rei.TryGetDefaultRegExpExec(out _))
+                && rei.HasDefaultRegExpExec)
             {
                 // fast path
                 var a = _realm.Intrinsics.Array.ArrayCreate(0);
@@ -812,8 +811,9 @@ namespace Jint.Native.RegExp
 
         internal static JsValue RegExpExec(ObjectInstance r, string s)
         {
-            var exec = r.Get(PropertyExec);
-            if (exec is ICallable callable)
+            var ri = r as JsRegExp;
+
+            if ((ri is null || !ri.HasDefaultRegExpExec) && r.Get(PropertyExec) is ICallable callable)
             {
                 var result = callable.Call(r, new JsValue[] { s });
                 if (!result.IsNull() && !result.IsObject())
@@ -824,7 +824,6 @@ namespace Jint.Native.RegExp
                 return result;
             }
 
-            var ri = r as JsRegExp;
             if (ri is null)
             {
                 ExceptionHelper.ThrowTypeError(r.Engine.Realm);
@@ -833,17 +832,7 @@ namespace Jint.Native.RegExp
             return RegExpBuiltinExec(ri, s);
         }
 
-        internal bool TryGetDefaultExec(ObjectInstance o, [NotNullWhen((true))] out Func<JsValue, JsValue[], JsValue>? exec)
-        {
-            if (o.Get(PropertyExec) is ClrFunctionInstance functionInstance && functionInstance._func == _defaultExec)
-            {
-                exec = _defaultExec;
-                return true;
-            }
-
-            exec = default;
-            return false;
-        }
+        internal bool HasDefaultExec => Get(PropertyExec) is ClrFunctionInstance functionInstance && functionInstance._func == _defaultExec;
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-regexpbuiltinexec

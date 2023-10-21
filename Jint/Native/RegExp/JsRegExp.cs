@@ -74,6 +74,8 @@ namespace Jint.Native.RegExp
         public bool FullUnicode { get; private set; }
         public bool UnicodeSets { get; private set; }
 
+        internal bool HasDefaultRegExpExec => Properties == null && Prototype is RegExpPrototype { HasDefaultExec: true };
+
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
             if (property == PropertyLastIndex)
