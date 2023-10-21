@@ -301,10 +301,7 @@ namespace Jint.Runtime.Interop
             return Target is ICollection ? 0 : base.GetSmallestIndex(length);
         }
 
-        public override bool Equals(JsValue? obj)
-        {
-            return Equals(obj as ObjectWrapper);
-        }
+        public override bool Equals(JsValue? obj) => Equals(obj as ObjectWrapper);
 
         public bool Equals(ObjectWrapper? other)
         {
@@ -318,14 +315,13 @@ namespace Jint.Runtime.Interop
                 return true;
             }
 
-            return Equals(Target, other.Target) && Equals(ClrType, other.ClrType);
+            return Equals(Target, other.Target);
         }
 
         public override int GetHashCode()
         {
             var hashCode = -1468639730;
             hashCode = hashCode * -1521134295 + Target.GetHashCode();
-            hashCode = hashCode * -1521134295 + ClrType.GetHashCode();
             return hashCode;
         }
 

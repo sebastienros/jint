@@ -3263,5 +3263,25 @@ try {
             engine.Execute("capture(maxDate);");
             Assert.Equal(DateTime.MaxValue, dt);
         }
+
+        private class Container
+        {
+            private readonly Child _child = new();
+            public Child Child => _child;
+            public BaseClass Get() => _child;
+        }
+
+        private class BaseClass { }
+
+        private class Child : BaseClass { }
+
+        [Fact]
+        public void AccessingBaseTypeShouldBeEqualToAccessingDerivedType()
+        {
+            var engine = new Engine().SetValue("container", new Container());
+            var res = engine.Evaluate("container.Child === container.Get()"); // These two should be the same object. But this PR makes `container.Get()` return a different object
+
+            Assert.True(res.AsBoolean());
+        }
     }
 }
