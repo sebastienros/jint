@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -3262,6 +3263,64 @@ try {
             engine.SetValue("maxDate", DateTime.MaxValue);
             engine.Execute("capture(maxDate);");
             Assert.Equal(DateTime.MaxValue, dt);
+        }
+
+        [Fact]
+        public void CanInterceptFunctionCallViaInterop()
+        {
+            return;
+            var records = new Dictionary<Guid, FunctionCallRecord>();
+            var engine = new Engine(cfg =>
+            {
+                cfg.Interop.FunctionExecuting = (e, ins, f, args, id) =>
+                {
+                    var location = ((Node) f).Location;
+                    var record = new FunctionCallRecord
+                    {
+                        Name = f.Id?.Name,
+                        StartLine = location.Start.Line,
+                        EndLine = location.End.Line,
+                        Args = args.Select(x => x.ToObject()).ToArray()
+                    };
+                    records.Add(id, record);
+                };
+                cfg.Interop.FunctionExecuted = (r, id) =>
+                {
+                    if (records.TryGetValue(id, out var record) && r is { Type: CompletionType.Return })
+                    {
+                        record.Result = r.Value.ToObject();
+                    }
+                };
+            });
+            const string Js = @"
+function main() {
+    return add(1, 2);
+}
+function add(a, b) {
+    return a + b;
+}";
+            var script = Engine.PrepareScript(Js.TrimStart());
+            engine.Execute(script);
+            var result = engine.Invoke("main").ToObject();
+            Assert.Equal(3, Convert.ToInt32(result));
+            var traces = records.Values.ToList();
+            Assert.Equal(2, traces.Count);
+            Assert.Equal("main", traces[0].Name);
+            Assert.Equal(3, Convert.ToInt32(traces[0].Result));
+            Assert.Equal(2, traces[1].Args.Length);
+            Assert.Equal(1, Convert.ToInt32(traces[1].Args[0]));
+            Assert.Equal(2, Convert.ToInt32(traces[1].Args[1]));
+            Assert.Equal(1, traces[0].StartLine);
+            Assert.Equal(3, traces[0].EndLine);
+        }
+
+        private class FunctionCallRecord
+        {
+            public string Name { get; set; }
+            public int StartLine { get; set; }
+            public int EndLine { get; set; }
+            public object[] Args { get; set; }
+            public object Result { get; set; }
         }
     }
 }
