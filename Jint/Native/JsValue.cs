@@ -517,12 +517,7 @@ namespace Jint.Native
                 case Types.Symbol:
                     return x == y;
                 case Types.Object:
-                    if (x is ObjectWrapper xo && y is ObjectWrapper yo)
-                    {
-                        return ReferenceEquals(xo.Target, yo.Target)
-                            && xo.ClrType == yo.ClrType;
-                    }
-                    return false;
+                    return x is ObjectWrapper xo && y is ObjectWrapper yo && ReferenceEquals(xo.Target, yo.Target);
                 default:
                     return false;
             }

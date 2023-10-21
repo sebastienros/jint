@@ -87,10 +87,7 @@ public class InteropExplicitTypeTests
     public void EqualTest()
     {
         Assert.Equal(_engine.Evaluate("holder.I1"), _engine.Evaluate("holder.i1"));
-        Assert.NotEqual(_engine.Evaluate("holder.I1"), _engine.Evaluate("holder.ci1"));
-
         Assert.Equal(_engine.Evaluate("holder.Super"), _engine.Evaluate("holder.super"));
-        Assert.NotEqual(_engine.Evaluate("holder.Super"), _engine.Evaluate("holder.ci1"));
     }
 
     [Fact]
