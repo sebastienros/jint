@@ -212,29 +212,50 @@ namespace Jint.Runtime.Interop
             PropertyInfo? property = null;
             var memberNameComparer = MemberNameComparer;
             var typeResolverMemberNameCreator = MemberNameCreator;
-            foreach (var p in type.GetProperties(bindingFlags))
+
+            PropertyInfo? GetProperty(Type t)
             {
-                if (!Filter(engine, p))
+                foreach (var p in t.GetProperties(bindingFlags))
                 {
-                    continue;
+                    if (!Filter(engine, p))
+                    {
+                        continue;
+                    }
+
+                    // only if it's not an indexer, we can do case-ignoring matches
+                    var isStandardIndexer = p.GetIndexParameters().Length == 1 && p.Name == "Item";
+                    if (!isStandardIndexer)
+                    {
+                        foreach (var name in typeResolverMemberNameCreator(p))
+                        {
+                            if (memberNameComparer.Equals(name, memberName))
+                            {
+                                property = p;
+                                break;
+                            }
+                        }
+                    }
                 }
 
-                // only if it's not an indexer, we can do case-ignoring matches
-                var isStandardIndexer = p.GetIndexParameters().Length == 1 && p.Name == "Item";
-                if (!isStandardIndexer)
+                return property;
+            }
+
+            property = GetProperty(type);
+
+            if (property is null && type.IsInterface)
+            {
+                // check inherited interfaces
+                foreach (var iface in type.GetInterfaces())
                 {
-                    foreach (var name in typeResolverMemberNameCreator(p))
+                    property = GetProperty(iface);
+                    if (property is not null)
                     {
-                        if (memberNameComparer.Equals(name, memberName))
-                        {
-                            property = p;
-                            break;
-                        }
+                        break;
                     }
                 }
             }
 
-            if (property != null)
+            if (property is not null)
             {
                 accessor = new PropertyAccessor(memberName, property, indexerToTry);
                 return true;
@@ -259,7 +280,7 @@ namespace Jint.Runtime.Interop
                 }
             }
 
-            if (field != null)
+            if (field is not null)
             {
                 accessor = new FieldAccessor(field, memberName, indexerToTry);
                 return true;
