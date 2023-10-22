@@ -1,4 +1,6 @@
-﻿using Jint.Native.Object;
+﻿using Jint.Native;
+using Jint.Native.Object;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Interop;
 
@@ -11,4 +13,14 @@ internal sealed class TypeReferencePrototype : ObjectInstance
     }
 
     public TypeReference TypeReference { get; }
+
+    public override PropertyDescriptor GetOwnProperty(JsValue property)
+    {
+        var descriptor = TypeReference.GetOwnProperty(property);
+        if (descriptor != PropertyDescriptor.Undefined)
+        {
+            return descriptor;
+        }
+        return base.GetOwnProperty(property);
+    }
 }
