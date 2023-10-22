@@ -261,20 +261,20 @@ namespace Jint.Runtime.Interop
                     SetProperty(GlobalSymbolRegistry.HasInstance, hasInstanceProperty);
                     return hasInstanceProperty;
                 }
-
-                return PropertyDescriptor.Undefined;
             }
-
-            var key = jsString._value;
-
-            if (_properties?.TryGetValue(key, out var descriptor) != true)
+            else
             {
-                descriptor = CreatePropertyDescriptor(key);
-                if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+                var key = jsString._value;
+
+                if (_properties?.TryGetValue(key, out var descriptor) != true)
                 {
-                    _properties ??= new PropertyDictionary();
-                    _properties[key] = descriptor;
-                    return descriptor;
+                    descriptor = CreatePropertyDescriptor(key);
+                    if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+                    {
+                        _properties ??= new PropertyDictionary();
+                        _properties[key] = descriptor;
+                        return descriptor;
+                    }
                 }
             }
 
