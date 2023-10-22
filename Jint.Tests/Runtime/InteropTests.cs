@@ -3283,5 +3283,53 @@ try {
 
             Assert.True(res.AsBoolean());
         }
+
+        public interface IIndexer<out T>
+        {
+            T this[int index] { get; }
+        }
+
+        public interface ICountable<out T>
+        {
+            int Count { get; }
+        }
+
+        public interface IStringCollection : IIndexer<string>, ICountable<string>
+        {
+            string this[string name] { get; }
+        }
+
+        public class Strings : IStringCollection
+        {
+            private readonly string[] _strings;
+            public Strings(string[] strings)
+            {
+                _strings = strings;
+            }
+            public string this[string name]
+            {
+                get
+                {
+                    return int.TryParse(name, out var index) ? _strings[index] : _strings.FirstOrDefault(x => x.Contains(name));
+                }
+            }
+
+            public string this[int index] => _strings[index];
+            public int Count => _strings.Length;
+        }
+
+        public class Utils
+        {
+            public IStringCollection GetStrings() => new Strings(new [] { "a", "b", "c" });
+        }
+
+        [Fact]
+        public void AccessingInterfaceShouldContainExtendedInterfaces()
+        {
+            var engine = new Engine();
+            engine.SetValue("Utils", new Utils());
+            var result = engine.Evaluate("const strings = Utils.GetStrings(); strings.Count;").AsNumber();
+            Assert.Equal(3, result);
+        }
     }
 }
