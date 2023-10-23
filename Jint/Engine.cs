@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -24,6 +25,7 @@ namespace Jint
     /// <summary>
     /// Engine is the main API to JavaScript interpretation. Engine instances are not thread-safe.
     /// </summary>
+    [DebuggerTypeProxy(typeof(EngineDebugView))]
     public sealed partial class Engine : IDisposable
     {
         private static readonly Options _defaultEngineOptions = new();
@@ -1574,6 +1576,23 @@ namespace Jint
             var clearMethod = _objectWrapperCache.GetType().GetMethod("Clear", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             clearMethod?.Invoke(_objectWrapperCache, Array.Empty<object>());
 #endif
+        }
+        
+        [DebuggerDisplay("Engine")]
+        private sealed class EngineDebugView
+        {
+            private readonly Engine _engine;
+
+            public EngineDebugView(Engine engine)
+            {
+                _engine = engine;
+            }
+
+            public ObjectInstance Globals => _engine.Realm.GlobalObject;
+            public Options Options => _engine.Options;
+
+            public EnvironmentRecord VariableEnvironment => _engine.ExecutionContext.VariableEnvironment;
+            public EnvironmentRecord LexicalEnvironment => _engine.ExecutionContext.LexicalEnvironment;
         }
     }
 }

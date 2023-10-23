@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Text;
 using Jint.Runtime;
 
 namespace Jint.Native;
 
+[DebuggerDisplay("{ToString()}")]
 public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 {
     private const int AsciiMax = 126;
@@ -28,6 +30,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     internal static readonly JsString LengthString = new JsString("length");
     internal static readonly JsValue CommaString = new JsString(",");
 
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     internal string _value;
 
     static JsString()

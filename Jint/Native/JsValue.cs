@@ -13,11 +13,12 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native
 {
-    [DebuggerTypeProxy(typeof(JsValueDebugView))]
     public abstract class JsValue : IEquatable<JsValue>
     {
         public static readonly JsValue Undefined = new JsUndefined();
         public static readonly JsValue Null = new JsNull();
+
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal readonly InternalTypes _type;
 
         protected JsValue(Types type)
@@ -33,8 +34,10 @@ namespace Jint.Native
         [Pure]
         public virtual bool IsArray() => false;
 
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal virtual bool IsIntegerIndexedArray => false;
 
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal virtual bool IsConstructor => false;
 
         [Pure]
@@ -99,6 +102,7 @@ namespace Jint.Native
             return true;
         }
 
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public Types Type
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -364,49 +368,6 @@ namespace Jint.Native
             return _type.GetHashCode();
         }
 
-        internal sealed class JsValueDebugView
-        {
-            public string Value;
-
-            public JsValueDebugView(JsValue value)
-            {
-                switch (value.Type)
-                {
-                    case Types.None:
-                        Value = "None";
-                        break;
-                    case Types.Undefined:
-                        Value = "undefined";
-                        break;
-                    case Types.Null:
-                        Value = "null";
-                        break;
-                    case Types.Boolean:
-                        Value = ((JsBoolean) value)._value + " (bool)";
-                        break;
-                    case Types.String:
-                        Value = value.ToString() + " (string)";
-                        break;
-                    case Types.Number:
-                        Value = ((JsNumber) value)._value + " (number)";
-                        break;
-                    case Types.BigInt:
-                        Value = ((JsBigInt) value)._value + " (bigint)";
-                        break;
-                    case Types.Object:
-                        Value = value.AsObject().GetType().Name;
-                        break;
-                    case Types.Symbol:
-                        var jsValue = ((JsSymbol) value)._value;
-                        Value = (jsValue.IsUndefined() ? "" : jsValue.ToString()) + " (symbol)";
-                        break;
-                    default:
-                        Value = "Unknown";
-                        break;
-                }
-            }
-        }
-
         /// <summary>
         /// Some values need to be cloned in order to be assigned, like ConcatenatedString.
         /// </summary>
@@ -419,11 +380,9 @@ namespace Jint.Native
                 : DoClone();
         }
 
-        internal virtual JsValue DoClone()
-        {
-            return this;
-        }
+        internal virtual JsValue DoClone() => this;
 
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal virtual bool IsCallable => this is ICallable;
 
         /// <summary>

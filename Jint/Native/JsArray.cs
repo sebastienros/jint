@@ -1,7 +1,10 @@
+using System.Diagnostics;
 using Jint.Native.Array;
 
 namespace Jint.Native;
 
+[DebuggerTypeProxy(typeof(JsArrayDebugView))]
+[DebuggerDisplay("Count = {Length}")]
 public sealed class JsArray : ArrayInstance
 {
     /// <summary>
@@ -20,5 +23,30 @@ public sealed class JsArray : ArrayInstance
     /// </summary>
     public JsArray(Engine engine, JsValue[] items) : base(engine, items)
     {
+    }
+    
+    private sealed class JsArrayDebugView
+    {
+        private readonly JsArray _array;
+
+        public JsArrayDebugView(JsArray array)
+        {
+            _array = array;
+        }
+
+        [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+        public JsValue[] Values
+        {
+            get
+            {
+                var values = new JsValue[_array.Length];
+                var i = 0;
+                foreach (var value in _array)
+                {
+                    values[i++] = value;
+                }
+                return values;
+            }
+        }
     }
 }

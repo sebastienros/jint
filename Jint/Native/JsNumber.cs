@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Native.Number;
@@ -5,11 +6,13 @@ using Jint.Runtime;
 
 namespace Jint.Native;
 
+[DebuggerDisplay("{_value}", Type = "string")]
 public sealed class JsNumber : JsValue, IEquatable<JsNumber>
 {
     // .NET double epsilon and JS epsilon have different values
     internal const double JavaScriptEpsilon = 2.2204460492503130808472633361816E-16;
 
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     internal readonly double _value;
 
     // how many decimals to check when determining if double is actually an int
