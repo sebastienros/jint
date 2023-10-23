@@ -6,6 +6,7 @@ using Jint.Native.Array;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;
 using Jint.Native.Function;
+using Jint.Native.Json;
 using Jint.Native.Number;
 using Jint.Native.RegExp;
 using Jint.Native.String;
@@ -17,6 +18,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Object
 {
+    [DebuggerTypeProxy(typeof(ObjectInstanceDebugView))]
     public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     {
         private bool _initialized;
@@ -1200,6 +1202,7 @@ namespace Jint.Native.Object
 
         internal ICallable GetCallable(JsValue source) => source.GetCallable(_engine.Realm);
 
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal bool IsConcatSpreadable
         {
             get
@@ -1213,15 +1216,18 @@ namespace Jint.Native.Object
             }
         }
 
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public virtual bool IsArrayLike => TryGetValue(CommonProperties.Length, out var lengthValue)
                                            && lengthValue.IsNumber()
                                            && ((JsNumber) lengthValue)._value >= 0;
 
         // safe default
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal virtual bool HasOriginalIterator => false;
 
         internal override bool IsIntegerIndexedArray => false;
 
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public virtual uint Length => (uint) TypeConverter.ToLength(Get(CommonProperties.Length));
 
         public virtual bool PreventExtensions()
@@ -1648,6 +1654,46 @@ namespace Jint.Native.Object
         {
             Sealed,
             Frozen
+        }
+
+        private sealed class ObjectInstanceDebugView
+        {
+            private readonly ObjectInstance _obj;
+
+            public ObjectInstanceDebugView(ObjectInstance obj)
+            {
+                _obj = obj;
+            }
+
+            public ObjectInstance? Prototype => _obj.Prototype;
+
+            [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+            public KeyValuePair<JsValue, JsValue>[] Entries
+            {
+                get
+                {
+                    var keys = new KeyValuePair<JsValue, JsValue>[(_obj._properties?.Count ?? 0) + (_obj._symbols?.Count ?? 0)];
+
+                    var i = 0;
+                    if (_obj._properties is not null)
+                    {
+                        foreach(var key in _obj._properties)
+                        {
+                            keys[i++] = new KeyValuePair<JsValue, JsValue>(key.Key.Name, UnwrapJsValue(key.Value, _obj));
+                        }
+                    }
+                    if (_obj._symbols is not null)
+                    {
+                        foreach(var key in _obj._symbols)
+                        {
+                            keys[i++] = new KeyValuePair<JsValue, JsValue>(key.Key, UnwrapJsValue(key.Value, _obj));
+                        }
+                    }
+                    return keys;
+                }
+            }
+
+            private string DebugToString() => new JsonSerializer(_obj._engine).Serialize(_obj, Undefined, "  ").ToString();
         }
     }
 }

@@ -8,6 +8,7 @@ namespace Jint.Runtime.Environments
     /// Base implementation of an Environment Record
     /// https://tc39.es/ecma262/#sec-environment-records
     /// </summary>
+    [DebuggerTypeProxy(typeof(EnvironmentRecordDebugView))]
     public abstract class EnvironmentRecord : JsValue
     {
         protected internal readonly Engine _engine;
@@ -129,6 +130,32 @@ namespace Jint.Runtime.Environments
                 if (key == KnownKeys.Undefined)
                 {
                     CalculatedValue = Undefined;
+                }
+            }
+        }
+
+        private sealed class EnvironmentRecordDebugView
+        {
+            private readonly EnvironmentRecord _record;
+
+            public EnvironmentRecordDebugView(EnvironmentRecord record)
+            {
+                _record = record;
+            }
+
+            [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+            public KeyValuePair<JsValue, JsValue>[] Entries
+            {
+                get
+                {
+                    var bindingNames = _record.GetAllBindingNames();
+                    var bindings = new KeyValuePair<JsValue, JsValue>[bindingNames.Length];
+                    var i = 0;
+                    foreach (var key in bindingNames)
+                    {
+                        bindings[i++] = new KeyValuePair<JsValue, JsValue>(key, _record.GetBindingValue(key, false));
+                    }
+                    return bindings;
                 }
             }
         }

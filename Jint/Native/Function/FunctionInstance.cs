@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native.Object;
@@ -9,6 +10,7 @@ using Jint.Runtime.Interpreter;
 
 namespace Jint.Native.Function
 {
+    [DebuggerDisplay("{ToString(),nq}")]
     public abstract partial class FunctionInstance : ObjectInstance, ICallable
     {
         protected PropertyDescriptor? _prototypeDescriptor;

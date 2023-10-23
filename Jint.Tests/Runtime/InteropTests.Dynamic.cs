@@ -1,4 +1,7 @@
 using System.Dynamic;
+using Jint.Native;
+using Jint.Native.Symbol;
+using Jint.Tests.Runtime.Domain;
 
 namespace Jint.Tests.Runtime
 {
@@ -12,6 +15,36 @@ namespace Jint.Tests.Runtime
             expando.Name = "test";
             engine.SetValue("expando", expando);
             Assert.Equal("test", engine.Evaluate("expando.Name").ToString());
+        }
+
+        [Fact]
+        public void DebugView()
+        {
+            // allows displaying different local variables under debugger
+
+            var engine = new Engine();
+            var boolNet = true;
+            var boolJint = (JsBoolean) boolNet;
+            var doubleNet = 12.34;
+            var doubleJint = (JsNumber) doubleNet;
+            var integerNet = 42;
+            var integerJint = (JsNumber) integerNet;
+            var stringNet = "ABC";
+            var stringJint = (JsString) stringNet;
+            var arrayNet = new[] { 1, 2, 3 };
+            var arrayListNet = new List<int> { 1, 2, 3 };
+            var arrayJint = new JsArray(engine, arrayNet.Select(x => (JsNumber) x).ToArray());
+
+            var objectNet = new Person { Name = "name", Age = 12 };
+            var objectJint = new JsObject(engine);
+            objectJint["name"] = "name";
+            objectJint["age"] = 12;
+            objectJint[GlobalSymbolRegistry.ToStringTag] = "Object";
+
+            var dictionaryNet = new Dictionary<JsValue, JsValue>();
+            dictionaryNet["name"] = "name";
+            dictionaryNet["age"] = 12;
+            dictionaryNet[GlobalSymbolRegistry.ToStringTag] = "Object";
         }
 
         [Fact]
