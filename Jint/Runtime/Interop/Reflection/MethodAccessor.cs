@@ -24,7 +24,7 @@ namespace Jint.Runtime.Interop.Reflection
 
         public override PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, bool enumerable = true)
         {
-            return new(new MethodInfoFunctionInstance(engine, _targetType, _name, _methods), PropertyFlag.AllForbidden);
+            return new(new MethodInfoFunctionInstance(engine, _targetType, target, _name, _methods), PropertyFlag.AllForbidden);
         }
     }
 }

@@ -3331,5 +3331,14 @@ try {
             var result = engine.Evaluate("const strings = Utils.GetStrings(); strings.Count;").AsNumber();
             Assert.Equal(3, result);
         }
+
+        [Fact]
+        public void CanDestructureInteropTargetMethod()
+        {
+            var engine = new Engine();
+            engine.SetValue("test", new Utils());
+            var result = engine.Evaluate("const { getStrings } = test; getStrings().Count;");
+            Assert.Equal(3, result);
+        }
     }
 }

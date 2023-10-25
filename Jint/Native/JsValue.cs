@@ -157,7 +157,7 @@ namespace Jint.Native
         /// Converts a <see cref="JsValue"/> to its underlying CLR value.
         /// </summary>
         /// <returns>The underlying CLR value of the <see cref="JsValue"/> instance.</returns>
-        public abstract object ToObject();
+        public abstract object? ToObject();
 
         /// <summary>
         /// Coerces boolean value from <see cref="JsValue"/> instance.

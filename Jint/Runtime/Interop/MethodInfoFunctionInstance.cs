@@ -10,6 +10,7 @@ namespace Jint.Runtime.Interop
     internal sealed class MethodInfoFunctionInstance : FunctionInstance
     {
         private readonly Type _targetType;
+        private readonly object? _target;
         private readonly string _name;
         private readonly MethodDescriptor[] _methods;
         private readonly ClrFunctionInstance? _fallbackClrFunctionInstance;
@@ -17,19 +18,21 @@ namespace Jint.Runtime.Interop
         public MethodInfoFunctionInstance(
             Engine engine,
             Type targetType,
+            object? target,
             string name,
             MethodDescriptor[] methods,
             ClrFunctionInstance? fallbackClrFunctionInstance = null)
             : base(engine, engine.Realm, new JsString(name))
         {
             _targetType = targetType;
+            _target = target;
             _name = name;
             _methods = methods;
             _fallbackClrFunctionInstance = fallbackClrFunctionInstance;
             _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
         }
 
-        private static bool IsGenericParameter(object argObj, Type parameterType)
+        private static bool IsGenericParameter(object? argObj, Type parameterType)
         {
             if (argObj is null)
             {
@@ -49,7 +52,7 @@ namespace Jint.Runtime.Interop
             return false;
         }
 
-        private static void HandleGenericParameter(object argObj, Type parameterType, Type[] genericArgTypes)
+        private static void HandleGenericParameter(object? argObj, Type parameterType, Type[] genericArgTypes)
         {
             if (argObj is null)
             {
@@ -94,7 +97,7 @@ namespace Jint.Runtime.Interop
             }
         }
 
-        private static MethodBase ResolveMethod(MethodBase method, ParameterInfo[] methodParameters, object thisObj, JsValue[] arguments)
+        private static MethodBase ResolveMethod(MethodBase method, ParameterInfo[] methodParameters, JsValue[] arguments)
         {
             if (!method.IsGenericMethod)
             {
@@ -156,7 +159,7 @@ namespace Jint.Runtime.Interop
             }
 
             var converter = Engine.ClrTypeConverter;
-            var thisObj = thisObject.ToObject();
+            var thisObj = thisObject.ToObject() ?? _target;
             object?[]? parameters = null;
             foreach (var (method, arguments, _) in TypeConverter.FindBestMatch(_engine, _methods, ArgumentProvider))
             {
@@ -167,7 +170,7 @@ namespace Jint.Runtime.Interop
                 }
 
                 var argumentsMatch = true;
-                var resolvedMethod = ResolveMethod(method.Method, methodParameters, thisObj, arguments);
+                var resolvedMethod = ResolveMethod(method.Method, methodParameters, arguments);
                 // TPC: if we're concerned about cost of MethodInfo.GetParameters() - we could only invoke it if this ends up being a generic method (i.e. they will be different in that scenario)
                 methodParameters = resolvedMethod.GetParameters();
                 for (var i = 0; i < parameters.Length; i++)

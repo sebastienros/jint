@@ -169,10 +169,16 @@ namespace Jint
 
             foreach (var overloads in methods.GroupBy(x => x.Name))
             {
-                string name = overloads.Key;
                 PropertyDescriptor CreateMethodInstancePropertyDescriptor(ClrFunctionInstance? function)
                 {
-                    var instance = new MethodInfoFunctionInstance(engine, objectType, name, MethodDescriptor.Build(overloads.ToList()), function);
+                    var instance = new MethodInfoFunctionInstance(
+                        engine,
+                        objectType,
+                        target: null,
+                        overloads.Key,
+                        methods: MethodDescriptor.Build(overloads.ToList()),
+                        function);
+
                     return new PropertyDescriptor(instance, PropertyFlag.AllForbidden);
                 }
 
