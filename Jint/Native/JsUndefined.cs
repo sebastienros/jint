@@ -8,7 +8,7 @@ public sealed class JsUndefined : JsValue, IEquatable<JsUndefined>
     {
     }
 
-    public override object ToObject() => null!;
+    public override object? ToObject() => null;
 
     public override string ToString() => "undefined";
 

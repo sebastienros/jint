@@ -8,7 +8,7 @@ public sealed class JsNull : JsValue, IEquatable<JsNull>
     {
     }
 
-    public override object ToObject() => null!;
+    public override object? ToObject() => null;
 
     public override string ToString() => "null";
 
