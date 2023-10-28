@@ -21,17 +21,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Flurl.Http.Signed" Version="3.2.4" />
-    <PackageReference Include="GitHubActionsTestLogger" Version="2.3.3" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.7.2" />
-    <PackageReference Include="MongoDB.Bson.signed" Version="2.19.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="NodaTime" Version="3.1.9" />
-    <PackageReference Include="xunit" Version="2.5.0" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="Flurl.Http.Signed" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="MongoDB.Bson.signed" />
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="NodaTime" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
   <ItemGroup>
