@@ -195,6 +195,11 @@ public partial class InteropTests
 
         Assert.Equal("[object Dependency]", _engine.Evaluate("Object.prototype.toString.call(c);"));
         Assert.Equal(123, _engine.Evaluate("c.abc"));
+
+        // engine uses registered type reference
+        _engine.SetValue("c2", new Dependency());
+        Assert.Equal("[object Dependency]", _engine.Evaluate("Object.prototype.toString.call(c2);"));
+        Assert.Equal(123, _engine.Evaluate("c2.abc"));
     }
 
     private class Injectable

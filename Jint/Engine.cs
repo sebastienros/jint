@@ -61,6 +61,9 @@ namespace Jint
         // cache of types used when resolving CLR type names
         internal readonly Dictionary<string, Type?> TypeCache = new();
 
+        // we use registered type reference as prototype if it's known
+        internal Dictionary<Type,TypeReference>? _typeReferences;
+
         // cache for already wrapped CLR objects to keep object identity
         internal ConditionalWeakTable<object, ObjectInstance>? _objectWrapperCache;
 
@@ -1560,6 +1563,12 @@ namespace Jint
         internal void SignalError(ErrorDispatchInfo error)
         {
             _error = error;
+        }
+
+        internal void RegisterTypeReference(TypeReference reference)
+        {
+            _typeReferences ??= new Dictionary<Type, TypeReference>();
+            _typeReferences[reference.ReferenceType] = reference;
         }
 
         public void Dispose()
