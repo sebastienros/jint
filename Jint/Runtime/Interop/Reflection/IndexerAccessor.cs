@@ -37,18 +37,25 @@ namespace Jint.Runtime.Interop.Reflection
             [NotNullWhen(true)] out IndexerAccessor? indexerAccessor,
             [NotNullWhen(true)] out PropertyInfo? indexer)
         {
+            indexerAccessor = null;
+            indexer = null;
             var paramTypeArray = new Type[1];
+
+            // integer keys can be ambiguous as we only know string keys
+            int? integerKey = null;
+
+            if (int.TryParse(propertyName, out var intKeyTemp))
+            {
+                integerKey = intKeyTemp;
+            }
 
             IndexerAccessor? ComposeIndexerFactory(PropertyInfo candidate, Type paramType)
             {
                 object? key = null;
                 // int key is quite common case
-                if (paramType == typeof(int))
+                if (paramType == typeof(int) && integerKey is not null)
                 {
-                    if (int.TryParse(propertyName, out var intValue))
-                    {
-                        key = intValue;
-                    }
+                    key = integerKey;
                 }
                 else
                 {
@@ -89,6 +96,7 @@ namespace Jint.Runtime.Interop.Reflection
             }
 
             // try to find first indexer having either public getter or setter with matching argument type
+            PropertyInfo? fallbackIndexer = null;
             foreach (var candidate in targetType.GetProperties())
             {
                 if (!filter(candidate))
@@ -108,10 +116,28 @@ namespace Jint.Runtime.Interop.Reflection
                     indexerAccessor = ComposeIndexerFactory(candidate, paramType);
                     if (indexerAccessor != null)
                     {
-                        indexer = candidate;
-                        return true;
+                        if (paramType != typeof(string) ||  integerKey is null)
+                        {
+                            // exact match, we don't need to check for integer key
+                            indexer = candidate;
+                            return true;
+                        }
+
+                        if (fallbackIndexer is null)
+                        {
+                            // our fallback
+                            fallbackIndexer = candidate;
+                        }
                     }
                 }
+            }
+
+            if (fallbackIndexer is not null)
+            {
+                indexer = fallbackIndexer;
+                // just to keep compiler happy, we know we have a value
+                indexerAccessor = indexerAccessor ?? new IndexerAccessor(indexer, null, null!);
+                return true;
             }
 
             indexerAccessor = default;

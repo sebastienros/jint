@@ -3297,6 +3297,7 @@ try {
         public interface IStringCollection : IIndexer<string>, ICountable<string>
         {
             string this[string name] { get; }
+            string this[int index] { get; }
         }
 
         public class Strings : IStringCollection
@@ -3306,14 +3307,8 @@ try {
             {
                 _strings = strings;
             }
-            public string this[string name]
-            {
-                get
-                {
-                    return int.TryParse(name, out var index) ? _strings[index] : _strings.FirstOrDefault(x => x.Contains(name));
-                }
-            }
 
+            public string this[string name] => null;
             public string this[int index] => _strings[index];
             public int Count => _strings.Length;
         }
@@ -3330,6 +3325,15 @@ try {
             engine.SetValue("Utils", new Utils());
             var result = engine.Evaluate("const strings = Utils.GetStrings(); strings.Count;").AsNumber();
             Assert.Equal(3, result);
+        }
+
+        [Fact]
+        public void IntegerIndexerIfPreferredOverStringIndexerWhenFound()
+        {
+            var engine = new Engine();
+            engine.SetValue("Utils", new Utils());
+            var result = engine.Evaluate("const strings = Utils.GetStrings(); strings[2];");
+            Assert.Equal("c", result);
         }
 
         [Fact]
