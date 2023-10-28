@@ -40,7 +40,9 @@ namespace Jint.Runtime.Interop
 
         public static TypeReference CreateTypeReference(Engine engine, Type type)
         {
-            return new TypeReference(engine, type);
+            var reference = new TypeReference(engine, type);
+            engine.RegisterTypeReference(reference);
+            return reference;
         }
 
         protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)

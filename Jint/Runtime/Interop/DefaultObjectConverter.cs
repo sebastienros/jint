@@ -110,6 +110,13 @@ namespace Jint
                         else
                         {
                             var wrapped = engine.Options.Interop.WrapObjectHandler.Invoke(engine, value, type);
+
+                            if (ReferenceEquals(wrapped?.GetPrototypeOf(), engine.Realm.Intrinsics.Object.PrototypeObject)
+                                && engine._typeReferences?.TryGetValue(t, out var typeReference) == true)
+                            {
+                                wrapped.SetPrototypeOf(typeReference);
+                            }
+
                             result = wrapped;
 
                             if (engine.Options.Interop.TrackObjectWrapperIdentity && wrapped is not null)
