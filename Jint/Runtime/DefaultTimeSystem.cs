@@ -57,6 +57,11 @@ public class DefaultTimeSystem : ITimeSystem
     {
         epochMilliseconds = long.MinValue;
 
+        if (string.IsNullOrEmpty(date))
+        {
+            return false;
+        }
+
         // special check for large years that always require + or - in front and have 6 digit year
         if ((date[0] == '+'|| date[0] == '-') && date.IndexOf('-', 1) == 7)
         {
