@@ -107,4 +107,10 @@ public class DateTests
         var parsedDate = _engine.Evaluate("moment().format('yyyy')").ToString();
         Assert.Equal(DateTime.Now.Year.ToString(),parsedDate);
     }
+
+    [Fact]
+    public void CanParseEmptyDate()
+    {
+        Assert.True(double.IsNaN(_engine.Evaluate("Date.parse('')").AsNumber()));
+    }
 }
