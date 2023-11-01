@@ -31,7 +31,7 @@ public partial class InteropTests
 
         var engine = new Engine(options =>
         {
-            // JsonArray behave like JS array
+            // make JsonArray behave like JS array
             options.Interop.WrapObjectHandler = static (e, target, type) =>
             {
                 var wrapped = new ObjectWrapper(e, target);
@@ -47,7 +47,7 @@ public partial class InteropTests
             {
                 MemberFilter = static info =>
                 {
-                    if (info.DeclaringType != typeof(JsonObject) && info.Name == "Item" && info is PropertyInfo p)
+                    if (info.ReflectedType != typeof(JsonObject) && info.Name == "Item" && info is PropertyInfo p)
                     {
                         var parameters = p.GetIndexParameters();
                         return parameters.Length != 1 || parameters[0].ParameterType != typeof(string);
@@ -75,9 +75,30 @@ public partial class InteropTests
                  }
              """);
 
+        // reading data
         var result = engine.Evaluate("populateFullName()").AsArray();
         Assert.Equal((uint) 2, result.Length);
         Assert.Equal("John Doe", result[0].AsObject()["fullName"]);
         Assert.Equal("Jane Doe", result[1].AsObject()["fullName"]);
+
+        // mutating data via JS
+        engine.Evaluate("variables.employees.type = 'array2'");
+        engine.Evaluate("variables.employees.value[0].firstName = 'Jake'");
+
+        Assert.Equal("array2", engine.Evaluate("variables['employees']['type']").ToString());
+
+        result = engine.Evaluate("populateFullName()").AsArray();
+        Assert.Equal((uint) 2, result.Length);
+        Assert.Equal("Jake Doe", result[0].AsObject()["fullName"]);
+
+        // mutating original object that is wrapped inside the engine
+        variables["employees"]["type"] = "array";
+        variables["employees"]["value"][0]["firstName"] = "John";
+
+        Assert.Equal("array", engine.Evaluate("variables['employees']['type']").ToString());
+
+        result = engine.Evaluate("populateFullName()").AsArray();
+        Assert.Equal((uint) 2, result.Length);
+        Assert.Equal("John Doe", result[0].AsObject()["fullName"]);
     }
 }
