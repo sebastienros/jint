@@ -12,7 +12,7 @@ namespace Jint.Runtime.Interop.Reflection
     {
         private readonly object _key;
 
-        private readonly PropertyInfo _indexer;
+        internal readonly PropertyInfo _indexer;
         private readonly MethodInfo? _getter;
         private readonly MethodInfo? _setter;
         private readonly MethodInfo? _containsKey;

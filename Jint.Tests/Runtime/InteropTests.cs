@@ -1697,10 +1697,7 @@ namespace Jint.Tests.Runtime
         public void ShouldUseExplicitPropertyGetter()
         {
             _engine.SetValue("c", new Company("ACME"));
-
-            RunTest(@"
-                assert(c.Name === 'ACME');
-            ");
+            Assert.Equal("ACME", _engine.Evaluate("c.Name"));
         }
 
         [Fact]
@@ -1709,21 +1706,14 @@ namespace Jint.Tests.Runtime
             var company = new Company("ACME");
             ((ICompany) company)["Foo"] = "Bar";
             _engine.SetValue("c", company);
-
-            RunTest(@"
-                assert(c.Foo === 'Bar');
-            ");
+            Assert.Equal("Bar", _engine.Evaluate("c.Foo"));
         }
 
         [Fact]
         public void ShouldUseExplicitPropertySetter()
         {
             _engine.SetValue("c", new Company("ACME"));
-
-            RunTest(@"
-                c.Name = 'Foo';
-                assert(c.Name === 'Foo');
-            ");
+            Assert.Equal("Foo", _engine.Evaluate("c.Name = 'Foo'; c.Name;"));
         }
 
         [Fact]
@@ -3297,7 +3287,6 @@ try {
         public interface IStringCollection : IIndexer<string>, ICountable<string>
         {
             string this[string name] { get; }
-            string this[int index] { get; }
         }
 
         public class Strings : IStringCollection

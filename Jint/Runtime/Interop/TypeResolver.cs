@@ -75,7 +75,7 @@ namespace Jint.Runtime.Interop
             string memberName,
             bool forWrite)
         {
-            var isNumber = uint.TryParse(memberName, out _);
+            var isInteger = long.TryParse(memberName, out _);
 
             // we can always check indexer if there's one, and then fall back to properties if indexer returns null
             IndexerAccessor.TryFindIndexer(engine, type, memberName, out var indexerAccessor, out var indexer);
@@ -83,7 +83,7 @@ namespace Jint.Runtime.Interop
             const BindingFlags BindingFlags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public;
 
             // properties and fields cannot be numbers
-            if (!isNumber
+            if (!isInteger
                 && TryFindMemberAccessor(engine, type, memberName, BindingFlags, indexer, out var temp)
                 && (!forWrite || temp.Writable))
             {
@@ -95,84 +95,106 @@ namespace Jint.Runtime.Interop
                 return new DynamicObjectAccessor(type, memberName);
             }
 
+            var typeResolverMemberNameComparer = MemberNameComparer;
+            var typeResolverMemberNameCreator = MemberNameCreator;
+
+            if (!isInteger)
+            {
+                // try to find a single explicit property implementation
+                List<PropertyInfo>? list = null;
+                foreach (var iface in type.GetInterfaces())
+                {
+                    foreach (var iprop in iface.GetProperties())
+                    {
+                        if (!Filter(engine, iprop))
+                        {
+                            continue;
+                        }
+
+                        if (iprop.Name == "Item" && iprop.GetIndexParameters().Length == 1)
+                        {
+                            // never take indexers, should use the actual indexer
+                            continue;
+                        }
+
+                        foreach (var name in typeResolverMemberNameCreator(iprop))
+                        {
+                            if (typeResolverMemberNameComparer.Equals(name, memberName))
+                            {
+                                list ??= new List<PropertyInfo>();
+                                list.Add(iprop);
+                            }
+                        }
+                    }
+                }
+
+                if (list?.Count == 1)
+                {
+                    return new PropertyAccessor(memberName, list[0]);
+                }
+
+                // try to find explicit method implementations
+                List<MethodInfo>? explicitMethods = null;
+                foreach (var iface in type.GetInterfaces())
+                {
+                    foreach (var imethod in iface.GetMethods())
+                    {
+                        if (!Filter(engine, imethod))
+                        {
+                            continue;
+                        }
+
+                        foreach (var name in typeResolverMemberNameCreator(imethod))
+                        {
+                            if (typeResolverMemberNameComparer.Equals(name, memberName))
+                            {
+                                explicitMethods ??= new List<MethodInfo>();
+                                explicitMethods.Add(imethod);
+                            }
+                        }
+                    }
+                }
+
+                if (explicitMethods?.Count > 0)
+                {
+                    return new MethodAccessor(type, memberName, MethodDescriptor.Build(explicitMethods));
+                }
+            }
+
             // if no methods are found check if target implemented indexing
+            var score = int.MaxValue;
+            if (indexerAccessor != null)
+            {
+                var parameter = indexerAccessor._indexer.GetIndexParameters()[0];
+                score = CalculateIndexerScore(parameter, isInteger);
+            }
+
+            if (score != 0)
+            {
+                // try to find explicit indexer implementations that has a better score than earlier
+                foreach (var interfaceType in type.GetInterfaces())
+                {
+                    if (IndexerAccessor.TryFindIndexer(engine, interfaceType, memberName, out var accessor, out _))
+                    {
+                        var parameter = accessor._indexer.GetIndexParameters()[0];
+                        var newScore = CalculateIndexerScore(parameter, isInteger);
+                        if (newScore < score)
+                        {
+                            // found a better one
+                            indexerAccessor = accessor;
+                            score = newScore;
+                        }
+                    }
+                }
+            }
+
+            // use the best indexer we were able to find
             if (indexerAccessor != null)
             {
                 return indexerAccessor;
             }
 
-            // try to find a single explicit property implementation
-            List<PropertyInfo>? list = null;
-            var typeResolverMemberNameComparer = MemberNameComparer;
-            var typeResolverMemberNameCreator = MemberNameCreator;
-            foreach (var iface in type.GetInterfaces())
-            {
-                foreach (var iprop in iface.GetProperties())
-                {
-                    if (!Filter(engine, iprop))
-                    {
-                        continue;
-                    }
-
-                    if (iprop.Name == "Item" && iprop.GetIndexParameters().Length == 1)
-                    {
-                        // never take indexers, should use the actual indexer
-                        continue;
-                    }
-
-                    foreach (var name in typeResolverMemberNameCreator(iprop))
-                    {
-                        if (typeResolverMemberNameComparer.Equals(name, memberName))
-                        {
-                            list ??= new List<PropertyInfo>();
-                            list.Add(iprop);
-                        }
-                    }
-                }
-            }
-
-            if (list?.Count == 1)
-            {
-                return new PropertyAccessor(memberName, list[0]);
-            }
-
-            // try to find explicit method implementations
-            List<MethodInfo>? explicitMethods = null;
-            foreach (var iface in type.GetInterfaces())
-            {
-                foreach (var imethod in iface.GetMethods())
-                {
-                    if (!Filter(engine, imethod))
-                    {
-                        continue;
-                    }
-
-                    foreach (var name in typeResolverMemberNameCreator(imethod))
-                    {
-                        if (typeResolverMemberNameComparer.Equals(name, memberName))
-                        {
-                            explicitMethods ??= new List<MethodInfo>();
-                            explicitMethods.Add(imethod);
-                        }
-                    }
-                }
-            }
-
-            if (explicitMethods?.Count > 0)
-            {
-                return new MethodAccessor(type, memberName, MethodDescriptor.Build(explicitMethods));
-            }
-
-            // try to find explicit indexer implementations
-            foreach (var interfaceType in type.GetInterfaces())
-            {
-                if (IndexerAccessor.TryFindIndexer(engine, interfaceType, memberName, out var accessor, out _))
-                {
-                    return accessor;
-                }
-            }
-
-            if (engine._extensionMethods.TryGetExtensionMethods(type, out var extensionMethods))
+            if (!isInteger && engine._extensionMethods.TryGetExtensionMethods(type, out var extensionMethods))
             {
                 var matches = new List<MethodInfo>();
                 foreach (var method in extensionMethods)
@@ -198,6 +220,23 @@ namespace Jint.Runtime.Interop
             }
 
             return ConstantValueAccessor.NullAccessor;
+        }
+
+        private static int CalculateIndexerScore(ParameterInfo parameter, bool isInteger)
+        {
+            var paramType = parameter.ParameterType;
+
+            if (paramType == typeof(int))
+            {
+                return  isInteger ? 0 : 10;
+            }
+
+            if (paramType == typeof(string))
+            {
+                return 1;
+            }
+
+            return 5;
         }
 
         internal bool TryFindMemberAccessor(
