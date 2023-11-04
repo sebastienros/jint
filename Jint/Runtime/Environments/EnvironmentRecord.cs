@@ -118,7 +118,6 @@ namespace Jint.Runtime.Environments
         {
             public readonly Key Key;
             public readonly JsString Value;
-            public readonly bool HasEvalOrArguments;
             public readonly JsValue? CalculatedValue;
 
             public BindingName(string value)
@@ -126,7 +125,6 @@ namespace Jint.Runtime.Environments
                 var key = (Key) value;
                 Key = key;
                 Value = JsString.Create(value);
-                HasEvalOrArguments = key == KnownKeys.Eval || key == KnownKeys.Arguments;
                 if (key == KnownKeys.Undefined)
                 {
                     CalculatedValue = Undefined;

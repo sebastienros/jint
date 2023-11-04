@@ -9,28 +9,52 @@ namespace Jint.Runtime.Interpreter.Expressions;
 
 internal sealed class JintIdentifierExpression : JintExpression
 {
+    private EnvironmentRecord.BindingName _identifier = null!;
+
     public JintIdentifierExpression(Identifier expression) : base(expression)
     {
+        _initialized = false;
     }
 
-    internal EnvironmentRecord.BindingName Identifier
+    public EnvironmentRecord.BindingName Identifier
     {
-        get => (EnvironmentRecord.BindingName) (_expression.AssociatedData ??= new EnvironmentRecord.BindingName(((Identifier) _expression).Name));
+        get
+        {
+            EnsureIdentifier();
+            return _identifier;
+        }
     }
 
-    public bool HasEvalOrArguments => Identifier.HasEvalOrArguments;
+    protected override void Initialize(EvaluationContext context)
+    {
+        EnsureIdentifier();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void EnsureIdentifier()
+    {
+        _identifier ??= _expression.AssociatedData as EnvironmentRecord.BindingName ?? new EnvironmentRecord.BindingName(((Identifier) _expression).Name);
+    }
+
+    public bool HasEvalOrArguments
+    {
+        get
+        {
+            var name = ((Identifier) _expression).Name;
+            return name is "eval" or "arguments";
+        }
+    }
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
         var engine = context.Engine;
         var env = engine.ExecutionContext.LexicalEnvironment;
         var strict = StrictModeScope.IsStrictModeCode;
-        var identifier = Identifier;
-        var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, identifier, out var temp)
+        var identifierEnvironment = JintEnvironment.TryGetIdentifierEnvironmentWithBinding(env, _identifier, out var temp)
             ? temp
             : JsValue.Undefined;
 
-        return engine._referencePool.Rent(identifierEnvironment, identifier.Value, strict, thisValue: null);
+        return engine._referencePool.Rent(identifierEnvironment, _identifier.Value, strict, thisValue: null);
     }
 
     public override JsValue GetValue(EvaluationContext context)
@@ -79,6 +103,6 @@ internal sealed class JintIdentifierExpression : JintExpression
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ThrowNotInitialized(Engine engine)
     {
-        ExceptionHelper.ThrowReferenceError(engine.Realm, Identifier.Key.Name + " has not been initialized");
+        ExceptionHelper.ThrowReferenceError(engine.Realm, _identifier.Key.Name + " has not been initialized");
     }
 }
