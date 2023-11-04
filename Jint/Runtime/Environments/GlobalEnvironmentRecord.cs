@@ -76,7 +76,7 @@ namespace Jint.Runtime.Environments
             out Binding binding,
             [NotNullWhen(true)] out JsValue? value)
         {
-            if (_declarativeRecord.TryGetBinding(name, strict, out binding, out value))
+            if (_declarativeRecord._dictionary is not null && _declarativeRecord.TryGetBinding(name, strict, out binding, out value))
             {
                 return true;
             }
