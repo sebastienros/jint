@@ -44,7 +44,7 @@ namespace Jint.Runtime.Environments
 
             if (env._outerEnv is null)
             {
-                return env.TryGetBinding(name, strict, out _, out value);
+                return ((GlobalEnvironmentRecord) env).TryGetBinding(name, strict, out _, out value);
             }
 
             while (!ReferenceEquals(record, null))

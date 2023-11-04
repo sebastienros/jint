@@ -12,20 +12,30 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class GlobalEnvironmentRecord : EnvironmentRecord
     {
+        /// <summary>
+        /// A sealed class for global usage.
+        /// </summary>
+        internal sealed class GlobalDeclarativeEnvironmentRecord : DeclarativeEnvironmentRecord
+        {
+            public GlobalDeclarativeEnvironmentRecord(Engine engine) : base(engine)
+            {
+            }
+        }
+
         internal readonly ObjectInstance _global;
 
         // we expect it to be GlobalObject, but need to allow to something host-defined, like Window
         private readonly GlobalObject? _globalObject;
 
         // Environment records are needed by debugger
-        internal readonly DeclarativeEnvironmentRecord _declarativeRecord;
-        private readonly HashSet<string> _varNames = new();
+        internal readonly GlobalDeclarativeEnvironmentRecord _declarativeRecord;
+        private readonly HashSet<string> _varNames = new(StringComparer.Ordinal);
 
         public GlobalEnvironmentRecord(Engine engine, ObjectInstance global) : base(engine)
         {
             _global = global;
             _globalObject = global as GlobalObject;
-            _declarativeRecord = new DeclarativeEnvironmentRecord(engine);
+            _declarativeRecord = new GlobalDeclarativeEnvironmentRecord(engine);
         }
 
         public ObjectInstance GlobalThisValue => _global;

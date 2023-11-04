@@ -1237,7 +1237,7 @@ namespace Jint
 
             var functionDeclarations = hoistingScope._functionDeclarations;
             var functionsToInitialize = new LinkedList<JintFunctionDefinition>();
-            var declaredFunctionNames = new HashSet<string>();
+            var declaredFunctionNames = new HashSet<string>(StringComparer.Ordinal);
 
             if (functionDeclarations != null)
             {
