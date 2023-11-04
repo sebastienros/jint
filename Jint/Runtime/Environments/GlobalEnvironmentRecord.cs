@@ -12,20 +12,30 @@ namespace Jint.Runtime.Environments
     /// </summary>
     public sealed class GlobalEnvironmentRecord : EnvironmentRecord
     {
+        /// <summary>
+        /// A sealed class for global usage.
+        /// </summary>
+        internal sealed class GlobalDeclarativeEnvironmentRecord : DeclarativeEnvironmentRecord
+        {
+            public GlobalDeclarativeEnvironmentRecord(Engine engine) : base(engine)
+            {
+            }
+        }
+
         internal readonly ObjectInstance _global;
 
         // we expect it to be GlobalObject, but need to allow to something host-defined, like Window
         private readonly GlobalObject? _globalObject;
 
         // Environment records are needed by debugger
-        internal readonly DeclarativeEnvironmentRecord _declarativeRecord;
-        private readonly HashSet<string> _varNames = new();
+        internal readonly GlobalDeclarativeEnvironmentRecord _declarativeRecord;
+        private readonly HashSet<string> _varNames = new(StringComparer.Ordinal);
 
         public GlobalEnvironmentRecord(Engine engine, ObjectInstance global) : base(engine)
         {
             _global = global;
             _globalObject = global as GlobalObject;
-            _declarativeRecord = new DeclarativeEnvironmentRecord(engine);
+            _declarativeRecord = new GlobalDeclarativeEnvironmentRecord(engine);
         }
 
         public ObjectInstance GlobalThisValue => _global;
@@ -66,7 +76,7 @@ namespace Jint.Runtime.Environments
             out Binding binding,
             [NotNullWhen(true)] out JsValue? value)
         {
-            if (_declarativeRecord.TryGetBinding(name, strict, out binding, out value))
+            if (_declarativeRecord._dictionary is not null && _declarativeRecord.TryGetBinding(name, strict, out binding, out value))
             {
                 return true;
             }
@@ -343,14 +353,31 @@ namespace Jint.Runtime.Environments
         public void CreateGlobalVarBinding(string name, bool canBeDeleted)
         {
             Key key = name;
-            if (!_global._properties!.ContainsKey(key) && _global.Extensible)
-            {
-                _global._properties[key] = new PropertyDescriptor(Undefined, canBeDeleted
+            if (_global.Extensible && _global._properties!.TryAdd(key, new PropertyDescriptor(Undefined, canBeDeleted
                     ? PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding
-                    : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding);
+                    : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding)))
+            {
+                _varNames.Add(name);
+            }
+        }
+
+        internal void CreateGlobalVarBindings(List<string> names, bool canBeDeleted)
+        {
+            if (!_global.Extensible)
+            {
+                return;
             }
 
-            _varNames.Add(name);
+            for (var i = 0; i < names.Count; i++)
+            {
+                var name = names[i];
+
+                _global._properties!.TryAdd(name,new PropertyDescriptor(Undefined, canBeDeleted
+                    ? PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding
+                    : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding));
+
+                _varNames.Add(name);
+            }
         }
 
         /// <summary>
