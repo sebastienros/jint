@@ -343,14 +343,31 @@ namespace Jint.Runtime.Environments
         public void CreateGlobalVarBinding(string name, bool canBeDeleted)
         {
             Key key = name;
-            if (!_global._properties!.ContainsKey(key) && _global.Extensible)
-            {
-                _global._properties[key] = new PropertyDescriptor(Undefined, canBeDeleted
+            if (_global.Extensible && _global._properties!.TryAdd(key, new PropertyDescriptor(Undefined, canBeDeleted
                     ? PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding
-                    : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding);
+                    : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding)))
+            {
+                _varNames.Add(name);
+            }
+        }
+
+        internal void CreateGlobalVarBindings(List<string> names, bool canBeDeleted)
+        {
+            if (!_global.Extensible)
+            {
+                return;
             }
 
-            _varNames.Add(name);
+            for (var i = 0; i < names.Count; i++)
+            {
+                var name = names[i];
+
+                _global._properties!.TryAdd(name,new PropertyDescriptor(Undefined, canBeDeleted
+                    ? PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding
+                    : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding));
+
+                _varNames.Add(name);
+            }
         }
 
         /// <summary>

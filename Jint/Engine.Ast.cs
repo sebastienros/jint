@@ -8,7 +8,6 @@ namespace Jint;
 
 public partial class Engine
 {
-
     /// <summary>
     /// Prepares a script for the engine that includes static analysis data to speed up execution during run-time.
     /// </summary>
@@ -70,7 +69,102 @@ public partial class Engine
                     var function = (IFunction) node;
                     node.AssociatedData = JintFunctionDefinition.BuildState(function);
                     break;
+                case Nodes.Program:
+                    node.AssociatedData = new CachedHoistingScope((Program) node);
+                    break;
             }
         }
+    }
+}
+
+internal sealed class CachedHoistingScope
+{
+    public CachedHoistingScope(Program program)
+    {
+        Scope = HoistingScope.GetProgramLevelDeclarations(program);
+
+        VarNames = new List<string>();
+        GatherVarNames(Scope, VarNames);
+
+        LexNames = new List<CachedLexicalName>();
+        GatherLexNames(Scope, LexNames);
+    }
+
+    internal static void GatherVarNames(HoistingScope scope, List<string> boundNames)
+    {
+        var varDeclarations = scope._variablesDeclarations;
+        if (varDeclarations != null)
+        {
+            for (var i = 0; i < varDeclarations.Count; i++)
+            {
+                var d = varDeclarations[i];
+                d.GetBoundNames(boundNames);
+            }
+        }
+    }
+
+    internal static void GatherLexNames(HoistingScope scope, List<CachedLexicalName> boundNames)
+    {
+        var lexDeclarations = scope._lexicalDeclarations;
+        if (lexDeclarations != null)
+        {
+            var temp = new List<string>();
+            for (var i = 0; i < lexDeclarations.Count; i++)
+            {
+                var d = lexDeclarations[i];
+                temp.Clear();
+                d.GetBoundNames(temp);
+                foreach (var name in temp)
+                {
+                    boundNames.Add(new CachedLexicalName(name, d.IsConstantDeclaration()));
+                }
+            }
+        }
+    }
+
+    internal readonly record struct CachedLexicalName(string Name, bool Constant);
+
+    public HoistingScope Scope { get; }
+    public List<string> VarNames { get; }
+    public List<CachedLexicalName> LexNames { get; }
+}
+
+internal static class AstPreparationExtensions
+{
+    internal static HoistingScope GetHoistingScope(this Program program)
+    {
+        return program.AssociatedData is CachedHoistingScope cached ? cached.Scope : HoistingScope.GetProgramLevelDeclarations(program);
+    }
+
+    internal static List<string> GetVarNames(this Program program, HoistingScope hoistingScope)
+    {
+        List<string> boundNames;
+        if (program.AssociatedData is CachedHoistingScope cached)
+        {
+            boundNames = cached.VarNames;
+        }
+        else
+        {
+            boundNames = new List<string>();
+            CachedHoistingScope.GatherVarNames(hoistingScope, boundNames);
+        }
+
+        return boundNames;
+    }
+
+    internal static List<CachedHoistingScope.CachedLexicalName> GetLexNames(this Program program, HoistingScope hoistingScope)
+    {
+        List<CachedHoistingScope.CachedLexicalName> boundNames;
+        if (program.AssociatedData is CachedHoistingScope cached)
+        {
+            boundNames = cached.LexNames;
+        }
+        else
+        {
+            boundNames = new List<CachedHoistingScope.CachedLexicalName>();
+            CachedHoistingScope.GatherLexNames(hoistingScope, boundNames);
+        }
+
+        return boundNames;
     }
 }

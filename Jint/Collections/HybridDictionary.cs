@@ -51,7 +51,7 @@ namespace Jint.Collections
                 {
                     if (_list.Count >= CutoverPoint - 1)
                     {
-                        SwitchToDictionary(key, value);
+                        SwitchToDictionary(key, value, tryAdd: false);
                     }
                     else
                     {
@@ -97,7 +97,7 @@ namespace Jint.Collections
             }
         }
 
-        private void SwitchToDictionary(Key key, TValue value)
+        private bool SwitchToDictionary(Key key, TValue value, bool tryAdd)
         {
             var dictionary = new StringDictionarySlim<TValue>(InitialDictionarySize);
             foreach (var pair in _list)
@@ -105,15 +105,46 @@ namespace Jint.Collections
                 dictionary[pair.Key] = pair.Value;
             }
 
-            dictionary[key] = value;
+            bool result;
+            if (tryAdd)
+            {
+                result = dictionary.TryAdd(key, value);
+            }
+            else
+            {
+                dictionary[key] = value;
+                result = true;
+            }
             _dictionary = dictionary;
             _list = null;
+            return result;
         }
 
         public int Count
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _dictionary?.Count ?? _list?.Count ?? 0;
+        }
+
+        public bool TryAdd(Key key, TValue value)
+        {
+            if (_dictionary != null)
+            {
+                return _dictionary.TryAdd(key, value);
+            }
+            else
+            {
+                _list ??= new ListDictionary<TValue>(key, value, _checkExistingKeys);
+
+                if (_list.Count + 1 >= CutoverPoint)
+                {
+                    return SwitchToDictionary(key, value, tryAdd: true);
+                }
+                else
+                {
+                    return _list.Add(key, value, tryAdd: true);
+                }
+            }
         }
 
         public void Add(Key key, TValue value)
@@ -132,7 +163,7 @@ namespace Jint.Collections
                 {
                     if (_list.Count + 1 >= CutoverPoint)
                     {
-                        SwitchToDictionary(key, value);
+                        SwitchToDictionary(key, value, tryAdd: false);
                     }
                     else
                     {

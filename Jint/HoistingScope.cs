@@ -28,12 +28,11 @@ namespace Jint
         }
 
         public static HoistingScope GetProgramLevelDeclarations(
-            bool strict,
             Program script,
             bool collectVarNames = false,
             bool collectLexicalNames = false)
         {
-            var treeWalker = new ScriptWalker(strict, collectVarNames, collectLexicalNames);
+            var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames);
             treeWalker.Visit(script, null);
 
             return new HoistingScope(
@@ -46,7 +45,7 @@ namespace Jint
 
         public static HoistingScope GetFunctionLevelDeclarations(bool strict, IFunction node)
         {
-            var treeWalker = new ScriptWalker(strict, collectVarNames: true, collectLexicalNames: true);
+            var treeWalker = new ScriptWalker(collectVarNames: true, collectLexicalNames: true);
             treeWalker.Visit(node.Body, null);
 
             return new HoistingScope(
@@ -63,7 +62,7 @@ namespace Jint
             bool collectLexicalNames = false)
         {
             // modules area always strict
-            var treeWalker = new ScriptWalker(strict: true, collectVarNames, collectLexicalNames);
+            var treeWalker = new ScriptWalker(collectVarNames, collectLexicalNames);
             treeWalker.Visit(module, null);
             return new HoistingScope(
                 treeWalker._functions,
@@ -204,7 +203,6 @@ namespace Jint
         {
             internal List<FunctionDeclaration>? _functions;
 
-            private readonly bool _strict;
             private readonly bool _collectVarNames;
             internal List<VariableDeclaration>? _variableDeclarations;
             internal List<Key>? _varNames;
@@ -213,9 +211,8 @@ namespace Jint
             internal List<Declaration>? _lexicalDeclarations;
             internal List<string>? _lexicalNames;
 
-            public ScriptWalker(bool strict, bool collectVarNames, bool collectLexicalNames)
+            public ScriptWalker(bool collectVarNames, bool collectLexicalNames)
             {
-                _strict = strict;
                 _collectVarNames = collectVarNames;
                 _collectLexicalNames = collectLexicalNames;
             }

@@ -99,7 +99,7 @@ namespace Jint.Collections
             get => _count;
         }
 
-        public void Add(Key key, TValue value)
+        public bool Add(Key key, TValue value, bool tryAdd = false)
         {
             DictionaryNode last = null;
             DictionaryNode node;
@@ -109,6 +109,10 @@ namespace Jint.Collections
                 var oldKey = node.Key;
                 if (checkExistingKeys && oldKey == key)
                 {
+                    if (tryAdd)
+                    {
+                        return false;
+                    }
                     ExceptionHelper.ThrowArgumentException();
                 }
 
@@ -116,6 +120,7 @@ namespace Jint.Collections
             }
 
             AddNode(key, value, last);
+            return true;
         }
 
         private void AddNode(Key key, TValue value, DictionaryNode last)

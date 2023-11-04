@@ -917,14 +917,12 @@ namespace Jint
             Script script,
             GlobalEnvironmentRecord env)
         {
-            var strict = _isStrict || StrictModeScope.IsStrictModeCode;
-            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(strict, script);
+            var hoistingScope = script.GetHoistingScope();
             var functionDeclarations = hoistingScope._functionDeclarations;
-            var varDeclarations = hoistingScope._variablesDeclarations;
             var lexDeclarations = hoistingScope._lexicalDeclarations;
 
-            var functionToInitialize = new LinkedList<JintFunctionDefinition>();
-            var declaredFunctionNames = new HashSet<string>();
+            var functionToInitialize = new List<JintFunctionDefinition>();
+            var declaredFunctionNames = new HashSet<string>(StringComparer.Ordinal);
             var declaredVarNames = new List<string>();
 
             var realm = Realm;
@@ -944,74 +942,56 @@ namespace Jint
                         }
 
                         declaredFunctionNames.Add(fn);
-                        functionToInitialize.AddFirst(new JintFunctionDefinition(d));
+                        functionToInitialize.Add(new JintFunctionDefinition(d));
                     }
                 }
             }
 
-            var boundNames = new List<string>();
-            if (varDeclarations != null)
+            var varNames = script.GetVarNames(hoistingScope);
+            for (var j = 0; j < varNames.Count; j++)
             {
-                for (var i = 0; i < varDeclarations.Count; i++)
+                var vn = varNames[j];
+                if (env.HasLexicalDeclaration(vn))
                 {
-                    var d = varDeclarations[i];
-                    boundNames.Clear();
-                    d.GetBoundNames(boundNames);
-                    for (var j = 0; j < boundNames.Count; j++)
+                    ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{vn}' has already been declared");
+                }
+
+                if (!declaredFunctionNames.Contains(vn))
+                {
+                    var vnDefinable = env.CanDeclareGlobalVar(vn);
+                    if (!vnDefinable)
                     {
-                        var vn = boundNames[j];
-
-                        if (env.HasLexicalDeclaration(vn))
-                        {
-                            ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{vn}' has already been declared");
-                        }
-
-                        if (!declaredFunctionNames.Contains(vn))
-                        {
-                            var vnDefinable = env.CanDeclareGlobalVar(vn);
-                            if (!vnDefinable)
-                            {
-                                ExceptionHelper.ThrowTypeError(realm);
-                            }
-
-                            declaredVarNames.Add(vn);
-                        }
+                        ExceptionHelper.ThrowTypeError(realm);
                     }
+
+                    declaredVarNames.Add(vn);
                 }
             }
 
             PrivateEnvironmentRecord? privateEnv = null;
-            if (lexDeclarations != null)
+            var lexNames = script.GetLexNames(hoistingScope);
+            for (var i = 0; i < lexNames.Count; i++)
             {
-                for (var i = 0; i < lexDeclarations.Count; i++)
+                var (dn, constant) = lexNames[i];
+                if (env.HasVarDeclaration(dn) || env.HasLexicalDeclaration(dn) || env.HasRestrictedGlobalProperty(dn))
                 {
-                    var d = lexDeclarations[i];
-                    boundNames.Clear();
-                    d.GetBoundNames(boundNames);
-                    for (var j = 0; j < boundNames.Count; j++)
-                    {
-                        var dn = boundNames[j];
-                        if (env.HasVarDeclaration(dn)
-                            || env.HasLexicalDeclaration(dn)
-                            || env.HasRestrictedGlobalProperty(dn))
-                        {
-                            ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{dn}' has already been declared");
-                        }
+                    ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{dn}' has already been declared");
+                }
 
-                        if (d.IsConstantDeclaration())
-                        {
-                            env.CreateImmutableBinding(dn, strict: true);
-                        }
-                        else
-                        {
-                            env.CreateMutableBinding(dn, canBeDeleted: false);
-                        }
-                    }
+                if (constant)
+                {
+                    env.CreateImmutableBinding(dn, strict: true);
+                }
+                else
+                {
+                    env.CreateMutableBinding(dn, canBeDeleted: false);
                 }
             }
 
-            foreach (var f in functionToInitialize)
+            // we need to go trough in reverse order to handle the hoisting correctly
+            for (var i = functionToInitialize.Count - 1; i > -1; i--)
             {
+                var f = functionToInitialize[i];
                 var fn = f.Name!;
 
                 if (env.HasLexicalDeclaration(fn))
@@ -1023,11 +1003,7 @@ namespace Jint
                 env.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: false);
             }
 
-            for (var i = 0; i < declaredVarNames.Count; i++)
-            {
-                var vn = declaredVarNames[i];
-                env.CreateGlobalVarBinding(vn, canBeDeleted: false);
-            }
+            env.CreateGlobalVarBindings(declaredVarNames, canBeDeleted: false);
         }
 
         /// <summary>
@@ -1199,7 +1175,7 @@ namespace Jint
             PrivateEnvironmentRecord? privateEnv,
             bool strict)
         {
-            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(strict, script);
+            var hoistingScope = HoistingScope.GetProgramLevelDeclarations(script);
 
             var lexEnvRec = (DeclarativeEnvironmentRecord) lexEnv;
             var varEnvRec = varEnv;

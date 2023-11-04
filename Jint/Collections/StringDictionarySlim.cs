@@ -171,6 +171,23 @@ namespace Jint.Collections
             return ref AddKey(key, bucketIndex);
         }
 
+        public bool TryAdd(Key key, TValue value)
+        {
+            Entry[] entries = _entries;
+            int bucketIndex = key.HashCode & (_buckets.Length - 1);
+            for (int i = _buckets[bucketIndex] - 1;
+                 (uint)i < (uint)entries.Length; i = entries[i].next)
+            {
+                if (key.Name == entries[i].key.Name)
+                {
+                    return false;
+                }
+            }
+
+            AddKey(key, bucketIndex) = value;
+            return true;
+        }
+
         /// <summary>
         /// Adds a new item and expects key to not to exist.
         /// </summary>
