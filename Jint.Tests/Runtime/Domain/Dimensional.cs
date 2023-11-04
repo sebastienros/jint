@@ -1,6 +1,6 @@
 ﻿namespace Jint.Tests.Runtime.Domain
 {
-    public class Dimensional : IComparable<Dimensional>
+    public class Dimensional : IComparable<Dimensional>, IEquatable<Dimensional>
     {
         private readonly MeasureUnit[] PossibleMeasureUnits = new MeasureUnit[] { new MeasureUnit("Mass", "kg", 1.0), new MeasureUnit("Mass", "gr", 0.001), new MeasureUnit("Count", "piece", 1.0) };
 
@@ -47,19 +47,69 @@
         {
             return Value + " " + MeasureUnit.Name;
         }
+
+        public bool Equals(Dimensional other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return Value.Equals(other.Value) && Equals(MeasureUnit, other.MeasureUnit);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as Dimensional);
+        }
+
+        public override int GetHashCode()
+        {
+            return Value.GetHashCode();
+        }
     }
 
-    public class MeasureUnit
+    public class MeasureUnit : IEquatable<MeasureUnit>
     {
         public string MeasureType { get; set; }
         public string Name { get; set; }
         public double RelativeValue { get; set; }
 
-        public MeasureUnit(string measureType, string Name, double relativeValue)
+        public MeasureUnit(string measureType, string name, double relativeValue)
         {
             this.MeasureType = measureType;
-            this.Name = Name;
+            this.Name = name;
             this.RelativeValue = relativeValue;
+        }
+
+        public bool Equals(MeasureUnit other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return MeasureType == other.MeasureType && Name == other.Name && RelativeValue.Equals(other.RelativeValue);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as MeasureUnit);
+        }
+
+        public override int GetHashCode()
+        {
+            return MeasureType.GetHashCode() ^ Name.GetHashCode() ^ RelativeValue.GetHashCode();
         }
     }
 }
