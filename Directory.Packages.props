@@ -22,7 +22,7 @@
     <PackageVersion Include="Test262Harness" Version="0.0.22" />
     <PackageVersion Include="xunit" Version="2.6.1" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.3" />
-    <PackageVersion Include="YantraJS.Core" Version="1.2.201" />
+    <PackageVersion Include="YantraJS.Core" Version="1.2.203" />
   </ItemGroup>
   <ItemGroup>
     <GlobalPackageReference Include="GitHubActionsTestLogger" Version="2.3.3" />
