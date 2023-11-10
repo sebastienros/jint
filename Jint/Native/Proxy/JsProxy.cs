@@ -100,6 +100,8 @@ namespace Jint.Native.Proxy
             return _target.IsArray();
         }
 
+        public override object ToObject() => _target.ToObject();
+
         internal override bool IsConstructor
         {
             get

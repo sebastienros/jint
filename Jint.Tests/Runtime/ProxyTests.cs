@@ -236,6 +236,17 @@ public class ProxyTests
 
         private int x = 1;
         public int PropertySideEffect => x++;
+
+        public string Name => "My Name is Test";
+
+        public void SayHello()
+        {
+        }
+
+        public int Add(int a, int b)
+        {
+            return a + b;
+        }
     }
 
     [Fact]
@@ -442,5 +453,33 @@ public class ProxyTests
         Assert.Equal(1, TestClass.Instance.PropertySideEffect); // first call to PropertySideEffect
         Assert.Equal(2, _engine.Evaluate("p.PropertySideEffect").AsInteger()); // no call to PropertySideEffect
         Assert.Equal(2, TestClass.Instance.PropertySideEffect); // second call to PropertySideEffect
+    }
+
+   [Fact]
+    public void ToObjectReturnsProxiedToObject()
+    {
+        _engine
+            .SetValue("T", new TestClass())
+            .Execute("""
+                 const handler = {
+                     get(target, property, receiver) {
+
+                         if (!target[property]) {
+                             return (...args) => "Not available";
+                         }
+
+                         // return Reflect.get(target, property, receiver);
+                         return Reflect.get(...arguments);
+                     }
+                 };
+
+                 const p = new Proxy(T, handler);
+                 const name = p.Name;  // works
+                 const s = p.GetX();   // works because method does NOT exist on clr object
+
+                 p.SayHello();          // throws System.Reflection.TargetException: 'Object does not match target type.'
+                 const t = p.Add(5,3);  // throws System.Reflection.TargetException: 'Object does not match target type.'
+             """);
+
     }
 }
