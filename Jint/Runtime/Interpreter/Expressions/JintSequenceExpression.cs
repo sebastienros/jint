@@ -6,13 +6,13 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class JintSequenceExpression : JintExpression
     {
         private JintExpression[] _expressions = Array.Empty<JintExpression>();
+        private bool _initialized;
 
         public JintSequenceExpression(SequenceExpression expression) : base(expression)
         {
-            _initialized = false;
         }
 
-        protected override void Initialize(EvaluationContext context)
+        private void Initialize()
         {
             var expression = (SequenceExpression) _expression;
             ref readonly var expressions = ref expression.Expressions;
@@ -27,6 +27,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (!_initialized)
+            {
+                Initialize();
+                _initialized = true;
+            }
+            
             var result = JsValue.Undefined;
             foreach (var expression in _expressions)
             {

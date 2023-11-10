@@ -10,9 +10,6 @@ namespace Jint.Runtime.Interpreter.Expressions
 {
     internal abstract class JintExpression
     {
-        // require sub-classes to set to false explicitly to skip virtual call
-        protected bool _initialized = true;
-
         protected internal readonly Expression _expression;
 
         protected JintExpression(Expression expression)
@@ -43,12 +40,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             var oldSyntaxElement = context.LastSyntaxElement;
             context.PrepareFor(_expression);
 
-            if (!_initialized)
-            {
-                Initialize(context);
-                _initialized = true;
-            }
-
             var result = EvaluateInternal(context);
 
             context.LastSyntaxElement = oldSyntaxElement;
@@ -59,21 +50,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal object EvaluateWithoutNodeTracking(EvaluationContext context)
         {
-            if (!_initialized)
-            {
-                Initialize(context);
-                _initialized = true;
-            }
-
             return EvaluateInternal(context);
-        }
-
-        /// <summary>
-        /// Opportunity to build one-time structures and caching based on lexical context.
-        /// </summary>
-        /// <param name="context"></param>
-        protected virtual void Initialize(EvaluationContext context)
-        {
         }
 
         protected abstract object EvaluateInternal(EvaluationContext context);

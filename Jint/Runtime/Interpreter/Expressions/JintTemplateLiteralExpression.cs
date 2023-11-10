@@ -8,14 +8,14 @@ internal sealed class JintTemplateLiteralExpression : JintExpression
 {
     internal readonly TemplateLiteral _templateLiteralExpression;
     internal JintExpression[] _expressions = Array.Empty<JintExpression>();
+    private bool _initialized;
 
     public JintTemplateLiteralExpression(TemplateLiteral expression) : base(expression)
     {
         _templateLiteralExpression = expression;
-        _initialized = false;
     }
 
-    protected override void Initialize(EvaluationContext context)
+    private void Initialize()
     {
         DoInitialize();
     }
@@ -32,8 +32,14 @@ internal sealed class JintTemplateLiteralExpression : JintExpression
         _initialized = true;
     }
 
-    private JsString BuildString(EvaluationContext context)
+    protected override object EvaluateInternal(EvaluationContext context)
     {
+        if (!_initialized)
+        {
+            Initialize();
+            _initialized = true;
+        }
+
         using var sb = StringBuilderPool.Rent();
         ref readonly var elements = ref _templateLiteralExpression.Quasis;
         for (var i = 0; i < elements.Count; i++)
@@ -48,10 +54,5 @@ internal sealed class JintTemplateLiteralExpression : JintExpression
         }
 
         return JsString.Create(sb.ToString());
-    }
-
-    protected override object EvaluateInternal(EvaluationContext context)
-    {
-        return BuildString(context);
     }
 }

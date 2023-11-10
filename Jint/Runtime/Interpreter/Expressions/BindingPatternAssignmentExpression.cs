@@ -12,20 +12,21 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private readonly BindingPattern _pattern;
         private JintExpression _right = null!;
+        private bool _initialized;
 
         public BindingPatternAssignmentExpression(AssignmentExpression expression) : base(expression)
         {
             _pattern = (BindingPattern) expression.Left;
-            _initialized = false;
-        }
-
-        protected override void Initialize(EvaluationContext context)
-        {
-            _right = Build(((AssignmentExpression) _expression).Right);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (!_initialized)
+            {
+                _right = Build(((AssignmentExpression) _expression).Right);
+                _initialized = true;
+            }
+
             var rightValue = _right.GetValue(context);
             if (context.IsAbrupt())
             {

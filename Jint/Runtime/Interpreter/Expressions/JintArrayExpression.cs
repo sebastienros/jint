@@ -8,10 +8,10 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private JintExpression?[] _expressions = Array.Empty<JintExpression?>();
         private bool _hasSpreads;
+        private bool _initialized;
 
         private JintArrayExpression(ArrayExpression expression) : base(expression)
         {
-            _initialized = false;
         }
 
         public static JintExpression Build(ArrayExpression expression)
@@ -21,7 +21,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 : new JintArrayExpression(expression);
         }
 
-        protected override void Initialize(EvaluationContext context)
+        private void Initialize()
         {
             ref readonly var elements = ref ((ArrayExpression) _expression).Elements;
             var expressions = _expressions = new JintExpression[((ArrayExpression) _expression).Elements.Count];
@@ -42,6 +42,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (!_initialized)
+            {
+                Initialize();
+                _initialized = true;
+            }
+
             var engine = context.Engine;
             var a = engine.Realm.Intrinsics.Array.ArrayCreate(_hasSpreads ? 0 : (uint) _expressions.Length);
 

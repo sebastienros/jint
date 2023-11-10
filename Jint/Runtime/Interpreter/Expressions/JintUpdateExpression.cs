@@ -13,13 +13,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private JintIdentifierExpression? _leftIdentifier;
         private bool _evalOrArguments;
+        private bool _initialized;
 
         public JintUpdateExpression(UpdateExpression expression) : base(expression)
         {
-            _initialized = false;
         }
 
-        protected override void Initialize(EvaluationContext context)
+        private void Initialize()
         {
             var expression = (UpdateExpression) _expression;
             _prefix = expression.Prefix;
@@ -43,6 +43,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (!_initialized)
+            {
+                Initialize();
+                _initialized = true;
+            }
+
             var fastResult = _leftIdentifier != null
                 ? UpdateIdentifier(context)
                 : null;

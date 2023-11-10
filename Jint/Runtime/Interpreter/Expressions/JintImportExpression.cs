@@ -7,14 +7,14 @@ namespace Jint.Runtime.Interpreter.Expressions;
 internal sealed class JintImportExpression : JintExpression
 {
     private JintExpression _importExpression;
+    private bool _initialized;
 
     public JintImportExpression(ImportExpression expression) : base(expression)
     {
-        _initialized = false;
         _importExpression = null!;
     }
 
-    protected override void Initialize(EvaluationContext context)
+    private void Initialize(EvaluationContext context)
     {
         var expression = ((ImportExpression) _expression).Source;
         _importExpression = Build(expression);
@@ -25,6 +25,12 @@ internal sealed class JintImportExpression : JintExpression
     /// </summary>
     protected override object EvaluateInternal(EvaluationContext context)
     {
+        if (!_initialized)
+        {
+            Initialize(context);
+            _initialized = true;
+        }
+
         var referencingScriptOrModule = context.Engine.GetActiveScriptOrModule();
         var argRef = _importExpression.Evaluate(context);
         var specifier = context.Engine.GetValue(argRef); //.UnwrapIfPromise();

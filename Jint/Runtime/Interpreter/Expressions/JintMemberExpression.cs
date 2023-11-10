@@ -14,14 +14,14 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JintExpression _objectExpression = null!;
         private JintExpression? _propertyExpression;
         private JsValue? _determinedProperty;
+        private bool _initialized;
 
         public JintMemberExpression(MemberExpression expression) : base(expression)
         {
-            _initialized = false;
             _memberExpression = (MemberExpression) _expression;
         }
 
-        protected override void Initialize(EvaluationContext context)
+        private void Initialize()
         {
             _objectExpression = Build(_memberExpression.Object);
 
@@ -45,6 +45,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (!_initialized)
+            {
+                Initialize();
+                _initialized = true;
+            }
+
             JsValue? actualThis = null;
             string? baseReferenceName = null;
             JsValue? baseValue = null;

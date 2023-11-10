@@ -6,19 +6,21 @@ namespace Jint.Runtime.Interpreter.Expressions;
 internal sealed class JintAwaitExpression : JintExpression
 {
     private JintExpression _awaitExpression = null!;
+    private bool _initialized;
 
     public JintAwaitExpression(AwaitExpression expression) : base(expression)
     {
         _initialized = false;
     }
 
-    protected override void Initialize(EvaluationContext context)
-    {
-        _awaitExpression = Build(((AwaitExpression) _expression).Argument);
-    }
-
     protected override object EvaluateInternal(EvaluationContext context)
     {
+        if (!_initialized)
+        {
+            _awaitExpression = Build(((AwaitExpression) _expression).Argument);
+            _initialized = true;
+        }
+
         var engine = context.Engine;
         var asyncContext = engine.ExecutionContext;
 

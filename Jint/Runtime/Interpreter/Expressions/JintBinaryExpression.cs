@@ -20,18 +20,25 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private JintExpression _left = null!;
         private JintExpression _right = null!;
+        private bool _initialized;
 
         private JintBinaryExpression(BinaryExpression expression) : base(expression)
         {
             // TODO check https://tc39.es/ecma262/#sec-applystringornumericbinaryoperator
-            _initialized = false;
         }
 
-        protected override void Initialize(EvaluationContext context)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void EnsureInitialized()
         {
+            if (_initialized)
+            {
+                return;
+            }
+
             var expression = (BinaryExpression) _expression;
             _left = Build(expression.Left);
             _right = Build(expression.Right);
+            _initialized = true;
         }
 
         internal static bool TryOperatorOverloading(
@@ -196,6 +203,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var left = _left.GetValue(context);
                 var right = _right.GetValue(context);
                 var equal = left == right;
@@ -211,6 +220,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var left = _left.GetValue(context);
                 var right = _right.GetValue(context);
                 return left == right ? JsBoolean.False : JsBoolean.True;
@@ -225,6 +236,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var left = _left.GetValue(context);
                 var right = _right.GetValue(context);
 
@@ -248,6 +261,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var left = _left.GetValue(context);
                 var right = _right.GetValue(context);
 
@@ -271,6 +286,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var left = _left.GetValue(context);
                 var right = _right.GetValue(context);
 
@@ -314,6 +331,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var left = _left.GetValue(context);
                 var right = _right.GetValue(context);
 
@@ -352,6 +371,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var left = _left.GetValue(context);
                 var right = _right.GetValue(context);
 
@@ -393,6 +414,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var left = _left.GetValue(context);
                 var right = _right.GetValue(context);
 
@@ -419,6 +442,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var left = _left.GetValue(context);
                 var right = _right.GetValue(context);
 
@@ -448,6 +473,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var leftValue = _left.GetValue(context);
                 var rightValue = _right.GetValue(context);
 
@@ -473,6 +500,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var leftValue = _left.GetValue(context);
                 var rightValue = _right.GetValue(context);
                 return leftValue.InstanceofOperator(rightValue) ? JsBoolean.True : JsBoolean.False;
@@ -487,6 +516,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var leftReference = _left.GetValue(context);
                 var rightReference = _right.GetValue(context);
 
@@ -612,6 +643,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var left = _left.GetValue(context);
                 var right = _right.GetValue(context);
 
@@ -640,6 +673,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var left = _left.GetValue(context);
                 var right = _right.GetValue(context);
 
@@ -754,6 +789,8 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             protected override object EvaluateInternal(EvaluationContext context)
             {
+                EnsureInitialized();
+
                 var lval = _left.GetValue(context);
                 var rval = _right.GetValue(context);
 
