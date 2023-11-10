@@ -7,13 +7,13 @@ namespace Jint.Runtime.Interpreter.Expressions
     {
         private JintExpression _left = null!;
         private JintExpression _right = null!;
+        private bool _initialized;
 
         public JintLogicalAndExpression(BinaryExpression expression) : base(expression)
         {
-            _initialized = false;
         }
 
-        protected override void Initialize(EvaluationContext context)
+        private void Initialize()
         {
             var expression = (BinaryExpression) _expression;
             _left = Build(expression.Left);
@@ -22,6 +22,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (!_initialized)
+            {
+                Initialize();
+                _initialized = true;
+            }
+
             var left = _left.GetValue(context);
 
             if (left is JsBoolean b && !b._value)

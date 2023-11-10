@@ -8,13 +8,13 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JintExpression _calleeExpression = null!;
         private JintExpression[] _jintArguments = Array.Empty<JintExpression>();
         private bool _hasSpreads;
+        private bool _initialized;
 
         public JintNewExpression(NewExpression expression) : base(expression)
         {
-            _initialized = false;
         }
 
-        protected override void Initialize(EvaluationContext context)
+        private void Initialize()
         {
             var expression = (NewExpression) _expression;
             _calleeExpression = Build(expression.Callee);
@@ -35,6 +35,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (!_initialized)
+            {
+                Initialize();
+                _initialized = true;
+            }
+
             var engine = context.Engine;
 
             // todo: optimize by defining a common abstract class or interface

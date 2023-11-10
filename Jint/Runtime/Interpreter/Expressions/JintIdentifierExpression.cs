@@ -10,10 +10,10 @@ namespace Jint.Runtime.Interpreter.Expressions;
 internal sealed class JintIdentifierExpression : JintExpression
 {
     private EnvironmentRecord.BindingName _identifier = null!;
+    private bool _initialized;
 
     public JintIdentifierExpression(Identifier expression) : base(expression)
     {
-        _initialized = false;
     }
 
     public EnvironmentRecord.BindingName Identifier
@@ -25,7 +25,7 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
     }
 
-    protected override void Initialize(EvaluationContext context)
+    private void Initialize()
     {
         EnsureIdentifier();
     }
@@ -47,6 +47,12 @@ internal sealed class JintIdentifierExpression : JintExpression
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
+        if (!_initialized)
+        {
+            Initialize();
+            _initialized = true;
+        }
+
         var engine = context.Engine;
         var env = engine.ExecutionContext.LexicalEnvironment;
         var strict = StrictModeScope.IsStrictModeCode;

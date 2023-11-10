@@ -12,13 +12,13 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
 
     private JintExpression _tagIdentifier = null!;
     private JintTemplateLiteralExpression _quasi = null!;
+    private bool _initialized;
 
     public JintTaggedTemplateExpression(TaggedTemplateExpression expression) : base(expression)
     {
-        _initialized = false;
     }
 
-    protected override void Initialize(EvaluationContext context)
+    private void Initialize()
     {
         var taggedTemplateExpression = (TaggedTemplateExpression) _expression;
         _tagIdentifier = Build(taggedTemplateExpression.Tag);
@@ -28,6 +28,12 @@ internal sealed class JintTaggedTemplateExpression : JintExpression
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
+        if (!_initialized)
+        {
+            Initialize();
+            _initialized = true;
+        }
+
         var engine = context.Engine;
 
         var identifier = _tagIdentifier.Evaluate(context);

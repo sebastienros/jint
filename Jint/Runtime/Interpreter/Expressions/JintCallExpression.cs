@@ -16,13 +16,13 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         private JintExpression _calleeExpression = null!;
         private bool _hasSpreads;
+        private bool _initialized;
 
         public JintCallExpression(CallExpression expression) : base(expression)
         {
-            _initialized = false;
         }
 
-        protected override void Initialize(EvaluationContext context)
+        private void Initialize(EvaluationContext context)
         {
             var expression = (CallExpression) _expression;
             ref readonly var expressionArguments = ref expression.Arguments;
@@ -78,6 +78,12 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
+            if (!_initialized)
+            {
+                Initialize(context);
+                _initialized = true;
+            }
+
             if (!context.Engine._stackGuard.TryEnterOnCurrentStack())
             {
                 return context.Engine._stackGuard.RunOnEmptyStack(EvaluateInternal, context);
