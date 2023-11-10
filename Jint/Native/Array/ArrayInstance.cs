@@ -597,30 +597,19 @@ namespace Jint.Native.Array
             // return TypeConverter.ToString(index) == TypeConverter.ToString(p) && index != uint.MaxValue;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static uint ParseArrayIndex(string p)
         {
-            if (p.Length == 0)
-            {
-                return uint.MaxValue;
-            }
-
-            if (p.Length > 1 && p[0] == '0')
-            {
-                // If p is a number that start with '0' and is not '0' then
-                // its ToString representation can't be the same a p. This is
-                // not a valid array index. '01' !== ToString(ToUInt32('01'))
-                // http://www.ecma-international.org/ecma-262/5.1/#sec-15.4
-
-                return uint.MaxValue;
-            }
-
-            if (!uint.TryParse(p, out var d))
+            if (p.Length == 0 || p.Length > 1 && !IsInRange(p[0], '1', '9') || !uint.TryParse(p, out var d))
             {
                 return uint.MaxValue;
             }
 
             return d;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool IsInRange(char c, char min, char max) => c - (uint) min <= max - (uint) min;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void SetIndexValue(uint index, JsValue? value, bool updateLength)
