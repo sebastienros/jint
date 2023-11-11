@@ -23,6 +23,8 @@ namespace Jint.Native.Array
 
         private ObjectChangeFlags _objectChangeFlags;
 
+        private ArrayConstructor? _constructor;
+
         private protected ArrayInstance(Engine engine, InternalTypes type) : base(engine, type: type)
         {
             _dense = System.Array.Empty<JsValue?>();
@@ -54,7 +56,8 @@ namespace Jint.Native.Array
 
         private void InitializePrototypeAndValidateCapacity(Engine engine, uint capacity)
         {
-            _prototype = engine.Realm.Intrinsics.Array.PrototypeObject;
+            _constructor = engine.Realm.Intrinsics.Array;
+            _prototype = _constructor.PrototypeObject;
 
             if (capacity > 0 && capacity > engine.Options.Constraints.MaxArraySize)
             {
@@ -67,7 +70,7 @@ namespace Jint.Native.Array
         public sealed override bool IsArray() => true;
 
         internal sealed override bool HasOriginalIterator
-            => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _engine.Realm.Intrinsics.Array.PrototypeObject._originalIteratorFunction);
+            => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _constructor?.PrototypeObject._originalIteratorFunction);
 
         /// <summary>
         /// Checks whether there have been changes to object prototype chain which could render fast access patterns impossible.
@@ -83,7 +86,7 @@ namespace Jint.Native.Array
                 }
 
                 if (_prototype is not ArrayPrototype arrayPrototype
-                    || !ReferenceEquals(_prototype, _engine.Realm.Intrinsics.Array.PrototypeObject))
+                    || !ReferenceEquals(_prototype, _constructor?.PrototypeObject))
                 {
                     // somebody has switched prototype
                     return false;
@@ -96,7 +99,7 @@ namespace Jint.Native.Array
                 }
 
                 if (arrayPrototype.Prototype is not ObjectPrototype arrayPrototypePrototype
-                    || !ReferenceEquals(arrayPrototypePrototype, _engine.Realm.Intrinsics.Array.PrototypeObject.Prototype))
+                    || !ReferenceEquals(arrayPrototypePrototype, _constructor.PrototypeObject.Prototype))
                 {
                     return false;
                 }
@@ -177,7 +180,7 @@ namespace Jint.Native.Array
                 {
                     for (uint keyIndex = 0; keyIndex < _dense.Length; ++keyIndex)
                     {
-                        if (_dense[keyIndex] == null)
+                        if (_dense[keyIndex] is null)
                         {
                             continue;
                         }
@@ -284,15 +287,10 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal uint GetLength()
-        {
-            if (_length is null)
-            {
-                return 0;
-            }
+        internal uint GetLength() => (uint) GetJsNumberLength()._value;
 
-            return (uint) ((JsNumber) _length._value!)._value;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private JsNumber GetJsNumberLength() => _length is null ? JsNumber.PositiveZero : (JsNumber) _length._value!;
 
         protected sealed override void AddProperty(JsValue property, PropertyDescriptor descriptor)
         {
@@ -330,7 +328,7 @@ namespace Jint.Native.Array
                 var length = System.Math.Min(temp.Length, GetLength());
                 for (var i = 0; i < length; i++)
                 {
-                    if (temp[i] != null)
+                    if (temp[i] is not null)
                     {
                         properties.Add(JsString.Create(i));
                     }
@@ -380,7 +378,7 @@ namespace Jint.Native.Array
                 for (uint i = 0; i < length; i++)
                 {
                     var value = temp[i];
-                    if (value != null)
+                    if (value is not null)
                     {
                         if (_sparse is null || !_sparse.TryGetValue(i, out var descriptor) || descriptor is null)
                         {
@@ -633,17 +631,19 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void SetLength(ulong length)
+        internal void SetLength(ulong length) => SetLength(JsNumber.Create(length));
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void SetLength(JsNumber length)
         {
-            var number = JsNumber.Create(length);
             if (Extensible && _length!._flags == PropertyFlag.OnlyWritable)
             {
-                _length!.Value = number;
+                _length!.Value = length;
             }
             else
             {
                 // slow path
-                Set(CommonProperties.Length, number, true);
+                Set(CommonProperties.Length, length, true);
             }
         }
 
@@ -677,33 +677,44 @@ namespace Jint.Native.Array
             return true;
         }
 
-        internal bool Delete(uint index)
+        private bool Delete(uint index) => Delete(index, unwrapFromNonDataDescriptor: false, out _);
+
+        private bool Delete(uint index, bool unwrapFromNonDataDescriptor, out JsValue? deletedValue)
         {
+            TryGetDescriptor(index, createIfMissing: false, out var desc);
+
             // check fast path
             var temp = _dense;
             if (temp != null)
             {
                 if (index < (uint) temp.Length)
                 {
-                    if (!TryGetDescriptor(index, createIfMissing: false, out var descriptor) || descriptor.Configurable)
+                    if (desc is null || desc.Configurable)
                     {
+                        deletedValue = temp[index];
                         temp[index] = null;
                         return true;
                     }
                 }
             }
 
-            if (!TryGetDescriptor(index, createIfMissing: false, out var desc))
+            if (desc is null)
             {
+                deletedValue = null;
                 return true;
             }
 
             if (desc.Configurable)
             {
-                DeleteAt(index);
+                _sparse!.Remove(index);
+                deletedValue = desc.IsDataDescriptor() || unwrapFromNonDataDescriptor
+                    ? UnwrapJsValue(desc)
+                    : null;
+
                 return true;
             }
 
+            deletedValue = null;
             return false;
         }
 
@@ -728,6 +739,12 @@ namespace Jint.Native.Array
 
         private bool TryGetDescriptor(uint index, bool createIfMissing, [NotNullWhen(true)] out PropertyDescriptor? descriptor)
         {
+            if (!createIfMissing && _sparse is null)
+            {
+                descriptor = null;
+                return false;
+            }
+
             descriptor = null;
             var temp = _dense;
             if (temp != null)
@@ -735,14 +752,10 @@ namespace Jint.Native.Array
                 if (index < (uint) temp.Length)
                 {
                     var value = temp[index];
-                    if (value != null)
+                    if (value is not null)
                     {
                         if (_sparse is null || !_sparse.TryGetValue(index, out descriptor) || descriptor is null)
                         {
-                            if (!createIfMissing)
-                            {
-                                return false;
-                            }
                             _sparse ??= new Dictionary<uint, PropertyDescriptor?>();
                             _sparse[index] = descriptor = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
                         }
@@ -913,7 +926,7 @@ namespace Jint.Native.Array
             for (uint i = 0; i < (uint) temp.Length; ++i)
             {
                 var value = temp[i];
-                if (value != null)
+                if (value is not null)
                 {
                     _sparse.TryGetValue(i, out var descriptor);
                     descriptor ??= new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
@@ -1004,7 +1017,7 @@ namespace Jint.Native.Array
                 for (var i = 0; i < length; i++)
                 {
                     var value = temp[i];
-                    if (value != null)
+                    if (value is not null)
                     {
                         yield return new IndexedEntry(i, value);
                     }
@@ -1107,6 +1120,27 @@ namespace Jint.Native.Array
             return (uint) n;
         }
 
+        public JsValue Pop()
+        {
+            var len = GetJsNumberLength();
+            if (JsNumber.PositiveZero.Equals(len))
+            {
+                SetLength(len);
+                return Undefined;
+            }
+
+            var newLength = (uint) len._value - 1;
+
+            if (!Delete(newLength, unwrapFromNonDataDescriptor: true, out var element))
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
+            }
+
+            SetLength(newLength);
+
+            return element ?? Undefined;
+        }
+
         private bool CanSetLength()
         {
             if (!_length!.IsAccessorDescriptor())
@@ -1138,7 +1172,7 @@ namespace Jint.Native.Array
             var len = GetLength();
 
             var callable = GetCallable(callbackfn);
-            var a = Engine.Realm.Intrinsics.Array.ArrayCreate(len);
+            var a = _engine.Realm.Intrinsics.Array.ArrayCreate(len);
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = this;
             for (uint k = 0; k < len; k++)
@@ -1306,7 +1340,7 @@ namespace Jint.Native.Array
                 for (var i = sourceStartIndex; i < sourceStartIndex + length; ++i, j++)
                 {
                     JsValue? sourceValue;
-                    if (i < (uint) sourceDense.Length && sourceDense[i] != null)
+                    if (i < (uint) sourceDense.Length && sourceDense[i] is not null)
                     {
                         sourceValue = sourceDense[i];
                     }

@@ -1633,6 +1633,11 @@ namespace Jint.Native.Array
 
         public JsValue Pop(JsValue thisObject, JsValue[] arguments)
         {
+            if (thisObject is JsArray { CanUseFastAccess: true } array)
+            {
+                return array.Pop();
+            }
+
             var o = ArrayOperations.For(_realm, thisObject);
             ulong len = o.GetLongLength();
             if (len == 0)
@@ -1641,7 +1646,7 @@ namespace Jint.Native.Array
                 return Undefined;
             }
 
-            len = len - 1;
+            len -= 1;
             JsValue element = o.Get(len);
             o.DeletePropertyOrThrow(len);
             o.SetLength(len);
