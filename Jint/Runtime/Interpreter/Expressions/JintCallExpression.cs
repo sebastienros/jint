@@ -115,7 +115,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (ReferenceEquals(func, engine.Realm.Intrinsics.Eval)
                 && referenceRecord != null
                 && !referenceRecord.IsPropertyReference
-                && referenceRecord.ReferencedName == CommonProperties.Eval)
+                && CommonProperties.Eval.Equals(referenceRecord.ReferencedName))
             {
                 return HandleEval(context, func, engine, referenceRecord);
             }

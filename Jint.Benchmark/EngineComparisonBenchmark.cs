@@ -93,6 +93,9 @@ public class EngineComparisonBenchmark
     public void YantraJS()
     {
         var engine = new YantraJS.Core.JSContext();
-        engine.Eval(_files[FileName]);
+        // By default YantraJS is strict mode only, in strict mode
+        // we need to pass `this` explicitly in global context
+        // if script is expecting global context as `this`
+        engine.Eval(_files[FileName], null, engine);
     }
 }

@@ -97,7 +97,7 @@ public sealed class Reference
     {
         if (_strict
             && (_base._type & InternalTypes.ObjectEnvironmentRecord) != 0
-            && (_referencedName == CommonProperties.Eval || _referencedName == CommonProperties.Arguments))
+            && (CommonProperties.Eval.Equals(_referencedName) || CommonProperties.Arguments.Equals(_referencedName)))
         {
             ExceptionHelper.ThrowSyntaxError(realm);
         }

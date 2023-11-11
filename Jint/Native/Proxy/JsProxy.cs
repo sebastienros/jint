@@ -128,7 +128,7 @@ namespace Jint.Native.Proxy
             AssertTargetNotRevoked(property);
             var target = _target;
 
-            if (property == KeyFunctionRevoke || !TryCallHandler(TrapGet, new[] { target, TypeConverter.ToPropertyKey(property), receiver }, out var result))
+            if (KeyFunctionRevoke.Equals(property) || !TryCallHandler(TrapGet, new[] { target, TypeConverter.ToPropertyKey(property), receiver }, out var result))
             {
                 return target.Get(property, receiver);
             }

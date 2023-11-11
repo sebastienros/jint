@@ -107,7 +107,7 @@ namespace Jint.Native.Array
 
         public sealed override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            if (property == CommonProperties.Length)
+            if (CommonProperties.Length.Equals(property))
             {
                 return DefineLength(desc);
             }
@@ -296,7 +296,7 @@ namespace Jint.Native.Array
 
         protected sealed override void AddProperty(JsValue property, PropertyDescriptor descriptor)
         {
-            if (property == CommonProperties.Length)
+            if (CommonProperties.Length.Equals(property ))
             {
                 _length = descriptor;
                 return;
@@ -307,7 +307,7 @@ namespace Jint.Native.Array
 
         protected sealed override bool TryGetProperty(JsValue property, [NotNullWhen(true)] out PropertyDescriptor? descriptor)
         {
-            if (property == CommonProperties.Length)
+            if (CommonProperties.Length.Equals(property))
             {
                 descriptor = _length;
                 return _length != null;
@@ -416,7 +416,7 @@ namespace Jint.Native.Array
 
         public sealed override PropertyDescriptor GetOwnProperty(JsValue property)
         {
-            if (property == CommonProperties.Length)
+            if (CommonProperties.Length.Equals(property))
             {
                 return _length ?? PropertyDescriptor.Undefined;
             }
@@ -451,7 +451,7 @@ namespace Jint.Native.Array
                 return value;
             }
 
-            if (property == CommonProperties.Length)
+            if (CommonProperties.Length.Equals(property))
             {
                 var length = _length?._value;
                 if (length is not null)
@@ -468,13 +468,13 @@ namespace Jint.Native.Array
             var isSafeSelfTarget = IsSafeSelfTarget(receiver);
             if (isSafeSelfTarget && CanUseFastAccess)
             {
-                if (IsArrayIndex(property, out var index))
+                if (!ReferenceEquals(property, CommonProperties.Length) && IsArrayIndex(property, out var index))
                 {
                     SetIndexValue(index, value, updateLength: true);
                     return true;
                 }
 
-                if (property == CommonProperties.Length
+                if (CommonProperties.Length.Equals(property)
                     && _length is { Writable: true }
                     && value is JsNumber jsNumber
                     && jsNumber.IsInteger()
@@ -532,7 +532,7 @@ namespace Jint.Native.Array
             {
                 WriteArrayValue(index, desc);
             }
-            else if (property == CommonProperties.Length)
+            else if (CommonProperties.Length.Equals(property))
             {
                 _length = desc;
             }
@@ -564,33 +564,33 @@ namespace Jint.Native.Array
             }
         }
 
-        public sealed override void RemoveOwnProperty(JsValue p)
+        public sealed override void RemoveOwnProperty(JsValue property)
         {
-            if (IsArrayIndex(p, out var index))
+            if (IsArrayIndex(property, out var index))
             {
                 Delete(index);
             }
 
-            if (p == CommonProperties.Length)
+            if (CommonProperties.Length.Equals(property))
             {
                 _length = null;
             }
 
-            base.RemoveOwnProperty(p);
+            base.RemoveOwnProperty(property);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool IsArrayIndex(JsValue p, out uint index)
         {
-            if (p is JsNumber number)
+            if (p.IsNumber())
             {
-                var value = number._value;
+                var value = ((JsNumber) p)._value;
                 var intValue = (uint) value;
                 index = intValue;
                 return value == intValue && intValue != uint.MaxValue;
             }
 
-            index = ParseArrayIndex(p.ToString());
+            index = !p.IsSymbol() ? ParseArrayIndex(p.ToString()) : uint.MaxValue;
             return index != uint.MaxValue;
 
             // 15.4 - Use an optimized version of the specification

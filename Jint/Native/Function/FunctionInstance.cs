@@ -126,15 +126,15 @@ namespace Jint.Native.Function
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
-            if (property == CommonProperties.Prototype)
+            if (CommonProperties.Prototype.Equals(property))
             {
                 return _prototypeDescriptor ?? PropertyDescriptor.Undefined;
             }
-            if (property == CommonProperties.Length)
+            if (CommonProperties.Length.Equals(property))
             {
                 return _length ?? PropertyDescriptor.Undefined;
             }
-            if (property == CommonProperties.Name)
+            if (CommonProperties.Name.Equals(property))
             {
                 return _nameDescriptor ?? PropertyDescriptor.Undefined;
             }
@@ -144,15 +144,15 @@ namespace Jint.Native.Function
 
         protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            if (property == CommonProperties.Prototype)
+            if (CommonProperties.Prototype.Equals(property))
             {
                 _prototypeDescriptor = desc;
             }
-            else if (property == CommonProperties.Length)
+            else if (CommonProperties.Length.Equals(property))
             {
                 _length = desc;
             }
-            else if (property == CommonProperties.Name)
+            else if (CommonProperties.Name.Equals(property))
             {
                 _nameDescriptor = desc;
             }
@@ -164,15 +164,15 @@ namespace Jint.Native.Function
 
         public override void RemoveOwnProperty(JsValue property)
         {
-            if (property == CommonProperties.Prototype)
+            if (CommonProperties.Prototype.Equals(property))
             {
                 _prototypeDescriptor = null;
             }
-            if (property == CommonProperties.Length)
+            if (CommonProperties.Length.Equals(property))
             {
                 _length = null;
             }
-            if (property == CommonProperties.Name)
+            if (CommonProperties.Name.Equals(property))
             {
                 _nameDescriptor = null;
             }
@@ -401,7 +401,7 @@ namespace Jint.Native.Function
 
             public override PropertyDescriptor GetOwnProperty(JsValue property)
             {
-                if (property == CommonProperties.Constructor)
+                if (CommonProperties.Constructor.Equals(property))
                 {
                     return _constructor ?? PropertyDescriptor.Undefined;
                 }
@@ -411,7 +411,7 @@ namespace Jint.Native.Function
 
             protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
             {
-                if (property == CommonProperties.Constructor)
+                if (CommonProperties.Constructor.Equals(property))
                 {
                     _constructor = desc;
                 }
@@ -423,7 +423,7 @@ namespace Jint.Native.Function
 
             public override void RemoveOwnProperty(JsValue property)
             {
-                if (property == CommonProperties.Constructor)
+                if (CommonProperties.Constructor.Equals(property))
                 {
                     _constructor = null;
                 }
