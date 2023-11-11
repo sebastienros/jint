@@ -1,5 +1,6 @@
 using Esprima;
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
@@ -54,7 +55,7 @@ public partial class Engine
 
                         if (!_bindingNames.TryGetValue(name, out var bindingName))
                         {
-                            _bindingNames[name] = bindingName = new EnvironmentRecord.BindingName(name);
+                            _bindingNames[name] = bindingName = new EnvironmentRecord.BindingName(JsString.CachedCreate(name));
                         }
 
                         node.AssociatedData = bindingName;
@@ -62,6 +63,9 @@ public partial class Engine
                     }
                 case Nodes.Literal:
                     node.AssociatedData = JintLiteralExpression.ConvertToJsValue((Literal) node);
+                    break;
+                case Nodes.MemberExpression:
+                    node.AssociatedData = JintMemberExpression.InitializeDeterminedProperty((MemberExpression) node, cache: true);
                     break;
                 case Nodes.ArrowFunctionExpression:
                 case Nodes.FunctionDeclaration:

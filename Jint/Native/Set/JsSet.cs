@@ -16,7 +16,7 @@ internal sealed class JsSet : ObjectInstance
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
-        if (property == CommonProperties.Size)
+        if (CommonProperties.Size.Equals(property))
         {
             return new PropertyDescriptor(_set.Count, PropertyFlag.AllForbidden);
         }
@@ -26,7 +26,7 @@ internal sealed class JsSet : ObjectInstance
 
     protected override bool TryGetProperty(JsValue property, [NotNullWhen(true)] out PropertyDescriptor? descriptor)
     {
-        if (property == CommonProperties.Size)
+        if (CommonProperties.Size.Equals(property))
         {
             descriptor = new PropertyDescriptor(_set.Count, PropertyFlag.AllForbidden);
             return true;

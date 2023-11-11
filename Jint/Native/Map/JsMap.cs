@@ -18,7 +18,7 @@ internal sealed class JsMap : ObjectInstance
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
-        if (property == CommonProperties.Size)
+        if (CommonProperties.Size.Equals(property))
         {
             return new PropertyDescriptor(_map.Count, PropertyFlag.AllForbidden);
         }
@@ -28,7 +28,7 @@ internal sealed class JsMap : ObjectInstance
 
     protected override bool TryGetProperty(JsValue property, [NotNullWhen(true)] out PropertyDescriptor? descriptor)
     {
-        if (property == CommonProperties.Size)
+        if (CommonProperties.Size.Equals(property))
         {
             descriptor = new PropertyDescriptor(_map.Count, PropertyFlag.AllForbidden);
             return true;

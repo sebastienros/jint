@@ -35,12 +35,12 @@ internal class StringInstance : ObjectInstance, IPrimitiveInstance
 
     public sealed override PropertyDescriptor GetOwnProperty(JsValue property)
     {
-        if (property == CommonProperties.Infinity)
+        if (CommonProperties.Infinity.Equals(property))
         {
             return PropertyDescriptor.Undefined;
         }
 
-        if (property == CommonProperties.Length)
+        if (CommonProperties.Length.Equals(property))
         {
             return _length ?? PropertyDescriptor.Undefined;
         }
@@ -107,7 +107,7 @@ internal class StringInstance : ObjectInstance, IPrimitiveInstance
 
     protected internal sealed override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
     {
-        if (property == CommonProperties.Length)
+        if (CommonProperties.Length.Equals(property))
         {
             _length = desc;
         }
@@ -119,7 +119,7 @@ internal class StringInstance : ObjectInstance, IPrimitiveInstance
 
     public sealed override void RemoveOwnProperty(JsValue property)
     {
-        if (property == CommonProperties.Length)
+        if (CommonProperties.Length.Equals(property))
         {
             _length = null;
         }

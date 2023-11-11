@@ -78,7 +78,7 @@ namespace Jint.Native.RegExp
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
-            if (property == PropertyLastIndex)
+            if (PropertyLastIndex.Equals(property))
             {
                 return _prototypeDescriptor ?? PropertyDescriptor.Undefined;
             }
@@ -88,7 +88,7 @@ namespace Jint.Native.RegExp
 
         protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)
         {
-            if (property == PropertyLastIndex)
+            if (PropertyLastIndex.Equals(property))
             {
                 _prototypeDescriptor = desc;
                 return;

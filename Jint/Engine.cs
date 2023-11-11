@@ -641,7 +641,7 @@ namespace Jint
 
         private bool TryHandleStringValue(JsValue property, JsString s, ref ObjectInstance? o, out JsValue jsValue)
         {
-            if (property == CommonProperties.Length)
+            if (CommonProperties.Length.Equals(property))
             {
                 jsValue = JsNumber.Create((uint) s.Length);
                 return true;

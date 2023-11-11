@@ -32,12 +32,12 @@ internal sealed class IteratorResult : ObjectInstance
 
     public override JsValue Get(JsValue property, JsValue receiver)
     {
-        if (property == CommonProperties.Value)
+        if (CommonProperties.Value.Equals(property))
         {
             return _value;
         }
 
-        if (property == CommonProperties.Done)
+        if (CommonProperties.Done.Equals(property))
         {
             return _done;
         }
