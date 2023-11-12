@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Collections;
@@ -398,7 +399,7 @@ namespace Jint.Native.Json
                     else if (c < 0x20 || char.IsSurrogate(c))
                     {
                         target.Append("\\u");
-                        target.Append(((int) c).ToString("x4"));
+                        target.Append(((int) c).ToString("x4", CultureInfo.InvariantCulture));
                     }
                     else
                     {

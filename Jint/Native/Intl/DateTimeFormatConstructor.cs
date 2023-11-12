@@ -48,7 +48,7 @@ internal sealed class DateTimeFormatConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma402/#sec-initializedatetimeformat
     /// </summary>
-    private void InitializeDateTimeFormat(JsObject dateTimeFormat, JsValue locales, JsValue options)
+    private static void InitializeDateTimeFormat(JsObject dateTimeFormat, JsValue locales, JsValue options)
     {
         // TODO
     }

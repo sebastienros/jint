@@ -37,7 +37,9 @@ namespace Jint.Native.ArrayBuffer
         internal byte[]? ArrayBufferData => _arrayBufferData;
 
         internal bool IsDetachedBuffer => _arrayBufferData is null;
+#pragma warning disable CA1822
         internal bool IsSharedArrayBuffer => false; // TODO SharedArrayBuffer
+#pragma warning restore CA1822
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-detacharraybuffer

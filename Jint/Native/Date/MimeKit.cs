@@ -180,6 +180,7 @@ internal static class DateUtils
                 any[1] = (char) c;
             }
 
+#pragma warning disable CA2249
             if (NumericZoneCharacters.IndexOf((char) c) == -1)
                 datetok[c] |= DateTokenFlags.NonNumericZone;
             if (AlphaZoneCharacters.IndexOf((char) c) == -1)
@@ -192,6 +193,7 @@ internal static class DateUtils
                 datetok[c] |= DateTokenFlags.NonMonth;
             if (TimeCharacters.IndexOf((char) c) == -1)
                 datetok[c] |= DateTokenFlags.NonTime;
+#pragma warning restore CA2249
         }
 
         datetok[':'] |= DateTokenFlags.HasColon;
@@ -518,7 +520,9 @@ internal static class DateUtils
                 int endIndex = tokens[i].Start + tokens[i].Length;
                 int index = tokens[i].Start;
 
+#pragma warning disable CA1806
                 ParseUtils.TryParseInt32(text, ref index, endIndex, out value);
+#pragma warning restore CA1806
 
                 if (month == null && value > 0 && value <= 12)
                 {
@@ -727,7 +731,9 @@ internal static class ParseUtils
             if (!SkipComment(text, ref index, endIndex))
             {
                 if (throwOnError)
-                    throw new Exception($"Incomplete comment token at offset {startIndex}");
+                {
+                    throw new ArgumentException($"Incomplete comment token at offset {startIndex}");
+                }
 
                 return false;
             }

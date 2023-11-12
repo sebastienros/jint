@@ -108,7 +108,7 @@ namespace Jint.Native.Number.Dtoa
                 // We replace some of the hidden digits (X) of a with 0 digits.
                 // a:  aaaaaa000X   or a:   aaaaa0XX
                 int zero_digits = exponent_ - other.exponent_;
-                EnsureCapacity(used_digits_ + zero_digits);
+                ValidateCapacity(used_digits_ + zero_digits);
                 for (int i = used_digits_ - 1; i >= 0; --i)
                 {
                     bigits_[i + zero_digits] = bigits_[i];
@@ -126,7 +126,7 @@ namespace Jint.Native.Number.Dtoa
             }
         }
 
-        void EnsureCapacity(int size)
+        private static void ValidateCapacity(int size)
         {
             if (size > kBigitCapacity)
             {
@@ -161,7 +161,7 @@ namespace Jint.Native.Number.Dtoa
             Zero();
             if (value == 0) return;
 
-            EnsureCapacity(1);
+            ValidateCapacity(1);
             bigits_[0] = value;
             used_digits_ = 1;
         }
@@ -174,7 +174,7 @@ namespace Jint.Native.Number.Dtoa
             if (value == 0) return;
 
             int needed_bigits = kUInt64Size / kBigitSize + 1;
-            EnsureCapacity(needed_bigits);
+            ValidateCapacity(needed_bigits);
             for (int i = 0; i < needed_bigits; ++i)
             {
                 bigits_[i] = (uint) (value & kBigitMask);
@@ -419,7 +419,7 @@ namespace Jint.Native.Number.Dtoa
 
             while (carry != 0)
             {
-                EnsureCapacity(used_digits_ + 1);
+                ValidateCapacity(used_digits_ + 1);
                 bigits_[used_digits_] = (uint) (carry & kBigitMask);
                 used_digits_++;
                 carry >>= kBigitSize;
@@ -449,7 +449,7 @@ namespace Jint.Native.Number.Dtoa
             }
             while (carry != 0)
             {
-                EnsureCapacity(used_digits_ + 1);
+                ValidateCapacity(used_digits_ + 1);
                 bigits_[used_digits_] = (uint) (carry & kBigitMask);
                 used_digits_++;
                 carry >>= kBigitSize;
@@ -461,7 +461,7 @@ namespace Jint.Native.Number.Dtoa
             if (used_digits_ == 0) return;
             exponent_ += shift_amount / kBigitSize;
             int local_shift = shift_amount % kBigitSize;
-            EnsureCapacity(used_digits_ + 1);
+            ValidateCapacity(used_digits_ + 1);
             BigitsShiftLeft(local_shift);
         }
 
@@ -516,7 +516,7 @@ namespace Jint.Native.Number.Dtoa
 
             int final_size = bit_size * power_exponent;
             // 1 extra bigit for the shifting, and one for rounded final_size.
-            EnsureCapacity(final_size / kBigitSize + 2);
+            ValidateCapacity(final_size / kBigitSize + 2);
 
             // Left to Right exponentiation.
             int mask = 1;
@@ -578,7 +578,7 @@ namespace Jint.Native.Number.Dtoa
         {
             Debug.Assert(IsClamped());
             int product_length = 2 * used_digits_;
-            EnsureCapacity(product_length);
+            ValidateCapacity(product_length);
 
             // Comba multiplication: compute each column separately.
             // Example: r = a2a1a0 * b2b1b0.

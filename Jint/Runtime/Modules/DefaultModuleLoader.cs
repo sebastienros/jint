@@ -151,6 +151,6 @@ public sealed class DefaultModuleLoader : IModuleLoader
 
     private static bool IsRelative(string specifier)
     {
-        return specifier.StartsWith(".") || specifier.StartsWith("/");
+        return specifier.StartsWith(".", StringComparison.Ordinal) || specifier.StartsWith("/", StringComparison.Ordinal);
     }
 }

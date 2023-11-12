@@ -1073,7 +1073,7 @@ namespace Jint.Native.Object
                             TypedArrayElementType.Uint16 => typedArrayInstance.ToNativeArray<ushort>(),
                             TypedArrayElementType.Uint32 => typedArrayInstance.ToNativeArray<uint>(),
                             TypedArrayElementType.BigUint64 => typedArrayInstance.ToNativeArray<ulong>(),
-                            _ => throw new ArgumentOutOfRangeException()
+                            _ => throw new ArgumentOutOfRangeException("", "cannot handle element type")
                         };
 
                         break;
@@ -1475,10 +1475,9 @@ namespace Jint.Native.Object
             ExceptionHelper.ThrowTypeError(_engine.Realm, $"Method {methodName} called on incompatible receiver {value}");
         }
 
-        public override bool Equals(JsValue? obj)
-        {
-            return Equals(obj as ObjectInstance);
-        }
+        public override bool Equals(object? obj) => Equals(obj as ObjectInstance);
+
+        public override bool Equals(JsValue? other) => Equals(other as ObjectInstance);
 
         public bool Equals(ObjectInstance? other)
         {
@@ -1494,6 +1493,8 @@ namespace Jint.Native.Object
 
             return false;
         }
+
+        public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
 
         internal IEnumerable<JsValue> GetKeys()
         {

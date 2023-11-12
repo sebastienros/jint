@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Collections;
@@ -228,7 +229,7 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(_engine, thisObject);
             var s = TypeConverter.ToString(thisObject);
-            return new JsString(s.ToUpper());
+            return new JsString(s.ToUpper(CultureInfo.InvariantCulture));
         }
 
         private JsValue ToUpperCase(JsValue thisObject, JsValue[] arguments)
@@ -242,7 +243,7 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(_engine, thisObject);
             var s = TypeConverter.ToString(thisObject);
-            return new JsString(s.ToLower());
+            return new JsString(s.ToLower(CultureInfo.InvariantCulture));
         }
 
         private JsValue ToLowerCase(JsValue thisObject, JsValue[] arguments)
@@ -666,7 +667,11 @@ namespace Jint.Native.String
 
             if (endOfLastMatch < thisString.Length)
             {
+#if NETFRAMEWORK
                 result.Append(thisString.Substring(endOfLastMatch));
+#else
+                result.Append(thisString[endOfLastMatch..]);
+#endif
             }
 
             return result.ToString();
@@ -1168,7 +1173,8 @@ namespace Jint.Native.String
                 var cp = CodePointAt(s, k);
                 if (cp.IsUnpairedSurrogate)
                 {
-                    result.Append("\uFFFD");
+                    // \uFFFD
+                    result.Append('�');
                 }
                 else
                 {

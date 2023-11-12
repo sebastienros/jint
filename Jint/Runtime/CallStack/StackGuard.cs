@@ -50,7 +50,7 @@ internal sealed class StackGuard
         return false;
     }
 
-    public TR RunOnEmptyStack<T1, TR>(Func<T1, TR> action, T1 arg1)
+    public static TR RunOnEmptyStack<T1, TR>(Func<T1, TR> action, T1 arg1)
     {
 #if NETFRAMEWORK || NETSTANDARD2_0
         return RunOnEmptyStackCore(static s =>
@@ -69,7 +69,7 @@ internal sealed class StackGuard
 
     }
 
-    private R RunOnEmptyStackCore<R>(Func<object, R> action, object state)
+    private static R RunOnEmptyStackCore<R>(Func<object, R> action, object state)
     {
         // Using default scheduler rather than picking up the current scheduler.
         Task<R> task = Task.Factory.StartNew((Func<object?, R>) action, state, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);

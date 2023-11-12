@@ -4,6 +4,7 @@ using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Runtime.CallStack;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
 
@@ -86,7 +87,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             if (!context.Engine._stackGuard.TryEnterOnCurrentStack())
             {
-                return context.Engine._stackGuard.RunOnEmptyStack(EvaluateInternal, context);
+                return StackGuard.RunOnEmptyStack(EvaluateInternal, context);
             }
 
             if (_calleeExpression._expression.Type == Nodes.Super)

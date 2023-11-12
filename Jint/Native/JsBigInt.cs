@@ -95,15 +95,9 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
         return false;
     }
 
-    public override bool Equals(object? other)
-    {
-        return Equals(other as JsBigInt);
-    }
+    public override bool Equals(object? obj) => Equals(obj as JsBigInt);
 
-    public override bool Equals(JsValue? other)
-    {
-        return Equals(other as JsBigInt);
-    }
+    public override bool Equals(JsValue? other) => Equals(other as JsBigInt);
 
     public bool Equals(JsBigInt? other)
     {
@@ -115,8 +109,5 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
         return ReferenceEquals(this, other) || _value == other._value;
     }
 
-    public override int GetHashCode()
-    {
-        return _value.GetHashCode();
-    }
+    public override int GetHashCode() => _value.GetHashCode();
 }

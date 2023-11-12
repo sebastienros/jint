@@ -138,7 +138,7 @@ namespace Jint.Native.Global
                 if (trimmedString[0] == '-')
                 {
                     i++;
-                    if (trimmedString.Length > 1 && trimmedString[1] == 'I' && trimmedString.StartsWith("-Infinity"))
+                    if (trimmedString.Length > 1 && trimmedString[1] == 'I' && trimmedString.StartsWith("-Infinity", StringComparison.Ordinal))
                     {
                         return JsNumber.DoubleNegativeInfinity;
                     }
@@ -147,18 +147,18 @@ namespace Jint.Native.Global
                 if (trimmedString[0] == '+')
                 {
                     i++;
-                    if (trimmedString.Length > 1 && trimmedString[1] == 'I' && trimmedString.StartsWith("+Infinity"))
+                    if (trimmedString.Length > 1 && trimmedString[1] == 'I' && trimmedString.StartsWith("+Infinity", StringComparison.Ordinal))
                     {
                         return JsNumber.DoublePositiveInfinity;
                     }
                 }
 
-                if (trimmedString.StartsWith("Infinity"))
+                if (trimmedString.StartsWith("Infinity", StringComparison.Ordinal))
                 {
                     return JsNumber.DoublePositiveInfinity;
                 }
 
-                if (trimmedString.StartsWith("NaN"))
+                if (trimmedString.StartsWith("NaN", StringComparison.Ordinal))
                 {
                     return JsNumber.DoubleNaN;
                 }
@@ -462,7 +462,9 @@ uriError:
                     if ((B & 0x80) == 0)
                     {
                         C = (char)B;
+#pragma warning disable CA2249
                         if (reservedSet == null || reservedSet.IndexOf(C) == -1)
+#pragma warning restore CA2249
                         {
                             _stringBuilder.Append(C);
                         }
@@ -590,7 +592,7 @@ uriError:
         /// </summary>
         public JsValue Escape(JsValue thisObject, JsValue[] arguments)
         {
-            const string whiteList = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_ + -./";
+            const string WhiteList = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_ + -./";
             var uriString = TypeConverter.ToString(arguments.At(0));
 
             var strLen = uriString.Length;
@@ -601,17 +603,17 @@ uriError:
             for (var k = 0; k < strLen; k++)
             {
                 var c = uriString[k];
-                if (whiteList.IndexOf(c) != -1)
+                if (WhiteList.IndexOf(c) != -1)
                 {
                     _stringBuilder.Append(c);
                 }
                 else if (c < 256)
                 {
-                    _stringBuilder.Append($"%{((int) c):X2}");
+                    _stringBuilder.Append('%').AppendFormat(CultureInfo.InvariantCulture, "{0:X2}", (int) c);
                 }
                 else
                 {
-                    _stringBuilder.Append($"%u{((int) c):X4}");
+                    _stringBuilder.Append("%u").AppendFormat(CultureInfo.InvariantCulture, "{0:X4}", (int) c);
                 }
             }
 
@@ -639,18 +641,16 @@ uriError:
                         && uriString[k + 1] == 'u'
                         && uriString.Skip(k + 2).Take(4).All(IsValidHexaChar))
                     {
-                        c = (char)int.Parse(
-                            string.Join(string.Empty, uriString.Skip(k + 2).Take(4)),
-                            NumberStyles.AllowHexSpecifier);
+                        var joined = string.Join(string.Empty, uriString.Skip(k + 2).Take(4));
+                        c = (char) int.Parse(joined, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
 
                         k += 5;
                     }
                     else if (k <= strLen - 3
-                        && uriString.Skip(k + 1).Take(2).All(IsValidHexaChar))
+                             && uriString.Skip(k + 1).Take(2).All(IsValidHexaChar))
                     {
-                        c = (char)int.Parse(
-                            string.Join(string.Empty, uriString.Skip(k + 1).Take(2)),
-                            NumberStyles.AllowHexSpecifier);
+                        var joined = string.Join(string.Empty, uriString.Skip(k + 1).Take(2));
+                        c = (char) int.Parse(joined, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
 
                         k += 2;
                     }

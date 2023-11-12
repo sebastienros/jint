@@ -25,8 +25,6 @@ namespace Jint.Runtime.Debugger
 
         public int Count => _breakPoints.Count;
 
-        public bool IsReadOnly => false;
-
         /// <summary>
         /// Sets a new breakpoint. Note that this will replace any breakpoint at the same location (source/column/line).
         /// </summary>

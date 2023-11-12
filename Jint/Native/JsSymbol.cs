@@ -27,18 +27,11 @@ public sealed class JsSymbol : JsValue, IEquatable<JsSymbol>
         return "Symbol(" + value + ")";
     }
 
-    public override bool Equals(JsValue? obj)
-    {
-        return Equals(obj as JsSymbol);
-    }
+    public override bool Equals(object? obj) => Equals(obj as JsSymbol);
 
-    public bool Equals(JsSymbol? other)
-    {
-        return ReferenceEquals(this, other);
-    }
+    public override bool Equals(JsValue? other) => Equals(other as JsSymbol);
 
-    public override int GetHashCode()
-    {
-        return RuntimeHelpers.GetHashCode(this);
-    }
+    public bool Equals(JsSymbol? other) => ReferenceEquals(this, other);
+
+    public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
 }

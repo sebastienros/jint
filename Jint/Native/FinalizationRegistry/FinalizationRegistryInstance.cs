@@ -19,7 +19,7 @@ internal sealed class FinalizationRegistryInstance : ObjectInstance
         _callable = engine._host.MakeJobCallBack(cleanupCallback);
     }
 
-    public void CleanupFinalizationRegistry(ICallable? callback)
+    public static void CleanupFinalizationRegistry(ICallable? callback)
     {
     }
 

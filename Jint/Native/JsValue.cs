@@ -350,23 +350,14 @@ namespace Jint.Native
         /// <summary>
         /// Strict equality.
         /// </summary>
-        public override bool Equals(object? obj)
-        {
-            return Equals(obj as JsValue);
-        }
+        public override bool Equals(object? obj) => Equals(obj as JsValue);
 
         /// <summary>
         /// Strict equality.
         /// </summary>
-        public virtual bool Equals(JsValue? other)
-        {
-            return ReferenceEquals(this, other);
-        }
+        public virtual bool Equals(JsValue? other) => ReferenceEquals(this, other);
 
-        public override int GetHashCode()
-        {
-            return _type.GetHashCode();
-        }
+        public override int GetHashCode() => _type.GetHashCode();
 
         /// <summary>
         /// Some values need to be cloned in order to be assigned, like ConcatenatedString.

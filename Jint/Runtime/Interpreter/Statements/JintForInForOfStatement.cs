@@ -317,7 +317,9 @@ namespace Jint.Runtime.Interpreter.Statements
                         // if we already have and exception, use it
                         if (completionType != CompletionType.Throw)
                         {
+#pragma warning disable CA2219
                             throw;
+#pragma warning restore CA2219
                         }
                     }
                 }

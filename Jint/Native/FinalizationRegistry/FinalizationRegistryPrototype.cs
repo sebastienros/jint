@@ -98,7 +98,7 @@ internal sealed class FinalizationRegistryPrototype : Prototype
             ExceptionHelper.ThrowTypeError(_realm, callback + " must be callable");
         }
 
-        finalizationRegistry.CleanupFinalizationRegistry(callback as ICallable);
+        FinalizationRegistryInstance.CleanupFinalizationRegistry(callback as ICallable);
 
         return Undefined;
     }

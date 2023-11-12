@@ -58,7 +58,7 @@ namespace Jint.Native.Promise
                             break;
 
                         default:
-                            throw new ArgumentOutOfRangeException();
+                            throw new ArgumentOutOfRangeException(nameof(reaction), "Unknown reaction type");
                     }
                 }
             };

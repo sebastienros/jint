@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Native.Number;
@@ -90,10 +91,10 @@ public sealed class JsNumber : JsValue, IEquatable<JsNumber>
         var underlyingType = System.Type.GetTypeCode(Enum.GetUnderlyingType(value.GetType()));
         return underlyingType switch
         {
-            TypeCode.Int64 => Create(Convert.ToInt64(value)),
-            TypeCode.UInt32 => Create(Convert.ToUInt64(value)),
-            TypeCode.UInt64 => Create(Convert.ToUInt64(value)),
-            _ => Create(Convert.ToInt32(value))
+            TypeCode.Int64 => Create(Convert.ToInt64(value, CultureInfo.InvariantCulture)),
+            TypeCode.UInt32 => Create(Convert.ToUInt64(value, CultureInfo.InvariantCulture)),
+            TypeCode.UInt64 => Create(Convert.ToUInt64(value, CultureInfo.InvariantCulture)),
+            _ => Create(Convert.ToInt32(value, CultureInfo.InvariantCulture))
         };
     }
 
@@ -265,10 +266,9 @@ public sealed class JsNumber : JsValue, IEquatable<JsNumber>
         return base.IsLooselyEqual(value);
     }
 
-    public override bool Equals(JsValue? obj)
-    {
-        return Equals(obj as JsNumber);
-    }
+    public override bool Equals(object? obj) => Equals(obj as JsNumber);
+
+    public override bool Equals(JsValue? other) => Equals(other as JsNumber);
 
     public bool Equals(JsNumber? other)
     {
@@ -290,8 +290,5 @@ public sealed class JsNumber : JsValue, IEquatable<JsNumber>
         return _value == other._value;
     }
 
-    public override int GetHashCode()
-    {
-        return _value.GetHashCode();
-    }
+    public override int GetHashCode() => _value.GetHashCode();
 }

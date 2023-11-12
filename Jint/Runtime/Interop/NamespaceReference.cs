@@ -124,7 +124,7 @@ namespace Jint.Runtime.Interop
                 {
                     foreach (Type nType in GetAllNestedTypes(type))
                     {
-                        if (nType.FullName != null && nType.FullName.Replace("+", ".").Equals(comparedPath))
+                        if (nType.FullName != null && nType.FullName.Replace("+", ".").Equals(comparedPath, StringComparison.Ordinal))
                         {
                             _engine.TypeCache.Add(comparedPath, nType);
                             return TypeReference.CreateTypeReference(_engine, nType);

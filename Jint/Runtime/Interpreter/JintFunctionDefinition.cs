@@ -148,7 +148,7 @@ internal sealed class JintFunctionDefinition
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-evaluategeneratorbody
     /// </summary>
-    private Completion EvaluateGeneratorBody(FunctionInstance functionObject, JsValue[] argumentsList)
+    private static Completion EvaluateGeneratorBody(FunctionInstance functionObject, JsValue[] argumentsList)
     {
         ExceptionHelper.ThrowNotImplementedException("generators not implemented");
         return default;

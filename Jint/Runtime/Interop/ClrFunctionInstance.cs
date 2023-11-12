@@ -57,7 +57,9 @@ public sealed class ClrFunctionInstance : FunctionInstance, IEquatable<ClrFuncti
         }
     }
 
-    public override bool Equals(JsValue? obj) => Equals(obj as ClrFunctionInstance);
+    public override bool Equals(JsValue? other) => Equals(other as ClrFunctionInstance);
+
+    public override bool Equals(object? obj) => Equals(obj as ClrFunctionInstance);
 
     public bool Equals(ClrFunctionInstance? other)
     {
@@ -78,4 +80,6 @@ public sealed class ClrFunctionInstance : FunctionInstance, IEquatable<ClrFuncti
 
         return false;
     }
+
+    public override int GetHashCode() => _func.GetHashCode();
 }
