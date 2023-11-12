@@ -107,7 +107,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
             for (var j = 0; j < starNames.Count; j++)
             {
                 var n = starNames[j];
-                if (!"default".Equals(n) && !exportedNames.Contains(n))
+                if (!"default".Equals(n, StringComparison.Ordinal) && !exportedNames.Contains(n))
                 {
                     exportedNames.Add(n);
                 }
@@ -164,7 +164,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
             }
         }
 
-        if ("default".Equals(exportName))
+        if ("default".Equals(exportName, StringComparison.Ordinal))
         {
             // Assert: A default export was not explicitly defined by this module
             return null;

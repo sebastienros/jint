@@ -731,7 +731,9 @@ internal static class ParseUtils
             if (!SkipComment(text, ref index, endIndex))
             {
                 if (throwOnError)
-                    throw new Exception($"Incomplete comment token at offset {startIndex}");
+                {
+                    throw new ArgumentException($"Incomplete comment token at offset {startIndex}");
+                }
 
                 return false;
             }

@@ -36,6 +36,21 @@ indent_size = 2
 # IDE0055: Fix formatting
 dotnet_diagnostic.IDE0055.severity = warning
 
+# Error CA1051 : Do not declare visible instance fields
+dotnet_diagnostic.CA1051.severity = none
+
+#  Error CA1720 : Identifiers should not contain type names
+dotnet_diagnostic.CA1720.severity = none
+
+#  Error CA1711: Identifiers should not have incorrect suffix
+dotnet_diagnostic.CA1711.severity = none
+
+#  Error CA1710: Identifiers should have correct suffix
+dotnet_diagnostic.CA1710.severity = none
+
+#  Error CA1716: Identifiers should have correct suffix
+dotnet_diagnostic.CA1716.severity = none
+
 # Sort using and Import directives with System.* appearing first
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false

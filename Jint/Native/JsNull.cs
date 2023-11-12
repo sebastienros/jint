@@ -20,7 +20,7 @@ public sealed class JsNull : JsValue, IEquatable<JsNull>
 
     public override bool Equals(object? obj) => Equals(obj as JsNull);
 
-    public override bool Equals(JsValue? obj) => Equals(obj as JsNull);
+    public override bool Equals(JsValue? other) => Equals(other as JsNull);
 
     public bool Equals(JsNull? other) => other is not null;
 

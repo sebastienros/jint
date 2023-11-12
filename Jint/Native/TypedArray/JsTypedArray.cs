@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using Esprima;
 using Jint.Native.ArrayBuffer;
@@ -376,7 +377,7 @@ namespace Jint.Native.TypedArray
             {
                 var indexedPosition = i * elementSize + byteOffset;
                 var value = buffer.RawBytesToNumeric(_arrayElementType, indexedPosition, BitConverter.IsLittleEndian);
-                array[i] = (T) Convert.ChangeType(value, conversionType);
+                array[i] = (T) Convert.ChangeType(value, conversionType, CultureInfo.InvariantCulture);
             }
 
             return array;

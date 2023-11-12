@@ -36,7 +36,7 @@ namespace Jint.Runtime.Interop
             }
         }
 
-        protected internal override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             var parameterInfos = _d.Method.GetParameters();
 
@@ -53,7 +53,7 @@ namespace Jint.Runtime.Interop
             int delegateArgumentsCount = parameterInfos.Length;
             int delegateNonParamsArgumentsCount = _delegateContainsParamsArgument ? delegateArgumentsCount - 1 : delegateArgumentsCount;
 
-            int jsArgumentsCount = jsArguments.Length;
+            int jsArgumentsCount = arguments.Length;
             int jsArgumentsWithoutParamsCount = Math.Min(jsArgumentsCount, delegateNonParamsArgumentsCount);
 
             var clrTypeConverter = Engine.ClrTypeConverter;
@@ -64,7 +64,7 @@ namespace Jint.Runtime.Interop
             for (var i = 0; i < jsArgumentsWithoutParamsCount; i++)
             {
                 var parameterType = parameterInfos[i].ParameterType;
-                var value = jsArguments[i];
+                var value = arguments[i];
                 object? converted;
 
                 if (parameterType == typeof(JsValue))
@@ -107,7 +107,7 @@ namespace Jint.Runtime.Interop
                 for (var i = paramsArgumentIndex; i < jsArgumentsCount; i++)
                 {
                     var paramsIndex = i - paramsArgumentIndex;
-                    var value = jsArguments[i];
+                    var value = arguments[i];
                     object? converted;
 
                     if (paramsParameterType == typeof(JsValue))

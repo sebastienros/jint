@@ -303,7 +303,7 @@ namespace Jint.Runtime.Interop
 
         public override bool Equals(object? obj) => Equals(obj as ObjectWrapper);
 
-        public override bool Equals(JsValue? obj) => Equals(obj as ObjectWrapper);
+        public override bool Equals(JsValue? other) => Equals(other as ObjectWrapper);
 
         public bool Equals(ObjectWrapper? other)
         {
@@ -320,12 +320,7 @@ namespace Jint.Runtime.Interop
             return Equals(Target, other.Target);
         }
 
-        public override int GetHashCode()
-        {
-            var hashCode = -1468639730;
-            hashCode = hashCode * -1521134295 + Target.GetHashCode();
-            return hashCode;
-        }
+        public override int GetHashCode() => Target.GetHashCode();
 
         private sealed class DictionaryIterator : IteratorInstance
         {

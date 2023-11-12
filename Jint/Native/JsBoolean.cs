@@ -43,9 +43,9 @@ public sealed class JsBoolean : JsValue, IEquatable<JsBoolean>
         return Equals(obj as JsBoolean);
     }
 
-    public override bool Equals(JsValue? obj)
+    public override bool Equals(JsValue? other)
     {
-        return Equals(obj as JsBoolean);
+        return Equals(other as JsBoolean);
     }
 
     public bool Equals(JsBoolean? other)

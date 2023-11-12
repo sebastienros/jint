@@ -20,7 +20,7 @@ public sealed class JsUndefined : JsValue, IEquatable<JsUndefined>
 
     public override bool Equals(object? obj) => Equals(obj as JsUndefined);
 
-    public override bool Equals(JsValue? obj) => Equals(obj as JsUndefined);
+    public override bool Equals(JsValue? other) => Equals(other as JsUndefined);
 
     public bool Equals(JsUndefined? other) => !ReferenceEquals(null, other);
 

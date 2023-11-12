@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Jint.Native;
@@ -74,10 +75,10 @@ namespace Jint
                     var t = value.GetType();
 
                     if (!engine.Options.Interop.AllowSystemReflection
-                        && t.Namespace?.StartsWith("System.Reflection") == true)
+                        && t.Namespace?.StartsWith("System.Reflection", StringComparison.Ordinal) == true)
                     {
-                        const string message = "Cannot access System.Reflection namespace, check Engine's interop options";
-                        ExceptionHelper.ThrowInvalidOperationException(message);
+                        const string Message = "Cannot access System.Reflection namespace, check Engine's interop options";
+                        ExceptionHelper.ThrowInvalidOperationException(Message);
                     }
 
                     if (t.IsEnum)
@@ -86,17 +87,17 @@ namespace Jint
 
                         if (ut == typeof(ulong))
                         {
-                            result = JsNumber.Create(Convert.ToDouble(value));
+                            result = JsNumber.Create(Convert.ToDouble(value, CultureInfo.InvariantCulture));
                         }
                         else
                         {
                             if (ut == typeof(uint) || ut == typeof(long))
                             {
-                                result = JsNumber.Create(Convert.ToInt64(value));
+                                result = JsNumber.Create(Convert.ToInt64(value, CultureInfo.InvariantCulture));
                             }
                             else
                             {
-                                result = JsNumber.Create(Convert.ToInt32(value));
+                                result = JsNumber.Create(Convert.ToInt32(value, CultureInfo.InvariantCulture));
                             }
                         }
                     }

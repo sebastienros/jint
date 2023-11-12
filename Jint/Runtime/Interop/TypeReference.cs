@@ -204,14 +204,14 @@ namespace Jint.Runtime.Interop
 
         private readonly record struct ObjectCreateState(TypeReference TypeReference, JsValue[] Arguments);
 
-        public override bool Equals(JsValue? obj)
+        public override bool Equals(JsValue? other)
         {
-            if (obj is TypeReference typeReference)
+            if (other is TypeReference typeReference)
             {
                 return this.ReferenceType == typeReference.ReferenceType;
             }
 
-            return base.Equals(obj);
+            return base.Equals(other);
         }
 
         internal override bool OrdinaryHasInstance(JsValue v)

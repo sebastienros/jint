@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using Jint.Collections;
 using Jint.Native.Object;
@@ -55,7 +56,7 @@ internal sealed class BigIntPrototype : Prototype
         var x = ThisBigIntValue(thisObject);
         //var numberFormat = (NumberFormat) Construct(_realm.Intrinsics.NumberFormat, new[] {  locales, options });
         // numberFormat.FormatNumeric(x);
-        return x._value.ToString("R");
+        return x._value.ToString("R", CultureInfo.InvariantCulture);
     }
 
     /// <summary>
@@ -103,7 +104,7 @@ internal sealed class BigIntPrototype : Prototype
 
         if (radixMV == 10)
         {
-            return value.ToString("R");
+            return value.ToString("R", CultureInfo.InvariantCulture);
         }
 
         var negative = value < 0;

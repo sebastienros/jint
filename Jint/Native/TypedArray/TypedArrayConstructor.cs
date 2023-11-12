@@ -1,3 +1,4 @@
+using System.Globalization;
 using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.ArrayBuffer;
@@ -271,7 +272,7 @@ namespace Jint.Native.TypedArray
         {
             for (var i = 0; i < values.Length; ++i)
             {
-                target.DoIntegerIndexedElementSet(i, Convert.ToDouble(values[i]));
+                target.DoIntegerIndexedElementSet(i, Convert.ToDouble(values[i], CultureInfo.InvariantCulture));
             }
         }
 

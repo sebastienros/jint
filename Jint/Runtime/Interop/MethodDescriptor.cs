@@ -148,7 +148,7 @@ namespace Jint.Runtime.Interop
                 }
                 else
                 {
-                    throw new Exception("Method is unknown type");
+                    throw new ArgumentException("Method is unknown type");
                 }
             }
             catch (TargetInvocationException exception)

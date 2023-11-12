@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Object;
@@ -775,9 +776,9 @@ namespace Jint.Native.Date
 
             var weekday = _dayNames[WeekDay(tv)];
             var month = _monthNames[MonthFromTime(tv)];
-            var day = DateFromTime(tv).ToString("00");
+            var day = DateFromTime(tv).ToString("00", CultureInfo.InvariantCulture);
             var yv = YearFromTime(tv);
-            var paddedYear = yv.ToString("0000");
+            var paddedYear = yv.ToString("0000", CultureInfo.InvariantCulture);
 
             return $"{weekday}, {day} {month} {paddedYear} {TimeString(tv)}";
         }
@@ -1355,11 +1356,11 @@ namespace Jint.Native.Date
             var month = _monthNames[MonthFromTime(tv)];
 
             var dateFromTime = DateFromTime(tv);
-            var day = System.Math.Max(1, dateFromTime).ToString("00");
+            var day = System.Math.Max(1, dateFromTime).ToString("00", CultureInfo.InvariantCulture);
             var yv = YearFromTime(tv);
             var yearSign = yv < 0 ? "-" : "";
             var year = System.Math.Abs(yv);
-            var paddedYear = year.ToString("0000");
+            var paddedYear = year.ToString("0000", CultureInfo.InvariantCulture);
 
             return weekday + " " + month + " " + day + " " + yearSign + paddedYear;
         }
@@ -1369,9 +1370,9 @@ namespace Jint.Native.Date
         /// </summary>
         private static string TimeString(DatePresentation t)
         {
-            var hour = HourFromTime(t).ToString("00");
-            var minute = MinFromTime(t).ToString("00");
-            var second = SecFromTime(t).ToString("00");
+            var hour = HourFromTime(t).ToString("00", CultureInfo.InvariantCulture);
+            var minute = MinFromTime(t).ToString("00", CultureInfo.InvariantCulture);
+            var second = SecFromTime(t).ToString("00", CultureInfo.InvariantCulture);
 
             return hour + ":" + minute + ":" + second + " GMT";
         }
@@ -1396,8 +1397,8 @@ namespace Jint.Native.Date
                 absOffset = -1 * offset;
             }
 
-            var offsetMin = MinFromTime(absOffset).ToString("00");
-            var offsetHour = HourFromTime(absOffset).ToString("00");
+            var offsetMin = MinFromTime(absOffset).ToString("00", CultureInfo.InvariantCulture);
+            var offsetHour = HourFromTime(absOffset).ToString("00", CultureInfo.InvariantCulture);
 
             var tzName = " (" + _timeSystem.DefaultTimeZone.StandardName + ")";
 

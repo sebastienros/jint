@@ -276,7 +276,7 @@ internal sealed class ClassDefinition
 
     private sealed class ClassFieldFunction : Node, IFunction
     {
-        private readonly NodeList<Node> _nodeList = new();
+        private readonly NodeList<Node> _nodeList;
         private readonly BlockStatement _statement;
 
         public ClassFieldFunction(Expression expression) : base(Nodes.ExpressionStatement)

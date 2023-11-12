@@ -286,15 +286,11 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return ToString().Substring(startIndex);
     }
 
-    public sealed override bool Equals(JsValue? obj)
-    {
-        return Equals(obj as JsString);
-    }
+    public sealed override bool Equals(object? obj) => Equals(obj as JsString);
 
-    public virtual bool Equals(string? s)
-    {
-        return s != null && ToString() == s;
-    }
+    public sealed override bool Equals(JsValue? other) => Equals(other as JsString);
+
+    public virtual bool Equals(string? other) => other != null && ToString() == other;
 
     public virtual bool Equals(JsString? other)
     {
@@ -326,15 +322,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return base.IsLooselyEqual(value);
     }
 
-    public sealed override bool Equals(object? obj)
-    {
-        return Equals(obj as JsString);
-    }
-
-    public override int GetHashCode()
-    {
-        return _value.GetHashCode();
-    }
+    public override int GetHashCode() => _value.GetHashCode();
 
     internal sealed class ConcatenatedString : JsString
     {
@@ -445,10 +433,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             return ToString() == other.ToString();
         }
 
-        public override int GetHashCode()
-        {
-            return _stringBuilder?.GetHashCode() ?? _value.GetHashCode();
-        }
+        public override int GetHashCode() => _stringBuilder?.GetHashCode() ?? _value.GetHashCode();
 
         internal override JsValue DoClone()
         {

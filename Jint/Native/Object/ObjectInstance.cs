@@ -1477,7 +1477,7 @@ namespace Jint.Native.Object
 
         public override bool Equals(object? obj) => Equals(obj as ObjectInstance);
 
-        public override bool Equals(JsValue? obj) => Equals(obj as ObjectInstance);
+        public override bool Equals(JsValue? other) => Equals(other as ObjectInstance);
 
         public bool Equals(ObjectInstance? other)
         {

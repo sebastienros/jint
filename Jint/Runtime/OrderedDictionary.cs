@@ -515,7 +515,7 @@ namespace Jint.Runtime
             {
                 if (arrayIndex < 0)
                 {
-                    ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(arrayIndex), string.Format(TooSmall, 0));
+                    ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(arrayIndex), string.Format(CultureInfo.InvariantCulture, TooSmall, 0));
                 }
                 if (parent.dictionary.Count > array.Length - arrayIndex)
                 {

@@ -29,7 +29,7 @@ public sealed class JsSymbol : JsValue, IEquatable<JsSymbol>
 
     public override bool Equals(object? obj) => Equals(obj as JsSymbol);
 
-    public override bool Equals(JsValue? obj) => Equals(obj as JsSymbol);
+    public override bool Equals(JsValue? other) => Equals(other as JsSymbol);
 
     public bool Equals(JsSymbol? other) => ReferenceEquals(this, other);
 

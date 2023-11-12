@@ -57,7 +57,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
         /// </summary>
-        protected internal override JsValue Call(JsValue thisArgument, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
         {
             var strict = _functionDefinition.Strict || _thisMode == FunctionThisMode.Strict;
             using (new StrictModeScope(strict, true))
@@ -71,7 +71,7 @@ namespace Jint.Native.Function
                         ExceptionHelper.ThrowTypeError(calleeContext.Realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
                     }
 
-                    OrdinaryCallBindThis(calleeContext, thisArgument);
+                    OrdinaryCallBindThis(calleeContext, thisObject);
 
                     // actual call
                     var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);

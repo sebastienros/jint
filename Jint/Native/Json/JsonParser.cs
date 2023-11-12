@@ -460,7 +460,7 @@ namespace Jint.Native.Json
         [DoesNotReturn]
         private void ThrowError(int position, string messageFormat, params object[] arguments)
         {
-            string msg = System.String.Format(messageFormat, arguments);
+            var msg = string.Format(CultureInfo.InvariantCulture, messageFormat, arguments);
             ExceptionHelper.ThrowSyntaxError(_engine.Realm, $"{msg} at position {position}");
         }
 
@@ -756,7 +756,7 @@ namespace Jint.Native.Json
             public char FirstCharacter;
             public JsValue Value = JsValue.Undefined;
             public string Text = null!;
-            public TextRange Range = default;
+            public TextRange Range;
         }
 
         private readonly struct TextRange
