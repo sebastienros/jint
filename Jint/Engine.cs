@@ -59,7 +59,7 @@ namespace Jint
         public ITypeConverter ClrTypeConverter { get; internal set; }
 
         // cache of types used when resolving CLR type names
-        internal readonly Dictionary<string, Type?> TypeCache = new();
+        internal readonly Dictionary<string, Type?> TypeCache = new(StringComparer.Ordinal);
 
         // we use registered type reference as prototype if it's known
         internal Dictionary<Type,TypeReference>? _typeReferences;
@@ -553,7 +553,7 @@ namespace Jint
                 ExceptionHelper.ThrowReferenceError(Realm, reference);
             }
 
-            if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == 0
+            if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == InternalTypes.None
                 && _referenceResolver.TryPropertyReference(this, reference, ref baseValue))
             {
                 return baseValue;
@@ -584,7 +584,7 @@ namespace Jint
                     // check if we are accessing a string, boxing operation can be costly to do index access
                     // we have good chance to have fast path with integer or string indexer
                     ObjectInstance? o = null;
-                    if ((property._type & (InternalTypes.String | InternalTypes.Integer)) != 0
+                    if ((property._type & (InternalTypes.String | InternalTypes.Integer)) != InternalTypes.None
                         && baseValue is JsString s
                         && TryHandleStringValue(property, s, ref o, out var jsValue))
                     {

@@ -31,6 +31,7 @@
 // The original revision was 67d1049b0bf9 from the mozilla-central tree.
 
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace Jint.Native.Number.Dtoa
 {
@@ -52,6 +53,7 @@ namespace Jint.Native.Number.Dtoa
             }
         }
 
+        [StructLayout(LayoutKind.Auto)]
         internal readonly struct GetCachedPowerResult
         {
             public GetCachedPowerResult(short decimalExponent, DiyFp cMk)

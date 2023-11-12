@@ -135,7 +135,7 @@ namespace Jint.Runtime.Interop
         private IEnumerable<JsValue> EnumerateOwnPropertyKeys(Types types)
         {
             // prefer object order, add possible other properties after
-            var includeStrings = (types & Types.String) != 0;
+            var includeStrings = (types & Types.String) != Types.None;
             if (includeStrings && _typeDescriptor.IsStringKeyedGenericDictionary) // expando object for instance
             {
                 var keys = _typeDescriptor.GetKeys(Target);

@@ -16,7 +16,7 @@ namespace Jint.Native.Argument
     internal sealed class ArgumentsInstance : ObjectInstance
     {
         // cache property container for array iteration for less allocations
-        private static readonly ThreadLocal<HashSet<string>> _mappedNamed = new(() => new HashSet<string>());
+        private static readonly ThreadLocal<HashSet<string>> _mappedNamed = new(() => new HashSet<string>(StringComparer.Ordinal));
 
         private FunctionInstance _func = null!;
         private Key[] _names = null!;

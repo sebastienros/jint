@@ -110,7 +110,7 @@ namespace Jint.Native.RegExp
             }
         }
 
-        public override List<JsValue> GetOwnPropertyKeys(Types types)
+        public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
         {
             var keys = new List<JsValue>();
             if (_prototypeDescriptor != null)

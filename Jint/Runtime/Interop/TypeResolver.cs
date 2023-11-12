@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Dynamic;
+using System.Globalization;
 using System.Reflection;
 using System.Threading;
 using Jint.Runtime.Interop.Reflection;
@@ -22,7 +23,7 @@ namespace Jint.Runtime.Interop
 
         internal bool Filter(Engine engine, MemberInfo m)
         {
-            return (engine.Options.Interop.AllowGetType || m.Name != nameof(GetType)) && MemberFilter(m);
+            return (engine.Options.Interop.AllowGetType || !string.Equals(m.Name, nameof(GetType), StringComparison.Ordinal)) && MemberFilter(m);
         }
 
         /// <summary>
@@ -75,7 +76,7 @@ namespace Jint.Runtime.Interop
             string memberName,
             bool forWrite)
         {
-            var isInteger = long.TryParse(memberName, out _);
+            var isInteger = long.TryParse(memberName, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
 
             // we can always check indexer if there's one, and then fall back to properties if indexer returns null
             IndexerAccessor.TryFindIndexer(engine, type, memberName, out var indexerAccessor, out var indexer);
@@ -111,7 +112,7 @@ namespace Jint.Runtime.Interop
                             continue;
                         }
 
-                        if (iprop.Name == "Item" && iprop.GetIndexParameters().Length == 1)
+                        if (string.Equals(iprop.Name, "Item", StringComparison.Ordinal) && iprop.GetIndexParameters().Length == 1)
                         {
                             // never take indexers, should use the actual indexer
                             continue;
@@ -262,7 +263,7 @@ namespace Jint.Runtime.Interop
                     }
 
                     // only if it's not an indexer, we can do case-ignoring matches
-                    var isStandardIndexer = p.GetIndexParameters().Length == 1 && p.Name == "Item";
+                    var isStandardIndexer = p.GetIndexParameters().Length == 1 && string.Equals(p.Name, "Item", StringComparison.Ordinal);
                     if (!isStandardIndexer)
                     {
                         foreach (var name in typeResolverMemberNameCreator(p))
@@ -431,7 +432,7 @@ namespace Jint.Runtime.Interop
 #if SUPPORTS_SPAN_PARSE
                     equals = x.AsSpan(1).SequenceEqual(y.AsSpan(1));
 #else
-                    equals = x.Substring(1) == y.Substring(1);
+                    equals = string.Equals(x.Substring(1), y.Substring(1), StringComparison.Ordinal);
 #endif
                 }
 

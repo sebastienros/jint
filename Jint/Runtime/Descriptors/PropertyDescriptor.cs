@@ -27,9 +27,11 @@ namespace Jint.Runtime.Descriptors
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected internal PropertyDescriptor(JsValue? value, PropertyFlag flags) : this(flags)
         {
-            if ((_flags & PropertyFlag.CustomJsValue) != 0)
+            if ((_flags & PropertyFlag.CustomJsValue) != PropertyFlag.None)
             {
+#pragma warning disable MA0056
                 CustomValue = value;
+#pragma warning restore MA0056
             }
             _value = value;
         }
@@ -37,9 +39,11 @@ namespace Jint.Runtime.Descriptors
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PropertyDescriptor(JsValue? value, bool? writable, bool? enumerable, bool? configurable)
         {
-            if ((_flags & PropertyFlag.CustomJsValue) != 0)
+            if ((_flags & PropertyFlag.CustomJsValue) != PropertyFlag.None)
             {
+#pragma warning disable MA0056
                 CustomValue = value;
+#pragma warning restore MA0056
             }
             _value = value;
 
@@ -82,7 +86,7 @@ namespace Jint.Runtime.Descriptors
         public bool Enumerable
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (_flags & PropertyFlag.Enumerable) != 0;
+            get => (_flags & PropertyFlag.Enumerable) != PropertyFlag.None;
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
@@ -101,7 +105,7 @@ namespace Jint.Runtime.Descriptors
         public bool EnumerableSet
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (_flags & (PropertyFlag.EnumerableSet | PropertyFlag.Enumerable)) != 0;
+            get => (_flags & (PropertyFlag.EnumerableSet | PropertyFlag.Enumerable)) != PropertyFlag.None;
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private set
             {
@@ -119,7 +123,7 @@ namespace Jint.Runtime.Descriptors
         public bool Writable
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (_flags & PropertyFlag.Writable) != 0;
+            get => (_flags & PropertyFlag.Writable) != PropertyFlag.None;
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
@@ -138,7 +142,7 @@ namespace Jint.Runtime.Descriptors
         public bool WritableSet
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0;
+            get => (_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != PropertyFlag.None;
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private set
             {
@@ -156,7 +160,7 @@ namespace Jint.Runtime.Descriptors
         public bool Configurable
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (_flags & PropertyFlag.Configurable) != 0;
+            get => (_flags & PropertyFlag.Configurable) != PropertyFlag.None;
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
@@ -175,7 +179,7 @@ namespace Jint.Runtime.Descriptors
         public bool ConfigurableSet
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (_flags & (PropertyFlag.ConfigurableSet | PropertyFlag.Configurable)) != 0;
+            get => (_flags & (PropertyFlag.ConfigurableSet | PropertyFlag.Configurable)) != PropertyFlag.None;
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private set
             {
@@ -195,7 +199,7 @@ namespace Jint.Runtime.Descriptors
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                if ((_flags & PropertyFlag.CustomJsValue) != 0)
+                if ((_flags & PropertyFlag.CustomJsValue) != PropertyFlag.None)
                 {
                     return CustomValue!;
                 }
@@ -205,7 +209,7 @@ namespace Jint.Runtime.Descriptors
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
-                if ((_flags & PropertyFlag.CustomJsValue) != 0)
+                if ((_flags & PropertyFlag.CustomJsValue) != PropertyFlag.None)
                 {
                     CustomValue = value;
                 }
@@ -396,8 +400,8 @@ namespace Jint.Runtime.Descriptors
             {
                 return false;
             }
-            return (_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0
-                   || (_flags & PropertyFlag.CustomJsValue) != 0 && !ReferenceEquals(CustomValue, null)
+            return (_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != PropertyFlag.None
+                   || (_flags & PropertyFlag.CustomJsValue) != PropertyFlag.None && !ReferenceEquals(CustomValue, null)
                    || !ReferenceEquals(_value, null);
         }
 
@@ -417,9 +421,9 @@ namespace Jint.Runtime.Descriptors
             value = JsValue.Undefined;
 
             // IsDataDescriptor logic inlined
-            if ((_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0)
+            if ((_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != PropertyFlag.None)
             {
-                var val = (_flags & PropertyFlag.CustomJsValue) != 0
+                var val = (_flags & PropertyFlag.CustomJsValue) != PropertyFlag.None
                     ? CustomValue
                     : _value;
 

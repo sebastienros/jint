@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using Esprima;
 using Jint.Native.Object;
@@ -251,7 +252,7 @@ namespace Jint.Native.Json
             sb.Clear();
 
             JsNumber value;
-            if (canBeInteger && long.TryParse(number, out var longResult) && longResult != -0)
+            if (canBeInteger && long.TryParse(number, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longResult) && longResult != -0)
             {
                 value = JsNumber.Create(longResult);
             }
@@ -759,6 +760,7 @@ namespace Jint.Native.Json
             public TextRange Range;
         }
 
+        [StructLayout(LayoutKind.Auto)]
         private readonly struct TextRange
         {
             public TextRange(int start, int end)

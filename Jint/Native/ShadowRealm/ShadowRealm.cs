@@ -17,7 +17,9 @@ namespace Jint.Native.ShadowRealm;
 /// <summary>
 /// https://tc39.es/proposal-shadowrealm/#sec-properties-of-shadowrealm-instances
 /// </summary>
+#pragma warning disable MA0049
 public sealed class ShadowRealm : ObjectInstance
+#pragma warning restore MA0049
 {
     private readonly JavaScriptParser _parser;
     internal readonly Realm _shadowRealm;
@@ -111,7 +113,7 @@ public sealed class ShadowRealm : ObjectInstance
         }
         catch (ParserException e)
         {
-            if (e.Description == Messages.InvalidLHSInAssignment)
+            if (string.Equals(e.Description, Messages.InvalidLHSInAssignment, StringComparison.Ordinal))
             {
                 ExceptionHelper.ThrowReferenceError(callerRealm, Messages.InvalidLHSInAssignment);
             }

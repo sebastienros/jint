@@ -435,7 +435,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-module-execution-fulfilled
     /// </summary>
-    private JsValue AsyncModuleExecutionFulfilled(JsValue thisObject, JsValue[] arguments)
+    private static JsValue AsyncModuleExecutionFulfilled(JsValue thisObject, JsValue[] arguments)
     {
         var module = (CyclicModuleRecord) arguments.At(0);
         if (module.Status == ModuleStatus.Evaluated)

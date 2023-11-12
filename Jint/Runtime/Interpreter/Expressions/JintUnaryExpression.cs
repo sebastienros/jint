@@ -306,7 +306,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     MethodInfo? foundMethod = null;
                     foreach (var x in operandType.GetOperatorOverloadMethods())
                     {
-                        if (x.Name == clrName && x.GetParameters().Length == 1)
+                        if (string.Equals(x.Name, clrName, StringComparison.Ordinal) && x.GetParameters().Length == 1)
                         {
                             foundMethod = x;
                             break;

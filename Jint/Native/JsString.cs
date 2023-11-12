@@ -54,7 +54,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         }
 
 
-        _stringCache = new ConcurrentDictionary<string, JsString>();
+        _stringCache = new ConcurrentDictionary<string, JsString>(StringComparer.Ordinal);
         Empty = new JsString("", InternalTypes.String);
         NullString = CachedCreate("null");
         UndefinedString = CachedCreate("undefined");
@@ -267,13 +267,13 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
     internal bool StartsWith(string value, int start = 0)
     {
-        return value.Length + start <= Length && ToString().AsSpan(start).StartsWith(value.AsSpan());
+        return value.Length + start <= Length && ToString().AsSpan(start).StartsWith(value.AsSpan(), StringComparison.Ordinal);
     }
 
     internal bool EndsWith(string value, int end = 0)
     {
         var start = end - value.Length;
-        return start >= 0 && ToString().AsSpan(start, value.Length).EndsWith(value.AsSpan());
+        return start >= 0 && ToString().AsSpan(start, value.Length).EndsWith(value.AsSpan(), StringComparison.Ordinal);
     }
 
     internal string Substring(int startIndex, int length)
@@ -290,7 +290,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
     public sealed override bool Equals(JsValue? other) => Equals(other as JsString);
 
-    public virtual bool Equals(string? other) => other != null && ToString() == other;
+    public virtual bool Equals(string? other) => other != null && string.Equals(ToString(), other, StringComparison.Ordinal);
 
     public virtual bool Equals(JsString? other)
     {
@@ -304,7 +304,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             return true;
         }
 
-        return _value == other.ToString();
+        return string.Equals(_value, other.ToString(), StringComparison.Ordinal);
     }
 
     public override bool IsLooselyEqual(JsValue value)
@@ -322,7 +322,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return base.IsLooselyEqual(value);
     }
 
-    public override int GetHashCode() => _value.GetHashCode();
+    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(_value);
 
     internal sealed class ConcatenatedString : JsString
     {
@@ -398,7 +398,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
                 return true;
             }
 
-            return _value == s;
+            return string.Equals(_value, s, StringComparison.Ordinal);
         }
 
         public override bool Equals(JsString? other)
@@ -422,7 +422,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
                     return true;
                 }
 
-                return ToString() == cs.ToString();
+                return string.Equals(ToString(), cs.ToString(), StringComparison.Ordinal);
             }
 
             if (other is null || other.Length != Length)
@@ -430,10 +430,10 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
                 return false;
             }
 
-            return ToString() == other.ToString();
+            return string.Equals(ToString(), other.ToString(), StringComparison.Ordinal);
         }
 
-        public override int GetHashCode() => _stringBuilder?.GetHashCode() ?? _value.GetHashCode();
+        public override int GetHashCode() => _stringBuilder?.GetHashCode() ?? StringComparer.Ordinal.GetHashCode(_value);
 
         internal override JsValue DoClone()
         {

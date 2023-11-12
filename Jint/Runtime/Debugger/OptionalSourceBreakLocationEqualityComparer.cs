@@ -24,7 +24,7 @@ internal sealed class OptionalSourceBreakLocationEqualityComparer : IEqualityCom
         return
             x.Line == y.Line &&
             x.Column == y.Column &&
-            (x.Source == null || y.Source == null || x.Source == y.Source);
+            (x.Source == null || y.Source == null || string.Equals(x.Source, y.Source, StringComparison.Ordinal));
     }
 
     public int GetHashCode(BreakLocation? obj)

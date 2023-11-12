@@ -43,7 +43,7 @@ public partial class Engine
 
     private sealed class AstAnalyzer
     {
-        private readonly Dictionary<string, EnvironmentRecord.BindingName> _bindingNames = new();
+        private readonly Dictionary<string, EnvironmentRecord.BindingName> _bindingNames = new(StringComparer.Ordinal);
 
         public void NodeVisitor(Node node)
         {

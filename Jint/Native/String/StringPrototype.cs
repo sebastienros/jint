@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using Jint.Collections;
 using Jint.Native.Json;
@@ -351,7 +352,7 @@ namespace Jint.Native.String
             var limit = arguments.At(1);
 
             // fast path for empty regexp
-            if (separator is JsRegExp R && R.Source == JsRegExp.regExpForMatchingAllCharacters)
+            if (separator is JsRegExp R && string.Equals(R.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal))
             {
                 separator = JsString.Empty;
             }
@@ -873,6 +874,7 @@ namespace Jint.Native.String
             return CodePointAt(s, position).CodePoint;
         }
 
+        [StructLayout(LayoutKind.Auto)]
         private readonly record struct CodePointResult(int CodePoint, int CodeUnitCount, bool IsUnpairedSurrogate);
 
         private static CodePointResult CodePointAt(string s, int position)

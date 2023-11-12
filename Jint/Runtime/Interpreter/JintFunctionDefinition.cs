@@ -341,7 +341,7 @@ internal sealed class JintFunctionDefinition
         {
             _hasDuplicates |= checkDuplicates && target.Contains(identifier.Name);
             target.Add(identifier.Name);
-            hasArguments |= identifier.Name == "arguments";
+            hasArguments |= string.Equals(identifier.Name, "arguments", StringComparison.Ordinal);
             return;
         }
 
@@ -431,7 +431,7 @@ internal sealed class JintFunctionDefinition
             {
                 var id = (Identifier) parameter;
                 state.HasDuplicates |= parameterNames.Contains(id.Name);
-                hasArguments = id.Name == "arguments";
+                hasArguments = string.Equals(id.Name, "arguments", StringComparison.Ordinal);
                 parameterNames.Add(id.Name);
             }
             else if (type != Nodes.Literal)
@@ -485,7 +485,7 @@ internal sealed class JintFunctionDefinition
                 var childType = childNode.Type;
                 if (childType == Nodes.Identifier)
                 {
-                    if (((Identifier) childNode).Name == "arguments")
+                    if (string.Equals(((Identifier) childNode).Name, "arguments", StringComparison.Ordinal))
                     {
                         return true;
                     }

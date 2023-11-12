@@ -800,7 +800,7 @@ namespace Jint.Runtime
 
             if (value is JsString jsString)
             {
-                if (jsString.ToString() == "-0")
+                if (string.Equals(jsString.ToString(), "-0", StringComparison.Ordinal))
                 {
                     return JsNumber.NegativeZero._value;
                 }
@@ -935,7 +935,7 @@ namespace Jint.Runtime
         public static JsValue ToPropertyKey(JsValue o)
         {
             const InternalTypes PropertyKeys = InternalTypes.String | InternalTypes.Symbol | InternalTypes.PrivateName;
-            return (o._type & PropertyKeys) != 0
+            return (o._type & PropertyKeys) != InternalTypes.None
                 ? o
                 : ToPropertyKeyNonString(o);
         }
@@ -945,7 +945,7 @@ namespace Jint.Runtime
         {
             const InternalTypes PropertyKeys = InternalTypes.String | InternalTypes.Symbol | InternalTypes.PrivateName;
             var primitive = ToPrimitive(o, Types.String);
-            return (primitive._type & PropertyKeys) != 0
+            return (primitive._type & PropertyKeys) != InternalTypes.None
                 ? primitive
                 : ToStringNonString(primitive);
         }

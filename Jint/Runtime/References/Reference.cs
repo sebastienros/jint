@@ -52,7 +52,7 @@ public sealed class Reference
     public bool HasPrimitiveBase
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => (_base._type & InternalTypes.Primitive) != 0;
+        get => (_base._type & InternalTypes.Primitive) != InternalTypes.None;
     }
 
     public bool IsUnresolvableReference
@@ -68,7 +68,7 @@ public sealed class Reference
     public bool IsPropertyReference
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => (_base._type & (InternalTypes.Primitive | InternalTypes.Object)) != 0;
+        get => (_base._type & (InternalTypes.Primitive | InternalTypes.Object)) != InternalTypes.None;
     }
 
     public JsValue ThisValue
@@ -96,7 +96,7 @@ public sealed class Reference
     internal void AssertValid(Realm realm)
     {
         if (_strict
-            && (_base._type & InternalTypes.ObjectEnvironmentRecord) != 0
+            && (_base._type & InternalTypes.ObjectEnvironmentRecord) != InternalTypes.None
             && (CommonProperties.Eval.Equals(_referencedName) || CommonProperties.Arguments.Equals(_referencedName)))
         {
             ExceptionHelper.ThrowSyntaxError(realm);

@@ -8,6 +8,7 @@
     <PackageVersion Include="Esprima" Version="3.0.2" />
     <PackageVersion Include="Flurl.Http.Signed" Version="3.2.4" />
     <PackageVersion Include="Jurassic" Version="3.2.7" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.106" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.7.2" />
     <PackageVersion Include="MongoDB.Bson.signed" Version="2.19.0" />

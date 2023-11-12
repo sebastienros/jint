@@ -13,7 +13,7 @@ public sealed class ModuleBuilder
     private readonly string _specifier;
     private Module? _module;
     private readonly List<string> _sourceRaw = new();
-    private readonly Dictionary<string, JsValue> _exports = new();
+    private readonly Dictionary<string, JsValue> _exports = new(StringComparer.Ordinal);
     private readonly ParserOptions _options;
 
     internal ModuleBuilder(Engine engine, string specifier)

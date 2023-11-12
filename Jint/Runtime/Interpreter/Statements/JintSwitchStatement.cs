@@ -25,7 +25,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             var value = _discriminant.GetValue(context);
             var r = _switchBlock.Execute(context, value);
-            if (r.Type == CompletionType.Break && context.Target == _statement.LabelSet?.Name)
+            if (r.Type == CompletionType.Break && string.Equals(context.Target, _statement.LabelSet?.Name, StringComparison.Ordinal))
             {
                 return new Completion(CompletionType.Normal, r.Value, ((JintStatement) this)._statement);
             }

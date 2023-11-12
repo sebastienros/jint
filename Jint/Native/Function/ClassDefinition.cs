@@ -169,7 +169,7 @@ internal sealed class ClassDefinition
                 if (element is PrivateElement privateElement)
                 {
                     var container = !isStatic ? instancePrivateMethods : staticPrivateMethods;
-                    var index = container.FindIndex(x => x.Key.Description == privateElement.Key.Description);
+                    var index = container.FindIndex(x => string.Equals(x.Key.Description, privateElement.Key.Description, StringComparison.Ordinal));
                     if (index != -1)
                     {
                         var pe = container[index];

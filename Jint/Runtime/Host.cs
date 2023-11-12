@@ -211,6 +211,8 @@ namespace Jint.Runtime
             Engine.AddToEventLoop(job);
         }
     }
+
+    internal sealed record JobCallback(ICallable Callback, object? HostDefined);
 }
 
-internal sealed record JobCallback(ICallable Callback, object? HostDefined);
+

@@ -89,7 +89,9 @@ public class DefaultTimeSystem : ITimeSystem
                         if (DateUtils.TryParse(date, out var mimeKitResult))
                         {
                             var dateAsUtc = mimeKitResult.ToUniversalTime();
+#pragma warning disable MA0132
                             epochMilliseconds = (long) Math.Floor((dateAsUtc - DateConstructor.Epoch).TotalMilliseconds);
+#pragma warning restore MA0132
                             return true;
                         }
 
@@ -125,7 +127,7 @@ public class DefaultTimeSystem : ITimeSystem
         epochMilliseconds = long.MinValue;
 
         var yearString = date.Substring(0, 7);
-        if (!int.TryParse(yearString, out var year))
+        if (!int.TryParse(yearString, NumberStyles.Integer, CultureInfo.InvariantCulture, out var year))
         {
             return false;
         }

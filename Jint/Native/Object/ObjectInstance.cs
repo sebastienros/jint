@@ -44,7 +44,9 @@ namespace Jint.Native.Object
             _class = objectClass;
             // if engine is ready, we can take default prototype for object
             _prototype = engine.Realm.Intrinsics?.Object?.PrototypeObject;
+#pragma warning disable MA0056
             Extensible = true;
+#pragma warning restore MA0056
         }
 
         public Engine Engine
@@ -230,11 +232,11 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            var returningSymbols = (types & Types.Symbol) != 0 && _symbols?.Count > 0;
-            var returningStringKeys = (types & Types.String) != 0 && _properties?.Count > 0;
+            var returningSymbols = (types & Types.Symbol) != Types.None && _symbols?.Count > 0;
+            var returningStringKeys = (types & Types.String) != Types.None && _properties?.Count > 0;
 
             var propertyKeys = new List<JsValue>();
-            if ((types & Types.String) != 0)
+            if ((types & Types.String) != Types.None)
             {
                 var initialOwnStringPropertyKeys = GetInitialOwnStringPropertyKeys();
                 if (!ReferenceEquals(initialOwnStringPropertyKeys, System.Linq.Enumerable.Empty<JsValue>()))
@@ -270,7 +272,7 @@ namespace Jint.Native.Object
                 return propertyKeys;
             }
 
-            if ((types & Types.String) == 0 && (types & Types.Symbol) != 0)
+            if ((types & Types.String) == Types.None && (types & Types.Symbol) != Types.None)
             {
                 // only symbols requested
                 if (_symbols != null)
@@ -363,7 +365,7 @@ namespace Jint.Native.Object
 
         public override JsValue Get(JsValue property, JsValue receiver)
         {
-            if ((_type & InternalTypes.PlainObject) != 0 && ReferenceEquals(this, receiver) && property is JsString jsString)
+            if ((_type & InternalTypes.PlainObject) != InternalTypes.None && ReferenceEquals(this, receiver) && property is JsString jsString)
             {
                 EnsureInitialized();
                 if (_properties?.TryGetValue(jsString.ToString(), out var ownDesc) == true)
@@ -391,12 +393,12 @@ namespace Jint.Native.Object
 
         internal static JsValue UnwrapJsValue(PropertyDescriptor desc, JsValue thisObject)
         {
-            var value = (desc._flags & PropertyFlag.CustomJsValue) != 0
+            var value = (desc._flags & PropertyFlag.CustomJsValue) != PropertyFlag.None
                 ? desc.CustomValue
                 : desc._value;
 
             // IsDataDescriptor inlined
-            if ((desc._flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != 0 || value is not null)
+            if ((desc._flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != PropertyFlag.None || value is not null)
             {
                 return value ?? Undefined;
             }
@@ -519,12 +521,12 @@ namespace Jint.Native.Object
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Set(JsValue property, JsValue value)
         {
-            if ((_type & InternalTypes.PlainObject) != 0 && property is JsString jsString)
+            if ((_type & InternalTypes.PlainObject) != InternalTypes.None && property is JsString jsString)
             {
                 var key = (Key) jsString.ToString();
                 if (_properties?.TryGetValue(key, out var ownDesc) == true)
                 {
-                    if ((ownDesc._flags & PropertyFlag.Writable) != 0)
+                    if ((ownDesc._flags & PropertyFlag.Writable) != PropertyFlag.None)
                     {
                         ownDesc._value = value;
                         return true;
@@ -542,12 +544,12 @@ namespace Jint.Native.Object
         /// </summary>
         public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
-            if ((_type & InternalTypes.PlainObject) != 0 && ReferenceEquals(this, receiver) && property is JsString jsString)
+            if ((_type & InternalTypes.PlainObject) != InternalTypes.None && ReferenceEquals(this, receiver) && property is JsString jsString)
             {
                 var key = (Key) jsString.ToString();
                 if (_properties?.TryGetValue(key, out var ownDesc) == true)
                 {
-                    if ((ownDesc._flags & PropertyFlag.Writable) != 0)
+                    if ((ownDesc._flags & PropertyFlag.Writable) != PropertyFlag.None)
                     {
                         ownDesc._value = value;
                         return true;
@@ -781,7 +783,7 @@ namespace Jint.Native.Object
                         {
                             propertyDescriptor = new PropertyDescriptor(descValue ?? Undefined, PropertyFlag.ConfigurableEnumerableWritable);
                         }
-                        else if ((desc._flags & PropertyFlag.ConfigurableEnumerableWritable) == 0)
+                        else if ((desc._flags & PropertyFlag.ConfigurableEnumerableWritable) == PropertyFlag.None)
                         {
                             propertyDescriptor = new PropertyDescriptor(descValue ?? Undefined, PropertyFlag.AllForbidden);
                         }
@@ -816,7 +818,7 @@ namespace Jint.Native.Object
             var currentValue = current.Value;
 
             // 4. If every field in Desc is absent, return true.
-            if ((current._flags & (PropertyFlag.ConfigurableSet | PropertyFlag.EnumerableSet | PropertyFlag.WritableSet)) == 0 &&
+            if ((current._flags & (PropertyFlag.ConfigurableSet | PropertyFlag.EnumerableSet | PropertyFlag.WritableSet)) == PropertyFlag.None &&
                 ReferenceEquals(currentGet, null) &&
                 ReferenceEquals(currentSet, null) &&
                 ReferenceEquals(currentValue, null))
@@ -1073,7 +1075,7 @@ namespace Jint.Native.Object
                             TypedArrayElementType.Uint16 => typedArrayInstance.ToNativeArray<ushort>(),
                             TypedArrayElementType.Uint32 => typedArrayInstance.ToNativeArray<uint>(),
                             TypedArrayElementType.BigUint64 => typedArrayInstance.ToNativeArray<ulong>(),
-                            _ => throw new ArgumentOutOfRangeException("", "cannot handle element type")
+                            _ => throw new NotSupportedException("cannot handle element type")
                         };
 
                         break;

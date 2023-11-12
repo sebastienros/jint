@@ -225,7 +225,7 @@ internal sealed class NumberFormatConstructor : Constructor
         return false;
     }
 
-    private static readonly HashSet<string> _sanctionedSingleUnitIdentifiers = new()
+    private static readonly HashSet<string> _sanctionedSingleUnitIdentifiers = new(StringComparer.Ordinal)
     {
         "acre",
         "bit",

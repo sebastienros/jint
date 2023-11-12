@@ -473,7 +473,7 @@ namespace Jint.Native.RegExp
             {
                 // we can take faster path
 
-                if (R.Source == JsRegExp.regExpForMatchingAllCharacters)
+                if (string.Equals(R.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal))
                 {
                     // if empty string, just a string split
                     return StringPrototype.SplitWithStringSeparator(_realm, "", s, (uint) s.Length);
@@ -855,7 +855,7 @@ namespace Jint.Native.RegExp
                 lastIndex = 0;
             }
 
-            if (R.Source == JsRegExp.regExpForMatchingAllCharacters)  // Reg Exp is really ""
+            if (string.Equals(R.Source, JsRegExp.regExpForMatchingAllCharacters, StringComparison.Ordinal))  // Reg Exp is really ""
             {
                 if (lastIndex > (ulong) s.Length)
                 {

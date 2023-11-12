@@ -83,7 +83,7 @@ internal sealed class EvalFunctionInstance : FunctionInstance
         }
         catch (ParserException e)
         {
-            if (e.Description == Messages.InvalidLHSInAssignment)
+            if (string.Equals(e.Description, Messages.InvalidLHSInAssignment, StringComparison.Ordinal))
             {
                 ExceptionHelper.ThrowReferenceError(callerRealm, (string?) null);
             }
@@ -201,13 +201,13 @@ internal sealed class EvalFunctionInstance : FunctionInstance
 
         protected override object VisitIdentifier(Identifier identifier)
         {
-            _containsArguments |= identifier.Name == "arguments";
+            _containsArguments |= string.Equals(identifier.Name, "arguments", StringComparison.Ordinal);
             return identifier;
         }
 
         protected override object VisitMetaProperty(MetaProperty metaProperty)
         {
-            _containsNewTarget |= metaProperty.Meta.Name == "new" && metaProperty.Property.Name == "target";
+            _containsNewTarget |= string.Equals(metaProperty.Meta.Name, "new", StringComparison.Ordinal) && string.Equals(metaProperty.Property.Name, "target", StringComparison.Ordinal);
             return metaProperty;
         }
 

@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using Jint.Runtime;
 
 namespace Jint.Native.TypedArray;
@@ -6,6 +7,7 @@ namespace Jint.Native.TypedArray;
 /// <summary>
 /// Container for either double or BigInteger.
 /// </summary>
+[StructLayout(LayoutKind.Auto)]
 internal readonly record struct TypedArrayValue(Types Type, double DoubleValue, BigInteger BigInteger) : IConvertible
 {
     public static implicit operator TypedArrayValue(double value)

@@ -139,7 +139,7 @@ namespace Jint.Extensions
                 return true;
             }
 
-            if (memberType == typeof(bool) && (valueCoercionType & ValueCoercionType.Boolean) != 0)
+            if (memberType == typeof(bool) && (valueCoercionType & ValueCoercionType.Boolean) != ValueCoercionType.None)
             {
                 converted = TypeConverter.ToBoolean(value);
                 return true;
@@ -147,7 +147,7 @@ namespace Jint.Extensions
 
             if (memberType == typeof(string)
                 && !value.IsNullOrUndefined()
-                && (valueCoercionType & ValueCoercionType.String) != 0)
+                && (valueCoercionType & ValueCoercionType.String) != ValueCoercionType.None)
             {
                 // we know how to print out correct string presentation for primitives
                 // that are non-null and non-undefined
@@ -155,7 +155,7 @@ namespace Jint.Extensions
                 return true;
             }
 
-            if (memberType is not null && memberType.IsClrNumericCoercible() && (valueCoercionType & ValueCoercionType.Number) != 0)
+            if (memberType is not null && memberType.IsClrNumericCoercible() && (valueCoercionType & ValueCoercionType.Number) != ValueCoercionType.None)
             {
                 // we know how to print out correct string presentation for primitives
                 // that are non-null and non-undefined

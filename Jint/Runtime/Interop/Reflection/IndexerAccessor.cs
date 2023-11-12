@@ -44,7 +44,7 @@ namespace Jint.Runtime.Interop.Reflection
             // integer keys can be ambiguous as we only know string keys
             int? integerKey = null;
 
-            if (int.TryParse(propertyName, out var intKeyTemp))
+            if (int.TryParse(propertyName, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intKeyTemp))
             {
                 integerKey = intKeyTemp;
             }

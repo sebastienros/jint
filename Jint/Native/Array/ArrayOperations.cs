@@ -56,7 +56,7 @@ namespace Jint.Native.Array
             for (uint i = 0; i < (uint) jsValues.Length; i++)
             {
                 var jsValue = skipHoles && !HasProperty(i) ? JsValue.Undefined : Get(i);
-                if ((jsValue.Type & elementTypes) == 0)
+                if ((jsValue.Type & elementTypes) == Types.None)
                 {
                     ExceptionHelper.ThrowTypeErrorNoEngine("invalid type");
                 }
@@ -231,7 +231,7 @@ namespace Jint.Native.Array
 
             public override JsValue Get(ulong index) => _target.Get((uint) index);
 
-            public override JsValue[] GetAll(Types elementTypes, bool skipHoles = false)
+            public override JsValue[] GetAll(Types elementTypes = Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.Object, bool skipHoles = false)
             {
                 var n = _target.GetLength();
 
@@ -251,7 +251,7 @@ namespace Jint.Native.Array
                         value = _target.Prototype?.Get(i) ?? JsValue.Undefined;
                     }
 
-                    if ((value.Type & elementTypes) == 0)
+                    if ((value.Type & elementTypes) == Types.None)
                     {
                         ExceptionHelper.ThrowTypeErrorNoEngine("invalid type");
                     }

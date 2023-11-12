@@ -87,7 +87,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     if (!p.Computed && p.Key is Identifier identifier)
                     {
                         propName = identifier.Name;
-                        _canBuildFast &= propName != "__proto__";
+                        _canBuildFast &= !string.Equals(propName, "__proto__", StringComparison.Ordinal);
                     }
 
                     _properties[i] = new ObjectProperty(propName, p);
@@ -206,7 +206,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     var propValue = completion.Clone();
-                    if (objectProperty._key == "__proto__" && !objectProperty._value.Computed && !objectProperty._value.Shorthand)
+                    if (string.Equals(objectProperty._key, "__proto__", StringComparison.Ordinal) && !objectProperty._value.Computed && !objectProperty._value.Shorthand)
                     {
                         if (propValue.IsObject() || propValue.IsNull())
                         {

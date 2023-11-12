@@ -199,10 +199,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             newLeftValue = JsValue.Undefined;
                         }
-                        else if (!AreIntegerOperands(originalLeftValue, rval))
-                        {
-                            newLeftValue = TypeConverter.ToNumber(originalLeftValue) % TypeConverter.ToNumber(rval);
-                        }
                         else
                         {
                             newLeftValue = TypeConverter.ToNumber(originalLeftValue) % TypeConverter.ToNumber(rval);

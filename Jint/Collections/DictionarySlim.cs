@@ -7,6 +7,7 @@
 using System.Collections;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Jint.Collections
 {
@@ -32,6 +33,7 @@ namespace Jint.Collections
         private Entry[] _entries;
 
         [DebuggerDisplay("({key}, {value})->{next}")]
+        [StructLayout(LayoutKind.Auto)]
         private struct Entry
         {
             public TKey key;

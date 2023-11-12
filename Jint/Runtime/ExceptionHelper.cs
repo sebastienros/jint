@@ -114,7 +114,9 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowArgumentOutOfRangeException()
         {
+#pragma warning disable MA0015
             throw new ArgumentOutOfRangeException();
+#pragma warning restore MA0015
         }
 
         [DoesNotReturn]

@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <PackageReference Include="Esprima" />
+    <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

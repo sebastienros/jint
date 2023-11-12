@@ -19,7 +19,7 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsPrimitive(this JsValue value)
         {
-            return (value._type & (InternalTypes.Primitive | InternalTypes.Undefined | InternalTypes.Null)) != 0;
+            return (value._type & (InternalTypes.Primitive | InternalTypes.Undefined | InternalTypes.Null)) != InternalTypes.None;
         }
 
         [Pure]
@@ -76,28 +76,28 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsObject(this JsValue value)
         {
-            return (value._type & InternalTypes.Object) != 0;
+            return (value._type & InternalTypes.Object) != InternalTypes.None;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsString(this JsValue value)
         {
-            return (value._type & InternalTypes.String) != 0;
+            return (value._type & InternalTypes.String) != InternalTypes.None;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsNumber(this JsValue value)
         {
-            return (value._type & (InternalTypes.Number | InternalTypes.Integer)) != 0;
+            return (value._type & (InternalTypes.Number | InternalTypes.Integer)) != InternalTypes.None;
         }
 
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsBigInt(this JsValue value)
         {
-            return (value._type & InternalTypes.BigInt) != 0;
+            return (value._type & InternalTypes.BigInt) != InternalTypes.None;
         }
 
         [Pure]
