@@ -14,7 +14,9 @@ public class ClrHelper
     /// <summary>
     /// Call JsValue.ToString(), mainly for NamespaceReference.
     /// </summary>
+#pragma warning disable CA1822
     public JsValue ToString(JsValue value)
+#pragma warning restore CA1822
     {
         return value.ToString();
     }
@@ -22,7 +24,9 @@ public class ClrHelper
     /// <summary>
     /// Cast `obj as ISomeInterface` to `obj`
     /// </summary>
+#pragma warning disable CA1822
     public JsValue Unwrap(ObjectWrapper obj)
+#pragma warning restore CA1822
     {
         return new ObjectWrapper(obj.Engine, obj.Target);
     }
@@ -30,7 +34,9 @@ public class ClrHelper
     /// <summary>
     /// Cast `obj` to `obj as ISomeInterface`
     /// </summary>
+#pragma warning disable CA1822
     public JsValue Wrap(ObjectWrapper obj, TypeReference type)
+#pragma warning restore CA1822
     {
         if (!type.ReferenceType.IsInstanceOfType(obj.Target))
         {
@@ -70,7 +76,7 @@ public class ClrHelper
         }
         else
         {
-            ExceptionHelper.ThrowArgumentException("Must be an ObjectWrapper of Type", "obj");
+            ExceptionHelper.ThrowArgumentException("Must be an ObjectWrapper of Type", nameof(obj));
         }
         return JsValue.Undefined;
     }

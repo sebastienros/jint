@@ -462,7 +462,9 @@ uriError:
                     if ((B & 0x80) == 0)
                     {
                         C = (char)B;
+#pragma warning disable CA2249
                         if (reservedSet == null || reservedSet.IndexOf(C) == -1)
+#pragma warning restore CA2249
                         {
                             _stringBuilder.Append(C);
                         }

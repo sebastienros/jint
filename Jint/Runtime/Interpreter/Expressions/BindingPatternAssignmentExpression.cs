@@ -265,8 +265,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else
                     {
-                        ExceptionHelper.ThrowArgumentOutOfRangeException("pattern",
-                            "Unable to determine how to handle array pattern element " + left);
+                        ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(pattern), $"Unable to determine how to handle array pattern element {left}");
                         break;
                     }
                 }

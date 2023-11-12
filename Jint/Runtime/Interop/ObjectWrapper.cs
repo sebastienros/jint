@@ -301,6 +301,8 @@ namespace Jint.Runtime.Interop
             return Target is ICollection ? 0 : base.GetSmallestIndex(length);
         }
 
+        public override bool Equals(object? obj) => Equals(obj as ObjectWrapper);
+
         public override bool Equals(JsValue? obj) => Equals(obj as ObjectWrapper);
 
         public bool Equals(ObjectWrapper? other)

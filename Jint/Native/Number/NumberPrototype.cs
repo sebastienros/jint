@@ -303,7 +303,7 @@ namespace Jint.Native.Number
             }
         }
 
-        private string CreateExponentialRepresentation(
+        private static string CreateExponentialRepresentation(
             DtoaBuilder buffer,
             int exponent,
             bool negative,
@@ -384,63 +384,59 @@ namespace Jint.Native.Number
             var integer = (long) x;
             var fraction = x -  integer;
 
-            string result = ToBase(integer, radix);
+            string result = NumberPrototype.ToBase(integer, radix);
             if (fraction != 0)
             {
-                result += "." + ToFractionBase(fraction, radix);
+                result += "." + NumberPrototype.ToFractionBase(fraction, radix);
             }
 
             return result;
         }
 
-        public string ToBase(long n, int radix)
+        internal static string ToBase(long n, int radix)
         {
-            const string digits = "0123456789abcdefghijklmnopqrstuvwxyz";
+            const string Digits = "0123456789abcdefghijklmnopqrstuvwxyz";
             if (n == 0)
             {
                 return "0";
             }
 
-            using (var result = StringBuilderPool.Rent())
+            using var result = StringBuilderPool.Rent();
+            while (n > 0)
             {
-                while (n > 0)
-                {
-                    var digit = (int) (n % radix);
-                    n = n / radix;
-                    result.Builder.Insert(0, digits[digit]);
-                }
-
-                return result.ToString();
+                var digit = (int) (n % radix);
+                n = n / radix;
+                result.Builder.Insert(0, Digits[digit]);
             }
+
+            return result.ToString();
         }
 
-        public string ToFractionBase(double n, int radix)
+        internal static string ToFractionBase(double n, int radix)
         {
             // based on the repeated multiplication method
             // http://www.mathpath.org/concepts/Num/frac.htm
 
-            const string digits = "0123456789abcdefghijklmnopqrstuvwxyz";
+            const string Digits = "0123456789abcdefghijklmnopqrstuvwxyz";
             if (n == 0)
             {
                 return "0";
             }
 
-            using (var result = StringBuilderPool.Rent())
+            using var result = StringBuilderPool.Rent();
+            while (n > 0 && result.Length < 50) // arbitrary limit
             {
-                while (n > 0 && result.Length < 50) // arbitrary limit
-                {
-                    var c = n*radix;
-                    var d = (int) c;
-                    n = c - d;
+                var c = n*radix;
+                var d = (int) c;
+                n = c - d;
 
-                    result.Builder.Append(digits[d]);
-                }
-
-                return result.ToString();
+                result.Builder.Append(Digits[d]);
             }
+
+            return result.ToString();
         }
 
-        private string ToNumberString(double m)
+        private static string ToNumberString(double m)
         {
             using var stringBuilder = StringBuilderPool.Rent();
             NumberToString(m, new DtoaBuilder(), stringBuilder.Builder);

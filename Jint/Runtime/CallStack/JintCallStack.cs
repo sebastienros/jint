@@ -62,7 +62,9 @@ namespace Jint.Runtime.CallStack
             _stack.Push(item);
             if (_statistics is not null)
             {
+#pragma warning disable CA1854
                 if (_statistics.ContainsKey(item))
+#pragma warning restore CA1854
                 {
                     return ++_statistics[item];
                 }
@@ -126,7 +128,7 @@ namespace Jint.Runtime.CallStack
                 if (!string.IsNullOrWhiteSpace(shortDescription))
                 {
                     sb
-                        .Append(" ")
+                        .Append(' ')
                         .Append(shortDescription);
                 }
 
@@ -144,15 +146,15 @@ namespace Jint.Runtime.CallStack
                         var arg = element.Value.Arguments.Value[index];
                         sb.Append(GetPropertyKey(arg));
                     }
-                    sb.Append(")");
+                    sb.Append(')');
                 }
 
                 sb
-                    .Append(" ")
+                    .Append(' ')
                     .Append(loc.Source)
-                    .Append(":")
+                    .Append(':')
                     .Append(loc.End.Line)
-                    .Append(":")
+                    .Append(':')
                     .Append(loc.Start.Column + 1) // report column number instead of index
                     .AppendLine();
             }

@@ -666,7 +666,11 @@ namespace Jint.Native.String
 
             if (endOfLastMatch < thisString.Length)
             {
+#if NETFRAMEWORK
                 result.Append(thisString.Substring(endOfLastMatch));
+#else
+                result.Append(thisString[endOfLastMatch..]);
+#endif
             }
 
             return result.ToString();
@@ -1168,7 +1172,8 @@ namespace Jint.Native.String
                 var cp = CodePointAt(s, k);
                 if (cp.IsUnpairedSurrogate)
                 {
-                    result.Append("\uFFFD");
+                    // \uFFFD
+                    result.Append('�');
                 }
                 else
                 {

@@ -137,7 +137,9 @@ public class DefaultTimeSystem : ITimeSystem
         }
 
         // create replacement string
+#pragma warning disable CA1845
         var dateToParse = "2000" + date.Substring(7);
+#pragma warning restore CA1845
         if (!DateTime.TryParse(dateToParse, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var parsed))
         {
             return false;

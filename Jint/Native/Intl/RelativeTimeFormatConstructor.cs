@@ -48,7 +48,7 @@ internal sealed class RelativeTimeFormatConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma402/#sec-InitializeRelativeTimeFormat
     /// </summary>
-    private void InitializeRelativeTimeFormat(JsObject relativeTimeFormat, JsValue locales, JsValue options)
+    private static void InitializeRelativeTimeFormat(JsObject relativeTimeFormat, JsValue locales, JsValue options)
     {
         // TODO
     }

@@ -201,7 +201,7 @@ internal sealed class NumberFormatConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma402/#sec-iswellformedunitidentifier
     /// </summary>
-    private bool IsWellFormedUnitIdentifier(JsValue unitIdentifier)
+    private static bool IsWellFormedUnitIdentifier(JsValue unitIdentifier)
     {
         var value = unitIdentifier.ToString();
         if (IsSanctionedSingleUnitIdentifier(value))
@@ -209,8 +209,8 @@ internal sealed class NumberFormatConstructor : Constructor
             return true;
         }
 
-        var i = value.IndexOf("-per-");
-        if (i == -1 || value.IndexOf("-per-", i + 1) != -1)
+        var i = value.IndexOf("-per-", StringComparison.Ordinal);
+        if (i == -1 || value.IndexOf("-per-", i + 1, StringComparison.Ordinal) != -1)
         {
             return false;
         }

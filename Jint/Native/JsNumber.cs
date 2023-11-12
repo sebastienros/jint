@@ -265,6 +265,11 @@ public sealed class JsNumber : JsValue, IEquatable<JsNumber>
         return base.IsLooselyEqual(value);
     }
 
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as JsNumber);
+    }
+
     public override bool Equals(JsValue? obj)
     {
         return Equals(obj as JsNumber);

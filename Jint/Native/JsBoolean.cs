@@ -38,6 +38,11 @@ public sealed class JsBoolean : JsValue, IEquatable<JsBoolean>
         return !value.IsNullOrUndefined() && base.IsLooselyEqual(value);
     }
 
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as JsBoolean);
+    }
+
     public override bool Equals(JsValue? obj)
     {
         return Equals(obj as JsBoolean);

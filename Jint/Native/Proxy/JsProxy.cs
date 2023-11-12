@@ -288,7 +288,7 @@ namespace Jint.Native.Proxy
         /// <summary>
         /// https://tc39.es/ecma262/#sec-completepropertydescriptor
         /// </summary>
-        private void CompletePropertyDescriptor(PropertyDescriptor desc)
+        private static void CompletePropertyDescriptor(PropertyDescriptor desc)
         {
             if (desc.IsGenericDescriptor() || desc.IsDataDescriptor())
             {

@@ -80,7 +80,7 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
     /// <summary>
     /// https://tc39.es/ecma262/#sec-initializeboundname
     /// </summary>
-    private void InitializeBoundName(string name, JsValue value, EnvironmentRecord? environment)
+    private static void InitializeBoundName(string name, JsValue value, EnvironmentRecord? environment)
     {
         if (environment is not null)
         {

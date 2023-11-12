@@ -48,7 +48,7 @@ internal sealed class PluralRulesConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma402/#sec-initializepluralrules
     /// </summary>
-    private void InitializePluralRules(JsObject pluralRules, JsValue locales, JsValue options)
+    private static void InitializePluralRules(JsObject pluralRules, JsValue locales, JsValue options)
     {
         // TODO
     }

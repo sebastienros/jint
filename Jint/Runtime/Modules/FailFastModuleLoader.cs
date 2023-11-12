@@ -6,7 +6,9 @@ internal sealed class FailFastModuleLoader : IModuleLoader
 {
     public static readonly IModuleLoader Instance = new FailFastModuleLoader();
 
+#pragma warning disable CA1822
     public Uri BasePath
+#pragma warning restore CA1822
     {
         get
         {
