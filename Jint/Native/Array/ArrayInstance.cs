@@ -79,7 +79,7 @@ namespace Jint.Native.Array
         {
             get
             {
-                if ((_objectChangeFlags & ObjectChangeFlags.NonDefaultDataDescriptorUsage) != 0)
+                if ((_objectChangeFlags & ObjectChangeFlags.NonDefaultDataDescriptorUsage) != ObjectChangeFlags.None)
                 {
                     // could be a mutating property for example, length might change, not safe anymore
                     return false;
@@ -92,7 +92,7 @@ namespace Jint.Native.Array
                     return false;
                 }
 
-                if ((arrayPrototype._objectChangeFlags & ObjectChangeFlags.ArrayIndex) != 0)
+                if ((arrayPrototype._objectChangeFlags & ObjectChangeFlags.ArrayIndex) != ObjectChangeFlags.None)
                 {
                     // maybe somebody moved integer property to prototype? not safe anymore
                     return false;
@@ -104,7 +104,7 @@ namespace Jint.Native.Array
                     return false;
                 }
 
-                return (arrayPrototypePrototype._objectChangeFlags & ObjectChangeFlags.ArrayIndex) == 0;
+                return (arrayPrototypePrototype._objectChangeFlags & ObjectChangeFlags.ArrayIndex) == ObjectChangeFlags.None;
             }
         }
 
@@ -316,7 +316,7 @@ namespace Jint.Native.Array
 
         public sealed override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
         {
-            if ((types & Types.String) == 0)
+            if ((types & Types.String) == Types.None)
             {
                 return base.GetOwnPropertyKeys(types);
             }

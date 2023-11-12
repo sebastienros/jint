@@ -60,7 +60,9 @@ internal sealed class FinalizationRegistryInstance : ObjectInstance
             _callable = callable;
         }
 
+#pragma warning disable MA0055
         ~Observer()
+#pragma warning restore MA0055
         {
             _callable.Callback.Call(Undefined);
         }

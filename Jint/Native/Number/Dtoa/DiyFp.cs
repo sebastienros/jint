@@ -31,15 +31,17 @@
 // The original revision was 67d1049b0bf9 from the mozilla-central tree.
 
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace Jint.Native.Number.Dtoa
 {
 
-// This "Do It Yourself Floating Point" class implements a floating-point number
-// with a uint64 significand and an int exponent. Normalized DiyFp numbers will
-// have the most significant bit of the significand set.
-// Multiplication and Subtraction do not normalize their results.
-// DiyFp are not designed to contain special doubles (NaN and Infinity).
+    // This "Do It Yourself Floating Point" class implements a floating-point number
+    // with a uint64 significand and an int exponent. Normalized DiyFp numbers will
+    // have the most significant bit of the significand set.
+    // Multiplication and Subtraction do not normalize their results.
+    // DiyFp are not designed to contain special doubles (NaN and Infinity).
+    [StructLayout(LayoutKind.Auto)]
     internal readonly struct DiyFp
     {
         internal const int KSignificandSize = 64;

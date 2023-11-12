@@ -159,7 +159,7 @@ namespace Jint.Runtime.Interop
             Type[] types = assembly.GetTypes();
             foreach (Type t in types)
             {
-                if (t.FullName?.Replace("+", ".") == compared)
+                if (string.Equals(t.FullName?.Replace("+", "."), compared, StringComparison.Ordinal))
                 {
                     return t;
                 }

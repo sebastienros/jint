@@ -23,7 +23,7 @@ internal sealed class PrivateEnvironmentRecord
     {
         foreach (var pn in Names)
         {
-            if (pn.Value.Description == identifier)
+            if (string.Equals(pn.Value.Description, identifier, StringComparison.Ordinal))
             {
                 return pn.Value;
             }

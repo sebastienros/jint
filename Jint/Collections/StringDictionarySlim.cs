@@ -1,3 +1,6 @@
+#pragma warning disable MA0006
+#pragma warning disable MA0008
+
 #nullable disable
 
 // Licensed to the .NET Foundation under one or more agreements.

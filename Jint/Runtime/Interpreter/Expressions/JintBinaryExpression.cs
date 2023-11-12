@@ -63,7 +63,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var leftMethods = leftType.GetOperatorOverloadMethods();
                     var rightMethods = rightType.GetOperatorOverloadMethods();
 
-                    var methods = leftMethods.Concat(rightMethods).Where(x => x.Name == clrName && x.GetParameters().Length == 2);
+                    var methods = leftMethods.Concat(rightMethods).Where(x => string.Equals(x.Name, clrName, StringComparison.Ordinal) && x.GetParameters().Length == 2);
                     var methodDescriptors = MethodDescriptor.Build(methods.ToArray());
 
                     return TypeConverter.FindBestMatch(context.Engine, methodDescriptors, _ => arguments).FirstOrDefault().Method;

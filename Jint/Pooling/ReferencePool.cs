@@ -32,7 +32,7 @@ namespace Jint.Pooling
             {
                 return;
             }
-            _pool.Free(reference);;
+            _pool.Free(reference);
         }
     }
 }

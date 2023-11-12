@@ -320,7 +320,7 @@ namespace Jint.Runtime.Environments
             var idLeft = left as Identifier;
             if (idLeft != null
                 && right is Identifier idRight
-                && idLeft.Name == idRight.Name)
+                && string.Equals(idLeft.Name, idRight.Name, StringComparison.Ordinal))
             {
                 ExceptionHelper.ThrowReferenceNameError(_functionObject._realm, idRight.Name);
             }

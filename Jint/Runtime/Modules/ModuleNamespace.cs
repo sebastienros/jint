@@ -20,7 +20,7 @@ internal sealed class ModuleNamespace : ObjectInstance
     public ModuleNamespace(Engine engine, ModuleRecord module, List<string> exports) : base(engine)
     {
         _module = module;
-        _exports = new HashSet<string>(exports);
+        _exports = new HashSet<string>(exports, StringComparer.Ordinal);
     }
 
     protected override void Initialize()
@@ -162,7 +162,7 @@ internal sealed class ModuleNamespace : ObjectInstance
         var binding = m.ResolveExport(p);
         var targetModule = binding.Module;
 
-        if (binding.BindingName == "*namespace*")
+        if (string.Equals(binding.BindingName, "*namespace*", StringComparison.Ordinal))
         {
             return ModuleRecord.GetModuleNamespace(targetModule);
         }
@@ -204,7 +204,7 @@ internal sealed class ModuleNamespace : ObjectInstance
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
     {
         var result = new List<JsValue>();
-        if ((types & Types.String) != 0)
+        if ((types & Types.String) != Types.None)
         {
             result.Capacity = _exports.Count;
             foreach (var export in _exports)

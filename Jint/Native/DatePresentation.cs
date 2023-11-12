@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Jint.Native.Date;
 
 namespace Jint.Native;
@@ -12,6 +13,7 @@ internal enum DateFlags : byte
     DateTimeMaxValue = 8
 }
 
+[StructLayout(LayoutKind.Auto)]
 internal readonly record struct DatePresentation(long Value, DateFlags Flags)
 {
     public static readonly DatePresentation NaN = new(0, DateFlags.NaN);
@@ -19,9 +21,9 @@ internal readonly record struct DatePresentation(long Value, DateFlags Flags)
     public static readonly DatePresentation MaxValue = new(JsDate.Max, DateFlags.DateTimeMaxValue);
 
     public bool DateTimeRangeValid => IsFinite && Value <= JsDate.Max && Value >= JsDate.Min;
-    public bool IsNaN => (Flags & DateFlags.NaN) != 0;
-    public bool IsInfinity => (Flags & DateFlags.Infinity) != 0;
-    public bool IsFinite => (Flags & (DateFlags.NaN | DateFlags.Infinity)) == 0;
+    public bool IsNaN => (Flags & DateFlags.NaN) != DateFlags.None;
+    public bool IsInfinity => (Flags & DateFlags.Infinity) != DateFlags.None;
+    public bool IsFinite => (Flags & (DateFlags.NaN | DateFlags.Infinity)) == DateFlags.None;
 
     public DateTime ToDateTime()
     {
@@ -64,7 +66,7 @@ internal readonly record struct DatePresentation(long Value, DateFlags Flags)
 
     internal DatePresentation TimeClip()
     {
-        if ((Flags & (DateFlags.NaN | DateFlags.Infinity)) != 0)
+        if ((Flags & (DateFlags.NaN | DateFlags.Infinity)) != DateFlags.None)
         {
             return NaN;
         }

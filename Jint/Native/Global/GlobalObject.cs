@@ -54,7 +54,7 @@ namespace Jint.Native.Global
             }
 
             // check fast case
-            if (radix == 10 && int.TryParse(trimmed, out var number))
+            if (radix == 10 && int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
             {
                 return JsNumber.Create(number);
             }
@@ -476,7 +476,9 @@ uriError:
                     else
                     {
                         var n = 0;
-                        for (; ((B << n) & 0x80) != 0; n++);
+                        for (; ((B << n) & 0x80) != 0; n++)
+                        {
+                        }
 
                         if (n == 1 || n > 4)
                         {
@@ -689,7 +691,7 @@ uriError:
             }
 
             // check fast path
-            if ((current._flags & PropertyFlag.MutableBinding) != 0)
+            if ((current._flags & PropertyFlag.MutableBinding) != PropertyFlag.None)
             {
                 current._value = desc.Value;
                 return true;
@@ -728,7 +730,7 @@ uriError:
                 }
 
                 // check fast path
-                if ((existingDescriptor._flags & PropertyFlag.MutableBinding) != 0)
+                if ((existingDescriptor._flags & PropertyFlag.MutableBinding) != PropertyFlag.None)
                 {
                     existingDescriptor._value = value;
                     return true;

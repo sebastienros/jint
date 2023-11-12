@@ -37,9 +37,9 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
                 v = completion.Value;
             }
 
-            if (completion.Type != CompletionType.Continue || context.Target != _labelSetName)
+            if (completion.Type != CompletionType.Continue || !string.Equals(context.Target, _labelSetName, StringComparison.Ordinal))
             {
-                if (completion.Type == CompletionType.Break && (context.Target == null || context.Target == _labelSetName))
+                if (completion.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _labelSetName, StringComparison.Ordinal)))
                 {
                     return new Completion(CompletionType.Normal, v, _statement);
                 }

@@ -15,12 +15,12 @@ namespace Jint.Runtime.Interpreter.Expressions
         protected override object EvaluateInternal(EvaluationContext context)
         {
             var expression = (MetaProperty) _expression;
-            if (expression.Meta.Name == "new" && expression.Property.Name == "target")
+            if (string.Equals(expression.Meta.Name, "new", StringComparison.Ordinal) && string.Equals(expression.Property.Name, "target", StringComparison.Ordinal))
             {
                 return context.Engine.GetNewTarget();
             }
 
-            if (expression.Meta.Name == "import" && expression.Property.Name == "meta")
+            if (string.Equals(expression.Meta.Name, "import", StringComparison.Ordinal) && string.Equals(expression.Property.Name, "meta", StringComparison.Ordinal))
             {
                 var module = (SourceTextModuleRecord) context.Engine.ExecutionContext.ScriptOrModule!;
                 var importMeta = module.ImportMeta;

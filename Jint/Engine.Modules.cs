@@ -12,8 +12,8 @@ namespace Jint
     {
         internal IModuleLoader ModuleLoader { get; set; } = null!;
 
-        private readonly Dictionary<string, ModuleRecord> _modules = new();
-        private readonly Dictionary<string, ModuleBuilder> _builders = new();
+        private readonly Dictionary<string, ModuleRecord> _modules = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, ModuleBuilder> _builders = new(StringComparer.Ordinal);
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-getactivescriptormodule

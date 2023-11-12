@@ -127,7 +127,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
         for (var i = 0; i < resolveSet.Count; i++)
         {
             var r = resolveSet[i];
-            if (ReferenceEquals(this, r.Module) && exportName == r.ExportName)
+            if (ReferenceEquals(this, r.Module) && string.Equals(exportName, r.ExportName, StringComparison.Ordinal))
             {
                 // circular import request
                 return null;
@@ -138,7 +138,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
         for (var i = 0; i < _localExportEntries.Count; i++)
         {
             var e = _localExportEntries[i];
-            if (exportName == e.ExportName)
+            if (string.Equals(exportName, e.ExportName, StringComparison.Ordinal))
             {
                 // i. Assert: module provides the direct binding for this export.
                 return new ResolvedBinding(this, e.LocalName);
@@ -148,10 +148,10 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
         for (var i = 0; i < _indirectExportEntries.Count; i++)
         {
             var e = _indirectExportEntries[i];
-            if (exportName == e.ExportName)
+            if (string.Equals(exportName, e.ExportName, StringComparison.Ordinal))
             {
                 var importedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
-                if (e.ImportName == "*")
+                if (string.Equals(e.ImportName, "*", StringComparison.Ordinal))
                 {
                     // 1. Assert: module does not provide the direct binding for this export.
                     return new ResolvedBinding(importedModule, "*namespace*");
@@ -190,7 +190,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
                 }
                 else
                 {
-                    if (resolution.Module != starResolution.Module || resolution.BindingName != starResolution.BindingName)
+                    if (resolution.Module != starResolution.Module || !string.Equals(resolution.BindingName, starResolution.BindingName, StringComparison.Ordinal))
                     {
                         return ResolvedBinding.Ambiguous;
                     }
@@ -226,7 +226,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
             {
                 var ie = _importEntries[i];
                 var importedModule = _engine._host.ResolveImportedModule(this, ie.ModuleRequest);
-                if (ie.ImportName == "*")
+                if (string.Equals(ie.ImportName, "*", StringComparison.Ordinal))
                 {
                     var ns = GetModuleNamespace(importedModule);
                     env.CreateImmutableBinding(ie.LocalName, true);
@@ -240,7 +240,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
                         ExceptionHelper.ThrowSyntaxError(_realm, "Ambiguous import statement for identifier " + ie.ImportName);
                     }
 
-                    if (resolution.BindingName == "*namespace*")
+                    if (string.Equals(resolution.BindingName, "*namespace*", StringComparison.Ordinal))
                     {
                         var ns = GetModuleNamespace(resolution.Module);
                         env.CreateImmutableBinding(ie.LocalName, true);
@@ -262,7 +262,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
         var hoistingScope = HoistingScope.GetModuleLevelDeclarations(_source);
 
         var varDeclarations = hoistingScope._variablesDeclarations;
-        var declaredVarNames = new HashSet<string>();
+        var declaredVarNames = new HashSet<string>(StringComparer.Ordinal);
         if (varDeclarations != null)
         {
             var boundNames = new List<string>();
@@ -320,7 +320,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
                 env.CreateMutableBinding(fn, true);
                 // TODO private scope
                 var fo = realm.Intrinsics.Function.InstantiateFunctionObject(fd, env, privateEnv: null);
-                if (fn == "*default*")
+                if (string.Equals(fn, "*default*", StringComparison.Ordinal))
                 {
                     fo.SetFunctionName("default");
                 }

@@ -50,7 +50,7 @@ internal sealed class PrivateName : JsValue, IEquatable<PrivateName>
 
     public override int GetHashCode()
     {
-        return _identifier.Name.GetHashCode();
+        return StringComparer.Ordinal.GetHashCode(_identifier.Name);
     }
 }
 
@@ -61,14 +61,8 @@ internal sealed class PrivateIdentifierNameComparer : IEqualityComparer<PrivateI
 {
     internal static readonly PrivateIdentifierNameComparer _instance = new();
 
-    public bool Equals(PrivateIdentifier? x, PrivateIdentifier? y)
-    {
-        return x?.Name == y?.Name;
-    }
+    public bool Equals(PrivateIdentifier? x, PrivateIdentifier? y) => string.Equals(x?.Name, y?.Name, StringComparison.Ordinal);
 
-    public int GetHashCode(PrivateIdentifier obj)
-    {
-        return obj.Name.GetHashCode();
-    }
+    public int GetHashCode(PrivateIdentifier obj) => StringComparer.Ordinal.GetHashCode(obj.Name);
 }
 

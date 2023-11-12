@@ -167,7 +167,7 @@ namespace Jint
                 return;
             }
 
-            foreach (var overloads in methods.GroupBy(x => x.Name))
+            foreach (var overloads in methods.GroupBy(x => x.Name, StringComparer.Ordinal))
             {
                 PropertyDescriptor CreateMethodInstancePropertyDescriptor(ClrFunctionInstance? function)
                 {

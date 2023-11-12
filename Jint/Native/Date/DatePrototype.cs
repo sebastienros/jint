@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -116,11 +117,11 @@ namespace Jint.Native.Date
 
             var hintString = hint.ToString();
             var tryFirst = Types.None;
-            if (hintString == "default" || hintString == "string")
+            if (string.Equals(hintString, "default", StringComparison.Ordinal) || string.Equals(hintString, "string", StringComparison.Ordinal))
             {
                 tryFirst = Types.String;
             }
-            else  if (hintString == "number")
+            else  if (string.Equals(hintString, "number", StringComparison.Ordinal))
             {
                 tryFirst = Types.Number;
             }
@@ -1262,6 +1263,7 @@ namespace Jint.Native.Date
         private static bool AreFinite(double value1, double value2, double value3, double value4)
             => IsFinite(value1) && IsFinite(value2) &&  IsFinite(value3) && IsFinite(value4);
 
+        [StructLayout(LayoutKind.Auto)]
         private readonly record struct Date(int Year, int Month, int Day);
 
         private static readonly int[] kDaysInMonths = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};

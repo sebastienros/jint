@@ -552,7 +552,7 @@ namespace Jint.Native.Object
             {
             }
 
-            public JsValue Call(JsValue thisObject, JsValue[] arguments)
+            public JsValue Call(JsValue thisObject, params JsValue[] arguments)
             {
                 var o = (ObjectInstance) thisObject;
                 var key = arguments.At(0);

@@ -487,7 +487,7 @@ namespace Jint.Native.Array
 
             if (len > ArrayOperations.MaxArrayLength)
             {
-                ExceptionHelper.ThrowRangeError(_realm, "Invalid array length");;
+                ExceptionHelper.ThrowRangeError(_realm, "Invalid array length");
             }
 
             var callbackfn = arguments.At(0);
@@ -1136,7 +1136,7 @@ namespace Jint.Native.Array
 
             if (k < final && final - k > ArrayOperations.MaxArrayLength)
             {
-                ExceptionHelper.ThrowRangeError(_realm, "Invalid array length");;
+                ExceptionHelper.ThrowRangeError(_realm, "Invalid array length");
             }
 
             var length = (uint) System.Math.Max(0, (long) final - (long) k);

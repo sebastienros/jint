@@ -51,6 +51,33 @@ dotnet_diagnostic.CA1710.severity = none
 #  Error CA1716: Identifiers should have correct suffix
 dotnet_diagnostic.CA1716.severity = none
 
+#  Error MA0026: TODO
+dotnet_diagnostic.MA0026.severity = none
+
+#  Error MA0048 : File name must match type name
+dotnet_diagnostic.MA0048.severity = none
+
+#  Error MA0016 : Prefer using collection abstraction instead of implementation
+dotnet_diagnostic.MA0016.severity = none
+
+#  Error MA0017 : Abstract types should not have public or internal constructors
+dotnet_diagnostic.MA0017.severity = none
+
+#  Error MA0051 : Method is too long
+dotnet_diagnostic.MA0051.severity = none
+
+#  Error MA0046 : The delegate must return void
+dotnet_diagnostic.MA0046.severity = none
+
+#  Error MA0097 : A class that implements IComparable<T> or IComparable should override comparison operators
+dotnet_diagnostic.MA0097.severity = none
+
+#  Error MA0025 : Implement the functionality (or raise NotSupportedException or PlatformNotSupportedException)
+dotnet_diagnostic.MA0025.severity = none
+
+#  Error MA0091 : Sender parameter should be 'this' for instance events
+dotnet_diagnostic.MA0091.severity = none
+
 # Sort using and Import directives with System.* appearing first
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false

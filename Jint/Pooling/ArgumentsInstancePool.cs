@@ -49,7 +49,7 @@ namespace Jint.Pooling
             {
                 return;
             }
-            _pool.Free(instance);;
+            _pool.Free(instance);
         }
     }
 }

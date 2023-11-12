@@ -246,6 +246,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         {
                             // DestructuringAssignmentEvaluation of assignmentPattern using nextValue as the argument.
                         }
+#pragma warning disable MA0140
                         else if (lhsKind == LhsKind.VarBinding)
                         {
                             // BindingInitialization for lhs passing nextValue and undefined as the arguments.
@@ -254,6 +255,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         {
                             // BindingInitialization for lhs passing nextValue and iterationEnv as arguments
                         }
+#pragma warning restore MA0140
                     }
 
                     if (status != CompletionType.Normal)
@@ -282,13 +284,13 @@ namespace Jint.Runtime.Interpreter.Statements
                         v = result.Value;
                     }
 
-                    if (result.Type == CompletionType.Break && (context.Target == null || context.Target == _statement?.LabelSet?.Name))
+                    if (result.Type == CompletionType.Break && (context.Target == null || string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
                     {
                         completionType = CompletionType.Normal;
                         return new Completion(CompletionType.Normal, v, _statement!);
                     }
 
-                    if (result.Type != CompletionType.Continue || (context.Target != null && context.Target != _statement?.LabelSet?.Name))
+                    if (result.Type != CompletionType.Continue || (context.Target != null && !string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
                     {
                         completionType = result.Type;
                         if (result.IsAbrupt())
@@ -318,7 +320,9 @@ namespace Jint.Runtime.Interpreter.Statements
                         if (completionType != CompletionType.Throw)
                         {
 #pragma warning disable CA2219
+#pragma warning disable MA0072
                             throw;
+#pragma warning restore MA0072
 #pragma warning restore CA2219
                         }
                     }
