@@ -618,7 +618,7 @@ namespace Jint
                         return JsValue.Undefined;
                     }
 
-                    var callable = (ICallable) getter.AsObject();
+                    var callable = (ICallable) getter;
                     return callable.Call(baseValue, Arguments.Empty);
                 }
             }
