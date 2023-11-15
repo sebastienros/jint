@@ -171,7 +171,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
 
     internal static JsString CachedCreate(string value)
     {
-        if (value.Length < 2)
+        if (value.Length is < 2 or > 10)
         {
             return Create(value);
         }
