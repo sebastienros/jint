@@ -326,7 +326,7 @@ namespace Jint.Native.RegExp
             string replacement)
         {
             // If there is no pattern, replace the pattern as is.
-            if (replacement.IndexOf('$') < 0)
+            if (!replacement.Contains('$'))
             {
                 return replacement;
             }
@@ -443,8 +443,8 @@ namespace Jint.Native.RegExp
             var limit = arguments.At(1);
             var c = SpeciesConstructor(rx, _realm.Intrinsics.RegExp);
             var flags = TypeConverter.ToJsString(rx.Get(PropertyFlags));
-            var unicodeMatching = flags.IndexOf('u') > -1;
-            var newFlags = flags.IndexOf('y') > -1 ? flags : new JsString(flags.ToString() + 'y');
+            var unicodeMatching = flags.Contains('u');
+            var newFlags = flags.Contains('y') ? flags : new JsString(flags.ToString() + 'y');
             var splitter = Construct(c, new JsValue[]
             {
                 rx,
@@ -789,8 +789,8 @@ namespace Jint.Native.RegExp
             var lastIndex = TypeConverter.ToLength(r.Get(JsRegExp.PropertyLastIndex));
             matcher.Set(JsRegExp.PropertyLastIndex, lastIndex, true);
 
-            var global = flags.IndexOf('g') != -1;
-            var fullUnicode = flags.IndexOf('u') != -1;
+            var global = flags.Contains('g');
+            var fullUnicode = flags.Contains('u');
 
             return _realm.Intrinsics.RegExpStringIteratorPrototype.Construct(matcher, s, global, fullUnicode);
         }

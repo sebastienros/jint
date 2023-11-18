@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -272,12 +273,11 @@ namespace Jint.Native.Global
             return true;
         }
 
-        private static readonly string UriReserved = new (new [] { ';', '/', '?', ':', '@', '&', '=', '+', '$', ',' });
-        private static readonly string UriUnescaped = new(new [] { '-', '_', '.', '!', '~', '*', '\'', '(', ')' });
-        private static readonly string UnescapedUriSet = UriReserved + UriUnescaped + '#';
-        private static readonly string ReservedUriSet = UriReserved + '#';
-
-        private const string HexaMap = "0123456789ABCDEF";
+        private const string UriReservedString = ";/?:@&=+$,";
+        private const string UriUnescapedString = "-_.!~*'()";
+        private static readonly SearchValues<char> UriUnescaped = SearchValues.Create(UriUnescapedString);
+        private static readonly SearchValues<char> UnescapedUriSet = SearchValues.Create(UriReservedString + UriUnescapedString + '#');
+        private static readonly SearchValues<char> ReservedUriSet = SearchValues.Create(UriReservedString + '#');
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsValidHexaChar(char c) => Uri.IsHexDigit(c);
@@ -309,13 +309,15 @@ namespace Jint.Native.Global
             return Encode(uriString, UriUnescaped);
         }
 
-        private JsValue Encode(string uriString, string unescapedUriSet)
+        private JsValue Encode(string uriString, SearchValues<char> unescapedUriSet)
         {
+            const string HexaMap = "0123456789ABCDEF";
+
             var strLen = uriString.Length;
 
             _stringBuilder.EnsureCapacity(uriString.Length);
             _stringBuilder.Clear();
-            var buffer = new byte[4];
+            Span<byte> buffer = stackalloc byte[4];
 
             for (var k = 0; k < strLen; k++)
             {
@@ -421,7 +423,7 @@ uriError:
             return Decode(componentString, null);
         }
 
-        private JsValue Decode(string uriString, string? reservedSet)
+        private JsValue Decode(string uriString, SearchValues<char>? reservedSet)
         {
             var strLen = uriString.Length;
 
@@ -463,7 +465,7 @@ uriError:
                     {
                         C = (char)B;
 #pragma warning disable CA2249
-                        if (reservedSet == null || reservedSet.IndexOf(C) == -1)
+                        if (reservedSet == null || !reservedSet.Contains(C))
 #pragma warning restore CA2249
                         {
                             _stringBuilder.Append(C);
@@ -589,12 +591,13 @@ uriError:
             return tmp < radix;
         }
 
+        private static readonly SearchValues<char> EscapeAllowList = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_ + -./");
+
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-B.2.1
         /// </summary>
         public JsValue Escape(JsValue thisObject, JsValue[] arguments)
         {
-            const string AllowList = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_ + -./";
             var uriString = TypeConverter.ToString(arguments.At(0));
 
             var strLen = uriString.Length;
@@ -605,7 +608,7 @@ uriError:
             for (var k = 0; k < strLen; k++)
             {
                 var c = uriString[k];
-                if (AllowList.Contains(c))
+                if (EscapeAllowList.Contains(c))
                 {
                     _stringBuilder.Append(c);
                 }

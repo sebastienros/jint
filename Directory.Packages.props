@@ -8,9 +8,9 @@
     <PackageVersion Include="Esprima" Version="3.0.2" />
     <PackageVersion Include="Flurl.Http.Signed" Version="3.2.4" />
     <PackageVersion Include="Jurassic" Version="3.2.7" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.106" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.110" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.7.2" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageVersion Include="MongoDB.Bson.signed" Version="2.19.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="NiL.JS" Version="2.5.1674" />
@@ -21,13 +21,13 @@
     <PackageVersion Include="Spectre.Console.Cli" Version="0.45.0" />
     <PackageVersion Include="System.Text.Json" Version="6.0.8" />
     <PackageVersion Include="Test262Harness" Version="0.0.22" />
-    <PackageVersion Include="xunit" Version="2.6.1" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <PackageVersion Include="xunit" Version="2.6.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.4" PrivateAssets="all" />
     <PackageVersion Include="YantraJS.Core" Version="1.2.203" />
   </ItemGroup>
   <ItemGroup>
     <GlobalPackageReference Include="GitHubActionsTestLogger" Version="2.3.3" />
-    <GlobalPackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
+    <GlobalPackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
     <GlobalPackageReference Include="PolySharp" Version="1.13.2" />
   </ItemGroup>
 </Project>

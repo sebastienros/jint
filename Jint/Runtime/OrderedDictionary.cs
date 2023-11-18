@@ -1,3 +1,5 @@
+#pragma warning disable CA1863 // Cache a 'CompositeFormat' for repeated use in this formatting operation
+
 #nullable disable
 
 // based on https://github.com/jehugaleahsa/truncon.collections.OrderedDictionary

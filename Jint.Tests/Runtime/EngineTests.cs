@@ -24,40 +24,35 @@ namespace Jint.Tests.Runtime
         private static readonly TimeZoneInfo _tongaTimeZone;
         private static readonly TimeZoneInfo _easternTimeZone;
 
-
         static EngineTests()
         {
+            // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
+            // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
             try
+            {
+                _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Los_Angeles");
+            }
+            catch (TimeZoneNotFoundException)
             {
                 _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
             }
-            catch (TimeZoneNotFoundException)
-            {
-                // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
-                // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
-                _pacificTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Los_Angeles");
-            }
 
             try
+            {
+                _tongaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific/Tongatapu");
+            }
+            catch (TimeZoneNotFoundException)
             {
                 _tongaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Tonga Standard Time");
             }
-            catch (TimeZoneNotFoundException)
-            {
-                // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
-                // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
-                _tongaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific/Tongatapu");
-            }
 
             try
             {
-                _easternTimeZone = TimeZoneInfo.FindSystemTimeZoneById("US Eastern Standard Time");
+                _easternTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
             }
             catch (TimeZoneNotFoundException)
             {
-                // https://stackoverflow.com/questions/47848111/how-should-i-fetch-timezoneinfo-in-a-platform-agnostic-way
-                // should be natively supported soon https://github.com/dotnet/runtime/issues/18644
-                _easternTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+                _easternTimeZone = TimeZoneInfo.FindSystemTimeZoneById("US Eastern Standard Time");
             }
         }
 
