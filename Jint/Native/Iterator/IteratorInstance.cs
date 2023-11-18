@@ -27,7 +27,7 @@ namespace Jint.Native.Iterator
         /// <summary>
         /// https://tc39.es/ecma262/#sec-createiterresultobject
         /// </summary>
-        private ObjectInstance CreateIterResultObject(JsValue value, bool done)
+        private IteratorResult CreateIterResultObject(JsValue value, bool done)
         {
             return new IteratorResult(_engine, value, JsBoolean.Create(done));
         }

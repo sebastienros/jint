@@ -118,7 +118,7 @@ namespace Jint.Native.Promise
         }
 
         // https://tc39.es/ecma262/#sec-thenfinallyfunctions
-        private JsValue ThenFinallyFunctions(ICallable onFinally, IConstructor ctor) =>
+        private ClrFunctionInstance ThenFinallyFunctions(ICallable onFinally, IConstructor ctor) =>
             new ClrFunctionInstance(_engine, "", (_, args) =>
             {
                 var value = args.At(0);
@@ -137,7 +137,7 @@ namespace Jint.Native.Promise
             }, 1, PropertyFlag.Configurable);
 
         // https://tc39.es/ecma262/#sec-catchfinallyfunctions
-        private JsValue CatchFinallyFunctions(ICallable onFinally, IConstructor ctor) =>
+        private ClrFunctionInstance CatchFinallyFunctions(ICallable onFinally, IConstructor ctor) =>
             new ClrFunctionInstance(_engine, "", (_, args) =>
             {
                 var reason = args.At(0);

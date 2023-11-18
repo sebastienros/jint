@@ -134,7 +134,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// Version that can safely build plain object with only normal init/data fields fast.
         /// </summary>
-        private object BuildObjectFast(EvaluationContext context)
+        private JsObject BuildObjectFast(EvaluationContext context)
         {
             var obj = new JsObject(context.Engine);
             var properties = new PropertyDictionary(_properties.Length, checkExistingKeys: true);

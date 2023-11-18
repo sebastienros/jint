@@ -1,4 +1,5 @@
 #nullable disable
+#pragma warning disable CA1510
 
 namespace Jint.Native.Date;
 

@@ -67,7 +67,7 @@ public abstract class ModuleRecord : JsValue, IScriptOrModule
     /// <summary>
     /// https://tc39.es/ecma262/#sec-modulenamespacecreate
     /// </summary>
-    private static ObjectInstance CreateModuleNamespace(ModuleRecord module, List<string> unambiguousNames)
+    private static ModuleNamespace CreateModuleNamespace(ModuleRecord module, List<string> unambiguousNames)
     {
         var m = new ModuleNamespace(module._engine, module, unambiguousNames);
         module._namespace = m;

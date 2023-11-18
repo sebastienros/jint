@@ -1,3 +1,5 @@
+#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
+
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;

@@ -1,4 +1,6 @@
-﻿using System.Text.RegularExpressions;
+﻿#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
+
+using System.Text.RegularExpressions;
 using Jint.Collections;
 using Jint.Native.Number;
 using Jint.Native.Object;
@@ -139,17 +141,17 @@ namespace Jint.Native.RegExp
             {
                 var value = TypeConverter.ToString(replaceValue);
                 replaceValue = value;
-                mayHaveNamedCaptures = value.IndexOf('$') != -1;
+                mayHaveNamedCaptures = value.Contains('$');
             }
 
             var flags = TypeConverter.ToString(rx.Get(PropertyFlags));
-            var global = flags.IndexOf('g') != -1;
+            var global = flags.Contains('g');
 
             var fullUnicode = false;
 
             if (global)
             {
-                fullUnicode = flags.IndexOf('u') != -1;
+                fullUnicode = flags.Contains('u');
                 rx.Set(JsRegExp.PropertyLastIndex, 0, true);
             }
 
@@ -527,7 +529,7 @@ namespace Jint.Native.RegExp
             return SplitSlow(s, splitter, unicodeMatching, lengthA, lim);
         }
 
-        private JsValue SplitSlow(string s, ObjectInstance splitter, bool unicodeMatching, uint lengthA, long lim)
+        private JsArray SplitSlow(string s, ObjectInstance splitter, bool unicodeMatching, uint lengthA, long lim)
         {
             var a = _realm.Intrinsics.Array.ArrayCreate(0);
             ulong previousStringIndex = 0;
@@ -684,13 +686,13 @@ namespace Jint.Native.RegExp
 
             var s = TypeConverter.ToString(arguments.At(0));
             var flags = TypeConverter.ToString(rx.Get(PropertyFlags));
-            var global = flags.IndexOf('g') != -1;
+            var global = flags.Contains('g');
             if (!global)
             {
                 return RegExpExec(rx, s);
             }
 
-            var fullUnicode = flags.IndexOf('u') != -1;
+            var fullUnicode = flags.Contains('u');
             rx.Set(JsRegExp.PropertyLastIndex, JsNumber.PositiveZero, true);
 
             if (!fullUnicode

@@ -506,7 +506,7 @@ namespace Jint.Native.Json
             return _lookahead.Type == Tokens.Punctuator && value == _lookahead.FirstCharacter;
         }
 
-        private ObjectInstance ParseJsonArray(ref State state)
+        private JsArray ParseJsonArray(ref State state)
         {
             if ((++state.CurrentDepth) > _maxDepth)
             {
@@ -603,7 +603,7 @@ namespace Jint.Native.Json
             return result ?? new JsArray(_engine, elements!.ToArray());
         }
 
-        private ObjectInstance ParseJsonObject(ref State state)
+        private JsObject ParseJsonObject(ref State state)
         {
             if ((++state.CurrentDepth) > _maxDepth)
             {

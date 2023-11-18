@@ -115,7 +115,7 @@ public partial class FunctionInstance
                         break;
                 }
 
-                if (p.IndexOf('/') != -1)
+                if (p.Contains('/'))
                 {
                     // ensure comments don't screw up things
                     functionExpression += "\n" + p + "\n";
@@ -127,7 +127,7 @@ public partial class FunctionInstance
 
                 functionExpression += ")";
 
-                if (body.IndexOf('/') != -1)
+                if (body.Contains('/'))
                 {
                     // ensure comments don't screw up things
                     functionExpression += "{\n" + body + "\n}";

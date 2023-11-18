@@ -162,7 +162,7 @@ namespace Jint
             return result is not null;
         }
 
-        private static JsValue ConvertArray(Engine e, object v)
+        private static JsArray ConvertArray(Engine e, object v)
         {
             var array = (Array) v;
             var arrayLength = (uint) array.Length;

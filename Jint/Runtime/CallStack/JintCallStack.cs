@@ -63,8 +63,10 @@ namespace Jint.Runtime.CallStack
             if (_statistics is not null)
             {
 #pragma warning disable CA1854
+#pragma warning disable CA1864
                 if (_statistics.ContainsKey(item))
 #pragma warning restore CA1854
+#pragma warning restore CA1864
                 {
                     return ++_statistics[item];
                 }
