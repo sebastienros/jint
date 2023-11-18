@@ -1,3 +1,5 @@
+#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of constructor methods return JsValue
+
 using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Native.Symbol;

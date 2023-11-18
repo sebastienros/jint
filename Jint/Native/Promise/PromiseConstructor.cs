@@ -114,7 +114,7 @@ namespace Jint.Native.Promise
             return PromiseResolve(thisObject, x);
         }
 
-        private JsValue WithResolvers(JsValue thisObject, JsValue[] arguments)
+        private JsObject WithResolvers(JsValue thisObject, JsValue[] arguments)
         {
             var promiseCapability = NewPromiseCapability(_engine, thisObject);
             var obj = OrdinaryObjectCreate(_engine, _engine.Realm.Intrinsics.Object.PrototypeObject);

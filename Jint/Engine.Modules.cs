@@ -49,7 +49,7 @@ namespace Jint
             return module;
         }
 
-        private CyclicModuleRecord LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution)
+        private BuilderModuleRecord LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution)
         {
             var parsedModule = moduleBuilder.Parse();
             var module = new BuilderModuleRecord(this, Realm, parsedModule, null, false);
@@ -59,7 +59,7 @@ namespace Jint
             return module;
         }
 
-        private CyclicModuleRecord LoaderFromModuleLoader(ResolvedSpecifier moduleResolution)
+        private SourceTextModuleRecord LoaderFromModuleLoader(ResolvedSpecifier moduleResolution)
         {
             var parsedModule = ModuleLoader.LoadModule(this, moduleResolution);
             var module = new SourceTextModuleRecord(this, Realm, parsedModule, moduleResolution.Uri?.LocalPath, false);

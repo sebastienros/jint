@@ -117,7 +117,7 @@ namespace Jint.Runtime.Interop
                     return TypeReference.CreateTypeReference(_engine, type);
                 }
 
-                var lastPeriodPos = path.LastIndexOf(".", StringComparison.Ordinal);
+                var lastPeriodPos = path.LastIndexOf('.');
                 var trimPath = path.Substring(0, lastPeriodPos);
                 type = GetType(assembly, trimPath);
                 if (type != null)

@@ -92,7 +92,7 @@ namespace Jint.Native.RegExp
             return RegExpInitialize(r, p, f);
         }
 
-        private ObjectInstance RegExpInitialize(JsRegExp r, JsValue pattern, JsValue flags)
+        private JsRegExp RegExpInitialize(JsRegExp r, JsValue pattern, JsValue flags)
         {
             var p = pattern.IsUndefined() ? "" : TypeConverter.ToString(pattern);
             if (string.IsNullOrEmpty(p))

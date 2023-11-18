@@ -210,7 +210,7 @@ public sealed class ShadowRealm : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-wrappedfunctioncreate
     /// </summary>
-    private static JsValue WrappedFunctionCreate(Realm throwerRealm, Realm callerRealm, ObjectInstance target)
+    private static WrappedFunction WrappedFunctionCreate(Realm throwerRealm, Realm callerRealm, ObjectInstance target)
     {
         var wrapped = new WrappedFunction(callerRealm.GlobalEnv._engine, callerRealm, target);
         try

@@ -327,7 +327,7 @@ namespace Jint.Runtime.Interop
 
         public object Target => ReferenceType;
 
-        private static JsValue HasInstance(JsValue thisObject, JsValue[] arguments)
+        private static JsBoolean HasInstance(JsValue thisObject, JsValue[] arguments)
         {
             var typeReference = thisObject as TypeReference;
             var other = arguments.At(0);
@@ -346,7 +346,9 @@ namespace Jint.Runtime.Interop
                 _ => null
             };
 
-            return derivedType != null && baseType != null && (derivedType == baseType || derivedType.IsSubclassOf(baseType));
+            return derivedType != null && baseType != null && (derivedType == baseType || derivedType.IsSubclassOf(baseType))
+                ? JsBoolean.True
+                : JsBoolean.False;
         }
 
         public override string ToString()

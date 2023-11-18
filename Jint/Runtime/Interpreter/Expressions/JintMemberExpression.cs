@@ -140,7 +140,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// https://tc39.es/ecma262/#sec-makeprivatereference
         /// </summary>
-        private static object MakePrivateReference(Engine engine, JsValue baseValue, JsValue privateIdentifier)
+        private static Reference MakePrivateReference(Engine engine, JsValue baseValue, JsValue privateIdentifier)
         {
             var privEnv = engine.ExecutionContext.PrivateEnvironment;
             var privateName = privEnv!.ResolvePrivateIdentifier(privateIdentifier.ToString());

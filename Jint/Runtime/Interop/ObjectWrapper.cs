@@ -290,7 +290,7 @@ namespace Jint.Runtime.Interop
                 : new EnumerableIterator(wrapper._engine, (IEnumerable) wrapper.Target);
         }
 
-        private static JsValue GetLength(JsValue thisObject, JsValue[] arguments)
+        private static JsNumber GetLength(JsValue thisObject, JsValue[] arguments)
         {
             var wrapper = (ObjectWrapper) thisObject;
             return JsNumber.Create((int) (wrapper._typeDescriptor.LengthProperty?.GetValue(wrapper.Target) ?? 0));

@@ -251,7 +251,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return value;
         }
 
-        private JsValue SuperCall(EvaluationContext context)
+        private ObjectInstance SuperCall(EvaluationContext context)
         {
             var engine = context.Engine;
             var thisEnvironment = (FunctionEnvironmentRecord) engine.ExecutionContext.GetThisEnvironment();

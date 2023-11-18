@@ -320,7 +320,7 @@ namespace Jint.Native.Global
             for (var k = 0; k < strLen; k++)
             {
                 var c = uriString[k];
-                if (c is >= 'a' and <= 'z' || c is >= 'A' and <= 'Z' || c is >= '0' and <= '9' || unescapedUriSet.IndexOf(c) != -1)
+                if (c is >= 'a' and <= 'z' || c is >= 'A' and <= 'Z' || c is >= '0' and <= '9' || unescapedUriSet.Contains(c))
                 {
                     _stringBuilder.Append(c);
                 }
@@ -594,7 +594,7 @@ uriError:
         /// </summary>
         public JsValue Escape(JsValue thisObject, JsValue[] arguments)
         {
-            const string WhiteList = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_ + -./";
+            const string AllowList = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_ + -./";
             var uriString = TypeConverter.ToString(arguments.At(0));
 
             var strLen = uriString.Length;
@@ -605,7 +605,7 @@ uriError:
             for (var k = 0; k < strLen; k++)
             {
                 var c = uriString[k];
-                if (WhiteList.IndexOf(c) != -1)
+                if (AllowList.Contains(c))
                 {
                     _stringBuilder.Append(c);
                 }

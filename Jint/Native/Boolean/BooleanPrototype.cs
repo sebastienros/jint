@@ -52,7 +52,7 @@ namespace Jint.Native.Boolean
             return Undefined;
         }
 
-        private JsValue ToBooleanString(JsValue thisObject, JsValue[] arguments)
+        private JsString ToBooleanString(JsValue thisObject, JsValue[] arguments)
         {
             var b = ValueOf(thisObject, Arguments.Empty);
             return ((JsBoolean) b)._value ? JsString.TrueString : JsString.FalseString;

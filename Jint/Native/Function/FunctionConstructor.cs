@@ -67,7 +67,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-instantiateasyncfunctionobject
         /// </summary>
-        private FunctionInstance InstantiateAsyncFunctionObject(
+        private ScriptFunctionInstance InstantiateAsyncFunctionObject(
             JintFunctionDefinition functionDeclaration,
             EnvironmentRecord env,
             PrivateEnvironmentRecord? privateEnv)
@@ -87,7 +87,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-instantiateordinaryfunctionobject
         /// </summary>
-        private FunctionInstance InstantiateOrdinaryFunctionObject(
+        private ScriptFunctionInstance InstantiateOrdinaryFunctionObject(
             JintFunctionDefinition functionDeclaration,
             EnvironmentRecord env,
             PrivateEnvironmentRecord? privateEnv)
@@ -108,7 +108,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-instantiategeneratorfunctionobject
         /// </summary>
-        private FunctionInstance InstantiateGeneratorFunctionObject(
+        private ScriptFunctionInstance InstantiateGeneratorFunctionObject(
             JintFunctionDefinition functionDeclaration,
             EnvironmentRecord scope,
             PrivateEnvironmentRecord? privateScope)
