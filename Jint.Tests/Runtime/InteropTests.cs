@@ -3333,5 +3333,93 @@ try {
             var result = engine.Evaluate("const { getStrings } = test; getStrings().Count;");
             Assert.Equal(3, result);
         }
+
+        private class MetadataWrapper : IDictionary<string, object?>
+        {
+            public IEnumerator<KeyValuePair<string, object>> GetEnumerator() => throw new NotImplementedException();
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            public void Add(KeyValuePair<string, object> item) => throw new NotImplementedException();
+            public void Clear() => throw new NotImplementedException();
+            public bool Contains(KeyValuePair<string, object> item) => throw new NotImplementedException();
+            public void CopyTo(KeyValuePair<string, object>[] array, int arrayIndex) => throw new NotImplementedException();
+            public bool Remove(KeyValuePair<string, object> item) => throw new NotImplementedException();
+            public int Count { get; set; }
+            public bool IsReadOnly { get; set; }
+            public bool ContainsKey(string key) => throw new NotImplementedException();
+            public void Add(string key, object value) => throw new NotImplementedException();
+            public bool Remove(string key) => throw new NotImplementedException();
+            public bool TryGetValue(string key, out object value)
+            {
+                value = "from-wrapper";
+                return true;
+            }
+
+            public object this[string key]
+            {
+                get => "from-wrapper";
+                set
+                {
+                }
+            }
+
+            public ICollection<string> Keys { get; set; }
+            public ICollection<object> Values { get; set; }
+        }
+
+        private class ShadowedGetter : IReadOnlyDictionary<string, object>
+        {
+            private Dictionary<string, object> _dictionary = new();
+
+            public void SetInitial(object? value, string? key)
+            {
+                _dictionary[key] = value;
+            }
+
+            public IEnumerator<KeyValuePair<string, object>> GetEnumerator() => throw new NotImplementedException();
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+            public int Count { get; }
+            public bool ContainsKey(string key) => _dictionary.ContainsKey(key);
+
+            public bool TryGetValue(string key, out object value) => _dictionary.TryGetValue(key, out value);
+
+            public object this[string key]
+            {
+                get
+                {
+                    _dictionary.TryGetValue(key, out var value);
+                    return value;
+                }
+            }
+
+            public IEnumerable<string> Keys { get; set; }
+            public IEnumerable<object> Values { get; set; }
+        }
+
+        private class ShadowingSetter : ShadowedGetter
+        {
+            public Dictionary<string, int> Metadata
+            {
+                set
+                {
+                    SetInitial(new MetadataWrapper(), "metadata");
+                }
+            }
+        }
+
+        [Fact]
+        public void CanSelectShadowedPropertiesBasedOnReadableAndWritable()
+        {
+            var engine = new Engine();
+            engine.SetValue("test", new ShadowingSetter
+            {
+                Metadata = null
+            });
+
+            engine.Evaluate("test.metadata['abc'] = 123");
+            var result = engine.Evaluate("test.metadata['abc']");
+            Assert.Equal("from-wrapper", result);
+        }
     }
 }
