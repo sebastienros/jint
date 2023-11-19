@@ -75,6 +75,7 @@ namespace Jint
         /// <summary>
         /// Sets maximum allowed depth of recursion.
         /// </summary>
+        /// <param name="options">Options to modify</param>
         /// <param name="maxRecursionDepth">
         /// The allowed depth.
         /// a) In case max depth is zero no recursion is allowed.
@@ -140,6 +141,7 @@ namespace Jint
         /// to change what values are returned for specific CLR objects, or if any value
         /// is returned at all.
         /// </summary>
+        /// <param name="options">Options to modify</param>
         /// <param name="accessor">
         /// The delegate to invoke for each CLR member. If the delegate
         /// returns <c>null</c>, the standard evaluation is performed.
@@ -246,6 +248,7 @@ namespace Jint
         /// Registers some custom logic to apply on an <see cref="Engine"/> instance when the options
         /// are loaded.
         /// </summary>
+        /// <param name="options">Options to modify</param>
         /// <param name="configuration">The action to register.</param>
         public static Options Configure(this Options options, Action<Engine> configuration)
         {

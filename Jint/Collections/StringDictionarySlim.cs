@@ -15,7 +15,7 @@ using System.Runtime.CompilerServices;
 namespace Jint.Collections
 {
     /// <summary>
-    /// DictionarySlim<string, TValue> is similar to Dictionary<TKey, TValue> but optimized in three ways:
+    /// DictionarySlim&lt;string, TValue> is similar to Dictionary&lt;TKey, TValue> but optimized in three ways:
     /// 1) It allows access to the value by ref replacing the common TryGetValue and Add pattern.
     /// 2) It does not store the hash code (assumes it is cheap to equate values).
     /// 3) It does not accept an equality comparer (assumes Object.GetHashCode() and Object.Equals() or overridden implementation are cheap and sufficient).

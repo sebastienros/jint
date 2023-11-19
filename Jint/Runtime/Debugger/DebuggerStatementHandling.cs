@@ -16,7 +16,7 @@ namespace Jint.Runtime.Debugger
         Clr,
 
         /// <summary>
-        /// <c>debugger</c> statements will trigger a break in Jint's DebugHandler. See <see cref="Jint.Engine.Break"/>.
+        /// <c>debugger</c> statements will trigger a break in Jint's DebugHandler. See <see cref="DebugHandler.Break"/>.
         /// </summary>
         Script
     }

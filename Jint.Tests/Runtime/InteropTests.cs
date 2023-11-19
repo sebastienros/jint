@@ -3334,7 +3334,7 @@ try {
             Assert.Equal(3, result);
         }
 
-        private class MetadataWrapper : IDictionary<string, object?>
+        private class MetadataWrapper : IDictionary<string, object>
         {
             public IEnumerator<KeyValuePair<string, object>> GetEnumerator() => throw new NotImplementedException();
             IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
@@ -3370,7 +3370,7 @@ try {
         {
             private Dictionary<string, object> _dictionary = new();
 
-            public void SetInitial(object? value, string? key)
+            public void SetInitial(object value, string key)
             {
                 _dictionary[key] = value;
             }
