@@ -43,13 +43,14 @@ namespace Jint.Runtime.Descriptors.Specialized
             set => DoSet(null, value);
         }
 
-        JsValue DoGet(JsValue? thisObj)
+        private JsValue DoGet(JsValue? thisObj)
         {
             var value = _reflectionAccessor.GetValue(_engine, _target);
             var type = _reflectionAccessor.MemberType;
             return JsValue.FromObjectWithType(_engine, value, type);
         }
-        void DoSet(JsValue? thisObj, JsValue? v)
+
+        private void DoSet(JsValue? thisObj, JsValue? v)
         {
             try
             {

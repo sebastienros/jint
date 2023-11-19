@@ -47,8 +47,9 @@ namespace Jint.Runtime.Interop
             Engine engine,
             Type type,
             string member,
-            Func<ReflectionAccessor?>? accessorFactory = null,
-            bool forWrite = false)
+            bool mustBeReadable,
+            bool mustBeWritable,
+            Func<ReflectionAccessor?>? accessorFactory = null)
         {
             var key = new Engine.ClrPropertyDescriptorFactoriesKey(type, member);
 
@@ -58,7 +59,7 @@ namespace Jint.Runtime.Interop
                 return accessor;
             }
 
-            accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member, forWrite);
+            accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member, mustBeReadable, mustBeWritable);
 
             // racy, we don't care, worst case we'll catch up later
             Interlocked.CompareExchange(ref engine._reflectionAccessors,
@@ -74,7 +75,8 @@ namespace Jint.Runtime.Interop
             Engine engine,
             Type type,
             string memberName,
-            bool forWrite)
+            bool mustBeReadable,
+            bool mustBeWritable)
         {
             var isInteger = long.TryParse(memberName, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
 
@@ -86,7 +88,8 @@ namespace Jint.Runtime.Interop
             // properties and fields cannot be numbers
             if (!isInteger
                 && TryFindMemberAccessor(engine, type, memberName, BindingFlags, indexer, out var temp)
-                && (!forWrite || temp.Writable))
+                && (!mustBeReadable || temp.Readable)
+                && (!mustBeWritable || temp.Writable))
             {
                 return temp;
             }

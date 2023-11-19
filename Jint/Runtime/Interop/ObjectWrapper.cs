@@ -50,7 +50,7 @@ namespace Jint.Runtime.Interop
                 if (_properties is null || !_properties.ContainsKey(member))
                 {
                     // can try utilize fast path
-                    var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, forWrite: true);
+                    var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable: false, mustBeWritable: true);
 
                     if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor))
                     {
@@ -116,7 +116,13 @@ namespace Jint.Runtime.Interop
                 return (uint) index < list.Count ? FromObject(_engine, list[index]) : Undefined;
             }
 
-            return base.Get(property, receiver);
+            var desc = GetOwnProperty(property, mustBeReadable: true, mustBeWritable: false);
+            if (desc != PropertyDescriptor.Undefined)
+            {
+                return UnwrapJsValue(desc, receiver);
+            }
+
+            return Prototype?.Get(property, receiver) ?? Undefined;
         }
 
         public override List<JsValue> GetOwnPropertyKeys(Types types = Types.None | Types.String | Types.Symbol)
@@ -183,6 +189,12 @@ namespace Jint.Runtime.Interop
 
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
+            // we do not know if we need to read or write
+            return GetOwnProperty(property, mustBeReadable: false, mustBeWritable: false);
+        }
+
+        private PropertyDescriptor GetOwnProperty(JsValue property, bool mustBeReadable, bool mustBeWritable)
+        {
             if (TryGetProperty(property, out var x))
             {
                 return x;
@@ -234,13 +246,17 @@ namespace Jint.Runtime.Interop
                 return new PropertyDescriptor(result, PropertyFlag.OnlyEnumerable);
             }
 
-            var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member);
+            var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable, mustBeWritable);
             var descriptor = accessor.CreatePropertyDescriptor(_engine, Target, enumerable: !isDictionary);
-            if (!isDictionary && !ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
+            if (!isDictionary
+                && !ReferenceEquals(descriptor, PropertyDescriptor.Undefined)
+                && (!mustBeReadable || accessor.Readable)
+                && (!mustBeWritable || accessor.Writable))
             {
                 // cache the accessor for faster subsequent accesses
                 SetProperty(member, descriptor);
             }
+
             return descriptor;
         }
 
@@ -258,7 +274,9 @@ namespace Jint.Runtime.Interop
                     _ => null
                 };
             }
-            return engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, Factory).CreatePropertyDescriptor(engine, target);
+
+            var accessor = engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, mustBeReadable: false, mustBeWritable: false, Factory);
+            return accessor.CreatePropertyDescriptor(engine, target);
         }
 
         internal static Type GetClrType(object obj, Type? type)
