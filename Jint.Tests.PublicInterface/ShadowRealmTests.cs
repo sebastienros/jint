@@ -35,7 +35,7 @@ public class ShadowRealmTests
         engine.SetValue("message", "world");
         engine.Evaluate("function hello() {return message}");
 
-        Assert.Equal("world",engine.Evaluate("hello();"));
+        Assert.Equal("world", engine.Evaluate("hello();"));
 
         var shadowRealm = engine.Realm.Intrinsics.ShadowRealm.Construct();
         shadowRealm.SetValue("message", "realm 1");
@@ -97,9 +97,25 @@ public class ShadowRealmTests
         var assemblyDirectory = new DirectoryInfo(AppDomain.CurrentDomain.RelativeSearchPath ?? AppDomain.CurrentDomain.BaseDirectory);
 
         var current = assemblyDirectory;
-        while (current is not null && current.GetDirectories().All(x => x.Name != "Jint.Tests"))
+        var binDirectory = $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}";
+        while (current is not null)
         {
-            current = current.Parent;
+            if (current.FullName.Contains(binDirectory) || current.Name == "bin")
+            {
+                current = current.Parent;
+                continue;
+            }
+
+            var testDirectory = current.GetDirectories("Jint.Tests").FirstOrDefault();
+            if (testDirectory == null)
+            {
+                current = current.Parent;
+                continue;
+            }
+
+            // found it
+            current = testDirectory;
+            break;
         }
 
         if (current is null)
@@ -107,6 +123,6 @@ public class ShadowRealmTests
             throw new NullReferenceException($"Could not find tests base path, assemblyPath: {assemblyDirectory}");
         }
 
-        return Path.Combine(current.FullName, "Jint.Tests", "Runtime", "Scripts");
+        return Path.Combine(current.FullName, "Runtime", "Scripts");
     }
 }

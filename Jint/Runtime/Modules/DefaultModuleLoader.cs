@@ -8,12 +8,7 @@ public sealed class DefaultModuleLoader : IModuleLoader
     private readonly Uri _basePath;
     private readonly bool _restrictToBasePath;
 
-    public DefaultModuleLoader(string basePath) : this(basePath, true)
-    {
-
-    }
-
-    public DefaultModuleLoader(string basePath, bool restrictToBasePath)
+    public DefaultModuleLoader(string basePath, bool restrictToBasePath = true)
     {
         if (string.IsNullOrWhiteSpace(basePath))
         {
@@ -74,7 +69,7 @@ public sealed class DefaultModuleLoader : IModuleLoader
             return new ResolvedSpecifier(
                 specifier,
                 specifier,
-                null,
+                Uri: null,
                 SpecifierType.Bare
             );
         }
@@ -120,10 +115,11 @@ public sealed class DefaultModuleLoader : IModuleLoader
         {
             ExceptionHelper.ThrowInvalidOperationException($"Module '{resolved.Specifier}' of type '{resolved.Type}' has no resolved URI.");
         }
+
         var fileName = Uri.UnescapeDataString(resolved.Uri.AbsolutePath);
         if (!File.Exists(fileName))
         {
-            ExceptionHelper.ThrowArgumentException("Module Not Found: ", resolved.Specifier);
+            ExceptionHelper.ThrowModuleResolutionException("Module Not Found", resolved.Specifier, parent: null, fileName);
             return default;
         }
 
