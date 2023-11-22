@@ -208,9 +208,9 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowModuleResolutionException(string resolverAlgorithmError, string specifier, string? parent)
+        public static void ThrowModuleResolutionException(string message, string specifier, string? parent, string? filePath = null)
         {
-            throw new ModuleResolutionException(resolverAlgorithmError, specifier, parent);
+            throw new ModuleResolutionException(message, specifier, parent, filePath);
         }
     }
 }
