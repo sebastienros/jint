@@ -595,7 +595,7 @@ namespace Jint.Native.String
                 {
                     var flags = searchValue.Get(RegExpPrototype.PropertyFlags);
                     TypeConverter.CheckObjectCoercible(_engine, flags);
-                    if (TypeConverter.ToString(flags).IndexOf('g') < 0)
+                    if (!TypeConverter.ToString(flags).Contains('g'))
                     {
                         ExceptionHelper.ThrowTypeError(_realm, "String.prototype.replaceAll called with a non-global RegExp argument");
                     }
@@ -619,7 +619,7 @@ namespace Jint.Native.String
 
                 // check fast case
                 var newValue = replaceValue.ToString();
-                if (newValue.IndexOf('$') < 0 && searchString.Length > 0)
+                if (!newValue.Contains('$') && searchString.Length > 0)
                 {
                     // just plain old string replace
                     return thisString.Replace(searchString, newValue);
@@ -711,7 +711,7 @@ namespace Jint.Native.String
                 {
                     var flags = regex.Get(RegExpPrototype.PropertyFlags);
                     TypeConverter.CheckObjectCoercible(_engine, flags);
-                    if (TypeConverter.ToString(flags).IndexOf('g') < 0)
+                    if (!TypeConverter.ToString(flags).Contains('g'))
                     {
                         ExceptionHelper.ThrowTypeError(_realm);
                     }

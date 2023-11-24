@@ -18,7 +18,7 @@ public abstract partial class Test262Test
             cfg.EnableModules(new Test262ModuleLoader(State.Test262Stream.Options.FileSystem, relativePath));
         });
 
-        if (file.Flags.IndexOf("raw") != -1)
+        if (file.Flags.Contains("raw"))
         {
             // nothing should be loaded
             return engine;
@@ -76,7 +76,7 @@ public abstract partial class Test262Test
             engine.Execute(State.Sources[include]);
         }
 
-        if (file.Flags.IndexOf("async") != -1)
+        if (file.Flags.Contains("async"))
         {
             engine.Execute(State.Sources["doneprintHandle.js"]);
         }

@@ -74,11 +74,17 @@ public class DateTests
     [Fact]
     public void ToStringFollowsJavaScriptFormat()
     {
-        var engine = new Engine(
-            conf =>
-            {
-                conf.LocalTimeZone(TimeZoneInfo.FindSystemTimeZoneById("China Standard Time"));
-            });
+        TimeZoneInfo timeZoneInfo;
+        try
+        {
+            timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("Asia/Shanghai");
+        }
+        catch
+        {
+            timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("China Standard Time");
+        }
+
+        var engine = new Engine(options => options.LocalTimeZone(timeZoneInfo));
 
         Assert.Equal("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)", engine.Evaluate("new Date(2022,1,1).toString()"));
         Assert.Equal("Tue Feb 01 2022 00:00:00 GMT+0800 (China Standard Time)", engine.Evaluate("new Date(2022,1,1)").ToString());

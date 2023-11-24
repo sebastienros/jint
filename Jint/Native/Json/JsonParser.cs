@@ -106,7 +106,7 @@ namespace Jint.Native.Json
                 if (_index < _length + 1 && IsHexDigit(_source[_index]))
                 {
                     char ch = _source[_index++];
-                    code = code * 16 + "0123456789abcdef".IndexOf(ch.ToString(), StringComparison.OrdinalIgnoreCase);
+                    code = code * 16 + "0123456789abcdef".IndexOf(ch);
                 }
                 else
                 {

@@ -2809,8 +2809,9 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine(cfg => cfg.CatchClrExceptions());
             engine.SetValue("a", new Person());
-            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("a.age = \"It won't work, but it's normal\""));
-            Assert.Equal("Input string was not in a correct format.", ex.Message);
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute("a.age = 'It will not work, but it is normal'"));
+            Assert.Contains("input string ", ex.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(" was not in a correct format", ex.Message, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]

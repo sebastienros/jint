@@ -1,18 +1,11 @@
-using System.Runtime.Serialization;
-
 namespace Jint.Runtime
 {
     /// <summary>
     /// Base class for exceptions thrown by Jint.
     /// </summary>
-    [Serializable]
     public abstract class JintException : Exception
     {
         protected JintException()
-        {
-        }
-
-        protected JintException(SerializationInfo info, StreamingContext context) : base(info, context)
         {
         }
 
