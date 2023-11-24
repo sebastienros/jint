@@ -63,5 +63,86 @@ namespace Jint.Tests.Runtime
             var value = _engine.Evaluate($"parseFloat('{input}')").AsNumber();
             Assert.Equal(result, value);
         }
+
+        // Results from node -v v18.18.0.
+        [Theory]
+        // Thousand separators.
+        [InlineData("1000000", "en-US", "1,000,000")]
+        [InlineData("1000000", "en-GB", "1,000,000")]
+        [InlineData("1000000", "de-DE", "1.000.000")]
+        // TODO. Fails in Win CI due to U+2009
+        // Check https://learn.microsoft.com/en-us/dotnet/core/extensions/globalization-icu
+        // [InlineData("1000000", "fr-FR", "1 000 000")] 
+        [InlineData("1000000", "es-ES", "1.000.000")]
+        [InlineData("1000000", "es-LA", "1.000.000")]
+        [InlineData("1000000", "es-MX", "1,000,000")]
+        [InlineData("1000000", "es-AR", "1.000.000")]
+        [InlineData("1000000", "es-CL", "1.000.000")]
+        // Comma separator.
+        [InlineData("1,23", "en-US", "23")]
+        [InlineData("1,23", "en-GB", "23")]
+        [InlineData("1,23", "de-DE", "23")]
+        [InlineData("1,23", "fr-FR", "23")]
+        [InlineData("1,23", "es-ES", "23")]
+        [InlineData("1,23", "es-LA", "23")]
+        [InlineData("1,23", "es-MX", "23")]
+        [InlineData("1,23", "es-AR", "23")]
+        [InlineData("1,23", "es-CL", "23")]
+        // Dot deicimal separator.
+        [InlineData("1.23", "en-US", "1.23")]
+        [InlineData("1.23", "en-GB", "1.23")]
+        [InlineData("1.23", "de-DE", "1,23")]
+        [InlineData("1.23", "fr-FR", "1,23")]
+        [InlineData("1.23", "es-ES", "1,23")]
+        [InlineData("1.23", "es-LA", "1,23")]
+        [InlineData("1.23", "es-MX", "1.23")]
+        [InlineData("1.23", "es-AR", "1,23")]
+        [InlineData("1.23", "es-CL", "1,23")]
+        // Scientific notation.
+        [InlineData("1e6", "en-US", "1,000,000")]
+        [InlineData("1e6", "en-GB", "1,000,000")]
+        [InlineData("1e6", "de-DE", "1.000.000")]
+        // TODO. Fails in Win CI due to U+2009
+        // Check https://learn.microsoft.com/en-us/dotnet/core/extensions/globalization-icu
+        // [InlineData("1000000", "fr-FR", "1 000 000")]
+        [InlineData("1e6", "es-ES", "1.000.000")]
+        [InlineData("1e6", "es-LA", "1.000.000")]
+        [InlineData("1e6", "es-MX", "1,000,000")]
+        [InlineData("1e6", "es-AR", "1.000.000")]
+        [InlineData("1e6", "es-CL", "1.000.000")]
+        // Returns the correct max decimal degits for the respective cultures, rounded down.
+        [InlineData("1.234444449", "en-US", "1.234")]
+        [InlineData("1.234444449", "en-GB", "1.234")]
+        [InlineData("1.234444449", "de-DE", "1,234")]
+        [InlineData("1.234444449", "fr-FR", "1,234")]
+        [InlineData("1.234444449", "es-ES", "1,234")]
+        [InlineData("1.234444449", "es-LA", "1,234")]
+        [InlineData("1.234444449", "es-MX", "1.234")]
+        [InlineData("1.234444449", "es-AR", "1,234")]
+        [InlineData("1.234444449", "es-CL", "1,234")]
+        // Returns the correct max decimal degits for the respective cultures, rounded up.
+        [InlineData("1.234500001", "en-US", "1.235")]
+        [InlineData("1.234500001", "en-GB", "1.235")]
+        [InlineData("1.234500001", "de-DE", "1,235")]
+        [InlineData("1.234500001", "fr-FR", "1,235")]
+        [InlineData("1.234500001", "es-ES", "1,235")]
+        [InlineData("1.234500001", "es-LA", "1,235")]
+        [InlineData("1.234500001", "es-MX", "1.235")]
+        [InlineData("1.234500001", "es-AR", "1,235")]
+        [InlineData("1.234500001", "es-CL", "1,235")]
+        public void ToLocaleString(string parseNumber, string culture, string result)
+        {
+            var value = _engine.Evaluate($"({parseNumber}).toLocaleString('{culture}')").AsString();
+            Assert.Equal(result, value);
+        }
+
+        [Theory]
+        // Does not add extra zeros of there is no cuture argument.
+        [InlineData("123456")]
+        public void ToLocaleStringNoArg(string parseNumber)
+        {
+            var value = _engine.Evaluate($"({parseNumber}).toLocaleString()").AsString();
+            Assert.DoesNotContain(".0", value);
+        }
     }
 }

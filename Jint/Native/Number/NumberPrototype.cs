@@ -80,7 +80,25 @@ namespace Jint.Native.Number
                 return "-Infinity";
             }
 
-            return m.ToString("n", Engine.Options.Culture);
+            var numberFormat = (NumberFormatInfo) Engine.Options.Culture.NumberFormat.Clone();
+
+            try
+            {
+                if (arguments.Length > 0 && arguments[0].IsString())
+                {
+                    var cultureArgument = arguments[0].ToString();
+                    numberFormat = (NumberFormatInfo) CultureInfo.GetCultureInfo(cultureArgument).NumberFormat.Clone();
+                }
+
+                int decDigitCount = NumberIntlHelper.GetDecimalDigitCount(m);
+                numberFormat.NumberDecimalDigits = decDigitCount;
+            }
+            catch (CultureNotFoundException)
+            {
+                ExceptionHelper.ThrowRangeError(_realm, "Incorrect locale information provided");
+            }
+
+            return m.ToString("n", numberFormat);
         }
 
         private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
