@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "6396ebde0316639292530460d1ef961fd9bbe0d4",
+  "SuiteGitSha": "2060494f280ba89d71a0f51d4ff171bafe476a05",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -12,6 +12,7 @@
     "decorators",
     "generators",
     "import-assertions",
+    "import-attributes",
     "iterator-helpers",
     "regexp-duplicate-named-groups",
     "regexp-lookbehind",
@@ -47,6 +48,7 @@
     "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
     "language/literals/regexp/u-case-mapping.js",
     "built-ins/RegExp/lookahead-quantifier-match-groups.js",
+    "built-ins/RegExp/unicode_full_case_folding.js",
 
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",
@@ -85,6 +87,8 @@
     "language/expressions/object/method-definition/name-prop-name-yield-id.js",
     "language/statements/class/elements/*-generator-method-*.js",
     "language/expressions/class/elements/*-generator-method-*.js",
+    "built-ins/Set/prototype/union/allows-set-like-class.js",
+    "built-ins/Set/prototype/union/allows-set-like-object.js",
 
     // generators not implemented
     "built-ins/Object/prototype/toString/proxy-function.js",

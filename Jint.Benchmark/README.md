@@ -9,7 +9,7 @@ dotnet run -c Release --allCategories EngineComparison
 * tests are run in global engine strict mode, as YantraJS always uses strict mode which improves performance
 * `Jint` and `Jint_ParsedScript` shows the difference between always parsing the script source file and reusing parsed `Script` instance.
 
-Last updated 2023-11-05
+Last updated 2023-11-24
 
 * Jint main
 * Jurassic 3.2.7

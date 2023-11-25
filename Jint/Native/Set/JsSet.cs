@@ -9,9 +9,13 @@ internal sealed class JsSet : ObjectInstance
 {
     internal readonly OrderedSet<JsValue> _set;
 
-    public JsSet(Engine engine) : base(engine)
+    public JsSet(Engine engine) : this(engine, new OrderedSet<JsValue>(SameValueZeroComparer.Instance))
     {
-        _set = new OrderedSet<JsValue>(SameValueZeroComparer.Instance);
+    }
+
+    public JsSet(Engine engine, OrderedSet<JsValue> set) : base(engine)
+    {
+        _set = set;
     }
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
