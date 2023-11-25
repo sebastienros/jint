@@ -54,7 +54,18 @@ namespace Jint.Native
         }
 
         [Pure]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal IteratorInstance GetIteratorFromMethod(Realm realm, ICallable method)
+        {
+            var iterator = method.Call(this);
+            if (iterator is not ObjectInstance objectInstance)
+            {
+                ExceptionHelper.ThrowTypeError(realm);
+                return null!;
+            }
+            return new IteratorInstance.ObjectIterator(objectInstance);
+        }
+
+        [Pure]
         internal bool TryGetIterator(Realm realm, [NotNullWhen(true)] out IteratorInstance? iterator, GeneratorKind hint = GeneratorKind.Sync, ICallable? method = null)
         {
             var obj = TypeConverter.ToObject(realm, this);

@@ -25,7 +25,7 @@ internal sealed class SetConstructor : Constructor
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
     }
 
-    private SetPrototype PrototypeObject { get; }
+    internal SetPrototype PrototypeObject { get; }
 
     protected override void Initialize()
     {

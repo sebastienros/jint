@@ -32,15 +32,16 @@ internal sealed class SetPrototype : Prototype
         {
             ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
             ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["add"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "add", Add, 1, PropertyFlag.Configurable), true, false, true),
-            ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), true, false, true),
-            ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), true, false, true),
-            ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), true, false, true),
-            ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), true, false, true),
-            ["has"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), true, false, true),
-            ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Values, 0, PropertyFlag.Configurable), true, false, true),
-            ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), true, false, true),
-            ["size"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get size", Size, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable)
+            ["add"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "add", Add, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["clear"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "clear", Clear, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["delete"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["entries"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "entries", Entries, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["forEach"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["has"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["keys"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "keys", Values, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["values"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "values", Values, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["size"] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get size", Size, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable),
+            ["union"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "union", Union, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)
         };
         SetProperties(properties);
 
@@ -110,6 +111,68 @@ internal sealed class SetPrototype : Prototype
         set.ForEach(callable, thisArg);
 
         return Undefined;
+    }
+
+    private JsValue Union(JsValue thisObject, JsValue[] arguments)
+    {
+        var set = AssertSetInstance(thisObject);
+        var other = arguments.At(0);
+        var otherRec = GetSetRecord(other);
+        var keysIter = otherRec.Set.GetIteratorFromMethod(_realm, otherRec.Keys);
+        var resultSetData = set._set.Clone();
+        while (keysIter.TryIteratorStep(out var next))
+        {
+            var nextValue = next.Get(CommonProperties.Value);
+            if (nextValue == JsNumber.NegativeZero)
+            {
+                nextValue = JsNumber.PositiveZero;
+            }
+            resultSetData.Add(nextValue);
+        }
+
+        var result = new JsSet(_engine, resultSetData)
+        {
+            _prototype = _engine.Realm.Intrinsics.Set.PrototypeObject
+        };
+        return result;
+
+    }
+
+    private readonly record struct SetRecord(JsValue Set, double Size, ICallable Has, ICallable Keys);
+
+    private SetRecord GetSetRecord(JsValue obj)
+    {
+        if (obj is not ObjectInstance)
+        {
+            ExceptionHelper.ThrowTypeError(_realm);
+        }
+
+        var rawSize = obj.Get("size");
+        var numSize = TypeConverter.ToNumber(rawSize);
+        if (double.IsNaN(numSize))
+        {
+            ExceptionHelper.ThrowTypeError(_realm);
+        }
+
+        var intSize = TypeConverter.ToIntegerOrInfinity(numSize);
+        if (intSize < 0)
+        {
+            ExceptionHelper.ThrowRangeError(_realm);
+        }
+
+        var has = obj.Get(CommonProperties.Has);
+        if (!has.IsCallable)
+        {
+            ExceptionHelper.ThrowTypeError(_realm);
+        }
+
+        var keys = obj.Get(CommonProperties.Keys);
+        if (!keys.IsCallable)
+        {
+            ExceptionHelper.ThrowTypeError(_realm);
+        }
+
+        return new SetRecord(Set: obj, Size: intSize, Has: (ICallable) has, Keys: (ICallable) keys);
     }
 
     private ObjectInstance Values(JsValue thisObject, JsValue[] arguments)
