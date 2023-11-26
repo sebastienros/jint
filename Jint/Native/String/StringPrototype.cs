@@ -227,11 +227,51 @@ namespace Jint.Native.String
             return TrimEndEx(s.ToString());
         }
 
+        /// <summary>
+        /// Lithuanian case is a bit special. For more info see:
+        /// https://github.com/tc39/test262/blob/main/test/intl402/String/prototype/toLocaleUpperCase/special_casing_Lithuanian.js
+        /// </summary>
+        static string LithuanianStringProcessor(string input)
+        {
+            bool isUpperIWithDotAbove = string.Equals(input, "I\u0307", StringComparison.OrdinalIgnoreCase);
+            bool isUpperJWithDotAbove = string.Equals(input, "J\u0307", StringComparison.OrdinalIgnoreCase);
+            // COMBINING DOT ABOVE (U+0307) not removed when uppercasing capital I and J.
+            if (char.IsUpper(input[0]) && (isUpperIWithDotAbove || isUpperJWithDotAbove))
+            {
+                return input;
+            }
+            if (input.Contains('\u0307') || input.Contains('\u0323'))
+            {
+                string withoutDotAbove = input.Replace("\u0307", "");
+                return withoutDotAbove;
+            }
+
+            return input;
+        }
+
         private JsValue ToLocaleUpperCase(JsValue thisObject, JsValue[] arguments)
         {
             TypeConverter.CheckObjectCoercible(_engine, thisObject);
             var s = TypeConverter.ToString(thisObject);
-            return new JsString(s.ToUpper(CultureInfo.InvariantCulture));
+            var culture = CultureInfo.InvariantCulture;
+            if (arguments.Length > 0 && arguments[0].IsString())
+            {
+                try
+                {
+                    var cultureArgument = arguments[0].ToString();
+                    culture = CultureInfo.GetCultureInfo(cultureArgument);
+                }
+                catch (CultureNotFoundException)
+                {
+                    ExceptionHelper.ThrowRangeError(_realm, "Incorrect culture information provided");
+                }
+            }
+            if (string.Equals("lt", culture.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                s = LithuanianStringProcessor(s);
+            }
+
+            return new JsString(s.ToUpper(culture));
         }
 
         private JsValue ToUpperCase(JsValue thisObject, JsValue[] arguments)
