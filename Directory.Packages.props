@@ -6,24 +6,33 @@
   <ItemGroup>
     <PackageVersion Include="BenchmarkDotNet" Version="0.13.10" />
     <PackageVersion Include="Esprima" Version="3.0.2" />
+    <PackageVersion Include="Fluid.Core" Version="2.5.0" PrivateAssets="all" GeneratePathProperty="true" />
     <PackageVersion Include="Flurl.Http.Signed" Version="3.2.4" />
     <PackageVersion Include="Jurassic" Version="3.2.7" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.110" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.112" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.FileProviders.Abstractions" Version="1.1.1" PrivateAssets="all" GeneratePathProperty="true" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageVersion Include="MongoDB.Bson.signed" Version="2.19.0" />
+    <PackageVersion Include="NUnit" Version="3.14.0" />
+    <PackageVersion Include="NUnit3TestAdapter" Version="4.5.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="NiL.JS" Version="2.5.1674" />
     <PackageVersion Include="NodaTime" Version="3.1.9" />
-    <PackageVersion Include="NUnit" Version="3.14.0" />
-    <PackageVersion Include="NUnit3TestAdapter" Version="4.5.0" />
+    <PackageVersion Include="Parlot" Version="0.0.24" PrivateAssets="all" GeneratePathProperty="true" />
     <PackageVersion Include="SharpZipLib" Version="1.4.0" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.45.0" />
+    <PackageVersion Include="System.Runtime.CompilerServices.Unsafe" Version="4.5.3" />
+    <PackageVersion Include="System.Text.Encodings.Web" Version="6.0.0" PrivateAssets="all" GeneratePathProperty="true" />
     <PackageVersion Include="System.Text.Json" Version="6.0.8" />
     <PackageVersion Include="Test262Harness" Version="0.0.22" />
+    <PackageVersion Include="Verify.SourceGenerators" Version="2.2.0" />
+    <PackageVersion Include="Verify.XUnit" Version="22.5.0" />
+    <PackageVersion Include="YantraJS.Core" Version="1.2.206" />
     <PackageVersion Include="xunit" Version="2.6.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.4" PrivateAssets="all" />
-    <PackageVersion Include="YantraJS.Core" Version="1.2.206" />
   </ItemGroup>
   <ItemGroup>
     <GlobalPackageReference Include="GitHubActionsTestLogger" Version="2.3.3" />

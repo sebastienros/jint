@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all"/>
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fluid.Core" PrivateAssets="all" GeneratePathProperty="true"/>
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" PrivateAssets="all" GeneratePathProperty="true"/>
+    <PackageReference Include="Parlot" GeneratePathProperty="true"/>
+    <PackageReference Include="System.Text.Encodings.Web" PrivateAssets="all" GeneratePathProperty="true"/>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <GetTargetPathDependsOn>$(GetTargetPathDependsOn);GetDependencyTargetPaths</GetTargetPathDependsOn>
+  </PropertyGroup>
+
+  <Target Name="GetDependencyTargetPaths">
+    <ItemGroup>
+      <TargetPathWithTargetPlatformMoniker Include="$(PkgFluid_Core)\lib\netstandard2.0\Fluid.dll" IncludeRuntimeDependency="false"/>
+      <TargetPathWithTargetPlatformMoniker Include="$(PkgMicrosoft_Extensions_FileProviders_Abstractions)\lib\netstandard1.0\Microsoft.Extensions.FileProviders.Abstractions.dll" IncludeRuntimeDependency="false"/>
+      <TargetPathWithTargetPlatformMoniker Include="$(PkgParlot)\lib\netstandard2.0\Parlot.dll" IncludeRuntimeDependency="false"/>
+      <TargetPathWithTargetPlatformMoniker Include="$(PkgSystem_Text_Encodings_Web)\lib\netstandard2.0\System.Text.Encodings.Web.dll" IncludeRuntimeDependency="false"/>
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Templates\*.liquid"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Jint\HighPerformance\*.cs" LinkBase="Referenced"/>
+  </ItemGroup>
+
+</Project>

@@ -25,6 +25,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		Directory.Build.props = Directory.Build.props
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.SourceGenerators", "Jint.SourceGenerators\Jint.SourceGenerators.csproj", "{DE11A5A8-859E-4457-AD73-3BFC64201197}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Tests.SourceGenerators", "Jint.Tests.SourceGenerators\Jint.Tests.SourceGenerators.csproj", "{A3AD24B8-0AE9-48DC-8C02-0C79291CF3CA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -59,6 +63,14 @@ Global
 		{70198CE9-7DFE-40CA-BBAC-1454C92C4109}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{70198CE9-7DFE-40CA-BBAC-1454C92C4109}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{70198CE9-7DFE-40CA-BBAC-1454C92C4109}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DE11A5A8-859E-4457-AD73-3BFC64201197}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DE11A5A8-859E-4457-AD73-3BFC64201197}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DE11A5A8-859E-4457-AD73-3BFC64201197}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DE11A5A8-859E-4457-AD73-3BFC64201197}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A3AD24B8-0AE9-48DC-8C02-0C79291CF3CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3AD24B8-0AE9-48DC-8C02-0C79291CF3CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3AD24B8-0AE9-48DC-8C02-0C79291CF3CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3AD24B8-0AE9-48DC-8C02-0C79291CF3CA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

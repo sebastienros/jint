@@ -11,6 +11,7 @@ namespace Jint.Runtime.Descriptors
     {
         public static readonly PropertyDescriptor Undefined = new UndefinedPropertyDescriptor();
 
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal PropertyFlag _flags;
         internal JsValue? _value;
 
