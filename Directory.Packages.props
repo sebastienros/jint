@@ -8,14 +8,14 @@
     <PackageVersion Include="Esprima" Version="3.0.2" />
     <PackageVersion Include="Flurl.Http.Signed" Version="3.2.4" />
     <PackageVersion Include="Jurassic" Version="3.2.7" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.110" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.116" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageVersion Include="MongoDB.Bson.signed" Version="2.19.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="NiL.JS" Version="2.5.1674" />
     <PackageVersion Include="NodaTime" Version="3.1.9" />
-    <PackageVersion Include="NUnit" Version="3.14.0" />
+    <PackageVersion Include="NUnit" Version="4.0.0" />
     <PackageVersion Include="NUnit3TestAdapter" Version="4.5.0" />
     <PackageVersion Include="SharpZipLib" Version="1.4.0" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.45.0" />
@@ -28,6 +28,6 @@
   <ItemGroup>
     <GlobalPackageReference Include="GitHubActionsTestLogger" Version="2.3.3" />
     <GlobalPackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
-    <GlobalPackageReference Include="PolySharp" Version="1.13.2" />
+    <GlobalPackageReference Include="PolySharp" Version="1.14.0" />
   </ItemGroup>
 </Project>
