@@ -34,7 +34,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             return context.Engine.GetValue(reference, true);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
         public object Evaluate(EvaluationContext context)
         {
             var oldSyntaxElement = context.LastSyntaxElement;

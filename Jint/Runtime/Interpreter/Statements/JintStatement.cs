@@ -26,7 +26,7 @@ namespace Jint.Runtime.Interpreter.Statements
             _statement = statement;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
         public Completion Execute(EvaluationContext context)
         {
             if (_statement.Type != Nodes.BlockStatement)
