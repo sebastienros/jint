@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Error;
@@ -63,6 +64,8 @@ namespace Jint.Runtime.Interpreter
             _jintStatements = jintStatements;
         }
 
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
         public Completion Execute(EvaluationContext context)
         {
             if (!_initialized)
