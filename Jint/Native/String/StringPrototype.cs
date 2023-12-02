@@ -1,5 +1,6 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
+using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -227,23 +228,46 @@ namespace Jint.Native.String
             return TrimEndEx(s.ToString());
         }
 
+        static List<int> GetLithuaninanReplaceableCharIdx(string input)
+        {
+            List<int> replaceableCharsIdx = new List<int>();
+            for (int i = 0; i < input.Length; i++)
+            {
+                if (input[i].Equals('\u0307'))
+                {
+                    replaceableCharsIdx.Add(i);
+                }
+            }
+
+            // For capital I and J we do not replace the dot above (\u3017).
+            replaceableCharsIdx
+                .RemoveAll(idx => (idx > 0) && input[idx - 1] == 'I' || input[idx - 1] == 'J');
+
+            return replaceableCharsIdx;
+        }
+
         /// <summary>
         /// Lithuanian case is a bit special. For more info see:
         /// https://github.com/tc39/test262/blob/main/test/intl402/String/prototype/toLocaleUpperCase/special_casing_Lithuanian.js
         /// </summary>
         static string LithuanianStringProcessor(string input)
         {
-            bool isUpperIWithDotAbove = string.Equals(input, "I\u0307", StringComparison.OrdinalIgnoreCase);
-            bool isUpperJWithDotAbove = string.Equals(input, "J\u0307", StringComparison.OrdinalIgnoreCase);
-            // COMBINING DOT ABOVE (U+0307) not removed when uppercasing capital I and J.
-            if (char.IsUpper(input[0]) && (isUpperIWithDotAbove || isUpperJWithDotAbove))
+            var replaceableCharsIdx = GetLithuaninanReplaceableCharIdx(input);
+            if (replaceableCharsIdx.Count > 0)
             {
-                return input;
-            }
-            if (input.Contains('\u0307') || input.Contains('\u0323'))
-            {
-                string withoutDotAbove = input.Replace("\u0307", "");
-                return withoutDotAbove;
+                StringBuilder stringBuilder = new StringBuilder(input);
+
+                // Remove characters in reverse order to avoid index shifting
+                for (int i = replaceableCharsIdx.Count - 1; i >= 0; i--)
+                {
+                    int index = replaceableCharsIdx[i];
+                    if (index >= 0 && index < stringBuilder.Length)
+                    {
+                        stringBuilder.Remove(index, 1);
+                    }
+                }
+
+                return stringBuilder.ToString();
             }
 
             return input;
