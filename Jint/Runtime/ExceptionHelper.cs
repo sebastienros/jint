@@ -87,6 +87,11 @@ namespace Jint.Runtime
             return new ErrorDispatchInfo(realm.Intrinsics.UriError, message);
         }
 
+        public static ErrorDispatchInfo CreateRangeError(Realm realm, string message)
+        {
+            return new ErrorDispatchInfo(realm.Intrinsics.RangeError, message);
+        }
+
         [DoesNotReturn]
         public static void ThrowNotImplementedException(string? message = null)
         {

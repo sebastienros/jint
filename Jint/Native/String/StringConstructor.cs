@@ -76,48 +76,61 @@ namespace Jint.Native.String
             return JsString.Create(new string(elements));
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-string.fromcodepoint
+        /// </summary>
         private JsValue FromCodePoint(JsValue thisObject, JsValue[] arguments)
         {
-            var codeUnits = new List<JsValue>();
-            string result = "";
+            JsNumber codePoint;
+            using var wrapper = StringBuilderPool.Rent();
+            var result = wrapper.Builder;
             foreach (var a in arguments)
             {
-                var codePoint = TypeConverter.ToNumber(a);
-                if (codePoint < 0
-                    || codePoint > 0x10FFFF
-                    || double.IsInfinity(codePoint)
-                    || double.IsNaN(codePoint)
-                    || TypeConverter.ToInt32(codePoint) != codePoint)
+                int point;
+                codePoint = TypeConverter.ToJsNumber(a);
+                if (codePoint.IsInteger())
                 {
-                    ExceptionHelper.ThrowRangeError(_realm, "Invalid code point " + codePoint);
+                    point = (int) codePoint._value;
+                    if (point is < 0 or > 0x10FFFF)
+                    {
+                        goto rangeError;
+                    }
+                }
+                else
+                {
+                    var pointTemp = codePoint._value;
+                    if (pointTemp < 0 || pointTemp > 0x10FFFF || double.IsInfinity(pointTemp) || double.IsNaN(pointTemp) || TypeConverter.ToInt32(pointTemp) != pointTemp)
+                    {
+                        goto rangeError;
+                    }
+
+                    point = (int) pointTemp;
                 }
 
-                var point = (uint) codePoint;
                 if (point <= 0xFFFF)
                 {
                     // BMP code point
-                    codeUnits.Add(JsNumber.Create(point));
+                    result.Append((char) point);
                 }
                 else
                 {
                     // Astral code point; split in surrogate halves
                     // https://mathiasbynens.be/notes/javascript-encoding#surrogate-formulae
                     point -= 0x10000;
-                    codeUnits.Add(JsNumber.Create((point >> 10) + 0xD800)); // highSurrogate
-                    codeUnits.Add(JsNumber.Create((point % 0x400) + 0xDC00)); // lowSurrogate
-                }
-                if (codeUnits.Count >= 0x3fff)
-                {
-                    result += FromCharCode(null, codeUnits.ToArray());
-                    codeUnits.Clear();
+                    result.Append((char) ((point >> 10) + 0xD800)); // highSurrogate
+                    result.Append((char) (point % 0x400 + 0xDC00)); // lowSurrogate
                 }
             }
 
-            return result + FromCharCode(null, codeUnits.ToArray());
+            return JsString.Create(result.ToString());
+
+            rangeError:
+            _engine.SignalError(ExceptionHelper.CreateRangeError(_realm, "Invalid code point " + codePoint));
+            return null!;
         }
 
         /// <summary>
-        /// https://www.ecma-international.org/ecma-262/6.0/#sec-string.raw
+        /// https://tc39.es/ecma262/#sec-string.raw
         /// </summary>
         private JsValue Raw(JsValue thisObject, JsValue[] arguments)
         {
