@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Esprima;
 using Esprima.Ast;
 using Jint.Extensions;
@@ -11,7 +12,6 @@ using Jint.Native.Number.Dtoa;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Native.Symbol;
-using Jint.Pooling;
 using Jint.Runtime.Interop;
 
 namespace Jint.Runtime
@@ -896,10 +896,10 @@ namespace Jint.Runtime
                 return ToString((long) d);
             }
 
-            using var stringBuilder = StringBuilderPool.Rent();
+            var stringBuilder = new ValueStringBuilder(stackalloc char[128]);
             // we can create smaller array as we know the format to be short
-            NumberPrototype.NumberToString(d, CreateDtoaBuilderForDouble(), stringBuilder.Builder);
-            return stringBuilder.Builder.ToString();
+            NumberPrototype.NumberToString(d, CreateDtoaBuilderForDouble(), ref stringBuilder);
+            return stringBuilder.ToString();
         }
 
         /// <summary>
