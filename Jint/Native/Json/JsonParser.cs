@@ -5,8 +5,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Esprima;
-using Jint.Native.Object;
-using Jint.Pooling;
 using Jint.Runtime;
 
 namespace Jint.Native.Json
@@ -174,7 +172,7 @@ namespace Jint.Native.Json
 
         private Token ScanNumericLiteral(ref State state)
         {
-            var sb = state.TokenBuffer;
+            var sb = new ValueStringBuilder(stackalloc char[128]);
             var start = _index;
             var ch = _source.CharCodeAt(_index);
             var canBeInteger = true;
@@ -249,7 +247,6 @@ namespace Jint.Native.Json
             }
 
             var number = sb.ToString();
-            sb.Clear();
 
             JsNumber value;
             if (canBeInteger && long.TryParse(number, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longResult) && longResult != -0)
@@ -312,7 +309,7 @@ namespace Jint.Native.Json
             int start = _index;
             ++_index;
 
-            var sb = state.TokenBuffer;
+            var sb = new ValueStringBuilder(stackalloc char[128]);
             while (_index < _length)
             {
                 char ch = _source[_index++];
@@ -383,7 +380,6 @@ namespace Jint.Native.Json
             }
 
             string value = sb.ToString();
-            sb.Clear();
             return CreateToken(Tokens.String, value, '\"', new JsString(value), new TextRange(start, _index));
         }
 
@@ -704,8 +700,7 @@ namespace Jint.Native.Json
             _length = _source.Length;
             _lookahead = null!;
 
-            using var wrapper = StringBuilderPool.Rent();
-            State state = new State(wrapper.Builder);
+            State state = new State();
 
             Peek(ref state);
             JsValue jsv = ParseJsonValue(ref state);
@@ -719,22 +714,9 @@ namespace Jint.Native.Json
             return jsv;
         }
 
+        [StructLayout(LayoutKind.Auto)]
         private ref struct State
         {
-            public State(StringBuilder tokenBuffer)
-            {
-                TokenBuffer = tokenBuffer;
-                CurrentDepth = 0;
-            }
-
-            /// <summary>
-            /// StringBuilder instance which can be used to collect
-            /// characters into a single string. Must only be used
-            /// when no child-parser gets called. Must be cleared
-            /// after usage.
-            /// </summary>
-            public StringBuilder TokenBuffer { get; }
-
             /// <summary>
             /// The current recursion depth
             /// </summary>

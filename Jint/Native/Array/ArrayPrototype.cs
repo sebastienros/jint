@@ -1,12 +1,12 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
 using System.Linq;
+using System.Text;
 using Jint.Collections;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
-using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
@@ -1265,15 +1265,15 @@ namespace Jint.Native.Array
                 return s;
             }
 
-            using var sb = StringBuilderPool.Rent();
-            sb.Builder.Append(s);
+            var sb = new ValueStringBuilder(stackalloc char[128]);
+            sb.Append(s);
             for (uint k = 1; k < len; k++)
             {
                 if (sep != "")
                 {
-                    sb.Builder.Append(sep);
+                    sb.Append(sep);
                 }
-                sb.Builder.Append(StringFromJsValue(o.Get(k)));
+                sb.Append(StringFromJsValue(o.Get(k)));
             }
 
             return sb.ToString();

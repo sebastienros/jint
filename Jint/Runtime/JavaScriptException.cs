@@ -1,8 +1,8 @@
+using System.Text;
 using Esprima;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Native.Object;
-using Jint.Pooling;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime;
@@ -132,8 +132,7 @@ public class JavaScriptException : JintException
 
         public override string ToString()
         {
-            using var rent = StringBuilderPool.Rent();
-            var sb = rent.Builder;
+            var sb = new ValueStringBuilder();
 
             sb.Append("Error");
             var message = Message;
@@ -150,7 +149,7 @@ public class JavaScriptException : JintException
                 sb.Append(stackTrace);
             }
 
-            return rent.ToString();
+            return sb.ToString();
         }
     }
 }

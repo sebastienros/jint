@@ -1,6 +1,6 @@
+using System.Text;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Pooling;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
@@ -40,16 +40,16 @@ internal sealed class JintTemplateLiteralExpression : JintExpression
             _initialized = true;
         }
 
-        using var sb = StringBuilderPool.Rent();
+        var sb = new ValueStringBuilder();
         ref readonly var elements = ref _templateLiteralExpression.Quasis;
         for (var i = 0; i < elements.Count; i++)
         {
             var quasi = elements[i];
-            sb.Builder.Append(quasi.Value.Cooked);
+            sb.Append(quasi.Value.Cooked);
             if (i < _expressions.Length)
             {
                 var value = _expressions[i].GetValue(context);
-                sb.Builder.Append(TypeConverter.ToString(value));
+                sb.Append(TypeConverter.ToString(value));
             }
         }
 

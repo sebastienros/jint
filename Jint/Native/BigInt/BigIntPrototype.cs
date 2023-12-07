@@ -1,9 +1,9 @@
 using System.Globalization;
 using System.Numerics;
+using System.Text;
 using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
-using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -114,22 +114,28 @@ internal sealed class BigIntPrototype : Prototype
             value = -value;
         }
 
-        const string digits = "0123456789abcdefghijklmnopqrstuvwxyz";
+        const string Digits = "0123456789abcdefghijklmnopqrstuvwxyz";
 
-        using var builder = StringBuilderPool.Rent();
-        var sb = builder.Builder;
+        var sb = new ValueStringBuilder(stackalloc char[64]);
 
         for (; value > 0; value /= radixMV)
         {
             var d = (int) (value % radixMV);
-            sb.Append(digits[d]);
+            sb.Append(Digits[d]);
         }
 
+#if NET6_0_OR_GREATER
+        var charArray = sb.Length < 512 ? stackalloc char[sb.Length] : new char[sb.Length];
+        sb.AsSpan().CopyTo(charArray);
+        charArray.Reverse();
+#else
         var charArray = new char[sb.Length];
-        sb.CopyTo(0, charArray, 0, charArray.Length);
+        sb.AsSpan().CopyTo(charArray);
         System.Array.Reverse(charArray);
+#endif
 
-        return (negative ? "-" : "") + new string(charArray);
+        var s = new string(charArray);
+        return negative ? '-' + s : s;
     }
 
     /// <summary>

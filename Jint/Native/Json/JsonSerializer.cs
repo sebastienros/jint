@@ -9,7 +9,6 @@ using Jint.Native.Number.Dtoa;
 using Jint.Native.Object;
 using Jint.Native.Proxy;
 using Jint.Native.String;
-using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -54,9 +53,9 @@ namespace Jint.Native.Json
             var wrapper = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
             wrapper.DefineOwnProperty(JsString.Empty, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
 
-            using var jsonBuilder = StringBuilderPool.Rent();
+            var jsonBuilder = new StringBuilder();
 
-            var target = new SerializerState(jsonBuilder.Builder);
+            var target = new SerializerState(jsonBuilder);
             if (SerializeJSONProperty(JsString.Empty, wrapper, ref target) == SerializeResult.Undefined)
             {
                 return JsValue.Undefined;
@@ -196,7 +195,10 @@ namespace Jint.Native.Json
                     }
 
                     target.DtoaBuilder.Reset();
-                    NumberPrototype.NumberToString(doubleValue, target.DtoaBuilder, target.Json);
+                    var sb = new ValueStringBuilder(stackalloc char[128]);
+                    NumberPrototype.NumberToString(doubleValue, target.DtoaBuilder, ref sb);
+                    target.Json.Append(sb.ToString());
+
                     return SerializeResult.NotUndefined;
                 }
 

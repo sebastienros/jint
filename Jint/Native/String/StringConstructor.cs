@@ -1,10 +1,10 @@
 ﻿#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
+using System.Text;
 using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Object;
-using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -82,8 +82,7 @@ namespace Jint.Native.String
         private JsValue FromCodePoint(JsValue thisObject, JsValue[] arguments)
         {
             JsNumber codePoint;
-            using var wrapper = StringBuilderPool.Rent();
-            var result = wrapper.Builder;
+            var result = new ValueStringBuilder(stackalloc char[10]);
             foreach (var a in arguments)
             {
                 int point;
@@ -145,18 +144,18 @@ namespace Jint.Native.String
                 return JsString.Empty;
             }
 
-            using var result = StringBuilderPool.Rent();
+            var result = new ValueStringBuilder();
             for (var i = 0; i < length; i++)
             {
                 if (i > 0)
                 {
                     if (i < arguments.Length && !arguments[i].IsUndefined())
                     {
-                        result.Builder.Append(TypeConverter.ToString(arguments[i]));
+                        result.Append(TypeConverter.ToString(arguments[i]));
                     }
                 }
 
-                result.Builder.Append(TypeConverter.ToString(operations.Get((ulong) i)));
+                result.Append(TypeConverter.ToString(operations.Get((ulong) i)));
             }
 
             return result.ToString();

@@ -1,11 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using Esprima;
 using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native.Function;
-using Jint.Pooling;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 
@@ -119,19 +119,17 @@ namespace Jint.Runtime.CallStack
         internal string BuildCallStackString(Location location, int excludeTop = 0)
         {
             static void AppendLocation(
-                StringBuilder sb,
+                ref ValueStringBuilder sb,
                 string shortDescription,
                 in Location loc,
                 in CallStackElement? element)
             {
-                sb
-                    .Append("   at");
+                sb.Append("   at");
 
                 if (!string.IsNullOrWhiteSpace(shortDescription))
                 {
-                    sb
-                        .Append(' ')
-                        .Append(shortDescription);
+                    sb.Append(' ');
+                    sb.Append(shortDescription);
                 }
 
                 if (element?.Arguments is not null)
@@ -151,24 +149,23 @@ namespace Jint.Runtime.CallStack
                     sb.Append(')');
                 }
 
-                sb
-                    .Append(' ')
-                    .Append(loc.Source)
-                    .Append(':')
-                    .Append(loc.End.Line)
-                    .Append(':')
-                    .Append(loc.Start.Column + 1) // report column number instead of index
-                    .AppendLine();
+                sb.Append(' ');
+                sb.Append(loc.Source);
+                sb.Append(':');
+                sb.Append(loc.End.Line.ToString(CultureInfo.InvariantCulture));
+                sb.Append(':');
+                sb.Append((loc.Start.Column + 1).ToString(CultureInfo.InvariantCulture)); // report column number instead of index
+                sb.Append(Environment.NewLine);
             }
 
-            using var sb = StringBuilderPool.Rent();
+            var builder = new ValueStringBuilder();
 
             // stack is one frame behind function-wise when we start to process it from expression level
             var index = _stack._size - 1 - excludeTop;
             var element = index >= 0 ? _stack[index] : (CallStackElement?) null;
             var shortDescription = element?.ToString() ?? "";
 
-            AppendLocation(sb.Builder, shortDescription, location, element);
+            AppendLocation(ref builder, shortDescription, location, element);
 
             location = element?.Location ?? default;
             index--;
@@ -178,13 +175,13 @@ namespace Jint.Runtime.CallStack
                 element = index >= 0 ? _stack[index] : null;
                 shortDescription = element?.ToString() ?? "";
 
-                AppendLocation(sb.Builder, shortDescription, location, element);
+                AppendLocation(ref builder, shortDescription, location, element);
 
                 location = element?.Location ?? default;
                 index--;
             }
 
-            return sb.ToString().TrimEnd();
+            return builder.ToString().TrimEnd();
         }
 
         /// <summary>

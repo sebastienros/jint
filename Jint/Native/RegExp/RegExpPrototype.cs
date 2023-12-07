@@ -1,12 +1,12 @@
 ﻿#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
+using System.Text;
 using System.Text.RegularExpressions;
 using Jint.Collections;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Native.Symbol;
-using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -337,8 +337,7 @@ namespace Jint.Native.RegExp
             // $`	Inserts the portion of the string that precedes the matched substring.
             // $'	Inserts the portion of the string that follows the matched substring.
             // $n or $nn	Where n or nn are decimal digits, inserts the nth parenthesized submatch string, provided the first argument was a RegExp object.
-            using var replacementBuilder = StringBuilderPool.Rent();
-            var sb = replacementBuilder.Builder;
+            var sb = new ValueStringBuilder();
             for (var i = 0; i < replacement.Length; i++)
             {
                 char c = replacement[i];
@@ -353,14 +352,12 @@ namespace Jint.Native.RegExp
                         case '&':
                             sb.Append(matched);
                             break;
-#pragma warning disable CA1846
                         case '`':
-                            sb.Append(str.Substring(0, position));
+                            sb.Append(str.AsSpan(0, position));
                             break;
                         case '\'':
-                            sb.Append(str.Substring(position + matched.Length));
+                            sb.Append(str.AsSpan(position + matched.Length));
                             break;
-#pragma warning restore CA1846
                         case '<':
                             var gtPos = replacement.IndexOf('>', i + 1);
                             if (gtPos == -1 || namedCaptures.IsUndefined())
@@ -430,7 +427,7 @@ namespace Jint.Native.RegExp
                 }
             }
 
-            return replacementBuilder.ToString();
+            return sb.ToString();
         }
 
         /// <summary>
