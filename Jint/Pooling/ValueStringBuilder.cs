@@ -114,6 +114,11 @@ internal ref struct ValueStringBuilder
     public ReadOnlySpan<char> AsSpan(int start) => _chars.Slice(start, _pos - start);
     public ReadOnlySpan<char> AsSpan(int start, int length) => _chars.Slice(start, length);
 
+    public void Reverse()
+    {
+        _chars.Slice(0, _pos).Reverse();
+    }
+
     public bool TryCopyTo(Span<char> destination, out int charsWritten)
     {
         if (_chars.Slice(0, _pos).TryCopyTo(destination))

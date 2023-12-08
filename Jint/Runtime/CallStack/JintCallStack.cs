@@ -181,7 +181,11 @@ namespace Jint.Runtime.CallStack
                 index--;
             }
 
-            return builder.ToString().TrimEnd();
+            var result = builder.AsSpan().TrimEnd().ToString();
+
+            builder.Dispose();
+
+            return result;
         }
 
         /// <summary>

@@ -5,7 +5,6 @@ using Jint.Collections;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;
 using Jint.Native.Number;
-using Jint.Native.Number.Dtoa;
 using Jint.Native.Object;
 using Jint.Native.Proxy;
 using Jint.Native.String;
@@ -53,15 +52,13 @@ namespace Jint.Native.Json
             var wrapper = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
             wrapper.DefineOwnProperty(JsString.Empty, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
 
-            var jsonBuilder = new StringBuilder();
-
-            var target = new SerializerState(jsonBuilder);
-            if (SerializeJSONProperty(JsString.Empty, wrapper, ref target) == SerializeResult.Undefined)
+            var jsonBuilder = new ValueStringBuilder();
+            if (SerializeJSONProperty(JsString.Empty, wrapper, ref jsonBuilder) == SerializeResult.Undefined)
             {
                 return JsValue.Undefined;
             }
 
-            return new JsString(target.Json.ToString());
+            return new JsString(jsonBuilder.ToString());
         }
 
         private void SetupReplacer(JsValue replacer)
@@ -153,25 +150,25 @@ namespace Jint.Native.Json
         /// <summary>
         /// https://tc39.es/ecma262/#sec-serializejsonproperty
         /// </summary>
-        private SerializeResult SerializeJSONProperty(JsValue key, JsValue holder, ref SerializerState target)
+        private SerializeResult SerializeJSONProperty(JsValue key, JsValue holder, ref ValueStringBuilder json)
         {
             var value = ReadUnwrappedValue(key, holder);
 
             if (ReferenceEquals(value, JsValue.Null))
             {
-                target.Json.Append("null");
+                json.Append("null");
                 return SerializeResult.NotUndefined;
             }
 
             if (value.IsBoolean())
             {
-                target.Json.Append(((JsBoolean) value)._value ? "true" : "false");
+                json.Append(((JsBoolean) value)._value ? "true" : "false");
                 return SerializeResult.NotUndefined;
             }
 
             if (value.IsString())
             {
-                QuoteJSONString(value.ToString(), target.Json);
+                QuoteJSONString(value.ToString(), ref json);
                 return SerializeResult.NotUndefined;
             }
 
@@ -181,7 +178,7 @@ namespace Jint.Native.Json
 
                 if (value.IsInteger())
                 {
-                    target.Json.Append((long) doubleValue);
+                    json.Append(((long) doubleValue).ToString(CultureInfo.InvariantCulture));
                     return SerializeResult.NotUndefined;
                 }
 
@@ -190,19 +187,15 @@ namespace Jint.Native.Json
                 {
                     if (TypeConverter.CanBeStringifiedAsLong(doubleValue))
                     {
-                        target.Json.Append((long) doubleValue);
+                        json.Append(((long) doubleValue).ToString(CultureInfo.InvariantCulture));
                         return SerializeResult.NotUndefined;
                     }
 
-                    target.DtoaBuilder.Reset();
-                    var sb = new ValueStringBuilder(stackalloc char[128]);
-                    NumberPrototype.NumberToString(doubleValue, target.DtoaBuilder, ref sb);
-                    target.Json.Append(sb.ToString());
-
+                    json.Append(NumberPrototype.ToNumberString(doubleValue));
                     return SerializeResult.NotUndefined;
                 }
 
-                target.Json.Append(JsString.NullString);
+                json.Append("null");
                 return SerializeResult.NotUndefined;
             }
 
@@ -215,18 +208,18 @@ namespace Jint.Native.Json
             {
                 if (CanSerializesAsArray(objectInstance))
                 {
-                    SerializeJSONArray(objectInstance, ref target);
+                    SerializeJSONArray(objectInstance, ref json);
                     return SerializeResult.NotUndefined;
                 }
 
                 if (objectInstance is IObjectWrapper wrapper
                     && _engine.Options.Interop.SerializeToJson is { } serialize)
                 {
-                    target.Json.Append(serialize(wrapper.Target));
+                    json.Append(serialize(wrapper.Target));
                     return SerializeResult.NotUndefined;
                 }
 
-                SerializeJSONObject(objectInstance, ref target);
+                SerializeJSONObject(objectInstance, ref json);
                 return SerializeResult.NotUndefined;
             }
 
@@ -307,16 +300,16 @@ namespace Jint.Native.Json
         /// <remarks>
         /// MethodImplOptions.AggressiveOptimization = 512 which is only exposed in .NET Core.
         /// </remarks>
-        [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions)512)]
-        private static unsafe void QuoteJSONString(string value, StringBuilder target)
+        [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
+        private static unsafe void QuoteJSONString(string value, ref ValueStringBuilder json)
         {
             if (value.Length == 0)
             {
-                target.Append("\"\"");
+                json.Append("\"\"");
                 return;
             }
 
-            target.Append('"');
+            json.Append('"');
 
 #if NETCOREAPP1_0_OR_GREATER
             fixed (char* ptr = value)
@@ -329,7 +322,7 @@ namespace Jint.Native.Json
                     if (index < 0)
                     {
                         // append the remaining text which doesn't need any encoding.
-                        target.Append(value.AsSpan(offset));
+                        json.Append(value.AsSpan(offset));
                         break;
                     }
 
@@ -337,10 +330,10 @@ namespace Jint.Native.Json
                     if (index - offset > 0)
                     {
                         // append everything which does not need any encoding until the found index.
-                        target.Append(value.AsSpan(offset, index - offset));
+                        json.Append(value.AsSpan(offset, index - offset));
                     }
 
-                    AppendJsonStringCharacter(value, ref index, target);
+                    AppendJsonStringCharacter(value, ref index, ref json);
 
                     offset = index + 1;
                     remainingLength = value.Length - offset;
@@ -353,59 +346,59 @@ namespace Jint.Native.Json
 #else
             for (var i = 0; i < value.Length; i++)
             {
-                AppendJsonStringCharacter(value, ref i, target);
+                AppendJsonStringCharacter(value, ref i, ref json);
             }
 #endif
-            target.Append('"');
+            json.Append('"');
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void AppendJsonStringCharacter(string value, ref int index, StringBuilder target)
+        private static void AppendJsonStringCharacter(string value, ref int index, ref ValueStringBuilder json)
         {
             var c = value[index];
             switch (c)
             {
                 case '\"':
-                    target.Append("\\\"");
+                    json.Append("\\\"");
                     break;
                 case '\\':
-                    target.Append("\\\\");
+                    json.Append("\\\\");
                     break;
                 case '\b':
-                    target.Append("\\b");
+                    json.Append("\\b");
                     break;
                 case '\f':
-                    target.Append("\\f");
+                    json.Append("\\f");
                     break;
                 case '\n':
-                    target.Append("\\n");
+                    json.Append("\\n");
                     break;
                 case '\r':
-                    target.Append("\\r");
+                    json.Append("\\r");
                     break;
                 case '\t':
-                    target.Append("\\t");
+                    json.Append("\\t");
                     break;
                 default:
                     if (char.IsSurrogatePair(value, index))
                     {
 #if NETCOREAPP1_0_OR_GREATER
-                        target.Append(value.AsSpan(index, 2));
+                        json.Append(value.AsSpan(index, 2));
                         index++;
 #else
-                        target.Append(c);
+                        json.Append(c);
                         index++;
-                        target.Append(value[index]);
+                        json.Append(value[index]);
 #endif
                     }
                     else if (c < 0x20 || char.IsSurrogate(c))
                     {
-                        target.Append("\\u");
-                        target.Append(((int) c).ToString("x4", CultureInfo.InvariantCulture));
+                        json.Append("\\u");
+                        json.Append(((int) c).ToString("x4", CultureInfo.InvariantCulture));
                     }
                     else
                     {
-                        target.Append(c);
+                        json.Append(c);
                     }
                     break;
             }
@@ -414,12 +407,12 @@ namespace Jint.Native.Json
         /// <summary>
         /// https://tc39.es/ecma262/#sec-serializejsonarray
         /// </summary>
-        private void SerializeJSONArray(ObjectInstance value, ref SerializerState target)
+        private void SerializeJSONArray(ObjectInstance value, ref ValueStringBuilder json)
         {
             var len = TypeConverter.ToUint32(value.Get(CommonProperties.Length));
             if (len == 0)
             {
-                target.Json.Append("[]");
+                json.Append("[]");
                 return;
             }
 
@@ -437,22 +430,22 @@ namespace Jint.Native.Json
             {
                 if (hasPrevious)
                 {
-                    target.Json.Append(separator);
+                    json.Append(separator);
                 }
                 else
                 {
-                    target.Json.Append('[');
+                    json.Append('[');
                 }
 
                 if (_gap.Length > 0)
                 {
-                    target.Json.Append('\n');
-                    target.Json.Append(_indent);
+                    json.Append('\n');
+                    json.Append(_indent);
                 }
 
-                if (SerializeJSONProperty(i, value, ref target) == SerializeResult.Undefined)
+                if (SerializeJSONProperty(i, value, ref json) == SerializeResult.Undefined)
                 {
-                    target.Json.Append(JsString.NullString);
+                    json.Append("null");
                 }
 
                 hasPrevious = true;
@@ -462,16 +455,16 @@ namespace Jint.Native.Json
             {
                 _stack.Exit();
                 _indent = stepback;
-                target.Json.Append("[]");
+                json.Append("[]");
                 return;
             }
 
             if (_gap.Length > 0)
             {
-                target.Json.Append('\n');
-                target.Json.Append(stepback);
+                json.Append('\n');
+                json.Append(stepback);
             }
-            target.Json.Append(']');
+            json.Append(']');
 
             _stack.Exit();
             _indent = stepback;
@@ -480,14 +473,14 @@ namespace Jint.Native.Json
         /// <summary>
         /// https://tc39.es/ecma262/#sec-serializejsonobject
         /// </summary>
-        private void SerializeJSONObject(ObjectInstance value, ref SerializerState target)
+        private void SerializeJSONObject(ObjectInstance value, ref ValueStringBuilder json)
         {
             var enumeration = _propertyList is null
                 ? PropertyEnumeration.FromObjectInstance(value)
                 : PropertyEnumeration.FromList(_propertyList);
             if (enumeration.IsEmpty)
             {
-                target.Json.Append("{}");
+                json.Append("{}");
                 return;
             }
 
@@ -503,33 +496,33 @@ namespace Jint.Native.Json
             for (var i = 0; i < enumeration.Keys.Count; i++)
             {
                 var p = enumeration.Keys[i];
-                int position = target.Json.Length;
+                int position = json.Length;
 
                 if (hasPrevious)
                 {
-                    target.Json.Append(separator);
+                    json.Append(separator);
                 }
                 else
                 {
-                    target.Json.Append('{');
+                    json.Append('{');
                 }
 
                 if (_gap.Length > 0)
                 {
-                    target.Json.Append('\n');
-                    target.Json.Append(_indent);
+                    json.Append('\n');
+                    json.Append(_indent);
                 }
 
-                QuoteJSONString(p.ToString(), target.Json);
-                target.Json.Append(':');
+                QuoteJSONString(p.ToString(), ref json);
+                json.Append(':');
                 if (_gap.Length > 0)
                 {
-                    target.Json.Append(' ');
+                    json.Append(' ');
                 }
 
-                if (SerializeJSONProperty(p, value, ref target) == SerializeResult.Undefined)
+                if (SerializeJSONProperty(p, value, ref json) == SerializeResult.Undefined)
                 {
-                    target.Json.Length = position;
+                    json.Length = position;
                 }
                 else
                 {
@@ -541,31 +534,19 @@ namespace Jint.Native.Json
             {
                 _stack.Exit();
                 _indent = stepback;
-                target.Json.Append("{}");
+                json.Append("{}");
                 return;
             }
 
             if (_gap.Length > 0)
             {
-                target.Json.Append('\n');
-                target.Json.Append(stepback);
+                json.Append('\n');
+                json.Append(stepback);
             }
-            target.Json.Append('}');
+            json.Append('}');
 
             _stack.Exit();
             _indent = stepback;
-        }
-
-        private readonly ref struct SerializerState
-        {
-            public SerializerState(StringBuilder jsonBuilder)
-            {
-                Json = jsonBuilder;
-                DtoaBuilder = TypeConverter.CreateDtoaBuilderForDouble();
-            }
-
-            public readonly StringBuilder Json;
-            public readonly DtoaBuilder DtoaBuilder;
         }
 
         private enum SerializeResult

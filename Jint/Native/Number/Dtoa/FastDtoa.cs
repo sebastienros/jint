@@ -64,7 +64,7 @@ namespace Jint.Native.Number.Dtoa
         //    representable number to the input.
         //  Modifies the generated digits in the buffer to approach (round towards) w.
         private static bool RoundWeed(
-            DtoaBuilder buffer,
+            ref  DtoaBuilder buffer,
             ulong distanceTooHighW,
             ulong unsafeInterval,
             ulong rest,
@@ -183,7 +183,7 @@ namespace Jint.Native.Number.Dtoa
         //
         // Precondition: rest < ten_kappa.
         static bool RoundWeedCounted(
-            DtoaBuilder buffer,
+            ref  DtoaBuilder buffer,
             ulong rest,
             ulong ten_kappa,
             ulong unit,
@@ -413,7 +413,7 @@ namespace Jint.Native.Number.Dtoa
             in DiyFp low,
             in DiyFp w,
             in DiyFp high,
-            DtoaBuilder buffer,
+            ref  DtoaBuilder buffer,
             int mk,
             out int kappa)
         {
@@ -473,7 +473,7 @@ namespace Jint.Native.Number.Dtoa
                     // Rounding down (by not emitting the remaining digits) yields a number
                     // that lies within the unsafe interval.
                     return RoundWeed(
-                        buffer,
+                        ref buffer,
                         DiyFp.Minus(tooHigh, w).F,
                         unsafeInterval.F,
                         rest,
@@ -511,7 +511,7 @@ namespace Jint.Native.Number.Dtoa
                 if (fractionals < unsafeInterval.F)
                 {
                     return RoundWeed(
-                        buffer,
+                        ref buffer,
                         DiyFp.Minus(tooHigh, w).F*unit,
                         unsafeInterval.F,
                         fractionals,
@@ -552,7 +552,7 @@ namespace Jint.Native.Number.Dtoa
         static bool DigitGenCounted(
             in DiyFp w,
             int requested_digits,
-            DtoaBuilder buffer,
+            ref  DtoaBuilder buffer,
             out int kappa)
         {
             Debug.Assert(MinimalTargetExponent <= w.E && w.E <= MaximalTargetExponent);
@@ -592,7 +592,7 @@ namespace Jint.Native.Number.Dtoa
             if (requested_digits == 0)
             {
                 ulong rest = (((ulong) integrals) << -one.E) + fractionals;
-                return RoundWeedCounted(buffer, rest,(ulong) divisor << -one.E, w_error, ref kappa);
+                return RoundWeedCounted(ref buffer, rest,(ulong) divisor << -one.E, w_error, ref kappa);
             }
 
           // The integrals have been generated. We are at the point of the decimal
@@ -615,7 +615,7 @@ namespace Jint.Native.Number.Dtoa
             (kappa)--;
           }
           if (requested_digits != 0) return false;
-          return RoundWeedCounted(buffer, fractionals, one.F, w_error, ref kappa);
+          return RoundWeedCounted(ref buffer, fractionals, one.F, w_error, ref kappa);
         }
 
         // Provides a decimal representation of v.
@@ -629,7 +629,7 @@ namespace Jint.Native.Number.Dtoa
         // The last digit will be closest to the actual v. That is, even if several
         // digits might correctly yield 'v' when read again, the closest will be
         // computed.
-        private static bool Grisu3(double v, DtoaBuilder buffer, out int decimal_exponent)
+        private static bool Grisu3(double v, ref  DtoaBuilder buffer, out int decimal_exponent)
         {
             ulong bits = (ulong) BitConverter.DoubleToInt64Bits(v);
             DiyFp w = DoubleHelper.AsNormalizedDiyFp(bits);
@@ -681,7 +681,7 @@ namespace Jint.Native.Number.Dtoa
             // the buffer will be filled with "123" und the decimal_exponent will be
             // decreased by 2.
             int kappa;
-            var digitGen = DigitGen(scaledBoundaryMinus, scaledW, scaledBoundaryPlus, buffer, mk, out kappa);
+            var digitGen = DigitGen(scaledBoundaryMinus, scaledW, scaledBoundaryPlus, ref buffer, mk, out kappa);
             decimal_exponent = -mk + kappa;
             return digitGen;
         }
@@ -695,7 +695,7 @@ namespace Jint.Native.Number.Dtoa
         static bool Grisu3Counted(
             double v,
             int requested_digits,
-            DtoaBuilder buffer,
+            ref  DtoaBuilder buffer,
             out int decimal_exponent)
         {
             ulong bits = (ulong) BitConverter.DoubleToInt64Bits(v);
@@ -725,7 +725,7 @@ namespace Jint.Native.Number.Dtoa
             // return together with a kappa such that scaled_w ~= buffer * 10^kappa. (It
             // will not always be exactly the same since DigitGenCounted only produces a
             // limited number of digits.)
-            bool result = DigitGenCounted(scaled_w, requested_digits, buffer, out var kappa);
+            bool result = DigitGenCounted(scaled_w, requested_digits, ref buffer, out var kappa);
             decimal_exponent = -mk + kappa;
             return result;
         }
@@ -735,7 +735,7 @@ namespace Jint.Native.Number.Dtoa
             DtoaMode mode,
             int requested_digits,
             out int decimal_point,
-            DtoaBuilder buffer)
+            ref  DtoaBuilder buffer)
         {
             Debug.Assert(v > 0);
             Debug.Assert(!double.IsNaN(v));
@@ -746,10 +746,10 @@ namespace Jint.Native.Number.Dtoa
             switch (mode)
             {
                 case DtoaMode.Shortest:
-                    result = Grisu3(v, buffer, out decimal_exponent);
+                    result = Grisu3(v, ref buffer, out decimal_exponent);
                     break;
                 case DtoaMode.Precision:
-                    result = Grisu3Counted(v, requested_digits, buffer, out decimal_exponent);
+                    result = Grisu3Counted(v, requested_digits, ref buffer, out decimal_exponent);
                     break;
                 default:
                     ExceptionHelper.ThrowArgumentOutOfRangeException();

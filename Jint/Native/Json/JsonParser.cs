@@ -172,7 +172,7 @@ namespace Jint.Native.Json
 
         private Token ScanNumericLiteral(ref State state)
         {
-            var sb = new ValueStringBuilder(stackalloc char[128]);
+            var sb = new ValueStringBuilder(stackalloc char[64]);
             var start = _index;
             var ch = _source.CharCodeAt(_index);
             var canBeInteger = true;
@@ -309,7 +309,7 @@ namespace Jint.Native.Json
             int start = _index;
             ++_index;
 
-            var sb = new ValueStringBuilder(stackalloc char[128]);
+            var sb = new ValueStringBuilder(stackalloc char[64]);
             while (_index < _length)
             {
                 char ch = _source[_index++];
@@ -379,7 +379,7 @@ namespace Jint.Native.Json
                 ThrowError(_index, Messages.UnexpectedEOS);
             }
 
-            string value = sb.ToString();
+            var value = sb.ToString();
             return CreateToken(Tokens.String, value, '\"', new JsString(value), new TextRange(start, _index));
         }
 

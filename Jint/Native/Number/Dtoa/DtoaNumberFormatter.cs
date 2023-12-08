@@ -8,7 +8,7 @@ namespace Jint.Native.Number.Dtoa
     internal static class DtoaNumberFormatter
     {
         public static void DoubleToAscii(
-            DtoaBuilder buffer,
+            ref  DtoaBuilder buffer,
             double v,
             DtoaMode mode,
             int requested_digits,
@@ -44,14 +44,14 @@ namespace Jint.Native.Number.Dtoa
             bool fast_worked = false;
             switch (mode) {
                 case DtoaMode.Shortest:
-                    fast_worked = FastDtoa.NumberToString(v, DtoaMode.Shortest, 0, out point, buffer);
+                    fast_worked = FastDtoa.NumberToString(v, DtoaMode.Shortest, 0, out point, ref buffer);
                     break;
                 case DtoaMode.Fixed:
                     //fast_worked = FastFixedDtoa(v, requested_digits, buffer, length, point);
                     ExceptionHelper.ThrowNotImplementedException();
                     break;
                 case DtoaMode.Precision:
-                    fast_worked = FastDtoa.NumberToString(v, DtoaMode.Precision, requested_digits, out point, buffer);
+                    fast_worked = FastDtoa.NumberToString(v, DtoaMode.Precision, requested_digits, out point, ref buffer);
                     break;
                 default:
                     ExceptionHelper.ThrowArgumentOutOfRangeException();
@@ -65,7 +65,7 @@ namespace Jint.Native.Number.Dtoa
 
             // If the fast dtoa didn't succeed use the slower bignum version.
             buffer.Reset();
-            BignumDtoa.NumberToString(v, mode, requested_digits, buffer, out point);
+            BignumDtoa.NumberToString(v, mode, requested_digits, ref buffer, out point);
        }
     }
 }
