@@ -11,7 +11,7 @@ namespace Jint.Native.Number.Dtoa
             double v,
             DtoaMode mode,
             int requested_digits,
-            DtoaBuilder builder,
+            ref  DtoaBuilder builder,
             out int decimal_point)
         {
             var bits = (ulong) BitConverter.DoubleToInt64Bits(v);
@@ -73,7 +73,7 @@ namespace Jint.Native.Number.Dtoa
                         delta_minus,
                         delta_plus,
                         is_even,
-                        builder);
+                        ref builder);
                     break;
                 case DtoaMode.Fixed:
                     BignumToFixed(
@@ -81,7 +81,7 @@ namespace Jint.Native.Number.Dtoa
                         ref decimal_point,
                         numerator,
                         denominator,
-                        builder);
+                        ref builder);
                     break;
                 case DtoaMode.Precision:
                     GenerateCountedDigits(
@@ -89,7 +89,7 @@ namespace Jint.Native.Number.Dtoa
                         ref decimal_point,
                         numerator,
                         denominator,
-                        builder);
+                        ref builder);
                     break;
                 default:
                     ExceptionHelper.ThrowArgumentOutOfRangeException();
@@ -117,7 +117,7 @@ namespace Jint.Native.Number.Dtoa
             Bignum delta_minus,
             Bignum delta_plus,
             bool is_even,
-            DtoaBuilder buffer)
+            ref  DtoaBuilder buffer)
         {
             // Small optimization: if delta_minus and delta_plus are the same just reuse
             // one of the two bignums.
@@ -239,7 +239,7 @@ namespace Jint.Native.Number.Dtoa
             ref int decimal_point,
             Bignum numerator,
             Bignum denominator,
-            DtoaBuilder buffer)
+            ref  DtoaBuilder buffer)
         {
             Debug.Assert(count >= 0);
             for (int i = 0; i < count - 1; ++i)
@@ -286,7 +286,7 @@ namespace Jint.Native.Number.Dtoa
             ref int decimal_point,
             Bignum numerator,
             Bignum denominator,
-            DtoaBuilder buffer)
+            ref  DtoaBuilder buffer)
         {
             // Note that we have to look at more than just the requested_digits, since
             // a number could be rounded up. Example: v=0.5 with requested_digits=0.
@@ -329,7 +329,7 @@ namespace Jint.Native.Number.Dtoa
                 // The requested digits correspond to the digits after the point.
                 // The variable 'needed_digits' includes the digits before the point.
                 int needed_digits = (decimal_point) + requested_digits;
-                GenerateCountedDigits(needed_digits, ref decimal_point, numerator, denominator, buffer);
+                GenerateCountedDigits(needed_digits, ref decimal_point, numerator, denominator, ref buffer);
             }
         }
 

@@ -124,18 +124,14 @@ internal sealed class BigIntPrototype : Prototype
             sb.Append(Digits[d]);
         }
 
-#if NET6_0_OR_GREATER
-        var charArray = sb.Length < 512 ? stackalloc char[sb.Length] : new char[sb.Length];
-        sb.AsSpan().CopyTo(charArray);
-        charArray.Reverse();
-#else
-        var charArray = new char[sb.Length];
-        sb.AsSpan().CopyTo(charArray);
-        System.Array.Reverse(charArray);
-#endif
+        if (negative)
+        {
+            sb.Append('-');
+        }
 
-        var s = new string(charArray);
-        return negative ? '-' + s : s;
+        sb.Reverse();
+
+        return sb.ToString();
     }
 
     /// <summary>
