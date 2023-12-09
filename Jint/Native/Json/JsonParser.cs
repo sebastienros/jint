@@ -170,9 +170,9 @@ namespace Jint.Native.Json
             }
         }
 
-        private Token ScanNumericLiteral(ref State state)
+        private Token ScanNumericLiteral()
         {
-            var sb = new ValueStringBuilder(stackalloc char[64]);
+            using var sb = new ValueStringBuilder(stackalloc char[64]);
             var start = _index;
             var ch = _source.CharCodeAt(_index);
             var canBeInteger = true;
@@ -309,7 +309,7 @@ namespace Jint.Native.Json
             int start = _index;
             ++_index;
 
-            var sb = new ValueStringBuilder(stackalloc char[64]);
+            using var sb = new ValueStringBuilder(stackalloc char[64]);
             while (_index < _length)
             {
                 char ch = _source[_index++];
@@ -403,14 +403,14 @@ namespace Jint.Native.Json
             {
                 if (IsDecimalDigit(_source.CharCodeAt(_index + 1)))
                 {
-                    return ScanNumericLiteral(ref state);
+                    return ScanNumericLiteral();
                 }
                 return ScanPunctuator();
             }
 
             if (IsDecimalDigit(ch))
             {
-                return ScanNumericLiteral(ref state);
+                return ScanNumericLiteral();
             }
 
             if (ch == 't' || ch == 'f')

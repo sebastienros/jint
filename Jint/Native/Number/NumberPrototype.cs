@@ -418,7 +418,7 @@ namespace Jint.Native.Number
                 return "0";
             }
 
-            using var sb = new ValueStringBuilder(stackalloc char[64]);
+            var sb = new ValueStringBuilder(stackalloc char[64]);
             while (n > 0)
             {
                 var digit = (int) (n % radix);
@@ -440,7 +440,7 @@ namespace Jint.Native.Number
                 return "0";
             }
 
-            using var result = new ValueStringBuilder(stackalloc char[64]);
+            var result = new ValueStringBuilder(stackalloc char[64]);
             while (n > 0 && result.Length < 50) // arbitrary limit
             {
                 var c = n*radix;

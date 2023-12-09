@@ -637,7 +637,7 @@ namespace Jint.Native.TypedArray
                 return s;
             }
 
-            var result = new ValueStringBuilder();
+            using var result = new ValueStringBuilder();
             result.Append(s);
             for (var k = 1; k < len; k++)
             {

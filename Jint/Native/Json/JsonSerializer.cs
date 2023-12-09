@@ -52,13 +52,20 @@ namespace Jint.Native.Json
             var wrapper = _engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
             wrapper.DefineOwnProperty(JsString.Empty, new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable));
 
-            var jsonBuilder = new ValueStringBuilder();
-            if (SerializeJSONProperty(JsString.Empty, wrapper, ref jsonBuilder) == SerializeResult.Undefined)
+            string result;
+            var json = new ValueStringBuilder();
+            try
             {
-                return JsValue.Undefined;
+                if (SerializeJSONProperty(JsString.Empty, wrapper, ref json) == SerializeResult.Undefined)
+                {
+                    return JsValue.Undefined;
+                }
             }
-
-            return new JsString(jsonBuilder.ToString());
+            finally
+            {
+                result = json.ToString();
+            }
+            return new JsString(result);
         }
 
         private void SetupReplacer(JsValue replacer)

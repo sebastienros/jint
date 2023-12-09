@@ -82,7 +82,7 @@ namespace Jint.Native.String
         private JsValue FromCodePoint(JsValue thisObject, JsValue[] arguments)
         {
             JsNumber codePoint;
-            var result = new ValueStringBuilder(stackalloc char[128]);
+            using var result = new ValueStringBuilder(stackalloc char[128]);
             foreach (var a in arguments)
             {
                 int point;
@@ -144,7 +144,7 @@ namespace Jint.Native.String
                 return JsString.Empty;
             }
 
-            var result = new ValueStringBuilder();
+            using var result = new ValueStringBuilder();
             for (var i = 0; i < length; i++)
             {
                 if (i > 0)

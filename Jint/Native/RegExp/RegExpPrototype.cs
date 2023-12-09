@@ -337,7 +337,7 @@ namespace Jint.Native.RegExp
             // $`	Inserts the portion of the string that precedes the matched substring.
             // $'	Inserts the portion of the string that follows the matched substring.
             // $n or $nn	Where n or nn are decimal digits, inserts the nth parenthesized submatch string, provided the first argument was a RegExp object.
-            var sb = new ValueStringBuilder(stackalloc char[128]);
+            using var sb = new ValueStringBuilder(stackalloc char[128]);
             for (var i = 0; i < replacement.Length; i++)
             {
                 char c = replacement[i];

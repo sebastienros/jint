@@ -642,7 +642,7 @@ namespace Jint.Native.String
             var advanceBy = System.Math.Max(1, searchLength);
 
             var endOfLastMatch = 0;
-            var result = new ValueStringBuilder();
+            using var result = new ValueStringBuilder();
 
             var position = StringIndexOf(thisString, searchString, 0);
             while (position != -1)
