@@ -40,7 +40,7 @@ internal sealed class JintTemplateLiteralExpression : JintExpression
             _initialized = true;
         }
 
-        var sb = new ValueStringBuilder();
+        using var sb = new ValueStringBuilder();
         ref readonly var elements = ref _templateLiteralExpression.Quasis;
         for (var i = 0; i < elements.Count; i++)
         {
