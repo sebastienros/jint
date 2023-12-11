@@ -51,6 +51,11 @@ public class DefaultTimeSystem : ITimeSystem
         DefaultTimeZone = timeZoneInfo;
     }
 
+    public virtual DateTime GetUtcNow()
+    {
+        return DateTime.UtcNow;
+    }
+
     public TimeZoneInfo DefaultTimeZone { get; }
 
     public virtual bool TryParse(string date, out long epochMilliseconds)
