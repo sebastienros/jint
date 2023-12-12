@@ -11,6 +11,12 @@ namespace Jint.Runtime;
 public interface ITimeSystem
 {
     /// <summary>
+    /// Retrieves current UTC time.
+    /// </summary>
+    /// <returns>Current UTC time.</returns>
+    DateTimeOffset GetUtcNow();
+    
+    /// <summary>
     /// Return the default time zone system is using. Usually <see cref="TimeZoneInfo.Local"/>, but can be altered via
     /// engine configuration, see <see cref="Options.TimeZone"/>.
     /// </summary>
