@@ -86,8 +86,8 @@ file sealed class TimeProviderTimeSystem : DefaultTimeSystem
         _timeProvider = timeProvider;
     }
 
-    public override DateTime GetUtcNow()
+    public override DateTimeOffset GetUtcNow()
     {
-        return _timeProvider.GetUtcNow().DateTime;
+        return _timeProvider.GetUtcNow();
     }
 }

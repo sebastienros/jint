@@ -14,7 +14,7 @@ public interface ITimeSystem
     /// Retrieves current UTC time.
     /// </summary>
     /// <returns>Current UTC time.</returns>
-    DateTime GetUtcNow();
+    DateTimeOffset GetUtcNow();
     
     /// <summary>
     /// Return the default time zone system is using. Usually <see cref="TimeZoneInfo.Local"/>, but can be altered via

@@ -100,7 +100,7 @@ internal sealed class DateConstructor : Constructor
 
     private JsValue Now(JsValue thisObject, JsValue[] arguments)
     {
-        return (long) (_timeSystem.GetUtcNow() - Epoch).TotalMilliseconds;
+        return (long) (_timeSystem.GetUtcNow().DateTime - Epoch).TotalMilliseconds;
     }
 
     protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
@@ -120,7 +120,7 @@ internal sealed class DateConstructor : Constructor
                 newTarget,
                 static intrinsics => intrinsics.Date.PrototypeObject,
                 static (engine, _, dateValue) => new JsDate(engine, dateValue),
-                (_timeSystem.GetUtcNow() - Epoch).TotalMilliseconds);
+                (_timeSystem.GetUtcNow().DateTime - Epoch).TotalMilliseconds);
         }
 
         return ConstructUnlikely(arguments, newTarget);

@@ -51,9 +51,9 @@ public class DefaultTimeSystem : ITimeSystem
         DefaultTimeZone = timeZoneInfo;
     }
 
-    public virtual DateTime GetUtcNow()
+    public virtual DateTimeOffset GetUtcNow()
     {
-        return DateTime.UtcNow;
+        return DateTimeOffset.UtcNow;
     }
 
     public TimeZoneInfo DefaultTimeZone { get; }
