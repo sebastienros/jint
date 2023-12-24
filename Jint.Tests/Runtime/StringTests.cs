@@ -1,4 +1,4 @@
-﻿namespace Jint.Tests.Runtime;
+namespace Jint.Tests.Runtime;
 
 public class StringTests
 {
