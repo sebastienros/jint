@@ -248,6 +248,13 @@ namespace Jint.Native.String
             if (string.Equals("lt", culture.Name, StringComparison.OrdinalIgnoreCase))
             {
                 s = StringInlHelper.LithuanianStringProcessor(s);
+#if NET462
+                // Code specific to .NET Framework 4.6.2.
+                // For no good reason this verison does not upper case these characters correctly.
+                return new JsString(s.ToUpper(culture)
+                    .Replace("ϳ", "Ϳ")
+                    .Replace("ʝ", "Ʝ"));
+#endif
             }
 
             return new JsString(s.ToUpper(culture));
