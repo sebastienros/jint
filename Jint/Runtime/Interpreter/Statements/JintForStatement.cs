@@ -136,7 +136,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 }
 
                 var result = _body.Execute(context);
-                if (!ReferenceEquals(result.Value, JsEmpty.Instance))
+                if (!result.Value.IsEmpty)
                 {
                     v = result.Value;
                 }

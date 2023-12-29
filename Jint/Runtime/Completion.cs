@@ -43,7 +43,7 @@ public readonly struct Completion
     public static ref readonly Completion Empty() => ref _emptyCompletion;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public JsValue GetValueOrDefault() => ReferenceEquals(Value, JsEmpty.Instance) ? JsValue.Undefined : Value;
+    public JsValue GetValueOrDefault() => Value.IsEmpty ? JsValue.Undefined : Value;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsAbrupt() => Type != CompletionType.Normal;

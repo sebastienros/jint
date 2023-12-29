@@ -40,6 +40,8 @@ namespace Jint.Native
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal virtual bool IsConstructor => false;
 
+        internal bool IsEmpty => ReferenceEquals(this, JsEmpty.Instance);
+
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal IteratorInstance GetIterator(Realm realm, GeneratorKind hint = GeneratorKind.Sync, ICallable? method = null)

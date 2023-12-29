@@ -7,7 +7,7 @@ namespace Jint.Native;
 /// </summary>
 internal sealed class JsEmpty : JsValue
 {
-    internal static readonly JsEmpty Instance = new();
+    internal static readonly JsValue Instance = new JsEmpty();
 
     private JsEmpty() : base(Types.Empty)
     {

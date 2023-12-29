@@ -9,11 +9,7 @@ namespace Jint.Runtime.Interpreter
 {
     internal sealed class JintStatementList
     {
-        private sealed class Pair
-        {
-            internal JintStatement Statement = null!;
-            internal JsValue? Value;
-        }
+        private readonly record struct Pair(JintStatement Statement, JsValue? Value);
 
         private readonly Statement? _statement;
         private readonly NodeList<Statement> _statements;
@@ -54,11 +50,7 @@ namespace Jint.Runtime.Interpreter
                 var statement = JintStatement.Build(esprimaStatement);
                 // When in debug mode, don't do FastResolve: Stepping requires each statement to be actually executed.
                 var value = context.DebugMode ? null : JintStatement.FastResolve(esprimaStatement);
-                jintStatements[i] = new Pair
-                {
-                    Statement = statement,
-                    Value = value
-                };
+                jintStatements[i] = new Pair(statement, value);
             }
 
             _jintStatements = jintStatements;
@@ -84,35 +76,36 @@ namespace Jint.Runtime.Interpreter
             Completion sl = c;
 
             // The value of a StatementList is the value of the last value-producing item in the StatementList
-            JsValue? lastValue = null;
+            var lastValue = JsEmpty.Instance;
             var i = _index;
             var temp = _jintStatements!;
             try
             {
                 for (i = 0; i < (uint) temp.Length; i++)
                 {
-                    if (temp[i].Value is null)
+                    ref readonly var pair = ref temp[i];
+
+                    if (pair.Value is null)
                     {
-                        c = temp[i].Statement.Execute(context);
+                        c = pair.Statement.Execute(context);
                         if (context.Engine._error is not null)
                         {
-                            c = HandleError(context.Engine, temp[i].Statement);
+                            c = HandleError(context.Engine, pair.Statement);
                             break;
                         }
                     }
                     else
                     {
-                        c = new Completion(CompletionType.Return, temp[i].Value!, temp[i].Statement._statement);
+                        c = new Completion(CompletionType.Return, pair.Value, pair.Statement._statement);
                     }
 
                     if (c.Type != CompletionType.Normal)
                     {
-                        c = c.UpdateEmpty(sl.Value).UpdateEmpty(JsValue.Undefined);
-                        break;
+                        return c.UpdateEmpty(sl.Value);
                     }
 
                     sl = c;
-                    if (!ReferenceEquals(c.Value, JsEmpty.Instance))
+                    if (!c.Value.IsEmpty)
                     {
                         lastValue = c.Value;
                     }
@@ -130,7 +123,7 @@ namespace Jint.Runtime.Interpreter
                 }
             }
 
-            return  c.UpdateEmpty(lastValue ?? JsValue.Undefined);
+            return c.UpdateEmpty(lastValue).UpdateEmpty(JsValue.Undefined);
         }
 
         private static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)
@@ -139,11 +132,13 @@ namespace Jint.Runtime.Interpreter
             {
                 return CreateThrowCompletion(s, javaScriptException);
             }
+
             if (exception is TypeErrorException typeErrorException)
             {
                 var node = typeErrorException.Node ?? s!._statement;
                 return CreateThrowCompletion(context.Engine.Realm.Intrinsics.TypeError, typeErrorException, node);
             }
+
             if (exception is RangeErrorException rangeErrorException)
             {
                 return CreateThrowCompletion(context.Engine.Realm.Intrinsics.RangeError, rangeErrorException, s!._statement);

@@ -221,6 +221,7 @@ namespace Jint.Runtime
                     return ToNumber(o.ToString());
                 case InternalTypes.Symbol:
                 case InternalTypes.BigInt:
+                case InternalTypes.Empty:
                     // TODO proper TypeError would require Engine instance and a lot of API changes
                     ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a " + type + " value to a number");
                     return 0;
@@ -251,6 +252,7 @@ namespace Jint.Runtime
                     return new JsNumber(ToNumber(o.ToString()));
                 case InternalTypes.Symbol:
                 case InternalTypes.BigInt:
+                case InternalTypes.Empty:
                     // TODO proper TypeError would require Engine instance and a lot of API changes
                     ExceptionHelper.ThrowTypeErrorNoEngine("Cannot convert a " + type + " value to a number");
                     return JsNumber.PositiveZero;
