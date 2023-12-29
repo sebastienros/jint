@@ -406,7 +406,7 @@ namespace Jint.Native.Global
 
 uriError:
             _engine.SignalError(ExceptionHelper.CreateUriError(_realm, "URI malformed"));
-            return null!;
+            return JsEmpty.Instance;
         }
 
         public JsValue DecodeUri(JsValue thisObject, JsValue[] arguments)
@@ -535,7 +535,7 @@ uriError:
 
 uriError:
             _engine.SignalError(ExceptionHelper.CreateUriError(_realm, "URI malformed"));
-            return null!;
+            return JsEmpty.Instance;
         }
 
         private static byte StringToIntBase16(ReadOnlySpan<char> s)

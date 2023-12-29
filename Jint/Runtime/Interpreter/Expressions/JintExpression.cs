@@ -31,7 +31,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return (JsValue) result;
             }
 
-            return context.Engine.GetValue(reference, true);
+            return context.Engine.GetValue(reference, returnReferenceToPool: true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]

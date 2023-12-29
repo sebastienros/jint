@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
+using Jint.Native;
 using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Runtime.Interpreter.Statements
@@ -95,18 +96,14 @@ namespace Jint.Runtime.Interpreter.Statements
             return result;
         }
 
-        internal static Completion FastResolve(StatementListItem statement)
+        internal static JsValue? FastResolve(StatementListItem statement)
         {
             if (statement is ReturnStatement rs && rs.Argument is Literal l)
             {
-                var jsValue = JintLiteralExpression.ConvertToJsValue(l);
-                if (jsValue is not null)
-                {
-                    return new Completion(CompletionType.Return, jsValue, rs);
-                }
+                return JintLiteralExpression.ConvertToJsValue(l);
             }
 
-            return Completion.Empty();
+            return null;
         }
     }
 }
