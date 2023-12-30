@@ -125,7 +125,7 @@ namespace Jint.Native.String
 
             rangeError:
             _engine.SignalError(ExceptionHelper.CreateRangeError(_realm, "Invalid code point " + codePoint));
-            return null!;
+            return JsEmpty.Instance;
         }
 
         /// <summary>

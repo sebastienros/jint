@@ -118,7 +118,7 @@ namespace Jint.Native.Date
             }
 
             var hintString = hint.ToString();
-            var tryFirst = Types.None;
+            var tryFirst = Types.Empty;
             if (string.Equals(hintString, "default", StringComparison.Ordinal) || string.Equals(hintString, "string", StringComparison.Ordinal))
             {
                 tryFirst = Types.String;

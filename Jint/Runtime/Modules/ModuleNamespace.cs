@@ -204,7 +204,7 @@ internal sealed class ModuleNamespace : ObjectInstance
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
     {
         var result = new List<JsValue>();
-        if ((types & Types.String) != Types.None)
+        if ((types & Types.String) != Types.Empty)
         {
             result.Capacity = _exports.Count;
             foreach (var export in _exports)

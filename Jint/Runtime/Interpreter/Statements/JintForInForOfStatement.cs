@@ -279,7 +279,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     var result = stmt.Execute(context);
                     engine.UpdateLexicalEnvironment(oldEnv);
 
-                    if (!ReferenceEquals(result.Value, null))
+                    if (!result.Value.IsEmpty)
                     {
                         v = result.Value;
                     }

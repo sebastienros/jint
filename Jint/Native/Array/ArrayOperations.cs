@@ -56,7 +56,7 @@ namespace Jint.Native.Array
             for (uint i = 0; i < (uint) jsValues.Length; i++)
             {
                 var jsValue = skipHoles && !HasProperty(i) ? JsValue.Undefined : Get(i);
-                if ((jsValue.Type & elementTypes) == Types.None)
+                if ((jsValue.Type & elementTypes) == Types.Empty)
                 {
                     ExceptionHelper.ThrowTypeErrorNoEngine("invalid type");
                 }
@@ -251,7 +251,7 @@ namespace Jint.Native.Array
                         value = _target.Prototype?.Get(i) ?? JsValue.Undefined;
                     }
 
-                    if ((value.Type & elementTypes) == Types.None)
+                    if ((value.Type & elementTypes) == Types.Empty)
                     {
                         ExceptionHelper.ThrowTypeErrorNoEngine("invalid type");
                     }

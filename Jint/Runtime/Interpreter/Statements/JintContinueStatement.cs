@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Statements;
 
@@ -14,6 +15,6 @@ internal sealed class JintContinueStatement : JintStatement<ContinueStatement>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         context.Target = _statement.Label?.Name;
-        return new Completion(CompletionType.Continue, null!, _statement);
+        return new Completion(CompletionType.Continue, JsEmpty.Instance, _statement);
     }
 }

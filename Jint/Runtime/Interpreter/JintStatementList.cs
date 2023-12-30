@@ -9,11 +9,7 @@ namespace Jint.Runtime.Interpreter
 {
     internal sealed class JintStatementList
     {
-        private sealed class Pair
-        {
-            internal JintStatement Statement = null!;
-            internal Completion? Value;
-        }
+        private readonly record struct Pair(JintStatement Statement, JsValue? Value);
 
         private readonly Statement? _statement;
         private readonly NodeList<Statement> _statements;
@@ -54,11 +50,7 @@ namespace Jint.Runtime.Interpreter
                 var statement = JintStatement.Build(esprimaStatement);
                 // When in debug mode, don't do FastResolve: Stepping requires each statement to be actually executed.
                 var value = context.DebugMode ? null : JintStatement.FastResolve(esprimaStatement);
-                jintStatements[i] = new Pair
-                {
-                    Statement = statement,
-                    Value = value
-                };
+                jintStatements[i] = new Pair(statement, value);
             }
 
             _jintStatements = jintStatements;
@@ -80,33 +72,40 @@ namespace Jint.Runtime.Interpreter
                 context.RunBeforeExecuteStatementChecks(_statement);
             }
 
-            JintStatement? s = null;
-            Completion c = default;
+            Completion c = Completion.Empty();
             Completion sl = c;
 
             // The value of a StatementList is the value of the last value-producing item in the StatementList
-            JsValue? lastValue = null;
+            var lastValue = JsEmpty.Instance;
+            var i = _index;
+            var temp = _jintStatements!;
             try
             {
-                foreach (var pair in _jintStatements!)
+                for (i = 0; i < (uint) temp.Length; i++)
                 {
-                    s = pair.Statement;
-                    c = pair.Value.GetValueOrDefault();
-                    if (c.Value is null)
+                    ref readonly var pair = ref temp[i];
+
+                    if (pair.Value is null)
                     {
-                        c = s.Execute(context);
+                        c = pair.Statement.Execute(context);
                         if (context.Engine._error is not null)
                         {
-                            return HandleError(context.Engine, s);
+                            c = HandleError(context.Engine, pair.Statement);
+                            break;
                         }
+                    }
+                    else
+                    {
+                        c = new Completion(CompletionType.Return, pair.Value, pair.Statement._statement);
                     }
 
                     if (c.Type != CompletionType.Normal)
                     {
-                        return new Completion(c.Type, c.Value ?? sl.Value!, c._source);
+                        return c.UpdateEmpty(sl.Value);
                     }
+
                     sl = c;
-                    if (c.Value is not null)
+                    if (!c.Value.IsEmpty)
                     {
                         lastValue = c.Value;
                     }
@@ -116,13 +115,15 @@ namespace Jint.Runtime.Interpreter
             {
                 if (ex is JintException)
                 {
-                    return HandleException(context, ex, s);
+                    c = HandleException(context, ex, temp[i].Statement);
                 }
-
-                throw;
+                else
+                {
+                    throw;
+                }
             }
 
-            return new Completion(c.Type, lastValue ?? JsValue.Undefined, c._source!);
+            return c.UpdateEmpty(lastValue).UpdateEmpty(JsValue.Undefined);
         }
 
         private static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)
@@ -131,11 +132,13 @@ namespace Jint.Runtime.Interpreter
             {
                 return CreateThrowCompletion(s, javaScriptException);
             }
+
             if (exception is TypeErrorException typeErrorException)
             {
                 var node = typeErrorException.Node ?? s!._statement;
                 return CreateThrowCompletion(context.Engine.Realm.Intrinsics.TypeError, typeErrorException, node);
             }
+
             if (exception is RangeErrorException rangeErrorException)
             {
                 return CreateThrowCompletion(context.Engine.Realm.Intrinsics.RangeError, rangeErrorException, s!._statement);

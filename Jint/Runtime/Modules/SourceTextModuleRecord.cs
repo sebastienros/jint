@@ -336,7 +336,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
     /// </summary>
     internal override Completion ExecuteModule(PromiseCapability capability = null)
     {
-        var moduleContext = new ExecutionContext(this, _environment, _environment, null, _realm);
+        var moduleContext = new ExecutionContext(this, _environment, _environment, privateEnvironment: null, _realm);
         if (!_hasTLA)
         {
             using (new StrictModeScope(true, force: true))
@@ -344,7 +344,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
                 _engine.EnterExecutionContext(moduleContext);
                 try
                 {
-                    var statementList = new JintStatementList(null, _source.Body);
+                    var statementList = new JintStatementList(statement: null, _source.Body);
                     var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
                     var result = statementList.Execute(context); //Create new evaluation context when called from e.g. module tests
                     return result;

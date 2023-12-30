@@ -232,11 +232,11 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
 
-            var returningSymbols = (types & Types.Symbol) != Types.None && _symbols?.Count > 0;
-            var returningStringKeys = (types & Types.String) != Types.None && _properties?.Count > 0;
+            var returningSymbols = (types & Types.Symbol) != Types.Empty && _symbols?.Count > 0;
+            var returningStringKeys = (types & Types.String) != Types.Empty && _properties?.Count > 0;
 
             var propertyKeys = new List<JsValue>();
-            if ((types & Types.String) != Types.None)
+            if ((types & Types.String) != Types.Empty)
             {
                 var initialOwnStringPropertyKeys = GetInitialOwnStringPropertyKeys();
                 if (!ReferenceEquals(initialOwnStringPropertyKeys, System.Linq.Enumerable.Empty<JsValue>()))
@@ -272,7 +272,7 @@ namespace Jint.Native.Object
                 return propertyKeys;
             }
 
-            if ((types & Types.String) == Types.None && (types & Types.Symbol) != Types.None)
+            if ((types & Types.String) == Types.Empty && (types & Types.Symbol) != Types.Empty)
             {
                 // only symbols requested
                 if (_symbols != null)
@@ -365,7 +365,7 @@ namespace Jint.Native.Object
 
         public override JsValue Get(JsValue property, JsValue receiver)
         {
-            if ((_type & InternalTypes.PlainObject) != InternalTypes.None && ReferenceEquals(this, receiver) && property is JsString jsString)
+            if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && ReferenceEquals(this, receiver) && property is JsString jsString)
             {
                 EnsureInitialized();
                 if (_properties?.TryGetValue(jsString.ToString(), out var ownDesc) == true)
@@ -521,7 +521,7 @@ namespace Jint.Native.Object
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Set(JsValue property, JsValue value)
         {
-            if ((_type & InternalTypes.PlainObject) != InternalTypes.None && property is JsString jsString)
+            if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && property is JsString jsString)
             {
                 var key = (Key) jsString.ToString();
                 if (_properties?.TryGetValue(key, out var ownDesc) == true)
@@ -544,7 +544,7 @@ namespace Jint.Native.Object
         /// </summary>
         public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
-            if ((_type & InternalTypes.PlainObject) != InternalTypes.None && ReferenceEquals(this, receiver) && property is JsString jsString)
+            if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && ReferenceEquals(this, receiver) && property is JsString jsString)
             {
                 var key = (Key) jsString.ToString();
                 if (_properties?.TryGetValue(key, out var ownDesc) == true)

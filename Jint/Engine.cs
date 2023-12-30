@@ -5,6 +5,7 @@ using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Argument;
 using Jint.Native.Function;
+using Jint.Native.Generator;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Native.Symbol;
@@ -553,7 +554,7 @@ namespace Jint
                 ExceptionHelper.ThrowReferenceError(Realm, reference);
             }
 
-            if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == InternalTypes.None
+            if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == InternalTypes.Empty
                 && _referenceResolver.TryPropertyReference(this, reference, ref baseValue))
             {
                 return baseValue;
@@ -584,7 +585,7 @@ namespace Jint
                     // check if we are accessing a string, boxing operation can be costly to do index access
                     // we have good chance to have fast path with integer or string indexer
                     ObjectInstance? o = null;
-                    if ((property._type & (InternalTypes.String | InternalTypes.Integer)) != InternalTypes.None
+                    if ((property._type & (InternalTypes.String | InternalTypes.Integer)) != InternalTypes.Empty
                         && baseValue is JsString s
                         && TryHandleStringValue(property, s, ref o, out var jsValue))
                     {
@@ -1370,6 +1371,12 @@ namespace Jint
             _executionContexts.ReplaceTopPrivateEnvironment(newEnv);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal ref readonly ExecutionContext UpdateGenerator(GeneratorInstance generator)
+        {
+            return ref _executionContexts.ReplaceTopGenerator(generator);
+        }
+
         /// <summary>
         /// Invokes the named callable and returns the resulting object.
         /// </summary>
@@ -1545,6 +1552,11 @@ namespace Jint
         {
             _typeReferences ??= new Dictionary<Type, TypeReference>();
             _typeReferences[reference.ReferenceType] = reference;
+        }
+
+        internal ref readonly ExecutionContext GetExecutionContext(int fromTop)
+        {
+            return ref _executionContexts.Peek(fromTop);
         }
 
         public void Dispose()

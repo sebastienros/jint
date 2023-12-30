@@ -41,15 +41,8 @@ namespace Jint.Runtime.Interpreter.Statements
                 _initialized = true;
             }
 
-            if (context.ResumedCompletion.IsAbrupt() && !SupportsResume)
-            {
-                return new Completion(CompletionType.Normal, JsValue.Undefined, _statement);
-            }
-
             return ExecuteInternal(context);
         }
-
-        internal virtual bool SupportsResume => false;
 
         protected abstract Completion ExecuteInternal(EvaluationContext context);
 
@@ -103,15 +96,11 @@ namespace Jint.Runtime.Interpreter.Statements
             return result;
         }
 
-        internal static Completion? FastResolve(StatementListItem statement)
+        internal static JsValue? FastResolve(StatementListItem statement)
         {
             if (statement is ReturnStatement rs && rs.Argument is Literal l)
             {
-                var jsValue = JintLiteralExpression.ConvertToJsValue(l);
-                if (jsValue is not null)
-                {
-                    return new Completion(CompletionType.Return, jsValue, rs);
-                }
+                return JintLiteralExpression.ConvertToJsValue(l);
             }
 
             return null;

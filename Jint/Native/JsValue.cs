@@ -40,6 +40,8 @@ namespace Jint.Native
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal virtual bool IsConstructor => false;
 
+        internal bool IsEmpty => ReferenceEquals(this, JsEmpty.Instance);
+
         [Pure]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal IteratorInstance GetIterator(Realm realm, GeneratorKind hint = GeneratorKind.Sync, ICallable? method = null)
@@ -345,12 +347,12 @@ namespace Jint.Native
                 return x.IsLooselyEqual(TypeConverter.ToNumber(y));
             }
 
-            if (y.IsObject() && (x._type & InternalTypes.Primitive) != InternalTypes.None)
+            if (y.IsObject() && (x._type & InternalTypes.Primitive) != InternalTypes.Empty)
             {
                 return x.IsLooselyEqual(TypeConverter.ToPrimitive(y));
             }
 
-            if (x.IsObject() && (y._type & InternalTypes.Primitive) != InternalTypes.None)
+            if (x.IsObject() && (y._type & InternalTypes.Primitive) != InternalTypes.Empty)
             {
                 return y.IsLooselyEqual(TypeConverter.ToPrimitive(x));
             }
@@ -377,7 +379,7 @@ namespace Jint.Native
         internal JsValue Clone()
         {
             // concatenated string and arguments currently may require cloning
-            return (_type & InternalTypes.RequiresCloning) == InternalTypes.None
+            return (_type & InternalTypes.RequiresCloning) == InternalTypes.Empty
                 ? this
                 : DoClone();
         }
