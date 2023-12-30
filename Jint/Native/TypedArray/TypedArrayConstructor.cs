@@ -130,10 +130,17 @@ namespace Jint.Native.TypedArray
             srcData.AssertNotDetached();
 
             var elementType = o._arrayElementType;
-            var elementLength = srcArray._arrayLength;
             var srcType = srcArray._arrayElementType;
             var srcElementSize = srcType.GetElementSize();
             var srcByteOffset = srcArray._byteOffset;
+
+            var srcRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(srcArray, ArrayBufferOrder.SeqCst);
+            if (srcRecord.IsTypedArrayOutOfBounds)
+            {
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
+
+            var elementLength = srcRecord.TypedArrayLength;
             var elementSize = elementType.GetElementSize();
             var byteLength = elementSize * elementLength;
 
@@ -157,8 +164,8 @@ namespace Jint.Native.TypedArray
                 var count = elementLength;
                 while (count > 0)
                 {
-                    var value = srcData.GetValueFromBuffer(srcByteIndex, srcType, true, ArrayBufferOrder.Unordered);
-                    data.SetValueInBuffer(targetByteIndex, elementType, value, true, ArrayBufferOrder.Unordered);
+                    var value = srcData.GetValueFromBuffer(srcByteIndex, srcType, isTypedArray: true, ArrayBufferOrder.Unordered);
+                    data.SetValueInBuffer(targetByteIndex, elementType, value, isTypedArray: true, ArrayBufferOrder.Unordered);
                     srcByteIndex += srcElementSize;
                     targetByteIndex += elementSize;
                     count--;
@@ -206,9 +213,8 @@ namespace Jint.Native.TypedArray
                     ExceptionHelper.ThrowRangeError(_realm, "Invalid offset");
                 }
 
-                // TODO AUTO
-                o._arrayLength = 0;
-                o._byteLength = 0;
+                o._arrayLength = JsTypedArray.LengthAuto;
+                o._byteLength = JsTypedArray.LengthAuto;
             }
             else
             {

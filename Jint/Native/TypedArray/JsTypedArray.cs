@@ -50,7 +50,7 @@ namespace Jint.Native.TypedArray
             set => IntegerIndexedElementSet(index, value);
         }
 
-        public override uint Length => _viewedArrayBuffer.IsDetachedBuffer ? 0 : _arrayLength;
+        public override uint Length => IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(this, ArrayBufferOrder.Unordered).TypedArrayLength;
 
         internal override bool IsIntegerIndexedArray => true;
 

@@ -1177,9 +1177,9 @@ namespace Jint.Native.Object
             }
             else
             {
-                for (ulong k = length - 1; k >= 0; k--)
+                for (var k = (long) (length - 1); k >= 0; k--)
                 {
-                    if (TryGetValue(k, out var kvalue) || visitUnassigned)
+                    if (TryGetValue((ulong) k, out var kvalue) || visitUnassigned)
                     {
                         kvalue ??= Undefined;
                         args[0] = kvalue;
@@ -1187,7 +1187,7 @@ namespace Jint.Native.Object
                         var testResult = callable.Call(thisArg, args);
                         if (TypeConverter.ToBoolean(testResult))
                         {
-                            index = k;
+                            index = (ulong) k;
                             value = kvalue;
                             return true;
                         }

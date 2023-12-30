@@ -90,6 +90,20 @@ namespace Jint.Native.DataView
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
+            bufferByteLength = (uint) buffer.ArrayBufferByteLength;
+            if (offset > bufferByteLength)
+            {
+                ExceptionHelper.ThrowRangeError(_realm, "Invalid DataView offset");
+            }
+
+            if (!byteLength.IsUndefined())
+            {
+                if (offset + viewByteLength > bufferByteLength)
+                {
+                    ExceptionHelper.ThrowRangeError(_realm, "Invalid DataView length");
+                }
+            }
+
             o._viewedArrayBuffer = buffer;
             o._byteLength = viewByteLength;
             o._byteOffset = offset;

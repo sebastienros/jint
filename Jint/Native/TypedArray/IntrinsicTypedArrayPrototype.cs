@@ -112,7 +112,7 @@ namespace Jint.Native.TypedArray
             }
 
             var taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
-            return JsNumber.Create(taRecord.TypedArrayLength);
+            return JsNumber.Create(taRecord.TypedArrayByteLength);
         }
 
         /// <summary>
@@ -209,6 +209,34 @@ namespace Jint.Native.TypedArray
                     var elementSize = o._arrayElementType.GetElementSize();
                     var byteLength = (double) CachedBufferByteLength;
                     return (uint) System.Math.Floor((byteLength - byteOffset) / elementSize);
+                }
+            }
+
+            /// <summary>
+            /// https://tc39.es/ecma262/#sec-typedarraybytelength
+            /// </summary>
+            public uint TypedArrayByteLength
+            {
+                get
+                {
+                    if (IsTypedArrayOutOfBounds)
+                    {
+                        return 0;
+                    }
+
+                    var length = TypedArrayLength;
+                    if (length == 0)
+                    {
+                        return 0;
+                    }
+
+                    var o = Object;
+                    if (o._byteLength != JsTypedArray.LengthAuto)
+                    {
+                        return o._byteLength;
+                    }
+
+                    return length * o._arrayElementType.GetElementSize();
                 }
             }
         }
@@ -520,13 +548,13 @@ namespace Jint.Native.TypedArray
             var o = taRecord.Object;
             var len = taRecord.TypedArrayLength;
 
+            var predicate = GetCallable(arguments.At(0));
+            var thisArg = arguments.At(1);
+
             if (len == 0)
             {
                 return new KeyValuePair<JsValue, JsValue>(JsNumber.IntegerNegativeOne, Undefined);
             }
-
-            var predicate = GetCallable(arguments.At(0));
-            var thisArg = arguments.At(1);
 
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o;
@@ -893,7 +921,7 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var k = len - 1;
+            var k = (long) len - 1;
             JsValue accumulator;
             if (arguments.Length > 1)
             {
@@ -910,7 +938,7 @@ namespace Jint.Native.TypedArray
             for (; k >= 0; k--)
             {
                 jsValues[0] = accumulator;
-                jsValues[1] = o[k];
+                jsValues[1] = o[(int) k];
                 jsValues[2] = k;
                 accumulator = callbackfn.Call(Undefined, jsValues);
             }
@@ -984,11 +1012,20 @@ namespace Jint.Native.TypedArray
         private void SetTypedArrayFromTypedArray(JsTypedArray target, double targetOffset, JsTypedArray source)
         {
             var targetBuffer = target._viewedArrayBuffer;
-            targetBuffer.AssertNotDetached();
+            var targetRecord = MakeTypedArrayWithBufferWitnessRecord(target, ArrayBufferOrder.SeqCst);
+            if (targetRecord.IsTypedArrayOutOfBounds)
+            {
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
 
-            var targetLength = target._arrayLength;
+            var targetLength = targetRecord.TypedArrayLength;
+
             var srcBuffer = source._viewedArrayBuffer;
-            srcBuffer.AssertNotDetached();
+            var srcRecord = MakeTypedArrayWithBufferWitnessRecord(source, ArrayBufferOrder.SeqCst);
+            if (srcRecord.IsTypedArrayOutOfBounds)
+            {
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
 
             var targetType = target._arrayElementType;
             var targetElementSize = targetType.GetElementSize();
@@ -996,7 +1033,7 @@ namespace Jint.Native.TypedArray
 
             var srcType = source._arrayElementType;
             var srcElementSize = srcType.GetElementSize();
-            var srcLength = source._arrayLength;
+            var srcLength = srcRecord.TypedArrayLength;
             var srcByteOffset = source._byteOffset;
 
             if (double.IsNegativeInfinity(targetOffset))
@@ -1029,7 +1066,7 @@ namespace Jint.Native.TypedArray
             int srcByteIndex;
             if (same)
             {
-                var srcByteLength = source._byteLength;
+                var srcByteLength = srcRecord.TypedArrayByteLength;
                 srcBuffer = srcBuffer.CloneArrayBuffer(_realm.Intrinsics.ArrayBuffer, srcByteOffset, srcByteLength);
                 // %ArrayBuffer% is used to clone srcBuffer because is it known to not have any observable side-effects.
                 srcByteIndex = 0;
@@ -1047,8 +1084,8 @@ namespace Jint.Native.TypedArray
                 // NOTE: If srcType and targetType are the same, the transfer must be performed in a manner that preserves the bit-level encoding of the source data.
                 while (targetByteIndex < limit)
                 {
-                    var value = srcBuffer.GetValueFromBuffer(srcByteIndex, TypedArrayElementType.Uint8, true, ArrayBufferOrder.Unordered);
-                    targetBuffer.SetValueInBuffer(targetByteIndex, TypedArrayElementType.Uint8, value, true, ArrayBufferOrder.Unordered);
+                    var value = srcBuffer.GetValueFromBuffer(srcByteIndex, TypedArrayElementType.Uint8, isTypedArray: true, ArrayBufferOrder.Unordered);
+                    targetBuffer.SetValueInBuffer(targetByteIndex, TypedArrayElementType.Uint8, value, isTypedArray: true, ArrayBufferOrder.Unordered);
                     srcByteIndex += 1;
                     targetByteIndex += 1;
                 }
@@ -1057,8 +1094,8 @@ namespace Jint.Native.TypedArray
             {
                 while (targetByteIndex < limit)
                 {
-                    var value = srcBuffer.GetValueFromBuffer(srcByteIndex, srcType, true, ArrayBufferOrder.Unordered);
-                    targetBuffer.SetValueInBuffer(targetByteIndex, targetType, value, true, ArrayBufferOrder.Unordered);
+                    var value = srcBuffer.GetValueFromBuffer(srcByteIndex, srcType, isTypedArray: true, ArrayBufferOrder.Unordered);
+                    targetBuffer.SetValueInBuffer(targetByteIndex, targetType, value, isTypedArray: true, ArrayBufferOrder.Unordered);
                     srcByteIndex += srcElementSize;
                     targetByteIndex += targetElementSize;
                 }

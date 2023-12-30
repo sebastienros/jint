@@ -101,7 +101,7 @@ namespace Jint.Native.DataView
             var buffer = o._viewedArrayBuffer!;
             buffer.AssertNotDetached();
 
-            return JsNumber.Create(o._byteLength);
+            return JsNumber.Create(viewRecord.ViewByteLength);
         }
 
         /// <summary>
