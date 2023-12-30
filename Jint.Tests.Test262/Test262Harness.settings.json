@@ -9,7 +9,6 @@
     "arraybuffer-transfer",
     "async-iteration",
     "Atomics",
-    "decorators",
     "generators",
     "import-assertions",
     "import-attributes",
