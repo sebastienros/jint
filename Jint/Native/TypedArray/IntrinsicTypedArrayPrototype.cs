@@ -111,12 +111,8 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            if (o._viewedArrayBuffer.IsDetachedBuffer)
-            {
-                return JsNumber.PositiveZero;
-            }
-
-            return JsNumber.Create(o._byteLength);
+            var taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
+            return JsNumber.Create(taRecord.TypedArrayLength);
         }
 
         /// <summary>
@@ -130,7 +126,8 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            if (o._viewedArrayBuffer.IsDetachedBuffer)
+            var taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
+            if (taRecord.IsTypedArrayOutOfBounds)
             {
                 return JsNumber.PositiveZero;
             }
@@ -149,13 +146,97 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var buffer = o._viewedArrayBuffer;
-            if (buffer.IsDetachedBuffer)
+            var taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
+            if (taRecord.IsTypedArrayOutOfBounds)
             {
                 return JsNumber.PositiveZero;
             }
 
-            return JsNumber.Create(o.Length);
+            return JsNumber.Create(taRecord.TypedArrayLength);
+        }
+
+        internal readonly record struct TypedArrayWithBufferWitnessRecord(JsTypedArray Object, int CachedBufferByteLength)
+        {
+            /// <summary>
+            /// https://tc39.es/ecma262/#sec-istypedarrayoutofbounds
+            /// </summary>
+            public bool IsTypedArrayOutOfBounds
+            {
+                get
+                {
+                    var o = Object;
+                    var bufferByteLength = CachedBufferByteLength;
+                    if (bufferByteLength == -1)
+                    {
+                        return true;
+                    }
+
+                    var byteOffsetStart = o._byteOffset;
+                    long byteOffsetEnd;
+                    if (o._arrayLength == JsTypedArray.LengthAuto)
+                    {
+                        byteOffsetEnd = bufferByteLength;
+                    }
+                    else
+                    {
+                        var elementSize = o._arrayElementType.GetElementSize();
+                        byteOffsetEnd = byteOffsetStart + o._arrayLength * elementSize;
+                    }
+
+                    if (byteOffsetStart > bufferByteLength || byteOffsetEnd > bufferByteLength)
+                    {
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+
+            /// <summary>
+            /// https://tc39.es/ecma262/#sec-typedarraylength
+            /// </summary>
+            public uint TypedArrayLength
+            {
+                get
+                {
+                    var o = Object;
+                    if (o._arrayLength != JsTypedArray.LengthAuto)
+                    {
+                        return o._arrayLength;
+                    }
+
+                    var byteOffset  = o._byteOffset;
+                    var elementSize = o._arrayElementType.GetElementSize();
+                    var byteLength = (double) CachedBufferByteLength;
+                    return (uint) System.Math.Floor((byteLength - byteOffset) / elementSize);
+                }
+            }
+        }
+
+        internal static TypedArrayWithBufferWitnessRecord MakeTypedArrayWithBufferWitnessRecord(JsTypedArray obj, ArrayBufferOrder order)
+        {
+            var buffer = obj._viewedArrayBuffer;
+            var byteLength = buffer.IsDetachedBuffer
+                ? -1
+                : ArrayBufferByteLength(buffer, order);
+
+            return new TypedArrayWithBufferWitnessRecord(obj, byteLength);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-arraybufferbytelength
+        /// </summary>
+        internal static int ArrayBufferByteLength(JsArrayBuffer arrayBuffer, ArrayBufferOrder order)
+        {
+            if (arrayBuffer.IsSharedArrayBuffer && arrayBuffer.ArrayBufferByteLength > 0)
+            {
+                // a. Let bufferByteLengthBlock be arrayBuffer.[[ArrayBufferByteLengthData]].
+                // b. Let rawLength be GetRawBytesFromSharedBlock(bufferByteLengthBlock, 0, BIGUINT64, true, order).
+                // c. Let isLittleEndian be the value of the [[LittleEndian]] field of the surrounding agent's Agent Record.
+                // d. Return ℝ(RawBytesToNumeric(BIGUINT64, rawLength, isLittleEndian)).
+            }
+
+            return arrayBuffer.ArrayBufferByteLength;
         }
 
         /// <summary>

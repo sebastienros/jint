@@ -13,12 +13,16 @@ namespace Jint.Native.ArrayBuffer
         private readonly byte[] _workBuffer = new byte[8];
 
         private byte[]? _arrayBufferData;
+        internal readonly uint? _arrayBufferMaxByteLength;
+
         private readonly JsValue _arrayBufferDetachKey = Undefined;
 
         internal JsArrayBuffer(
             Engine engine,
-            ulong byteLength) : base(engine)
+            ulong byteLength,
+            uint? arrayBufferMaxByteLength = null) : base(engine)
         {
+            _arrayBufferMaxByteLength = arrayBufferMaxByteLength;
             var block = byteLength > 0 ? CreateByteDataBlock(byteLength) : System.Array.Empty<byte>();
             _arrayBufferData = block;
         }
@@ -37,6 +41,9 @@ namespace Jint.Native.ArrayBuffer
         internal byte[]? ArrayBufferData => _arrayBufferData;
 
         internal bool IsDetachedBuffer => _arrayBufferData is null;
+
+        internal bool IsFixedLengthArrayBuffer => _arrayBufferMaxByteLength is null;
+
 #pragma warning disable CA1822
         internal bool IsSharedArrayBuffer => false; // TODO SharedArrayBuffer
 #pragma warning restore CA1822
@@ -306,6 +313,26 @@ namespace Jint.Native.ArrayBuffer
             }
 
             return rawBytes;
+        }
+
+        internal void Resize(uint newByteLength)
+        {
+            if (_arrayBufferMaxByteLength is null)
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
+            }
+
+            if (newByteLength > _arrayBufferMaxByteLength)
+            {
+                ExceptionHelper.ThrowRangeError(_engine.Realm);
+            }
+
+            var oldBlock = _arrayBufferData ?? System.Array.Empty<byte>();
+            var newBlock = CreateByteDataBlock(newByteLength);
+            var copyLength = System.Math.Min(newByteLength, ArrayBufferByteLength);
+
+            System.Array.Copy(oldBlock, newBlock, copyLength);
+            _arrayBufferData = newBlock;
         }
 
         internal void AssertNotDetached()

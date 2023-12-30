@@ -92,6 +92,12 @@ namespace Jint.Native.DataView
                 ExceptionHelper.ThrowTypeError(_realm, "Method get DataView.prototype.byteLength called on incompatible receiver " + thisObject);
             }
 
+            var viewRecord = MakeDataViewWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
+            if (viewRecord.IsViewOutOfBounds)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "Offset is outside the bounds of the DataView");
+            }
+
             var buffer = o._viewedArrayBuffer!;
             buffer.AssertNotDetached();
 
@@ -107,6 +113,12 @@ namespace Jint.Native.DataView
             if (o is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Method get DataView.prototype.byteOffset called on incompatible receiver " + thisObject);
+            }
+
+            var viewRecord = MakeDataViewWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
+            if (viewRecord.IsViewOutOfBounds)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "Offset is outside the bounds of the DataView");
             }
 
             var buffer = o._viewedArrayBuffer!;
@@ -224,10 +236,10 @@ namespace Jint.Native.DataView
             JsValue isLittleEndian,
             TypedArrayElementType type)
         {
-            var dataView = view as JsDataView;
-            if (dataView is null)
+            if (view is not JsDataView dataView)
             {
                 ExceptionHelper.ThrowTypeError(_realm, "Method called on incompatible receiver " + view);
+                return Undefined;
             }
 
             var getIndex = (int) TypeConverter.ToIndex(_realm, requestIndex);
@@ -237,7 +249,13 @@ namespace Jint.Native.DataView
             buffer.AssertNotDetached();
 
             var viewOffset = dataView._byteOffset;
-            var viewSize = dataView._byteLength;
+            var viewRecord = MakeDataViewWithBufferWitnessRecord(dataView, ArrayBufferOrder.Unordered);
+            if (viewRecord.IsViewOutOfBounds)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "Offset is outside the bounds of the DataView");
+            }
+
+            var viewSize = viewRecord.ViewByteLength;
             var elementSize = type.GetElementSize();
             if (getIndex + elementSize > viewSize)
             {
@@ -245,7 +263,82 @@ namespace Jint.Native.DataView
             }
 
             var bufferIndex = (int) (getIndex + viewOffset);
-            return buffer.GetValueFromBuffer(bufferIndex, type, false, ArrayBufferOrder.Unordered, isLittleEndianBoolean).ToJsValue();
+            return buffer.GetValueFromBuffer(bufferIndex, type, isTypedArray: false, ArrayBufferOrder.Unordered, isLittleEndianBoolean).ToJsValue();
+        }
+
+        internal readonly record struct DataViewWithBufferWitnessRecord(JsDataView Object, int CachedBufferByteLength)
+        {
+            /// <summary>
+            /// https://tc39.es/ecma262/#sec-isviewoutofbounds
+            /// </summary>
+            public bool IsViewOutOfBounds
+            {
+                get
+                {
+                    var view = Object;
+                    var bufferByteLength = CachedBufferByteLength;
+                    if (bufferByteLength == -1)
+                    {
+                        return true;
+                    }
+
+                    var byteOffsetStart = view._byteOffset;
+                    long byteOffsetEnd;
+                    if (view._byteLength == JsTypedArray.LengthAuto)
+                    {
+                        byteOffsetEnd = bufferByteLength;
+                    }
+                    else
+                    {
+                        byteOffsetEnd = byteOffsetStart + view._byteLength;
+                    }
+
+                    if (byteOffsetStart > bufferByteLength || byteOffsetEnd > bufferByteLength)
+                    {
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+
+            /// <summary>
+            /// https://tc39.es/ecma262/#sec-getviewbytelength
+            /// </summary>
+            public long ViewByteLength
+            {
+                get
+                {
+                    var view = Object;
+                    if (view._byteLength != JsTypedArray.LengthAuto)
+                    {
+                        return view._byteLength;
+                    }
+
+                    var byteOffset = view._byteOffset;
+                    var byteLength = CachedBufferByteLength;
+                    return byteLength - byteOffset;
+                }
+            }
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-makedataviewwithbufferwitnessrecord
+        /// </summary>
+        private static DataViewWithBufferWitnessRecord MakeDataViewWithBufferWitnessRecord(JsDataView obj, ArrayBufferOrder order)
+        {
+            var buffer = obj._viewedArrayBuffer;
+            int byteLength;
+            if (buffer?.IsDetachedBuffer == true)
+            {
+                byteLength = -1;
+            }
+            else
+            {
+                byteLength = IntrinsicTypedArrayPrototype.ArrayBufferByteLength(buffer!, order);
+            }
+
+            return new DataViewWithBufferWitnessRecord(obj, byteLength);
         }
 
         /// <summary>
@@ -281,7 +374,13 @@ namespace Jint.Native.DataView
             buffer.AssertNotDetached();
 
             var viewOffset = dataView._byteOffset;
-            var viewSize = dataView._byteLength;
+            var viewRecord = MakeDataViewWithBufferWitnessRecord(dataView, ArrayBufferOrder.Unordered);
+            if (viewRecord.IsViewOutOfBounds)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "Offset is outside the bounds of the DataView");
+            }
+
+            var viewSize = viewRecord.ViewByteLength;
             var elementSize = type.GetElementSize();
             if (getIndex + elementSize > viewSize)
             {

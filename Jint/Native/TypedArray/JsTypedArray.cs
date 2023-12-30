@@ -11,6 +11,8 @@ namespace Jint.Native.TypedArray
 {
     public sealed class JsTypedArray : ObjectInstance
     {
+        internal const uint LengthAuto = uint.MaxValue;
+
         internal readonly TypedArrayContentType _contentType;
         internal readonly TypedArrayElementType _arrayElementType;
         internal JsArrayBuffer _viewedArrayBuffer;
@@ -187,8 +189,9 @@ namespace Jint.Native.TypedArray
         /// </summary>
         public override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
         {
+            var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(this, ArrayBufferOrder.SeqCst);
             var keys = new List<JsValue>();
-            if (!_viewedArrayBuffer.IsDetachedBuffer)
+            if (!taRecord.IsTypedArrayOutOfBounds)
             {
                 var length = Length;
                 for (uint i = 0; i < length; ++i)
@@ -262,7 +265,7 @@ namespace Jint.Native.TypedArray
             var elementType = _arrayElementType;
             var elementSize = elementType.GetElementSize();
             var indexedPosition = index * elementSize + offset;
-            var value = _viewedArrayBuffer.GetValueFromBuffer(indexedPosition, elementType, true, ArrayBufferOrder.Unordered);
+            var value = _viewedArrayBuffer.GetValueFromBuffer(indexedPosition, elementType, isTypedArray: true, ArrayBufferOrder.Unordered);
             if (value.Type == Types.Number)
             {
                 return _arrayElementType.FitsInt32()
@@ -348,12 +351,7 @@ namespace Jint.Native.TypedArray
                 return false;
             }
 
-            if (index < 0 || index >= _arrayLength)
-            {
-                return false;
-            }
-
-            return true;
+            return IsValidIntegerIndex((int) index);
         }
 
         /// <summary>
@@ -362,7 +360,24 @@ namespace Jint.Native.TypedArray
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool IsValidIntegerIndex(int index)
         {
-            return !_viewedArrayBuffer.IsDetachedBuffer && (uint) index < _arrayLength;
+            if (_viewedArrayBuffer.IsDetachedBuffer)
+            {
+                return false;
+            }
+
+            var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(this, ArrayBufferOrder.Unordered);
+            if (taRecord.IsTypedArrayOutOfBounds)
+            {
+                return false;
+            }
+
+            var length = taRecord.TypedArrayLength;
+            if (index < 0 || index >= length)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         internal T[] ToNativeArray<T>()

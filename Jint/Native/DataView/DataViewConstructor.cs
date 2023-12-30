@@ -1,6 +1,7 @@
 using Jint.Native.ArrayBuffer;
 using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -57,10 +58,18 @@ namespace Jint.Native.DataView
                 ExceptionHelper.ThrowRangeError(_realm, "Start offset " + offset + " is outside the bounds of the buffer");
             }
 
+            var bufferIsFixedLength = buffer.IsFixedLengthArrayBuffer;
             uint viewByteLength;
             if (byteLength.IsUndefined())
             {
-                viewByteLength = bufferByteLength - offset;
+                if (bufferIsFixedLength)
+                {
+                    viewByteLength = bufferByteLength - offset;
+                }
+                else
+                {
+                    viewByteLength = JsTypedArray.LengthAuto;
+                }
             }
             else
             {

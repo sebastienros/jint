@@ -194,34 +194,51 @@ namespace Jint.Native.TypedArray
                 newLength = (int) TypeConverter.ToIndex(_realm, length);
             }
 
+            var bufferIsFixedLength = buffer.IsFixedLengthArrayBuffer;
+
             buffer.AssertNotDetached();
 
-            var bufferByteLength = buffer.ArrayBufferByteLength;
-            if (length.IsUndefined())
+            var bufferByteLength = IntrinsicTypedArrayPrototype.ArrayBufferByteLength(buffer, ArrayBufferOrder.SeqCst);
+            if (length.IsUndefined() && !bufferIsFixedLength)
             {
-                if (bufferByteLength % elementSize != 0)
+                if (offset > bufferByteLength)
                 {
-                    ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
+                    ExceptionHelper.ThrowRangeError(_realm, "Invalid offset");
                 }
 
-                newByteLength = bufferByteLength - offset;
-                if (newByteLength < 0)
-                {
-                    ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
-                }
+                // TODO AUTO
+                o._arrayLength = 0;
+                o._byteLength = 0;
             }
             else
             {
-                newByteLength = newLength * elementSize;
-                if (offset + newByteLength > bufferByteLength)
+                if (length.IsUndefined())
                 {
-                    ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
+                    if (bufferByteLength % elementSize != 0)
+                    {
+                        ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
+                    }
+
+                    newByteLength = bufferByteLength - offset;
+                    if (newByteLength < 0)
+                    {
+                        ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
+                    }
                 }
+                else
+                {
+                    newByteLength = newLength * elementSize;
+                    if (offset + newByteLength > bufferByteLength)
+                    {
+                        ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
+                    }
+                }
+
+                o._arrayLength = (uint) (newByteLength / elementSize);
+                o._byteLength = (uint) newByteLength;
             }
 
             o._viewedArrayBuffer = buffer;
-            o._arrayLength = (uint) (newByteLength / elementSize);
-            o._byteLength = (uint) newByteLength;
             o._byteOffset = offset;
         }
 

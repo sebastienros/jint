@@ -17,7 +17,6 @@
     "regexp-lookbehind",
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
-    "resizable-arraybuffer",
     "SharedArrayBuffer",
     "tail-call-optimization",
     "Temporal",
