@@ -1,5 +1,6 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
 
+using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -231,7 +232,32 @@ namespace Jint.Native.String
         {
             TypeConverter.CheckObjectCoercible(_engine, thisObject);
             var s = TypeConverter.ToString(thisObject);
-            return new JsString(s.ToUpper(CultureInfo.InvariantCulture));
+            var culture = CultureInfo.InvariantCulture;
+            if (arguments.Length > 0 && arguments[0].IsString())
+            {
+                try
+                {
+                    var cultureArgument = arguments[0].ToString();
+                    culture = CultureInfo.GetCultureInfo(cultureArgument);
+                }
+                catch (CultureNotFoundException)
+                {
+                    ExceptionHelper.ThrowRangeError(_realm, "Incorrect culture information provided");
+                }
+            }
+            if (string.Equals("lt", culture.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                s = StringInlHelper.LithuanianStringProcessor(s);
+#if NET462
+                // Code specific to .NET Framework 4.6.2.
+                // For no good reason this verison does not upper case these characters correctly.
+                return new JsString(s.ToUpper(culture)
+                    .Replace("ϳ", "Ϳ")
+                    .Replace("ʝ", "Ʝ"));
+#endif
+            }
+
+            return new JsString(s.ToUpper(culture));
         }
 
         private JsValue ToUpperCase(JsValue thisObject, JsValue[] arguments)
