@@ -130,10 +130,17 @@ namespace Jint.Native.TypedArray
             srcData.AssertNotDetached();
 
             var elementType = o._arrayElementType;
-            var elementLength = srcArray._arrayLength;
             var srcType = srcArray._arrayElementType;
             var srcElementSize = srcType.GetElementSize();
             var srcByteOffset = srcArray._byteOffset;
+
+            var srcRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(srcArray, ArrayBufferOrder.SeqCst);
+            if (srcRecord.IsTypedArrayOutOfBounds)
+            {
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
+
+            var elementLength = srcRecord.TypedArrayLength;
             var elementSize = elementType.GetElementSize();
             var byteLength = elementSize * elementLength;
 
@@ -157,8 +164,8 @@ namespace Jint.Native.TypedArray
                 var count = elementLength;
                 while (count > 0)
                 {
-                    var value = srcData.GetValueFromBuffer(srcByteIndex, srcType, true, ArrayBufferOrder.Unordered);
-                    data.SetValueInBuffer(targetByteIndex, elementType, value, true, ArrayBufferOrder.Unordered);
+                    var value = srcData.GetValueFromBuffer(srcByteIndex, srcType, isTypedArray: true, ArrayBufferOrder.Unordered);
+                    data.SetValueInBuffer(targetByteIndex, elementType, value, isTypedArray: true, ArrayBufferOrder.Unordered);
                     srcByteIndex += srcElementSize;
                     targetByteIndex += elementSize;
                     count--;
@@ -194,34 +201,50 @@ namespace Jint.Native.TypedArray
                 newLength = (int) TypeConverter.ToIndex(_realm, length);
             }
 
+            var bufferIsFixedLength = buffer.IsFixedLengthArrayBuffer;
+
             buffer.AssertNotDetached();
 
-            var bufferByteLength = buffer.ArrayBufferByteLength;
-            if (length.IsUndefined())
+            var bufferByteLength = IntrinsicTypedArrayPrototype.ArrayBufferByteLength(buffer, ArrayBufferOrder.SeqCst);
+            if (length.IsUndefined() && !bufferIsFixedLength)
             {
-                if (bufferByteLength % elementSize != 0)
+                if (offset > bufferByteLength)
                 {
-                    ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
+                    ExceptionHelper.ThrowRangeError(_realm, "Invalid offset");
                 }
 
-                newByteLength = bufferByteLength - offset;
-                if (newByteLength < 0)
-                {
-                    ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
-                }
+                o._arrayLength = JsTypedArray.LengthAuto;
+                o._byteLength = JsTypedArray.LengthAuto;
             }
             else
             {
-                newByteLength = newLength * elementSize;
-                if (offset + newByteLength > bufferByteLength)
+                if (length.IsUndefined())
                 {
-                    ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
+                    if (bufferByteLength % elementSize != 0)
+                    {
+                        ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
+                    }
+
+                    newByteLength = bufferByteLength - offset;
+                    if (newByteLength < 0)
+                    {
+                        ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
+                    }
                 }
+                else
+                {
+                    newByteLength = newLength * elementSize;
+                    if (offset + newByteLength > bufferByteLength)
+                    {
+                        ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
+                    }
+                }
+
+                o._arrayLength = (uint) (newByteLength / elementSize);
+                o._byteLength = (uint) newByteLength;
             }
 
             o._viewedArrayBuffer = buffer;
-            o._arrayLength = (uint) (newByteLength / elementSize);
-            o._byteLength = (uint) newByteLength;
             o._byteOffset = offset;
         }
 

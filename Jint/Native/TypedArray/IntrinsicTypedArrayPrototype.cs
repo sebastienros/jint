@@ -111,12 +111,8 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            if (o._viewedArrayBuffer.IsDetachedBuffer)
-            {
-                return JsNumber.PositiveZero;
-            }
-
-            return JsNumber.Create(o._byteLength);
+            var taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
+            return JsNumber.Create(taRecord.TypedArrayByteLength);
         }
 
         /// <summary>
@@ -130,7 +126,8 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            if (o._viewedArrayBuffer.IsDetachedBuffer)
+            var taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
+            if (taRecord.IsTypedArrayOutOfBounds)
             {
                 return JsNumber.PositiveZero;
             }
@@ -149,13 +146,125 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var buffer = o._viewedArrayBuffer;
-            if (buffer.IsDetachedBuffer)
+            var taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
+            if (taRecord.IsTypedArrayOutOfBounds)
             {
                 return JsNumber.PositiveZero;
             }
 
-            return JsNumber.Create(o.Length);
+            return JsNumber.Create(taRecord.TypedArrayLength);
+        }
+
+        internal readonly record struct TypedArrayWithBufferWitnessRecord(JsTypedArray Object, int CachedBufferByteLength)
+        {
+            /// <summary>
+            /// https://tc39.es/ecma262/#sec-istypedarrayoutofbounds
+            /// </summary>
+            public bool IsTypedArrayOutOfBounds
+            {
+                get
+                {
+                    var o = Object;
+                    var bufferByteLength = CachedBufferByteLength;
+                    if (bufferByteLength == -1)
+                    {
+                        return true;
+                    }
+
+                    var byteOffsetStart = o._byteOffset;
+                    long byteOffsetEnd;
+                    if (o._arrayLength == JsTypedArray.LengthAuto)
+                    {
+                        byteOffsetEnd = bufferByteLength;
+                    }
+                    else
+                    {
+                        var elementSize = o._arrayElementType.GetElementSize();
+                        byteOffsetEnd = byteOffsetStart + o._arrayLength * elementSize;
+                    }
+
+                    if (byteOffsetStart > bufferByteLength || byteOffsetEnd > bufferByteLength)
+                    {
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+
+            /// <summary>
+            /// https://tc39.es/ecma262/#sec-typedarraylength
+            /// </summary>
+            public uint TypedArrayLength
+            {
+                get
+                {
+                    var o = Object;
+                    if (o._arrayLength != JsTypedArray.LengthAuto)
+                    {
+                        return o._arrayLength;
+                    }
+
+                    var byteOffset  = o._byteOffset;
+                    var elementSize = o._arrayElementType.GetElementSize();
+                    var byteLength = (double) CachedBufferByteLength;
+                    return (uint) System.Math.Floor((byteLength - byteOffset) / elementSize);
+                }
+            }
+
+            /// <summary>
+            /// https://tc39.es/ecma262/#sec-typedarraybytelength
+            /// </summary>
+            public uint TypedArrayByteLength
+            {
+                get
+                {
+                    if (IsTypedArrayOutOfBounds)
+                    {
+                        return 0;
+                    }
+
+                    var length = TypedArrayLength;
+                    if (length == 0)
+                    {
+                        return 0;
+                    }
+
+                    var o = Object;
+                    if (o._byteLength != JsTypedArray.LengthAuto)
+                    {
+                        return o._byteLength;
+                    }
+
+                    return length * o._arrayElementType.GetElementSize();
+                }
+            }
+        }
+
+        internal static TypedArrayWithBufferWitnessRecord MakeTypedArrayWithBufferWitnessRecord(JsTypedArray obj, ArrayBufferOrder order)
+        {
+            var buffer = obj._viewedArrayBuffer;
+            var byteLength = buffer.IsDetachedBuffer
+                ? -1
+                : ArrayBufferByteLength(buffer, order);
+
+            return new TypedArrayWithBufferWitnessRecord(obj, byteLength);
+        }
+
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-arraybufferbytelength
+        /// </summary>
+        internal static int ArrayBufferByteLength(JsArrayBuffer arrayBuffer, ArrayBufferOrder order)
+        {
+            if (arrayBuffer.IsSharedArrayBuffer && arrayBuffer.ArrayBufferByteLength > 0)
+            {
+                // a. Let bufferByteLengthBlock be arrayBuffer.[[ArrayBufferByteLengthData]].
+                // b. Let rawLength be GetRawBytesFromSharedBlock(bufferByteLengthBlock, 0, BIGUINT64, true, order).
+                // c. Let isLittleEndian be the value of the [[LittleEndian]] field of the surrounding agent's Agent Record.
+                // d. Return ℝ(RawBytesToNumeric(BIGUINT64, rawLength, isLittleEndian)).
+            }
+
+            return arrayBuffer.ArrayBufferByteLength;
         }
 
         /// <summary>
@@ -163,13 +272,13 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue CopyWithin(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
             var target = arguments.At(0);
             var start = arguments.At(1);
             var end = arguments.At(2);
-
-            long len = o.Length;
 
             var relativeTarget = TypeConverter.ToIntegerOrInfinity(target);
 
@@ -264,7 +373,8 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue Entries(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
             return _realm.Intrinsics.ArrayIteratorPrototype.Construct(o, ArrayIteratorType.KeyAndValue);
         }
 
@@ -273,8 +383,9 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue Every(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
-            var len = o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
             if (len == 0)
             {
@@ -306,7 +417,9 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue Fill(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
             var jsValue = arguments.At(0);
             var start = arguments.At(1);
@@ -321,8 +434,6 @@ namespace Jint.Native.TypedArray
             {
                 value = JsNumber.Create(jsValue);
             }
-
-            var len = o.Length;
 
             int k;
             var relativeStart = TypeConverter.ToIntegerOrInfinity(start);
@@ -372,8 +483,9 @@ namespace Jint.Native.TypedArray
             var callbackfn = GetCallable(arguments.At(0));
             var thisArg = arguments.At(1);
 
-            var o = thisObject.ValidateTypedArray(_realm);
-            var len = o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
             var kept = new List<JsValue>();
             var captured = 0;
@@ -432,11 +544,17 @@ namespace Jint.Native.TypedArray
 
         private KeyValuePair<JsValue, JsValue> DoFind(JsValue thisObject, JsValue[] arguments, bool fromEnd = false)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
-            var len = (int) o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
             var predicate = GetCallable(arguments.At(0));
             var thisArg = arguments.At(1);
+
+            if (len == 0)
+            {
+                return new KeyValuePair<JsValue, JsValue>(JsNumber.IntegerNegativeOne, Undefined);
+            }
 
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o;
@@ -456,7 +574,7 @@ namespace Jint.Native.TypedArray
             }
             else
             {
-                for (var k = len - 1; k >= 0; k--)
+                for (var k = (int) (len - 1); k >= 0; k--)
                 {
                     var kNumber = JsNumber.Create(k);
                     var kValue = o[k];
@@ -480,8 +598,9 @@ namespace Jint.Native.TypedArray
             var callbackfn = GetCallable(arguments.At(0));
             var thisArg = arguments.At(1);
 
-            var o = thisObject.ValidateTypedArray(_realm);
-            var len = o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
             var args = _engine._jsValueArrayPool.RentArray(3);
             args[2] = o;
@@ -503,8 +622,9 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue Includes(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
-            var len = o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
             if (len == 0)
             {
@@ -560,8 +680,10 @@ namespace Jint.Native.TypedArray
             var searchElement = arguments.At(0);
             var fromIndex = arguments.At(1);
 
-            var o = thisObject.ValidateTypedArray(_realm);
-            var len = o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
+
             if (len == 0)
             {
                 return JsNumber.IntegerNegativeOne;
@@ -612,10 +734,11 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue Join(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
-
             var separator = arguments.At(0);
-            var len = o.Length;
+
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
             var sep = TypeConverter.ToString(separator.IsUndefined() ? JsString.CommaString : separator);
             // as per the spec, this has to be called after ToString(separator)
@@ -653,7 +776,8 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue Keys(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
             return _realm.Intrinsics.ArrayIteratorPrototype.Construct(o, ArrayIteratorType.Key);
         }
 
@@ -664,8 +788,10 @@ namespace Jint.Native.TypedArray
         {
             var searchElement = arguments.At(0);
 
-            var o = thisObject.ValidateTypedArray(_realm);
-            var len = o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
+
             if (len == 0)
             {
                 return JsNumber.IntegerNegativeOne;
@@ -710,8 +836,9 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private ObjectInstance Map(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
-            var len = o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
             var thisArg = arguments.At(1);
             var callable = GetCallable(arguments.At(0));
@@ -739,8 +866,9 @@ namespace Jint.Native.TypedArray
             var callbackfn = GetCallable(arguments.At(0));
             var initialValue = arguments.At(1);
 
-            var o = thisObject.ValidateTypedArray(_realm);
-            var len = o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
             if (len == 0 && arguments.Length < 2)
             {
@@ -784,15 +912,16 @@ namespace Jint.Native.TypedArray
             var callbackfn = GetCallable(arguments.At(0));
             var initialValue = arguments.At(1);
 
-            var o = thisObject.ValidateTypedArray(_realm);
-            var len = (int) o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
             if (len == 0 && arguments.Length < 2)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var k = len - 1;
+            var k = (long) len - 1;
             JsValue accumulator;
             if (arguments.Length > 1)
             {
@@ -809,7 +938,7 @@ namespace Jint.Native.TypedArray
             for (; k >= 0; k--)
             {
                 jsValues[0] = accumulator;
-                jsValues[1] = o[k];
+                jsValues[1] = o[(int) k];
                 jsValues[2] = k;
                 accumulator = callbackfn.Call(Undefined, jsValues);
             }
@@ -823,8 +952,10 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private ObjectInstance Reverse(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
-            var len = (int) o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
+
             var middle = (int) System.Math.Floor(len / 2.0);
             var lower = 0;
             while (lower != middle)
@@ -881,11 +1012,20 @@ namespace Jint.Native.TypedArray
         private void SetTypedArrayFromTypedArray(JsTypedArray target, double targetOffset, JsTypedArray source)
         {
             var targetBuffer = target._viewedArrayBuffer;
-            targetBuffer.AssertNotDetached();
+            var targetRecord = MakeTypedArrayWithBufferWitnessRecord(target, ArrayBufferOrder.SeqCst);
+            if (targetRecord.IsTypedArrayOutOfBounds)
+            {
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
 
-            var targetLength = target._arrayLength;
+            var targetLength = targetRecord.TypedArrayLength;
+
             var srcBuffer = source._viewedArrayBuffer;
-            srcBuffer.AssertNotDetached();
+            var srcRecord = MakeTypedArrayWithBufferWitnessRecord(source, ArrayBufferOrder.SeqCst);
+            if (srcRecord.IsTypedArrayOutOfBounds)
+            {
+                ExceptionHelper.ThrowTypeError(_realm);
+            }
 
             var targetType = target._arrayElementType;
             var targetElementSize = targetType.GetElementSize();
@@ -893,7 +1033,7 @@ namespace Jint.Native.TypedArray
 
             var srcType = source._arrayElementType;
             var srcElementSize = srcType.GetElementSize();
-            var srcLength = source._arrayLength;
+            var srcLength = srcRecord.TypedArrayLength;
             var srcByteOffset = source._byteOffset;
 
             if (double.IsNegativeInfinity(targetOffset))
@@ -926,7 +1066,7 @@ namespace Jint.Native.TypedArray
             int srcByteIndex;
             if (same)
             {
-                var srcByteLength = source._byteLength;
+                var srcByteLength = srcRecord.TypedArrayByteLength;
                 srcBuffer = srcBuffer.CloneArrayBuffer(_realm.Intrinsics.ArrayBuffer, srcByteOffset, srcByteLength);
                 // %ArrayBuffer% is used to clone srcBuffer because is it known to not have any observable side-effects.
                 srcByteIndex = 0;
@@ -944,8 +1084,8 @@ namespace Jint.Native.TypedArray
                 // NOTE: If srcType and targetType are the same, the transfer must be performed in a manner that preserves the bit-level encoding of the source data.
                 while (targetByteIndex < limit)
                 {
-                    var value = srcBuffer.GetValueFromBuffer(srcByteIndex, TypedArrayElementType.Uint8, true, ArrayBufferOrder.Unordered);
-                    targetBuffer.SetValueInBuffer(targetByteIndex, TypedArrayElementType.Uint8, value, true, ArrayBufferOrder.Unordered);
+                    var value = srcBuffer.GetValueFromBuffer(srcByteIndex, TypedArrayElementType.Uint8, isTypedArray: true, ArrayBufferOrder.Unordered);
+                    targetBuffer.SetValueInBuffer(targetByteIndex, TypedArrayElementType.Uint8, value, isTypedArray: true, ArrayBufferOrder.Unordered);
                     srcByteIndex += 1;
                     targetByteIndex += 1;
                 }
@@ -954,8 +1094,8 @@ namespace Jint.Native.TypedArray
             {
                 while (targetByteIndex < limit)
                 {
-                    var value = srcBuffer.GetValueFromBuffer(srcByteIndex, srcType, true, ArrayBufferOrder.Unordered);
-                    targetBuffer.SetValueInBuffer(targetByteIndex, targetType, value, true, ArrayBufferOrder.Unordered);
+                    var value = srcBuffer.GetValueFromBuffer(srcByteIndex, srcType, isTypedArray: true, ArrayBufferOrder.Unordered);
+                    targetBuffer.SetValueInBuffer(targetByteIndex, targetType, value, isTypedArray: true, ArrayBufferOrder.Unordered);
                     srcByteIndex += srcElementSize;
                     targetByteIndex += targetElementSize;
                 }
@@ -1000,8 +1140,9 @@ namespace Jint.Native.TypedArray
         {
             var start = arguments.At(0);
 
-            var o = thisObject.ValidateTypedArray(_realm);
-            long len = o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
             var relativeStart = TypeConverter.ToInteger(start);
             int k;
@@ -1031,8 +1172,9 @@ namespace Jint.Native.TypedArray
             var start = arguments.At(0);
             var end = arguments.At(1);
 
-            var o = thisObject.ValidateTypedArray(_realm);
-            long len = o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
             var relativeStart = TypeConverter.ToIntegerOrInfinity(start);
             int k;
@@ -1113,8 +1255,10 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue Some(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
-            var len = o.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
+
             var callbackfn = GetCallable(arguments.At(0));
             var thisArg = arguments.At(1);
 
@@ -1146,25 +1290,27 @@ namespace Jint.Native.TypedArray
              * an object that has a fixed length and whose integer-indexed properties are not sparse.
              */
 
-            var obj = thisObject.ValidateTypedArray(_realm);
-            var buffer = obj._viewedArrayBuffer;
-            var len = obj.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
+
+            var buffer = o._viewedArrayBuffer;
 
             var compareFn = GetCompareFunction(arguments.At(0));
 
             if (len <= 1)
             {
-                return obj;
+                return o;
             }
 
-            var array = SortArray(buffer, compareFn, obj);
+            var array = SortArray(buffer, compareFn, o);
 
             for (var i = 0; i < (uint) array.Length; ++i)
             {
-                obj[i] = array[i];
+                o[i] = array[i];
             }
 
-            return obj;
+            return o;
         }
 
         /// <summary>
@@ -1244,8 +1390,10 @@ namespace Jint.Native.TypedArray
              * any observable changes in the specified behaviour of the algorithm.
              */
 
-            var array = thisObject.ValidateTypedArray(_realm);
-            var len = array.Length;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var array = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
+
             const string separator = ",";
             if (len == 0)
             {
@@ -1292,7 +1440,8 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private JsValue Values(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
             return _realm.Intrinsics.ArrayIteratorPrototype.Construct(o, ArrayIteratorType.Value);
         }
 
@@ -1311,14 +1460,15 @@ namespace Jint.Native.TypedArray
 
         private JsValue ToReversed(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
-            var length = o._arrayLength;
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
 
-            var a = TypedArrayCreateSameType(o, new [] { JsNumber.Create(length) });
+            var a = TypedArrayCreateSameType(o, new [] { JsNumber.Create(len) });
             uint k = 0;
-            while (k < length)
+            while (k < len)
             {
-                var from = length - k - 1;
+                var from = len - k - 1;
                 a[k++] = o.Get(from);
             }
 
@@ -1327,13 +1477,15 @@ namespace Jint.Native.TypedArray
 
         private JsValue ToSorted(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
+
             var compareFn = GetCompareFunction(arguments.At(0));
 
             var buffer = o._viewedArrayBuffer;
-            var length = o.Length;
 
-            var a = TypedArrayCreateSameType(o, new [] { JsNumber.Create(length) });
+            var a = TypedArrayCreateSameType(o, new [] { JsNumber.Create(len) });
 
             var array = SortArray(buffer, compareFn, o);
             for (var i = 0; (uint) i < (uint) array.Length; ++i)
@@ -1346,10 +1498,12 @@ namespace Jint.Native.TypedArray
 
         private ObjectInstance With(JsValue thisObject, JsValue[] arguments)
         {
-            var o = thisObject.ValidateTypedArray(_realm);
+            var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
+            var o = taRecord.Object;
+            var len = taRecord.TypedArrayLength;
+
             var value = arguments.At(1);
 
-            var length = o._arrayLength;
             var relativeIndex = TypeConverter.ToIntegerOrInfinity(arguments.At(0));
 
             long actualIndex;
@@ -1359,7 +1513,7 @@ namespace Jint.Native.TypedArray
             }
             else
             {
-                actualIndex = (long) (length + relativeIndex);
+                actualIndex = (long) (len + relativeIndex);
             }
 
             value = o._contentType == TypedArrayContentType.BigInt
@@ -1371,10 +1525,10 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowRangeError(_realm, "Invalid start index");
             }
 
-            var a = TypedArrayCreateSameType(o, new [] { JsNumber.Create(length) });
+            var a = TypedArrayCreateSameType(o, new [] { JsNumber.Create(len) });
 
             var k = 0;
-            while (k < length)
+            while (k < len)
             {
                 a[k] = k == (int) actualIndex ? value : o.Get(k);
                 k++;

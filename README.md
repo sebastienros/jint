@@ -110,6 +110,7 @@ Following features are supported in version 3.x.
 
 - ✔ Array Grouping - `Object.groupBy` and `Map.groupBy`
 - ✔ Promise.withResolvers
+- ✔ Resizable and growable ArrayBuffers
 - ✔ ShadowRealm
 
 #### Other
