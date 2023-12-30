@@ -89,7 +89,7 @@ internal sealed class ClassDefinition
             }
             else
             {
-                var temp = superclass.Get("prototype");
+                var temp = superclass.Get(CommonProperties.Prototype);
                 if (temp is ObjectInstance protoParentObject)
                 {
                     protoParent = protoParentObject;

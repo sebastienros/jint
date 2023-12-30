@@ -9,7 +9,7 @@ namespace Jint.Native.Generator;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-generatorfunction-constructor
 /// </summary>
-internal sealed class GeneratorFunctionConstructor : FunctionInstance, IConstructor
+internal sealed class GeneratorFunctionConstructor : Constructor
 {
     private static readonly JsString _functionName = new("GeneratorFunction");
 
@@ -33,7 +33,7 @@ internal sealed class GeneratorFunctionConstructor : FunctionInstance, IConstruc
         return Construct(arguments, thisObject);
     }
 
-    public ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
         var function = _realm.Intrinsics.Function.CreateDynamicFunction(
             this,
