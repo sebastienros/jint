@@ -5,12 +5,12 @@ namespace Jint.Native.TypedArray;
 
 internal static class TypeArrayHelper
 {
-    internal static JsTypedArray ValidateTypedArray(this JsValue o, Realm realm, ArrayBufferOrder order = ArrayBufferOrder.Unordered)
+    internal static IntrinsicTypedArrayPrototype.TypedArrayWithBufferWitnessRecord ValidateTypedArray(this JsValue o, Realm realm, ArrayBufferOrder order = ArrayBufferOrder.Unordered)
     {
         if (o is not JsTypedArray typedArray)
         {
             ExceptionHelper.ThrowTypeError(realm);
-            return null!;
+            return default;
         }
 
         var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(typedArray, order);
@@ -19,6 +19,6 @@ internal static class TypeArrayHelper
             ExceptionHelper.ThrowTypeError(realm);
         }
 
-        return typedArray;
+        return taRecord;
     }
 }

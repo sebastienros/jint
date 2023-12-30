@@ -167,16 +167,22 @@ namespace Jint.Native.TypedArray
         /// </summary>
         internal static JsTypedArray TypedArrayCreate(Realm realm, IConstructor constructor, JsValue[] argumentList)
         {
-            var newTypedArray = Construct(constructor, argumentList).ValidateTypedArray(realm);
+            var newTypedArray = Construct(constructor, argumentList);
+            var taRecord = newTypedArray.ValidateTypedArray(realm);
+
             if (argumentList.Length == 1 && argumentList[0] is JsNumber number)
             {
+                if (taRecord.IsTypedArrayOutOfBounds)
+                {
+                    ExceptionHelper.ThrowTypeError(realm);
+                }
                 if (newTypedArray.Length < number._value)
                 {
                     ExceptionHelper.ThrowTypeError(realm);
                 }
             }
 
-            return newTypedArray;
+            return taRecord.Object;
         }
 
         private static JsValue Species(JsValue thisObject, JsValue[] arguments)
