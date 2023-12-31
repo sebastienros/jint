@@ -326,11 +326,11 @@ namespace Jint
             return new Record(propKey, closure);
         }
 
-        internal static void GetImportEntries(this ImportDeclaration import, List<ImportEntry> importEntries, HashSet<string> requestedModules)
+        internal static void GetImportEntries(this ImportDeclaration import, List<ImportEntry> importEntries, HashSet<ModuleRequest> requestedModules)
         {
             var source = import.Source.StringValue!;
             var specifiers = import.Specifiers;
-            requestedModules.Add(source);
+            requestedModules.Add(new ModuleRequest(source, []));
 
             foreach (var specifier in specifiers)
             {
@@ -349,7 +349,7 @@ namespace Jint
             }
         }
 
-        internal static void GetExportEntries(this ExportDeclaration export, List<ExportEntry> exportEntries, HashSet<string> requestedModules)
+        internal static void GetExportEntries(this ExportDeclaration export, List<ExportEntry> exportEntries, HashSet<ModuleRequest> requestedModules)
         {
             switch (export)
             {
@@ -358,7 +358,7 @@ namespace Jint
                     break;
                 case ExportAllDeclaration allDeclaration:
                     //Note: there is a pending PR for Esprima to support exporting an imported modules content as a namespace i.e. 'export * as ns from "mod"'
-                    requestedModules.Add(allDeclaration.Source.StringValue!);
+                    requestedModules.Add(new ModuleRequest(allDeclaration.Source.StringValue!, []));
                     exportEntries.Add(new(allDeclaration.Exported?.GetModuleKey(), allDeclaration.Source.StringValue, "*", null));
                     break;
                 case ExportNamedDeclaration namedDeclaration:
@@ -385,7 +385,7 @@ namespace Jint
 
                     if (namedDeclaration.Source is not null)
                     {
-                        requestedModules.Add(namedDeclaration.Source.StringValue!);
+                        requestedModules.Add(new ModuleRequest(namedDeclaration.Source.StringValue!, []));
                     }
 
                     break;

@@ -38,7 +38,7 @@ namespace Jint
             }
             else
             {
-                module = LoaderFromModuleLoader(moduleResolution);
+                module = LoadFromModuleLoader(moduleResolution);
             }
 
             if (module is SourceTextModuleRecord sourceTextModule)
@@ -59,7 +59,7 @@ namespace Jint
             return module;
         }
 
-        private SourceTextModuleRecord LoaderFromModuleLoader(ResolvedSpecifier moduleResolution)
+        private SourceTextModuleRecord LoadFromModuleLoader(ResolvedSpecifier moduleResolution)
         {
             var parsedModule = ModuleLoader.LoadModule(this, moduleResolution);
             var module = new SourceTextModuleRecord(this, Realm, parsedModule, moduleResolution.Uri?.LocalPath, false);

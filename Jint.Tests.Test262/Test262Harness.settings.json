@@ -10,8 +10,8 @@
     "Atomics",
     "generators",
     "import-assertions",
-    "import-attributes",
     "iterator-helpers",
+    "json-modules",
     "regexp-duplicate-named-groups",
     "regexp-lookbehind",
     "regexp-unicode-property-escapes",
@@ -97,6 +97,7 @@
     "language/**/*-yield-*.js",
     "language/module-code/instn-local-bndng-gen.js",
     "language/module-code/instn-local-bndng-export-gen.js",
+    "language/expressions/dynamic-import/import-attributes/2nd-param-evaluation-abrupt-return.js",
 
      // Esprima problem
     "language/expressions/object/let-non-strict-access.js",

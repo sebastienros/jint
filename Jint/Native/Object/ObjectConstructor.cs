@@ -99,7 +99,7 @@ namespace Jint.Native.Object
         private JsValue Entries(JsValue thisObject, JsValue[] arguments)
         {
             var obj = TypeConverter.ToObject(_realm, arguments.At(0));
-            var nameList = obj.EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind.KeyValue);
+            var nameList = obj.EnumerableOwnProperties(EnumerableOwnPropertyNamesKind.KeyValue);
             return nameList;
         }
 
@@ -516,7 +516,7 @@ namespace Jint.Native.Object
         private JsValue Keys(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_realm, arguments.At(0));
-            return o.EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind.Key);
+            return o.EnumerableOwnProperties(EnumerableOwnPropertyNamesKind.Key);
         }
 
         /// <summary>
@@ -525,7 +525,7 @@ namespace Jint.Native.Object
         private JsValue Values(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_realm, arguments.At(0));
-            return o.EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind.Value);
+            return o.EnumerableOwnProperties(EnumerableOwnPropertyNamesKind.Value);
         }
 
         /// <summary>

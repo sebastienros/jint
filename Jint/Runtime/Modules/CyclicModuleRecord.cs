@@ -24,7 +24,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     private Completion? _evalError;
     private int _dfsIndex;
     private int _dfsAncestorIndex;
-    protected HashSet<string> _requestedModules;
+    internal HashSet<ModuleRequest> _requestedModules;
     private CyclicModuleRecord _cycleRoot;
     protected bool _hasTLA;
     private bool _asyncEvaluation;
@@ -192,9 +192,9 @@ public abstract class CyclicModuleRecord : ModuleRecord
         index++;
         stack.Push(this);
 
-        foreach (var required in _requestedModules)
+        foreach (var request in _requestedModules)
         {
-            var requiredModule = _engine._host.ResolveImportedModule(this, required);
+            var requiredModule = _engine._host.GetImportedModule(this, request.Specifier);
 
             index = requiredModule.InnerModuleLinking(stack, index);
 
@@ -285,7 +285,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
 
         foreach (var required in _requestedModules)
         {
-            var requiredModule = _engine._host.ResolveImportedModule(this, required);
+            var requiredModule = _engine._host.GetImportedModule(this, required.Specifier);
 
             var result = requiredModule.InnerModuleEvaluation(stack, index, ref asyncEvalOrder);
             if (result.Type != CompletionType.Normal)
