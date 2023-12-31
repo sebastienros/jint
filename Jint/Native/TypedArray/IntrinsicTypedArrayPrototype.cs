@@ -1051,18 +1051,7 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowTypeError(_realm, "Content type mismatch");
             }
 
-            bool same;
-            if (srcBuffer.IsSharedArrayBuffer && targetBuffer.IsSharedArrayBuffer)
-            {
-                // a. If srcBuffer.[[ArrayBufferData]] and targetBuffer.[[ArrayBufferData]] are the same Shared Data Block values, let same be true; else let same be false.
-                ExceptionHelper.ThrowNotImplementedException("SharedBuffer not implemented");
-                same = false;
-            }
-            else
-            {
-                same = SameValue(srcBuffer, targetBuffer);
-            }
-
+            var same = SameValue(srcBuffer, targetBuffer);
             int srcByteIndex;
             if (same)
             {

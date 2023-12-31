@@ -47,14 +47,9 @@ internal sealed class ArrayBufferPrototype : Prototype
     private JsValue Detached(JsValue thisObject, JsValue[] arguments)
     {
         var o = thisObject as JsArrayBuffer;
-        if (o is null)
+        if (o is null || o.IsSharedArrayBuffer)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.detached called on incompatible receiver " + thisObject);
-        }
-
-        if (o.IsSharedArrayBuffer)
-        {
-            ExceptionHelper.ThrowTypeError(_realm);
         }
 
         return o.IsDetachedBuffer;
@@ -66,14 +61,9 @@ internal sealed class ArrayBufferPrototype : Prototype
     private JsValue MaxByteLength(JsValue thisObject, JsValue[] arguments)
     {
         var o = thisObject as JsArrayBuffer;
-        if (o is null)
+        if (o is null || o.IsSharedArrayBuffer)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.maxByteLength called on incompatible receiver " + thisObject);
-        }
-
-        if (o.IsSharedArrayBuffer)
-        {
-            ExceptionHelper.ThrowTypeError(_realm);
         }
 
         if (o.IsDetachedBuffer)
@@ -94,14 +84,9 @@ internal sealed class ArrayBufferPrototype : Prototype
     private JsValue Resizable(JsValue thisObject, JsValue[] arguments)
     {
         var o = thisObject as JsArrayBuffer;
-        if (o is null)
+        if (o is null || o.IsSharedArrayBuffer)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.resizable called on incompatible receiver " + thisObject);
-        }
-
-        if (o.IsSharedArrayBuffer)
-        {
-            ExceptionHelper.ThrowTypeError(_realm);
         }
 
         return !o.IsFixedLengthArrayBuffer;
@@ -113,14 +98,9 @@ internal sealed class ArrayBufferPrototype : Prototype
     private JsValue Resize(JsValue thisObject, JsValue[] arguments)
     {
         var o = thisObject as JsArrayBuffer;
-        if (o is null)
+        if (o is null || o.IsSharedArrayBuffer)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.resize called on incompatible receiver " + thisObject);
-        }
-
-        if (o.IsSharedArrayBuffer)
-        {
-            ExceptionHelper.ThrowTypeError(_realm);
         }
 
         var newLength = arguments.At(0);
@@ -139,14 +119,9 @@ internal sealed class ArrayBufferPrototype : Prototype
     private JsValue ByteLength(JsValue thisObject, JsValue[] arguments)
     {
         var o = thisObject as JsArrayBuffer;
-        if (o is null)
+        if (o is null || o.IsSharedArrayBuffer)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.byteLength called on incompatible receiver " + thisObject);
-        }
-
-        if (o.IsSharedArrayBuffer)
-        {
-            ExceptionHelper.ThrowTypeError(_realm);
         }
 
         if (o.IsDetachedBuffer)
@@ -163,14 +138,9 @@ internal sealed class ArrayBufferPrototype : Prototype
     private JsValue Slice(JsValue thisObject, JsValue[] arguments)
     {
         var o = thisObject as JsArrayBuffer;
-        if (o is null)
+        if (o is null || o.IsSharedArrayBuffer)
         {
             ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.slice called on incompatible receiver " + thisObject);
-        }
-
-        if (o.IsSharedArrayBuffer)
-        {
-            ExceptionHelper.ThrowTypeError(_realm);
         }
 
         o.AssertNotDetached();

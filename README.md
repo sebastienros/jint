@@ -55,7 +55,8 @@ Following features are supported in version 3.x.
 
 - ✔ `Promise.prototype.finally`
 - ✔ RegExp named capture groups
-- ✔ Rest/spread operators for object literals (`...identifier`),
+- ✔ Rest/spread operators for object literals (`...identifier`)
+- ✔ SharedArrayBuffer
 
 #### ECMAScript 2019
 

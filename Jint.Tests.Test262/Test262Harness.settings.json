@@ -17,7 +17,6 @@
     "regexp-lookbehind",
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
-    "SharedArrayBuffer",
     "tail-call-optimization",
     "Temporal",
     "u180e"

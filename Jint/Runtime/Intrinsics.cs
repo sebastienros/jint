@@ -23,6 +23,7 @@ using Jint.Native.Reflect;
 using Jint.Native.RegExp;
 using Jint.Native.Set;
 using Jint.Native.ShadowRealm;
+using Jint.Native.SharedArrayBuffer;
 using Jint.Native.String;
 using Jint.Native.Symbol;
 using Jint.Native.TypedArray;
@@ -82,6 +83,7 @@ namespace Jint.Runtime
         private ArrayIteratorPrototype? _arrayIteratorPrototype;
         private BooleanConstructor? _boolean;
         private ArrayBufferConstructor? _arrayBufferConstructor;
+        private SharedArrayBufferConstructor? _sharedArrayBufferConstructor;
         private DataViewConstructor? _dataView;
         private AsyncFunctionConstructor? _asyncFunction;
         private FinalizationRegistryConstructor? _finalizationRegistry;
@@ -140,6 +142,9 @@ namespace Jint.Runtime
 
         internal ArrayBufferConstructor ArrayBuffer =>
             _arrayBufferConstructor ??= new ArrayBufferConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        internal SharedArrayBufferConstructor SharedArrayBuffer =>
+            _sharedArrayBufferConstructor ??= new SharedArrayBufferConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
         internal IntrinsicTypedArrayConstructor TypedArray =>
             _typedArray ??= new IntrinsicTypedArrayConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, "TypedArray");
