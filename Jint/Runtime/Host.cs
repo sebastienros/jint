@@ -12,6 +12,7 @@ namespace Jint.Runtime
     public class Host
     {
         private Engine? _engine;
+        private readonly List<string> _supportedImportAttributes = ["type"];
 
         protected Engine Engine
         {
@@ -115,24 +116,24 @@ namespace Jint.Runtime
         }
 
         /// <summary>
-        /// https://tc39.es/ecma262/#sec-hostresolveimportedmodule
+        /// https://tc39.es/ecma262/#sec-GetImportedModule
         /// </summary>
-        internal virtual ModuleRecord ResolveImportedModule(IScriptOrModule? referencingScriptOrModule, string specifier)
+        internal virtual ModuleRecord GetImportedModule(IScriptOrModule? referrer, string specifier)
         {
-            return Engine.LoadModule(referencingScriptOrModule?.Location, specifier);
+            return Engine.LoadModule(referrer?.Location, specifier);
         }
 
         /// <summary>
-        /// https://tc39.es/ecma262/#sec-hostimportmoduledynamically
+        /// https://tc39.es/ecma262/#sec-HostLoadImportedModule
         /// </summary>
-        internal virtual void ImportModuleDynamically(IScriptOrModule? referencingModule, string specifier, PromiseCapability promiseCapability)
+        internal virtual void LoadImportedModule(IScriptOrModule? referrer, ModuleRequest moduleRequest, PromiseCapability payload)
         {
             var promise = Engine.RegisterPromise();
 
             try
             {
                 // This should instead return the PromiseInstance returned by ModuleRecord.Evaluate (currently done in Engine.EvaluateModule), but until we have await this will do.
-                Engine.ImportModule(specifier, referencingModule?.Location);
+                Engine.ImportModule(moduleRequest.Specifier, referrer?.Location);
                 promise.Resolve(JsValue.Undefined);
             }
             catch (JavaScriptException ex)
@@ -140,25 +141,25 @@ namespace Jint.Runtime
                 promise.Reject(ex.Error);
             }
 
-            FinishDynamicImport(referencingModule, specifier, promiseCapability, (JsPromise) promise.Promise);
+            FinishLoadingImportedModule(referrer, moduleRequest, payload, (JsPromise) promise.Promise);
         }
 
         /// <summary>
-        /// https://tc39.es/ecma262/#sec-finishdynamicimport
+        /// https://tc39.es/ecma262/#sec-FinishLoadingImportedModule
         /// </summary>
-        internal virtual void FinishDynamicImport(IScriptOrModule? referencingModule, string specifier, PromiseCapability promiseCapability, JsPromise innerPromise)
+        internal virtual void FinishLoadingImportedModule(IScriptOrModule? referrer, ModuleRequest moduleRequest, PromiseCapability payload, JsPromise result)
         {
             var onFulfilled = new ClrFunctionInstance(Engine, "", (thisObj, args) =>
             {
-                var moduleRecord = ResolveImportedModule(referencingModule, specifier);
+                var moduleRecord = GetImportedModule(referrer, moduleRequest.Specifier);
                 try
                 {
                     var ns = ModuleRecord.GetModuleNamespace(moduleRecord);
-                    promiseCapability.Resolve.Call(JsValue.Undefined, new JsValue[] { ns });
+                    payload.Resolve.Call(JsValue.Undefined, new JsValue[] { ns });
                 }
                 catch (JavaScriptException ex)
                 {
-                    promiseCapability.Reject.Call(JsValue.Undefined, new [] { ex.Error });
+                    payload.Reject.Call(JsValue.Undefined, new [] { ex.Error });
                 }
                 return JsValue.Undefined;
             }, 0, PropertyFlag.Configurable);
@@ -166,11 +167,11 @@ namespace Jint.Runtime
             var onRejected = new ClrFunctionInstance(Engine, "", (thisObj, args) =>
             {
                 var error = args.At(0);
-                promiseCapability.Reject.Call(JsValue.Undefined, new [] { error });
+                payload.Reject.Call(JsValue.Undefined, new [] { error });
                 return JsValue.Undefined;
             }, 0, PropertyFlag.Configurable);
 
-            PromiseOperations.PerformPromiseThen(Engine, innerPromise, onFulfilled, onRejected, promiseCapability);
+            PromiseOperations.PerformPromiseThen(Engine, result, onFulfilled, onRejected, payload);
         }
 
         /// <summary>
@@ -209,6 +210,11 @@ namespace Jint.Runtime
         internal void HostEnqueuePromiseJob(Action job, Realm realm)
         {
             Engine.AddToEventLoop(job);
+        }
+
+        internal virtual List<string> GetSupportedImportAttributes()
+        {
+            return _supportedImportAttributes;
         }
     }
 

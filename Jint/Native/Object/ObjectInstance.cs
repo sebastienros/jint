@@ -1407,7 +1407,7 @@ namespace Jint.Native.Object
             }
         }
 
-        internal JsArray EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind kind)
+        internal JsArray EnumerableOwnProperties(EnumerableOwnPropertyNamesKind kind)
         {
             var ownKeys = GetOwnPropertyKeys(Types.String);
 

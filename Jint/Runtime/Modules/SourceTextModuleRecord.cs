@@ -101,7 +101,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
         for (var i = 0; i < _starExportEntries.Count; i++)
         {
             var e = _starExportEntries[i];
-            var requestedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
+            var requestedModule = _engine._host.GetImportedModule(this, e.ModuleRequest);
             var starNames = requestedModule.GetExportedNames(exportStarSet);
 
             for (var j = 0; j < starNames.Count; j++)
@@ -150,7 +150,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
             var e = _indirectExportEntries[i];
             if (string.Equals(exportName, e.ExportName, StringComparison.Ordinal))
             {
-                var importedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
+                var importedModule = _engine._host.GetImportedModule(this, e.ModuleRequest);
                 if (string.Equals(e.ImportName, "*", StringComparison.Ordinal))
                 {
                     // 1. Assert: module does not provide the direct binding for this export.
@@ -175,7 +175,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
         for (var i = 0; i < _starExportEntries.Count; i++)
         {
             var e = _starExportEntries[i];
-            var importedModule = _engine._host.ResolveImportedModule(this, e.ModuleRequest);
+            var importedModule = _engine._host.GetImportedModule(this, e.ModuleRequest);
             var resolution = importedModule.ResolveExport(exportName, resolveSet);
             if (resolution == ResolvedBinding.Ambiguous)
             {
@@ -225,7 +225,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
             for (var i = 0; i < _importEntries.Count; i++)
             {
                 var ie = _importEntries[i];
-                var importedModule = _engine._host.ResolveImportedModule(this, ie.ModuleRequest);
+                var importedModule = _engine._host.GetImportedModule(this, ie.ModuleRequest);
                 if (string.Equals(ie.ImportName, "*", StringComparison.Ordinal))
                 {
                     var ns = GetModuleNamespace(importedModule);

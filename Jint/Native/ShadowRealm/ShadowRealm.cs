@@ -277,7 +277,7 @@ public sealed class ShadowRealm : ObjectInstance
         // 4. If runningContext is not already suspended, suspend runningContext.
 
         _engine.EnterExecutionContext(_executionContext);
-        _engine._host.ImportModuleDynamically(null, specifierString, innerCapability);
+        _engine._host.LoadImportedModule(null, new ModuleRequest(specifierString, new List<KeyValuePair<string, JsValue>>()), innerCapability);
         _engine.LeaveExecutionContext();
 
         var onFulfilled = new StepsFunction(_engine, callerRealm, exportNameString);

@@ -123,7 +123,7 @@ namespace Jint
 
         public static void GetImportsAndExports(
             Module module,
-            out HashSet<string> requestedModules,
+            out HashSet<ModuleRequest> requestedModules,
             out List<ImportEntry>? importEntries,
             out List<ExportEntry> localExportEntries,
             out List<ExportEntry> indirectExportEntries,
@@ -133,7 +133,7 @@ namespace Jint
             treeWalker.Visit(module);
 
             importEntries = treeWalker._importEntries;
-            requestedModules = treeWalker._requestedModules ?? new(StringComparer.Ordinal);
+            requestedModules = treeWalker._requestedModules ?? [];
             var importedBoundNames = new HashSet<string>(StringComparer.Ordinal);
 
             if (importEntries != null)
@@ -287,11 +287,19 @@ namespace Jint
             }
         }
 
+        private sealed class ModuleRequestRecordComparer : IComparer<ModuleRequest>
+        {
+            public int Compare(ModuleRequest x, ModuleRequest y)
+            {
+                return string.Compare(x.Specifier, y.Specifier, StringComparison.Ordinal);
+            }
+        }
+
         private sealed class ModuleWalker
         {
             internal List<ImportEntry>? _importEntries;
             internal List<ExportEntry>? _exportEntries;
-            internal HashSet<string>? _requestedModules;
+            internal HashSet<ModuleRequest>? _requestedModules;
 
             internal void Visit(Node node)
             {
@@ -299,15 +307,15 @@ namespace Jint
                 {
                     if (childNode.Type == Nodes.ImportDeclaration)
                     {
-                        _importEntries ??= new();
-                        _requestedModules ??= new(StringComparer.Ordinal);
+                        _importEntries ??= [];
+                        _requestedModules ??= [];
                         var import = (ImportDeclaration) childNode;
                         import.GetImportEntries(_importEntries, _requestedModules);
                     }
                     else if (childNode.Type is Nodes.ExportAllDeclaration or Nodes.ExportDefaultDeclaration or Nodes.ExportNamedDeclaration)
                     {
-                        _exportEntries ??= new();
-                        _requestedModules ??= new(StringComparer.Ordinal);
+                        _exportEntries ??= [];
+                        _requestedModules ??= [];
                         var export = (ExportDeclaration) childNode;
                         export.GetExportEntries(_exportEntries, _requestedModules);
                     }

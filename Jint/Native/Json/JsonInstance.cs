@@ -65,7 +65,7 @@ namespace Jint.Native.Json
                 }
                 else
                 {
-                    var keys = val.EnumerableOwnPropertyNames(EnumerableOwnPropertyNamesKind.Key);
+                    var keys = val.EnumerableOwnProperties(EnumerableOwnPropertyNamesKind.Key);
                     foreach (var p in keys)
                     {
                         var newElement = InternalizeJSONProperty(val, p, reviver);
