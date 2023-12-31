@@ -40,37 +40,38 @@ internal sealed class JintImportExpression : JintExpression
         {
             var specifierString = TypeConverter.ToString(specifier);
 
-            var attributes = new List<KeyValuePair<string, JsValue>>();
+            var attributes = new List<ModuleImportAttribute>();
             if (!options.IsUndefined())
             {
-                if (options is not JsObject o)
+                if (!options.IsObject())
                 {
                     ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Invalid options object");
                     return JsValue.Undefined;
                 }
 
-                var attributesObj = o.Get("with");
+                var attributesObj = options.Get("with");
                 if (!attributesObj.IsUndefined())
                 {
-                    if (attributesObj is not JsObject oi)
+                    if (attributesObj is not ObjectInstance oi)
                     {
                         ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Invalid options.with object");
                         return JsValue.Undefined;
                     }
 
                     var entries = oi.EnumerableOwnProperties(ObjectInstance.EnumerableOwnPropertyNamesKind.KeyValue);
+                    attributes.Capacity = (int) entries.Length;
                     foreach (var entry in entries)
                     {
                         var key = entry.Get("0");
                         var value = entry.Get("1");
 
-                        if (!key.IsString())
+                        if (!value.IsString())
                         {
-                            ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Invalid option key " + key);
+                            ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Invalid option value " + value);
                             return JsValue.Undefined;
                         }
 
-                        attributes.Add(new KeyValuePair<string, JsValue>(key.ToString(), value));
+                        attributes.Add(new ModuleImportAttribute(key.ToString(), TypeConverter.ToString(value)));
                     }
 
                     if (!AllImportAttributesSupported(context.Engine._host, attributes))
@@ -82,7 +83,7 @@ internal sealed class JintImportExpression : JintExpression
                 }
             }
 
-            var moduleRequest = new ModuleRequest(Specifier: specifierString, Attributes: attributes);
+            var moduleRequest = new ModuleRequest(Specifier: specifierString, Attributes: attributes.ToArray());
             context.Engine._host.LoadImportedModule(referrer, moduleRequest, promiseCapability);
         }
         catch (JavaScriptException e)
@@ -93,7 +94,7 @@ internal sealed class JintImportExpression : JintExpression
         return promiseCapability.PromiseInstance;
     }
 
-    private static bool AllImportAttributesSupported(Host host, List<KeyValuePair<string, JsValue>> attributes)
+    private static bool AllImportAttributesSupported(Host host, List<ModuleImportAttribute> attributes)
     {
         var supported = host.GetSupportedImportAttributes();
         foreach (var pair in attributes)

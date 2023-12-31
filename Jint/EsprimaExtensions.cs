@@ -330,23 +330,40 @@ namespace Jint
         {
             var source = import.Source.StringValue!;
             var specifiers = import.Specifiers;
-            requestedModules.Add(new ModuleRequest(source, []));
+            var attributes = GetAttributes(import.Attributes);
+            requestedModules.Add(new ModuleRequest(source, attributes));
 
             foreach (var specifier in specifiers)
             {
                 switch (specifier)
                 {
                     case ImportNamespaceSpecifier namespaceSpecifier:
-                        importEntries.Add(new ImportEntry(source, "*", namespaceSpecifier.Local.GetModuleKey()));
+                        importEntries.Add(new ImportEntry(new ModuleRequest(source, attributes), "*", namespaceSpecifier.Local.GetModuleKey()));
                         break;
                     case ImportSpecifier importSpecifier:
-                        importEntries.Add(new ImportEntry(source, importSpecifier.Imported.GetModuleKey(), importSpecifier.Local.GetModuleKey()));
+                        importEntries.Add(new ImportEntry(new ModuleRequest(source, attributes), importSpecifier.Imported.GetModuleKey(), importSpecifier.Local.GetModuleKey()!));
                         break;
                     case ImportDefaultSpecifier defaultSpecifier:
-                        importEntries.Add(new ImportEntry(source, "default", defaultSpecifier.Local.GetModuleKey()));
+                        importEntries.Add(new ImportEntry(new ModuleRequest(source, attributes), "default", defaultSpecifier.Local.GetModuleKey()));
                         break;
                 }
             }
+        }
+
+        private static ModuleImportAttribute[] GetAttributes(in NodeList<ImportAttribute> importAttributes)
+        {
+            if (importAttributes.Count == 0)
+            {
+                return Array.Empty<ModuleImportAttribute>();
+            }
+
+            var attributes = new ModuleImportAttribute[importAttributes.Count];
+            for (var i = 0; i < importAttributes.Count; i++)
+            {
+                var attribute = importAttributes[i];
+                attributes[i] = new ModuleImportAttribute(attribute.Key.ToString(), attribute.Value.StringValue!);
+            }
+            return attributes;
         }
 
         internal static void GetExportEntries(this ExportDeclaration export, List<ExportEntry> exportEntries, HashSet<ModuleRequest> requestedModules)
@@ -359,13 +376,17 @@ namespace Jint
                 case ExportAllDeclaration allDeclaration:
                     //Note: there is a pending PR for Esprima to support exporting an imported modules content as a namespace i.e. 'export * as ns from "mod"'
                     requestedModules.Add(new ModuleRequest(allDeclaration.Source.StringValue!, []));
-                    exportEntries.Add(new(allDeclaration.Exported?.GetModuleKey(), allDeclaration.Source.StringValue, "*", null));
+                    exportEntries.Add(new(allDeclaration.Exported?.GetModuleKey(), new ModuleRequest(allDeclaration.Source.StringValue!, []), "*", null));
                     break;
                 case ExportNamedDeclaration namedDeclaration:
                     ref readonly var specifiers = ref namedDeclaration.Specifiers;
                     if (specifiers.Count == 0)
                     {
-                        GetExportEntries(false, namedDeclaration.Declaration!, exportEntries, namedDeclaration.Source?.StringValue);
+                        ModuleRequest? moduleRequest = namedDeclaration.Source != null
+                            ? new ModuleRequest(namedDeclaration.Source?.StringValue!, [])
+                            : null;
+
+                        GetExportEntries(false, namedDeclaration.Declaration!, exportEntries, moduleRequest);
                     }
                     else
                     {
@@ -374,7 +395,7 @@ namespace Jint
                             var specifier = specifiers[i];
                             if (namedDeclaration.Source != null)
                             {
-                                exportEntries.Add(new(specifier.Exported.GetModuleKey(), namedDeclaration.Source.StringValue, specifier.Local.GetModuleKey(), null));
+                                exportEntries.Add(new(specifier.Exported.GetModuleKey(), new ModuleRequest(namedDeclaration.Source.StringValue!, []), specifier.Local.GetModuleKey(), null));
                             }
                             else
                             {
@@ -392,7 +413,7 @@ namespace Jint
             }
         }
 
-        private static void GetExportEntries(bool defaultExport, StatementListItem declaration, List<ExportEntry> exportEntries, string? moduleRequest = null)
+        private static void GetExportEntries(bool defaultExport, StatementListItem declaration, List<ExportEntry> exportEntries, ModuleRequest? moduleRequest = null)
         {
             var names = GetExportNames(declaration);
 
@@ -444,9 +465,9 @@ namespace Jint
             return result;
         }
 
-        private static string? GetModuleKey(this Expression expression)
+        private static string GetModuleKey(this Expression expression)
         {
-            return (expression as Identifier)?.Name ?? (expression as Literal)?.StringValue;
+            return (expression as Identifier)?.Name ?? (expression as Literal)!.StringValue!;
         }
 
         internal readonly record struct Record(JsValue Key, ScriptFunctionInstance Closure);

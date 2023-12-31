@@ -1,7 +1,6 @@
 ﻿#nullable disable
 
 using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime.Descriptors;
@@ -35,7 +34,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
 
     internal JsValue _evalResult;
 
-    internal CyclicModuleRecord(Engine engine, Realm realm, Module source, string location, bool async) : base(engine, realm, location)
+    internal CyclicModuleRecord(Engine engine, Realm realm, string location, bool async) : base(engine, realm, location)
     {
     }
 
@@ -194,7 +193,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
 
         foreach (var request in _requestedModules)
         {
-            var requiredModule = _engine._host.GetImportedModule(this, request.Specifier);
+            var requiredModule = _engine._host.GetImportedModule(this, request);
 
             index = requiredModule.InnerModuleLinking(stack, index);
 
@@ -285,7 +284,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
 
         foreach (var required in _requestedModules)
         {
-            var requiredModule = _engine._host.GetImportedModule(this, required.Specifier);
+            var requiredModule = _engine._host.GetImportedModule(this, required);
 
             var result = requiredModule.InnerModuleEvaluation(stack, index, ref asyncEvalOrder);
             if (result.Type != CompletionType.Normal)
@@ -295,46 +294,43 @@ public abstract class CyclicModuleRecord : ModuleRecord
 
             index = TypeConverter.ToInt32(result.Value);
 
-            if (requiredModule is not CyclicModuleRecord requiredCyclicModule)
+            if (requiredModule is CyclicModuleRecord requiredCyclicModule)
             {
-                ExceptionHelper.ThrowNotImplementedException($"Resolving modules of type {requiredModule.GetType()} is not implemented");
-                continue;
-            }
-
-            if (requiredCyclicModule.Status != ModuleStatus.Evaluating &&
-                requiredCyclicModule.Status != ModuleStatus.EvaluatingAsync &&
-                requiredCyclicModule.Status != ModuleStatus.Evaluated)
-            {
-                ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module is in an invalid state: {requiredCyclicModule.Status}");
-            }
-
-            if (requiredCyclicModule.Status == ModuleStatus.Evaluating && !stack.Contains(requiredCyclicModule))
-            {
-                ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module is in an invalid state: {requiredCyclicModule.Status}");
-            }
-
-            if (requiredCyclicModule.Status == ModuleStatus.Evaluating)
-            {
-                _dfsAncestorIndex = Math.Min(_dfsAncestorIndex, requiredCyclicModule._dfsAncestorIndex);
-            }
-            else
-            {
-                requiredCyclicModule = requiredCyclicModule._cycleRoot;
-                if (requiredCyclicModule.Status is not (ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated))
+                if (requiredCyclicModule.Status != ModuleStatus.Evaluating &&
+                    requiredCyclicModule.Status != ModuleStatus.EvaluatingAsync &&
+                    requiredCyclicModule.Status != ModuleStatus.Evaluated)
                 {
-                    ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module is in an invalid state: {requiredCyclicModule.Status}");
                 }
 
-                if (requiredCyclicModule._evalError != null)
+                if (requiredCyclicModule.Status == ModuleStatus.Evaluating && !stack.Contains(requiredCyclicModule))
                 {
-                    return requiredCyclicModule._evalError.Value;
+                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module is in an invalid state: {requiredCyclicModule.Status}");
                 }
-            }
 
-            if (requiredCyclicModule._asyncEvaluation)
-            {
-                _pendingAsyncDependencies++;
-                requiredCyclicModule._asyncParentModules.Add(this);
+                if (requiredCyclicModule.Status == ModuleStatus.Evaluating)
+                {
+                    _dfsAncestorIndex = Math.Min(_dfsAncestorIndex, requiredCyclicModule._dfsAncestorIndex);
+                }
+                else
+                {
+                    requiredCyclicModule = requiredCyclicModule._cycleRoot;
+                    if (requiredCyclicModule.Status is not (ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated))
+                    {
+                        ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                    }
+
+                    if (requiredCyclicModule._evalError != null)
+                    {
+                        return requiredCyclicModule._evalError.Value;
+                    }
+                }
+
+                if (requiredCyclicModule._asyncEvaluation)
+                {
+                    _pendingAsyncDependencies++;
+                    requiredCyclicModule._asyncParentModules.Add(this);
+                }
             }
         }
 

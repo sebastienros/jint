@@ -1,8 +1,8 @@
-using Jint.Native;
-
 namespace Jint.Runtime.Modules;
 
-internal readonly record struct ModuleRequest(string Specifier, List<KeyValuePair<string, JsValue>> Attributes)
+public readonly record struct ModuleImportAttribute(string Key, string Value);
+
+public readonly record struct ModuleRequest(string Specifier, ModuleImportAttribute[] Attributes)
 {
     /// <summary>
     /// https://tc39.es/proposal-import-attributes/#sec-ModuleRequestsEqual
@@ -14,14 +14,20 @@ internal readonly record struct ModuleRequest(string Specifier, List<KeyValuePai
             return false;
         }
 
-        if (this.Attributes.Count != other.Attributes.Count)
+        if (this.Attributes.Length != other.Attributes.Length)
         {
             return false;
         }
 
+        if (Attributes.Length == 0
+            || (Attributes.Length == 1 && Attributes[0].Equals(other.Attributes[0])))
+        {
+            return true;
+        }
+
         foreach (var pair in Attributes)
         {
-            if (!other.Attributes.Contains(pair))
+            if (Array.IndexOf(other.Attributes, pair) == -1)
             {
                 return false;
             }

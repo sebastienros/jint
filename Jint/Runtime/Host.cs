@@ -118,9 +118,9 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-GetImportedModule
         /// </summary>
-        internal virtual ModuleRecord GetImportedModule(IScriptOrModule? referrer, string specifier)
+        internal virtual ModuleRecord GetImportedModule(IScriptOrModule? referrer, ModuleRequest request)
         {
-            return Engine.LoadModule(referrer?.Location, specifier);
+            return Engine.LoadModule(referrer?.Location, request);
         }
 
         /// <summary>
@@ -151,7 +151,7 @@ namespace Jint.Runtime
         {
             var onFulfilled = new ClrFunctionInstance(Engine, "", (thisObj, args) =>
             {
-                var moduleRecord = GetImportedModule(referrer, moduleRequest.Specifier);
+                var moduleRecord = GetImportedModule(referrer, moduleRequest);
                 try
                 {
                     var ns = ModuleRecord.GetModuleNamespace(moduleRecord);
