@@ -6,7 +6,6 @@
   "Parallel": true,
   "ExcludedFeatures": [
     "Array.fromAsync",
-    "arraybuffer-transfer",
     "async-iteration",
     "Atomics",
     "generators",

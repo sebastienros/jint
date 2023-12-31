@@ -36,7 +36,9 @@ internal sealed class ArrayBufferPrototype : Prototype
             ["maxByteLength"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get maxByteLength", MaxByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
             ["resizable"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get resizable", Resizable, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
             ["resize"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "resize", Resize, 1, lengthFlags), PropertyFlag.NonEnumerable),
-            ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "slice", Slice, 2, lengthFlags), PropertyFlag.NonEnumerable)
+            ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "slice", Slice, 2, lengthFlags), PropertyFlag.NonEnumerable),
+            ["transfer"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "transfer", Transfer, 0, lengthFlags), PropertyFlag.NonEnumerable),
+            ["transferToFixedLength"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "transferToFixedLength", TransferToFixedLength, 0, lengthFlags), PropertyFlag.NonEnumerable),
         };
         SetProperties(properties);
 
@@ -214,5 +216,72 @@ internal sealed class ArrayBufferPrototype : Prototype
         var toBuf = bufferInstance.ArrayBufferData;
         System.Array.Copy(fromBuf!, first, toBuf!, 0, newLen);
         return bufferInstance;
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-arraybuffer-transfer/#sec-arraybuffer.prototype.transfer
+    /// </summary>
+    private JsValue Transfer(JsValue thisObject, JsValue[] arguments)
+    {
+        return ArrayBufferCopyAndDetach(thisObject, arguments.At(0), PreserveResizability.PreserveResizability);
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-arraybuffer-transfer/#sec-arraybuffer.prototype.transfertofixedlength
+    /// </summary>
+    private JsValue TransferToFixedLength(JsValue thisObject, JsValue[] arguments)
+    {
+        return ArrayBufferCopyAndDetach(thisObject, arguments.At(0), PreserveResizability.FixedLength);
+    }
+
+    private JsValue ArrayBufferCopyAndDetach(JsValue o, JsValue newLength, PreserveResizability preserveResizability)
+    {
+        if (o is not JsArrayBuffer arrayBuffer || arrayBuffer.IsSharedArrayBuffer)
+        {
+            ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.ArrayBufferCopyAndDetach called on incompatible receiver " + o);
+            return Undefined;
+        }
+
+        uint newByteLength;
+        if (newLength.IsUndefined())
+        {
+            newByteLength = (uint) arrayBuffer.ArrayBufferByteLength;
+        }
+        else
+        {
+            newByteLength = TypeConverter.ToIndex(_realm, newLength);
+        }
+
+        arrayBuffer.AssertNotDetached();
+
+        uint? newMaxByteLength = null;
+        if (preserveResizability == PreserveResizability.PreserveResizability && arrayBuffer._arrayBufferMaxByteLength != null)
+        {
+            newMaxByteLength = (uint) arrayBuffer._arrayBufferMaxByteLength.Value;
+        }
+
+        if (!arrayBuffer._arrayBufferDetachKey.IsUndefined())
+        {
+            ExceptionHelper.ThrowTypeError(_realm);
+        }
+
+        var newBuffer = _engine.Realm.Intrinsics.ArrayBuffer.AllocateArrayBuffer(_engine.Realm.Intrinsics.ArrayBuffer, newByteLength, newMaxByteLength);
+        var copyLength = System.Math.Min(newByteLength, arrayBuffer.ArrayBufferByteLength);
+        var fromBlock = arrayBuffer.ArrayBufferData!;
+        var toBlock = newBuffer.ArrayBufferData!;
+
+        System.Array.Copy(fromBlock, 0, toBlock, 0, copyLength);
+
+        // NOTE: Neither creation of the new Data Block nor copying from the old Data Block are observable. Implementations may implement this method as a zero-copy move or a realloc.
+
+        arrayBuffer.DetachArrayBuffer();
+
+        return newBuffer;
+    }
+
+    private enum PreserveResizability
+    {
+        PreserveResizability,
+        FixedLength
     }
 }

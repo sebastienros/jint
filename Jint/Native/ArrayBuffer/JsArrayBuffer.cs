@@ -15,7 +15,7 @@ public class JsArrayBuffer : ObjectInstance
     internal byte[]? _arrayBufferData;
     internal readonly int? _arrayBufferMaxByteLength;
 
-    private readonly JsValue _arrayBufferDetachKey = Undefined;
+    internal readonly JsValue _arrayBufferDetachKey = Undefined;
 
     internal JsArrayBuffer(
         Engine engine,

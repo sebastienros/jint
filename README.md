@@ -109,8 +109,9 @@ Following features are supported in version 3.x.
 
 #### ECMAScript Stage 3 (no version yet)
 
+- ✔ `ArrayBuffer.prototype.transfer`
 - ✔ Array Grouping - `Object.groupBy` and `Map.groupBy`
-- ✔ Promise.withResolvers
+- ✔ `Promise.withResolvers`
 - ✔ Resizable and growable ArrayBuffers
 - ✔ ShadowRealm
 
