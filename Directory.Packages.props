@@ -5,7 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="BenchmarkDotNet" Version="0.13.11" />
-    <PackageVersion Include="Esprima" Version="3.0.3" />
+    <PackageVersion Include="Esprima" Version="3.0.4" />
     <PackageVersion Include="Flurl.Http.Signed" Version="3.2.4" />
     <PackageVersion Include="Jurassic" Version="3.2.7" />
     <PackageVersion Include="Meziantou.Analyzer" Version="2.0.132" />
