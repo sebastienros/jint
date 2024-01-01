@@ -717,7 +717,7 @@ namespace Jint
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(string propertyName, params object?[] arguments)
         {
-            return Invoke(propertyName, null, arguments);
+            return Invoke(propertyName, thisObj: null, arguments);
         }
 
         /// <summary>
@@ -742,7 +742,7 @@ namespace Jint
         /// <returns>The value returned by the function call.</returns>
         public JsValue Invoke(JsValue value, params object?[] arguments)
         {
-            return Invoke(value, null, arguments);
+            return Invoke(value, thisObj: null, arguments);
         }
 
         /// <summary>
@@ -768,7 +768,31 @@ namespace Jint
                     items[i] = JsValue.FromObject(this, arguments[i]);
                 }
 
-                var result = callable.Call(JsValue.FromObject(this, thisObj), items);
+                // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
+                JsValue result;
+                var thisObject = JsValue.FromObject(this, thisObj);
+                if (callable is FunctionInstance functionInstance)
+                {
+                    var callStack = CallStack;
+                    callStack.Push(functionInstance, expression: null, ExecutionContext);
+                    try
+                    {
+                        result = functionInstance.Call(thisObject, items);
+                    }
+                    finally
+                    {
+                        // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
+                        if (callStack.Count > 0)
+                        {
+                            callStack.Pop();
+                        }
+                    }
+                }
+                else
+                {
+                    result = callable.Call(thisObject, items);
+                }
+
                 _jsValueArrayPool.ReturnArray(items);
                 return result;
             }
@@ -1487,7 +1511,7 @@ namespace Jint
             JsValue[] arguments,
             JintExpression? expression)
         {
-            // ensure logic is in sync between Call, Construct and JintCallExpression!
+            // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
 
             var recursionDepth = CallStack.Push(functionInstance, expression, ExecutionContext);
 
@@ -1520,7 +1544,7 @@ namespace Jint
             JsValue newTarget,
             JintExpression? expression)
         {
-            // ensure logic is in sync between Call, Construct and JintCallExpression!
+            // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
 
             var recursionDepth = CallStack.Push(functionInstance, expression, ExecutionContext);
 
