@@ -305,5 +305,23 @@ namespace Jint.Tests.Runtime.ExtensionMethods
             Assert.Equal(false, baseObservableResult.Last);
         }
 
+        [Fact]
+        public void CanProjectAndGroupWhenExpandoObjectWrappingDisabled()
+        {
+            var engine = new Engine(options =>
+            {
+                options.AllowClr().AddExtensionMethods(typeof(Enumerable));
+                // prevent ExpandoObject wrapping
+                options.Interop.CreateClrObject = null;
+            });
+            engine.Execute("var a = [ 2, 4 ];");
+
+            var selected = engine.Evaluate("JSON.stringify(a.Select(m => ({a:m,b:m})).ToArray());").AsString();
+            Assert.Equal("""[{"a":2,"b":2},{"a":4,"b":4}]""", selected);
+
+            var grouped1 = engine.Evaluate("a.GroupBy(m => ({a:m,b:m})).ToArray()").AsArray();
+            var grouped = engine.Evaluate("JSON.stringify(a.GroupBy(m => ({a:m,b:m})).Select(x => x.Key).ToArray());").AsString();
+            Assert.Equal("""[{"a":2,"b":2},{"a":4,"b":4}]""", grouped);
+        }
     }
 }

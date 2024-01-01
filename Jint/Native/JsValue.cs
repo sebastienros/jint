@@ -13,7 +13,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native
 {
-    public abstract class JsValue : IEquatable<JsValue>
+    public abstract partial class JsValue : IEquatable<JsValue>
     {
         public static readonly JsValue Undefined = new JsUndefined();
         public static readonly JsValue Null = new JsNull();

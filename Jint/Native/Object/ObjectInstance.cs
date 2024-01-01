@@ -1087,7 +1087,13 @@ namespace Jint.Native.Object
                         break;
                     }
 
-                    var o = _engine.Options.Interop.CreateClrObject(this);
+                    var func = _engine.Options.Interop.CreateClrObject;
+                    if (func is null)
+                    {
+                        goto default;
+                    }
+
+                    var o = func(this);
                     foreach (var p in GetOwnProperties())
                     {
                         if (!p.Value.Enumerable)
