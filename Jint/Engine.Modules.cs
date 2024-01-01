@@ -23,9 +23,10 @@ namespace Jint
             return _executionContexts?.GetActiveScriptOrModule();
         }
 
-        internal ModuleRecord LoadModule(string? referencingModuleLocation, string specifier)
+        internal ModuleRecord LoadModule(string? referencingModuleLocation, ModuleRequest request)
         {
-            var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, specifier);
+            var specifier = request.Specifier;
+            var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, request);
 
             if (_modules.TryGetValue(moduleResolution.Key, out var module))
             {
@@ -59,10 +60,9 @@ namespace Jint
             return module;
         }
 
-        private SourceTextModuleRecord LoadFromModuleLoader(ResolvedSpecifier moduleResolution)
+        private ModuleRecord LoadFromModuleLoader(ResolvedSpecifier moduleResolution)
         {
-            var parsedModule = ModuleLoader.LoadModule(this, moduleResolution);
-            var module = new SourceTextModuleRecord(this, Realm, parsedModule, moduleResolution.Uri?.LocalPath, false);
+            var module = ModuleLoader.LoadModule(this, moduleResolution);
             _modules[moduleResolution.Key] = module;
             return module;
         }
@@ -88,30 +88,35 @@ namespace Jint
 
         public ObjectInstance ImportModule(string specifier)
         {
-            return ImportModule(specifier, null);
+            return ImportModule(specifier, referencingModuleLocation: null);
         }
 
         internal ObjectInstance ImportModule(string specifier, string? referencingModuleLocation)
         {
-            var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, specifier);
+            return ImportModule(new ModuleRequest(specifier, []), referencingModuleLocation);
+        }
+
+        internal ObjectInstance ImportModule(ModuleRequest request, string? referencingModuleLocation)
+        {
+            var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, request);
 
             if (!_modules.TryGetValue(moduleResolution.Key, out var module))
             {
-                module = LoadModule(null, specifier);
+                module = LoadModule(referencingModuleLocation: null, request);
             }
 
             if (module is not CyclicModuleRecord cyclicModule)
             {
-                LinkModule(specifier, module);
-                EvaluateModule(specifier, module);
+                LinkModule(request.Specifier, module);
+                EvaluateModule(request.Specifier, module);
             }
             else if (cyclicModule.Status == ModuleStatus.Unlinked)
             {
-                LinkModule(specifier, cyclicModule);
+                LinkModule(request.Specifier, cyclicModule);
 
                 if (cyclicModule.Status == ModuleStatus.Linked)
                 {
-                    ExecuteWithConstraints(true, () => EvaluateModule(specifier, cyclicModule));
+                    ExecuteWithConstraints(true, () => EvaluateModule(request.Specifier, cyclicModule));
                 }
 
                 if (cyclicModule.Status != ModuleStatus.Evaluated)

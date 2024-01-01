@@ -112,6 +112,7 @@ Following features are supported in version 3.x.
 - ✔ `ArrayBuffer.prototype.transfer`
 - ✔ Array Grouping - `Object.groupBy` and `Map.groupBy`
 - ✔ Import attributes
+- ✔ JSON modules
 - ✔ `Promise.withResolvers`
 - ✔ Resizable and growable ArrayBuffers
 - ✔ ShadowRealm

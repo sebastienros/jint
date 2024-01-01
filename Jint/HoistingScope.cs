@@ -134,7 +134,7 @@ namespace Jint
 
             importEntries = treeWalker._importEntries;
             requestedModules = treeWalker._requestedModules ?? [];
-            var importedBoundNames = new HashSet<string>(StringComparer.Ordinal);
+            var importedBoundNames = new HashSet<string?>(StringComparer.Ordinal);
 
             if (importEntries != null)
             {

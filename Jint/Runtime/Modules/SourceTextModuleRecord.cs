@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using Esprima.Ast;
+﻿using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
@@ -11,21 +9,12 @@ namespace Jint.Runtime.Modules;
 /// <summary>
 /// https://tc39.es/ecma262/#importentry-record
 /// </summary>
-internal sealed record ImportEntry(
-    string ModuleRequest,
-    string ImportName,
-    string LocalName
-);
+internal sealed record ImportEntry(ModuleRequest ModuleRequest, string? ImportName, string LocalName);
 
 /// <summary>
 /// https://tc39.es/ecma262/#exportentry-record
 /// </summary>
-internal sealed record ExportEntry(
-    string ExportName,
-    string ModuleRequest,
-    string ImportName,
-    string LocalName
-);
+internal sealed record ExportEntry(string? ExportName, ModuleRequest? ModuleRequest, string? ImportName, string? LocalName);
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-source-text-module-records
@@ -34,14 +23,14 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
 {
     internal readonly Module _source;
     private ExecutionContext _context;
-    private ObjectInstance _importMeta;
-    private readonly List<ImportEntry> _importEntries;
+    private ObjectInstance? _importMeta;
+    private readonly List<ImportEntry>? _importEntries;
     internal readonly List<ExportEntry> _localExportEntries;
     private readonly List<ExportEntry> _indirectExportEntries;
     private readonly List<ExportEntry> _starExportEntries;
 
-    internal SourceTextModuleRecord(Engine engine, Realm realm, Module source, string location, bool async)
-        : base(engine, realm, source, location, async)
+    internal SourceTextModuleRecord(Engine engine, Realm realm, Module source, string? location, bool async)
+        : base(engine, realm, location, async)
     {
         _source = source;
 
@@ -75,17 +64,17 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getexportednames
     /// </summary>
-    public override List<string> GetExportedNames(List<CyclicModuleRecord> exportStarSet = null)
+    public override List<string?> GetExportedNames(List<CyclicModuleRecord>? exportStarSet = null)
     {
         exportStarSet ??= new List<CyclicModuleRecord>();
         if (exportStarSet.Contains(this))
         {
             //Reached the starting point of an export * circularity
-            return new List<string>();
+            return new List<string?>();
         }
 
         exportStarSet.Add(this);
-        var exportedNames = new List<string>();
+        var exportedNames = new List<string?>();
         for (var i = 0; i < _localExportEntries.Count; i++)
         {
             var e = _localExportEntries[i];
@@ -101,7 +90,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
         for (var i = 0; i < _starExportEntries.Count; i++)
         {
             var e = _starExportEntries[i];
-            var requestedModule = _engine._host.GetImportedModule(this, e.ModuleRequest);
+            var requestedModule = _engine._host.GetImportedModule(this, e.ModuleRequest!.Value);
             var starNames = requestedModule.GetExportedNames(exportStarSet);
 
             for (var j = 0; j < starNames.Count; j++)
@@ -120,7 +109,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-resolveexport
     /// </summary>
-    internal override ResolvedBinding ResolveExport(string exportName, List<ExportResolveSetItem> resolveSet = null)
+    internal override ResolvedBinding? ResolveExport(string? exportName, List<ExportResolveSetItem>? resolveSet = null)
     {
         resolveSet ??= new List<ExportResolveSetItem>();
 
@@ -150,7 +139,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
             var e = _indirectExportEntries[i];
             if (string.Equals(exportName, e.ExportName, StringComparison.Ordinal))
             {
-                var importedModule = _engine._host.GetImportedModule(this, e.ModuleRequest);
+                var importedModule = _engine._host.GetImportedModule(this, e.ModuleRequest!.Value);
                 if (string.Equals(e.ImportName, "*", StringComparison.Ordinal))
                 {
                     // 1. Assert: module does not provide the direct binding for this export.
@@ -170,12 +159,12 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
             return null;
         }
 
-        ResolvedBinding starResolution = null;
+        ResolvedBinding? starResolution = null;
 
         for (var i = 0; i < _starExportEntries.Count; i++)
         {
             var e = _starExportEntries[i];
-            var importedModule = _engine._host.GetImportedModule(this, e.ModuleRequest);
+            var importedModule = _engine._host.GetImportedModule(this, e.ModuleRequest!.Value);
             var resolution = importedModule.ResolveExport(exportName, resolveSet);
             if (resolution == ResolvedBinding.Ambiguous)
             {
@@ -317,8 +306,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
                 var d = functionDeclarations[i];
                 var fn = d.Id?.Name ?? "*default*";
                 var fd = new JintFunctionDefinition(d);
-                env.CreateMutableBinding(fn, true);
-                // TODO private scope
+                env.CreateMutableBinding(fn, canBeDeleted: true);
                 var fo = realm.Intrinsics.Function.InstantiateFunctionObject(fd, env, privateEnv: null);
                 if (string.Equals(fn, "*default*", StringComparison.Ordinal))
                 {
@@ -334,12 +322,12 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-source-text-module-record-execute-module
     /// </summary>
-    internal override Completion ExecuteModule(PromiseCapability capability = null)
+    internal override Completion ExecuteModule(PromiseCapability? capability = null)
     {
         var moduleContext = new ExecutionContext(this, _environment, _environment, privateEnvironment: null, _realm);
         if (!_hasTLA)
         {
-            using (new StrictModeScope(true, force: true))
+            using (new StrictModeScope(strict: true, force: true))
             {
                 _engine.EnterExecutionContext(moduleContext);
                 try
