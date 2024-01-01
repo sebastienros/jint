@@ -299,6 +299,65 @@ myarr[0](0);
             }
         }
 
+        [Fact]
+        public void ResetConstraints()
+        {
+            void ExecuteAction(Engine engine) => engine.Execute("recursion()");
+            void InvokeAction(Engine engine) => engine.Invoke("recursion");
+
+            List<int> expected = [6, 6, 6, 6, 6];
+            Assert.Equal(expected, RunLoop(CreateEngine(), ExecuteAction));
+            Assert.Equal(expected, RunLoop(CreateEngine(), InvokeAction));
+
+            var e1 = CreateEngine();
+            Assert.Equal(expected, RunLoop(e1, ExecuteAction));
+            Assert.Equal(expected, RunLoop(e1, InvokeAction));
+
+            var e2 = CreateEngine();
+            Assert.Equal(expected, RunLoop(e2, InvokeAction));
+            Assert.Equal(expected, RunLoop(e2, ExecuteAction));
+
+            var e3 = CreateEngine();
+            Assert.Equal(expected, RunLoop(e3, InvokeAction));
+            Assert.Equal(expected, RunLoop(e3, ExecuteAction));
+            Assert.Equal(expected, RunLoop(e3, InvokeAction));
+
+            var e4 = CreateEngine();
+            Assert.Equal(expected, RunLoop(e4, InvokeAction));
+            Assert.Equal(expected, RunLoop(e4, InvokeAction));
+        }
+
+        private static Engine CreateEngine()
+        {
+            Engine engine = new(options => options.LimitRecursion(5));
+            return engine.Execute("""
+                  var num = 0;
+                  function recursion() {
+                      num++;
+                      recursion(num);
+                  }
+              """);
+        }
+
+        private static List<int> RunLoop(Engine engine, Action<Engine> engineAction)
+        {
+            List<int> results = new();
+            for (var i = 0; i < 5; i++)
+            {
+                try
+                {
+                    engine.SetValue("num", 0);
+                    engineAction.Invoke(engine);
+                }
+                catch (RecursionDepthOverflowException)
+                {
+                    results.Add((int) engine.GetValue("num").AsNumber());
+                }
+            }
+
+            return results;
+        }
+
         private class MyApi
         {
             public readonly Dictionary<string, ScriptFunctionInstance> Callbacks = new Dictionary<string, ScriptFunctionInstance>();
