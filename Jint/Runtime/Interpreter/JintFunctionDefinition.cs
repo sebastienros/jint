@@ -48,6 +48,7 @@ internal sealed class JintFunctionDefinition
                 AsyncFunctionStart(context, promiseCapability, context =>
                 {
                     context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+                    context.RunBeforeExecuteStatementChecks(Function.Body);
                     var jsValue = _bodyExpression.GetValue(context).Clone();
                     return new Completion(CompletionType.Return, jsValue, _bodyExpression._expression);
                 });
@@ -56,6 +57,7 @@ internal sealed class JintFunctionDefinition
             else
             {
                 argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+                context.RunBeforeExecuteStatementChecks(Function.Body);
                 var jsValue = _bodyExpression.GetValue(context).Clone();
                 result = new Completion(CompletionType.Return, jsValue, Function.Body);
             }

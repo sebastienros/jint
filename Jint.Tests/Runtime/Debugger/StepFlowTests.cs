@@ -1,4 +1,5 @@
-﻿using Esprima.Ast;
+﻿using Esprima;
+using Esprima.Ast;
 using Jint.Runtime.Debugger;
 
 namespace Jint.Tests.Runtime.Debugger
@@ -206,6 +207,76 @@ namespace Jint.Tests.Runtime.Debugger
                 node => Assert.IsType<ExpressionStatement>(node), // new Test();
                 node => Assert.True(node.IsLiteral("dummy"))      // 'dummy';
             );
+        }
+
+        [Fact]
+        public void StepIntoNamedFunctionCalls()
+        {
+            var script = @"
+function a( ) { return 2; }
+function b(l) { return l + a(); }
+function c( ) { return b(3) + a(); }
+let res = c();
+";
+
+            var steps = StepIntoScript(script);
+            Assert.Collection(steps,
+                step => Assert.Equal("function c( ) { »return b(3) + a(); }", step),
+                step => Assert.Equal("function b(l) { »return l + a(); }", step),
+                step => Assert.Equal("function a( ) { »return 2; }", step),
+                step => Assert.Equal("function a( ) { return 2; }»", step),
+                step => Assert.Equal("function b(l) { return l + a(); }»", step),
+                step => Assert.Equal("function a( ) { »return 2; }", step),
+                step => Assert.Equal("function a( ) { return 2; }»", step),
+                step => Assert.Equal("function c( ) { return b(3) + a(); }»", step));
+        }
+
+        [Fact]
+        public void StepIntoArrowFunctionCalls()
+        {
+            var script = @"
+const a = ( ) => 2;
+const b = (l) => l + a();
+const c = ( ) => b(3) + a();
+let res = c();
+";
+
+            var steps = StepIntoScript(script);
+            Assert.Collection(steps,
+                step => Assert.Equal("const c = ( ) => »b(3) + a();", step),
+                step => Assert.Equal("const b = (l) => »l + a();", step),
+                step => Assert.Equal("const a = ( ) => »2;", step),
+                step => Assert.Equal("const a = ( ) => 2»;", step),
+                step => Assert.Equal("const b = (l) => l + a()»;", step),
+                step => Assert.Equal("const a = ( ) => »2;", step),
+                step => Assert.Equal("const a = ( ) => 2»;", step),
+                step => Assert.Equal("const c = ( ) => b(3) + a()»;", step));
+        }
+
+        private List<string> StepIntoScript(string script)
+        {
+            var engine = new Engine(options => options
+                .DebugMode()
+                .InitialStepMode(StepMode.Into));
+
+            var stepStatements = new List<string>();
+            var scriptLines = script.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+            engine.DebugHandler.Step += (sender, information) =>
+            {
+                if (information.CurrentNode is not VariableDeclaration && information.CurrentNode is not FunctionDeclaration)
+                    OutputPosition(information.Location);
+                return StepMode.Into;
+            };
+
+            engine.Execute(script);
+            return stepStatements;
+
+            void OutputPosition(Location location)
+            {
+                var line = scriptLines[location.Start.Line - 1];
+                var withPositionIndicator = string.Concat(line.Substring(0, location.Start.Column), "»", line.Substring(location.Start.Column));
+                stepStatements.Add(withPositionIndicator.TrimEnd());
+            }
         }
     }
 }

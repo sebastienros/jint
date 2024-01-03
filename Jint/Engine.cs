@@ -506,7 +506,7 @@ namespace Jint
             }
         }
 
-        internal void RunBeforeExecuteStatementChecks(Statement? statement)
+        internal void RunBeforeExecuteStatementChecks(StatementListItem? statement)
         {
             // Avoid allocating the enumerator because we run this loop very often.
             foreach (var constraint in _constraints)

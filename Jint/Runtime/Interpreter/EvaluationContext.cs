@@ -45,7 +45,7 @@ internal sealed class EvaluationContext
     public string? Target;
     public CompletionType Completion;
 
-    public void RunBeforeExecuteStatementChecks(Statement statement)
+    public void RunBeforeExecuteStatementChecks(StatementListItem statement)
     {
         if (_shouldRunBeforeExecuteStatementChecks)
         {
