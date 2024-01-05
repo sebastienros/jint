@@ -19,6 +19,7 @@ internal sealed class ClassDefinition
     internal static readonly MethodDefinition _emptyConstructor;
 
     internal readonly string? _className;
+    private readonly string _classSource;
     private readonly Expression? _superClass;
     private readonly ClassBody _body;
 
@@ -39,10 +40,12 @@ internal sealed class ClassDefinition
 
     public ClassDefinition(
         string? className,
+        string classSource,
         Expression? superClass,
         ClassBody body)
     {
         _className = className;
+        _classSource = classSource;
         _superClass = superClass;
         _body = body;
     }
@@ -145,6 +148,7 @@ internal sealed class ClassDefinition
             F = constructorInfo.Closure;
 
             F.SetFunctionName(_className ?? "");
+            F._sourceText = _classSource;
 
             F.MakeConstructor(writableProperty: false, proto);
             F._constructorKind = _superClass is null ? ConstructorKind.Base : ConstructorKind.Derived;

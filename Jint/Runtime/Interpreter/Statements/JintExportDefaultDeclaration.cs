@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Esprima.Utils;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Interpreter.Expressions;
@@ -21,7 +22,7 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
     {
         if (_statement.Declaration is ClassDeclaration classDeclaration)
         {
-            _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name ?? "default", classDeclaration.SuperClass, classDeclaration.Body);
+            _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name ?? "default", classSource: classDeclaration.ToString(), superClass: classDeclaration.SuperClass, body: classDeclaration.Body);
         }
         else if (_statement.Declaration is FunctionDeclaration functionDeclaration)
         {
