@@ -59,7 +59,7 @@ namespace Jint.Runtime.Interop.Reflection
                 }
                 else
                 {
-                    engine.ClrTypeConverter.TryConvert(propertyName, paramType, CultureInfo.InvariantCulture, out key);
+                    engine.TypeConverter.TryConvert(propertyName, paramType, CultureInfo.InvariantCulture, out key);
                 }
 
                 if (key is not null)

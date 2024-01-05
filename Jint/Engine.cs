@@ -45,7 +45,7 @@ namespace Jint
         private readonly Agent _agent = new();
 
         // lazy properties
-        private DebugHandler? _debugHandler;
+        private DebugHandler? _debugger;
 
         // cached access
         internal readonly IObjectConverter[]? _objectConverters;
@@ -58,7 +58,7 @@ namespace Jint
         internal readonly JsValueArrayPool _jsValueArrayPool;
         internal readonly ExtensionMethodCache _extensionMethods;
 
-        public ITypeConverter ClrTypeConverter { get; internal set; }
+        public ITypeConverter TypeConverter { get; internal set; }
 
         // cache of types used when resolving CLR type names
         internal readonly Dictionary<string, Type?> TypeCache = new(StringComparer.Ordinal);
@@ -113,7 +113,8 @@ namespace Jint
         private Engine(Options? options, Action<Engine, Options>? configure)
         {
             Advanced = new AdvancedOperations(this);
-            ClrTypeConverter = new DefaultTypeConverter(this);
+            Constraints = new ConstraintOperations(this);
+            TypeConverter = new DefaultTypeConverter(this);
 
             _executionContexts = new ExecutionContextStack(2);
 
@@ -186,7 +187,7 @@ namespace Jint
             private set;
         }
 
-        public DebugHandler DebugHandler => _debugHandler ??= new DebugHandler(this, Options.Debugger.InitialStepMode);
+        public DebugHandler Debugger => _debugger ??= new DebugHandler(this, Options.Debugger.InitialStepMode);
 
 
         internal ExecutionContext EnterExecutionContext(
@@ -280,21 +281,7 @@ namespace Jint
             _executionContexts.Pop();
         }
 
-        /// <summary>
-        /// Checks engine's active constraints. Propagates exceptions from constraints.
-        /// </summary>
-        public void CheckConstraints()
-        {
-            foreach (var constraint in _constraints)
-            {
-                constraint.Check();
-            }
-        }
-
-        /// <summary>
-        /// Resets all execution constraints back to their initial state.
-        /// </summary>
-        public void ResetConstraints()
+        internal void ResetConstraints()
         {
             foreach (var constraint in _constraints)
             {
@@ -305,7 +292,7 @@ namespace Jint
         /// <summary>
         /// Initializes list of references of called functions
         /// </summary>
-        public void ResetCallStack()
+        internal void ResetCallStack()
         {
             CallStack.Clear();
         }
@@ -390,7 +377,7 @@ namespace Jint
         /// </summary>
         private Engine ScriptEvaluation(ScriptRecord scriptRecord)
         {
-            DebugHandler.OnBeforeEvaluate(scriptRecord.EcmaScriptCode);
+            Debugger.OnBeforeEvaluate(scriptRecord.EcmaScriptCode);
 
             var globalEnv = Realm.GlobalEnv;
 
@@ -451,7 +438,7 @@ namespace Jint
         /// The API assumes that the Engine is called from a single thread.
         /// </summary>
         /// <returns>a Promise instance and functions to either resolve or reject it</returns>
-        public ManualPromise RegisterPromise()
+        internal ManualPromise RegisterPromise()
         {
             var promise = new JsPromise(this)
             {
@@ -517,7 +504,7 @@ namespace Jint
 
             if (_isDebugMode && statement != null && statement.Type != Nodes.BlockStatement)
             {
-                DebugHandler.OnStep(statement);
+                Debugger.OnStep(statement);
             }
         }
 
@@ -571,7 +558,7 @@ namespace Jint
 
                 if (baseValue.IsObject())
                 {
-                    var baseObj = TypeConverter.ToObject(Realm, baseValue);
+                    var baseObj = Runtime.TypeConverter.ToObject(Realm, baseValue);
 
                     if (reference.IsPrivateReference)
                     {
@@ -595,7 +582,7 @@ namespace Jint
 
                     if (o is null)
                     {
-                        o = TypeConverter.ToObject(Realm, baseValue);
+                        o = Runtime.TypeConverter.ToObject(Realm, baseValue);
                     }
 
                     if (reference.IsPrivateReference)
@@ -691,7 +678,7 @@ namespace Jint
             }
             else if (reference.IsPropertyReference)
             {
-                var baseObject = TypeConverter.ToObject(Realm, reference.Base);
+                var baseObject = Runtime.TypeConverter.ToObject(Realm, reference.Base);
                 if (reference.IsPrivateReference)
                 {
                     baseObject.PrivateSet((PrivateName) reference.ReferencedName, value);
@@ -706,7 +693,7 @@ namespace Jint
             }
             else
             {
-                ((Environment) reference.Base).SetMutableBinding(TypeConverter.ToString(reference.ReferencedName), value, reference.Strict);
+                ((Environment) reference.Base).SetMutableBinding(Runtime.TypeConverter.ToString(reference.ReferencedName), value, reference.Strict);
             }
         }
 
@@ -801,7 +788,7 @@ namespace Jint
             return ExecuteWithConstraints(Options.Strict, DoInvoke);
         }
 
-        private T ExecuteWithConstraints<T>(bool strict, Func<T> callback)
+        internal T ExecuteWithConstraints<T>(bool strict, Func<T> callback)
         {
             ResetConstraints();
 
@@ -858,7 +845,7 @@ namespace Jint
         /// </summary>
         private JsValue GetV(JsValue v, JsValue p)
         {
-            var o = TypeConverter.ToObject(Realm, v);
+            var o = Runtime.TypeConverter.ToObject(Realm, v);
             return o.Get(p);
         }
 

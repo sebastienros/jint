@@ -1,3 +1,7 @@
+using Jint.Native;
+using Jint.Native.Function;
+using Jint.Native.Promise;
+using Jint.Runtime;
 using Jint.Runtime.Environments;
 using Environment = Jint.Runtime.Environments.Environment;
 
@@ -35,6 +39,14 @@ public class AdvancedOperations
     }
 
     /// <summary>
+    /// Initializes list of references of called functions
+    /// </summary>
+    public void ResetCallStack()
+    {
+        _engine.ResetCallStack();
+    }
+
+    /// <summary>
     /// Forcefully processes the current task queues (micro and regular), this API may break and change behavior!
     /// </summary>
     public void ProcessTasks()
@@ -51,18 +63,17 @@ public class AdvancedOperations
     }
 
     /// <summary>
-    /// Return the first constraint that matches the predicate.
+    /// EXPERIMENTAL! Subject to change.
+    ///
+    /// Registers a promise within the currently running EventLoop (has to be called within "ExecuteWithEventLoop" call).
+    /// Note that ExecuteWithEventLoop will not trigger "onFinished" callback until ALL manual promises are settled.
+    ///
+    /// NOTE: that resolve and reject need to be called withing the same thread as "ExecuteWithEventLoop".
+    /// The API assumes that the Engine is called from a single thread.
     /// </summary>
-    public T? FindConstraint<T>() where T : Constraint
+    /// <returns>a Promise instance and functions to either resolve or reject it</returns>
+    public ManualPromise RegisterPromise()
     {
-        foreach (var constraint in _engine._constraints)
-        {
-            if (constraint.GetType() == typeof(T))
-            {
-                return (T) constraint;
-            }
-        }
-
-        return null;
+        return _engine.RegisterPromise();
     }
 }

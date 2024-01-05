@@ -127,7 +127,7 @@ namespace Jint.Runtime.Interop
                     }
                     else if (!ReflectionExtensions.TryConvertViaTypeCoercion(parameterType, valueCoercionType, value, out converted))
                     {
-                        converted = engine.ClrTypeConverter.Convert(
+                        converted = engine.TypeConverter.Convert(
                             value.ToObject(),
                             parameterType,
                             System.Globalization.CultureInfo.InvariantCulture);

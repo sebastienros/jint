@@ -56,7 +56,7 @@ namespace Jint.Runtime.Interop
             int jsArgumentsCount = arguments.Length;
             int jsArgumentsWithoutParamsCount = Math.Min(jsArgumentsCount, delegateNonParamsArgumentsCount);
 
-            var clrTypeConverter = Engine.ClrTypeConverter;
+            var clrTypeConverter = Engine.TypeConverter;
             var valueCoercionType = Engine.Options.Interop.ValueCoercion;
             var parameters = new object?[delegateArgumentsCount];
 
@@ -116,7 +116,7 @@ namespace Jint.Runtime.Interop
                     }
                     else if (!ReflectionExtensions.TryConvertViaTypeCoercion(paramsParameterType, valueCoercionType, value, out converted))
                     {
-                        converted = Engine.ClrTypeConverter.Convert(
+                        converted = Engine.TypeConverter.Convert(
                             value.ToObject(),
                             paramsParameterType!,
                             CultureInfo.InvariantCulture);

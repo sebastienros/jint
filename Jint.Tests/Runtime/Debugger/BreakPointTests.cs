@@ -55,8 +55,8 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options.DebugMode());
 
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(4, 5, "i === 1"));
-            Assert.Collection(engine.DebugHandler.BreakPoints,
+            engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5, "i === 1"));
+            Assert.Collection(engine.Debugger.BreakPoints,
                 breakPoint =>
                 {
                     Assert.Equal(4, breakPoint.Location.Line);
@@ -64,8 +64,8 @@ namespace Jint.Tests.Runtime.Debugger
                     Assert.Equal("i === 1", breakPoint.Condition);
                 });
 
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(4, 5));
-            Assert.Collection(engine.DebugHandler.BreakPoints,
+            engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5));
+            Assert.Collection(engine.Debugger.BreakPoints,
                 breakPoint =>
                 {
                     Assert.Equal(4, breakPoint.Location.Line);
@@ -79,15 +79,15 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options.DebugMode());
 
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(4, 5, "i === 1"));
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(5, 6, "j === 2"));
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(10, 7, "x > 5"));
-            Assert.Equal(3, engine.DebugHandler.BreakPoints.Count);
+            engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5, "i === 1"));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(5, 6, "j === 2"));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(10, 7, "x > 5"));
+            Assert.Equal(3, engine.Debugger.BreakPoints.Count);
 
-            engine.DebugHandler.BreakPoints.RemoveAt(new BreakLocation(null, 4, 5));
-            engine.DebugHandler.BreakPoints.RemoveAt(new BreakLocation(null, 10, 7));
+            engine.Debugger.BreakPoints.RemoveAt(new BreakLocation(null, 4, 5));
+            engine.Debugger.BreakPoints.RemoveAt(new BreakLocation(null, 10, 7));
 
-            Assert.Collection(engine.DebugHandler.BreakPoints,
+            Assert.Collection(engine.Debugger.BreakPoints,
                 breakPoint =>
                 {
                     Assert.Equal(5, breakPoint.Location.Line);
@@ -101,11 +101,11 @@ namespace Jint.Tests.Runtime.Debugger
         {
             var engine = new Engine(options => options.DebugMode());
 
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(4, 5, "i === 1"));
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(5, 6, "j === 2"));
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(10, 7, "x > 5"));
-            Assert.True(engine.DebugHandler.BreakPoints.Contains(new BreakLocation(null, 5, 6)));
-            Assert.False(engine.DebugHandler.BreakPoints.Contains(new BreakLocation(null, 8, 9)));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5, "i === 1"));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(5, 6, "j === 2"));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(10, 7, "x > 5"));
+            Assert.True(engine.Debugger.BreakPoints.Contains(new BreakLocation(null, 5, 6)));
+            Assert.False(engine.Debugger.BreakPoints.Contains(new BreakLocation(null, 8, 9)));
         }
 
         [Fact]
@@ -120,7 +120,7 @@ x++; y *= 2;
             var engine = new Engine(options => options.DebugMode());
 
             bool didBreak = false;
-            engine.DebugHandler.Break += (sender, info) =>
+            engine.Debugger.Break += (sender, info) =>
             {
                 Assert.Equal(4, info.Location.Start.Line);
                 Assert.Equal(5, info.Location.Start.Column);
@@ -128,7 +128,7 @@ x++; y *= 2;
                 return StepMode.None;
             };
 
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(4, 5));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(4, 5));
             engine.Execute(script);
             Assert.True(didBreak);
         }
@@ -152,10 +152,10 @@ test(z);";
 
             var engine = new Engine(options => { options.DebugMode(); });
 
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint("script2", 3, 0));
+            engine.Debugger.BreakPoints.Set(new BreakPoint("script2", 3, 0));
 
             bool didBreak = false;
-            engine.DebugHandler.Break += (sender, info) =>
+            engine.Debugger.Break += (sender, info) =>
             {
                 Assert.Equal("script2", info.Location.Source);
                 Assert.Equal(3, info.Location.Start.Line);
@@ -190,7 +190,7 @@ debugger;
                 .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
             bool didBreak = false;
-            engine.DebugHandler.Break += (sender, info) =>
+            engine.Debugger.Break += (sender, info) =>
             {
                 Assert.Equal(PauseType.DebuggerStatement, info.PauseType);
                 didBreak = true;
@@ -216,13 +216,13 @@ debugger;
 
             bool didBreak = false;
             int stepCount = 0;
-            engine.DebugHandler.Break += (sender, info) =>
+            engine.Debugger.Break += (sender, info) =>
             {
                 didBreak = true;
                 return StepMode.None;
             };
 
-            engine.DebugHandler.Step += (sender, info) =>
+            engine.Debugger.Step += (sender, info) =>
             {
                 stepCount++;
                 return StepMode.Into;
@@ -247,9 +247,9 @@ debugger;
 
             int breakCount = 0;
 
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(2, 0));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(2, 0));
 
-            engine.DebugHandler.Break += (sender, info) =>
+            engine.Debugger.Break += (sender, info) =>
             {
                 Assert.Equal(PauseType.Break, info.PauseType);
                 breakCount++;
@@ -275,10 +275,10 @@ debugger;
             bool didStep = true;
             bool didBreak = true;
 
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(2, 0));
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(4, 0));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(2, 0));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(4, 0));
 
-            engine.DebugHandler.Break += (sender, info) =>
+            engine.Debugger.Break += (sender, info) =>
             {
                 didBreak = true;
                 // first breakpoint shouldn't cause us to get here, because we're stepping,
@@ -287,7 +287,7 @@ debugger;
                 return StepMode.None;
             };
 
-            engine.DebugHandler.Step += (sender, info) =>
+            engine.Debugger.Step += (sender, info) =>
             {
                 didStep = true;
                 if (TestHelpers.ReachedLiteral(info, "first breakpoint"))
@@ -315,10 +315,10 @@ debugger;
                 .DebugMode()
                 .DebuggerStatementHandling(DebuggerStatementHandling.Script));
 
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(2, 0));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(2, 0));
 
             int breakTriggered = 0;
-            engine.DebugHandler.Break += (sender, info) =>
+            engine.Debugger.Break += (sender, info) =>
             {
                 breakTriggered++;
                 return StepMode.None;
@@ -343,11 +343,11 @@ test();";
 
             var engine = new Engine(options => options.DebugMode());
 
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(4, 0));
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(6, 0));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(4, 0));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(6, 0));
 
             int step = 0;
-            engine.DebugHandler.Break += (sender, info) =>
+            engine.Debugger.Break += (sender, info) =>
             {
                 step++;
                 switch (step)
@@ -387,12 +387,12 @@ foo();
             int breakpointsReached = 0;
 
             // This breakpoint will be hit:
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(6, 0, "x == 0"));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(6, 0, "x == 0"));
             // This condition is an error (y is not defined). DebugHandler will
             // treat it as an unmatched breakpoint:
-            engine.DebugHandler.BreakPoints.Set(new BreakPoint(7, 0, "y == 0"));
+            engine.Debugger.BreakPoints.Set(new BreakPoint(7, 0, "y == 0"));
 
-            engine.DebugHandler.Step += (sender, info) =>
+            engine.Debugger.Step += (sender, info) =>
             {
                 if (info.ReachedLiteral("before breakpoint"))
                 {
@@ -409,7 +409,7 @@ foo();
                 return StepMode.Into;
             };
 
-            engine.DebugHandler.Break += (sender, info) =>
+            engine.Debugger.Break += (sender, info) =>
             {
                 breakpointsReached++;
                 return StepMode.Into;
@@ -446,11 +446,11 @@ for (let i = 0; i < 10; i++)
 ";
             var engine = new Engine(options => options.DebugMode().InitialStepMode(StepMode.None));
 
-            engine.DebugHandler.BreakPoints.Set(
+            engine.Debugger.BreakPoints.Set(
                 new SimpleHitConditionBreakPoint(4, 4, condition: null, hitCondition: 5));
 
             int numberOfBreaks = 0;
-            engine.DebugHandler.Break += (sender, info) =>
+            engine.Debugger.Break += (sender, info) =>
             {
                 Assert.True(info.ReachedLiteral("breakpoint"));
                 var extendedBreakPoint = Assert.IsType<SimpleHitConditionBreakPoint>(info.BreakPoint);

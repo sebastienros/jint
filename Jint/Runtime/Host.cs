@@ -120,7 +120,7 @@ namespace Jint.Runtime
         /// </summary>
         internal virtual Module GetImportedModule(IScriptOrModule? referrer, ModuleRequest request)
         {
-            return Engine.LoadModule(referrer?.Location, request);
+            return Engine.Modules.Load(referrer?.Location, request);
         }
 
         /// <summary>
@@ -133,7 +133,7 @@ namespace Jint.Runtime
             try
             {
                 // This should instead return the PromiseInstance returned by ModuleRecord.Evaluate (currently done in Engine.EvaluateModule), but until we have await this will do.
-                Engine.ImportModule(moduleRequest.Specifier, referrer?.Location);
+                Engine.Modules.Import(moduleRequest.Specifier, referrer?.Location);
                 promise.Resolve(JsValue.Undefined);
             }
             catch (JavaScriptException ex)

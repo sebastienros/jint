@@ -141,12 +141,12 @@ namespace Jint
                         (thisObj, arguments) =>
                         {
                             var specifier = TypeConverter.ToString(arguments.At(0));
-                            return engine.ImportModule(specifier);
+                            return engine.Modules.Import(specifier);
                         }),
                     PropertyFlag.AllForbidden));
             }
 
-            engine.ModuleLoader = Modules.ModuleLoader;
+            engine.Modules = new ModuleOperations(engine, Modules.ModuleLoader);
         }
 
         private static void AttachExtensionMethodsToPrototypes(Engine engine)

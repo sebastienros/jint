@@ -208,7 +208,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                     if (context.DebugMode)
                     {
-                        context.Engine.DebugHandler.OnStep(_leftNode);
+                        context.Engine.Debugger.OnStep(_leftNode);
                     }
 
                     var status = CompletionType.Normal;

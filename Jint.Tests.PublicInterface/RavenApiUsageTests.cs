@@ -46,7 +46,7 @@ public class RavenApiUsageTests
     {
         var engine = new Engine(options => options.MaxStatements(123));
 
-        var constraint = engine.Advanced.FindConstraint<MaxStatementsConstraint>();
+        var constraint = engine.Constraints.Find<MaxStatementsConstraint>();
         Assert.NotNull(constraint);
 
         var oldMaxStatements = constraint.MaxStatements;
@@ -193,6 +193,13 @@ public class RavenApiUsageTests
         var engine = new Engine();
         engine.SetValue("value", new CustomUndefined());
         Assert.Equal("foo", engine.Evaluate("value ? value + 'bar' : 'foo'"));
+    }
+
+    [Fact]
+    public void CanResetCallStack()
+    {
+        var engine = new Engine();
+        engine.Advanced.ResetCallStack();
     }
 }
 

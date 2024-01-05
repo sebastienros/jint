@@ -13,7 +13,7 @@ namespace Jint.Tests.Runtime.Debugger
                 .InitialStepMode(StepMode.Into));
 
             var nodes = new List<Node>();
-            engine.DebugHandler.Step += (sender, info) =>
+            engine.Debugger.Step += (sender, info) =>
             {
                 nodes.Add(info.CurrentNode);
                 return StepMode.Into;
@@ -261,7 +261,7 @@ let res = c();
 
             var stepStatements = new List<string>();
             var scriptLines = script.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
-            engine.DebugHandler.Step += (sender, information) =>
+            engine.Debugger.Step += (sender, information) =>
             {
                 if (information.CurrentNode is not VariableDeclaration && information.CurrentNode is not FunctionDeclaration)
                     OutputPosition(information.Location);

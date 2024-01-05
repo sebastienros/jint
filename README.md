@@ -240,7 +240,7 @@ jint> log(bar.ToString());
 
 adding a specific CLR type reference can be done like this
 ```csharp
-engine.SetValue("TheType", TypeReference.CreateTypeReference(engine, typeof(TheType)))
+engine.SetValue("TheType", TypeReference.CreateTypeReference<TheType>(engine));
 ```
 
 and used this way
@@ -351,7 +351,7 @@ var engine = new Engine(options =>
     options.CancellationToken(new CancellationToken(true));
 });
 
-var constraint = engine.FindConstraint<CancellationConstraint>();
+var constraint = engine.Constraints.Find<CancellationConstraint>();
 
 for (var i = 0; i < 10; i++) 
 {
@@ -375,7 +375,7 @@ var engine = new Engine(options =>
     options.EnableModules(@"C:\Scripts");
 })
 
-var ns = engine.ImportModule("./my-module.js");
+var ns = engine.Modules.Import("./my-module.js");
 
 var value = ns.Get("value").AsString();
 ```
@@ -385,9 +385,9 @@ By default, the module resolution algorithm will be restricted to the base path 
 Defining modules using JavaScript source code:
 
 ```c#
-engine.AddModule("user", "export const name = 'John';");
+engine.Modules.Add("user", "export const name = 'John';");
 
-var ns = engine.ImportModule("user");
+var ns = engine.Modules.Import("user");
 
 var name = ns.Get("name").AsString();
 ```
@@ -396,26 +396,26 @@ Defining modules using the module builder, which allows you to export CLR classe
 
 ```c#
 // Create the module 'lib' with the class MyClass and the variable version
-engine.AddModule("lib", builder => builder
+engine.Modules.Add("lib", builder => builder
     .ExportType<MyClass>()
     .ExportValue("version", 15)
 );
 
 // Create a user-defined module and do something with 'lib'
-engine.AddModule("custom", @"
+engine.Modules.Add("custom", @"
     import { MyClass, version } from 'lib';
     const x = new MyClass();
     export const result as x.doSomething();
 ");
 
 // Import the user-defined module; this will execute the import chain
-var ns = engine.ImportModule("custom");
+var ns = engine.Modules.Import("custom");
 
 // The result contains "live" bindings to the module
 var id = ns.Get("result").AsInteger();
 ```
 
-Note that you don't need to `EnableModules` if you only use modules created using `AddModule`.
+Note that you don't need to `EnableModules` if you only use modules created using `Engine.Modules.Add`.
 
 ## .NET Interoperability
 

@@ -112,7 +112,7 @@ namespace Jint.Runtime.Interop.Reflection
 
         protected virtual object? ConvertValueToSet(Engine engine, object value)
         {
-            return engine.ClrTypeConverter.Convert(value, _memberType, CultureInfo.InvariantCulture);
+            return engine.TypeConverter.Convert(value, _memberType, CultureInfo.InvariantCulture);
         }
 
         public virtual PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, bool enumerable = true)

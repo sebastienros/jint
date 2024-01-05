@@ -52,7 +52,7 @@ internal sealed class JintDoWhileStatement : JintStatement<DoWhileStatement>
 
             if (context.DebugMode)
             {
-                context.Engine.DebugHandler.OnStep(_test._expression);
+                context.Engine.Debugger.OnStep(_test._expression);
             }
 
             iterating = TypeConverter.ToBoolean(_test.GetValue(context));
