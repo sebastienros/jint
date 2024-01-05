@@ -253,7 +253,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             if (assignmentPattern.Right.IsFunctionDefinition())
                             {
-                                ((FunctionInstance) value).SetFunctionName(new JsString(leftIdentifier.Name));
+                                ((Function) value).SetFunctionName(new JsString(leftIdentifier.Name));
                             }
 
                             AssignToIdentifier(engine, leftIdentifier.Name, value, environment, checkReference);
@@ -346,7 +346,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         if (assignmentPattern.Right.IsFunctionDefinition())
                         {
-                            ((FunctionInstance) value).SetFunctionName(target!.Name);
+                            ((Function) value).SetFunctionName(target!.Name);
                         }
 
                         AssignToIdentifier(context.Engine, target!.Name, value, environment, checkReference);

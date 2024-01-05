@@ -422,7 +422,7 @@ namespace Jint.Native.Object
                 return Undefined;
             }
 
-            var functionInstance = (FunctionInstance) getter;
+            var functionInstance = (Function.Function) getter;
             return functionInstance._engine.Call(functionInstance, thisObject);
         }
 
@@ -614,7 +614,7 @@ namespace Jint.Native.Object
                 }
             }
 
-            if (ownDesc.Set is not FunctionInstance setter)
+            if (ownDesc.Set is not Function.Function setter)
             {
                 return false;
             }
@@ -1646,7 +1646,7 @@ namespace Jint.Native.Object
             if (initializer is not null)
             {
                 initValue = receiver._engine.Call(initializer, receiver);
-                if (initValue is FunctionInstance functionInstance)
+                if (initValue is Function.Function functionInstance)
                 {
                     functionInstance.SetFunctionName(fieldName);
                 }

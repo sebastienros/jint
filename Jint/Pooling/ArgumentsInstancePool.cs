@@ -32,7 +32,7 @@ namespace Jint.Pooling
         public JsArguments Rent(JsValue[] argumentsList) => Rent(null, null, argumentsList, null, false);
 
         public JsArguments Rent(
-            FunctionInstance? func,
+            Function? func,
             Key[]? formals,
             JsValue[] argumentsList,
             DeclarativeEnvironment? env,

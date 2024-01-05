@@ -26,8 +26,8 @@ internal sealed record PromiseReaction(
 );
 
 internal sealed record ResolvingFunctions(
-    FunctionInstance Resolve,
-    FunctionInstance Reject
+    Function.Function Resolve,
+    Function.Function Reject
 );
 
 public sealed record ManualPromise(

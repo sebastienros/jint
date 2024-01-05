@@ -62,7 +62,7 @@ namespace Jint.Runtime
         private PromiseConstructor? _promise;
         private ProxyConstructor? _proxy;
         private ReflectInstance? _reflect;
-        private EvalFunctionInstance? _eval;
+        private EvalFunction? _eval;
         private DateConstructor? _date;
         private IteratorPrototype? _iteratorPrototype;
         private MathInstance? _math;
@@ -254,8 +254,8 @@ namespace Jint.Runtime
         internal GeneratorFunctionConstructor GeneratorFunction =>
             _generatorFunction ??= new GeneratorFunctionConstructor(_engine, _realm, Function.PrototypeObject, IteratorPrototype);
 
-        internal EvalFunctionInstance Eval =>
-            _eval ??= new EvalFunctionInstance(_engine, _realm, Function.PrototypeObject);
+        internal EvalFunction Eval =>
+            _eval ??= new EvalFunction(_engine, _realm, Function.PrototypeObject);
 
         public ErrorConstructor Error =>
             _error ??= new ErrorConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, _errorFunctionName, static intrinsics => intrinsics.Error.PrototypeObject);

@@ -50,7 +50,7 @@ var coolingObject = {
                     {
                         lock (_engine)
                         {
-                            if (queueEntry is FunctionInstance fi)
+                            if (queueEntry is Function fi)
                             {
                                 _engine.Invoke(fi);
                             }

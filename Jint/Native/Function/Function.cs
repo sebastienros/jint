@@ -12,7 +12,9 @@ using Environment = Jint.Runtime.Environments.Environment;
 namespace Jint.Native.Function
 {
     [DebuggerDisplay("{ToString(),nq}")]
-    public abstract partial class FunctionInstance : ObjectInstance, ICallable
+#pragma warning disable MA0049
+    public abstract partial class Function : ObjectInstance, ICallable
+#pragma warning restore MA0049
     {
         protected PropertyDescriptor? _prototypeDescriptor;
 
@@ -29,7 +31,7 @@ namespace Jint.Native.Function
         internal PrivateEnvironment? _privateEnvironment;
         private readonly IScriptOrModule? _scriptOrModule;
 
-        protected FunctionInstance(
+        protected Function(
             Engine engine,
             Realm realm,
             JsString? name)
@@ -37,7 +39,7 @@ namespace Jint.Native.Function
         {
         }
 
-        internal FunctionInstance(
+        internal Function(
             Engine engine,
             Realm realm,
             JintFunctionDefinition function,
@@ -53,7 +55,7 @@ namespace Jint.Native.Function
             _environment = env;
         }
 
-        internal FunctionInstance(
+        internal Function(
             Engine engine,
             Realm realm,
             JsString? name,
@@ -250,7 +252,7 @@ namespace Jint.Native.Function
         /// </summary>
         internal Realm GetFunctionRealm(JsValue obj)
         {
-            if (obj is FunctionInstance functionInstance && functionInstance._realm is not null)
+            if (obj is Function functionInstance && functionInstance._realm is not null)
             {
                 return functionInstance._realm;
             }

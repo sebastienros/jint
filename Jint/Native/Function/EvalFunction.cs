@@ -9,14 +9,14 @@ using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Native.Function;
 
-internal sealed class EvalFunctionInstance : FunctionInstance
+internal sealed class EvalFunction : Function
 {
     private static readonly JsString _functionName = new("eval");
 
     private static readonly ParserOptions _parserOptions = ParserOptions.Default with { Tolerant = true };
     private readonly JavaScriptParser _parser = new(_parserOptions);
 
-    public EvalFunctionInstance(
+    public EvalFunction(
         Engine engine,
         Realm realm,
         FunctionPrototype functionPrototype)

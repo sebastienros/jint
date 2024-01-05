@@ -42,7 +42,7 @@ namespace Jint.Native.Function
 
         JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments)
         {
-            var f = BoundTargetFunction as FunctionInstance;
+            var f = BoundTargetFunction as Function;
             if (f is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);
@@ -78,7 +78,7 @@ namespace Jint.Native.Function
 
         internal override bool OrdinaryHasInstance(JsValue v)
         {
-            var f = BoundTargetFunction as FunctionInstance;
+            var f = BoundTargetFunction as Function;
             if (f is null)
             {
                 ExceptionHelper.ThrowTypeError(_realm);

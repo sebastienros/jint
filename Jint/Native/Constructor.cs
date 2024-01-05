@@ -4,7 +4,7 @@ using Jint.Runtime;
 
 namespace Jint.Native;
 
-public abstract class Constructor : FunctionInstance, IConstructor
+public abstract class Constructor : Function.Function, IConstructor
 {
     protected Constructor(Engine engine, string name) : this(engine, engine.Realm, new JsString(name))
     {

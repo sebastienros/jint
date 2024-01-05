@@ -9,7 +9,7 @@ using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Native.Function
 {
-    public sealed class ScriptFunction : FunctionInstance, IConstructor
+    public sealed class ScriptFunction : Function, IConstructor
     {
         internal bool _isClassConstructor;
         internal JsValue? _classFieldInitializerName;

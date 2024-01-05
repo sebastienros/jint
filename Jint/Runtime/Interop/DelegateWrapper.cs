@@ -10,7 +10,7 @@ namespace Jint.Runtime.Interop
     /// Represents a FunctionInstance wrapper around a CLR method. This is used by user to pass
     /// custom methods to the engine.
     /// </summary>
-    public sealed class DelegateWrapper : FunctionInstance
+    public sealed class DelegateWrapper : Function
     {
         private static readonly JsString _name = new JsString("delegate");
         private readonly Delegate _d;

@@ -57,9 +57,9 @@ namespace Jint.Runtime.CallStack
             }
         }
 
-        public int Push(FunctionInstance functionInstance, JintExpression? expression, in ExecutionContext executionContext)
+        public int Push(Function function, JintExpression? expression, in ExecutionContext executionContext)
         {
-            var item = new CallStackElement(functionInstance, expression, new CallStackExecutionContext(executionContext));
+            var item = new CallStackElement(function, expression, new CallStackExecutionContext(executionContext));
             _stack.Push(item);
             if (_statistics is not null)
             {

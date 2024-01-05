@@ -18,7 +18,7 @@ namespace Jint.Native.Argument
         // cache property container for array iteration for less allocations
         private static readonly ThreadLocal<HashSet<string>> _mappedNamed = new(() => new HashSet<string>(StringComparer.Ordinal));
 
-        private FunctionInstance _func = null!;
+        private Function.Function _func = null!;
         private Key[] _names = null!;
         private JsValue[] _args = null!;
         private DeclarativeEnvironment _env = null!;
@@ -32,7 +32,7 @@ namespace Jint.Native.Argument
         }
 
         internal void Prepare(
-            FunctionInstance func,
+            Function.Function func,
             Key[] names,
             JsValue[] args,
             DeclarativeEnvironment env,

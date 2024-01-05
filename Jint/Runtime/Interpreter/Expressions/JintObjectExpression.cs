@@ -214,7 +214,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (expr._expression.IsAnonymousFunctionDefinition())
                     {
-                        var closure = (FunctionInstance) propValue;
+                        var closure = (Function) propValue;
                         closure.SetFunctionName(propName);
                     }
 
