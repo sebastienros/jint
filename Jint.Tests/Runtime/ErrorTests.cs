@@ -463,7 +463,7 @@ $variable1 + -variable2 - variable3;");
         public void JavaScriptExceptionLocationOnModuleShouldBeRight()
         {
             var engine = new Engine();
-            engine.AddModule("my_module", @"
+            engine.Modules.Add("my_module", @"
 function throw_error(){
     throw Error(""custom error"")
 }
@@ -471,7 +471,7 @@ function throw_error(){
 throw_error();
             ");
 
-            var ex= Assert.Throws<JavaScriptException>(() => engine.ImportModule("my_module"));
+            var ex= Assert.Throws<JavaScriptException>(() => engine.Modules.Import("my_module"));
             Assert.Equal(ex.Location.Start.Line, 3);
             Assert.Equal(ex.Location.Start.Column, 10);
         }

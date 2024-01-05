@@ -22,7 +22,7 @@ namespace Jint.Tests.Runtime.Debugger
             int steps = 0;
             bool sourceReached = false;
             bool targetReached = false;
-            engine.DebugHandler.Step += (sender, info) =>
+            engine.Debugger.Step += (sender, info) =>
             {
                 if (sourceReached)
                 {
@@ -346,7 +346,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             var engine = new Engine(options => options.DebugMode());
             int step = 0;
-            engine.DebugHandler.Step += (sender, info) =>
+            engine.Debugger.Step += (sender, info) =>
             {
                 switch (step)
                 {
@@ -387,12 +387,12 @@ namespace Jint.Tests.Runtime.Debugger
 
             bool stepping = false;
 
-            engine.DebugHandler.Break += (sender, info) =>
+            engine.Debugger.Break += (sender, info) =>
             {
                 stepping = true;
                 return StepMode.Over;
             };
-            engine.DebugHandler.Step += (sender, info) =>
+            engine.Debugger.Step += (sender, info) =>
             {
                 if (stepping)
                 {
@@ -421,7 +421,7 @@ namespace Jint.Tests.Runtime.Debugger
                 .InitialStepMode(StepMode.Into));
 
             int stepCount = 0;
-            engine.DebugHandler.Step += (sender, info) =>
+            engine.Debugger.Step += (sender, info) =>
             {
                 stepCount++;
                 // Start running after first step
@@ -453,7 +453,7 @@ namespace Jint.Tests.Runtime.Debugger
             int stepCount = 0;
             int skipCount = 0;
 
-            engine.DebugHandler.Step += (sender, info) =>
+            engine.Debugger.Step += (sender, info) =>
             {
                 Assert.True(TestHelpers.IsLiteral(info.CurrentNode, "step"));
                 stepCount++;
@@ -461,14 +461,14 @@ namespace Jint.Tests.Runtime.Debugger
                 return stepCount == 1 ? StepMode.None : StepMode.Into;
             };
 
-            engine.DebugHandler.Skip += (sender, info) =>
+            engine.Debugger.Skip += (sender, info) =>
             {
                 Assert.True(TestHelpers.IsLiteral(info.CurrentNode, "skip"));
                 skipCount++;
                 return StepMode.None;
             };
 
-            engine.DebugHandler.Break += (sender, info) =>
+            engine.Debugger.Break += (sender, info) =>
             {
                 // Back to stepping after debugger statement
                 return StepMode.Into;

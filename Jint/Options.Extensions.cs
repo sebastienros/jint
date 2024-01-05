@@ -132,7 +132,7 @@ namespace Jint
         /// </summary>
         public static Options SetTypeConverter(this Options options, Func<Engine, ITypeConverter> typeConverterFactory)
         {
-            options._configurations.Add(engine => engine.ClrTypeConverter = typeConverterFactory(engine));
+            options._configurations.Add(engine => engine.TypeConverter = typeConverterFactory(engine));
             return options;
         }
 

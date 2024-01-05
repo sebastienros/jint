@@ -106,7 +106,7 @@ public class DefaultModuleLoader : ModuleLoader
         var specifier = resolved.ModuleRequest.Specifier;
         if (resolved.Type != SpecifierType.RelativeOrAbsolute)
         {
-            ExceptionHelper.ThrowNotSupportedException($"The default module loader can only resolve files. You can define modules directly to allow imports using {nameof(Engine)}.{nameof(Engine.AddModule)}(). Attempted to resolve: '{specifier}'.");
+            ExceptionHelper.ThrowNotSupportedException($"The default module loader can only resolve files. You can define modules directly to allow imports using {nameof(Engine)}.{nameof(Engine.Modules.Add)}(). Attempted to resolve: '{specifier}'.");
         }
 
         if (resolved.Uri == null)

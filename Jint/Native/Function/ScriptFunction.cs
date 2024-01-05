@@ -89,7 +89,7 @@ namespace Jint.Native.Function
                     {
                         // We don't have a statement, but we still need a Location for debuggers. DebugHandler will infer one from
                         // the function body:
-                        _engine.DebugHandler.OnReturnPoint(
+                        _engine.Debugger.OnReturnPoint(
                             _functionDefinition.Function.Body,
                             result.Type == CompletionType.Normal ? Undefined : result.Value
                         );
@@ -171,7 +171,7 @@ namespace Jint.Native.Function
                     {
                         // We don't have a statement, but we still need a Location for debuggers. DebugHandler will infer one from
                         // the function body:
-                        _engine.DebugHandler.OnReturnPoint(
+                        _engine.Debugger.OnReturnPoint(
                             _functionDefinition.Function.Body,
                             result.Type == CompletionType.Normal ? thisArgument : result.Value
                         );

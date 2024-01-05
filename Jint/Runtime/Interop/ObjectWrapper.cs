@@ -158,7 +158,7 @@ namespace Jint.Runtime.Interop
                 {
                     object? stringKey = key as string;
                     if (stringKey is not null
-                        || _engine.ClrTypeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out stringKey))
+                        || _engine.TypeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out stringKey))
                     {
                         var jsString = JsString.Create((string) stringKey!);
                         yield return jsString;

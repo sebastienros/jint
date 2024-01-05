@@ -158,7 +158,7 @@ namespace Jint.Runtime.Interop
                     : jsArguments;
             }
 
-            var converter = Engine.ClrTypeConverter;
+            var converter = Engine.TypeConverter;
             var thisObj = thisObject.ToObject() ?? _target;
             object?[]? parameters = null;
             foreach (var (method, arguments, _) in TypeConverter.FindBestMatch(_engine, _methods, ArgumentProvider))

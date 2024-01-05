@@ -352,9 +352,9 @@ namespace Jint.Tests.Runtime.Debugger
             add(x, y);";
             TestHelpers.TestAtBreak(engine =>
             {
-                engine.AddModule("imported-module", imported);
-                engine.AddModule("main", main);
-                engine.ImportModule("main");
+                engine.Modules.Add("imported-module", imported);
+                engine.Modules.Add("main", main);
+                engine.Modules.Import("main");
             },
             info =>
             {
@@ -541,8 +541,8 @@ namespace Jint.Tests.Runtime.Debugger
             string main = @"const x = 1; debugger;";
             TestHelpers.TestAtBreak(engine =>
             {
-                engine.AddModule("main", main);
-                engine.ImportModule("main");
+                engine.Modules.Add("main", main);
+                engine.Modules.Import("main");
             },
             info =>
             {

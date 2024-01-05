@@ -31,7 +31,7 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 if (context.DebugMode)
                 {
-                    context.Engine.DebugHandler.OnStep(_test._expression);
+                    context.Engine.Debugger.OnStep(_test._expression);
                 }
 
                 var jsValue = _test.GetValue(context);

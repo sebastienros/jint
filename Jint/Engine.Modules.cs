@@ -10,10 +10,7 @@ namespace Jint
 {
     public partial class Engine
     {
-        internal IModuleLoader ModuleLoader { get; set; } = null!;
-
-        private readonly Dictionary<string, Module> _modules = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, ModuleBuilder> _builders = new(StringComparer.Ordinal);
+        public ModuleOperations Modules { get; internal set; } = null!;
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-getactivescriptormodule
@@ -22,8 +19,23 @@ namespace Jint
         {
             return _executionContexts?.GetActiveScriptOrModule();
         }
+    }
 
-        internal Module LoadModule(string? referencingModuleLocation, ModuleRequest request)
+    public class ModuleOperations
+    {
+        private readonly Engine _engine;
+        private readonly Dictionary<string, Module> _modules = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, ModuleBuilder> _builders = new(StringComparer.Ordinal);
+
+        public ModuleOperations(Engine engine, IModuleLoader moduleLoader)
+        {
+            ModuleLoader = moduleLoader;
+            _engine = engine;
+        }
+
+        internal IModuleLoader ModuleLoader { get; }
+
+        internal Module Load(string? referencingModuleLocation, ModuleRequest request)
         {
             var specifier = request.Specifier;
             var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, request);
@@ -44,7 +56,7 @@ namespace Jint
 
             if (module is SourceTextModule sourceTextModule)
             {
-                DebugHandler.OnBeforeEvaluate(sourceTextModule._source);
+               _engine.Debugger.OnBeforeEvaluate(sourceTextModule._source);
             }
 
             return module;
@@ -53,7 +65,7 @@ namespace Jint
         private BuilderModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution)
         {
             var parsedModule = moduleBuilder.Parse();
-            var module = new BuilderModule(this, Realm, parsedModule, null, false);
+            var module = new BuilderModule(_engine, _engine.Realm, parsedModule, location: null, async: false);
             _modules[moduleResolution.Key] = module;
             moduleBuilder.BindExportedValues(module);
             _builders.Remove(specifier);
@@ -62,47 +74,47 @@ namespace Jint
 
         private Module LoadFromModuleLoader(ResolvedSpecifier moduleResolution)
         {
-            var module = ModuleLoader.LoadModule(this, moduleResolution);
+            var module = ModuleLoader.LoadModule(_engine, moduleResolution);
             _modules[moduleResolution.Key] = module;
             return module;
         }
 
-        public void AddModule(string specifier, string code)
+        public void Add(string specifier, string code)
         {
-            var moduleBuilder = new ModuleBuilder(this, specifier);
+            var moduleBuilder = new ModuleBuilder(_engine, specifier);
             moduleBuilder.AddSource(code);
-            AddModule(specifier, moduleBuilder);
+            Add(specifier, moduleBuilder);
         }
 
-        public void AddModule(string specifier, Action<ModuleBuilder> buildModule)
+        public void Add(string specifier, Action<ModuleBuilder> buildModule)
         {
-            var moduleBuilder = new ModuleBuilder(this, specifier);
+            var moduleBuilder = new ModuleBuilder(_engine, specifier);
             buildModule(moduleBuilder);
-            AddModule(specifier, moduleBuilder);
+            Add(specifier, moduleBuilder);
         }
 
-        public void AddModule(string specifier, ModuleBuilder moduleBuilder)
+        public void Add(string specifier, ModuleBuilder moduleBuilder)
         {
             _builders.Add(specifier, moduleBuilder);
         }
 
-        public ObjectInstance ImportModule(string specifier)
+        public ObjectInstance Import(string specifier)
         {
-            return ImportModule(specifier, referencingModuleLocation: null);
+            return Import(specifier, referencingModuleLocation: null);
         }
 
-        internal ObjectInstance ImportModule(string specifier, string? referencingModuleLocation)
+        internal ObjectInstance Import(string specifier, string? referencingModuleLocation)
         {
-            return ImportModule(new ModuleRequest(specifier, []), referencingModuleLocation);
+            return Import(new ModuleRequest(specifier, []), referencingModuleLocation);
         }
 
-        internal ObjectInstance ImportModule(ModuleRequest request, string? referencingModuleLocation)
+        internal ObjectInstance Import(ModuleRequest request, string? referencingModuleLocation)
         {
             var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, request);
 
             if (!_modules.TryGetValue(moduleResolution.Key, out var module))
             {
-                module = LoadModule(referencingModuleLocation: null, request);
+                module = Load(referencingModuleLocation: null, request);
             }
 
             if (module is not CyclicModule cyclicModule)
@@ -116,7 +128,7 @@ namespace Jint
 
                 if (cyclicModule.Status == ModuleStatus.Linked)
                 {
-                    ExecuteWithConstraints(true, () => EvaluateModule(request.Specifier, cyclicModule));
+                    _engine.ExecuteWithConstraints(true, () => EvaluateModule(request.Specifier, cyclicModule));
                 }
 
                 if (cyclicModule.Status != ModuleStatus.Evaluated)
@@ -125,7 +137,7 @@ namespace Jint
                 }
             }
 
-            RunAvailableContinuations();
+            _engine.RunAvailableContinuations();
 
             return Module.GetModuleNamespace(module);
         }
@@ -137,8 +149,8 @@ namespace Jint
 
         private JsValue EvaluateModule(string specifier, Module module)
         {
-            var ownsContext = _activeEvaluationContext is null;
-            _activeEvaluationContext ??= new EvaluationContext(this);
+            var ownsContext = _engine._activeEvaluationContext is null;
+            _engine. _activeEvaluationContext ??= new EvaluationContext(_engine);
             JsValue evaluationResult;
             try
             {
@@ -148,7 +160,7 @@ namespace Jint
             {
                 if (ownsContext)
                 {
-                    _activeEvaluationContext = null!;
+                    _engine._activeEvaluationContext = null!;
                 }
             }
 
@@ -164,7 +176,7 @@ namespace Jint
                     : Location.From(new Position(), new Position());
 
                 var node = EsprimaExtensions.CreateLocationNode(location);
-                ExceptionHelper.ThrowJavaScriptException(this, promise.Value, node.Location);
+                ExceptionHelper.ThrowJavaScriptException(_engine, promise.Value, node.Location);
             }
             else if (promise.State != PromiseState.Fulfilled)
             {

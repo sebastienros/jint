@@ -122,7 +122,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 CreatePerIterationEnvironment(context);
             }
 
-            var debugHandler = context.DebugMode ? context.Engine.DebugHandler : null;
+            var debugHandler = context.DebugMode ? context.Engine.Debugger : null;
 
             while (true)
             {
