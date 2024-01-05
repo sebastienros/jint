@@ -24,7 +24,9 @@ public sealed class JsArray : ArrayInstance
     public JsArray(Engine engine, JsValue[] items) : base(engine, items)
     {
     }
-    
+
+    public uint Length => GetLength();
+
     private sealed class JsArrayDebugView
     {
         private readonly JsArray _array;
@@ -39,7 +41,7 @@ public sealed class JsArray : ArrayInstance
         {
             get
             {
-                var values = new JsValue[_array.Length];
+                var values = new JsValue[_array.GetLength()];
                 var i = 0;
                 foreach (var value in _array)
                 {

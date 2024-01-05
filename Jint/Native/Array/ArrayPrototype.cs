@@ -547,7 +547,7 @@ namespace Jint.Native.Array
             var mapperFunction = arguments.At(0);
             var thisArg = arguments.At(1);
 
-            var sourceLen = O.Length;
+            var sourceLen = O.GetLength();
 
             if (!mapperFunction.IsCallable)
             {
@@ -608,7 +608,7 @@ namespace Jint.Native.Array
                             : depth - 1;
 
                         var objectInstance = (ObjectInstance) element;
-                        var elementLen = objectInstance.Length;
+                        var elementLen = objectInstance.GetLength();
                         targetIndex = FlattenIntoArray(target, objectInstance, elementLen, targetIndex, newDepth);
                     }
                     else
@@ -866,7 +866,7 @@ namespace Jint.Native.Array
         private JsValue At(JsValue thisObject, JsValue[] arguments)
         {
             var target = TypeConverter.ToObject(_realm, thisObject);
-            var len = target.Length;
+            var len = target.GetLength();
             var relativeIndex = TypeConverter.ToInteger(arguments.At(0));
 
             ulong actualIndex;

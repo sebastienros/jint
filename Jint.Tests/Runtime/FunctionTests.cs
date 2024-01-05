@@ -111,7 +111,7 @@ assertEqual(booleanCount, 1);
         Assert.Equal("abc", instanceFromFunction.Get("a"));
         Assert.Equal(123, instanceFromFunction.Get("b"));
 
-        var arrayInstance = (ArrayInstance) _engine.Construct("Array", "abc", 123).AsObject();
+        var arrayInstance = (JsArray) _engine.Construct("Array", "abc", 123).AsObject();
         Assert.Equal((uint) 2, arrayInstance.Length);
         Assert.Equal("abc", arrayInstance[0]);
         Assert.Equal(123, arrayInstance[1]);

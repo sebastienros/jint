@@ -291,7 +291,7 @@ namespace Jint.Native.Array
             {
                 if (!_target.IsConcatSpreadable)
                 {
-                    return _target.Length;
+                    return _target.GetLength();
                 }
 
                 var descValue = _target.Get(CommonProperties.Length);
@@ -317,7 +317,7 @@ namespace Jint.Native.Array
 
             public override bool TryGetValue(ulong index, out JsValue value)
             {
-                if (index < _target.Length)
+                if (index < _target.GetLength())
                 {
                     value = _target[(int) index];
                     return true;

@@ -13,7 +13,7 @@ public sealed class JsUndefined : JsValue, IEquatable<JsUndefined>
 
     public override string ToString() => "undefined";
 
-    public override bool IsLooselyEqual(JsValue value)
+    protected internal override bool IsLooselyEqual(JsValue value)
     {
         return ReferenceEquals(Undefined, value) || ReferenceEquals(Null, value);
     }

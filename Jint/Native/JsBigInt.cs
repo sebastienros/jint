@@ -65,7 +65,7 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
         return TypeConverter.ToString(_value);
     }
 
-    public override bool IsLooselyEqual(JsValue value)
+    protected internal override bool IsLooselyEqual(JsValue value)
     {
         if (value is JsBigInt bigInt)
         {

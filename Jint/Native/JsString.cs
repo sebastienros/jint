@@ -307,7 +307,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         return string.Equals(_value, other.ToString(), StringComparison.Ordinal);
     }
 
-    public override bool IsLooselyEqual(JsValue value)
+    protected internal override bool IsLooselyEqual(JsValue value)
     {
         if (value is JsString jsString)
         {

@@ -84,7 +84,7 @@ namespace Jint.Native.Json
                 if (oi.IsArray())
                 {
                     _propertyList = new List<JsValue>();
-                    var len = oi.Length;
+                    var len = oi.GetLength();
                     var k = 0;
                     while (k < len)
                     {

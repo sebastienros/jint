@@ -35,7 +35,7 @@ namespace Jint.Runtime.Interop
         public object Target { get; }
         internal Type ClrType { get; }
 
-        public override bool IsArrayLike => _typeDescriptor.IsArrayLike;
+        internal override bool IsArrayLike => _typeDescriptor.IsArrayLike;
 
         internal override bool HasOriginalIterator => IsArrayLike;
 

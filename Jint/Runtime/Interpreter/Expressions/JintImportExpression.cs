@@ -59,7 +59,7 @@ internal sealed class JintImportExpression : JintExpression
                     }
 
                     var entries = oi.EnumerableOwnProperties(ObjectInstance.EnumerableOwnPropertyNamesKind.KeyValue);
-                    attributes.Capacity = (int) entries.Length;
+                    attributes.Capacity = (int) entries.GetLength();
                     foreach (var entry in entries)
                     {
                         var key = entry.Get("0");

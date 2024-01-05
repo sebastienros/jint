@@ -32,7 +32,7 @@ namespace Jint.Native
         }
 
         [Pure]
-        public virtual bool IsArray() => false;
+        internal virtual bool IsArray() => false;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal virtual bool IsIntegerIndexedArray => false;
@@ -178,18 +178,6 @@ namespace Jint.Native
         internal virtual bool ToBoolean() => _type > InternalTypes.Null;
 
         /// <summary>
-        /// Invoke the current value as function.
-        /// </summary>
-        /// <param name="engine">The engine handling the invoke.</param>
-        /// <param name="arguments">The arguments of the function call.</param>
-        /// <returns>The value returned by the function call.</returns>
-        [Obsolete("Should use Engine.Invoke when direct invoking is needed.")]
-        public JsValue Invoke(Engine engine, params JsValue[] arguments)
-        {
-            return engine.Invoke(this, arguments);
-        }
-
-        /// <summary>
         /// https://tc39.es/ecma262/#sec-getv
         /// </summary>
         internal JsValue GetV(Realm realm, JsValue property)
@@ -315,7 +303,7 @@ namespace Jint.Native
         /// <summary>
         /// https://tc39.es/ecma262/#sec-islooselyequal
         /// </summary>
-        public virtual bool IsLooselyEqual(JsValue value)
+        protected internal virtual bool IsLooselyEqual(JsValue value)
         {
             if (ReferenceEquals(this, value))
             {

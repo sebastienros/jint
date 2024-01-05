@@ -13,7 +13,7 @@ public sealed class JsNull : JsValue, IEquatable<JsNull>
 
     public override string ToString() => "null";
 
-    public override bool IsLooselyEqual(JsValue value)
+    protected internal override bool IsLooselyEqual(JsValue value)
     {
         return ReferenceEquals(Null, value) || ReferenceEquals(Undefined, value);
     }

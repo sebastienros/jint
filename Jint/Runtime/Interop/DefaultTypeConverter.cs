@@ -270,7 +270,7 @@ namespace Jint.Runtime.Interop
                          arguments[i].GetCustomAttribute<ParamArrayAttribute>() is not null &&
                          function.Target is FunctionInstance instance)
                 {
-                    for (var j = 0; j < instance.Length; j++)
+                    for (var j = 0; j < instance.GetLength(); j++)
                     {
                         var returnLabel = Expression.Label(typeof(object));
                         var checkIndex = Expression.GreaterThanOrEqual(Expression.Property(param, nameof(Array.Length)), Expression.Constant(j));

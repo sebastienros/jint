@@ -35,7 +35,7 @@ public class RegExpTests
     public void PreventsInfiniteLoop()
     {
         var engine = new Engine();
-        var result = (ArrayInstance) engine.Evaluate("'x'.match(/|/g);");
+        var result = (JsArray) engine.Evaluate("'x'.match(/|/g);");
         Assert.Equal((uint) 2, result.Length);
         Assert.Equal("", result[0]);
         Assert.Equal("", result[1]);
