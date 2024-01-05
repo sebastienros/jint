@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Runtime.Environments;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.References;
 
@@ -105,6 +106,6 @@ public sealed class Reference
 
     internal void InitializeReferencedBinding(JsValue value)
     {
-        ((EnvironmentRecord) _base).InitializeBinding(TypeConverter.ToString(_referencedName), value);
+        ((Environment) _base).InitializeBinding(TypeConverter.ToString(_referencedName), value);
     }
 }

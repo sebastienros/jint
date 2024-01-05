@@ -35,7 +35,7 @@ namespace Jint.Pooling
             FunctionInstance? func,
             Key[]? formals,
             JsValue[] argumentsList,
-            DeclarativeEnvironmentRecord? env,
+            DeclarativeEnvironment? env,
             bool hasRestParameter)
         {
             var obj = _pool.Allocate();

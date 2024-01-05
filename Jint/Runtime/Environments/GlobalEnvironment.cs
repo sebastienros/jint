@@ -10,14 +10,14 @@ namespace Jint.Runtime.Environments
     /// <summary>
     /// https://tc39.es/ecma262/#sec-global-environment-records
     /// </summary>
-    public sealed class GlobalEnvironmentRecord : EnvironmentRecord
+    public sealed class GlobalEnvironment : Environment
     {
         /// <summary>
         /// A sealed class for global usage.
         /// </summary>
-        internal sealed class GlobalDeclarativeEnvironmentRecord : DeclarativeEnvironmentRecord
+        internal sealed class GlobalDeclarativeEnvironment : DeclarativeEnvironment
         {
-            public GlobalDeclarativeEnvironmentRecord(Engine engine) : base(engine)
+            public GlobalDeclarativeEnvironment(Engine engine) : base(engine)
             {
             }
         }
@@ -28,14 +28,14 @@ namespace Jint.Runtime.Environments
         private readonly GlobalObject? _globalObject;
 
         // Environment records are needed by debugger
-        internal readonly GlobalDeclarativeEnvironmentRecord _declarativeRecord;
+        internal readonly GlobalDeclarativeEnvironment _declarativeRecord;
         private readonly HashSet<string> _varNames = new(StringComparer.Ordinal);
 
-        public GlobalEnvironmentRecord(Engine engine, ObjectInstance global) : base(engine)
+        public GlobalEnvironment(Engine engine, ObjectInstance global) : base(engine)
         {
             _global = global;
             _globalObject = global as GlobalObject;
-            _declarativeRecord = new GlobalDeclarativeEnvironmentRecord(engine);
+            _declarativeRecord = new GlobalDeclarativeEnvironment(engine);
         }
 
         public ObjectInstance GlobalThisValue => _global;

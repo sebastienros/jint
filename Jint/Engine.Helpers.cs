@@ -1,4 +1,5 @@
 using Jint.Runtime.Environments;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint;
 
@@ -10,7 +11,7 @@ public partial class Engine
     /// <summary>
     /// Creates a new declarative environment that has current lexical environment as outer scope.
     /// </summary>
-    public EnvironmentRecord CreateNewDeclarativeEnvironment()
+    public Environment CreateNewDeclarativeEnvironment()
     {
         return JintEnvironment.NewDeclarativeEnvironment(this, ExecutionContext.LexicalEnvironment);
     }

@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Runtime.Modules;
+using Module = Esprima.Ast.Module;
 
 namespace Jint
 {

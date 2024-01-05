@@ -4,6 +4,7 @@ using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
+using Module = Esprima.Ast.Module;
 
 namespace Jint;
 
@@ -146,7 +147,7 @@ public sealed class ModuleBuilder
         }
     }
 
-    internal void BindExportedValues(BuilderModuleRecord module)
+    internal void BindExportedValues(BuilderModule module)
     {
         foreach (var export in _exports)
         {

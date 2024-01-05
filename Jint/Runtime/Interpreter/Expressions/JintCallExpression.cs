@@ -7,6 +7,7 @@ using Jint.Native.Object;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -145,7 +146,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
                     else
                     {
-                        var refEnv = (EnvironmentRecord) baseValue;
+                        var refEnv = (Environment) baseValue;
                         thisObject = refEnv.WithBaseObject();
                     }
                 }
@@ -254,7 +255,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private ObjectInstance SuperCall(EvaluationContext context)
         {
             var engine = context.Engine;
-            var thisEnvironment = (FunctionEnvironmentRecord) engine.ExecutionContext.GetThisEnvironment();
+            var thisEnvironment = (FunctionEnvironment) engine.ExecutionContext.GetThisEnvironment();
             var newTarget = engine.GetNewTarget(thisEnvironment);
             var func = GetSuperConstructor(thisEnvironment);
             if (func is null || !func.IsConstructor)
@@ -266,7 +267,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var argList = defaultSuperCall ? DefaultSuperCallArgumentListEvaluation(context) : ArgumentListEvaluation(context);
             var result = ((IConstructor) func).Construct(argList, newTarget);
 
-            var thisER = (FunctionEnvironmentRecord) engine.ExecutionContext.GetThisEnvironment();
+            var thisER = (FunctionEnvironment) engine.ExecutionContext.GetThisEnvironment();
             thisER.BindThisValue(result);
             var F = thisER._functionObject;
 
@@ -278,7 +279,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// https://tc39.es/ecma262/#sec-getsuperconstructor
         /// </summary>
-        private static ObjectInstance? GetSuperConstructor(FunctionEnvironmentRecord thisEnvironment)
+        private static ObjectInstance? GetSuperConstructor(FunctionEnvironment thisEnvironment)
         {
             var envRec = thisEnvironment;
             var activeFunction = envRec._functionObject;

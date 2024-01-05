@@ -9,12 +9,12 @@ namespace Jint.Runtime.Environments
     /// Represents a declarative environment record
     /// https://tc39.es/ecma262/#sec-declarative-environment-records
     /// </summary>
-    internal class DeclarativeEnvironmentRecord : EnvironmentRecord
+    internal class DeclarativeEnvironment : Environment
     {
         internal HybridDictionary<Binding>? _dictionary;
         internal readonly bool _catchEnvironment;
 
-        public DeclarativeEnvironmentRecord(Engine engine, bool catchEnvironment = false) : base(engine)
+        public DeclarativeEnvironment(Engine engine, bool catchEnvironment = false) : base(engine)
         {
             _catchEnvironment = catchEnvironment;
         }

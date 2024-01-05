@@ -3,6 +3,7 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Native.Function
 {
@@ -48,8 +49,8 @@ namespace Jint.Native.Function
         /// </summary>
         internal FunctionInstance InstantiateFunctionObject(
             JintFunctionDefinition functionDeclaration,
-            EnvironmentRecord scope,
-            PrivateEnvironmentRecord? privateEnv)
+            Environment scope,
+            PrivateEnvironment? privateEnv)
         {
             var function = functionDeclaration.Function;
             if (!function.Generator)
@@ -69,8 +70,8 @@ namespace Jint.Native.Function
         /// </summary>
         private ScriptFunctionInstance InstantiateAsyncFunctionObject(
             JintFunctionDefinition functionDeclaration,
-            EnvironmentRecord env,
-            PrivateEnvironmentRecord? privateEnv)
+            Environment env,
+            PrivateEnvironment? privateEnv)
         {
             var F = OrdinaryFunctionCreate(
                 _realm.Intrinsics.AsyncFunction.PrototypeObject,
@@ -89,8 +90,8 @@ namespace Jint.Native.Function
         /// </summary>
         private ScriptFunctionInstance InstantiateOrdinaryFunctionObject(
             JintFunctionDefinition functionDeclaration,
-            EnvironmentRecord env,
-            PrivateEnvironmentRecord? privateEnv)
+            Environment env,
+            PrivateEnvironment? privateEnv)
         {
             var F = OrdinaryFunctionCreate(
                 _realm.Intrinsics.Function.PrototypeObject,
@@ -110,8 +111,8 @@ namespace Jint.Native.Function
         /// </summary>
         private ScriptFunctionInstance InstantiateGeneratorFunctionObject(
             JintFunctionDefinition functionDeclaration,
-            EnvironmentRecord scope,
-            PrivateEnvironmentRecord? privateScope)
+            Environment scope,
+            PrivateEnvironment? privateScope)
         {
             // TODO generators
             return InstantiateOrdinaryFunctionObject(functionDeclaration, scope, privateScope);

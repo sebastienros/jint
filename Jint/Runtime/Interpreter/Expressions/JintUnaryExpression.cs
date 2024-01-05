@@ -1,13 +1,13 @@
 using Esprima.Ast;
 using Jint.Extensions;
 using Jint.Native;
-using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.References;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Reflection;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -253,7 +253,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         ExceptionHelper.ThrowSyntaxError(engine.Realm);
                     }
 
-                    var bindings = (EnvironmentRecord) r.Base;
+                    var bindings = (Environment) r.Base;
                     var property = referencedName;
                     engine._referencePool.Return(r);
 

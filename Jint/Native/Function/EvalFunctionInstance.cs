@@ -5,6 +5,7 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Statements;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Native.Function;
 
@@ -57,7 +58,7 @@ internal sealed class EvalFunctionInstance : FunctionInstance
         if (direct)
         {
             var thisEnvRec = _engine.ExecutionContext.GetThisEnvironment();
-            if (thisEnvRec is FunctionEnvironmentRecord functionEnvironmentRecord)
+            if (thisEnvRec is FunctionEnvironment functionEnvironmentRecord)
             {
                 var F = functionEnvironmentRecord._functionObject;
                 inFunction = true;
@@ -142,9 +143,9 @@ internal sealed class EvalFunctionInstance : FunctionInstance
 
         using (new StrictModeScope(strictEval))
         {
-            EnvironmentRecord lexEnv;
-            EnvironmentRecord varEnv;
-            PrivateEnvironmentRecord? privateEnv;
+            Environment lexEnv;
+            Environment varEnv;
+            PrivateEnvironment? privateEnv;
             if (direct)
             {
                 lexEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, ctx.LexicalEnvironment);

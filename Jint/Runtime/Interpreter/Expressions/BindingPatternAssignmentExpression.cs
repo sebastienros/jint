@@ -3,8 +3,8 @@ using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
-using Jint.Runtime.Environments;
 using Jint.Runtime.References;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -46,7 +46,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             EvaluationContext context,
             BindingPattern pattern,
             JsValue argument,
-            EnvironmentRecord? environment,
+            Environment? environment,
             bool checkPatternPropertyReference = true)
         {
             if (pattern is ArrayPattern ap)
@@ -82,7 +82,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             EvaluationContext context,
             ArrayPattern pattern,
             JsValue argument,
-            EnvironmentRecord? environment,
+            Environment? environment,
             bool checkReference)
         {
             var engine = context.Engine;
@@ -292,7 +292,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             EvaluationContext context,
             ObjectPattern pattern,
             JsValue argument,
-            EnvironmentRecord? environment,
+            Environment? environment,
             bool checkReference)
         {
             var processedProperties = pattern.Properties.Count > 0 && pattern.Properties[pattern.Properties.Count - 1] is RestElement
@@ -405,7 +405,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             Engine engine,
             Reference lhs,
             JsValue v,
-            EnvironmentRecord? environment)
+            Environment? environment)
         {
             if (environment is null)
             {
@@ -434,7 +434,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             Engine engine,
             string name,
             JsValue rval,
-            EnvironmentRecord? environment,
+            Environment? environment,
             bool checkReference = true)
         {
             var lhs = engine.ResolveBinding(name, environment);

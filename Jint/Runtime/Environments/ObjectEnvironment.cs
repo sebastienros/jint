@@ -10,13 +10,13 @@ namespace Jint.Runtime.Environments
     /// Represents an object environment record
     /// https://tc39.es/ecma262/#sec-object-environment-records
     /// </summary>
-    internal sealed class ObjectEnvironmentRecord : EnvironmentRecord
+    internal sealed class ObjectEnvironment : Environment
     {
         internal readonly ObjectInstance _bindingObject;
         private readonly bool _provideThis;
         private readonly bool _withEnvironment;
 
-        public ObjectEnvironmentRecord(
+        public ObjectEnvironment(
             Engine engine,
             ObjectInstance bindingObject,
             bool provideThis,

@@ -5,6 +5,7 @@ using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Native.Function
 {
@@ -22,7 +23,7 @@ namespace Jint.Native.Function
         public ScriptFunctionInstance(
             Engine engine,
             IFunction functionDeclaration,
-            EnvironmentRecord env,
+            Environment env,
             bool strict,
             ObjectInstance? proto = null)
             : this(
@@ -37,7 +38,7 @@ namespace Jint.Native.Function
         internal ScriptFunctionInstance(
             Engine engine,
             JintFunctionDefinition function,
-            EnvironmentRecord env,
+            Environment env,
             FunctionThisMode thisMode,
             ObjectInstance? proto = null)
             : base(engine, engine.Realm, function, env, thisMode)
@@ -144,7 +145,7 @@ namespace Jint.Native.Function
             }
 
             var calleeContext = PrepareForOrdinaryCall(newTarget);
-            var constructorEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment;
+            var constructorEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
 
             var strict = _thisMode == FunctionThisMode.Strict;
             using (new StrictModeScope(strict, force: true))

@@ -5,6 +5,7 @@ using Jint.Native.Iterator;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.References;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
@@ -164,7 +165,7 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 while (true)
                 {
-                    EnvironmentRecord? iterationEnv = null;
+                    Environment? iterationEnv = null;
                     if (!iteratorRecord.TryIteratorStep(out var nextResult))
                     {
                         close = true;
@@ -331,9 +332,9 @@ namespace Jint.Runtime.Interpreter.Statements
             }
         }
 
-        private void BindingInstantiation(EnvironmentRecord environment)
+        private void BindingInstantiation(Environment environment)
         {
-            var envRec = (DeclarativeEnvironmentRecord) environment;
+            var envRec = (DeclarativeEnvironment) environment;
             var variableDeclaration = (VariableDeclaration) _leftNode;
             var boundNames = new List<string>();
             variableDeclaration.GetBoundNames(boundNames);

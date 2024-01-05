@@ -8,13 +8,13 @@ namespace Jint.Runtime.Environments
     /// Base implementation of an Environment Record
     /// https://tc39.es/ecma262/#sec-environment-records
     /// </summary>
-    [DebuggerTypeProxy(typeof(EnvironmentRecordDebugView))]
-    public abstract class EnvironmentRecord : JsValue
+    [DebuggerTypeProxy(typeof(EnvironmentDebugView))]
+    public abstract class Environment : JsValue
     {
         protected internal readonly Engine _engine;
-        protected internal EnvironmentRecord? _outerEnv;
+        protected internal Environment? _outerEnv;
 
-        protected EnvironmentRecord(Engine engine) : base(InternalTypes.ObjectEnvironmentRecord)
+        protected Environment(Engine engine) : base(InternalTypes.ObjectEnvironmentRecord)
         {
             _engine = engine;
         }
@@ -143,11 +143,11 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        private sealed class EnvironmentRecordDebugView
+        private sealed class EnvironmentDebugView
         {
-            private readonly EnvironmentRecord _record;
+            private readonly Environment _record;
 
-            public EnvironmentRecordDebugView(EnvironmentRecord record)
+            public EnvironmentDebugView(Environment record)
             {
                 _record = record;
             }

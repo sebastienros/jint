@@ -8,6 +8,7 @@ using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.CallStack
 {
@@ -19,9 +20,9 @@ namespace Jint.Runtime.CallStack
             LexicalEnvironment = context.LexicalEnvironment;
         }
 
-        internal readonly EnvironmentRecord LexicalEnvironment;
+        internal readonly Environment LexicalEnvironment;
 
-        internal EnvironmentRecord GetThisEnvironment()
+        internal Environment GetThisEnvironment()
         {
             var lex = LexicalEnvironment;
             while (true)
@@ -155,7 +156,7 @@ namespace Jint.Runtime.CallStack
                 sb.Append(loc.End.Line.ToString(CultureInfo.InvariantCulture));
                 sb.Append(':');
                 sb.Append((loc.Start.Column + 1).ToString(CultureInfo.InvariantCulture)); // report column number instead of index
-                sb.Append(Environment.NewLine);
+                sb.Append(System.Environment.NewLine);
             }
 
             var builder = new ValueStringBuilder();

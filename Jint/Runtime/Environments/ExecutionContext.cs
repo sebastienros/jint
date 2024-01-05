@@ -8,9 +8,9 @@ namespace Jint.Runtime.Environments
     {
         internal ExecutionContext(
             IScriptOrModule? scriptOrModule,
-            EnvironmentRecord lexicalEnvironment,
-            EnvironmentRecord variableEnvironment,
-            PrivateEnvironmentRecord? privateEnvironment,
+            Environment lexicalEnvironment,
+            Environment variableEnvironment,
+            PrivateEnvironment? privateEnvironment,
             Realm realm,
             GeneratorInstance? generator = null,
             FunctionInstance? function = null)
@@ -25,26 +25,26 @@ namespace Jint.Runtime.Environments
         }
 
         public readonly IScriptOrModule? ScriptOrModule;
-        public readonly EnvironmentRecord LexicalEnvironment;
-        public readonly EnvironmentRecord VariableEnvironment;
-        public readonly PrivateEnvironmentRecord? PrivateEnvironment;
+        public readonly Environment LexicalEnvironment;
+        public readonly Environment VariableEnvironment;
+        public readonly PrivateEnvironment? PrivateEnvironment;
         public readonly Realm Realm;
         public readonly FunctionInstance? Function;
         public readonly GeneratorInstance? Generator;
 
         public bool Suspended => Generator?._generatorState == GeneratorState.SuspendedYield;
 
-        public ExecutionContext UpdateLexicalEnvironment(EnvironmentRecord lexicalEnvironment)
+        public ExecutionContext UpdateLexicalEnvironment(Environment lexicalEnvironment)
         {
             return new ExecutionContext(ScriptOrModule, lexicalEnvironment, VariableEnvironment, PrivateEnvironment, Realm, Generator, Function);
         }
 
-        public ExecutionContext UpdateVariableEnvironment(EnvironmentRecord variableEnvironment)
+        public ExecutionContext UpdateVariableEnvironment(Environment variableEnvironment)
         {
             return new ExecutionContext(ScriptOrModule, LexicalEnvironment, variableEnvironment, PrivateEnvironment, Realm, Generator, Function);
         }
 
-        public ExecutionContext UpdatePrivateEnvironment(PrivateEnvironmentRecord? privateEnvironment)
+        public ExecutionContext UpdatePrivateEnvironment(PrivateEnvironment? privateEnvironment)
         {
             return new ExecutionContext(ScriptOrModule, LexicalEnvironment, VariableEnvironment, privateEnvironment, Realm, Generator, Function);
         }
@@ -57,7 +57,7 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// https://tc39.es/ecma262/#sec-getthisenvironment
         /// </summary>
-        internal EnvironmentRecord GetThisEnvironment()
+        internal Environment GetThisEnvironment()
         {
             // The loop will always terminate because the list of environments always
             // ends with the global environment which has a this binding.

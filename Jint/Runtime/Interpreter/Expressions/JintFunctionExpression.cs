@@ -46,7 +46,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var runningExecutionContext = engine.ExecutionContext;
             var scope = runningExecutionContext.LexicalEnvironment;
 
-            DeclarativeEnvironmentRecord? funcEnv = null;
+            DeclarativeEnvironment? funcEnv = null;
             if (!string.IsNullOrWhiteSpace(name))
             {
                 funcEnv = JintEnvironment.NewDeclarativeEnvironment(engine, engine.ExecutionContext.LexicalEnvironment);
@@ -88,7 +88,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var runningExecutionContext = engine.ExecutionContext;
             var scope = runningExecutionContext.LexicalEnvironment;
 
-            DeclarativeEnvironmentRecord? funcEnv = null;
+            DeclarativeEnvironment? funcEnv = null;
             if (!string.IsNullOrWhiteSpace(name))
             {
                 funcEnv = JintEnvironment.NewDeclarativeEnvironment(engine, engine.ExecutionContext.LexicalEnvironment);

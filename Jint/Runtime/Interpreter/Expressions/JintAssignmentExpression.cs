@@ -4,6 +4,7 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
 using Jint.Runtime.References;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -312,7 +313,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             // if we did string concatenation in-place, we don't need to update records, objects might have evil setters
-            if (!wasMutatedInPlace || lref.Base is not EnvironmentRecord)
+            if (!wasMutatedInPlace || lref.Base is not Environment)
             {
                 engine.PutValue(lref, newLeftValue!);
             }

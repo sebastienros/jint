@@ -12,7 +12,7 @@ namespace Jint
     {
         internal IModuleLoader ModuleLoader { get; set; } = null!;
 
-        private readonly Dictionary<string, ModuleRecord> _modules = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, Module> _modules = new(StringComparer.Ordinal);
         private readonly Dictionary<string, ModuleBuilder> _builders = new(StringComparer.Ordinal);
 
         /// <summary>
@@ -23,7 +23,7 @@ namespace Jint
             return _executionContexts?.GetActiveScriptOrModule();
         }
 
-        internal ModuleRecord LoadModule(string? referencingModuleLocation, ModuleRequest request)
+        internal Module LoadModule(string? referencingModuleLocation, ModuleRequest request)
         {
             var specifier = request.Specifier;
             var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, request);
@@ -42,7 +42,7 @@ namespace Jint
                 module = LoadFromModuleLoader(moduleResolution);
             }
 
-            if (module is SourceTextModuleRecord sourceTextModule)
+            if (module is SourceTextModule sourceTextModule)
             {
                 DebugHandler.OnBeforeEvaluate(sourceTextModule._source);
             }
@@ -50,17 +50,17 @@ namespace Jint
             return module;
         }
 
-        private BuilderModuleRecord LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution)
+        private BuilderModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution)
         {
             var parsedModule = moduleBuilder.Parse();
-            var module = new BuilderModuleRecord(this, Realm, parsedModule, null, false);
+            var module = new BuilderModule(this, Realm, parsedModule, null, false);
             _modules[moduleResolution.Key] = module;
             moduleBuilder.BindExportedValues(module);
             _builders.Remove(specifier);
             return module;
         }
 
-        private ModuleRecord LoadFromModuleLoader(ResolvedSpecifier moduleResolution)
+        private Module LoadFromModuleLoader(ResolvedSpecifier moduleResolution)
         {
             var module = ModuleLoader.LoadModule(this, moduleResolution);
             _modules[moduleResolution.Key] = module;
@@ -105,7 +105,7 @@ namespace Jint
                 module = LoadModule(referencingModuleLocation: null, request);
             }
 
-            if (module is not CyclicModuleRecord cyclicModule)
+            if (module is not CyclicModule cyclicModule)
             {
                 LinkModule(request.Specifier, module);
                 EvaluateModule(request.Specifier, module);
@@ -127,15 +127,15 @@ namespace Jint
 
             RunAvailableContinuations();
 
-            return ModuleRecord.GetModuleNamespace(module);
+            return Module.GetModuleNamespace(module);
         }
 
-        private static void LinkModule(string specifier, ModuleRecord module)
+        private static void LinkModule(string specifier, Module module)
         {
             module.Link();
         }
 
-        private JsValue EvaluateModule(string specifier, ModuleRecord module)
+        private JsValue EvaluateModule(string specifier, Module module)
         {
             var ownsContext = _activeEvaluationContext is null;
             _activeEvaluationContext ??= new EvaluationContext(this);
@@ -159,7 +159,7 @@ namespace Jint
             }
             else if (promise.State == PromiseState.Rejected)
             {
-                var location = module is CyclicModuleRecord cyclicModuleRecord
+                var location = module is CyclicModule cyclicModuleRecord
                     ? cyclicModuleRecord.AbnormalCompletionLocation
                     : Location.From(new Position(), new Position());
 
