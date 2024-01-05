@@ -254,7 +254,7 @@ namespace Jint.Runtime
         internal GeneratorFunctionConstructor GeneratorFunction =>
             _generatorFunction ??= new GeneratorFunctionConstructor(_engine, _realm, Function.PrototypeObject, IteratorPrototype);
 
-        internal EvalFunction Eval =>
+        public EvalFunction Eval =>
             _eval ??= new EvalFunction(_engine, _realm, Function.PrototypeObject);
 
         public ErrorConstructor Error =>

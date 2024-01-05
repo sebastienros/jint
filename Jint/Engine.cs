@@ -174,7 +174,17 @@ namespace Jint
 
         internal SyntaxElement? _lastSyntaxElement;
 
-        public Realm Realm => _realmInConstruction ?? ExecutionContext.Realm;
+        internal Realm Realm => _realmInConstruction ?? ExecutionContext.Realm;
+
+        /// <summary>
+        /// The well-known intrinsics for this engine instance.
+        /// </summary>
+        public Intrinsics Intrinsics => Realm.Intrinsics;
+
+        /// <summary>
+        /// The global object for this engine instance.
+        /// </summary>
+        public ObjectInstance Global => Realm.GlobalObject;
 
         internal GlobalSymbolRegistry GlobalSymbolRegistry { get; } = new();
 

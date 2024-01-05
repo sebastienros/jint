@@ -554,7 +554,6 @@ public static class JsValueExtensions
         return ThrowNotObject(value);
     }
 
-    [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static JsValue Call(this JsValue value, JsValue thisObj, JsValue[] arguments)
     {
