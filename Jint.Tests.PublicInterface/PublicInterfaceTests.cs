@@ -7,6 +7,14 @@ namespace Jint.Tests.PublicInterface;
 public class PublicInterfaceTests
 {
     [Fact]
+    public void CanCallEval()
+    {
+        var engine = new Engine();
+        var value = engine.Intrinsics.Eval.Call("1 + 1");
+        Assert.Equal(2, value);
+    }
+
+    [Fact]
     public void BindFunctionInstancesArePublic()
     {
         var engine = new Engine(options =>

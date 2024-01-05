@@ -8,7 +8,7 @@ public class ShadowRealmTests
     public void CanUseViaEngineMethods()
     {
         var engine = new Engine(options => options.EnableModules(GetBasePath()));
-        var shadowRealm = engine.Realm.Intrinsics.ShadowRealm.Construct();
+        var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
 
         // lexically scoped (let/const) are visible during single call
         Assert.Equal(123, shadowRealm.Evaluate("const s = 123; const f = () => s; f();"));
@@ -37,11 +37,11 @@ public class ShadowRealmTests
 
         Assert.Equal("world", engine.Evaluate("hello();"));
 
-        var shadowRealm = engine.Realm.Intrinsics.ShadowRealm.Construct();
+        var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
         shadowRealm.SetValue("message", "realm 1");
         shadowRealm.Evaluate("function hello() {return message}");
 
-        var shadowRealm2 = engine.Realm.Intrinsics.ShadowRealm.Construct();
+        var shadowRealm2 = engine.Intrinsics.ShadowRealm.Construct();
         shadowRealm2.SetValue("message", "realm 2");
         shadowRealm2.Evaluate("function hello() {return message}");
 
@@ -57,11 +57,11 @@ public class ShadowRealmTests
         engine.SetValue("message", "hello ");
         engine.Evaluate("(function hello() {message += \"engine\"})();");
 
-        var shadowRealm = engine.Realm.Intrinsics.ShadowRealm.Construct();
+        var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
         shadowRealm.SetValue("message", "hello ");
         shadowRealm.Evaluate("(function hello() {message += \"realm 1\"})();");
 
-        var shadowRealm2 = engine.Realm.Intrinsics.ShadowRealm.Construct();
+        var shadowRealm2 = engine.Intrinsics.ShadowRealm.Construct();
         shadowRealm2.SetValue("message", "hello ");
         shadowRealm2.Evaluate("(function hello() {message += \"realm 2\"})();");
 
@@ -77,10 +77,10 @@ public class ShadowRealmTests
         var engine = new Engine(options => options.EnableModules(GetBasePath()));
         engine.SetValue("message", "engine");
 
-        var shadowRealm = engine.Realm.Intrinsics.ShadowRealm.Construct();
+        var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
         shadowRealm.SetValue("message", "realm 1");
 
-        var shadowRealm2 = engine.Realm.Intrinsics.ShadowRealm.Construct();
+        var shadowRealm2 = engine.Intrinsics.ShadowRealm.Construct();
         shadowRealm2.SetValue("message", "realm 2");
 
         var parser = new Esprima.JavaScriptParser();

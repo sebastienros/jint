@@ -9,14 +9,14 @@ using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Native.Function;
 
-internal sealed class EvalFunction : Function
+public sealed class EvalFunction : Function
 {
     private static readonly JsString _functionName = new("eval");
 
     private static readonly ParserOptions _parserOptions = ParserOptions.Default with { Tolerant = true };
     private readonly JavaScriptParser _parser = new(_parserOptions);
 
-    public EvalFunction(
+    internal EvalFunction(
         Engine engine,
         Realm realm,
         FunctionPrototype functionPrototype)
@@ -40,7 +40,7 @@ internal sealed class EvalFunction : Function
     /// <summary>
     /// https://tc39.es/ecma262/#sec-performeval
     /// </summary>
-    public JsValue PerformEval(JsValue x, Realm callerRealm, bool strictCaller, bool direct)
+    internal JsValue PerformEval(JsValue x, Realm callerRealm, bool strictCaller, bool direct)
     {
         if (!x.IsString())
         {

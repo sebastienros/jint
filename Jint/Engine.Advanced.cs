@@ -1,7 +1,4 @@
-using Jint.Native;
-using Jint.Native.Function;
 using Jint.Native.Promise;
-using Jint.Runtime;
 using Jint.Runtime.Environments;
 using Environment = Jint.Runtime.Environments.Environment;
 
