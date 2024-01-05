@@ -61,7 +61,7 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
 
         public override bool TryIteratorStep(out ObjectInstance nextItem)
         {
-            var len = _array.Length;
+            var len = _array.GetLength();
             var position = _position;
             if (!_closed && position < len)
             {
@@ -109,7 +109,7 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
             if (_typedArray is not null)
             {
                 _typedArray._viewedArrayBuffer.AssertNotDetached();
-                len = _typedArray.Length;
+                len = _typedArray.GetLength();
             }
             else
             {

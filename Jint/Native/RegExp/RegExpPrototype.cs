@@ -239,7 +239,7 @@ namespace Jint.Native.RegExp
             for (var i = 0; i < results.Count; i++)
             {
                 var result = results[i];
-                var nCaptures = (int) result.Length;
+                var nCaptures = (int) result.GetLength();
                 nCaptures = System.Math.Max(nCaptures - 1, 0);
                 var matched = TypeConverter.ToString(result.Get(0));
                 var matchLength = matched.Length;

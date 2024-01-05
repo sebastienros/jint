@@ -28,7 +28,7 @@ public sealed class JsBoolean : JsValue, IEquatable<JsBoolean>
         return _value ? "true" : "false";
     }
 
-    public override bool IsLooselyEqual(JsValue value)
+    protected internal override bool IsLooselyEqual(JsValue value)
     {
         if (value is JsBoolean jsBoolean)
         {

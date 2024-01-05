@@ -34,7 +34,7 @@ namespace Jint.Tests.Runtime.Debugger
                     var obj = info.CurrentScopeChain[0].GetBindingValue("obj") as ObjectInstance;
                     var prop = obj.GetOwnProperty("name");
                     // This is where reentrance would occur:
-                    var value = prop.Get.Invoke(engine);
+                    var value = engine.Invoke(prop.Get);
                     didPropertyAccess = true;
                 }
                 return StepMode.Into;

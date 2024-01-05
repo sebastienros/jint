@@ -93,7 +93,7 @@ namespace Jint.Native.TypedArray
             }
 
             var arrayLike = TypeConverter.ToObject(_realm, source);
-            var len = arrayLike.Length;
+            var len = arrayLike.GetLength();
 
             var argumentList = new JsValue[] { JsNumber.Create(len) };
             var targetObj = TypedArrayCreate(_realm, (IConstructor) c, argumentList);
@@ -176,7 +176,7 @@ namespace Jint.Native.TypedArray
                 {
                     ExceptionHelper.ThrowTypeError(realm);
                 }
-                if (newTypedArray.Length < number._value)
+                if (newTypedArray.GetLength() < number._value)
                 {
                     ExceptionHelper.ThrowTypeError(realm);
                 }

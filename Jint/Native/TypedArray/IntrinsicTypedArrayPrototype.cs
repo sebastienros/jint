@@ -1317,7 +1317,7 @@ namespace Jint.Native.TypedArray
             var end = arguments.At(1);
 
             var buffer = o._viewedArrayBuffer;
-            var srcLength = o.Length;
+            var srcLength = o.GetLength();
             var relativeBegin = TypeConverter.ToIntegerOrInfinity(begin);
 
             double beginIndex;

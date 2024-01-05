@@ -2358,7 +2358,7 @@ namespace Jint.Tests.Runtime
             ");
 
             Assert.NotNull(c.ToString());
-            Assert.Equal((uint) 0, c.As<ObjectInstance>().Length);
+            Assert.Equal((uint) 0, c.AsObject().GetLength());
         }
 
         private class DictionaryWrapper
@@ -2887,7 +2887,7 @@ namespace Jint.Tests.Runtime
         {
             var engine = new Engine(options =>
             {
-                options.Interop.CreateClrObject = oi => new Dictionary<string, object>((int) oi.Length);
+                options.Interop.CreateClrObject = oi => new Dictionary<string, object>();
             });
 
             object capture = null;

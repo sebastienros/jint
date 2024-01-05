@@ -251,7 +251,7 @@ public sealed class JsNumber : JsValue, IEquatable<JsNumber>
         return double.IsNegativeInfinity(_value);
     }
 
-    public override bool IsLooselyEqual(JsValue value)
+    protected internal override bool IsLooselyEqual(JsValue value)
     {
         if (value is JsNumber jsNumber)
         {

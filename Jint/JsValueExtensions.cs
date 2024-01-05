@@ -29,6 +29,14 @@ public static class JsValueExtensions
         return value._type == InternalTypes.Undefined;
     }
 
+
+    [Pure]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsArray(this JsValue value)
+    {
+        return value is JsArray;
+    }
+
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsNullOrUndefined(this JsValue value)

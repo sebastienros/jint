@@ -65,9 +65,9 @@ namespace Jint.Native.Array
             }
         }
 
-        public sealed override bool IsArrayLike => true;
+        internal sealed override bool IsArrayLike => true;
 
-        public sealed override bool IsArray() => true;
+        internal sealed override bool IsArray() => true;
 
         internal sealed override bool HasOriginalIterator
             => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _constructor?.PrototypeObject._originalIteratorFunction);
@@ -287,7 +287,7 @@ namespace Jint.Native.Array
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal uint GetLength() => (uint) GetJsNumberLength()._value;
+        internal override uint GetLength() => (uint) GetJsNumberLength()._value;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private JsNumber GetJsNumberLength() => _length is null ? JsNumber.PositiveZero : (JsNumber) _length._value!;
@@ -1266,8 +1266,6 @@ namespace Jint.Native.Array
             value = Undefined;
             return false;
         }
-
-        public sealed override uint Length => GetLength();
 
         internal sealed override bool IsIntegerIndexedArray => true;
 

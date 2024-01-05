@@ -94,7 +94,7 @@ namespace Jint.Native.Proxy
             return oi;
         }
 
-        public override bool IsArray()
+        internal override bool IsArray()
         {
             AssertNotRevoked(KeyIsArray);
             return _target.IsArray();
@@ -553,7 +553,7 @@ namespace Jint.Native.Proxy
         /// <summary>
         /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-setprototypeof-v
         /// </summary>
-        public override bool SetPrototypeOf(JsValue value)
+        internal override bool SetPrototypeOf(JsValue value)
         {
             if (!TryCallHandler(TrapSetProtoTypeOf, new[] { _target, value }, out var result))
             {

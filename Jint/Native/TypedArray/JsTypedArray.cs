@@ -53,7 +53,9 @@ namespace Jint.Native.TypedArray
             set => IntegerIndexedElementSet(index, value);
         }
 
-        public override uint Length => IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(this, ArrayBufferOrder.Unordered).TypedArrayLength;
+        public uint Length => GetLength();
+
+        internal override uint GetLength() => IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(this, ArrayBufferOrder.Unordered).TypedArrayLength;
 
         internal override bool IsIntegerIndexedArray => true;
 
@@ -196,7 +198,7 @@ namespace Jint.Native.TypedArray
             var keys = new List<JsValue>();
             if (!taRecord.IsTypedArrayOutOfBounds)
             {
-                var length = Length;
+                var length = GetLength();
                 for (uint i = 0; i < length; ++i)
                 {
                     keys.Add(JsString.Create(i));
@@ -390,7 +392,7 @@ namespace Jint.Native.TypedArray
             var byteOffset = _byteOffset;
             var buffer = _viewedArrayBuffer;
 
-            var array = new T[Length];
+            var array = new T[GetLength()];
             for (var i = 0; i < array.Length; ++i)
             {
                 var indexedPosition = i * elementSize + byteOffset;

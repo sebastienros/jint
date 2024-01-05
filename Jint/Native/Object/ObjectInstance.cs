@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -15,6 +16,8 @@ using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using PropertyDescriptor = Jint.Runtime.Descriptors.PropertyDescriptor;
+using TypeConverter = Jint.Runtime.TypeConverter;
 
 namespace Jint.Native.Object
 {
@@ -62,6 +65,7 @@ namespace Jint.Native.Object
         {
             [DebuggerStepThrough]
             get => GetPrototypeOf();
+            set => SetPrototypeOf(value!);
         }
 
         /// <summary>
@@ -629,7 +633,7 @@ namespace Jint.Native.Object
         /// performed.
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.12.4
         /// </summary>
-        public bool CanPut(JsValue property)
+        internal bool CanPut(JsValue property)
         {
             var desc = GetOwnProperty(property);
 
@@ -704,7 +708,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-deletepropertyorthrow
         /// </summary>
-        public bool DeletePropertyOrThrow(JsValue property)
+        internal bool DeletePropertyOrThrow(JsValue property)
         {
             if (!Delete(property))
             {
@@ -736,7 +740,7 @@ namespace Jint.Native.Object
             return false;
         }
 
-        public bool DefinePropertyOrThrow(JsValue property, PropertyDescriptor desc)
+        internal bool DefinePropertyOrThrow(JsValue property, PropertyDescriptor desc)
         {
             if (!DefineOwnProperty(property, desc))
             {
@@ -1043,7 +1047,7 @@ namespace Jint.Native.Object
 
                     if (this is JsArray arrayInstance)
                     {
-                        var result = new object?[arrayInstance.Length];
+                        var result = new object?[arrayInstance.GetLength()];
                         for (uint i = 0; i < result.Length; i++)
                         {
                             var value = arrayInstance[i];
@@ -1225,9 +1229,9 @@ namespace Jint.Native.Object
         }
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        public virtual bool IsArrayLike => TryGetValue(CommonProperties.Length, out var lengthValue)
-                                           && lengthValue.IsNumber()
-                                           && ((JsNumber) lengthValue)._value >= 0;
+        internal virtual bool IsArrayLike => TryGetValue(CommonProperties.Length, out var lengthValue)
+                                             && lengthValue.IsNumber()
+                                             && ((JsNumber) lengthValue)._value >= 0;
 
         // safe default
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
@@ -1235,8 +1239,7 @@ namespace Jint.Native.Object
 
         internal override bool IsIntegerIndexedArray => false;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        public virtual uint Length => (uint) TypeConverter.ToLength(Get(CommonProperties.Length));
+        internal virtual uint GetLength() => (uint) TypeConverter.ToLength(Get(CommonProperties.Length));
 
         public virtual bool PreventExtensions()
         {
@@ -1252,7 +1255,7 @@ namespace Jint.Native.Object
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ordinarysetprototypeof
         /// </summary>
-        public virtual bool SetPrototypeOf(JsValue value)
+        internal virtual bool SetPrototypeOf(JsValue value)
         {
             if (!value.IsObject() && !value.IsNull())
             {

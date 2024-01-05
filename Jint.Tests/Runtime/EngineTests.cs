@@ -832,7 +832,7 @@ namespace Jint.Tests.Runtime
 
             var add = _engine.GetValue("add");
 
-            Assert.Equal(3, add.Invoke(_engine, 1, 2));
+            Assert.Equal(3, _engine.Invoke(add, 1, 2));
         }
 
         [Fact]
@@ -844,7 +844,7 @@ namespace Jint.Tests.Runtime
 
             var add = _engine.GetValue("get");
             string str = null;
-            Assert.Equal(Native.JsValue.Null, add.Invoke(_engine, str));
+            Assert.Equal(Native.JsValue.Null, _engine.Invoke(add, str));
         }
 
 
@@ -857,7 +857,7 @@ namespace Jint.Tests.Runtime
 
             var x = _engine.GetValue("x");
 
-            var exception = Assert.Throws<JavaScriptException>(() => x.Invoke(_engine, 1, 2));
+            var exception = Assert.Throws<JavaScriptException>(() => _engine.Invoke(x, 1, 2));
             Assert.Equal("Can only invoke functions", exception.Message);
         }
 
@@ -2575,7 +2575,7 @@ var prep = function (fn) { fn(); };
                 }");
 
             var concat = _engine.GetValue("concat");
-            var result = concat.Invoke(_engine, "concat", "well", "done").ToObject() as string;
+            var result = _engine.Invoke(concat, "concat", "well", "done").ToObject() as string;
             Assert.Equal("concatwelldone", result);
         }
 
@@ -2709,10 +2709,10 @@ function output(x) {
             ");
 
             var function = _engine.GetValue("f");
-            var result = function.Invoke(_engine, 3).ToString();
+            var result = _engine.Invoke(function, 3).ToString();
             Assert.Equal("15", result);
 
-            result = function.Invoke(_engine, 3, JsValue.Undefined).ToString();
+            result = _engine.Invoke(function, 3, JsValue.Undefined).ToString();
             Assert.Equal("15", result);
         }
 
