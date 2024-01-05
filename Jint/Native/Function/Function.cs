@@ -28,6 +28,7 @@ namespace Jint.Native.Function
 
         internal Realm _realm;
         internal PrivateEnvironment? _privateEnvironment;
+        internal string? _sourceText;
         private readonly IScriptOrModule? _scriptOrModule;
 
         protected Function(
@@ -367,7 +368,14 @@ namespace Jint.Native.Function
 
         public override string ToString()
         {
-            // TODO no way to extract SourceText from Esprima at the moment, just returning native code
+            if (_sourceText != null)
+            {
+                return _sourceText;
+            }
+            if ((_sourceText = _functionDefinition?.Function?.ToString()) != null)
+            {
+                return _sourceText;
+            }
             var nameValue = _nameDescriptor != null ? UnwrapJsValue(_nameDescriptor) : JsString.Empty;
             var name = "";
             if (!nameValue.IsUndefined())
@@ -377,7 +385,7 @@ namespace Jint.Native.Function
 
             name = name.TrimStart(_functionNameTrimStartChars);
 
-            return "function " + name + "() { [native code] }";
+            return _sourceText = "function " + name + "() { [native code] }";
         }
 
         private sealed class ObjectInstanceWithConstructor : ObjectInstance
