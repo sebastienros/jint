@@ -381,6 +381,7 @@ namespace Jint.Native.Function
             {
                 return _sourceText;
             }
+
             var nameValue = _nameDescriptor != null ? UnwrapJsValue(_nameDescriptor) : JsString.Empty;
             var name = "";
             if (!nameValue.IsUndefined())
