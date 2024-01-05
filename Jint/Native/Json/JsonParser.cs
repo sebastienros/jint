@@ -770,7 +770,7 @@ namespace Jint.Native.Json
 
     internal static class StringExtensions
     {
-        public static char CharCodeAt(this string source, int index)
+        internal static char CharCodeAt(this string source, int index)
         {
             if (index > source.Length - 1)
             {
