@@ -34,7 +34,7 @@ public class RavenApiUsageTests
         var functionObject = new ScriptFunctionInstance(
             engine,
             functionExp,
-            engine.CreateNewDeclarativeEnvironment(),
+            engine.Advanced.CreateDeclarativeEnvironment(),
             strict: false
         );
 
@@ -46,7 +46,7 @@ public class RavenApiUsageTests
     {
         var engine = new Engine(options => options.MaxStatements(123));
 
-        var constraint = engine.FindConstraint<MaxStatementsConstraint>();
+        var constraint = engine.Advanced.FindConstraint<MaxStatementsConstraint>();
         Assert.NotNull(constraint);
 
         var oldMaxStatements = constraint.MaxStatements;
