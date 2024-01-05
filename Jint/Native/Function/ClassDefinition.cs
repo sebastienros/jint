@@ -7,6 +7,7 @@ using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Native.Function;
 
@@ -49,7 +50,7 @@ internal sealed class ClassDefinition
     /// <summary>
     /// https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation
     /// </summary>
-    public JsValue BuildConstructor(EvaluationContext context, EnvironmentRecord env)
+    public JsValue BuildConstructor(EvaluationContext context, Environment env)
     {
         // A class definition is always strict mode code.
         using var _ = new StrictModeScope(true, true);

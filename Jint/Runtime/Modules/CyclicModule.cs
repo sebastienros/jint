@@ -10,7 +10,7 @@ namespace Jint.Runtime.Modules;
 
 #pragma warning disable CS0649 // never assigned to, waiting for new functionalities in spec
 
-internal sealed record ResolvedBinding(ModuleRecord Module, string BindingName)
+internal sealed record ResolvedBinding(Module Module, string BindingName)
 {
     internal static ResolvedBinding Ambiguous => new(null, "ambiguous");
 }
@@ -18,23 +18,23 @@ internal sealed record ResolvedBinding(ModuleRecord Module, string BindingName)
 /// <summary>
 /// https://tc39.es/ecma262/#sec-cyclic-module-records
 /// </summary>
-public abstract class CyclicModuleRecord : ModuleRecord
+public abstract class CyclicModule : Module
 {
     private Completion? _evalError;
     private int _dfsIndex;
     private int _dfsAncestorIndex;
     internal HashSet<ModuleRequest> _requestedModules;
-    private CyclicModuleRecord _cycleRoot;
+    private CyclicModule _cycleRoot;
     protected bool _hasTLA;
     private bool _asyncEvaluation;
     private PromiseCapability _topLevelCapability;
-    private readonly List<CyclicModuleRecord> _asyncParentModules;
+    private readonly List<CyclicModule> _asyncParentModules;
     private int _asyncEvalOrder;
     private int _pendingAsyncDependencies;
 
     internal JsValue _evalResult;
 
-    internal CyclicModuleRecord(Engine engine, Realm realm, string location, bool async) : base(engine, realm, location)
+    internal CyclicModule(Engine engine, Realm realm, string location, bool async) : base(engine, realm, location)
     {
     }
 
@@ -52,7 +52,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
             ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module is already either linking or evaluating");
         }
 
-        var stack = new Stack<CyclicModuleRecord>();
+        var stack = new Stack<CyclicModule>();
 
         try
         {
@@ -117,7 +117,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
             return module._topLevelCapability.PromiseInstance;
         }
 
-        var stack = new Stack<CyclicModuleRecord>();
+        var stack = new Stack<CyclicModule>();
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
         var asyncEvalOrder = 0;
         module._topLevelCapability = capability;
@@ -169,7 +169,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-InnerModuleLinking
     /// </summary>
-    protected internal override int InnerModuleLinking(Stack<CyclicModuleRecord> stack, int index)
+    protected internal override int InnerModuleLinking(Stack<CyclicModule> stack, int index)
     {
         if (Status is
             ModuleStatus.Linking or
@@ -197,7 +197,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
 
             index = requiredModule.InnerModuleLinking(stack, index);
 
-            if (requiredModule is not CyclicModuleRecord requiredCyclicModule)
+            if (requiredModule is not CyclicModule requiredCyclicModule)
             {
                 continue;
             }
@@ -253,7 +253,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-innermoduleevaluation
     /// </summary>
-    protected internal override Completion InnerModuleEvaluation(Stack<CyclicModuleRecord> stack, int index, ref int asyncEvalOrder)
+    protected internal override Completion InnerModuleEvaluation(Stack<CyclicModule> stack, int index, ref int asyncEvalOrder)
     {
         if (Status is ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated)
         {
@@ -294,7 +294,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
 
             index = TypeConverter.ToInt32(result.Value);
 
-            if (requiredModule is CyclicModuleRecord requiredCyclicModule)
+            if (requiredModule is CyclicModule requiredCyclicModule)
             {
                 if (requiredCyclicModule.Status != ModuleStatus.Evaluating &&
                     requiredCyclicModule.Status != ModuleStatus.EvaluatingAsync &&
@@ -393,7 +393,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
         return completion;
     }
 
-    private int StackReferenceCount(Stack<CyclicModuleRecord> stack)
+    private int StackReferenceCount(Stack<CyclicModule> stack)
     {
         var count = 0;
         foreach (var item in stack)
@@ -433,7 +433,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// </summary>
     private static JsValue AsyncModuleExecutionFulfilled(JsValue thisObject, JsValue[] arguments)
     {
-        var module = (CyclicModuleRecord) arguments.At(0);
+        var module = (CyclicModule) arguments.At(0);
         if (module.Status == ModuleStatus.Evaluated)
         {
             if (module._evalError is not null)
@@ -461,7 +461,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
             module._topLevelCapability.Resolve.Call(Undefined, Array.Empty<JsValue>());
         }
 
-        var execList = new List<CyclicModuleRecord>();
+        var execList = new List<CyclicModule>();
         module.GatherAvailableAncestors(execList);
         execList.Sort((x, y) => x._asyncEvalOrder - y._asyncEvalOrder);
 
@@ -507,7 +507,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// </summary>
     private static JsValue AsyncModuleExecutionRejected(JsValue thisObject, JsValue[] arguments)
     {
-        var module = (SourceTextModuleRecord) arguments.At(0);
+        var module = (SourceTextModule) arguments.At(0);
         var error = arguments.At(1);
 
         if (module.Status == ModuleStatus.Evaluated)
@@ -553,7 +553,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-gather-available-ancestors
     /// </summary>
-    private void GatherAvailableAncestors(List<CyclicModuleRecord> execList)
+    private void GatherAvailableAncestors(List<CyclicModule> execList)
     {
         foreach (var m in _asyncParentModules)
         {

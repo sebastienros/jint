@@ -1,4 +1,3 @@
-using Esprima.Ast;
 using Jint.Native;
 
 namespace Jint.Runtime.Modules;
@@ -6,11 +5,11 @@ namespace Jint.Runtime.Modules;
 /// <summary>
 /// This is a custom ModuleRecord implementation for dynamically built modules using <see cref="ModuleBuilder"/>
 /// </summary>
-internal sealed class BuilderModuleRecord : SourceTextModuleRecord
+internal sealed class BuilderModule : SourceTextModule
 {
     private List<KeyValuePair<string, JsValue>> _exportBuilderDeclarations = new();
 
-    internal BuilderModuleRecord(Engine engine, Realm realm, Module source, string? location, bool async)
+    internal BuilderModule(Engine engine, Realm realm, Esprima.Ast.Module source, string? location, bool async)
         : base(engine, realm, source, location, async)
     {
     }

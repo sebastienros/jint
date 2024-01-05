@@ -59,7 +59,7 @@ namespace Jint.Runtime
             Engine.EnterExecutionContext(newContext);
         }
 
-        protected virtual GlobalEnvironmentRecord CreateGlobalEnvironment(ObjectInstance globalObject)
+        protected virtual GlobalEnvironment CreateGlobalEnvironment(ObjectInstance globalObject)
         {
             return JintEnvironment.NewGlobalEnvironment(Engine, globalObject, globalObject);
         }
@@ -118,7 +118,7 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-GetImportedModule
         /// </summary>
-        internal virtual ModuleRecord GetImportedModule(IScriptOrModule? referrer, ModuleRequest request)
+        internal virtual Module GetImportedModule(IScriptOrModule? referrer, ModuleRequest request)
         {
             return Engine.LoadModule(referrer?.Location, request);
         }
@@ -154,7 +154,7 @@ namespace Jint.Runtime
                 var moduleRecord = GetImportedModule(referrer, moduleRequest);
                 try
                 {
-                    var ns = ModuleRecord.GetModuleNamespace(moduleRecord);
+                    var ns = Module.GetModuleNamespace(moduleRecord);
                     payload.Resolve.Call(JsValue.Undefined, new JsValue[] { ns });
                 }
                 catch (JavaScriptException ex)
@@ -177,7 +177,7 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostgetimportmetaproperties
         /// </summary>
-        public virtual List<KeyValuePair<JsValue, JsValue>> GetImportMetaProperties(ModuleRecord moduleRecord)
+        public virtual List<KeyValuePair<JsValue, JsValue>> GetImportMetaProperties(Module moduleRecord)
         {
             return new List<KeyValuePair<JsValue, JsValue>>();
         }
@@ -185,7 +185,7 @@ namespace Jint.Runtime
         /// <summary>
         /// https://tc39.es/ecma262/#sec-hostfinalizeimportmeta
         /// </summary>
-        public virtual void FinalizeImportMeta(ObjectInstance importMeta, ModuleRecord moduleRecord)
+        public virtual void FinalizeImportMeta(ObjectInstance importMeta, Module moduleRecord)
         {
         }
 

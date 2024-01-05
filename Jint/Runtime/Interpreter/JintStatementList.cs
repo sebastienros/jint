@@ -2,8 +2,8 @@ using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Error;
-using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Statements;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter
 {
@@ -183,7 +183,7 @@ namespace Jint.Runtime.Interpreter
         /// </summary>
         internal static void BlockDeclarationInstantiation(
             Engine engine,
-            EnvironmentRecord env,
+            Environment env,
             List<Declaration> declarations)
         {
             var privateEnv = env._engine.ExecutionContext.PrivateEnvironment;

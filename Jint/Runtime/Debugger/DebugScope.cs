@@ -1,6 +1,7 @@
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Environments;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Debugger
 {
@@ -9,14 +10,14 @@ namespace Jint.Runtime.Debugger
     /// </summary>
     public sealed class DebugScope
     {
-        private readonly EnvironmentRecord _record;
+        private readonly Environment _record;
         private string[]? _bindingNames;
 
-        internal DebugScope(DebugScopeType type, EnvironmentRecord record, bool isTopLevel)
+        internal DebugScope(DebugScopeType type, Environment record, bool isTopLevel)
         {
             ScopeType = type;
             _record = record;
-            BindingObject = record is ObjectEnvironmentRecord objEnv ? objEnv._bindingObject : null;
+            BindingObject = record is ObjectEnvironment objEnv ? objEnv._bindingObject : null;
             IsTopLevel = isTopLevel;
         }
 
@@ -56,7 +57,7 @@ namespace Jint.Runtime.Debugger
         /// <returns>Value of the binding</returns>
         public JsValue? GetBindingValue(string name)
         {
-            _record.TryGetBinding(new EnvironmentRecord.BindingName(name), strict: true, out _, out var result);
+            _record.TryGetBinding(new Environment.BindingName(name), strict: true, out _, out var result);
             return result;
         }
 

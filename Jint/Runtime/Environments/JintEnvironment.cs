@@ -8,9 +8,9 @@ namespace Jint.Runtime.Environments
     internal static class JintEnvironment
     {
         internal static bool TryGetIdentifierEnvironmentWithBinding(
-            EnvironmentRecord env,
-            in EnvironmentRecord.BindingName name,
-            [NotNullWhen(true)] out EnvironmentRecord? record)
+            Environment env,
+            in Environment.BindingName name,
+            [NotNullWhen(true)] out Environment? record)
         {
             record = env;
 
@@ -33,10 +33,10 @@ namespace Jint.Runtime.Environments
         }
 
         internal static bool TryGetIdentifierEnvironmentWithBindingValue(
-            EnvironmentRecord env,
-            in EnvironmentRecord.BindingName name,
+            Environment env,
+            in Environment.BindingName name,
             bool strict,
-            [NotNullWhen(true)] out EnvironmentRecord? record,
+            [NotNullWhen(true)] out Environment? record,
             [NotNullWhen(true)] out JsValue? value)
         {
             record = env;
@@ -44,7 +44,7 @@ namespace Jint.Runtime.Environments
 
             if (env._outerEnv is null)
             {
-                return ((GlobalEnvironmentRecord) env).TryGetBinding(name, strict, out _, out value);
+                return ((GlobalEnvironment) env).TryGetBinding(name, strict, out _, out value);
             }
 
             while (!ReferenceEquals(record, null))
@@ -67,9 +67,9 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// https://tc39.es/ecma262/#sec-newdeclarativeenvironment
         /// </summary>
-        internal static DeclarativeEnvironmentRecord NewDeclarativeEnvironment(Engine engine, EnvironmentRecord? outer, bool catchEnvironment = false)
+        internal static DeclarativeEnvironment NewDeclarativeEnvironment(Engine engine, Environment? outer, bool catchEnvironment = false)
         {
-            return new DeclarativeEnvironmentRecord(engine, catchEnvironment)
+            return new DeclarativeEnvironment(engine, catchEnvironment)
             {
                 _outerEnv = outer
             };
@@ -78,9 +78,9 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// https://tc39.es/ecma262/#sec-newfunctionenvironment
         /// </summary>
-        internal static FunctionEnvironmentRecord NewFunctionEnvironment(Engine engine, FunctionInstance f, JsValue newTarget)
+        internal static FunctionEnvironment NewFunctionEnvironment(Engine engine, FunctionInstance f, JsValue newTarget)
         {
-            return new FunctionEnvironmentRecord(engine, f, newTarget)
+            return new FunctionEnvironment(engine, f, newTarget)
             {
                 _outerEnv = f._environment
             };
@@ -89,9 +89,9 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// https://tc39.es/ecma262/#sec-newglobalenvironment
         /// </summary>
-        internal static GlobalEnvironmentRecord NewGlobalEnvironment(Engine engine, ObjectInstance objectInstance, JsValue thisValue)
+        internal static GlobalEnvironment NewGlobalEnvironment(Engine engine, ObjectInstance objectInstance, JsValue thisValue)
         {
-            return new GlobalEnvironmentRecord(engine, objectInstance)
+            return new GlobalEnvironment(engine, objectInstance)
             {
                 _outerEnv = null
             };
@@ -100,9 +100,9 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// https://tc39.es/ecma262/#sec-newobjectenvironment
         /// </summary>
-        internal static ObjectEnvironmentRecord NewObjectEnvironment(Engine engine, ObjectInstance objectInstance, EnvironmentRecord outer, bool provideThis, bool withEnvironment = false)
+        internal static ObjectEnvironment NewObjectEnvironment(Engine engine, ObjectInstance objectInstance, Environment outer, bool provideThis, bool withEnvironment = false)
         {
-            return new ObjectEnvironmentRecord(engine, objectInstance, provideThis, withEnvironment)
+            return new ObjectEnvironment(engine, objectInstance, provideThis, withEnvironment)
             {
                 _outerEnv = outer
             };
@@ -111,17 +111,17 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// https://tc39.es/ecma262/#sec-newprivateenvironment
         /// </summary>
-        internal static PrivateEnvironmentRecord NewPrivateEnvironment(Engine engine, PrivateEnvironmentRecord? outerPriv)
+        internal static PrivateEnvironment NewPrivateEnvironment(Engine engine, PrivateEnvironment? outerPriv)
         {
-            return new PrivateEnvironmentRecord(outerPriv);
+            return new PrivateEnvironment(outerPriv);
         }
 
         /// <summary>
         /// https://tc39.es/ecma262/#sec-newmoduleenvironment
         /// </summary>
-        internal static ModuleEnvironmentRecord NewModuleEnvironment(Engine engine, EnvironmentRecord outer)
+        internal static ModuleEnvironment NewModuleEnvironment(Engine engine, Environment outer)
         {
-            return new ModuleEnvironmentRecord(engine)
+            return new ModuleEnvironment(engine)
             {
                 _outerEnv = outer
             };

@@ -1,9 +1,9 @@
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint;
 
@@ -43,7 +43,7 @@ public partial class Engine
 
     private sealed class AstAnalyzer
     {
-        private readonly Dictionary<string, EnvironmentRecord.BindingName> _bindingNames = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, Environment.BindingName> _bindingNames = new(StringComparer.Ordinal);
 
         public void NodeVisitor(Node node)
         {
@@ -55,7 +55,7 @@ public partial class Engine
 
                         if (!_bindingNames.TryGetValue(name, out var bindingName))
                         {
-                            _bindingNames[name] = bindingName = new EnvironmentRecord.BindingName(JsString.CachedCreate(name));
+                            _bindingNames[name] = bindingName = new Environment.BindingName(JsString.CachedCreate(name));
                         }
 
                         node.AssociatedData = bindingName;

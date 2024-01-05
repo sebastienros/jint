@@ -1,5 +1,4 @@
 using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Json;
 
@@ -12,7 +11,7 @@ public abstract class ModuleLoader : IModuleLoader
 {
     public abstract ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest);
 
-    public ModuleRecord LoadModule(Engine engine, ResolvedSpecifier resolved)
+    public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
     {
         string code;
         try
@@ -28,7 +27,7 @@ public abstract class ModuleLoader : IModuleLoader
         var isJson = resolved.ModuleRequest.Attributes != null
                      && Array.Exists(resolved.ModuleRequest.Attributes, x => string.Equals(x.Key, "type", StringComparison.Ordinal) && string.Equals(x.Value, "json", StringComparison.Ordinal));
 
-        ModuleRecord moduleRecord = isJson
+        Module moduleRecord = isJson
             ? BuildJsonModule(engine, resolved, code)
             : BuildSourceTextModule(engine, resolved, code);
 
@@ -37,7 +36,7 @@ public abstract class ModuleLoader : IModuleLoader
 
     protected abstract string LoadModuleContents(Engine engine, ResolvedSpecifier resolved);
 
-    private static SyntheticModuleRecord BuildJsonModule(Engine engine, ResolvedSpecifier resolved, string code)
+    private static SyntheticModule BuildJsonModule(Engine engine, ResolvedSpecifier resolved, string code)
     {
         var source = resolved.Uri?.LocalPath;
         JsValue module;
@@ -51,12 +50,12 @@ public abstract class ModuleLoader : IModuleLoader
             module = null;
         }
 
-        return new SyntheticModuleRecord(engine, engine.Realm, module, resolved.Uri?.LocalPath);
+        return new SyntheticModule(engine, engine.Realm, module, resolved.Uri?.LocalPath);
     }
-    private static SourceTextModuleRecord BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code)
+    private static SourceTextModule BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code)
     {
         var source = resolved.Uri?.LocalPath;
-        Module module;
+        Esprima.Ast.Module module;
         try
         {
             module = new JavaScriptParser().ParseModule(code, source);
@@ -72,6 +71,6 @@ public abstract class ModuleLoader : IModuleLoader
             module = null;
         }
 
-        return new SourceTextModuleRecord(engine, engine.Realm, module, resolved.Uri?.LocalPath, async: false);
+        return new SourceTextModule(engine, engine.Realm, module, resolved.Uri?.LocalPath, async: false);
     }
 }

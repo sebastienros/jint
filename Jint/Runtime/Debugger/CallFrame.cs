@@ -2,7 +2,7 @@ using Esprima;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.CallStack;
-using Jint.Runtime.Environments;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Debugger
 {
@@ -26,7 +26,7 @@ namespace Jint.Runtime.Debugger
             _scopeChain = new Lazy<DebugScopes>(() => new DebugScopes(Environment));
         }
 
-        private EnvironmentRecord Environment => _context.LexicalEnvironment;
+        private Environment Environment => _context.LexicalEnvironment;
 
         // TODO: CallFrameId
         /// <summary>

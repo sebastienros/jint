@@ -21,7 +21,7 @@ namespace Jint.Native.Argument
         private FunctionInstance _func = null!;
         private Key[] _names = null!;
         private JsValue[] _args = null!;
-        private DeclarativeEnvironmentRecord _env = null!;
+        private DeclarativeEnvironment _env = null!;
         private bool _canReturnToPool;
         private bool _hasRestParameter;
         private bool _materialized;
@@ -35,7 +35,7 @@ namespace Jint.Native.Argument
             FunctionInstance func,
             Key[] names,
             JsValue[] args,
-            DeclarativeEnvironmentRecord env,
+            DeclarativeEnvironment env,
             bool hasRestParameter)
         {
             _func = func;

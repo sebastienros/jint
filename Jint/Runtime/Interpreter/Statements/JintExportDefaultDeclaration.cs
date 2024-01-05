@@ -1,8 +1,8 @@
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
-using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Statements;
 
@@ -80,7 +80,7 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
     /// <summary>
     /// https://tc39.es/ecma262/#sec-initializeboundname
     /// </summary>
-    private static void InitializeBoundName(string name, JsValue value, EnvironmentRecord? environment)
+    private static void InitializeBoundName(string name, JsValue value, Environment? environment)
     {
         if (environment is not null)
         {

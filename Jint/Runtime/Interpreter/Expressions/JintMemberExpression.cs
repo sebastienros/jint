@@ -83,7 +83,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
             else if (_objectExpression is JintSuperExpression)
             {
-                var env = (FunctionEnvironmentRecord) engine.ExecutionContext.GetThisEnvironment();
+                var env = (FunctionEnvironment) engine.ExecutionContext.GetThisEnvironment();
                 actualThis = env.GetThisBinding();
                 baseValue = env.GetSuperBase();
             }

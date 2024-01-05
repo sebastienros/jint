@@ -6,14 +6,14 @@ namespace Jint.Runtime.Environments;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-privateenvironment-records
 /// </summary>
-internal sealed class PrivateEnvironmentRecord
+internal sealed class PrivateEnvironment
 {
-    public PrivateEnvironmentRecord(PrivateEnvironmentRecord? outerPrivEnv)
+    public PrivateEnvironment(PrivateEnvironment? outerPrivEnv)
     {
         OuterPrivateEnvironment = outerPrivEnv;
     }
 
-    public PrivateEnvironmentRecord? OuterPrivateEnvironment { get; }
+    public PrivateEnvironment? OuterPrivateEnvironment { get; }
     public Dictionary<PrivateIdentifier, PrivateName> Names { get; } = new();
 
     /// <summary>

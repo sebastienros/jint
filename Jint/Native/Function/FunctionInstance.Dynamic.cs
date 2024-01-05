@@ -4,6 +4,7 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Native.Function;
 
@@ -153,7 +154,7 @@ public partial class FunctionInstance
         var proto = GetPrototypeFromConstructor(newTarget, fallbackProto);
         var realmF = _realm;
         var scope = realmF.GlobalEnv;
-        PrivateEnvironmentRecord? privateEnv = null;
+        PrivateEnvironment? privateEnv = null;
 
         var definition = new JintFunctionDefinition(function);
         FunctionInstance F = OrdinaryFunctionCreate(proto, definition, function.Strict ? FunctionThisMode.Strict : FunctionThisMode.Global, scope, privateEnv);
@@ -185,8 +186,8 @@ public partial class FunctionInstance
         ObjectInstance functionPrototype,
         JintFunctionDefinition function,
         FunctionThisMode thisMode,
-        EnvironmentRecord scope,
-        PrivateEnvironmentRecord? privateScope)
+        Environment scope,
+        PrivateEnvironment? privateScope)
     {
         return new ScriptFunctionInstance(
             _engine,

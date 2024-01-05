@@ -1,5 +1,6 @@
 using Esprima.Ast;
 using Jint.Runtime.Environments;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
@@ -29,7 +30,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 _lexicalDeclarations = HoistingScope.GetLexicalDeclarations(_statement);
             }
 
-            EnvironmentRecord? oldEnv = null;
+            Environment? oldEnv = null;
             var engine = context.Engine;
             if (_lexicalDeclarations != null)
             {

@@ -2,6 +2,7 @@ using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
@@ -62,8 +63,8 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override Completion ExecuteInternal(EvaluationContext context)
         {
-            EnvironmentRecord? oldEnv = null;
-            EnvironmentRecord? loopEnv = null;
+            Environment? oldEnv = null;
+            Environment? loopEnv = null;
             var engine = context.Engine;
             if (_boundNames != null)
             {

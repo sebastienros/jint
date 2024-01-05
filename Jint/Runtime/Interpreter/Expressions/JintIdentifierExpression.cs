@@ -4,19 +4,20 @@ using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Argument;
 using Jint.Runtime.Environments;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
 internal sealed class JintIdentifierExpression : JintExpression
 {
-    private EnvironmentRecord.BindingName _identifier = null!;
+    private Environment.BindingName _identifier = null!;
     private bool _initialized;
 
     public JintIdentifierExpression(Identifier expression) : base(expression)
     {
     }
 
-    public EnvironmentRecord.BindingName Identifier
+    public Environment.BindingName Identifier
     {
         get
         {
@@ -33,7 +34,7 @@ internal sealed class JintIdentifierExpression : JintExpression
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void EnsureIdentifier()
     {
-        _identifier ??= _expression.AssociatedData as EnvironmentRecord.BindingName ?? new EnvironmentRecord.BindingName(((Identifier) _expression).Name);
+        _identifier ??= _expression.AssociatedData as Environment.BindingName ?? new Environment.BindingName(((Identifier) _expression).Name);
     }
 
     public bool HasEvalOrArguments

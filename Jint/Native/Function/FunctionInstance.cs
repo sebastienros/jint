@@ -7,6 +7,7 @@ using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Native.Function
 {
@@ -18,14 +19,14 @@ namespace Jint.Native.Function
         protected internal PropertyDescriptor? _length;
         internal PropertyDescriptor? _nameDescriptor;
 
-        protected internal EnvironmentRecord? _environment;
+        protected internal Environment? _environment;
         internal readonly JintFunctionDefinition _functionDefinition = null!;
         internal readonly FunctionThisMode _thisMode;
         internal JsValue _homeObject = Undefined;
         internal ConstructorKind _constructorKind = ConstructorKind.Base;
 
         internal Realm _realm;
-        internal PrivateEnvironmentRecord? _privateEnvironment;
+        internal PrivateEnvironment? _privateEnvironment;
         private readonly IScriptOrModule? _scriptOrModule;
 
         protected FunctionInstance(
@@ -40,7 +41,7 @@ namespace Jint.Native.Function
             Engine engine,
             Realm realm,
             JintFunctionDefinition function,
-            EnvironmentRecord env,
+            Environment env,
             FunctionThisMode thisMode)
             : this(
                 engine,
@@ -292,7 +293,7 @@ namespace Jint.Native.Function
 
             var calleeRealm = _realm;
 
-            var localEnv = (FunctionEnvironmentRecord) calleeContext.LexicalEnvironment;
+            var localEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
             JsValue thisValue;
             if (_thisMode == FunctionThisMode.Strict)
             {

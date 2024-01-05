@@ -13,7 +13,7 @@ namespace Jint.Runtime.Environments
     /// <summary>
     /// https://tc39.es/ecma262/#sec-function-environment-records
     /// </summary>
-    internal sealed class FunctionEnvironmentRecord : DeclarativeEnvironmentRecord
+    internal sealed class FunctionEnvironment : DeclarativeEnvironment
     {
         private enum ThisBindingStatus
         {
@@ -26,7 +26,7 @@ namespace Jint.Runtime.Environments
         private ThisBindingStatus _thisBindingStatus;
         internal readonly FunctionInstance _functionObject;
 
-        public FunctionEnvironmentRecord(
+        public FunctionEnvironment(
             Engine engine,
             FunctionInstance functionObject,
             JsValue newTarget) : base(engine)
@@ -205,7 +205,7 @@ namespace Jint.Runtime.Environments
             {
                 var oldEnv = _engine.ExecutionContext.LexicalEnvironment;
                 var paramVarEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, oldEnv);
-                PrivateEnvironmentRecord? privateEnvironment = null; // TODO PRIVATE check when implemented
+                PrivateEnvironment? privateEnvironment = null; // TODO PRIVATE check when implemented
                 _engine.EnterExecutionContext(paramVarEnv, paramVarEnv, _engine.ExecutionContext.Realm, privateEnvironment);
 
                 try

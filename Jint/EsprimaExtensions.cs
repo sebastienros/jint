@@ -10,6 +10,7 @@ using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Expressions;
 using Jint.Runtime.Modules;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint
 {
@@ -282,11 +283,11 @@ namespace Jint
             this Node? expression,
             EvaluationContext context,
             JsValue value,
-            EnvironmentRecord env)
+            Environment env)
         {
             if (expression is Identifier identifier)
             {
-                var catchEnvRecord = (DeclarativeEnvironmentRecord) env;
+                var catchEnvRecord = (DeclarativeEnvironment) env;
                 catchEnvRecord.CreateMutableBindingAndInitialize(identifier.Name, canBeDeleted: false, value);
             }
             else if (expression is BindingPattern bindingPattern)

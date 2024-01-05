@@ -35,7 +35,7 @@ namespace Jint.Runtime
         /// <summary>
         /// The global environment for this realm.
         /// </summary>
-        public GlobalEnvironmentRecord GlobalEnv { get; internal set; } = null!;
+        public GlobalEnvironment GlobalEnv { get; internal set; } = null!;
 
         /// <summary>
         /// Field reserved for use by hosts that need to associate additional information with a Realm Record.

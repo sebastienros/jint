@@ -5,12 +5,12 @@ using Jint.Runtime.Environments;
 
 namespace Jint.Runtime.Modules;
 
-internal sealed class SyntheticModuleRecord : ModuleRecord
+internal sealed class SyntheticModule : Module
 {
     private readonly JsValue _obj;
     private readonly List<string> _exportNames = ["default"];
 
-    internal SyntheticModuleRecord(Engine engine, Realm realm, JsValue obj, string? location)
+    internal SyntheticModule(Engine engine, Realm realm, JsValue obj, string? location)
         : base(engine, realm, location)
     {
         _obj = obj;
@@ -19,7 +19,7 @@ internal sealed class SyntheticModuleRecord : ModuleRecord
         _environment = env;
     }
 
-    public override List<string> GetExportedNames(List<CyclicModuleRecord>? exportStarSet = null) => _exportNames;
+    public override List<string> GetExportedNames(List<CyclicModule>? exportStarSet = null) => _exportNames;
 
     internal override ResolvedBinding? ResolveExport(string exportName, List<ExportResolveSetItem>? resolveSet = null)
     {
@@ -58,7 +58,7 @@ internal sealed class SyntheticModuleRecord : ModuleRecord
         return pc.PromiseInstance;
     }
 
-    protected internal override int InnerModuleLinking(Stack<CyclicModuleRecord> stack, int index)
+    protected internal override int InnerModuleLinking(Stack<CyclicModule> stack, int index)
     {
         foreach (var exportName in _exportNames)
         {
@@ -68,7 +68,7 @@ internal sealed class SyntheticModuleRecord : ModuleRecord
         return index;
     }
 
-    protected internal override Completion InnerModuleEvaluation(Stack<CyclicModuleRecord> stack, int index, ref int asyncEvalOrder)
+    protected internal override Completion InnerModuleEvaluation(Stack<CyclicModule> stack, int index, ref int asyncEvalOrder)
     {
         _environment.SetMutableBinding("default", _obj, strict: true);
         return new Completion(CompletionType.Normal, index, new Identifier(""));

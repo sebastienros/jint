@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native.Generator;
 using Jint.Runtime.Environments;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime
 {
@@ -14,21 +15,21 @@ namespace Jint.Runtime
             _stack = new RefStack<ExecutionContext>(capacity);
         }
 
-        public void ReplaceTopLexicalEnvironment(EnvironmentRecord newEnv)
+        public void ReplaceTopLexicalEnvironment(Environment newEnv)
         {
             var array = _stack._array;
             var size = _stack._size;
             array[size - 1] = array[size - 1].UpdateLexicalEnvironment(newEnv);
         }
 
-        public void ReplaceTopVariableEnvironment(EnvironmentRecord newEnv)
+        public void ReplaceTopVariableEnvironment(Environment newEnv)
         {
             var array = _stack._array;
             var size = _stack._size;
             array[size - 1] = array[size - 1].UpdateVariableEnvironment(newEnv);
         }
 
-        public void ReplaceTopPrivateEnvironment(PrivateEnvironmentRecord? newEnv)
+        public void ReplaceTopPrivateEnvironment(PrivateEnvironment? newEnv)
         {
             var array = _stack._array;
             var size = _stack._size;

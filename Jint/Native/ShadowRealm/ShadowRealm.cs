@@ -11,6 +11,7 @@ using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Statements;
 using Jint.Runtime.Modules;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Native.ShadowRealm;
 
@@ -153,7 +154,7 @@ public sealed class ShadowRealm : ObjectInstance
         var strictEval = script.Strict;
         var runningContext = _engine.ExecutionContext;
         var lexEnv = JintEnvironment.NewDeclarativeEnvironment(_engine, evalRealm.GlobalEnv);
-        EnvironmentRecord varEnv = evalRealm.GlobalEnv;
+        Environment varEnv = evalRealm.GlobalEnv;
 
         if (strictEval)
         {

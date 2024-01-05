@@ -1,5 +1,4 @@
-﻿using Esprima.Ast;
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
@@ -19,9 +18,9 @@ internal sealed record ExportEntry(string? ExportName, ModuleRequest? ModuleRequ
 /// <summary>
 /// https://tc39.es/ecma262/#sec-source-text-module-records
 /// </summary>
-internal class SourceTextModuleRecord : CyclicModuleRecord
+internal class SourceTextModule : CyclicModule
 {
-    internal readonly Module _source;
+    internal readonly Esprima.Ast.Module _source;
     private ExecutionContext _context;
     private ObjectInstance? _importMeta;
     private readonly List<ImportEntry>? _importEntries;
@@ -29,7 +28,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
     private readonly List<ExportEntry> _indirectExportEntries;
     private readonly List<ExportEntry> _starExportEntries;
 
-    internal SourceTextModuleRecord(Engine engine, Realm realm, Module source, string? location, bool async)
+    internal SourceTextModule(Engine engine, Realm realm, Esprima.Ast.Module source, string? location, bool async)
         : base(engine, realm, location, async)
     {
         _source = source;
@@ -64,9 +63,9 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
     /// <summary>
     /// https://tc39.es/ecma262/#sec-getexportednames
     /// </summary>
-    public override List<string?> GetExportedNames(List<CyclicModuleRecord>? exportStarSet = null)
+    public override List<string?> GetExportedNames(List<CyclicModule>? exportStarSet = null)
     {
-        exportStarSet ??= new List<CyclicModuleRecord>();
+        exportStarSet ??= new List<CyclicModule>();
         if (exportStarSet.Contains(this))
         {
             //Reached the starting point of an export * circularity
