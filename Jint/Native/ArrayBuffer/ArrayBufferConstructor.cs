@@ -37,13 +37,13 @@ internal sealed class ArrayBufferConstructor : Constructor
         const PropertyFlag lengthFlags = PropertyFlag.Configurable;
         var properties = new PropertyDictionary(1, checkExistingKeys: false)
         {
-            ["isView"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunctionInstance(Engine, "isView", IsView, 1, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable)),
+            ["isView"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "isView", IsView, 1, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable)),
         };
         SetProperties(properties);
 
         var symbols = new SymbolDictionary(1)
         {
-            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(Engine, "get [Symbol.species]", Species, 0, lengthFlags), set: Undefined,PropertyFlag.Configurable),
+            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get [Symbol.species]", Species, 0, lengthFlags), set: Undefined,PropertyFlag.Configurable),
         };
         SetSymbols(symbols);
     }

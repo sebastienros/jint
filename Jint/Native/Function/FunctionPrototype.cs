@@ -32,10 +32,10 @@ namespace Jint.Native.Function
             var properties = new PropertyDictionary(7, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_realm.Intrinsics.Function, PropertyFlag.NonEnumerable),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "toString", ToString, 0, lengthFlags), propertyFlags),
-                ["apply"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "apply", Apply, 2, lengthFlags), propertyFlags),
-                ["call"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "call", CallImpl, 1, lengthFlags), propertyFlags),
-                ["bind"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "bind", Bind, 1, lengthFlags), propertyFlags),
+                ["toString"] = new PropertyDescriptor(new ClrFunction(_engine, "toString", ToString, 0, lengthFlags), propertyFlags),
+                ["apply"] = new PropertyDescriptor(new ClrFunction(_engine, "apply", Apply, 2, lengthFlags), propertyFlags),
+                ["call"] = new PropertyDescriptor(new ClrFunction(_engine, "call", CallImpl, 1, lengthFlags), propertyFlags),
+                ["bind"] = new PropertyDescriptor(new ClrFunction(_engine, "bind", Bind, 1, lengthFlags), propertyFlags),
                 ["arguments"] = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.Configurable),
                 ["caller"] = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.Configurable)
             };
@@ -43,7 +43,7 @@ namespace Jint.Native.Function
 
             var symbols = new SymbolDictionary(1)
             {
-                [GlobalSymbolRegistry.HasInstance] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "[Symbol.hasInstance]", HasInstance, 1, PropertyFlag.Configurable), PropertyFlag.AllForbidden)
+                [GlobalSymbolRegistry.HasInstance] = new PropertyDescriptor(new ClrFunction(_engine, "[Symbol.hasInstance]", HasInstance, 1, PropertyFlag.Configurable), PropertyFlag.AllForbidden)
             };
             SetSymbols(symbols);
         }
@@ -119,10 +119,10 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-boundfunctioncreate
         /// </summary>
-        private BindFunctionInstance BoundFunctionCreate(ObjectInstance targetFunction, JsValue boundThis, JsValue[] boundArgs)
+        private BindFunction BoundFunctionCreate(ObjectInstance targetFunction, JsValue boundThis, JsValue[] boundArgs)
         {
             var proto = targetFunction.GetPrototypeOf();
-            var obj = new BindFunctionInstance(_engine, _realm, proto, targetFunction, boundThis, boundArgs);
+            var obj = new BindFunction(_engine, _realm, proto, targetFunction, boundThis, boundArgs);
             return obj;
         }
 

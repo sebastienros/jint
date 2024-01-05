@@ -54,7 +54,7 @@ var coolingObject = {
                             {
                                 _engine.Invoke(fi);
                             }
-                            else if (queueEntry is BindFunctionInstance bfi)
+                            else if (queueEntry is BindFunction bfi)
                             {
                                 _engine.Invoke(bfi);
                             }

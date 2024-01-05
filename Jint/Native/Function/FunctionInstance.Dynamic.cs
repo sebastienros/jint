@@ -182,14 +182,14 @@ public partial class FunctionInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-ordinaryfunctioncreate
     /// </summary>
-    internal ScriptFunctionInstance OrdinaryFunctionCreate(
+    internal ScriptFunction OrdinaryFunctionCreate(
         ObjectInstance functionPrototype,
         JintFunctionDefinition function,
         FunctionThisMode thisMode,
         Environment scope,
         PrivateEnvironment? privateScope)
     {
-        return new ScriptFunctionInstance(
+        return new ScriptFunction(
             _engine,
             function,
             scope,

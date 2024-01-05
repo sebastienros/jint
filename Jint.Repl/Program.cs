@@ -62,7 +62,7 @@ while (true)
     {
         var result = engine.Evaluate(input, parserOptions);
         JsValue str = result;
-        if (!result.IsPrimitive() && result is not IPrimitiveInstance)
+        if (!result.IsPrimitive() && result is not IJsPrimitive)
         {
             str = serializer.Serialize(result, JsValue.Undefined, "  ");
             if (str == JsValue.Undefined)

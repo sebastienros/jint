@@ -252,7 +252,7 @@ namespace Jint.Runtime.Interop
             {
                 if (property == GlobalSymbolRegistry.HasInstance)
                 {
-                    var hasInstanceFunction = new ClrFunctionInstance(
+                    var hasInstanceFunction = new ClrFunction(
                         Engine,
                         "[Symbol.hasInstance]",
                         HasInstance,

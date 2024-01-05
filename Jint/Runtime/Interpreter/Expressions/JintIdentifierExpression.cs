@@ -98,7 +98,7 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
 
         // make sure arguments access freezes state
-        if (value is ArgumentsInstance argumentsInstance)
+        if (value is JsArguments argumentsInstance)
         {
             argumentsInstance.Materialize();
         }

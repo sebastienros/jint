@@ -471,7 +471,7 @@ namespace Jint
             return (expression as Identifier)?.Name ?? (expression as Literal)!.StringValue!;
         }
 
-        internal readonly record struct Record(JsValue Key, ScriptFunctionInstance Closure);
+        internal readonly record struct Record(JsValue Key, ScriptFunction Closure);
 
         /// <summary>
         /// Creates a dummy node that can be used when only location available and node is required.

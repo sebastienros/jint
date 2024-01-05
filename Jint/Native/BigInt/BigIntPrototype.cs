@@ -32,9 +32,9 @@ internal sealed class BigIntPrototype : Prototype
         var properties = new PropertyDictionary(4, checkExistingKeys: false)
         {
             ["constructor"] = new(_constructor, true, false, true),
-            ["toString"] = new(new ClrFunctionInstance(Engine, "toString", ToBigIntString, 0, PropertyFlag.Configurable), true, false, true),
-            ["toLocaleString"] = new(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true),
-            ["valueOf"] = new(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true),
+            ["toString"] = new(new ClrFunction(Engine, "toString", ToBigIntString, 0, PropertyFlag.Configurable), true, false, true),
+            ["toLocaleString"] = new(new ClrFunction(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true),
+            ["valueOf"] = new(new ClrFunction(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true),
         };
         SetProperties(properties);
 

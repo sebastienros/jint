@@ -4,7 +4,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.String;
 
-internal class StringInstance : ObjectInstance, IPrimitiveInstance
+internal class StringInstance : ObjectInstance, IJsPrimitive
 {
     internal PropertyDescriptor? _length;
 
@@ -15,9 +15,9 @@ internal class StringInstance : ObjectInstance, IPrimitiveInstance
         _length = PropertyDescriptor.AllForbiddenDescriptor.ForNumber(value.Length);
     }
 
-    Types IPrimitiveInstance.Type => Types.String;
+    Types IJsPrimitive.Type => Types.String;
 
-    JsValue IPrimitiveInstance.PrimitiveValue => StringData;
+    JsValue IJsPrimitive.PrimitiveValue => StringData;
 
     public JsString StringData { get; }
 

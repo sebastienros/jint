@@ -236,7 +236,7 @@ namespace Jint.Runtime
         internal MathInstance Math =>
             _math ??= new MathInstance(_engine, Object.PrototypeObject);
 
-        public JsonInstance Json =>
+        internal JsonInstance Json =>
             _json ??= new JsonInstance(_engine, _realm, Object.PrototypeObject);
 
         internal ProxyConstructor Proxy =>

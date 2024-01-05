@@ -57,7 +57,7 @@ internal sealed class JsPromise : ObjectInstance
     internal ResolvingFunctions CreateResolvingFunctions()
     {
         var alreadyResolved = false;
-        var resolve = new ClrFunctionInstance(_engine, "", (thisObj, args) =>
+        var resolve = new ClrFunction(_engine, "", (thisObj, args) =>
         {
             if (alreadyResolved)
             {
@@ -68,7 +68,7 @@ internal sealed class JsPromise : ObjectInstance
             return Resolve(thisObj, args);
         }, 1, PropertyFlag.Configurable);
 
-        var reject = new ClrFunctionInstance(_engine, "", (thisObj, args) =>
+        var reject = new ClrFunction(_engine, "", (thisObj, args) =>
         {
             if (alreadyResolved)
             {

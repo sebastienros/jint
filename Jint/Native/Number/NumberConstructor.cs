@@ -43,12 +43,12 @@ namespace Jint.Native.Number
                 ["EPSILON"] = new PropertyDescriptor(new PropertyDescriptor(JsNumber.JavaScriptEpsilon, PropertyFlag.AllForbidden)),
                 ["MIN_SAFE_INTEGER"] = new PropertyDescriptor(new PropertyDescriptor(MinSafeInteger, PropertyFlag.AllForbidden)),
                 ["MAX_SAFE_INTEGER"] = new PropertyDescriptor(new PropertyDescriptor(MaxSafeInteger, PropertyFlag.AllForbidden)),
-                ["isFinite"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isFinite", IsFinite, 1, PropertyFlag.Configurable), true, false, true),
-                ["isInteger"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isInteger", IsInteger, 1, PropertyFlag.Configurable), true, false, true),
-                ["isNaN"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isNaN", IsNaN, 1, PropertyFlag.Configurable), true, false, true),
-                ["isSafeInteger"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isSafeInteger", IsSafeInteger, 1, PropertyFlag.Configurable), true, false, true),
-                ["parseFloat"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseFloat", GlobalObject.ParseFloat, 0, PropertyFlag.Configurable), true, false, true),
-                ["parseInt"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parseInt", GlobalObject.ParseInt, 0, PropertyFlag.Configurable), true, false, true)
+                ["isFinite"] = new PropertyDescriptor(new ClrFunction(Engine, "isFinite", IsFinite, 1, PropertyFlag.Configurable), true, false, true),
+                ["isInteger"] = new PropertyDescriptor(new ClrFunction(Engine, "isInteger", IsInteger, 1, PropertyFlag.Configurable), true, false, true),
+                ["isNaN"] = new PropertyDescriptor(new ClrFunction(Engine, "isNaN", IsNaN, 1, PropertyFlag.Configurable), true, false, true),
+                ["isSafeInteger"] = new PropertyDescriptor(new ClrFunction(Engine, "isSafeInteger", IsSafeInteger, 1, PropertyFlag.Configurable), true, false, true),
+                ["parseFloat"] = new PropertyDescriptor(new ClrFunction(Engine, "parseFloat", GlobalObject.ParseFloat, 0, PropertyFlag.Configurable), true, false, true),
+                ["parseInt"] = new PropertyDescriptor(new ClrFunction(Engine, "parseInt", GlobalObject.ParseInt, 0, PropertyFlag.Configurable), true, false, true)
             };
             SetProperties(properties);
         }

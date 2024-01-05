@@ -77,7 +77,7 @@ namespace Jint.Runtime.Environments
         private void ThrowUninitializedThis()
         {
             var message = "Cannot access uninitialized 'this'";
-            if (NewTarget is ScriptFunctionInstance { _isClassConstructor: true, _constructorKind: ConstructorKind.Derived })
+            if (NewTarget is ScriptFunction { _isClassConstructor: true, _constructorKind: ConstructorKind.Derived })
             {
                 // help with better error message
                 message = "Must call super constructor in derived class before accessing 'this' or returning from derived constructor";

@@ -23,7 +23,7 @@ internal class IteratorPrototype : Prototype
     {
         var symbols = new SymbolDictionary(1)
         {
-            [GlobalSymbolRegistry.Iterator] = new(new ClrFunctionInstance(Engine, "[Symbol.iterator]", ToIterator, 0, PropertyFlag.Configurable), true, false, true),
+            [GlobalSymbolRegistry.Iterator] = new(new ClrFunction(Engine, "[Symbol.iterator]", ToIterator, 0, PropertyFlag.Configurable), true, false, true),
         };
         SetSymbols(symbols);
     }

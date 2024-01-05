@@ -30,13 +30,13 @@ namespace Jint.Native.Object
             var properties = new PropertyDictionary(12, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_constructor, propertyFlags),
-                ["__defineGetter__"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "__defineGetter__", DefineGetter, 2, lengthFlags), propertyFlags),
-                ["__defineSetter__"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "__defineSetter__", DefineSetter, 2, lengthFlags), propertyFlags),
-                ["__lookupGetter__"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "__lookupGetter__", LookupGetter, 1, lengthFlags), propertyFlags),
-                ["__lookupSetter__"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "__lookupSetter__", LookupSetter, 1, lengthFlags), propertyFlags),
+                ["__defineGetter__"] = new PropertyDescriptor(new ClrFunction(Engine, "__defineGetter__", DefineGetter, 2, lengthFlags), propertyFlags),
+                ["__defineSetter__"] = new PropertyDescriptor(new ClrFunction(Engine, "__defineSetter__", DefineSetter, 2, lengthFlags), propertyFlags),
+                ["__lookupGetter__"] = new PropertyDescriptor(new ClrFunction(Engine, "__lookupGetter__", LookupGetter, 1, lengthFlags), propertyFlags),
+                ["__lookupSetter__"] = new PropertyDescriptor(new ClrFunction(Engine, "__lookupSetter__", LookupSetter, 1, lengthFlags), propertyFlags),
                 ["__proto__"] = new GetSetPropertyDescriptor(
-                    new ClrFunctionInstance(Engine, "get __proto__", (thisObject, _) => TypeConverter.ToObject(_realm, thisObject).GetPrototypeOf() ?? Null, 0, lengthFlags),
-                    new ClrFunctionInstance(Engine, "set __proto__", (thisObject, arguments) =>
+                    new ClrFunction(Engine, "get __proto__", (thisObject, _) => TypeConverter.ToObject(_realm, thisObject).GetPrototypeOf() ?? Null, 0, lengthFlags),
+                    new ClrFunction(Engine, "set __proto__", (thisObject, arguments) =>
                     {
                         TypeConverter.CheckObjectCoercible(_engine, thisObject);
 
@@ -54,12 +54,12 @@ namespace Jint.Native.Object
                         return Undefined;
                     }, 0, lengthFlags),
                     enumerable: false, configurable: true),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToObjectString, 0, lengthFlags), propertyFlags),
-                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, lengthFlags), propertyFlags),
-                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), propertyFlags),
-                ["hasOwnProperty"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "hasOwnProperty", HasOwnProperty, 1, lengthFlags), propertyFlags),
-                ["isPrototypeOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "isPrototypeOf", IsPrototypeOf, 1, lengthFlags), propertyFlags),
-                ["propertyIsEnumerable"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "propertyIsEnumerable", PropertyIsEnumerable, 1, lengthFlags), propertyFlags)
+                ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToObjectString, 0, lengthFlags), propertyFlags),
+                ["toLocaleString"] = new PropertyDescriptor(new ClrFunction(Engine, "toLocaleString", ToLocaleString, 0, lengthFlags), propertyFlags),
+                ["valueOf"] = new PropertyDescriptor(new ClrFunction(Engine, "valueOf", ValueOf, 0, lengthFlags), propertyFlags),
+                ["hasOwnProperty"] = new PropertyDescriptor(new ClrFunction(Engine, "hasOwnProperty", HasOwnProperty, 1, lengthFlags), propertyFlags),
+                ["isPrototypeOf"] = new PropertyDescriptor(new ClrFunction(Engine, "isPrototypeOf", IsPrototypeOf, 1, lengthFlags), propertyFlags),
+                ["propertyIsEnumerable"] = new PropertyDescriptor(new ClrFunction(Engine, "propertyIsEnumerable", PropertyIsEnumerable, 1, lengthFlags), propertyFlags)
             };
             SetProperties(properties);
         }

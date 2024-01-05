@@ -35,13 +35,13 @@ internal sealed class MapConstructor : Constructor
         const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
         var properties = new PropertyDictionary(1, checkExistingKeys: false)
         {
-            ["groupBy"] = new(new ClrFunctionInstance(Engine, "groupBy", GroupBy, 2, PropertyFlag.Configurable), PropertyFlags),
+            ["groupBy"] = new(new ClrFunction(Engine, "groupBy", GroupBy, 2, PropertyFlag.Configurable), PropertyFlags),
         };
         SetProperties(properties);
 
         var symbols = new SymbolDictionary(1)
         {
-            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunctionInstance(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
+            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunction(_engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable)
         };
         SetSymbols(symbols);
     }

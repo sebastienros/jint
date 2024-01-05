@@ -83,7 +83,7 @@ public partial class InteropTests
                 // custom serializer hook for known object types
                 if (member == "toJSON" && target is TimeSpan)
                 {
-                    return new ClrFunctionInstance(e, "toJSON", (thisObject, _) =>
+                    return new ClrFunction(e, "toJSON", (thisObject, _) =>
                     {
                         // here could check other types too
                         var wrappedInstance = ((IObjectWrapper) thisObject).Target;

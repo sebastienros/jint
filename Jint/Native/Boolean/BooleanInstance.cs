@@ -3,7 +3,7 @@ using Jint.Runtime;
 
 namespace Jint.Native.Boolean;
 
-internal class BooleanInstance : ObjectInstance, IPrimitiveInstance
+internal class BooleanInstance : ObjectInstance, IJsPrimitive
 {
     public BooleanInstance(Engine engine, JsBoolean value)
         : base(engine, ObjectClass.Boolean)
@@ -11,9 +11,9 @@ internal class BooleanInstance : ObjectInstance, IPrimitiveInstance
         BooleanData = value;
     }
 
-    Types IPrimitiveInstance.Type => Types.Boolean;
+    Types IJsPrimitive.Type => Types.Boolean;
 
-    JsValue IPrimitiveInstance.PrimitiveValue => BooleanData;
+    JsValue IJsPrimitive.PrimitiveValue => BooleanData;
 
     public JsBoolean BooleanData { get; }
 }

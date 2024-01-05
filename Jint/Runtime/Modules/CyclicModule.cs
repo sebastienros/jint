@@ -419,8 +419,8 @@ public abstract class CyclicModule : Module
 
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
 
-        var onFullfilled = new ClrFunctionInstance(_engine, "fulfilled", AsyncModuleExecutionFulfilled, 1, PropertyFlag.Configurable);
-        var onRejected = new ClrFunctionInstance(_engine, "rejected", AsyncModuleExecutionRejected, 1, PropertyFlag.Configurable);
+        var onFullfilled = new ClrFunction(_engine, "fulfilled", AsyncModuleExecutionFulfilled, 1, PropertyFlag.Configurable);
+        var onRejected = new ClrFunction(_engine, "rejected", AsyncModuleExecutionRejected, 1, PropertyFlag.Configurable);
 
         PromiseOperations.PerformPromiseThen(_engine, (JsPromise) capability.PromiseInstance, onFullfilled, onRejected, null);
 

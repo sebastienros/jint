@@ -39,7 +39,7 @@ internal sealed class IntlInstance : ObjectInstance
             ["PluralRules"] = new(_realm.Intrinsics.PluralRules, false, false, true),
             ["RelativeTimeFormat"] = new(_realm.Intrinsics.RelativeTimeFormat, false, false, true),
             ["Segmenter"] = new(_realm.Intrinsics.Segmenter, false, false, true),
-            ["getCanonicalLocales "] = new(new ClrFunctionInstance(Engine, "getCanonicalLocales ", GetCanonicalLocales , 1, PropertyFlag.Configurable), true, false, true),
+            ["getCanonicalLocales "] = new(new ClrFunction(Engine, "getCanonicalLocales ", GetCanonicalLocales , 1, PropertyFlag.Configurable), true, false, true),
         };
         SetProperties(properties);
 

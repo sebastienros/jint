@@ -7,7 +7,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Json
 {
-    public sealed class JsonInstance : ObjectInstance
+    internal sealed class JsonInstance : ObjectInstance
     {
         private readonly Realm _realm;
 
@@ -26,8 +26,8 @@ namespace Jint.Native.Json
             var properties = new PropertyDictionary(2, checkExistingKeys: false)
             {
 #pragma warning disable 618
-                ["parse"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "parse", Parse, 2, PropertyFlag.Configurable), true, false, true),
-                ["stringify"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "stringify", Stringify, 3, PropertyFlag.Configurable), true, false, true)
+                ["parse"] = new PropertyDescriptor(new ClrFunction(Engine, "parse", Parse, 2, PropertyFlag.Configurable), true, false, true),
+                ["stringify"] = new PropertyDescriptor(new ClrFunction(Engine, "stringify", Stringify, 3, PropertyFlag.Configurable), true, false, true)
 #pragma warning restore 618
             };
             SetProperties(properties);
@@ -87,8 +87,7 @@ namespace Jint.Native.Json
         /// <summary>
         /// https://tc39.es/ecma262/#sec-json.parse
         /// </summary>
-        [Obsolete("Method will be made private, use JsonParser directly")]
-        public JsValue Parse(JsValue thisObject, JsValue[] arguments)
+        private JsValue Parse(JsValue thisObject, JsValue[] arguments)
         {
             var jsonString = TypeConverter.ToString(arguments.At(0));
             var reviver = arguments.At(1);
@@ -109,8 +108,7 @@ namespace Jint.Native.Json
             }
         }
 
-        [Obsolete("Method will be made private, use JsonSerializer directly")]
-        public JsValue Stringify(JsValue thisObject, JsValue[] arguments)
+        private JsValue Stringify(JsValue thisObject, JsValue[] arguments)
         {
             var value = arguments.At(0);
             var replacer = arguments.At(1);

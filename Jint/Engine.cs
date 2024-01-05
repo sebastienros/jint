@@ -1035,7 +1035,7 @@ namespace Jint
         /// <summary>
         /// https://tc39.es/ecma262/#sec-functiondeclarationinstantiation
         /// </summary>
-        internal ArgumentsInstance? FunctionDeclarationInstantiation(
+        internal JsArguments? FunctionDeclarationInstantiation(
             FunctionInstance functionInstance,
             JsValue[] argumentsList)
         {
@@ -1055,7 +1055,7 @@ namespace Jint
             var arguments = canInitializeParametersOnDeclaration ? argumentsList : null;
             env.InitializeParameters(parameterNames, hasDuplicates, arguments);
 
-            ArgumentsInstance? ao = null;
+            JsArguments? ao = null;
             if (configuration.ArgumentsObjectNeeded || _isDebugMode)
             {
                 if (strict || !simpleParameterList)
@@ -1176,7 +1176,7 @@ namespace Jint
             return ao;
         }
 
-        private ArgumentsInstance CreateMappedArgumentsObject(
+        private JsArguments CreateMappedArgumentsObject(
             FunctionInstance func,
             Key[] formals,
             JsValue[] argumentsList,
@@ -1186,7 +1186,7 @@ namespace Jint
             return _argumentsInstancePool.Rent(func, formals, argumentsList, envRec, hasRestParameter);
         }
 
-        private ArgumentsInstance CreateUnmappedArgumentsObject(JsValue[] argumentsList)
+        private JsArguments CreateUnmappedArgumentsObject(JsValue[] argumentsList)
         {
             return _argumentsInstancePool.Rent(argumentsList);
         }

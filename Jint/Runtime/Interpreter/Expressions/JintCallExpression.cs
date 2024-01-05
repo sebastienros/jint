@@ -271,7 +271,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             thisER.BindThisValue(result);
             var F = thisER._functionObject;
 
-            result.InitializeInstanceElements((ScriptFunctionInstance) F);
+            result.InitializeInstanceElements((ScriptFunction) F);
 
             return result;
         }

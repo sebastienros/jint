@@ -7,21 +7,21 @@ using Jint.Native.Function;
 
 namespace Jint.Runtime.Interop
 {
-    internal sealed class MethodInfoFunctionInstance : FunctionInstance
+    internal sealed class MethodInfoFunction : FunctionInstance
     {
         private readonly Type _targetType;
         private readonly object? _target;
         private readonly string _name;
         private readonly MethodDescriptor[] _methods;
-        private readonly ClrFunctionInstance? _fallbackClrFunctionInstance;
+        private readonly ClrFunction? _fallbackClrFunctionInstance;
 
-        public MethodInfoFunctionInstance(
+        public MethodInfoFunction(
             Engine engine,
             Type targetType,
             object? target,
             string name,
             MethodDescriptor[] methods,
-            ClrFunctionInstance? fallbackClrFunctionInstance = null)
+            ClrFunction? fallbackClrFunctionInstance = null)
             : base(engine, engine.Realm, new JsString(name))
         {
             _targetType = targetType;

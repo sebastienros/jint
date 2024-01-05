@@ -255,7 +255,7 @@ namespace Jint.Native.Function
                 return functionInstance._realm;
             }
 
-            if (obj is BindFunctionInstance bindFunctionInstance)
+            if (obj is BindFunction bindFunctionInstance)
             {
                 return GetFunctionRealm(bindFunctionInstance.BoundTargetFunction);
             }

@@ -11,8 +11,8 @@ namespace Jint.Runtime.Descriptors.Specialized
         private readonly Engine _engine;
         private readonly Environment.BindingName _name;
 
-        private GetterFunctionInstance? _get;
-        private SetterFunctionInstance? _set;
+        private GetterFunction? _get;
+        private SetterFunction? _set;
 
         public ClrAccessDescriptor(
             DeclarativeEnvironment env,
@@ -26,8 +26,8 @@ namespace Jint.Runtime.Descriptors.Specialized
             _name = new Environment.BindingName(name);
         }
 
-        public override JsValue Get => _get ??= new GetterFunctionInstance(_engine, DoGet);
-        public override JsValue Set => _set ??= new SetterFunctionInstance(_engine, DoSet);
+        public override JsValue Get => _get ??= new GetterFunction(_engine, DoGet);
+        public override JsValue Set => _set ??= new SetterFunction(_engine, DoSet);
 
         private JsValue DoGet(JsValue n)
         {
