@@ -222,7 +222,7 @@ assertEqual(booleanCount, 1);
                     function foo(a = 123) { return a; }
                     foo()
                 })")
-            .As<FunctionInstance>().Call();
+            .As<Function>().Call();
 
         var result = _engine.Evaluate(@"
                 (function () {
@@ -230,7 +230,7 @@ assertEqual(booleanCount, 1);
                     let f = new Foo()
                     return f.test()
                 })")
-            .As<FunctionInstance>().Call();
+            .As<Function>().Call();
 
         Assert.True(result.IsInteger());
         Assert.Equal(123, result.AsInteger());

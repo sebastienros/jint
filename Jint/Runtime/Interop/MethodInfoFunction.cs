@@ -7,7 +7,7 @@ using Jint.Native.Function;
 
 namespace Jint.Runtime.Interop
 {
-    internal sealed class MethodInfoFunction : FunctionInstance
+    internal sealed class MethodInfoFunction : Function
     {
         private readonly Type _targetType;
         private readonly object? _target;

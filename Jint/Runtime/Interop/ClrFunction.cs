@@ -9,7 +9,7 @@ namespace Jint.Runtime.Interop;
 /// <summary>
 /// Wraps a CLR method into a JS function.
 /// </summary>
-public sealed class ClrFunction : FunctionInstance, IEquatable<ClrFunction>
+public sealed class ClrFunction : Function, IEquatable<ClrFunction>
 {
     internal readonly Func<JsValue, JsValue[], JsValue> _func;
     private readonly bool _bubbleExceptions;

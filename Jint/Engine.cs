@@ -448,7 +448,7 @@ namespace Jint
             var (resolve, reject) = promise.CreateResolvingFunctions();
 
 
-            Action<JsValue> SettleWith(FunctionInstance settle) => value =>
+            Action<JsValue> SettleWith(Function settle) => value =>
             {
                 settle.Call(JsValue.Undefined, new[] { value });
                 RunAvailableContinuations();
@@ -759,7 +759,7 @@ namespace Jint
                 // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
                 JsValue result;
                 var thisObject = JsValue.FromObject(this, thisObj);
-                if (callable is FunctionInstance functionInstance)
+                if (callable is Function functionInstance)
                 {
                     var callStack = CallStack;
                     callStack.Push(functionInstance, expression: null, ExecutionContext);
@@ -1023,11 +1023,11 @@ namespace Jint
         /// https://tc39.es/ecma262/#sec-functiondeclarationinstantiation
         /// </summary>
         internal JsArguments? FunctionDeclarationInstantiation(
-            FunctionInstance functionInstance,
+            Function function,
             JsValue[] argumentsList)
         {
             var calleeContext = ExecutionContext;
-            var func = functionInstance._functionDefinition;
+            var func = function._functionDefinition;
 
             var env = (FunctionEnvironment) ExecutionContext.LexicalEnvironment;
             var strict = _isStrict || StrictModeScope.IsStrictModeCode;
@@ -1053,7 +1053,7 @@ namespace Jint
                 {
                     // NOTE: mapped argument object is only provided for non-strict functions that don't have a rest parameter,
                     // any parameter default value initializers, or any destructured parameters.
-                    ao = CreateMappedArgumentsObject(functionInstance, parameterNames, argumentsList, env, configuration.HasRestParameter);
+                    ao = CreateMappedArgumentsObject(function, parameterNames, argumentsList, env, configuration.HasRestParameter);
                 }
 
                 if (strict)
@@ -1164,7 +1164,7 @@ namespace Jint
         }
 
         private JsArguments CreateMappedArgumentsObject(
-            FunctionInstance func,
+            Function func,
             Key[] formals,
             JsValue[] argumentsList,
             DeclarativeEnvironment envRec,
@@ -1435,7 +1435,7 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal JsValue Call(ICallable callable, JsValue thisObject, JsValue[] arguments, JintExpression? expression)
         {
-            if (callable is FunctionInstance functionInstance)
+            if (callable is Function functionInstance)
             {
                 return Call(functionInstance, thisObject, arguments, expression);
             }
@@ -1482,7 +1482,7 @@ namespace Jint
             JsValue newTarget,
             JintExpression? expression)
         {
-            if (constructor is FunctionInstance functionInstance)
+            if (constructor is Function functionInstance)
             {
                 return Construct(functionInstance, arguments, newTarget, expression);
             }
@@ -1490,18 +1490,18 @@ namespace Jint
             return ((IConstructor) constructor).Construct(arguments, newTarget);
         }
 
-        internal JsValue Call(FunctionInstance functionInstance, JsValue thisObject)
-            => Call(functionInstance, thisObject, Arguments.Empty, null);
+        internal JsValue Call(Function function, JsValue thisObject)
+            => Call(function, thisObject, Arguments.Empty, null);
 
         internal JsValue Call(
-            FunctionInstance functionInstance,
+            Function function,
             JsValue thisObject,
             JsValue[] arguments,
             JintExpression? expression)
         {
             // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
 
-            var recursionDepth = CallStack.Push(functionInstance, expression, ExecutionContext);
+            var recursionDepth = CallStack.Push(function, expression, ExecutionContext);
 
             if (recursionDepth > Options.Constraints.MaxRecursionDepth)
             {
@@ -1512,7 +1512,7 @@ namespace Jint
             JsValue result;
             try
             {
-                result = functionInstance.Call(thisObject, arguments);
+                result = function.Call(thisObject, arguments);
             }
             finally
             {
@@ -1527,14 +1527,14 @@ namespace Jint
         }
 
         private ObjectInstance Construct(
-            FunctionInstance functionInstance,
+            Function function,
             JsValue[] arguments,
             JsValue newTarget,
             JintExpression? expression)
         {
             // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
 
-            var recursionDepth = CallStack.Push(functionInstance, expression, ExecutionContext);
+            var recursionDepth = CallStack.Push(function, expression, ExecutionContext);
 
             if (recursionDepth > Options.Constraints.MaxRecursionDepth)
             {
@@ -1545,7 +1545,7 @@ namespace Jint
             ObjectInstance result;
             try
             {
-                result = ((IConstructor) functionInstance).Construct(arguments, newTarget);
+                result = ((IConstructor) function).Construct(arguments, newTarget);
             }
             finally
             {

@@ -47,7 +47,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-instantiatefunctionobject
         /// </summary>
-        internal FunctionInstance InstantiateFunctionObject(
+        internal Function InstantiateFunctionObject(
             JintFunctionDefinition functionDeclaration,
             Environment scope,
             PrivateEnvironment? privateEnv)

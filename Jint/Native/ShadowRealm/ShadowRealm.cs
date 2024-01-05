@@ -288,7 +288,7 @@ public sealed class ShadowRealm : ObjectInstance
         return value;
     }
 
-    private sealed class StepsFunction : FunctionInstance
+    private sealed class StepsFunction : Function.Function
     {
         private readonly string _exportNameString;
 
@@ -331,7 +331,7 @@ public sealed class ShadowRealm : ObjectInstance
         ExceptionHelper.ThrowTypeError(callerRealm, "Cross-Realm Error: " + message);
     }
 
-    private sealed class WrappedFunction : FunctionInstance
+    private sealed class WrappedFunction : Function.Function
     {
         private readonly ObjectInstance _wrappedTargetFunction;
 

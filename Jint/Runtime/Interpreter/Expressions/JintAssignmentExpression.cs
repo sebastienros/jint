@@ -327,7 +327,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var rval = expression.GetValue(context);
             if (expression._expression.IsAnonymousFunctionDefinition() && _left._expression.Type == Nodes.Identifier)
             {
-                ((FunctionInstance) rval).SetFunctionName(((Identifier) _left._expression).Name);
+                ((Function) rval).SetFunctionName(((Identifier) _left._expression).Name);
             }
 
             return rval;
@@ -422,7 +422,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     if (right._expression.IsFunctionDefinition())
                     {
-                        ((FunctionInstance) rval).SetFunctionName(identifier.Value);
+                        ((Function) rval).SetFunctionName(identifier.Value);
                     }
 
                     environmentRecord.SetMutableBinding(identifier, rval, strict);

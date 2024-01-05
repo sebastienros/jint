@@ -24,11 +24,11 @@ namespace Jint.Runtime.Environments
 
         private JsValue? _thisValue;
         private ThisBindingStatus _thisBindingStatus;
-        internal readonly FunctionInstance _functionObject;
+        internal readonly Function _functionObject;
 
         public FunctionEnvironment(
             Engine engine,
-            FunctionInstance functionObject,
+            Function functionObject,
             JsValue newTarget) : base(engine)
         {
             _functionObject = functionObject;
@@ -345,7 +345,7 @@ namespace Jint.Runtime.Environments
 
                 if (idLeft != null && right.IsFunctionDefinition())
                 {
-                    ((FunctionInstance) argument).SetFunctionName(idLeft.Name);
+                    ((Function) argument).SetFunctionName(idLeft.Name);
                 }
             }
 

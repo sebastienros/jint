@@ -13,7 +13,7 @@ namespace Jint.Native.Function
     /// <summary>
     /// https://tc39.es/ecma262/#sec-properties-of-the-function-prototype-object
     /// </summary>
-    internal sealed class FunctionPrototype : FunctionInstance
+    internal sealed class FunctionPrototype : Function
     {
         internal FunctionPrototype(
             Engine engine,

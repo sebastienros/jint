@@ -178,7 +178,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             // ensure logic is in sync between Call, Construct and JintCallExpression!
 
             JsValue result;
-            if (callable is FunctionInstance functionInstance)
+            if (callable is Function functionInstance)
             {
                 var callStack = engine.CallStack;
                 var recursionDepth = callStack.Push(functionInstance, _calleeExpression, engine.ExecutionContext);
@@ -242,7 +242,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return JsValue.Undefined;
             }
 
-            var evalFunctionInstance = (EvalFunctionInstance) func;
+            var evalFunctionInstance = (EvalFunction) func;
             var evalArg = argList[0];
             var strictCaller = StrictModeScope.IsStrictModeCode;
             var evalRealm = evalFunctionInstance._realm;

@@ -469,9 +469,9 @@ public static class JsValueExtensions
 
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static FunctionInstance AsFunctionInstance(this JsValue value)
+    public static Function AsFunctionInstance(this JsValue value)
     {
-        if (value is not FunctionInstance instance)
+        if (value is not Function instance)
         {
             ThrowWrongTypeException(value, "FunctionInstance");
             return null!;

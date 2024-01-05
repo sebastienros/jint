@@ -8,7 +8,7 @@ namespace Jint.Runtime.CallStack
     internal readonly struct CallStackElement : IEquatable<CallStackElement>
     {
         public CallStackElement(
-            FunctionInstance function,
+            Function function,
             JintExpression? expression,
             in CallStackExecutionContext callingExecutionContext)
         {
@@ -17,7 +17,7 @@ namespace Jint.Runtime.CallStack
             CallingExecutionContext = callingExecutionContext;
         }
 
-        public readonly FunctionInstance Function;
+        public readonly Function Function;
         public readonly JintExpression? Expression;
         public readonly CallStackExecutionContext CallingExecutionContext;
 

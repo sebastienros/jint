@@ -78,7 +78,7 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// https://tc39.es/ecma262/#sec-newfunctionenvironment
         /// </summary>
-        internal static FunctionEnvironment NewFunctionEnvironment(Engine engine, FunctionInstance f, JsValue newTarget)
+        internal static FunctionEnvironment NewFunctionEnvironment(Engine engine, Function f, JsValue newTarget)
         {
             return new FunctionEnvironment(engine, f, newTarget)
             {

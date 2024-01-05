@@ -112,7 +112,7 @@ namespace Jint.Runtime.Interop
                     var delegatePropertyKey = "__jint_delegate_" + type.GUID;
 
                     var func = (Func<JsValue, JsValue[], JsValue>) value;
-                    var functionInstance = func.Target as FunctionInstance;
+                    var functionInstance = func.Target as Function;
 
                     var d = functionInstance?.GetHiddenClrObjectProperty(delegatePropertyKey) as Delegate;
 
@@ -268,7 +268,7 @@ namespace Jint.Runtime.Interop
                 }
                 else if (param.Type.IsArray &&
                          arguments[i].GetCustomAttribute<ParamArrayAttribute>() is not null &&
-                         function.Target is FunctionInstance instance)
+                         function.Target is Function instance)
                 {
                     for (var j = 0; j < instance.GetLength(); j++)
                     {
