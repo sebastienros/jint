@@ -15,7 +15,7 @@ namespace Jint.Native.WeakSet;
 internal sealed class WeakSetPrototype : Prototype
 {
     private readonly WeakSetConstructor _constructor;
-    internal ClrFunctionInstance _originalAddFunction = null!;
+    internal ClrFunction _originalAddFunction = null!;
 
     internal WeakSetPrototype(
         Engine engine,
@@ -29,16 +29,16 @@ internal sealed class WeakSetPrototype : Prototype
 
     protected override void Initialize()
     {
-        _originalAddFunction = new ClrFunctionInstance(Engine, "add", Add, 1, PropertyFlag.Configurable);
+        _originalAddFunction = new ClrFunction(Engine, "add", Add, 1, PropertyFlag.Configurable);
 
         const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
         var properties = new PropertyDictionary(5, checkExistingKeys: false)
         {
             ["length"] = new(0, PropertyFlag.Configurable),
             ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
-            ["delete"] = new(new ClrFunctionInstance(Engine, "delete", Delete, 1, PropertyFlag.Configurable), PropertyFlags),
+            ["delete"] = new(new ClrFunction(Engine, "delete", Delete, 1, PropertyFlag.Configurable), PropertyFlags),
             ["add"] = new(_originalAddFunction, PropertyFlags),
-            ["has"] = new(new ClrFunctionInstance(Engine, "has", Has, 1, PropertyFlag.Configurable), PropertyFlags),
+            ["has"] = new(new ClrFunction(Engine, "has", Has, 1, PropertyFlag.Configurable), PropertyFlags),
         };
         SetProperties(properties);
 

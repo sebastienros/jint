@@ -360,9 +360,9 @@ myarr[0](0);
 
         private class MyApi
         {
-            public readonly Dictionary<string, ScriptFunctionInstance> Callbacks = new Dictionary<string, ScriptFunctionInstance>();
+            public readonly Dictionary<string, ScriptFunction> Callbacks = new Dictionary<string, ScriptFunction>();
 
-            public void AddEventListener(string eventName, ScriptFunctionInstance callback)
+            public void AddEventListener(string eventName, ScriptFunction callback)
             {
                 Callbacks.Add(eventName, callback);
             }

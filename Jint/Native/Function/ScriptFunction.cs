@@ -9,7 +9,7 @@ using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Native.Function
 {
-    public sealed class ScriptFunctionInstance : FunctionInstance, IConstructor
+    public sealed class ScriptFunction : FunctionInstance, IConstructor
     {
         internal bool _isClassConstructor;
         internal JsValue? _classFieldInitializerName;
@@ -20,7 +20,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// http://www.ecma-international.org/ecma-262/5.1/#sec-13.2
         /// </summary>
-        public ScriptFunctionInstance(
+        public ScriptFunction(
             Engine engine,
             IFunction functionDeclaration,
             Environment env,
@@ -35,7 +35,7 @@ namespace Jint.Native.Function
         {
         }
 
-        internal ScriptFunctionInstance(
+        internal ScriptFunction(
             Engine engine,
             JintFunctionDefinition function,
             Environment env,

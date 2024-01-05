@@ -116,7 +116,7 @@ namespace Jint
             {
                 engine.Realm.GlobalObject.SetProperty("System",
                     new PropertyDescriptor(new NamespaceReference(engine, "System"), PropertyFlag.AllForbidden));
-                engine.Realm.GlobalObject.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunctionInstance(
+                engine.Realm.GlobalObject.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunction(
                         engine,
                         "importNamespace",
                         (thisObj, arguments) =>
@@ -135,7 +135,7 @@ namespace Jint
             if (Modules.RegisterRequire)
             {
                 // Node js like loading of modules
-                engine.Realm.GlobalObject.SetProperty("require", new PropertyDescriptor(new ClrFunctionInstance(
+                engine.Realm.GlobalObject.SetProperty("require", new PropertyDescriptor(new ClrFunction(
                         engine,
                         "require",
                         (thisObj, arguments) =>
@@ -169,9 +169,9 @@ namespace Jint
 
             foreach (var overloads in methods.GroupBy(x => x.Name, StringComparer.Ordinal))
             {
-                PropertyDescriptor CreateMethodInstancePropertyDescriptor(ClrFunctionInstance? function)
+                PropertyDescriptor CreateMethodInstancePropertyDescriptor(ClrFunction? function)
                 {
-                    var instance = new MethodInfoFunctionInstance(
+                    var instance = new MethodInfoFunction(
                         engine,
                         objectType,
                         target: null,
@@ -187,7 +187,7 @@ namespace Jint
                 PropertyDescriptor? descriptorWithoutFallback = null;
 
                 if (prototype.HasOwnProperty(key) &&
-                    prototype.GetOwnProperty(key).Value is ClrFunctionInstance clrFunctionInstance)
+                    prototype.GetOwnProperty(key).Value is ClrFunction clrFunctionInstance)
                 {
                     descriptorWithFallback = CreateMethodInstancePropertyDescriptor(clrFunctionInstance);
                     prototype.SetOwnProperty(key, descriptorWithFallback);
@@ -204,7 +204,7 @@ namespace Jint
                     key = char.ToLower(overloads.Key[0], CultureInfo.InvariantCulture) + overloads.Key.Substring(1);
 
                     if (prototype.HasOwnProperty(key) &&
-                        prototype.GetOwnProperty(key).Value is ClrFunctionInstance lowerclrFunctionInstance)
+                        prototype.GetOwnProperty(key).Value is ClrFunction lowerclrFunctionInstance)
                     {
                         descriptorWithFallback ??= CreateMethodInstancePropertyDescriptor(lowerclrFunctionInstance);
                         prototype.SetOwnProperty(key, descriptorWithFallback);

@@ -21,7 +21,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public override JsValue GetValue(EvaluationContext context)
         {
-            ScriptFunctionInstance closure;
+            ScriptFunction closure;
             var functionName = _function.Name ?? "";
             if (!_function.Function.Generator)
             {
@@ -40,7 +40,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-instantiateordinaryfunctionexpression
         /// </summary>
-        private ScriptFunctionInstance InstantiateOrdinaryFunctionExpression(EvaluationContext context, string? name = "")
+        private ScriptFunction InstantiateOrdinaryFunctionExpression(EvaluationContext context, string? name = "")
         {
             var engine = context.Engine;
             var runningExecutionContext = engine.ExecutionContext;
@@ -82,7 +82,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-instantiateasyncfunctionexpression
         /// </summary>
-        private ScriptFunctionInstance InstantiateAsyncFunctionExpression(EvaluationContext context, string? name = "")
+        private ScriptFunction InstantiateAsyncFunctionExpression(EvaluationContext context, string? name = "")
         {
             var engine = context.Engine;
             var runningExecutionContext = engine.ExecutionContext;
@@ -121,7 +121,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-instantiategeneratorfunctionexpression
         /// </summary>
-        private ScriptFunctionInstance InstantiateGeneratorFunctionExpression(EvaluationContext context, string? name)
+        private ScriptFunction InstantiateGeneratorFunctionExpression(EvaluationContext context, string? name)
         {
             // TODO generators
             return InstantiateOrdinaryFunctionExpression(context, name);

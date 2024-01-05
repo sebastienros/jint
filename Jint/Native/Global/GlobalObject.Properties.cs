@@ -132,45 +132,45 @@ public partial class GlobalObject
         properties.AddDangerous(propertyNaN, _propertyDescriptorNan);
         properties.AddDangerous(propertyInfinity, _propertyDescriptorPositiveInfinity);
         properties.AddDangerous(propertyUndefined, _propertyDescriptorUndefined);
-        properties.AddDangerous(propertyParseInt, new LazyPropertyDescriptor(this, static state => new ClrFunctionInstance(((GlobalObject) state!)._engine, "parseInt", ParseInt, 2, LengthFlags), PropertyFlags));
-        properties.AddDangerous(propertyParseFloat, new LazyPropertyDescriptor(this, static state => new ClrFunctionInstance(((GlobalObject) state!)._engine, "parseFloat", ParseFloat, 1, LengthFlags), PropertyFlags));
-        properties.AddDangerous(propertyIsNaN, new LazyPropertyDescriptor(this, static state => new ClrFunctionInstance(((GlobalObject) state!)._engine, "isNaN", IsNaN, 1, LengthFlags), PropertyFlags));
-        properties.AddDangerous(propertyIsFinite, new LazyPropertyDescriptor(this, static state => new ClrFunctionInstance(((GlobalObject) state!)._engine, "isFinite", IsFinite, 1, LengthFlags), PropertyFlags));
+        properties.AddDangerous(propertyParseInt, new LazyPropertyDescriptor(this, static state => new ClrFunction(((GlobalObject) state!)._engine, "parseInt", ParseInt, 2, LengthFlags), PropertyFlags));
+        properties.AddDangerous(propertyParseFloat, new LazyPropertyDescriptor(this, static state => new ClrFunction(((GlobalObject) state!)._engine, "parseFloat", ParseFloat, 1, LengthFlags), PropertyFlags));
+        properties.AddDangerous(propertyIsNaN, new LazyPropertyDescriptor(this, static state => new ClrFunction(((GlobalObject) state!)._engine, "isNaN", IsNaN, 1, LengthFlags), PropertyFlags));
+        properties.AddDangerous(propertyIsFinite, new LazyPropertyDescriptor(this, static state => new ClrFunction(((GlobalObject) state!)._engine, "isFinite", IsFinite, 1, LengthFlags), PropertyFlags));
 
         properties.AddDangerous(propertyDecodeURI, new LazyPropertyDescriptor(this, static state =>
         {
             var global = (GlobalObject) state!;
-            return new ClrFunctionInstance(global._engine, "decodeURI", global.DecodeUri, 1, LengthFlags);
+            return new ClrFunction(global._engine, "decodeURI", global.DecodeUri, 1, LengthFlags);
         }, PropertyFlags));
 
         properties.AddDangerous(propertyDecodeURIComponent, new LazyPropertyDescriptor(this, static state =>
         {
             var global = (GlobalObject) state!;
-            return new ClrFunctionInstance(global._engine, "decodeURIComponent", global.DecodeUriComponent, 1, LengthFlags);
+            return new ClrFunction(global._engine, "decodeURIComponent", global.DecodeUriComponent, 1, LengthFlags);
         }, PropertyFlags));
 
         properties.AddDangerous(propertyEncodeURI, new LazyPropertyDescriptor(this, static state =>
         {
             var global = (GlobalObject) state!;
-            return new ClrFunctionInstance(global._engine, "encodeURI", global.EncodeUri, 1, LengthFlags);
+            return new ClrFunction(global._engine, "encodeURI", global.EncodeUri, 1, LengthFlags);
         }, PropertyFlags));
 
         properties.AddDangerous(propertyEncodeURIComponent, new LazyPropertyDescriptor(this, static state =>
         {
             var global = (GlobalObject) state!;
-            return new ClrFunctionInstance(global._engine, "encodeURIComponent", global.EncodeUriComponent, 1, LengthFlags);
+            return new ClrFunction(global._engine, "encodeURIComponent", global.EncodeUriComponent, 1, LengthFlags);
         }, PropertyFlags));
 
         properties.AddDangerous(propertyEscape, new LazyPropertyDescriptor(this, static state =>
         {
             var global = (GlobalObject) state!;
-            return new ClrFunctionInstance(global._engine, "escape", global.Escape, 1, LengthFlags);
+            return new ClrFunction(global._engine, "escape", global.Escape, 1, LengthFlags);
         }, PropertyFlags));
 
         properties.AddDangerous(propertyUnescape, new LazyPropertyDescriptor(this, static state =>
         {
             var global = (GlobalObject) state!;
-            return new ClrFunctionInstance(global._engine, "unescape", global.Unescape, 1, LengthFlags);
+            return new ClrFunction(global._engine, "unescape", global.Unescape, 1, LengthFlags);
         }, PropertyFlags));
 
         properties.AddDangerous(propertyGlobalThis, new PropertyDescriptor(this, PropertyFlags));
@@ -180,7 +180,7 @@ public partial class GlobalObject
         properties.AddDangerous(propertyToString, new LazyPropertyDescriptor(this, static state =>
         {
             var global = (GlobalObject) state!;
-            return new ClrFunctionInstance(global._engine, "toString", global.ToStringString, 1);
+            return new ClrFunction(global._engine, "toString", global.ToStringString, 1);
         }, PropertyFlags));
 
         SetProperties(properties);

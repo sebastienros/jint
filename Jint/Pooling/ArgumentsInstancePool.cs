@@ -13,25 +13,25 @@ namespace Jint.Pooling
     {
         private const int PoolSize = 10;
         private readonly Engine _engine;
-        private readonly ObjectPool<ArgumentsInstance> _pool;
+        private readonly ObjectPool<JsArguments> _pool;
 
         public ArgumentsInstancePool(Engine engine)
         {
             _engine = engine;
-            _pool = new ObjectPool<ArgumentsInstance>(Factory, PoolSize);
+            _pool = new ObjectPool<JsArguments>(Factory, PoolSize);
         }
 
-        private ArgumentsInstance Factory()
+        private JsArguments Factory()
         {
-            return new ArgumentsInstance(_engine)
+            return new JsArguments(_engine)
             {
                 _prototype = _engine.Realm.Intrinsics.Object.PrototypeObject
             };
         }
 
-        public ArgumentsInstance Rent(JsValue[] argumentsList) => Rent(null, null, argumentsList, null, false);
+        public JsArguments Rent(JsValue[] argumentsList) => Rent(null, null, argumentsList, null, false);
 
-        public ArgumentsInstance Rent(
+        public JsArguments Rent(
             FunctionInstance? func,
             Key[]? formals,
             JsValue[] argumentsList,
@@ -43,7 +43,7 @@ namespace Jint.Pooling
             return obj;
         }
 
-        public void Return(ArgumentsInstance instance)
+        public void Return(JsArguments instance)
         {
             if (ReferenceEquals(instance, null))
             {

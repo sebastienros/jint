@@ -30,15 +30,15 @@ internal sealed class ArrayBufferPrototype : Prototype
         const PropertyFlag lengthFlags = PropertyFlag.Configurable;
         var properties = new PropertyDictionary(4, checkExistingKeys: false)
         {
-            ["byteLength"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get byteLength", ByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
+            ["byteLength"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get byteLength", ByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
             [KnownKeys.Constructor] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["detached"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get detached", Detached, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["maxByteLength"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get maxByteLength", MaxByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["resizable"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get resizable", Resizable, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["resize"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "resize", Resize, 1, lengthFlags), PropertyFlag.NonEnumerable),
-            ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "slice", Slice, 2, lengthFlags), PropertyFlag.NonEnumerable),
-            ["transfer"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "transfer", Transfer, 0, lengthFlags), PropertyFlag.NonEnumerable),
-            ["transferToFixedLength"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "transferToFixedLength", TransferToFixedLength, 0, lengthFlags), PropertyFlag.NonEnumerable),
+            ["detached"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get detached", Detached, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
+            ["maxByteLength"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get maxByteLength", MaxByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
+            ["resizable"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get resizable", Resizable, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
+            ["resize"] = new PropertyDescriptor(new ClrFunction(_engine, "resize", Resize, 1, lengthFlags), PropertyFlag.NonEnumerable),
+            ["slice"] = new PropertyDescriptor(new ClrFunction(_engine, "slice", Slice, 2, lengthFlags), PropertyFlag.NonEnumerable),
+            ["transfer"] = new PropertyDescriptor(new ClrFunction(_engine, "transfer", Transfer, 0, lengthFlags), PropertyFlag.NonEnumerable),
+            ["transferToFixedLength"] = new PropertyDescriptor(new ClrFunction(_engine, "transferToFixedLength", TransferToFixedLength, 0, lengthFlags), PropertyFlag.NonEnumerable),
         };
         SetProperties(properties);
 

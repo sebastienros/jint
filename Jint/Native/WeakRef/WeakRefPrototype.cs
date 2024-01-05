@@ -30,7 +30,7 @@ internal sealed class WeakRefPrototype : Prototype
         var properties = new PropertyDictionary(5, checkExistingKeys: false)
         {
             ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
-            ["deref"] = new(new ClrFunctionInstance(Engine, "deref", Deref, 0, PropertyFlag.Configurable), propertyFlags)
+            ["deref"] = new(new ClrFunction(Engine, "deref", Deref, 0, PropertyFlag.Configurable), propertyFlags)
         };
         SetProperties(properties);
 

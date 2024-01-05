@@ -3,7 +3,7 @@ using Jint.Runtime;
 
 namespace Jint.Native.Symbol;
 
-internal sealed class SymbolInstance : ObjectInstance, IPrimitiveInstance
+internal sealed class SymbolInstance : ObjectInstance, IJsPrimitive
 {
     internal SymbolInstance(
         Engine engine,
@@ -14,9 +14,9 @@ internal sealed class SymbolInstance : ObjectInstance, IPrimitiveInstance
         SymbolData = symbol;
     }
 
-    Types IPrimitiveInstance.Type => Types.Symbol;
+    Types IJsPrimitive.Type => Types.Symbol;
 
-    JsValue IPrimitiveInstance.PrimitiveValue => SymbolData;
+    JsValue IJsPrimitive.PrimitiveValue => SymbolData;
 
     public JsSymbol SymbolData { get; }
 }

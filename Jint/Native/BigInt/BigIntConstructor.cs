@@ -32,8 +32,8 @@ internal sealed class BigIntConstructor : Constructor
     {
         var properties = new PropertyDictionary(2, checkExistingKeys: false)
         {
-            ["asIntN"] = new(new ClrFunctionInstance(Engine, "asIntN", AsIntN, 2, PropertyFlag.Configurable), true, false, true),
-            ["asUintN"] = new(new ClrFunctionInstance(Engine, "asUintN", AsUintN, 2, PropertyFlag.Configurable), true, false, true),
+            ["asIntN"] = new(new ClrFunction(Engine, "asIntN", AsIntN, 2, PropertyFlag.Configurable), true, false, true),
+            ["asUintN"] = new(new ClrFunction(Engine, "asUintN", AsUintN, 2, PropertyFlag.Configurable), true, false, true),
         };
         SetProperties(properties);
     }

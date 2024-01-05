@@ -138,7 +138,7 @@ internal sealed class ClassDefinition
         engine.UpdateLexicalEnvironment(classEnv);
         engine.UpdatePrivateEnvironment(classPrivateEnvironment);
 
-        ScriptFunctionInstance F;
+        ScriptFunction F;
         try
         {
             var constructorInfo = constructor.DefineMethod(proto, constructorParent);
@@ -258,7 +258,7 @@ internal sealed class ClassDefinition
     {
         var name = fieldDefinition.GetKey(engine);
 
-        ScriptFunctionInstance? initializer = null;
+        ScriptFunction? initializer = null;
         if (fieldDefinition.Value is not null)
         {
             var intrinsics = engine.Realm.Intrinsics;
@@ -412,7 +412,7 @@ internal sealed class ClassDefinition
     /// <summary>
     /// https://tc39.es/ecma262/#sec-definemethodproperty
     /// </summary>
-    private static PrivateElement? DefineMethodProperty(ObjectInstance homeObject, JsValue key, ScriptFunctionInstance closure, bool enumerable)
+    private static PrivateElement? DefineMethodProperty(ObjectInstance homeObject, JsValue key, ScriptFunction closure, bool enumerable)
     {
         if (key.IsPrivateName())
         {

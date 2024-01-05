@@ -57,7 +57,7 @@ namespace Jint.Tests.Runtime.Domain
 
         public void Configure()
         {
-            FastSetProperty("parse", new PropertyDescriptor(new ClrFunctionInstance(Engine, "parse", Parse), true, false, true));
+            FastSetProperty("parse", new PropertyDescriptor(new ClrFunction(Engine, "parse", Parse), true, false, true));
             FastSetProperty("Empty", new PropertyDescriptor(JsUuid.Empty, true, false, true));
         }
 

@@ -28,9 +28,9 @@ namespace Jint.Native.Promise
             var properties = new PropertyDictionary(5, checkExistingKeys: false)
             {
                 ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
-                ["then"] = new(new ClrFunctionInstance(Engine, "then", Then, 2, lengthFlags), propertyFlags),
-                ["catch"] = new(new ClrFunctionInstance(Engine, "catch", Catch, 1, lengthFlags), propertyFlags),
-                ["finally"] = new(new ClrFunctionInstance(Engine, "finally", Finally, 1, lengthFlags), propertyFlags)
+                ["then"] = new(new ClrFunction(Engine, "then", Then, 2, lengthFlags), propertyFlags),
+                ["catch"] = new(new ClrFunction(Engine, "catch", Catch, 1, lengthFlags), propertyFlags),
+                ["finally"] = new(new ClrFunction(Engine, "finally", Finally, 1, lengthFlags), propertyFlags)
             };
             SetProperties(properties);
 
@@ -118,8 +118,8 @@ namespace Jint.Native.Promise
         }
 
         // https://tc39.es/ecma262/#sec-thenfinallyfunctions
-        private ClrFunctionInstance ThenFinallyFunctions(ICallable onFinally, IConstructor ctor) =>
-            new ClrFunctionInstance(_engine, "", (_, args) =>
+        private ClrFunction ThenFinallyFunctions(ICallable onFinally, IConstructor ctor) =>
+            new ClrFunction(_engine, "", (_, args) =>
             {
                 var value = args.At(0);
 
@@ -130,15 +130,15 @@ namespace Jint.Native.Promise
                 var promise = _realm.Intrinsics.Promise.Resolve((JsValue) ctor, new[] {result});
 
                 // 8. Let valueThunk be equivalent to a function that returns value.
-                var valueThunk = new ClrFunctionInstance(_engine, "", (_, _) => value);
+                var valueThunk = new ClrFunction(_engine, "", (_, _) => value);
 
                 // 9. Return ? Invoke(promise, "then", « valueThunk »).
                 return _engine.Invoke(promise, "then", new JsValue[] {valueThunk});
             }, 1, PropertyFlag.Configurable);
 
         // https://tc39.es/ecma262/#sec-catchfinallyfunctions
-        private ClrFunctionInstance CatchFinallyFunctions(ICallable onFinally, IConstructor ctor) =>
-            new ClrFunctionInstance(_engine, "", (_, args) =>
+        private ClrFunction CatchFinallyFunctions(ICallable onFinally, IConstructor ctor) =>
+            new ClrFunction(_engine, "", (_, args) =>
             {
                 var reason = args.At(0);
 
@@ -149,7 +149,7 @@ namespace Jint.Native.Promise
                 var promise = _realm.Intrinsics.Promise.Resolve((JsValue) ctor, new[] {result});
 
                 // 8. Let thrower be equivalent to a function that throws reason.
-                var thrower = new ClrFunctionInstance(_engine, "", (_, _) => throw new JavaScriptException(reason));
+                var thrower = new ClrFunction(_engine, "", (_, _) => throw new JavaScriptException(reason));
 
                 // 9. Return ? Invoke(promise, "then", « thrower »).
                 return _engine.Invoke(promise, "then", new JsValue[] {thrower});

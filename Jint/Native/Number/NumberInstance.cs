@@ -4,7 +4,7 @@ using Jint.Runtime;
 
 namespace Jint.Native.Number;
 
-internal class NumberInstance : ObjectInstance, IPrimitiveInstance
+internal class NumberInstance : ObjectInstance, IJsPrimitive
 {
     private static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
 
@@ -20,9 +20,9 @@ internal class NumberInstance : ObjectInstance, IPrimitiveInstance
         NumberData = value;
     }
 
-    Types IPrimitiveInstance.Type => Types.Number;
+    Types IJsPrimitive.Type => Types.Number;
 
-    JsValue IPrimitiveInstance.PrimitiveValue => NumberData;
+    JsValue IJsPrimitive.PrimitiveValue => NumberData;
 
     public JsNumber NumberData { get; }
 

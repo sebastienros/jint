@@ -37,7 +37,7 @@ internal sealed class JintFunctionDefinition
     internal Completion EvaluateBody(EvaluationContext context, FunctionInstance functionObject, JsValue[] argumentsList)
     {
         Completion result;
-        ArgumentsInstance? argumentsInstance = null;
+        JsArguments? argumentsInstance = null;
         if (Function.Expression)
         {
             // https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody

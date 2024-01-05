@@ -26,7 +26,7 @@ namespace Jint.Runtime.Interop
             if (_typeDescriptor.LengthProperty is not null)
             {
                 // create a forwarder to produce length from Count or Length if one of them is present
-                var functionInstance = new ClrFunctionInstance(engine, "length", GetLength);
+                var functionInstance = new ClrFunction(engine, "length", GetLength);
                 var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
                 SetProperty(KnownKeys.Length, descriptor);
             }
@@ -205,7 +205,7 @@ namespace Jint.Runtime.Interop
             {
                 if (property == GlobalSymbolRegistry.Iterator && _typeDescriptor.Iterable)
                 {
-                    var iteratorFunction = new ClrFunctionInstance(
+                    var iteratorFunction = new ClrFunction(
                         Engine,
                         "iterator",
                         Iterator,

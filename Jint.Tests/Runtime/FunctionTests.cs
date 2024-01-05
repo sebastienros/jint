@@ -83,7 +83,7 @@ assertEqual(booleanCount, 1);
 ";
         var engine = new Engine();
         engine
-            .SetValue("testFunction", new ClrFunctionInstance(engine, "testFunction", (thisValue, args) =>
+            .SetValue("testFunction", new ClrFunction(engine, "testFunction", (thisValue, args) =>
             {
                 return engine.Invoke(thisValue, "then", new[] { JsValue.Undefined, args.At(0) });
             }))

@@ -29,7 +29,7 @@ internal sealed class FinalizationRegistryPrototype : Prototype
         const PropertyFlag PropertyFlags = PropertyFlag.NonEnumerable;
         var properties = new PropertyDictionary(4, checkExistingKeys: false)
         {
-            [KnownKeys.Constructor] = new(_constructor, PropertyFlag.NonEnumerable), ["register"] = new(new ClrFunctionInstance(Engine, "register", Register, 2, PropertyFlag.Configurable), PropertyFlags), ["unregister"] = new(new ClrFunctionInstance(Engine, "unregister", Unregister, 1, PropertyFlag.Configurable), PropertyFlags), ["cleanupSome"] = new(new ClrFunctionInstance(Engine, "cleanupSome", CleanupSome, 0, PropertyFlag.Configurable), PropertyFlags),
+            [KnownKeys.Constructor] = new(_constructor, PropertyFlag.NonEnumerable), ["register"] = new(new ClrFunction(Engine, "register", Register, 2, PropertyFlag.Configurable), PropertyFlags), ["unregister"] = new(new ClrFunction(Engine, "unregister", Unregister, 1, PropertyFlag.Configurable), PropertyFlags), ["cleanupSome"] = new(new ClrFunction(Engine, "cleanupSome", CleanupSome, 0, PropertyFlag.Configurable), PropertyFlags),
         };
         SetProperties(properties);
 

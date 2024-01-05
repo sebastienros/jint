@@ -11,9 +11,9 @@ using Jint.Runtime.Interop;
 namespace Jint.Native.Argument
 {
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-10.6
+    /// https://tc39.es/ecma262/#sec-arguments-exotic-objects
     /// </summary>
-    internal sealed class ArgumentsInstance : ObjectInstance
+    internal sealed class JsArguments : ObjectInstance
     {
         // cache property container for array iteration for less allocations
         private static readonly ThreadLocal<HashSet<string>> _mappedNamed = new(() => new HashSet<string>(StringComparer.Ordinal));
@@ -26,7 +26,7 @@ namespace Jint.Native.Argument
         private bool _hasRestParameter;
         private bool _materialized;
 
-        internal ArgumentsInstance(Engine engine)
+        internal JsArguments(Engine engine)
             : base(engine, ObjectClass.Arguments)
         {
         }
@@ -98,7 +98,7 @@ namespace Jint.Native.Argument
                 DefinePropertyOrThrow(CommonProperties.Callee, new PropertyDescriptor(_func, PropertyFlag.NonEnumerable));
             }
 
-            var iteratorFunction = new ClrFunctionInstance(Engine, "iterator", _engine.Realm.Intrinsics.Array.PrototypeObject.Values, 0, PropertyFlag.Configurable);
+            var iteratorFunction = new ClrFunction(Engine, "iterator", _engine.Realm.Intrinsics.Array.PrototypeObject.Values, 0, PropertyFlag.Configurable);
             DefinePropertyOrThrow(GlobalSymbolRegistry.Iterator, new PropertyDescriptor(iteratorFunction, PropertyFlag.Writable | PropertyFlag.Configurable));
         }
 

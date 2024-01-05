@@ -31,7 +31,7 @@ public class RavenApiUsageTests
             strict: false,
             async: false);
 
-        var functionObject = new ScriptFunctionInstance(
+        var functionObject = new ScriptFunction(
             engine,
             functionExp,
             engine.Advanced.CreateDeclarativeEnvironment(),

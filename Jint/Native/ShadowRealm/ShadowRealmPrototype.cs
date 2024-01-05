@@ -31,8 +31,8 @@ internal sealed class ShadowRealmPrototype : Prototype
         {
             ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
             ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["evaluate"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "evaluate", Evaluate, 1, PropertyFlag.Configurable), propertyFlags),
-            ["importValue"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "importValue", ImportValue, 2, PropertyFlag.Configurable), propertyFlags),
+            ["evaluate"] = new PropertyDescriptor(new ClrFunction(Engine, "evaluate", Evaluate, 1, PropertyFlag.Configurable), propertyFlags),
+            ["importValue"] = new PropertyDescriptor(new ClrFunction(Engine, "importValue", ImportValue, 2, PropertyFlag.Configurable), propertyFlags),
         };
         SetProperties(properties);
 

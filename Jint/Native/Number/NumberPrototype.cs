@@ -38,12 +38,12 @@ namespace Jint.Native.Number
             var properties = new PropertyDictionary(8, checkExistingKeys: false)
             {
                 ["constructor"] = new PropertyDescriptor(_constructor, true, false, true),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToNumberString, 1, PropertyFlag.Configurable), true, false, true),
-                ["toLocaleString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true),
-                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true),
-                ["toFixed"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toFixed", ToFixed, 1, PropertyFlag.Configurable), true, false, true),
-                ["toExponential"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toExponential", ToExponential, 1, PropertyFlag.Configurable), true, false, true),
-                ["toPrecision"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toPrecision", ToPrecision, 1, PropertyFlag.Configurable), true, false, true)
+                ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToNumberString, 1, PropertyFlag.Configurable), true, false, true),
+                ["toLocaleString"] = new PropertyDescriptor(new ClrFunction(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), true, false, true),
+                ["valueOf"] = new PropertyDescriptor(new ClrFunction(Engine, "valueOf", ValueOf, 0, PropertyFlag.Configurable), true, false, true),
+                ["toFixed"] = new PropertyDescriptor(new ClrFunction(Engine, "toFixed", ToFixed, 1, PropertyFlag.Configurable), true, false, true),
+                ["toExponential"] = new PropertyDescriptor(new ClrFunction(Engine, "toExponential", ToExponential, 1, PropertyFlag.Configurable), true, false, true),
+                ["toPrecision"] = new PropertyDescriptor(new ClrFunction(Engine, "toPrecision", ToPrecision, 1, PropertyFlag.Configurable), true, false, true)
             };
             SetProperties(properties);
         }

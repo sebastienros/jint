@@ -24,7 +24,7 @@ internal sealed class SetIteratorPrototype : IteratorPrototype
     {
         var properties = new PropertyDictionary(1, checkExistingKeys: false)
         {
-            [KnownKeys.Next] = new(new ClrFunctionInstance(Engine, "next", Next, 0, PropertyFlag.Configurable), true, false, true)
+            [KnownKeys.Next] = new(new ClrFunction(Engine, "next", Next, 0, PropertyFlag.Configurable), true, false, true)
         };
         SetProperties(properties);
 

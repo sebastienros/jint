@@ -35,8 +35,8 @@ namespace Jint.Tests.Runtime.Domain
 
         public void Configure()
         {
-            FastSetProperty("toString", new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToGuidString), true, false, true));
-            FastSetProperty("valueOf", new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf), true, false, true));
+            FastSetProperty("toString", new PropertyDescriptor(new ClrFunction(Engine, "toString", ToGuidString), true, false, true));
+            FastSetProperty("valueOf", new PropertyDescriptor(new ClrFunction(Engine, "valueOf", ValueOf), true, false, true));
         }
     }
 }

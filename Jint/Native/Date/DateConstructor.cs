@@ -41,9 +41,9 @@ internal sealed class DateConstructor : Constructor
 
         var properties = new PropertyDictionary(3, checkExistingKeys: false)
         {
-            ["parse"] = new(new ClrFunctionInstance(Engine, "parse", Parse, 1, LengthFlags), PropertyFlags),
-            ["UTC"] = new(new ClrFunctionInstance(Engine, "UTC", Utc, 7, LengthFlags), PropertyFlags),
-            ["now"] = new(new ClrFunctionInstance(Engine, "now", Now, 0, LengthFlags), PropertyFlags)
+            ["parse"] = new(new ClrFunction(Engine, "parse", Parse, 1, LengthFlags), PropertyFlags),
+            ["UTC"] = new(new ClrFunction(Engine, "UTC", Utc, 7, LengthFlags), PropertyFlags),
+            ["now"] = new(new ClrFunction(Engine, "now", Now, 0, LengthFlags), PropertyFlags)
         };
         SetProperties(properties);
     }

@@ -31,9 +31,9 @@ internal sealed class GeneratorPrototype : ObjectInstance
         var properties = new PropertyDictionary(4, false)
         {
             ["constructor"] = new(_constructor, PropertyFlag.Configurable),
-            ["next"] = new(new ClrFunctionInstance(Engine, "next", Next, 1, LengthFlags), PropertyFlags),
-            ["return"] = new(new ClrFunctionInstance(Engine, "return", Return, 1, LengthFlags), PropertyFlags),
-            ["throw"] = new(new ClrFunctionInstance(Engine, "throw", Throw, 1, LengthFlags), PropertyFlags)
+            ["next"] = new(new ClrFunction(Engine, "next", Next, 1, LengthFlags), PropertyFlags),
+            ["return"] = new(new ClrFunction(Engine, "return", Return, 1, LengthFlags), PropertyFlags),
+            ["throw"] = new(new ClrFunction(Engine, "throw", Throw, 1, LengthFlags), PropertyFlags)
         };
         SetProperties(properties);
 

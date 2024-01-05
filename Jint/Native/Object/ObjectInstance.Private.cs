@@ -11,7 +11,7 @@ public partial class ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-initializeinstanceelements
     /// </summary>
-    internal void InitializeInstanceElements(ScriptFunctionInstance constructor)
+    internal void InitializeInstanceElements(ScriptFunction constructor)
     {
         var methods = constructor._privateMethods;
         if (methods is not null)
@@ -139,7 +139,7 @@ public partial class ObjectInstance
 internal sealed class ClassFieldDefinition
 {
     public required JsValue Name { get; set; }
-    public ScriptFunctionInstance? Initializer { get; set; }
+    public ScriptFunction? Initializer { get; set; }
 }
 
 internal sealed class ClassStaticBlockDefinition

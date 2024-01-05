@@ -2,7 +2,7 @@ using Jint.Runtime;
 
 namespace Jint.Native;
 
-public interface IPrimitiveInstance
+public interface IJsPrimitive
 {
     Types Type { get; }
     JsValue PrimitiveValue { get; }

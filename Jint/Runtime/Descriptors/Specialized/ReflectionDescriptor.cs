@@ -25,11 +25,11 @@ namespace Jint.Runtime.Descriptors.Specialized
 
             if (reflectionAccessor.Writable && engine.Options.Interop.AllowWrite)
             {
-                Set = new SetterFunctionInstance(_engine, DoSet);
+                Set = new SetterFunction(_engine, DoSet);
             }
             if (reflectionAccessor.Readable)
             {
-                Get = new GetterFunctionInstance(_engine, DoGet);
+                Get = new GetterFunction(_engine, DoGet);
             }
         }
 

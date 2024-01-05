@@ -34,14 +34,14 @@ namespace Jint.Native.Symbol
             {
                 ["length"] = new PropertyDescriptor(JsNumber.PositiveZero, propertyFlags),
                 ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.Configurable | PropertyFlag.Writable),
-                ["description"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(Engine, "description", Description, 0, lengthFlags), Undefined, propertyFlags),
-                ["toString"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "toString", ToSymbolString, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable),
-                ["valueOf"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "valueOf", ValueOf, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable)
+                ["description"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "description", Description, 0, lengthFlags), Undefined, propertyFlags),
+                ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToSymbolString, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable),
+                ["valueOf"] = new PropertyDescriptor(new ClrFunction(Engine, "valueOf", ValueOf, 0, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable)
             });
 
             SetSymbols(new SymbolDictionary(1)
                 {
-                    [GlobalSymbolRegistry.ToPrimitive] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "[Symbol.toPrimitive]", ToPrimitive, 1, lengthFlags), propertyFlags), [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(new JsString("Symbol"), propertyFlags)
+                    [GlobalSymbolRegistry.ToPrimitive] = new PropertyDescriptor(new ClrFunction(Engine, "[Symbol.toPrimitive]", ToPrimitive, 1, lengthFlags), propertyFlags), [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(new JsString("Symbol"), propertyFlags)
                 }
             );
         }

@@ -7,14 +7,14 @@ using Jint.Runtime.Descriptors;
 namespace Jint.Runtime.Interop;
 
 /// <summary>
-/// Wraps a Clr method into a FunctionInstance
+/// Wraps a CLR method into a JS function.
 /// </summary>
-public sealed class ClrFunctionInstance : FunctionInstance, IEquatable<ClrFunctionInstance>
+public sealed class ClrFunction : FunctionInstance, IEquatable<ClrFunction>
 {
     internal readonly Func<JsValue, JsValue[], JsValue> _func;
     private readonly bool _bubbleExceptions;
 
-    public ClrFunctionInstance(
+    public ClrFunction(
         Engine engine,
         string name,
         Func<JsValue, JsValue[], JsValue> func,
@@ -57,11 +57,11 @@ public sealed class ClrFunctionInstance : FunctionInstance, IEquatable<ClrFuncti
         }
     }
 
-    public override bool Equals(JsValue? other) => Equals(other as ClrFunctionInstance);
+    public override bool Equals(JsValue? other) => Equals(other as ClrFunction);
 
-    public override bool Equals(object? obj) => Equals(obj as ClrFunctionInstance);
+    public override bool Equals(object? obj) => Equals(obj as ClrFunction);
 
-    public bool Equals(ClrFunctionInstance? other)
+    public bool Equals(ClrFunction? other)
     {
         if (ReferenceEquals(null, other))
         {

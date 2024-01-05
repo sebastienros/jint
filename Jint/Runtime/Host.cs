@@ -149,7 +149,7 @@ namespace Jint.Runtime
         /// </summary>
         internal virtual void FinishLoadingImportedModule(IScriptOrModule? referrer, ModuleRequest moduleRequest, PromiseCapability payload, JsPromise result)
         {
-            var onFulfilled = new ClrFunctionInstance(Engine, "", (thisObj, args) =>
+            var onFulfilled = new ClrFunction(Engine, "", (thisObj, args) =>
             {
                 var moduleRecord = GetImportedModule(referrer, moduleRequest);
                 try
@@ -164,7 +164,7 @@ namespace Jint.Runtime
                 return JsValue.Undefined;
             }, 0, PropertyFlag.Configurable);
 
-            var onRejected = new ClrFunctionInstance(Engine, "", (thisObj, args) =>
+            var onRejected = new ClrFunction(Engine, "", (thisObj, args) =>
             {
                 var error = args.At(0);
                 payload.Reject.Call(JsValue.Undefined, new [] { error });

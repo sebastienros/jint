@@ -3019,7 +3019,7 @@ namespace Jint.Tests.Runtime
         public void CanUseClrFunction()
         {
             var engine = new Engine();
-            engine.SetValue("fn", new ClrFunctionInstance(engine, "fn", (_, args) => (JsValue) (args[0].AsInteger() + 1)));
+            engine.SetValue("fn", new ClrFunction(engine, "fn", (_, args) => (JsValue) (args[0].AsInteger() + 1)));
 
             var result = engine.Evaluate("fn(1)");
 
@@ -3030,7 +3030,7 @@ namespace Jint.Tests.Runtime
         public void ShouldAllowClrExceptionsThrough()
         {
             var engine = new Engine(opts => opts.CatchClrExceptions(exc => false));
-            engine.SetValue("fn", new ClrFunctionInstance(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
+            engine.SetValue("fn", new ClrFunction(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
             const string Source = @"
 function wrap() {
   fn();
@@ -3045,7 +3045,7 @@ wrap();
         public void ShouldConvertClrExceptionsToErrors()
         {
             var engine = new Engine(opts => opts.CatchClrExceptions(exc => exc is InvalidOperationException));
-            engine.SetValue("fn", new ClrFunctionInstance(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
+            engine.SetValue("fn", new ClrFunction(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
             const string Source = @"
 function wrap() {
   fn();
@@ -3061,7 +3061,7 @@ wrap();
         public void ShouldAllowCatchingConvertedClrExceptions()
         {
             var engine = new Engine(opts => opts.CatchClrExceptions(exc => exc is InvalidOperationException));
-            engine.SetValue("fn", new ClrFunctionInstance(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
+            engine.SetValue("fn", new ClrFunction(engine, "fn", (_, _) => throw new InvalidOperationException("This is a C# error")));
             const string Source = @"
 try {
   fn();

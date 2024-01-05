@@ -69,7 +69,7 @@ internal sealed class EvalFunctionInstance : FunctionInstance
                     inDerivedConstructor = true;
                 }
 
-                var classFieldInitializerName = (F as ScriptFunctionInstance)?._classFieldInitializerName;
+                var classFieldInitializerName = (F as ScriptFunction)?._classFieldInitializerName;
                 if (!string.IsNullOrEmpty(classFieldInitializerName?.ToString()))
                 {
                     inClassFieldInitializer = true;

@@ -28,12 +28,12 @@ internal sealed class SharedArrayBufferPrototype : Prototype
         const PropertyFlag lengthFlags = PropertyFlag.Configurable;
         var properties = new PropertyDictionary(3, checkExistingKeys: false)
         {
-            ["byteLength"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get byteLength", ByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
+            ["byteLength"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get byteLength", ByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
             [KnownKeys.Constructor] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["growable"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get growable", Growable, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["grow"] = new PropertyDescriptor(new ClrFunctionInstance(_engine, "grow", Grow, 1, lengthFlags), PropertyFlag.NonEnumerable),
-            ["maxByteLength"] = new GetSetPropertyDescriptor(new ClrFunctionInstance(_engine, "get maxByteLength", MaxByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
-            ["slice"] = new PropertyDescriptor(new ClrFunctionInstance(Engine, "slice", Slice, 2, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable)
+            ["growable"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get growable", Growable, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
+            ["grow"] = new PropertyDescriptor(new ClrFunction(_engine, "grow", Grow, 1, lengthFlags), PropertyFlag.NonEnumerable),
+            ["maxByteLength"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get maxByteLength", MaxByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
+            ["slice"] = new PropertyDescriptor(new ClrFunction(Engine, "slice", Slice, 2, lengthFlags), PropertyFlag.Configurable | PropertyFlag.Writable)
         };
         SetProperties(properties);
 
