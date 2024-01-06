@@ -94,7 +94,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             // optimize for array unless someone has touched the iterator
             if (obj.IsArrayLike && obj.HasOriginalIterator)
             {
-                arrayOperations = ArrayOperations.For(obj);
+                arrayOperations = ArrayOperations.For(obj, forWrite: false);
             }
             else
             {

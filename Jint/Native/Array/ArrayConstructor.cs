@@ -114,7 +114,7 @@ namespace Jint.Native.Array
                 ? _engine._jsValueArrayPool.RentArray(2)
                 : null;
 
-            var target = ArrayOperations.For(a);
+            var target = ArrayOperations.For(a, forWrite: true);
             uint n = 0;
             for (uint i = 0; i < length; i++)
             {
@@ -157,7 +157,7 @@ namespace Jint.Native.Array
                 ICallable? callable) : base(engine, iterator, 2)
             {
                 _thisArg = thisArg;
-                _instance = ArrayOperations.For(instance);
+                _instance = ArrayOperations.For(instance, forWrite: true);
                 _callable = callable;
             }
 
@@ -310,7 +310,7 @@ namespace Jint.Native.Array
                         break;
                     case JsArray array:
                         // direct copy
-                        instance = (JsArray) ConstructArrayFromArrayLike(Undefined, ArrayOperations.For(array), callable: null, this);
+                        instance = (JsArray) ConstructArrayFromArrayLike(Undefined, ArrayOperations.For(array, forWrite: false), callable: null, this);
                         break;
                     default:
                         instance = ArrayCreate(capacity, prototypeObject);

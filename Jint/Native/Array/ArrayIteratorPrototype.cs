@@ -97,7 +97,7 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
             _typedArray = objectInstance as JsTypedArray;
             if (_typedArray is null)
             {
-                _operations = ArrayOperations.For(objectInstance);
+                _operations = ArrayOperations.For(objectInstance, forWrite: false);
             }
 
             _position = 0;

@@ -134,9 +134,8 @@ namespace Jint.Native.String
         private JsValue Raw(JsValue thisObject, JsValue[] arguments)
         {
             var cooked = TypeConverter.ToObject(_realm, arguments.At(0));
-            var raw = TypeConverter.ToObject(_realm, cooked.Get(JintTaggedTemplateExpression.PropertyRaw));
-
-            var operations = ArrayOperations.For(raw);
+            var raw = cooked.Get(JintTaggedTemplateExpression.PropertyRaw);
+            var operations = ArrayOperations.For(_realm, raw, forWrite: false);
             var length = operations.GetLength();
 
             if (length <= 0)
