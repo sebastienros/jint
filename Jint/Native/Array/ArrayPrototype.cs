@@ -323,7 +323,7 @@ namespace Jint.Native.Array
         /// </summary>
         private JsValue LastIndexOf(JsValue thisObject, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
             var len = o.GetLongLength();
             if (len == 0)
             {
@@ -379,7 +379,7 @@ namespace Jint.Native.Array
             var callbackfn = arguments.At(0);
             var initialValue = arguments.At(1);
 
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
             var len = o.GetLength();
 
             var callable = GetCallable(callbackfn);
@@ -441,7 +441,7 @@ namespace Jint.Native.Array
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
 
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
             var len = o.GetLength();
 
             var callable = GetCallable(callbackfn);
@@ -484,7 +484,7 @@ namespace Jint.Native.Array
                 return arrayInstance.Map(arguments);
             }
 
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
             var len = o.GetLongLength();
 
             if (len > ArrayOperations.MaxArrayLength)
@@ -639,7 +639,7 @@ namespace Jint.Native.Array
             var callbackfn = arguments.At(0);
             var thisArg = arguments.At(1);
 
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
             var len = o.GetLength();
 
             var callable = GetCallable(callbackfn);
@@ -665,7 +665,7 @@ namespace Jint.Native.Array
         /// </summary>
         private JsValue Includes(JsValue thisObject, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
             var len = (long) o.GetLongLength();
 
             if (len == 0)
@@ -722,7 +722,7 @@ namespace Jint.Native.Array
         /// </summary>
         private JsValue Every(JsValue thisObject, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
             ulong len = o.GetLongLength();
 
             if (len == 0)
@@ -759,7 +759,7 @@ namespace Jint.Native.Array
         /// </summary>
         private JsValue IndexOf(JsValue thisObject, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
             var len = o.GetLongLength();
             if (len == 0)
             {
@@ -896,7 +896,7 @@ namespace Jint.Native.Array
             var deleteCount = arguments.At(1);
 
             var obj = TypeConverter.ToObject(_realm, thisObject);
-            var o = ArrayOperations.For(_realm, obj);
+            var o = ArrayOperations.For(_realm, obj, forWrite: false);
             var len = o.GetLongLength();
             var relativeStart = TypeConverter.ToInteger(start);
 
@@ -1012,7 +1012,7 @@ namespace Jint.Native.Array
         /// </summary>
         private JsValue Unshift(JsValue thisObject, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
             var len = o.GetLongLength();
             var argCount = (uint) arguments.Length;
 
@@ -1104,7 +1104,7 @@ namespace Jint.Native.Array
             var start = arguments.At(0);
             var end = arguments.At(1);
 
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
             var len = o.GetLongLength();
 
             var relativeStart = TypeConverter.ToInteger(start);
@@ -1164,7 +1164,7 @@ namespace Jint.Native.Array
 
         private JsValue Shift(JsValue thisObject, JsValue[] arg2)
         {
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
             var len = o.GetLength();
             if (len == 0)
             {
@@ -1197,7 +1197,7 @@ namespace Jint.Native.Array
         /// </summary>
         private JsValue Reverse(JsValue thisObject, JsValue[] arguments)
         {
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
             var len = o.GetLongLength();
             var middle = (ulong) System.Math.Floor(len / 2.0);
             uint lower = 0;
@@ -1241,7 +1241,7 @@ namespace Jint.Native.Array
         private JsValue Join(JsValue thisObject, JsValue[] arguments)
         {
             var separator = arguments.At(0);
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
             var len = o.GetLength();
 
             var sep = TypeConverter.ToString(separator.IsUndefined() ? JsString.CommaString : separator);
@@ -1281,7 +1281,7 @@ namespace Jint.Native.Array
 
         private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
         {
-            var array = ArrayOperations.For(_realm, thisObject);
+            var array = ArrayOperations.For(_realm, thisObject, forWrite: false);
             var len = array.GetLength();
             const string Separator = ",";
             if (len == 0)
@@ -1434,7 +1434,7 @@ namespace Jint.Native.Array
             var start = arguments.At(0);
             var deleteCount = arguments.At(1);
 
-            var o = ArrayOperations.For(_realm, TypeConverter.ToObject(_realm, thisObject));
+            var o = ArrayOperations.For(_realm, TypeConverter.ToObject(_realm, thisObject), forWrite: false);
             var len = o.GetLongLength();
             var relativeStart = TypeConverter.ToIntegerOrInfinity(start);
 
@@ -1554,7 +1554,7 @@ namespace Jint.Native.Array
             var callbackfn = arguments.At(0);
             var initialValue = arguments.At(1);
 
-            var o = ArrayOperations.For(TypeConverter.ToObject(_realm, thisObject));
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
             var len = o.GetLongLength();
 
             var callable = GetCallable(callbackfn);
@@ -1640,7 +1640,7 @@ namespace Jint.Native.Array
                 return array.Pop();
             }
 
-            var o = ArrayOperations.For(_realm, thisObject);
+            var o = ArrayOperations.For(_realm, thisObject, forWrite: true);
             ulong len = o.GetLongLength();
             if (len == 0)
             {

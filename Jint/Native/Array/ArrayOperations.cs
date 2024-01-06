@@ -1,6 +1,7 @@
 using System.Collections;
 using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.String;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
 
@@ -11,25 +12,37 @@ namespace Jint.Native.Array
         protected internal const ulong MaxArrayLength = 4294967295;
         protected internal const ulong MaxArrayLikeLength = NumberConstructor.MaxSafeInteger;
 
+        public static ArrayOperations For(Realm realm, JsValue value, bool forWrite)
+        {
+            if (!forWrite)
+            {
+                if (value.IsString())
+                {
+                    return new JsStringOperations(realm, (JsString) value);
+                }
+
+                if (value is StringInstance stringInstance)
+                {
+                    return new JsStringOperations(realm, stringInstance);
+                }
+            }
+
+            return For(TypeConverter.ToObject(realm, value));
+        }
+
         public static ArrayOperations For(ObjectInstance instance)
         {
             if (instance is JsArray { CanUseFastAccess: true } arrayInstance)
             {
-                return new ArrayInstanceOperations(arrayInstance);
+                return new JsArrayOperations(arrayInstance);
             }
 
             if (instance is JsTypedArray typedArrayInstance)
             {
-                return new TypedArrayInstanceOperations(typedArrayInstance);
+                return new JsTypedArrayOperations(typedArrayInstance);
             }
 
-            return new ObjectInstanceOperations(instance);
-        }
-
-        public static ArrayOperations For(Realm realm, JsValue thisObj)
-        {
-            var instance = TypeConverter.ToObject(realm, thisObj);
-            return For(instance);
+            return new ObjectOperations(instance);
         }
 
         public abstract ObjectInstance Target { get; }
@@ -135,9 +148,9 @@ namespace Jint.Native.Array
             }
         }
 
-        private sealed class ObjectInstanceOperations : ArrayOperations<ObjectInstance>
+        private sealed class ObjectOperations : ArrayOperations<ObjectInstance>
         {
-            public ObjectInstanceOperations(ObjectInstance target) : base(target)
+            public ObjectOperations(ObjectInstance target) : base(target)
             {
             }
 
@@ -204,9 +217,9 @@ namespace Jint.Native.Array
             public override bool HasProperty(ulong index) => Target.HasProperty(index);
         }
 
-        private sealed class ArrayInstanceOperations : ArrayOperations<JsArray>
+        private sealed class JsArrayOperations : ArrayOperations<JsArray>
         {
-            public ArrayInstanceOperations(JsArray target) : base(target)
+            public JsArrayOperations(JsArray target) : base(target)
             {
             }
 
@@ -274,11 +287,11 @@ namespace Jint.Native.Array
             public override bool HasProperty(ulong index) => _target.HasProperty(index);
         }
 
-        private sealed class TypedArrayInstanceOperations : ArrayOperations
+        private sealed class JsTypedArrayOperations : ArrayOperations
         {
             private readonly JsTypedArray _target;
 
-            public TypedArrayInstanceOperations(JsTypedArray target)
+            public JsTypedArrayOperations(JsTypedArray target)
             {
                 _target = target;
             }
@@ -339,6 +352,59 @@ namespace Jint.Native.Array
             public override bool HasProperty(ulong index) => _target.HasProperty(index);
         }
 
+        private sealed class JsStringOperations : ArrayOperations
+        {
+            private readonly Realm _realm;
+            private readonly JsString _target;
+            private ObjectInstance? _wrappedTarget;
+
+            public JsStringOperations(Realm realm, JsString target)
+            {
+                _realm = realm;
+                _target = target;
+            }
+
+            public JsStringOperations(Realm realm, StringInstance stringInstance) : this(realm, stringInstance.StringData)
+            {
+                _wrappedTarget = stringInstance;
+            }
+
+            public override ObjectInstance Target => _wrappedTarget ??= _realm.Intrinsics.String.Construct(_target);
+
+            public override ulong GetSmallestIndex(ulong length) => 0;
+
+            public override uint GetLength() => (uint) _target.Length;
+
+            public override ulong GetLongLength() => GetLength();
+
+            public override void SetLength(ulong length) => throw new NotSupportedException();
+
+            public override void EnsureCapacity(ulong capacity)
+            {
+            }
+
+            public override JsValue Get(ulong index) => index < (ulong) _target.Length ? _target[(int) index] : JsValue.Undefined;
+
+            public override bool TryGetValue(ulong index, out JsValue value)
+            {
+                if (index < (ulong) _target.Length)
+                {
+                    value = _target[(int) index];
+                    return true;
+                }
+
+                value = JsValue.Undefined;
+                return false;
+            }
+
+            public override bool HasProperty(ulong index) => index < (ulong) _target.Length;
+
+            public override void CreateDataPropertyOrThrow(ulong index, JsValue value) => throw new NotSupportedException();
+
+            public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true) => throw new NotSupportedException();
+
+            public override void DeletePropertyOrThrow(ulong index) => throw new NotSupportedException();
+        }
     }
 
     /// <summary>

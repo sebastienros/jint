@@ -1100,7 +1100,7 @@ namespace Jint.Native.TypedArray
             targetBuffer.AssertNotDetached();
 
             var targetLength = target._arrayLength;
-            var src = ArrayOperations.For(TypeConverter.ToObject(_realm, source));
+            var src = ArrayOperations.For(_realm, source, forWrite: false);
             var srcLength = src.GetLength();
 
             if (double.IsNegativeInfinity(targetOffset))

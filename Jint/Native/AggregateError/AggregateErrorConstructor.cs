@@ -49,7 +49,7 @@ internal sealed class AggregateErrorConstructor : Constructor
         if (!message.IsUndefined())
         {
             var msg = TypeConverter.ToString(message);
-            o.CreateNonEnumerableDataPropertyOrThrow("message", msg);
+            o.CreateNonEnumerableDataPropertyOrThrow(CommonProperties.Message, msg);
         }
 
         o.InstallErrorCause(options);
