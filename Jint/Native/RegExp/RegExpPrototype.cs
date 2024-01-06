@@ -24,6 +24,11 @@ namespace Jint.Native.RegExp
         private static readonly JsString DefaultSource = new("(?:)");
         internal static readonly JsString PropertyFlags = new("flags");
         private static readonly JsString PropertyGroups = new("groups");
+        private static readonly JsString PropertyIgnoreCase = new("ignoreCase");
+        private static readonly JsString PropertyMultiline = new("multiline");
+        private static readonly JsString PropertyDotAll = new("dotAll");
+        private static readonly JsString PropertyUnicode = new("unicode");
+        private static readonly JsString PropertyUnicodeSets = new("unicodeSets");
 
         private readonly RegExpConstructor _constructor;
         private readonly Func<JsValue, JsValue[], JsValue> _defaultExec;
@@ -591,11 +596,11 @@ namespace Jint.Native.RegExp
 
             var result = AddFlagIfPresent(r, "hasIndices", 'd', "");
             result = AddFlagIfPresent(r, PropertyGlobal, 'g', result);
-            result = AddFlagIfPresent(r, "ignoreCase", 'i', result);
-            result = AddFlagIfPresent(r, "multiline", 'm', result);
-            result = AddFlagIfPresent(r, "dotAll", 's', result);
-            result = AddFlagIfPresent(r, "unicode", 'u', result);
-            result = AddFlagIfPresent(r, "unicodeSets", 'v', result);
+            result = AddFlagIfPresent(r, PropertyIgnoreCase, 'i', result);
+            result = AddFlagIfPresent(r, PropertyMultiline, 'm', result);
+            result = AddFlagIfPresent(r, PropertyDotAll, 's', result);
+            result = AddFlagIfPresent(r, PropertyUnicode, 'u', result);
+            result = AddFlagIfPresent(r, PropertyUnicodeSets, 'v', result);
             result = AddFlagIfPresent(r, PropertySticky, 'y', result);
 
             return result;

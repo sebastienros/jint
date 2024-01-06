@@ -20,7 +20,7 @@ public sealed class ClrFunction : Function, IEquatable<ClrFunction>
         Func<JsValue, JsValue[], JsValue> func,
         int length = 0,
         PropertyFlag lengthFlags = PropertyFlag.AllForbidden)
-        : base(engine, engine.Realm, new JsString(name))
+        : base(engine, engine.Realm, JsString.CachedCreate(name))
     {
         _func = func;
 

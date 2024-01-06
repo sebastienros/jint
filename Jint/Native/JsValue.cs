@@ -68,7 +68,11 @@ namespace Jint.Native
         }
 
         [Pure]
-        internal bool TryGetIterator(Realm realm, [NotNullWhen(true)] out IteratorInstance? iterator, GeneratorKind hint = GeneratorKind.Sync, ICallable? method = null)
+        internal virtual bool TryGetIterator(
+            Realm realm,
+            [NotNullWhen(true)] out IteratorInstance? iterator,
+            GeneratorKind hint = GeneratorKind.Sync,
+            ICallable? method = null)
         {
             var obj = TypeConverter.ToObject(realm, this);
 

@@ -1009,19 +1009,20 @@ namespace Jint.Runtime
         private static ObjectInstance ToObjectNonObject(Realm realm, JsValue value)
         {
             var type = value._type & ~InternalTypes.InternalFlags;
+            var intrinsics = realm.Intrinsics;
             switch (type)
             {
                 case InternalTypes.Boolean:
-                    return realm.Intrinsics.Boolean.Construct((JsBoolean) value);
+                    return intrinsics.Boolean.Construct((JsBoolean) value);
                 case InternalTypes.Number:
                 case InternalTypes.Integer:
-                    return realm.Intrinsics.Number.Construct((JsNumber) value);
+                    return intrinsics.Number.Construct((JsNumber) value);
                 case InternalTypes.BigInt:
-                    return realm.Intrinsics.BigInt.Construct((JsBigInt) value);
+                    return intrinsics.BigInt.Construct((JsBigInt) value);
                 case InternalTypes.String:
-                    return realm.Intrinsics.String.Construct(value.ToString());
+                    return intrinsics.String.Construct(value as JsString ?? JsString.Create(value.ToString()));
                 case InternalTypes.Symbol:
-                    return realm.Intrinsics.Symbol.Construct((JsSymbol) value);
+                    return intrinsics.Symbol.Construct((JsSymbol) value);
                 case InternalTypes.Null:
                 case InternalTypes.Undefined:
                     ExceptionHelper.ThrowTypeError(realm, "Cannot convert undefined or null to object");

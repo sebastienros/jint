@@ -82,22 +82,21 @@ namespace Jint.Native.Array
                 return instance;
             }
 
-            var objectInstance = TypeConverter.ToObject(_realm, items);
-            if (objectInstance is IObjectWrapper { Target: IEnumerable enumerable })
+            if (items is IObjectWrapper { Target: IEnumerable enumerable })
             {
                 return ConstructArrayFromIEnumerable(enumerable);
             }
 
-            return ConstructArrayFromArrayLike(thisObject, objectInstance, callable, thisArg);
+            var source = ArrayOperations.For(_realm, items, forWrite: false);
+            return ConstructArrayFromArrayLike(thisObject, source, callable, thisArg);
         }
 
         private ObjectInstance ConstructArrayFromArrayLike(
             JsValue thisObj,
-            ObjectInstance objectInstance,
+            ArrayOperations source,
             ICallable? callable,
             JsValue thisArg)
         {
-            var source = ArrayOperations.For(objectInstance);
             var length = source.GetLength();
 
             ObjectInstance a;
@@ -311,7 +310,7 @@ namespace Jint.Native.Array
                         break;
                     case JsArray array:
                         // direct copy
-                        instance = (JsArray) ConstructArrayFromArrayLike(Undefined, array, null, this);
+                        instance = (JsArray) ConstructArrayFromArrayLike(Undefined, ArrayOperations.For(array), callable: null, this);
                         break;
                     default:
                         instance = ArrayCreate(capacity, prototypeObject);

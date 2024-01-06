@@ -1,6 +1,5 @@
 ﻿using System.Text.RegularExpressions;
 using Jint.Native;
-using Jint.Native.Array;
 
 namespace Jint.Tests.Runtime;
 

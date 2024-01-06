@@ -22,6 +22,7 @@ namespace Jint.Native.String
     {
         private readonly Realm _realm;
         private readonly StringConstructor _constructor;
+        internal ClrFunction? _originalIteratorFunction;
 
         internal StringPrototype(
             Engine engine,
@@ -86,12 +87,15 @@ namespace Jint.Native.String
             };
             SetProperties(properties);
 
+            _originalIteratorFunction = new ClrFunction(Engine, "[Symbol.iterator]", Iterator, 0, lengthFlags);
             var symbols = new SymbolDictionary(1)
             {
-                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunction(Engine, "[Symbol.iterator]", Iterator, 0, lengthFlags), propertyFlags)
+                [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(_originalIteratorFunction, propertyFlags)
             };
             SetSymbols(symbols);
         }
+
+        internal override bool HasOriginalIterator => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _originalIteratorFunction);
 
         private ObjectInstance Iterator(JsValue thisObject, JsValue[] arguments)
         {

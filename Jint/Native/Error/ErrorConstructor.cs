@@ -48,9 +48,8 @@ namespace Jint.Native.Error
             var jsValue = arguments.At(0);
             if (!jsValue.IsUndefined())
             {
-                var msg = TypeConverter.ToString(jsValue);
-                var msgDesc = new PropertyDescriptor(msg, true, false, true);
-                o.DefinePropertyOrThrow("message", msgDesc);
+                var msg = TypeConverter.ToJsString(jsValue);
+                o.CreateNonEnumerableDataPropertyOrThrow(CommonProperties.Message, msg);
             }
 
             var stackString = BuildStackString();
