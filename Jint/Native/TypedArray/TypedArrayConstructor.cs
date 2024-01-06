@@ -263,7 +263,7 @@ namespace Jint.Native.TypedArray
         /// </summary>
         private static void InitializeTypedArrayFromArrayLike(JsTypedArray o, ObjectInstance arrayLike)
         {
-            var operations = ArrayOperations.For(arrayLike);
+            var operations = ArrayOperations.For(arrayLike, forWrite: false);
             var len = operations.GetLongLength();
             o.AllocateTypedArrayBuffer(len);
             for (uint k = 0; k < len; ++k)

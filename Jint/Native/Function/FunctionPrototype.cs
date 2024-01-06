@@ -175,7 +175,7 @@ namespace Jint.Native.Function
             {
                 ExceptionHelper.ThrowTypeError(realm);
             }
-            var operations = ArrayOperations.For(argArrayObj);
+            var operations = ArrayOperations.For(argArrayObj, forWrite: false);
             var argList = elementTypes is null ? operations.GetAll() : operations.GetAll(elementTypes.Value);
             return argList;
         }

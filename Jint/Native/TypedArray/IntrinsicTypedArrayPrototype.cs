@@ -1552,7 +1552,7 @@ namespace Jint.Native.TypedArray
         private static JsValue[] SortArray(JsArrayBuffer buffer, ICallable? compareFn, JsTypedArray obj)
         {
             var comparer = TypedArrayComparer.WithFunction(buffer, compareFn);
-            var operations = ArrayOperations.For(obj);
+            var operations = ArrayOperations.For(obj, forWrite: false);
             try
             {
                 return operations.OrderBy(x => x, comparer).ToArray();
