@@ -209,6 +209,11 @@ namespace Jint.Native.Function
                 name = prefix + " " + name;
             }
 
+            if (_functionDefinition != null)
+            {
+                _functionDefinition.Name = name.AsString();
+            }
+
             _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
         }
 
