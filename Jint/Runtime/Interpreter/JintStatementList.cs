@@ -126,7 +126,7 @@ namespace Jint.Runtime.Interpreter
             return c.UpdateEmpty(lastValue).UpdateEmpty(JsValue.Undefined);
         }
 
-        private static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)
+        internal static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)
         {
             if (exception is JavaScriptException javaScriptException)
             {
@@ -148,7 +148,7 @@ namespace Jint.Runtime.Interpreter
             throw exception;
         }
 
-        private static Completion HandleError(Engine engine, JintStatement? s)
+        internal static Completion HandleError(Engine engine, JintStatement? s)
         {
             var error = engine._error!;
             engine._error = null;
