@@ -11,12 +11,16 @@ namespace Jint.Runtime.Interpreter.Expressions
     internal sealed class JintAssignmentExpression : JintExpression
     {
         private readonly JintExpression _left;
+        private readonly JintIdentifierExpression? _leftIdentifier;
+
         private readonly JintExpression _right;
         private readonly AssignmentOperator _operator;
 
         private JintAssignmentExpression(AssignmentExpression expression) : base(expression)
         {
             _left = Build((Expression) expression.Left);
+            _leftIdentifier = _left as JintIdentifierExpression;
+
             _right = Build(expression.Right);
             _operator = expression.Operator;
         }
@@ -38,70 +42,37 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected override object EvaluateInternal(EvaluationContext context)
         {
-            var lref = _left.Evaluate(context) as Reference;
-            if (lref is null)
+            var engine = context.Engine;
+
+            JsValue originalLeftValue;
+            Reference lref;
+            if (_leftIdentifier is not null && JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
+                    engine.ExecutionContext.LexicalEnvironment,
+                    _leftIdentifier.Identifier,
+                    StrictModeScope.IsStrictModeCode,
+                    out var identifierEnvironment,
+                    out var temp))
             {
-                ExceptionHelper.ThrowReferenceError(context.Engine.Realm, "not a valid reference");
+                originalLeftValue = temp;
+                lref = engine._referencePool.Rent(identifierEnvironment, _leftIdentifier.Identifier.Value, StrictModeScope.IsStrictModeCode, thisValue: null);
+            }
+            else
+            {
+                // fast lookup with binding name failed, we need to go through the reference
+                lref = (_left.Evaluate(context) as Reference)!;
+                if (lref is null)
+                {
+                    ExceptionHelper.ThrowReferenceError(context.Engine.Realm, "not a valid reference");
+                }
+                originalLeftValue = context.Engine.GetValue(lref, returnReferenceToPool: false);
             }
 
-            var engine = context.Engine;
-            var originalLeftValue = context.Engine.GetValue(lref, false);
             var handledByOverload = false;
             JsValue? newLeftValue = null;
 
             if (context.OperatorOverloadingAllowed)
             {
-                string? operatorClrName = null;
-                switch (_operator)
-                {
-                    case AssignmentOperator.PlusAssign:
-                        operatorClrName = "op_Addition";
-                        break;
-                    case AssignmentOperator.MinusAssign:
-                        operatorClrName = "op_Subtraction";
-                        break;
-                    case AssignmentOperator.TimesAssign:
-                        operatorClrName = "op_Multiply";
-                        break;
-                    case AssignmentOperator.DivideAssign:
-                        operatorClrName = "op_Division";
-                        break;
-                    case AssignmentOperator.ModuloAssign:
-                        operatorClrName = "op_Modulus";
-                        break;
-                    case AssignmentOperator.BitwiseAndAssign:
-                        operatorClrName = "op_BitwiseAnd";
-                        break;
-                    case AssignmentOperator.BitwiseOrAssign:
-                        operatorClrName = "op_BitwiseOr";
-                        break;
-                    case AssignmentOperator.BitwiseXorAssign:
-                        operatorClrName = "op_ExclusiveOr";
-                        break;
-                    case AssignmentOperator.LeftShiftAssign:
-                        operatorClrName = "op_LeftShift";
-                        break;
-                    case AssignmentOperator.RightShiftAssign:
-                        operatorClrName = "op_RightShift";
-                        break;
-                    case AssignmentOperator.UnsignedRightShiftAssign:
-                        operatorClrName = "op_UnsignedRightShift";
-                        break;
-                    case AssignmentOperator.ExponentiationAssign:
-                    case AssignmentOperator.Assign:
-                    default:
-                        break;
-                }
-
-                if (operatorClrName != null)
-                {
-                    var rval = _right.GetValue(context);
-                    if (JintBinaryExpression.TryOperatorOverloading(context, originalLeftValue, rval, operatorClrName, out var result))
-                    {
-                        newLeftValue = JsValue.FromObject(context.Engine, result);
-                        handledByOverload = true;
-                    }
-                }
+                newLeftValue = EvaluateOperatorOverloading(context, originalLeftValue, newLeftValue, ref handledByOverload);
             }
 
             var wasMutatedInPlace = false;
@@ -298,7 +269,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             var exponent = TypeConverter.ToBigInt(rval);
                             if (exponent > int.MaxValue || exponent < int.MinValue)
                             {
-                                ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Cannot do exponentation with exponent not fitting int32");
+                                ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Cannot do exponentiation with exponent not fitting int32");
                             }
                             newLeftValue = JsBigInt.Create(BigInteger.Pow(TypeConverter.ToBigInt(originalLeftValue), (int) exponent));
                         }
@@ -320,6 +291,63 @@ namespace Jint.Runtime.Interpreter.Expressions
 
             engine._referencePool.Return(lref);
             return newLeftValue!;
+        }
+
+        private JsValue? EvaluateOperatorOverloading(EvaluationContext context, JsValue originalLeftValue, JsValue? newLeftValue, ref bool handledByOverload)
+        {
+            string? operatorClrName = null;
+            switch (_operator)
+            {
+                case AssignmentOperator.PlusAssign:
+                    operatorClrName = "op_Addition";
+                    break;
+                case AssignmentOperator.MinusAssign:
+                    operatorClrName = "op_Subtraction";
+                    break;
+                case AssignmentOperator.TimesAssign:
+                    operatorClrName = "op_Multiply";
+                    break;
+                case AssignmentOperator.DivideAssign:
+                    operatorClrName = "op_Division";
+                    break;
+                case AssignmentOperator.ModuloAssign:
+                    operatorClrName = "op_Modulus";
+                    break;
+                case AssignmentOperator.BitwiseAndAssign:
+                    operatorClrName = "op_BitwiseAnd";
+                    break;
+                case AssignmentOperator.BitwiseOrAssign:
+                    operatorClrName = "op_BitwiseOr";
+                    break;
+                case AssignmentOperator.BitwiseXorAssign:
+                    operatorClrName = "op_ExclusiveOr";
+                    break;
+                case AssignmentOperator.LeftShiftAssign:
+                    operatorClrName = "op_LeftShift";
+                    break;
+                case AssignmentOperator.RightShiftAssign:
+                    operatorClrName = "op_RightShift";
+                    break;
+                case AssignmentOperator.UnsignedRightShiftAssign:
+                    operatorClrName = "op_UnsignedRightShift";
+                    break;
+                case AssignmentOperator.ExponentiationAssign:
+                case AssignmentOperator.Assign:
+                default:
+                    break;
+            }
+
+            if (operatorClrName != null)
+            {
+                var rval = _right.GetValue(context);
+                if (JintBinaryExpression.TryOperatorOverloading(context, originalLeftValue, rval, operatorClrName, out var result))
+                {
+                    newLeftValue = JsValue.FromObject(context.Engine, result);
+                    handledByOverload = true;
+                }
+            }
+
+            return newLeftValue;
         }
 
         private JsValue NamedEvaluation(EvaluationContext context, JintExpression expression)
