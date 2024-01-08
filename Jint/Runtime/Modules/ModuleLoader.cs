@@ -1,6 +1,4 @@
 using Esprima;
-using Jint.Native;
-using Jint.Native.Json;
 
 namespace Jint.Runtime.Modules;
 
@@ -24,53 +22,13 @@ public abstract class ModuleLoader : IModuleLoader
             return default!;
         }
 
-        var isJson = resolved.ModuleRequest.Attributes != null
-                     && Array.Exists(resolved.ModuleRequest.Attributes, x => string.Equals(x.Key, "type", StringComparison.Ordinal) && string.Equals(x.Value, "json", StringComparison.Ordinal));
-
+        var isJson = resolved.ModuleRequest.IsJsonModule();
         Module moduleRecord = isJson
-            ? BuildJsonModule(engine, resolved, code)
-            : BuildSourceTextModule(engine, resolved, code);
+            ? ModuleFactory.BuildJsonModule(engine, resolved, code)
+            : ModuleFactory.BuildSourceTextModule(engine, resolved, code);
 
         return moduleRecord;
     }
 
     protected abstract string LoadModuleContents(Engine engine, ResolvedSpecifier resolved);
-
-    private static SyntheticModule BuildJsonModule(Engine engine, ResolvedSpecifier resolved, string code)
-    {
-        var source = resolved.Uri?.LocalPath;
-        JsValue module;
-        try
-        {
-            module = new JsonParser(engine).Parse(code);
-        }
-        catch (Exception)
-        {
-            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", (Location) default);
-            module = null;
-        }
-
-        return new SyntheticModule(engine, engine.Realm, module, resolved.Uri?.LocalPath);
-    }
-    private static SourceTextModule BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code)
-    {
-        var source = resolved.Uri?.LocalPath;
-        Esprima.Ast.Module module;
-        try
-        {
-            module = new JavaScriptParser().ParseModule(code, source);
-        }
-        catch (ParserException ex)
-        {
-            ExceptionHelper.ThrowSyntaxError(engine.Realm, $"Error while loading module: error in module '{source}': {ex.Error}");
-            module = null;
-        }
-        catch (Exception)
-        {
-            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", (Location) default);
-            module = null;
-        }
-
-        return new SourceTextModule(engine, engine.Realm, module, resolved.Uri?.LocalPath, async: false);
-    }
 }
