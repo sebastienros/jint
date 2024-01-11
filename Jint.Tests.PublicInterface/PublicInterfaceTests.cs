@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Jint.Native;
+using Jint.Native.Argument;
 using Jint.Native.Function;
 
 namespace Jint.Tests.PublicInterface;
@@ -36,6 +37,15 @@ var coolingObject = {
     }.bind(coolingObject), coolingObject.coolDownTime);
 
 ");
+    }
+
+    [Fact]
+    public void JsArgumentsIsPublic()
+    {
+        // debuggers might want to access the information
+        var obj = new Engine().Execute("function f() { return arguments; }").Evaluate("f('a', 'b', 'c');");
+        var arguments = Assert.IsType<JsArguments>(obj);
+        Assert.Equal((uint) 3, arguments.Length);
     }
 
     private sealed class SetTimeoutEmulator : IDisposable
