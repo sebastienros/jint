@@ -1322,7 +1322,7 @@ namespace Jint
                 d.GetBoundNames(boundNames);
                 for (var j = 0; j < boundNames.Count; j++)
                 {
-                    var dn = boundNames[j];
+                    Key dn = boundNames[j];
                     if (d.IsConstantDeclaration())
                     {
                         lexEnvRec.CreateImmutableBinding(dn, strict: true);

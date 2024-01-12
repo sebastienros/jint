@@ -49,7 +49,7 @@ internal sealed class SyntheticModule : Module
         // 7.Suspend the currently running execution context.
         _engine.EnterExecutionContext(moduleContext);
 
-        _environment.SetMutableBinding("default", _obj, strict: true);
+        _environment.SetMutableBinding(KnownKeys.Default, _obj, strict: true);
 
         _engine.LeaveExecutionContext();
 
@@ -70,7 +70,7 @@ internal sealed class SyntheticModule : Module
 
     protected internal override Completion InnerModuleEvaluation(Stack<CyclicModule> stack, int index, ref int asyncEvalOrder)
     {
-        _environment.SetMutableBinding("default", _obj, strict: true);
+        _environment.SetMutableBinding(KnownKeys.Default, _obj, strict: true);
         return new Completion(CompletionType.Normal, index, new Identifier(""));
     }
 }
