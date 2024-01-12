@@ -10,7 +10,7 @@ namespace Jint.Runtime.Environments
     /// <summary>
     /// https://tc39.es/ecma262/#sec-global-environment-records
     /// </summary>
-    public sealed class GlobalEnvironment : Environment
+    internal sealed class GlobalEnvironment : Environment
     {
         /// <summary>
         /// A sealed class for global usage.

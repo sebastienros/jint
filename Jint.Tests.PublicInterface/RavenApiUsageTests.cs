@@ -34,9 +34,7 @@ public class RavenApiUsageTests
         var functionObject = new ScriptFunction(
             engine,
             functionExp,
-            engine.Advanced.CreateDeclarativeEnvironment(),
-            strict: false
-        );
+            strict: false);
 
         Assert.NotNull(functionObject);
     }

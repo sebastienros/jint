@@ -9,7 +9,7 @@ namespace Jint.Runtime.Environments
     /// https://tc39.es/ecma262/#sec-environment-records
     /// </summary>
     [DebuggerTypeProxy(typeof(EnvironmentDebugView))]
-    public abstract class Environment : JsValue
+    internal abstract class Environment : JsValue
     {
         protected internal readonly Engine _engine;
         protected internal Environment? _outerEnv;
