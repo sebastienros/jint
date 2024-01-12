@@ -3,7 +3,6 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Native;
-using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Interop;

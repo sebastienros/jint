@@ -44,9 +44,9 @@ namespace Jint.Runtime.Environments
         }
 
 
-        public override bool HasThisBinding() => _thisBindingStatus != ThisBindingStatus.Lexical;
+        internal override bool HasThisBinding() => _thisBindingStatus != ThisBindingStatus.Lexical;
 
-        public override bool HasSuperBinding() =>
+        internal override bool HasSuperBinding() =>
             _thisBindingStatus != ThisBindingStatus.Lexical && !_functionObject._homeObject.IsUndefined();
 
         public JsValue BindThisValue(JsValue value)
@@ -62,7 +62,7 @@ namespace Jint.Runtime.Environments
             return null!;
         }
 
-        public override JsValue GetThisBinding()
+        internal override JsValue GetThisBinding()
         {
             if (_thisBindingStatus != ThisBindingStatus.Uninitialized)
             {

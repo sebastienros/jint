@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -126,7 +127,8 @@ internal sealed class CachedHoistingScope
         }
     }
 
-    internal readonly record struct CachedLexicalName(string Name, bool Constant);
+    [StructLayout(LayoutKind.Auto)]
+    internal readonly record struct CachedLexicalName(Key Name, bool Constant);
 
     public HoistingScope Scope { get; }
     public List<string> VarNames { get; }

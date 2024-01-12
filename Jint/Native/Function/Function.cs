@@ -21,7 +21,7 @@ namespace Jint.Native.Function
         protected internal PropertyDescriptor? _length;
         internal PropertyDescriptor? _nameDescriptor;
 
-        protected internal Environment? _environment;
+        internal Environment? _environment;
         internal readonly JintFunctionDefinition _functionDefinition = null!;
         internal readonly FunctionThisMode _thisMode;
         internal JsValue _homeObject = Undefined;
