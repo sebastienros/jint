@@ -59,7 +59,7 @@ namespace Jint.Runtime
             Engine.EnterExecutionContext(newContext);
         }
 
-        protected virtual GlobalEnvironment CreateGlobalEnvironment(ObjectInstance globalObject)
+        internal virtual GlobalEnvironment CreateGlobalEnvironment(ObjectInstance globalObject)
         {
             return JintEnvironment.NewGlobalEnvironment(Engine, globalObject, globalObject);
         }

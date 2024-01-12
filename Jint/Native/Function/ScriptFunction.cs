@@ -23,13 +23,12 @@ namespace Jint.Native.Function
         public ScriptFunction(
             Engine engine,
             IFunction functionDeclaration,
-            Environment env,
             bool strict,
             ObjectInstance? proto = null)
             : this(
                 engine,
                 new JintFunctionDefinition(functionDeclaration),
-                env,
+                JintEnvironment.NewDeclarativeEnvironment(engine, engine.ExecutionContext.LexicalEnvironment),
                 strict ? FunctionThisMode.Strict : FunctionThisMode.Global,
                 proto)
         {

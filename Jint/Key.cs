@@ -10,6 +10,7 @@ namespace Jint
     [DebuggerDisplay("{" + nameof(Name) + "}")]
     internal readonly struct Key : IEquatable<Key>
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private Key(string name)
         {
             Name = name;
@@ -19,11 +20,10 @@ namespace Jint
         internal readonly string Name;
         internal readonly int HashCode;
 
-        public static implicit operator Key(string name)
-        {
-            return new Key(name);
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static implicit operator Key(string name) => new(name);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static implicit operator string(Key key) => key.Name;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

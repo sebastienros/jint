@@ -673,19 +673,7 @@ uriError:
             return GetOwnProperty(property) != PropertyDescriptor.Undefined;
         }
 
-        internal PropertyDescriptor GetProperty(Key property) => GetOwnProperty(property);
-
-        internal bool DefinePropertyOrThrow(Key property, PropertyDescriptor desc)
-        {
-            if (!DefineOwnProperty(property, desc))
-            {
-                ExceptionHelper.ThrowTypeError(_realm);
-            }
-
-            return true;
-        }
-
-        internal bool DefineOwnProperty(Key property, PropertyDescriptor desc)
+        private bool DefineOwnProperty(Key property, PropertyDescriptor desc)
         {
             var current = GetOwnProperty(property);
             if (current == desc)
@@ -751,12 +739,6 @@ uriError:
             setter.Call(this, new[] {value});
 
             return true;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void SetOwnProperty(Key property, PropertyDescriptor desc)
-        {
-            SetProperty(property, desc);
         }
     }
 }

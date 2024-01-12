@@ -1,6 +1,4 @@
 using Jint.Native.Promise;
-using Jint.Runtime.Environments;
-using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint;
 
@@ -49,14 +47,6 @@ public class AdvancedOperations
     public void ProcessTasks()
     {
         _engine.RunAvailableContinuations();
-    }
-
-    /// <summary>
-    /// Creates a new declarative environment that has current lexical environment as outer scope.
-    /// </summary>
-    public Environment CreateDeclarativeEnvironment()
-    {
-        return JintEnvironment.NewDeclarativeEnvironment(_engine, _engine.ExecutionContext.LexicalEnvironment);
     }
 
     /// <summary>

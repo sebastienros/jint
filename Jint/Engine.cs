@@ -942,10 +942,9 @@ namespace Jint
         {
             var hoistingScope = script.GetHoistingScope();
             var functionDeclarations = hoistingScope._functionDeclarations;
-            var lexDeclarations = hoistingScope._lexicalDeclarations;
 
             var functionToInitialize = new List<JintFunctionDefinition>();
-            var declaredFunctionNames = new HashSet<string>(StringComparer.Ordinal);
+            var declaredFunctionNames = new HashSet<Key>();
             var declaredVarNames = new List<string>();
 
             var realm = Realm;
@@ -955,7 +954,7 @@ namespace Jint
                 for (var i = functionDeclarations.Count - 1; i >= 0; i--)
                 {
                     var d = functionDeclarations[i];
-                    var fn = d.Id!.Name;
+                    var fn = (Key) d.Id!.Name;
                     if (!declaredFunctionNames.Contains(fn))
                     {
                         var fnDefinable = env.CanDeclareGlobalFunction(fn);
@@ -973,7 +972,7 @@ namespace Jint
             var varNames = script.GetVarNames(hoistingScope);
             for (var j = 0; j < varNames.Count; j++)
             {
-                var vn = varNames[j];
+                Key vn = varNames[j];
                 if (env.HasLexicalDeclaration(vn))
                 {
                     ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{vn}' has already been declared");
@@ -1144,7 +1143,7 @@ namespace Jint
                 {
                     for (var j = 0; j < d.BoundNames.Count; j++)
                     {
-                        var dn = d.BoundNames[j];
+                        Key dn = d.BoundNames[j];
                         if (d.IsConstantDeclaration)
                         {
                             lexEnv.CreateImmutableBinding(dn, strict: true);
@@ -1260,14 +1259,14 @@ namespace Jint
 
             var functionDeclarations = hoistingScope._functionDeclarations;
             var functionsToInitialize = new LinkedList<JintFunctionDefinition>();
-            var declaredFunctionNames = new HashSet<string>(StringComparer.Ordinal);
+            var declaredFunctionNames = new HashSet<Key>();
 
             if (functionDeclarations != null)
             {
                 for (var i = functionDeclarations.Count - 1; i >= 0; i--)
                 {
                     var d = functionDeclarations[i];
-                    var fn = d.Id!.Name;
+                    Key fn = d.Id!.Name;
                     if (!declaredFunctionNames.Contains(fn))
                     {
                         if (varEnvRec is GlobalEnvironment ger)
@@ -1286,7 +1285,7 @@ namespace Jint
             }
 
             var boundNames = new List<string>();
-            var declaredVarNames = new List<string>();
+            var declaredVarNames = new List<Key>();
             var variableDeclarations = hoistingScope._variablesDeclarations;
             var variableDeclarationsCount = variableDeclarations?.Count;
             for (var i = 0; i < variableDeclarationsCount; i++)
@@ -1322,7 +1321,7 @@ namespace Jint
                 d.GetBoundNames(boundNames);
                 for (var j = 0; j < boundNames.Count; j++)
                 {
-                    var dn = boundNames[j];
+                    Key dn = boundNames[j];
                     if (d.IsConstantDeclaration())
                     {
                         lexEnvRec.CreateImmutableBinding(dn, strict: true);
@@ -1336,7 +1335,7 @@ namespace Jint
 
             foreach (var f in functionsToInitialize)
             {
-                var fn = f.Name!;
+                Key fn = f.Name!;
                 var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv, privateEnv);
                 if (varEnvRec is GlobalEnvironment ger)
                 {

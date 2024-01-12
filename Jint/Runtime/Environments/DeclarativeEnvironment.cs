@@ -19,15 +19,9 @@ namespace Jint.Runtime.Environments
             _catchEnvironment = catchEnvironment;
         }
 
-        public sealed override bool HasBinding(string name)
-        {
-            return _dictionary is not null && _dictionary.ContainsKey(name);
-        }
+        internal sealed override bool HasBinding(BindingName name) => HasBinding(name.Key);
 
-        internal sealed override bool HasBinding(BindingName name)
-        {
-            return _dictionary is not null &&_dictionary.ContainsKey(name.Key);
-        }
+        internal sealed override bool HasBinding(Key name) => _dictionary is not null && _dictionary.ContainsKey(name);
 
         internal override bool TryGetBinding(
             BindingName name,
@@ -53,39 +47,35 @@ namespace Jint.Runtime.Environments
             _dictionary[name] = new Binding(value, canBeDeleted: false, mutable: false, strict);
         }
 
-        public sealed override void CreateMutableBinding(string name, bool canBeDeleted = false)
+        internal sealed override void CreateMutableBinding(Key name, bool canBeDeleted = false)
         {
             _dictionary ??= new HybridDictionary<Binding>();
             _dictionary[name] = new Binding(null!, canBeDeleted, mutable: true, strict: false);
         }
 
-        public sealed override void CreateImmutableBinding(string name, bool strict = true)
+        internal sealed override void CreateImmutableBinding(Key name, bool strict = true)
         {
             _dictionary ??= new HybridDictionary<Binding>();
             _dictionary[name] = new Binding(null!, canBeDeleted: false, mutable: false, strict);
         }
 
-        public sealed override void InitializeBinding(string name, JsValue value)
+        internal sealed override void InitializeBinding(Key name, JsValue value)
         {
             _dictionary ??= new HybridDictionary<Binding>();
             _dictionary.SetOrUpdateValue(name, static (current, value) => current.ChangeValue(value), value);
         }
 
-        internal sealed override void SetMutableBinding(BindingName name, JsValue value, bool strict)
-        {
-            SetMutableBinding(name.Key.Name, value, strict);
-        }
+        internal sealed override void SetMutableBinding(BindingName name, JsValue value, bool strict) => SetMutableBinding(name.Key, value, strict);
 
-        public sealed override void SetMutableBinding(string name, JsValue value, bool strict)
+        internal sealed override void SetMutableBinding(Key name, JsValue value, bool strict)
         {
-            var key = (Key) name;
-            if (_dictionary is null || !_dictionary.TryGetValue(key, out var binding))
+            if (_dictionary is null || !_dictionary.TryGetValue(name, out var binding))
             {
                 if (strict)
                 {
                     ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
                 }
-                CreateMutableBindingAndInitialize(key, canBeDeleted: true, value);
+                CreateMutableBindingAndInitialize(name, canBeDeleted: true, value);
                 return;
             }
 
@@ -102,7 +92,7 @@ namespace Jint.Runtime.Environments
 
             if (binding.Mutable)
             {
-                _dictionary[key] = binding.ChangeValue(value);
+                _dictionary[name] = binding.ChangeValue(value);
             }
             else
             {
@@ -113,7 +103,7 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        public override JsValue GetBindingValue(string name, bool strict)
+        internal override JsValue GetBindingValue(Key name, bool strict)
         {
             if (_dictionary is not null && _dictionary.TryGetValue(name, out var binding) && binding.IsInitialized())
             {
@@ -130,7 +120,7 @@ namespace Jint.Runtime.Environments
             ExceptionHelper.ThrowReferenceError(_engine.Realm, $"Cannot access '{name}' before initialization");
         }
 
-        public sealed override bool DeleteBinding(string name)
+        internal sealed override bool DeleteBinding(Key name)
         {
             if (_dictionary is null || !_dictionary.TryGetValue(name, out var binding))
             {
@@ -147,13 +137,13 @@ namespace Jint.Runtime.Environments
             return true;
         }
 
-        public override bool HasThisBinding() => false;
+        internal override bool HasThisBinding() => false;
 
-        public override bool HasSuperBinding() => false;
+        internal override bool HasSuperBinding() => false;
 
-        public sealed override JsValue WithBaseObject() => Undefined;
+        internal sealed override JsValue WithBaseObject() => Undefined;
 
-        public sealed override bool HasBindings()
+        internal sealed override bool HasBindings()
         {
             return _dictionary?.Count > 0;
         }
@@ -176,7 +166,7 @@ namespace Jint.Runtime.Environments
             return keys;
         }
 
-        public override JsValue GetThisBinding()
+        internal override JsValue GetThisBinding()
         {
             return Undefined;
         }

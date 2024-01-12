@@ -20,7 +20,7 @@ internal sealed class ModuleEnvironment : DeclarativeEnvironment
     /// <summary>
     /// https://tc39.es/ecma262/#sec-module-environment-records-getthisbinding
     /// </summary>
-    public override JsValue GetThisBinding()
+    internal override JsValue GetThisBinding()
     {
         return Undefined;
     }
@@ -37,7 +37,7 @@ internal sealed class ModuleEnvironment : DeclarativeEnvironment
     /// <summary>
     /// https://tc39.es/ecma262/#sec-module-environment-records-getbindingvalue-n-s
     /// </summary>
-    public override JsValue GetBindingValue(string name, bool strict)
+    internal override JsValue GetBindingValue(Key name, bool strict)
     {
         if (_importBindings.TryGetValue(name, out var indirectBinding))
         {
@@ -62,7 +62,7 @@ internal sealed class ModuleEnvironment : DeclarativeEnvironment
     /// <summary>
     /// https://tc39.es/ecma262/#sec-module-environment-records-hasthisbinding
     /// </summary>
-    public override bool HasThisBinding() => true;
+    internal override bool HasThisBinding() => true;
 
     private readonly record struct IndirectBinding(Module Module, string BindingName);
 }
