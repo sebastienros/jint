@@ -15,7 +15,7 @@ namespace Jint.Native.Argument
     public sealed class JsArguments : ObjectInstance
     {
         // cache property container for array iteration for less allocations
-        private static readonly ThreadLocal<HashSet<string>> _mappedNamed = new(() => new HashSet<string>(StringComparer.Ordinal));
+        private static readonly ThreadLocal<HashSet<Key>> _mappedNamed = new(() => []);
 
         private Function.Function _func = null!;
         private Key[] _names = null!;
