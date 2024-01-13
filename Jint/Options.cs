@@ -13,12 +13,6 @@ using Jint.Runtime.CallStack;
 
 namespace Jint
 {
-    public delegate JsValue? MemberAccessorDelegate(Engine engine, object target, string member);
-
-    public delegate ObjectInstance? WrapObjectDelegate(Engine engine, object target, Type? type);
-
-    public delegate bool ExceptionHandlerDelegate(Exception exception);
-
     public class Options
     {
         private static readonly CultureInfo _defaultCulture = CultureInfo.CurrentCulture;
@@ -26,6 +20,12 @@ namespace Jint
 
         private ITimeSystem? _timeSystem;
         internal List<Action<Engine>> _configurations { get; } = new();
+
+        public delegate JsValue? MemberAccessorDelegate(Engine engine, object target, string member);
+
+        public delegate ObjectInstance? WrapObjectDelegate(Engine engine, object target, Type? type);
+
+        public delegate bool ExceptionHandlerDelegate(Exception exception);
 
         /// <summary>
         /// Execution constraints for the engine.
@@ -146,7 +146,7 @@ namespace Jint
                     PropertyFlag.AllForbidden));
             }
 
-            engine.Modules = new ModuleOperations(engine, Modules.ModuleLoader);
+            engine.Modules = new Engine.ModuleOperations(engine, Modules.ModuleLoader);
         }
 
         private static void AttachExtensionMethodsToPrototypes(Engine engine)
@@ -217,136 +217,206 @@ namespace Jint
                 }
             }
         }
-    }
 
-    public class DebuggerOptions
-    {
+
+        public class DebuggerOptions
+        {
+            /// <summary>
+            /// Whether debugger functionality is enabled, defaults to false.
+            /// </summary>
+            public bool Enabled { get; set; }
+
+            /// <summary>
+            /// Configures the statement handling strategy, defaults to Ignore.
+            /// </summary>
+            public DebuggerStatementHandling StatementHandling { get; set; } = DebuggerStatementHandling.Ignore;
+
+            /// <summary>
+            /// Configures the step mode used when entering the script.
+            /// </summary>
+            public StepMode InitialStepMode { get; set; } = StepMode.None;
+        }
+
+        public class InteropOptions
+        {
+            /// <summary>
+            /// Whether accessing CLR and it's types and methods is allowed from JS code, defaults to false.
+            /// </summary>
+            public bool Enabled { get; set; }
+
+            /// <summary>
+            /// Whether to expose <see cref="object.GetType"></see> which can allow bypassing allow lists and open a way to reflection.
+            /// Defaults to false.
+            /// </summary>
+            public bool AllowGetType { get; set; }
+
+            /// <summary>
+            /// Whether Jint should allow wrapping objects from System.Reflection namespace.
+            /// Defaults to false.
+            /// </summary>
+            public bool AllowSystemReflection { get; set; }
+
+            /// <summary>
+            /// Whether writing to CLR objects is allowed (set properties), defaults to true.
+            /// </summary>
+            public bool AllowWrite { get; set; } = true;
+
+            /// <summary>
+            /// Whether operator overloading resolution is allowed, defaults to false.
+            /// </summary>
+            public bool AllowOperatorOverloading { get; set; }
+
+            /// <summary>
+            /// Types holding extension methods that should be considered when resolving methods.
+            /// </summary>
+            public List<Type> ExtensionMethodTypes { get; } = new();
+
+            /// <summary>
+            /// Object converters to try when build-in conversions.
+            /// </summary>
+            public List<IObjectConverter> ObjectConverters { get; } = new();
+
+            /// <summary>
+            /// Whether identity map is persisted for object wrappers in order to maintain object identity. This can cause
+            /// memory usage to grow when targeting large set and freeing of memory can be delayed due to ConditionalWeakTable semantics.
+            /// Defaults to false.
+            /// </summary>
+            public bool TrackObjectWrapperIdentity { get; set; }
+
+            /// <summary>
+            /// If no known type could be guessed, objects are by default wrapped as an
+            /// ObjectInstance using class ObjectWrapper. This function can be used to
+            /// change the behavior.
+            /// </summary>
+            public WrapObjectDelegate WrapObjectHandler { get; set; } = static (engine, target, type) => new ObjectWrapper(engine, target, type);
+
+            /// <summary>
+            ///
+            /// </summary>
+            public MemberAccessorDelegate MemberAccessor { get; set; } = static (engine, target, member) => null;
+
+            /// <summary>
+            /// Exceptions that thrown from CLR code are converted to JavaScript errors and
+            /// can be used in at try/catch statement. By default these exceptions are bubbled
+            /// to the CLR host and interrupt the script execution. If handler returns true these exceptions are converted
+            /// to JS errors that can be caught by the script.
+            /// </summary>
+            public ExceptionHandlerDelegate ExceptionHandler { get; set; } = _defaultExceptionHandler;
+
+            /// <summary>
+            /// Assemblies to allow scripts to call CLR types directly like <example>System.IO.File</example>.
+            /// </summary>
+            public List<Assembly> AllowedAssemblies { get; set; } = new();
+
+            /// <summary>
+            /// Type and member resolving strategy, which allows filtering allowed members and configuring member
+            /// name matching comparison.
+            /// </summary>
+            /// <remarks>
+            /// As this object holds caching state same instance should be shared between engines, if possible.
+            /// </remarks>
+            public TypeResolver TypeResolver { get; set; } = TypeResolver.Default;
+
+            /// <summary>
+            /// When writing values to CLR objects, how should JS values be coerced to CLR types.
+            /// Defaults to only coercing to string values when writing to string targets.
+            /// </summary>
+            public ValueCoercionType ValueCoercion { get; set; } = ValueCoercionType.String;
+
+            /// <summary>
+            /// Strategy to create a CLR object to hold converted <see cref="ObjectInstance"/>.
+            /// </summary>
+            public Func<ObjectInstance, IDictionary<string, object?>>? CreateClrObject = _ => new ExpandoObject();
+
+            /// <summary>
+            /// Strategy to create a CLR object from TypeReference.
+            /// Defaults to retuning null which makes TypeReference attempt to find suitable constructor.
+            /// </summary>
+            public Func<Engine, Type, JsValue[], object?> CreateTypeReferenceObject = (_, _, _) => null;
+
+            internal static readonly ExceptionHandlerDelegate _defaultExceptionHandler = static exception => false;
+
+            /// <summary>
+            /// When not null, is used to serialize any CLR object in an
+            /// <see cref="IObjectWrapper"/> passing through 'JSON.stringify'.
+            /// </summary>
+            public Func<object, string>? SerializeToJson { get; set; }
+
+            /// <summary>
+            /// What kind of date time should be produced when JavaScript date is converted to DateTime. If Local, uses <see cref="Options.TimeZone"/>.
+            /// Defaults to <see cref="System.DateTimeKind.Utc"/>.
+            /// </summary>
+            public DateTimeKind DateTimeKind { get; set; } = DateTimeKind.Utc;
+        }
+
+        public class ConstraintOptions
+        {
+            /// <summary>
+            /// Registered constraints.
+            /// </summary>
+            public List<Constraint> Constraints { get; } = new();
+
+            /// <summary>
+            /// Maximum recursion depth allowed, defaults to -1 (no checks).
+            /// </summary>
+            public int MaxRecursionDepth { get; set; } = -1;
+
+            /// <summary>
+            /// Maximum recursion stack count, defaults to -1 (as-is dotnet stacktrace).
+            /// </summary>
+            /// <remarks>
+            /// Chrome and V8 based engines (ClearScript) that can handle 13955.
+            /// When set to a different value except -1, it can reduce slight performance/stack trace readability drawback. (after hitting the engine's own limit),
+            /// When max stack size to be exceeded, Engine throws an exception <see cref="JavaScriptException" />.
+            /// </remarks>
+            public int MaxExecutionStackCount { get; set; } = StackGuard.Disabled;
+
+            /// <summary>
+            /// Maximum time a Regex is allowed to run, defaults to 10 seconds.
+            /// </summary>
+            public TimeSpan RegexTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+            /// <summary>
+            /// The maximum size for JavaScript array, defaults to <see cref="uint.MaxValue"/>.
+            /// </summary>
+            public uint MaxArraySize { get; set; } = uint.MaxValue;
+        }
+
         /// <summary>
-        /// Whether debugger functionality is enabled, defaults to false.
+        /// Host related customization, still work in progress.
         /// </summary>
-        public bool Enabled { get; set; }
+        public class HostOptions
+        {
+            internal Func<Engine, Host> Factory { get; set; } = _ => new Host();
+        }
 
         /// <summary>
-        /// Configures the statement handling strategy, defaults to Ignore.
+        /// Module related customization
         /// </summary>
-        public DebuggerStatementHandling StatementHandling { get; set; } = DebuggerStatementHandling.Ignore;
+        public class ModuleOptions
+        {
+            /// <summary>
+            /// Whether to register require function to engine which will delegate to module loader, defaults to false.
+            /// </summary>
+            public bool RegisterRequire { get; set; }
+
+            /// <summary>
+            /// Module loader implementation, by default exception will be thrown if module loading is not enabled.
+            /// </summary>
+            public IModuleLoader ModuleLoader { get; set; } = FailFastModuleLoader.Instance;
+        }
 
         /// <summary>
-        /// Configures the step mode used when entering the script.
+        /// JSON.parse / JSON.stringify related customization
         /// </summary>
-        public StepMode InitialStepMode { get; set; } = StepMode.None;
-    }
-
-    public class InteropOptions
-    {
-        /// <summary>
-        /// Whether accessing CLR and it's types and methods is allowed from JS code, defaults to false.
-        /// </summary>
-        public bool Enabled { get; set; }
-
-        /// <summary>
-        /// Whether to expose <see cref="object.GetType"></see> which can allow bypassing allow lists and open a way to reflection.
-        /// Defaults to false.
-        /// </summary>
-        public bool AllowGetType { get; set; }
-
-        /// <summary>
-        /// Whether Jint should allow wrapping objects from System.Reflection namespace.
-        /// Defaults to false.
-        /// </summary>
-        public bool AllowSystemReflection { get; set; }
-
-        /// <summary>
-        /// Whether writing to CLR objects is allowed (set properties), defaults to true.
-        /// </summary>
-        public bool AllowWrite { get; set; } = true;
-
-        /// <summary>
-        /// Whether operator overloading resolution is allowed, defaults to false.
-        /// </summary>
-        public bool AllowOperatorOverloading { get; set; }
-
-        /// <summary>
-        /// Types holding extension methods that should be considered when resolving methods.
-        /// </summary>
-        public List<Type> ExtensionMethodTypes { get; } = new();
-
-        /// <summary>
-        /// Object converters to try when build-in conversions.
-        /// </summary>
-        public List<IObjectConverter> ObjectConverters { get; } = new();
-
-        /// <summary>
-        /// Whether identity map is persisted for object wrappers in order to maintain object identity. This can cause
-        /// memory usage to grow when targeting large set and freeing of memory can be delayed due to ConditionalWeakTable semantics.
-        /// Defaults to false.
-        /// </summary>
-        public bool TrackObjectWrapperIdentity { get; set; }
-
-        /// <summary>
-        /// If no known type could be guessed, objects are by default wrapped as an
-        /// ObjectInstance using class ObjectWrapper. This function can be used to
-        /// change the behavior.
-        /// </summary>
-        public WrapObjectDelegate WrapObjectHandler { get; set; } = static (engine, target, type) => new ObjectWrapper(engine, target, type);
-
-        /// <summary>
-        ///
-        /// </summary>
-        public MemberAccessorDelegate MemberAccessor { get; set; } = static (engine, target, member) => null;
-
-        /// <summary>
-        /// Exceptions that thrown from CLR code are converted to JavaScript errors and
-        /// can be used in at try/catch statement. By default these exceptions are bubbled
-        /// to the CLR host and interrupt the script execution. If handler returns true these exceptions are converted
-        /// to JS errors that can be caught by the script.
-        /// </summary>
-        public ExceptionHandlerDelegate ExceptionHandler { get; set; } = _defaultExceptionHandler;
-
-        /// <summary>
-        /// Assemblies to allow scripts to call CLR types directly like <example>System.IO.File</example>.
-        /// </summary>
-        public List<Assembly> AllowedAssemblies { get; set; } = new();
-
-        /// <summary>
-        /// Type and member resolving strategy, which allows filtering allowed members and configuring member
-        /// name matching comparison.
-        /// </summary>
-        /// <remarks>
-        /// As this object holds caching state same instance should be shared between engines, if possible.
-        /// </remarks>
-        public TypeResolver TypeResolver { get; set; } = TypeResolver.Default;
-
-        /// <summary>
-        /// When writing values to CLR objects, how should JS values be coerced to CLR types.
-        /// Defaults to only coercing to string values when writing to string targets.
-        /// </summary>
-        public ValueCoercionType ValueCoercion { get; set; } = ValueCoercionType.String;
-
-        /// <summary>
-        /// Strategy to create a CLR object to hold converted <see cref="ObjectInstance"/>.
-        /// </summary>
-        public Func<ObjectInstance, IDictionary<string, object?>>? CreateClrObject = _ => new ExpandoObject();
-
-        /// <summary>
-        /// Strategy to create a CLR object from TypeReference.
-        /// Defaults to retuning null which makes TypeReference attempt to find suitable constructor.
-        /// </summary>
-        public Func<Engine, Type, JsValue[], object?> CreateTypeReferenceObject = (_, _, _) => null;
-
-        internal static readonly ExceptionHandlerDelegate _defaultExceptionHandler = static exception => false;
-
-        /// <summary>
-        /// When not null, is used to serialize any CLR object in an
-        /// <see cref="IObjectWrapper"/> passing through 'JSON.stringify'.
-        /// </summary>
-        public Func<object, string>? SerializeToJson { get; set; }
-
-        /// <summary>
-        /// What kind of date time should be produced when JavaScript date is converted to DateTime. If Local, uses <see cref="Options.TimeZone"/>.
-        /// Defaults to <see cref="System.DateTimeKind.Utc"/>.
-        /// </summary>
-        public DateTimeKind DateTimeKind { get; set; } = DateTimeKind.Utc;
+        public class JsonOptions
+        {
+            /// <summary>
+            /// The maximum depth allowed when parsing JSON files using "JSON.parse",
+            /// defaults to 64.
+            /// </summary>
+            public int MaxParseDepth { get; set; } = 64;
+        }
     }
 
     /// <summary>
@@ -380,74 +450,5 @@ namespace Jint
         /// All coercion rules enabled.
         /// </summary>
         All = Boolean | Number | String
-    }
-
-    public class ConstraintOptions
-    {
-        /// <summary>
-        /// Registered constraints.
-        /// </summary>
-        public List<Constraint> Constraints { get; } = new();
-
-        /// <summary>
-        /// Maximum recursion depth allowed, defaults to -1 (no checks).
-        /// </summary>
-        public int MaxRecursionDepth { get; set; } = -1;
-
-        /// <summary>
-        /// Maximum recursion stack count, defaults to -1 (as-is dotnet stacktrace).
-        /// </summary>
-        /// <remarks>
-        /// Chrome and V8 based engines (ClearScript) that can handle 13955.
-        /// When set to a different value except -1, it can reduce slight performance/stack trace readability drawback. (after hitting the engine's own limit),
-        /// When max stack size to be exceeded, Engine throws an exception <see cref="JavaScriptException" />.
-        /// </remarks>
-        public int MaxExecutionStackCount { get; set; } = StackGuard.Disabled;
-
-        /// <summary>
-        /// Maximum time a Regex is allowed to run, defaults to 10 seconds.
-        /// </summary>
-        public TimeSpan RegexTimeout { get; set; } = TimeSpan.FromSeconds(10);
-
-        /// <summary>
-        /// The maximum size for JavaScript array, defaults to <see cref="uint.MaxValue"/>.
-        /// </summary>
-        public uint MaxArraySize { get; set; } = uint.MaxValue;
-    }
-
-    /// <summary>
-    /// Host related customization, still work in progress.
-    /// </summary>
-    public class HostOptions
-    {
-        internal Func<Engine, Host> Factory { get; set; } = _ => new Host();
-    }
-
-    /// <summary>
-    /// Module related customization
-    /// </summary>
-    public class ModuleOptions
-    {
-        /// <summary>
-        /// Whether to register require function to engine which will delegate to module loader, defaults to false.
-        /// </summary>
-        public bool RegisterRequire { get; set; }
-
-        /// <summary>
-        /// Module loader implementation, by default exception will be thrown if module loading is not enabled.
-        /// </summary>
-        public IModuleLoader ModuleLoader { get; set; } = FailFastModuleLoader.Instance;
-    }
-
-    /// <summary>
-    /// JSON.parse / JSON.stringify related customization
-    /// </summary>
-    public class JsonOptions
-    {
-        /// <summary>
-        /// The maximum depth allowed when parsing JSON files using "JSON.parse",
-        /// defaults to 64.
-        /// </summary>
-        public int MaxParseDepth { get; set; } = 64;
     }
 }

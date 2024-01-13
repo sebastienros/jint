@@ -7,7 +7,6 @@ using Jint.Native;
 using Jint.Native.Error;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.Modules;
-using Jint.Runtime.References;
 
 namespace Jint.Runtime
 {

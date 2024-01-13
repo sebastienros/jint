@@ -4,7 +4,6 @@ using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Iterator;
 using Jint.Native.Number;
-using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
