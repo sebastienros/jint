@@ -250,10 +250,10 @@ internal class SourceTextModule : CyclicModule
         var hoistingScope = HoistingScope.GetModuleLevelDeclarations(_source);
 
         var varDeclarations = hoistingScope._variablesDeclarations;
-        var declaredVarNames = new HashSet<string>(StringComparer.Ordinal);
+        var declaredVarNames = new HashSet<Key>();
         if (varDeclarations != null)
         {
-            var boundNames = new List<string>();
+            var boundNames = new List<Key>();
             for (var i = 0; i < varDeclarations.Count; i++)
             {
                 var d = varDeclarations[i];
@@ -264,7 +264,7 @@ internal class SourceTextModule : CyclicModule
                     var dn = boundNames[j];
                     if (declaredVarNames.Add(dn))
                     {
-                        env.CreateMutableBinding(dn, false);
+                        env.CreateMutableBinding(dn);
                         env.InitializeBinding(dn, Undefined);
                     }
                 }
@@ -275,7 +275,7 @@ internal class SourceTextModule : CyclicModule
 
         if (lexDeclarations != null)
         {
-            var boundNames = new List<string>();
+            var boundNames = new List<Key>();
             for (var i = 0; i < lexDeclarations.Count; i++)
             {
                 var d = lexDeclarations[i];
@@ -286,11 +286,11 @@ internal class SourceTextModule : CyclicModule
                     var dn = boundNames[j];
                     if (d.IsConstantDeclaration())
                     {
-                        env.CreateImmutableBinding(dn, true);
+                        env.CreateImmutableBinding(dn);
                     }
                     else
                     {
-                        env.CreateMutableBinding(dn, false);
+                        env.CreateMutableBinding(dn);
                     }
                 }
             }

@@ -945,7 +945,7 @@ namespace Jint
 
             var functionToInitialize = new List<JintFunctionDefinition>();
             var declaredFunctionNames = new HashSet<Key>();
-            var declaredVarNames = new List<string>();
+            var declaredVarNames = new List<Key>();
 
             var realm = Realm;
 
@@ -972,7 +972,7 @@ namespace Jint
             var varNames = script.GetVarNames(hoistingScope);
             for (var j = 0; j < varNames.Count; j++)
             {
-                Key vn = varNames[j];
+                var vn = varNames[j];
                 if (env.HasLexicalDeclaration(vn))
                 {
                     ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{vn}' has already been declared");
@@ -1014,7 +1014,7 @@ namespace Jint
             for (var i = functionToInitialize.Count - 1; i > -1; i--)
             {
                 var f = functionToInitialize[i];
-                var fn = f.Name!;
+                Key fn = f.Name!;
 
                 if (env.HasLexicalDeclaration(fn))
                 {
@@ -1143,7 +1143,7 @@ namespace Jint
                 {
                     for (var j = 0; j < d.BoundNames.Count; j++)
                     {
-                        Key dn = d.BoundNames[j];
+                        var dn = d.BoundNames[j];
                         if (d.IsConstantDeclaration)
                         {
                             lexEnv.CreateImmutableBinding(dn, strict: true);
@@ -1284,7 +1284,7 @@ namespace Jint
                 }
             }
 
-            var boundNames = new List<string>();
+            var boundNames = new List<Key>();
             var declaredVarNames = new List<Key>();
             var variableDeclarations = hoistingScope._variablesDeclarations;
             var variableDeclarationsCount = variableDeclarations?.Count;
@@ -1335,14 +1335,14 @@ namespace Jint
 
             foreach (var f in functionsToInitialize)
             {
-                Key fn = f.Name!;
                 var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, lexEnv, privateEnv);
                 if (varEnvRec is GlobalEnvironment ger)
                 {
-                    ger.CreateGlobalFunctionBinding(fn, fo, canBeDeleted: true);
+                    ger.CreateGlobalFunctionBinding(f.Name!, fo, canBeDeleted: true);
                 }
                 else
                 {
+                    Key fn = f.Name!;
                     var bindingExists = varEnvRec.HasBinding(fn);
                     if (!bindingExists)
                     {

@@ -18,7 +18,7 @@ namespace Jint.Runtime.Interpreter.Statements
         private JintExpression? _increment;
 
         private ProbablyBlockStatement _body;
-        private List<string>? _boundNames;
+        private List<Key>? _boundNames;
 
         private bool _shouldCreatePerIterationEnvironment;
 
@@ -38,7 +38,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     var d = (VariableDeclaration) _statement.Init;
                     if (d.Kind != VariableDeclarationKind.Var)
                     {
-                        _boundNames = new List<string>();
+                        _boundNames = new List<Key>();
                         d.GetBoundNames(_boundNames);
                     }
                     _initStatement = new JintVariableDeclaration(d);
@@ -77,11 +77,11 @@ namespace Jint.Runtime.Interpreter.Statements
                     var name = _boundNames[i];
                     if (kind == VariableDeclarationKind.Const)
                     {
-                        loopEnvRec.CreateImmutableBinding(name, true);
+                        loopEnvRec.CreateImmutableBinding(name);
                     }
                     else
                     {
-                        loopEnvRec.CreateMutableBinding(name, false);
+                        loopEnvRec.CreateMutableBinding(name);
                     }
                 }
 

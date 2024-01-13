@@ -29,7 +29,7 @@ namespace Jint.Runtime.Environments
 
         // Environment records are needed by debugger
         internal readonly GlobalDeclarativeEnvironment _declarativeRecord;
-        private readonly HashSet<string> _varNames = new(StringComparer.Ordinal);
+        private readonly HashSet<Key> _varNames = [];
 
         public GlobalEnvironment(Engine engine, ObjectInstance global) : base(engine)
         {
@@ -272,25 +272,13 @@ namespace Jint.Runtime.Environments
             return true;
         }
 
-        internal override bool HasThisBinding()
-        {
-            return true;
-        }
+        internal override bool HasThisBinding() => true;
 
-        internal override bool HasSuperBinding()
-        {
-            return false;
-        }
+        internal override bool HasSuperBinding() => false;
 
-        internal override JsValue WithBaseObject()
-        {
-            return Undefined;
-        }
+        internal override JsValue WithBaseObject() => Undefined;
 
-        internal override JsValue GetThisBinding()
-        {
-            return _global;
-        }
+        internal override JsValue GetThisBinding() => _global;
 
         internal bool HasVarDeclaration(Key name) => _varNames.Contains(name);
 
@@ -313,7 +301,7 @@ namespace Jint.Runtime.Environments
             return !existingProp.Configurable;
         }
 
-        public bool CanDeclareGlobalVar(string name)
+        public bool CanDeclareGlobalVar(Key name)
         {
             if (_global._properties!.ContainsKey(name))
             {
@@ -323,7 +311,7 @@ namespace Jint.Runtime.Environments
             return _global.Extensible;
         }
 
-        public bool CanDeclareGlobalFunction(string name)
+        public bool CanDeclareGlobalFunction(Key name)
         {
             if (!_global._properties!.TryGetValue(name, out var existingProp)
                 || existingProp == PropertyDescriptor.Undefined)
@@ -344,10 +332,9 @@ namespace Jint.Runtime.Environments
             return false;
         }
 
-        public void CreateGlobalVarBinding(string name, bool canBeDeleted)
+        public void CreateGlobalVarBinding(Key name, bool canBeDeleted)
         {
-            Key key = name;
-            if (_global.Extensible && _global._properties!.TryAdd(key, new PropertyDescriptor(Undefined, canBeDeleted
+            if (_global.Extensible && _global._properties!.TryAdd(name, new PropertyDescriptor(Undefined, canBeDeleted
                     ? PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding
                     : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding)))
             {
@@ -355,7 +342,7 @@ namespace Jint.Runtime.Environments
             }
         }
 
-        internal void CreateGlobalVarBindings(List<string> names, bool canBeDeleted)
+        internal void CreateGlobalVarBindings(List<Key> names, bool canBeDeleted)
         {
             if (!_global.Extensible)
             {
@@ -366,7 +353,7 @@ namespace Jint.Runtime.Environments
             {
                 var name = names[i];
 
-                _global._properties!.TryAdd(name,new PropertyDescriptor(Undefined, canBeDeleted
+                _global._properties!.TryAdd(name, new PropertyDescriptor(Undefined, canBeDeleted
                     ? PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding
                     : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding));
 
@@ -377,7 +364,7 @@ namespace Jint.Runtime.Environments
         /// <summary>
         /// https://tc39.es/ecma262/#sec-createglobalfunctionbinding
         /// </summary>
-        public void CreateGlobalFunctionBinding(string name, JsValue value, bool canBeDeleted)
+        public void CreateGlobalFunctionBinding(Key name, JsValue value, bool canBeDeleted)
         {
             var jsString = new JsString(name);
             var existingProp = _global.GetOwnProperty(jsString);
@@ -397,7 +384,7 @@ namespace Jint.Runtime.Environments
             _varNames.Add(name);
         }
 
-        internal sealed override bool HasBindings()
+        internal override bool HasBindings()
         {
             return _declarativeRecord.HasBindings() || _globalObject?._properties?.Count > 0 || _global._properties?.Count > 0;
         }

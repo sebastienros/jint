@@ -143,10 +143,7 @@ namespace Jint.Runtime.Environments
 
         internal sealed override JsValue WithBaseObject() => Undefined;
 
-        internal sealed override bool HasBindings()
-        {
-            return _dictionary?.Count > 0;
-        }
+        internal sealed override bool HasBindings() => _dictionary?.Count > 0;
 
         /// <inheritdoc />
         internal sealed override string[] GetAllBindingNames()
@@ -166,10 +163,7 @@ namespace Jint.Runtime.Environments
             return keys;
         }
 
-        internal override JsValue GetThisBinding()
-        {
-            return Undefined;
-        }
+        internal override JsValue GetThisBinding() => Undefined;
 
         public void Clear()
         {
