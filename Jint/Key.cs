@@ -39,16 +39,6 @@ namespace Jint
             return a.HashCode != b.HashCode || !string.Equals(a.Name, b.Name, StringComparison.Ordinal);
         }
 
-        public static bool operator ==(in Key a, string b)
-        {
-            return string.Equals(a.Name, b, StringComparison.Ordinal);
-        }
-
-        public static bool operator !=(in Key a, string b)
-        {
-            return !string.Equals(a.Name, b, StringComparison.Ordinal);
-        }
-
         public bool Equals(Key other)
         {
             return HashCode == other.HashCode && string.Equals(Name, other.Name, StringComparison.Ordinal);

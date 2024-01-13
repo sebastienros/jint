@@ -43,7 +43,7 @@ namespace Jint.Runtime.Interpreter.Statements
             {
                 oldEnv = engine.ExecutionContext.LexicalEnvironment;
                 var blockEnv = JintEnvironment.NewDeclarativeEnvironment(engine, engine.ExecutionContext.LexicalEnvironment);
-                JintStatementList.BlockDeclarationInstantiation(engine, blockEnv, _lexicalDeclarations);
+                JintStatementList.BlockDeclarationInstantiation(blockEnv, _lexicalDeclarations);
                 engine.UpdateLexicalEnvironment(blockEnv);
             }
 

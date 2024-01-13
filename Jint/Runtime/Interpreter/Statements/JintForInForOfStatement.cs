@@ -23,7 +23,7 @@ namespace Jint.Runtime.Interpreter.Statements
         private JintExpression? _expr;
         private BindingPattern? _assignmentPattern;
         private JintExpression _right = null!;
-        private List<string>? _tdzNames;
+        private List<Key>? _tdzNames;
         private bool _destructuring;
         private LhsKind _lhsKind;
 
@@ -57,7 +57,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 var id = variableDeclarationDeclaration.Id;
                 if (_lhsKind == LhsKind.LexicalBinding)
                 {
-                    _tdzNames = new List<string>(1);
+                    _tdzNames = new List<Key>(1);
                     id.GetBoundNames(_tdzNames);
                 }
 
@@ -336,7 +336,7 @@ namespace Jint.Runtime.Interpreter.Statements
         {
             var envRec = (DeclarativeEnvironment) environment;
             var variableDeclaration = (VariableDeclaration) _leftNode;
-            var boundNames = new List<string>();
+            var boundNames = new List<Key>();
             variableDeclaration.GetBoundNames(boundNames);
             for (var i = 0; i < boundNames.Count; i++)
             {

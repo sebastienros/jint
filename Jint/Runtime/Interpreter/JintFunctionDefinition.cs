@@ -188,7 +188,7 @@ internal sealed class JintFunctionDefinition
         internal struct LexicalVariableDeclaration
         {
             public bool IsConstantDeclaration;
-            public List<string> BoundNames;
+            public List<Key> BoundNames;
         }
     }
 
@@ -316,7 +316,7 @@ internal sealed class JintFunctionDefinition
             for (var i = 0; i < lexicalDeclarationsCount; i++)
             {
                 var d = _lexicalDeclarations[i];
-                var boundNames = new List<string>();
+                var boundNames = new List<Key>();
                 d.GetBoundNames(boundNames);
                 declarations[i] = new State.LexicalVariableDeclaration
                 {

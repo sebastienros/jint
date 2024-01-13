@@ -181,13 +181,10 @@ namespace Jint.Runtime.Interpreter
         /// <summary>
         /// https://tc39.es/ecma262/#sec-blockdeclarationinstantiation
         /// </summary>
-        internal static void BlockDeclarationInstantiation(
-            Engine engine,
-            Environment env,
-            List<Declaration> declarations)
+        internal static void BlockDeclarationInstantiation(Environment env, List<Declaration> declarations)
         {
             var privateEnv = env._engine.ExecutionContext.PrivateEnvironment;
-            var boundNames = new List<string>();
+            var boundNames = new List<Key>();
             for (var i = 0; i < declarations.Count; i++)
             {
                 var d = declarations[i];

@@ -55,7 +55,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     blockEnv ??= JintEnvironment.NewDeclarativeEnvironment(context.Engine, oldEnv);
                     blockEnv.Clear();
 
-                    JintStatementList.BlockDeclarationInstantiation(context.Engine, blockEnv, clause.LexicalDeclarations);
+                    JintStatementList.BlockDeclarationInstantiation(blockEnv, clause.LexicalDeclarations);
                     context.Engine.UpdateLexicalEnvironment(blockEnv);
                 }
 
