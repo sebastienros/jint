@@ -16,9 +16,9 @@ namespace Jint.Runtime.Interop
 
         /// <summary>
         /// Registers a filter that determines whether given member is wrapped to interop or returned as undefined.
-        /// By default allows all but will also be limited by <see cref="InteropOptions.AllowGetType"/> configuration.
+        /// By default allows all but will also be limited by <see cref="Options.InteropOptions.AllowGetType"/> configuration.
         /// </summary>
-        /// <seealso cref="InteropOptions.AllowGetType"/>
+        /// <seealso cref="Options.InteropOptions.AllowGetType"/>
         public Predicate<MemberInfo> MemberFilter { get; set; } = _ => true;
 
         internal bool Filter(Engine engine, MemberInfo m)

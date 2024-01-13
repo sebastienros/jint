@@ -4,7 +4,7 @@ using Jint.Native;
 namespace Jint.Runtime.Environments
 {
     [DebuggerDisplay("Mutable: {Mutable}, Strict: {Strict}, CanBeDeleted: {CanBeDeleted}, Value: {Value}")]
-    public readonly struct Binding
+    internal readonly struct Binding
     {
         public Binding(
             JsValue value,

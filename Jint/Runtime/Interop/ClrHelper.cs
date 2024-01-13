@@ -4,9 +4,9 @@ using Jint.Native;
 
 public class ClrHelper
 {
-    private readonly InteropOptions _interopOptions;
+    private readonly Options.InteropOptions _interopOptions;
 
-    internal ClrHelper(InteropOptions interopOptions)
+    internal ClrHelper(Options.InteropOptions interopOptions)
     {
         _interopOptions = interopOptions;
     }

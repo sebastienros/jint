@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 namespace Jint
 {
     [StructLayout(LayoutKind.Auto)]
-    public readonly struct StrictModeScope : IDisposable
+    internal readonly struct StrictModeScope : IDisposable
     {
         private readonly bool _strict;
         private readonly bool _force;

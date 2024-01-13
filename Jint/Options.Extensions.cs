@@ -121,7 +121,7 @@ namespace Jint
         /// ObjectInstance using class ObjectWrapper. This function can be used to
         /// register a handler for a customized handling.
         /// </summary>
-        public static Options SetWrapObjectHandler(this Options options, WrapObjectDelegate wrapObjectHandler)
+        public static Options SetWrapObjectHandler(this Options options, Options.WrapObjectDelegate wrapObjectHandler)
         {
             options.Interop.WrapObjectHandler = wrapObjectHandler;
             return options;
@@ -146,7 +146,7 @@ namespace Jint
         /// The delegate to invoke for each CLR member. If the delegate
         /// returns <c>null</c>, the standard evaluation is performed.
         /// </param>
-        public static Options SetMemberAccessor(this Options options, MemberAccessorDelegate accessor)
+        public static Options SetMemberAccessor(this Options options, Options.MemberAccessorDelegate accessor)
         {
             options.Interop.MemberAccessor = accessor;
             return options;
@@ -191,7 +191,7 @@ namespace Jint
         /// can be used in at try/catch statement. By default these exceptions are bubbled
         /// to the CLR host and interrupt the script execution.
         /// </summary>
-        public static Options CatchClrExceptions(this Options options, ExceptionHandlerDelegate handler)
+        public static Options CatchClrExceptions(this Options options, Options.ExceptionHandlerDelegate handler)
         {
             options.Interop.ExceptionHandler = handler;
             return options;

@@ -2,7 +2,6 @@ using Esprima.Ast;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Runtime.Interop;
-using Jint.Runtime.References;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;

@@ -6,19 +6,18 @@ using Jint.Runtime;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Modules;
 
-namespace Jint
-{
-    public partial class Engine
-    {
-        public ModuleOperations Modules { get; internal set; } = null!;
+namespace Jint;
 
-        /// <summary>
-        /// https://tc39.es/ecma262/#sec-getactivescriptormodule
-        /// </summary>
-        internal IScriptOrModule? GetActiveScriptOrModule()
-        {
-            return _executionContexts?.GetActiveScriptOrModule();
-        }
+public partial class Engine
+{
+    public ModuleOperations Modules { get; internal set; } = null!;
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-getactivescriptormodule
+    /// </summary>
+    internal IScriptOrModule? GetActiveScriptOrModule()
+    {
+        return _executionContexts?.GetActiveScriptOrModule();
     }
 
     public class ModuleOperations
@@ -56,7 +55,7 @@ namespace Jint
 
             if (module is SourceTextModule sourceTextModule)
             {
-               _engine.Debugger.OnBeforeEvaluate(sourceTextModule._source);
+                _engine.Debugger.OnBeforeEvaluate(sourceTextModule._source);
             }
 
             return module;

@@ -30,7 +30,7 @@ public sealed class ClrFunction : Function, IEquatable<ClrFunction>
             ? PropertyDescriptor.AllForbiddenDescriptor.ForNumber(length)
             : new PropertyDescriptor(JsNumber.Create(length), lengthFlags);
 
-        _bubbleExceptions = _engine.Options.Interop.ExceptionHandler == InteropOptions._defaultExceptionHandler;
+        _bubbleExceptions = _engine.Options.Interop.ExceptionHandler == Options.InteropOptions._defaultExceptionHandler;
     }
 
     protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments) => _bubbleExceptions ? _func(thisObject, arguments) : CallSlow(thisObject, arguments);

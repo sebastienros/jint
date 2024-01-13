@@ -2,12 +2,11 @@ using Jint.Native;
 using Jint.Native.Argument;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
-using Jint.Runtime.References;
 
 namespace Jint.Pooling
 {
     /// <summary>
-    /// Cache reusable <see cref="Reference" /> instances as we allocate them a lot.
+    /// Cache reusable <see cref="JsArguments" /> instances as we allocate them a lot.
     /// </summary>
     internal sealed class ArgumentsInstancePool
     {
