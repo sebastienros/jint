@@ -113,7 +113,7 @@ public partial class Engine
 
             if (!_modules.TryGetValue(moduleResolution.Key, out var module))
             {
-                module = Load(referencingModuleLocation: null, request);
+                module = Load(referencingModuleLocation, request);
             }
 
             if (module is not CyclicModule cyclicModule)

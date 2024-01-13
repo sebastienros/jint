@@ -376,7 +376,7 @@ namespace Jint
         public Engine Execute(Script script)
         {
             var strict = _isStrict || script.Strict;
-            ExecuteWithConstraints(strict, () => ScriptEvaluation(new ScriptRecord(Realm, script, string.Empty)));
+            ExecuteWithConstraints(strict, () => ScriptEvaluation(new ScriptRecord(Realm, script, script.Location.Source)));
 
             return this;
         }
@@ -1594,7 +1594,7 @@ namespace Jint
             clearMethod?.Invoke(_objectWrapperCache, Array.Empty<object>());
 #endif
         }
-        
+
         [DebuggerDisplay("Engine")]
         private sealed class EngineDebugView
         {

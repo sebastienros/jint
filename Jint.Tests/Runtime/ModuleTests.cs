@@ -1,5 +1,6 @@
 using Jint.Native;
 using Jint.Runtime;
+using Jint.Runtime.Modules;
 
 namespace Jint.Tests.Runtime;
 
@@ -362,6 +363,134 @@ export const count = globals.counter;
             var ns = engine.Modules.Import("__main__");
             var result = engine.Invoke(ns.Get("formatName"), "John" + i, "Doe").AsString();
             Assert.Equal($"John{i} Doe", result);
+        }
+    }
+
+    [Fact]
+    public void EngineExecutePassesSourceForModuleResolving()
+    {
+        var moduleLoader = new EnforceRelativeModuleLoader(new Dictionary<string, string>()
+        {
+            ["file:///folder/my-module.js"] = "export const value = 'myModuleConst'"
+        });
+        var engine = new Engine(options => options.EnableModules(moduleLoader));
+        var code = @"
+(async () => {
+    const { value } = await import('./my-module.js');
+    log(value);
+})();
+";
+        List<string> logStatements = new List<string>();
+        engine.SetValue("log", logStatements.Add);
+
+        engine.Execute(code, source: "file:///folder/main.js");
+        engine.Advanced.ProcessTasks();
+
+        Assert.Collection(
+            logStatements,
+            s => Assert.Equal("myModuleConst", s));
+    }
+
+    [Fact]
+    public void EngineExecuteUsesScriptSourceForSource()
+    {
+        var moduleLoader = new EnforceRelativeModuleLoader(new Dictionary<string, string>()
+        {
+            ["file:///folder/my-module.js"] = "export const value = 'myModuleConst'"
+        });
+        var engine = new Engine(options => options.EnableModules(moduleLoader));
+        var code = @"
+(async () => {
+    const { value } = await import('./my-module.js');
+    log(value);
+})();
+";
+        List<string> logStatements = new List<string>();
+        engine.SetValue("log", logStatements.Add);
+
+        var script = Engine.PrepareScript(code, source: "file:///folder/main.js");
+        engine.Execute(script);
+        engine.Advanced.ProcessTasks();
+
+        Assert.Collection(
+            logStatements,
+            s => Assert.Equal("myModuleConst", s));
+    }
+
+    [Fact]
+    public void EngineEvaluatePassesSourceForModuleResolving()
+    {
+        var moduleLoader = new EnforceRelativeModuleLoader(new Dictionary<string, string>()
+        {
+            ["file:///folder/my-module.js"] = "export const value = 'myModuleConst'"
+        });
+        var engine = new Engine(options => options.EnableModules(moduleLoader));
+        var code = @"
+(async () => {
+    const { value } = await import('./my-module.js');
+    log(value);
+})();
+";
+        List<string> logStatements = new List<string>();
+        engine.SetValue("log", logStatements.Add);
+
+        engine.Evaluate(code, source: "file:///folder/main.js");
+        engine.Advanced.ProcessTasks();
+
+        Assert.Collection(
+            logStatements,
+            s => Assert.Equal("myModuleConst", s));
+    }
+
+    [Fact]
+    public void EngineEvaluateUsesScriptSourceForSource()
+    {
+        var moduleLoader = new EnforceRelativeModuleLoader(new Dictionary<string, string>()
+        {
+            ["file:///folder/my-module.js"] = "export const value = 'myModuleConst'"
+        });
+        var engine = new Engine(options => options.EnableModules(moduleLoader));
+        var code = @"
+(async () => {
+    const { value } = await import('./my-module.js');
+    log(value);
+})();
+";
+        List<string> logStatements = new List<string>();
+        engine.SetValue("log", logStatements.Add);
+
+        var script = Engine.PrepareScript(code, source: "file:///folder/main.js");
+        engine.Evaluate(script);
+        engine.Advanced.ProcessTasks();
+
+        Assert.Collection(
+            logStatements,
+            s => Assert.Equal("myModuleConst", s));
+    }
+
+    private sealed class EnforceRelativeModuleLoader : IModuleLoader
+    {
+        private readonly IReadOnlyDictionary<string, string> _modules;
+
+        public EnforceRelativeModuleLoader(IReadOnlyDictionary<string, string> modules)
+        {
+            _modules = modules;
+        }
+
+        public ResolvedSpecifier Resolve(string referencingModuleLocation, ModuleRequest moduleRequest)
+        {
+            Assert.False(string.IsNullOrEmpty(referencingModuleLocation), "Referencing module location is null or empty");
+            var target = new Uri(new Uri(referencingModuleLocation, UriKind.Absolute), moduleRequest.Specifier);
+            Assert.True(_modules.ContainsKey(target.ToString()), $"Resolve was called with unexpected module request, {moduleRequest.Specifier} relative to {referencingModuleLocation}");
+            return new ResolvedSpecifier(moduleRequest, target.ToString(), target, SpecifierType.Bare);
+        }
+
+        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        {
+            Assert.NotNull(resolved.Uri);
+            var source = resolved.Uri.ToString();
+            Assert.True(_modules.TryGetValue(source, out var script), $"Resolved module does not exist: {source}");
+            return ModuleFactory.BuildSourceTextModule(engine, Engine.PrepareModule(script, source));
         }
     }
 
