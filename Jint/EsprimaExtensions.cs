@@ -166,7 +166,7 @@ namespace Jint
             return literal.Value as string ?? Convert.ToString(literal.Value, provider: null) ?? "";
         }
 
-        internal static void GetBoundNames(this VariableDeclaration variableDeclaration, List<string> target)
+        internal static void GetBoundNames(this VariableDeclaration variableDeclaration, List<Key> target)
         {
             ref readonly var declarations = ref variableDeclaration.Declarations;
             for (var i = 0; i < declarations.Count; i++)
@@ -176,7 +176,7 @@ namespace Jint
             }
         }
 
-        internal static void GetBoundNames(this Node? parameter, List<string> target)
+        internal static void GetBoundNames(this Node? parameter, List<Key> target)
         {
             if (parameter is null || parameter.Type == Nodes.Literal)
             {
@@ -430,15 +430,15 @@ namespace Jint
                 for (var i = 0; i < names.Count; i++)
                 {
                     var name = names[i];
-                    var exportName = defaultExport ? "default" : name;
+                    var exportName = defaultExport ? "default" : name.Name;
                     exportEntries.Add(new(exportName, moduleRequest, null, name));
                 }
             }
         }
 
-        private static List<string> GetExportNames(StatementListItem declaration)
+        private static List<Key> GetExportNames(StatementListItem declaration)
         {
-            var result = new List<string>();
+            var result = new List<Key>();
 
             switch (declaration)
             {

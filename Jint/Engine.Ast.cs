@@ -88,14 +88,14 @@ internal sealed class CachedHoistingScope
     {
         Scope = HoistingScope.GetProgramLevelDeclarations(program);
 
-        VarNames = new List<string>();
+        VarNames = new List<Key>();
         GatherVarNames(Scope, VarNames);
 
         LexNames = new List<CachedLexicalName>();
         GatherLexNames(Scope, LexNames);
     }
 
-    internal static void GatherVarNames(HoistingScope scope, List<string> boundNames)
+    internal static void GatherVarNames(HoistingScope scope, List<Key> boundNames)
     {
         var varDeclarations = scope._variablesDeclarations;
         if (varDeclarations != null)
@@ -113,15 +113,15 @@ internal sealed class CachedHoistingScope
         var lexDeclarations = scope._lexicalDeclarations;
         if (lexDeclarations != null)
         {
-            var temp = new List<string>();
+            var temp = new List<Key>();
             for (var i = 0; i < lexDeclarations.Count; i++)
             {
                 var d = lexDeclarations[i];
                 temp.Clear();
                 d.GetBoundNames(temp);
-                foreach (var name in temp)
+                for (var j = 0; j < temp.Count; j++)
                 {
-                    boundNames.Add(new CachedLexicalName(name, d.IsConstantDeclaration()));
+                    boundNames.Add(new CachedLexicalName(temp[j], d.IsConstantDeclaration()));
                 }
             }
         }
@@ -131,7 +131,7 @@ internal sealed class CachedHoistingScope
     internal readonly record struct CachedLexicalName(Key Name, bool Constant);
 
     public HoistingScope Scope { get; }
-    public List<string> VarNames { get; }
+    public List<Key> VarNames { get; }
     public List<CachedLexicalName> LexNames { get; }
 }
 
@@ -142,16 +142,16 @@ internal static class AstPreparationExtensions
         return program.AssociatedData is CachedHoistingScope cached ? cached.Scope : HoistingScope.GetProgramLevelDeclarations(program);
     }
 
-    internal static List<string> GetVarNames(this Program program, HoistingScope hoistingScope)
+    internal static List<Key> GetVarNames(this Program program, HoistingScope hoistingScope)
     {
-        List<string> boundNames;
+        List<Key> boundNames;
         if (program.AssociatedData is CachedHoistingScope cached)
         {
             boundNames = cached.VarNames;
         }
         else
         {
-            boundNames = new List<string>();
+            boundNames = new List<Key>();
             CachedHoistingScope.GatherVarNames(hoistingScope, boundNames);
         }
 

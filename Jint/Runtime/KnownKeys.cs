@@ -1,5 +1,3 @@
-using Environment = Jint.Runtime.Environments.Environment;
-
 namespace Jint.Runtime;
 
 internal static class KnownKeys
