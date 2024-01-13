@@ -2,5 +2,5 @@ namespace Jint.Runtime;
 
 internal interface IScriptOrModule
 {
-    public string Location { get; }
+    public string? Location { get; }
 }
