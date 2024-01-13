@@ -1,5 +1,4 @@
 using Jint.Native;
-using Jint.Runtime.References;
 
 namespace Jint.Runtime.Interop
 {

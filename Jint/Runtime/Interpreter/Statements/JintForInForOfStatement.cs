@@ -4,7 +4,6 @@ using Jint.Native;
 using Jint.Native.Iterator;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
-using Jint.Runtime.References;
 using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Statements

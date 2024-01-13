@@ -4,7 +4,7 @@ using Jint.Native;
 using Jint.Runtime.Environments;
 using Environment = Jint.Runtime.Environments.Environment;
 
-namespace Jint.Runtime.References;
+namespace Jint.Runtime;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-reference-record-specification-type

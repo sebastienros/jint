@@ -1,18 +1,15 @@
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Runtime;
 using Jint.Runtime.Interop;
-using Jint.Runtime.Modules;
-using Module = Esprima.Ast.Module;
 
-namespace Jint;
+namespace Jint.Runtime.Modules;
 
 public sealed class ModuleBuilder
 {
     private readonly Engine _engine;
     private readonly string _specifier;
-    private Module? _module;
+    private global::Esprima.Ast.Module? _module;
     private readonly List<string> _sourceRaw = new();
     private readonly Dictionary<string, JsValue> _exports = new(StringComparer.Ordinal);
     private readonly ParserOptions _options;
@@ -37,7 +34,7 @@ public sealed class ModuleBuilder
         return this;
     }
 
-    public ModuleBuilder AddModule(Module module)
+    public ModuleBuilder AddModule(global::Esprima.Ast.Module module)
     {
         if (_sourceRaw.Count > 0)
         {
@@ -126,12 +123,12 @@ public sealed class ModuleBuilder
         return this;
     }
 
-    internal Module Parse()
+    internal global::Esprima.Ast.Module Parse()
     {
         if (_module != null) return _module;
         if (_sourceRaw.Count <= 0)
         {
-            return new Module(NodeList.Create(Array.Empty<Statement>()));
+            return new global::Esprima.Ast.Module(NodeList.Create(Array.Empty<Statement>()));
         }
 
         var javaScriptParser = new JavaScriptParser(_options);

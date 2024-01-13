@@ -3,52 +3,52 @@ namespace Jint;
 public partial class Engine
 {
     public ConstraintOperations Constraints { get; }
-}
 
-public class ConstraintOperations
-{
-    private readonly Engine _engine;
-
-    public ConstraintOperations(Engine engine)
+    public class ConstraintOperations
     {
-        _engine = engine;
-    }
+        private readonly Engine _engine;
 
-    /// <summary>
-    /// Checks engine's active constraints. Propagates exceptions from constraints.
-    /// </summary>
-    public void Check()
-    {
-        foreach (var constraint in _engine._constraints)
+        internal ConstraintOperations(Engine engine)
         {
-            constraint.Check();
+            _engine = engine;
         }
-    }
 
-    /// <summary>
-    /// Return the first constraint that matches the predicate.
-    /// </summary>
-    public T? Find<T>() where T : Constraint
-    {
-        foreach (var constraint in _engine._constraints)
+        /// <summary>
+        /// Checks engine's active constraints. Propagates exceptions from constraints.
+        /// </summary>
+        public void Check()
         {
-            if (constraint.GetType() == typeof(T))
+            foreach (var constraint in _engine._constraints)
             {
-                return (T) constraint;
+                constraint.Check();
             }
         }
 
-        return null;
-    }
-
-    /// <summary>
-    /// Resets all execution constraints back to their initial state.
-    /// </summary>
-    public void Reset()
-    {
-        foreach (var constraint in _engine._constraints)
+        /// <summary>
+        /// Return the first constraint that matches the predicate.
+        /// </summary>
+        public T? Find<T>() where T : Constraint
         {
-            constraint.Reset();
+            foreach (var constraint in _engine._constraints)
+            {
+                if (constraint.GetType() == typeof(T))
+                {
+                    return (T) constraint;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Resets all execution constraints back to their initial state.
+        /// </summary>
+        public void Reset()
+        {
+            foreach (var constraint in _engine._constraints)
+            {
+                constraint.Reset();
+            }
         }
     }
 }

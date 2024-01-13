@@ -1,5 +1,5 @@
 using Jint.Native;
-using Jint.Runtime.References;
+using Jint.Runtime;
 
 namespace Jint.Pooling
 {

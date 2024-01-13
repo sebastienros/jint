@@ -15,7 +15,7 @@ namespace Jint.Native.Json
         private readonly int _maxDepth;
 
         /// <summary>
-        /// Creates a new parser using the recursion depth specified in <see cref="JsonOptions.MaxParseDepth"/>.
+        /// Creates a new parser using the recursion depth specified in <see cref="Options.JsonOptions.MaxParseDepth"/>.
         /// </summary>
         public JsonParser(Engine engine)
             : this(engine, engine.Options.Json.MaxParseDepth)

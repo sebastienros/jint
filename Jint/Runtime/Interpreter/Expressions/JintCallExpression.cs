@@ -6,7 +6,6 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.Environments;
-using Jint.Runtime.References;
 using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Expressions
