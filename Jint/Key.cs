@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Jint.Extensions;
 
 namespace Jint
 {
@@ -14,7 +15,7 @@ namespace Jint
         private Key(string name)
         {
             Name = name;
-            HashCode = StringComparer.Ordinal.GetHashCode(name);
+            HashCode = Hash.GetFNVHashCode(name);
         }
 
         internal readonly string Name;
