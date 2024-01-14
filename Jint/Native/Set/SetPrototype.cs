@@ -38,6 +38,7 @@ internal sealed class SetPrototype : Prototype
             ["forEach"] = new(new ClrFunction(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["has"] = new(new ClrFunction(Engine, "has", Has, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["intersection"] = new(new ClrFunction(Engine, "intersection", Intersection, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["isDisjointFrom"] = new(new ClrFunction(Engine, "isDisjointFrom", IsDisjointFrom, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["isSubsetOf"] = new(new ClrFunction(Engine, "isSubsetOf", IsSubsetOf, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["isSupersetOf"] = new(new ClrFunction(Engine, "isSupersetOf", IsSupersetOf, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["keys"] = new(new ClrFunction(Engine, "keys", Values, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
@@ -148,6 +149,61 @@ internal sealed class SetPrototype : Prototype
 
         return resultSetData;
     }
+
+    private JsBoolean IsDisjointFrom(JsValue thisObject, JsValue[] arguments)
+    {
+        var set = AssertSetInstance(thisObject);
+        var other = arguments.At(0);
+        var otherRec = GetSetRecord(other);
+        var resultSetData = new JsSet(_engine, new OrderedSet<JsValue>(set._set._set));
+
+        if (set.Size <= otherRec.Size)
+        {
+            if (other is JsSet otherSet)
+            {
+                // fast path
+                return set._set._set.Overlaps(otherSet._set._set) ? JsBoolean.False : JsBoolean.True;
+            }
+
+            var index = 0;
+            var args = new JsValue[1];
+            while (index < set.Size)
+            {
+                var e = resultSetData[index];
+                index++;
+                if (e is not null)
+                {
+                    args[0] = e;
+                    var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
+                    if (inOther)
+                    {
+                        return JsBoolean.False;
+                    }
+                }
+            }
+
+            return JsBoolean.True;
+        }
+
+        var keysIter = otherRec.Set.GetIteratorFromMethod(_realm, otherRec.Keys);
+        while (true)
+        {
+            if (!keysIter.TryIteratorStep(out var next))
+            {
+                break;
+            }
+
+            var nextValue = next.Get(CommonProperties.Value);
+            if (set.Has(nextValue))
+            {
+                keysIter.Close(CompletionType.Normal);
+                return JsBoolean.False;
+            }
+        }
+
+        return JsBoolean.True;
+    }
+
 
     private JsSet Intersection(JsValue thisObject, JsValue[] arguments)
     {
