@@ -84,6 +84,8 @@
     "language/expressions/class/elements/*-generator-method-*.js",
     "built-ins/Set/prototype/union/allows-set-like-class.js",
     "built-ins/Set/prototype/union/allows-set-like-object.js",
+    "built-ins/Set/prototype/symmetricDifference/allows-set-like-class.js",
+    "built-ins/Set/prototype/symmetricDifference/allows-set-like-object.js",
 
     // generators not implemented
     "built-ins/Object/prototype/toString/proxy-function.js",

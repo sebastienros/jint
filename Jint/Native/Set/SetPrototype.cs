@@ -42,6 +42,7 @@ internal sealed class SetPrototype : Prototype
             ["keys"] = new PropertyDescriptor(new ClrFunction(Engine, "keys", Values, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["values"] = new PropertyDescriptor(new ClrFunction(Engine, "values", Values, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["size"] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get size", Size, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable),
+            ["symmetricDifference"] = new PropertyDescriptor(new ClrFunction(Engine, "symmetricDifference", SymmetricDifference, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["union"] = new PropertyDescriptor(new ClrFunction(Engine, "union", Union, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)
         };
         SetProperties(properties);
@@ -116,7 +117,7 @@ internal sealed class SetPrototype : Prototype
                     var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
                     if (inOther)
                     {
-                        resultSetData._set.Remove(e);
+                        resultSetData.Remove(e);
                         index--;
                     }
                 }
@@ -141,11 +142,61 @@ internal sealed class SetPrototype : Prototype
                 nextValue = JsNumber.PositiveZero;
             }
 
-            resultSetData._set.Remove(nextValue);
+            resultSetData.Remove(nextValue);
         }
 
         return resultSetData;
     }
+
+    private JsValue SymmetricDifference(JsValue thisObject, JsValue[] arguments)
+    {
+        var set = AssertSetInstance(thisObject);
+        var other = arguments.At(0);
+
+        if (other is JsSet otherSet)
+        {
+            // fast path
+            var result = new HashSet<JsValue>(set._set._set, SameValueZeroComparer.Instance);
+            result.SymmetricExceptWith(otherSet._set._set);
+            return new JsSet(_engine, new OrderedSet<JsValue>(result));
+        }
+
+        var otherRec = GetSetRecord(other);
+        var keysIter = otherRec.Set.GetIteratorFromMethod(_realm, otherRec.Keys);
+        var resultSetData = new JsSet(_engine, new OrderedSet<JsValue>(set._set._set));
+        while (true)
+        {
+            if (!keysIter.TryIteratorStep(out var next))
+            {
+                break;
+            }
+
+            var nextValue = next.Get(CommonProperties.Value);
+            if (nextValue == JsNumber.NegativeZero)
+            {
+                nextValue = JsNumber.PositiveZero;
+            }
+
+            var inResult = resultSetData.Has(nextValue);
+            if (set.Has(nextValue))
+            {
+                if (inResult)
+                {
+                    resultSetData.Remove(nextValue);
+                }
+            }
+            else
+            {
+                if (!inResult)
+                {
+                    resultSetData.Add(nextValue);
+                }
+            }
+        }
+
+        return resultSetData;
+    }
+
 
     private JsValue Has(JsValue thisObject, JsValue[] arguments)
     {
