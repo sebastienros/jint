@@ -28,28 +28,29 @@ internal sealed class SetPrototype : Prototype
     {
         var properties = new PropertyDictionary(12, checkExistingKeys: false)
         {
-            ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
-            ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["add"] = new PropertyDescriptor(new ClrFunction(Engine, "add", Add, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            ["clear"] = new PropertyDescriptor(new ClrFunction(Engine, "clear", Clear, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            ["delete"] = new PropertyDescriptor(new ClrFunction(Engine, "delete", Delete, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            ["difference"] = new PropertyDescriptor(new ClrFunction(Engine, "difference", Difference, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            ["entries"] = new PropertyDescriptor(new ClrFunction(Engine, "entries", Entries, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            ["forEach"] = new PropertyDescriptor(new ClrFunction(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            ["has"] = new PropertyDescriptor(new ClrFunction(Engine, "has", Has, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            ["isSubsetOf"] = new PropertyDescriptor(new ClrFunction(Engine, "isSubsetOf", IsSubsetOf, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            ["keys"] = new PropertyDescriptor(new ClrFunction(Engine, "keys", Values, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            ["values"] = new PropertyDescriptor(new ClrFunction(Engine, "values", Values, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["length"] = new(0, PropertyFlag.Configurable),
+            ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
+            ["add"] = new(new ClrFunction(Engine, "add", Add, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["clear"] = new(new ClrFunction(Engine, "clear", Clear, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["delete"] = new(new ClrFunction(Engine, "delete", Delete, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["difference"] = new(new ClrFunction(Engine, "difference", Difference, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["entries"] = new(new ClrFunction(Engine, "entries", Entries, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["forEach"] = new(new ClrFunction(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["has"] = new(new ClrFunction(Engine, "has", Has, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["isSubsetOf"] = new(new ClrFunction(Engine, "isSubsetOf", IsSubsetOf, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["isSupersetOf"] = new(new ClrFunction(Engine, "isSupersetOf", IsSupersetOf, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["keys"] = new(new ClrFunction(Engine, "keys", Values, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["values"] = new(new ClrFunction(Engine, "values", Values, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["size"] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get size", Size, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable),
-            ["symmetricDifference"] = new PropertyDescriptor(new ClrFunction(Engine, "symmetricDifference", SymmetricDifference, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-            ["union"] = new PropertyDescriptor(new ClrFunction(Engine, "union", Union, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)
+            ["symmetricDifference"] = new(new ClrFunction(Engine, "symmetricDifference", SymmetricDifference, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["union"] = new(new ClrFunction(Engine, "union", Union, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable)
         };
         SetProperties(properties);
 
         var symbols = new SymbolDictionary(2)
         {
-            [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunction(Engine, "iterator", Values, 1, PropertyFlag.Configurable), true, false, true),
-            [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Set", false, false, true)
+            [GlobalSymbolRegistry.Iterator] = new(new ClrFunction(Engine, "iterator", Values, 1, PropertyFlag.Configurable), true, false, true),
+            [GlobalSymbolRegistry.ToStringTag] = new("Set", false, false, true)
         };
         SetSymbols(symbols);
     }
@@ -240,6 +241,46 @@ internal sealed class SetPrototype : Prototype
 
         return JsBoolean.True;
     }
+
+    private JsBoolean IsSupersetOf(JsValue thisObject, JsValue[] arguments)
+    {
+        var set = AssertSetInstance(thisObject);
+        var other = arguments.At(0);
+
+        if (other is JsSet otherSet)
+        {
+            // fast path
+            var result = new HashSet<JsValue>(set._set._set, SameValueZeroComparer.Instance);
+            return result.IsSupersetOf(otherSet._set._set) ? JsBoolean.True : JsBoolean.False;
+        }
+
+        var thisSize = set.Size;
+        var otherRec = GetSetRecord(other);
+
+        if (thisSize < otherRec.Size)
+        {
+            return JsBoolean.False;
+        }
+
+        var keysIter = otherRec.Set.GetIteratorFromMethod(_realm, otherRec.Keys);
+        while (true)
+        {
+            if (!keysIter.TryIteratorStep(out var next))
+            {
+                break;
+            }
+
+            var nextValue = next.Get(CommonProperties.Value);
+            if (!set.Has(nextValue))
+            {
+                keysIter.Close(CompletionType.Normal);
+                return JsBoolean.False;
+            }
+        }
+
+        return JsBoolean.True;
+    }
+
 
     private JsBoolean Has(JsValue thisObject, JsValue[] arguments)
     {

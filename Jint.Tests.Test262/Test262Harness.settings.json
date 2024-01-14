@@ -86,6 +86,9 @@
     "built-ins/Set/prototype/union/allows-set-like-object.js",
     "built-ins/Set/prototype/symmetricDifference/allows-set-like-class.js",
     "built-ins/Set/prototype/symmetricDifference/allows-set-like-object.js",
+    "built-ins/Set/prototype/isSupersetOf/allows-set-like-class.js",
+    "built-ins/Set/prototype/isSupersetOf/allows-set-like-object.js",
+    "built-ins/Set/prototype/isSupersetOf/set-like-class-mutation.js",
 
     // generators not implemented
     "built-ins/Object/prototype/toString/proxy-function.js",
