@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "2060494f280ba89d71a0f51d4ff171bafe476a05",
+  "SuiteGitSha": "a1ba783ca340e4bf3d80b5f5e11fa54f2ee5f1ef",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -84,6 +84,11 @@
     "language/expressions/class/elements/*-generator-method-*.js",
     "built-ins/Set/prototype/union/allows-set-like-class.js",
     "built-ins/Set/prototype/union/allows-set-like-object.js",
+    "built-ins/Set/prototype/symmetricDifference/allows-set-like-class.js",
+    "built-ins/Set/prototype/symmetricDifference/allows-set-like-object.js",
+    "built-ins/Set/prototype/isSupersetOf/allows-set-like-class.js",
+    "built-ins/Set/prototype/isSupersetOf/allows-set-like-object.js",
+    "built-ins/Set/prototype/isSupersetOf/set-like-class-mutation.js",
 
     // generators not implemented
     "built-ins/Object/prototype/toString/proxy-function.js",

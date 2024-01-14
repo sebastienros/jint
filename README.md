@@ -114,6 +114,7 @@ Following features are supported in version 3.x.
 - ✔ Import attributes
 - ✔ JSON modules
 - ✔ `Promise.withResolvers`
+- ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
 - ✔ Resizable and growable ArrayBuffers
 - ✔ ShadowRealm
 
