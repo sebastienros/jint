@@ -16,6 +16,14 @@ internal sealed class JsSet : ObjectInstance
     public JsSet(Engine engine, OrderedSet<JsValue> set) : base(engine)
     {
         _set = set;
+        _prototype = _engine.Realm.Intrinsics.Set.PrototypeObject;
+    }
+
+    public int Size => _set.Count;
+
+    public JsValue? this[int index]
+    {
+        get { return index < _set._list.Count ? _set._list[index] : null; }
     }
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
@@ -39,25 +47,15 @@ internal sealed class JsSet : ObjectInstance
         return base.TryGetProperty(property, out descriptor);
     }
 
-    internal void Add(JsValue value)
-    {
-        _set.Add(value);
-    }
+    internal void Add(JsValue value) => _set.Add(value);
 
-    internal void Clear()
-    {
-        _set.Clear();
-    }
+    internal void Remove(JsValue value) => _set.Remove(value);
 
-    internal bool Has(JsValue key)
-    {
-        return _set.Contains(key);
-    }
+    internal void Clear() => _set.Clear();
 
-    internal bool SetDelete(JsValue key)
-    {
-        return _set.Remove(key);
-    }
+    internal bool Has(JsValue key) => _set.Contains(key);
+
+    internal bool SetDelete(JsValue key) => _set.Remove(key);
 
     internal void ForEach(ICallable callable, JsValue thisArg)
     {
@@ -75,13 +73,7 @@ internal sealed class JsSet : ObjectInstance
         _engine._jsValueArrayPool.ReturnArray(args);
     }
 
-    internal ObjectInstance Entries()
-    {
-        return _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructEntryIterator(this);
-    }
+    internal ObjectInstance Entries() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructEntryIterator(this);
 
-    internal ObjectInstance Values()
-    {
-        return _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructValueIterator(this);
-    }
+    internal ObjectInstance Values() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructValueIterator(this);
 }
