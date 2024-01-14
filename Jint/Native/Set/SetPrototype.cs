@@ -37,6 +37,7 @@ internal sealed class SetPrototype : Prototype
             ["entries"] = new(new ClrFunction(Engine, "entries", Entries, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["forEach"] = new(new ClrFunction(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["has"] = new(new ClrFunction(Engine, "has", Has, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["intersection"] = new(new ClrFunction(Engine, "intersection", Intersection, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["isSubsetOf"] = new(new ClrFunction(Engine, "isSubsetOf", IsSubsetOf, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["isSupersetOf"] = new(new ClrFunction(Engine, "isSupersetOf", IsSupersetOf, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["keys"] = new(new ClrFunction(Engine, "keys", Values, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
@@ -92,20 +93,20 @@ internal sealed class SetPrototype : Prototype
     {
         var set = AssertSetInstance(thisObject);
         var other = arguments.At(0);
-
-        if (other is JsSet otherSet)
-        {
-            // fast path
-            var result = new HashSet<JsValue>(set._set._set, SameValueZeroComparer.Instance);
-            result.ExceptWith(otherSet._set._set);
-            return new JsSet(_engine, new OrderedSet<JsValue>(result));
-        }
-
         var otherRec = GetSetRecord(other);
         var resultSetData = new JsSet(_engine, new OrderedSet<JsValue>(set._set._set));
 
         if (set.Size <= otherRec.Size)
         {
+
+            if (other is JsSet otherSet)
+            {
+                // fast path
+                var result = new HashSet<JsValue>(set._set._set, SameValueZeroComparer.Instance);
+                result.ExceptWith(otherSet._set._set);
+                return new JsSet(_engine, new OrderedSet<JsValue>(result));
+            }
+
             var index = 0;
             var args = new JsValue[1];
             while (index < set.Size)
@@ -143,6 +144,75 @@ internal sealed class SetPrototype : Prototype
             }
 
             resultSetData.Remove(nextValue);
+        }
+
+        return resultSetData;
+    }
+
+    private JsSet Intersection(JsValue thisObject, JsValue[] arguments)
+    {
+        var set = AssertSetInstance(thisObject);
+        var other = arguments.At(0);
+
+        var otherRec = GetSetRecord(other);
+        var resultSetData = new JsSet(_engine);
+        var thisSize = set.Size;
+
+        if (thisSize <= otherRec.Size)
+        {
+            if (other is JsSet otherSet)
+            {
+                // fast path
+                var result = new HashSet<JsValue>(set._set._set, SameValueZeroComparer.Instance);
+                result.IntersectWith(otherSet._set._set);
+                return new JsSet(_engine, new OrderedSet<JsValue>(result));
+            }
+
+            var index = 0;
+            var args = new JsValue[1];
+            while (index < thisSize)
+            {
+                var e = set[index];
+                index++;
+                if (e is not null)
+                {
+                    args[0] = e;
+                    var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
+                    if (inOther)
+                    {
+                        var alreadyInResult = resultSetData.Has(e);
+                        if (!alreadyInResult)
+                        {
+                            resultSetData.Add(e);
+                        }
+                    }
+                    thisSize = set.Size;
+                }
+            }
+
+            return resultSetData;
+        }
+
+        var keysIter = otherRec.Set.GetIteratorFromMethod(_realm, otherRec.Keys);
+        while (true)
+        {
+            if (!keysIter.TryIteratorStep(out var next))
+            {
+                break;
+            }
+
+            var nextValue = next.Get(CommonProperties.Value);
+            if (nextValue == JsNumber.NegativeZero)
+            {
+                nextValue = JsNumber.PositiveZero;
+            }
+
+            var alreadyInResult = resultSetData.Has(nextValue);
+            var inThis = set.Has(nextValue);
+            if (!alreadyInResult && inThis)
+            {
+                resultSetData.Add(nextValue);
+            }
         }
 
         return resultSetData;
