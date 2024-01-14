@@ -35,6 +35,7 @@ internal sealed class SetPrototype : Prototype
             ["add"] = new PropertyDescriptor(new ClrFunction(Engine, "add", Add, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["clear"] = new PropertyDescriptor(new ClrFunction(Engine, "clear", Clear, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["delete"] = new PropertyDescriptor(new ClrFunction(Engine, "delete", Delete, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["difference"] = new PropertyDescriptor(new ClrFunction(Engine, "difference", Difference, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["entries"] = new PropertyDescriptor(new ClrFunction(Engine, "entries", Entries, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["forEach"] = new PropertyDescriptor(new ClrFunction(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["has"] = new PropertyDescriptor(new ClrFunction(Engine, "has", Has, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
@@ -86,6 +87,66 @@ internal sealed class SetPrototype : Prototype
             : JsBoolean.False;
     }
 
+    private JsValue Difference(JsValue thisObject, JsValue[] arguments)
+    {
+        var set = AssertSetInstance(thisObject);
+        var other = arguments.At(0);
+
+        if (other is JsSet otherSet)
+        {
+            // fast path
+            var result = new HashSet<JsValue>(set._set._set, SameValueZeroComparer.Instance);
+            result.ExceptWith(otherSet._set._set);
+            return new JsSet(_engine, new OrderedSet<JsValue>(result));
+        }
+
+        var otherRec = GetSetRecord(other);
+        var resultSetData = new JsSet(_engine, new OrderedSet<JsValue>(set._set._set));
+
+        if (set._set.Count <= otherRec.Size)
+        {
+            var index = 0;
+            var args = new JsValue[1];
+            while (index < set._set.Count)
+            {
+                var e = resultSetData[index];
+                if (e is not null)
+                {
+                    args[0] = e;
+                    var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
+                    if (inOther)
+                    {
+                        resultSetData._set.Remove(e);
+                        index--;
+                    }
+                }
+
+                index++;
+            }
+
+            return resultSetData;
+        }
+
+        var keysIter = otherRec.Set.GetIteratorFromMethod(_realm, otherRec.Keys);
+        while (true)
+        {
+            if (!keysIter.TryIteratorStep(out var next))
+            {
+                break;
+            }
+
+            var nextValue = next.Get(CommonProperties.Value);
+            if (nextValue == JsNumber.NegativeZero)
+            {
+                nextValue = JsNumber.PositiveZero;
+            }
+
+            resultSetData._set.Remove(nextValue);
+        }
+
+        return resultSetData;
+    }
+
     private JsValue Has(JsValue thisObject, JsValue[] arguments)
     {
         var set = AssertSetInstance(thisObject);
@@ -130,12 +191,8 @@ internal sealed class SetPrototype : Prototype
             resultSetData.Add(nextValue);
         }
 
-        var result = new JsSet(_engine, resultSetData)
-        {
-            _prototype = _engine.Realm.Intrinsics.Set.PrototypeObject
-        };
+        var result = new JsSet(_engine, resultSetData);
         return result;
-
     }
 
     private readonly record struct SetRecord(JsValue Set, double Size, ICallable Has, ICallable Keys);
@@ -147,7 +204,7 @@ internal sealed class SetPrototype : Prototype
             ExceptionHelper.ThrowTypeError(_realm);
         }
 
-        var rawSize = obj.Get("size");
+        var rawSize = obj.Get(CommonProperties.Size);
         var numSize = TypeConverter.ToNumber(rawSize);
         if (double.IsNaN(numSize))
         {

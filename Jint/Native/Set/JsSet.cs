@@ -16,6 +16,12 @@ internal sealed class JsSet : ObjectInstance
     public JsSet(Engine engine, OrderedSet<JsValue> set) : base(engine)
     {
         _set = set;
+        _prototype = _engine.Realm.Intrinsics.Set.PrototypeObject;
+    }
+
+    public JsValue? this[int index]
+    {
+        get { return index < _set._list.Count ? _set._list[index] : null; }
     }
 
     public override PropertyDescriptor GetOwnProperty(JsValue property)
@@ -52,6 +58,11 @@ internal sealed class JsSet : ObjectInstance
     internal bool Has(JsValue key)
     {
         return _set.Contains(key);
+    }
+
+    internal bool SetDifference(JsValue key)
+    {
+        return _set.Remove(key);
     }
 
     internal bool SetDelete(JsValue key)

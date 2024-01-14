@@ -3,7 +3,13 @@ namespace Jint.Runtime;
 internal sealed class OrderedSet<T>
 {
     internal List<T> _list;
-    private HashSet<T> _set;
+    internal HashSet<T> _set;
+
+    public OrderedSet(HashSet<T> values)
+    {
+        _list = new List<T>(values);
+        _set = new HashSet<T>(values);
+    }
 
     public OrderedSet(IEqualityComparer<T> comparer)
     {
