@@ -1,5 +1,3 @@
-#pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of prototype methods return JsValue
-
 using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -39,6 +37,7 @@ internal sealed class SetPrototype : Prototype
             ["entries"] = new PropertyDescriptor(new ClrFunction(Engine, "entries", Entries, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["forEach"] = new PropertyDescriptor(new ClrFunction(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["has"] = new PropertyDescriptor(new ClrFunction(Engine, "has", Has, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            ["isSubsetOf"] = new PropertyDescriptor(new ClrFunction(Engine, "isSubsetOf", IsSubsetOf, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["keys"] = new PropertyDescriptor(new ClrFunction(Engine, "keys", Values, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["values"] = new PropertyDescriptor(new ClrFunction(Engine, "values", Values, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
             ["size"] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get size", Size, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable),
@@ -55,7 +54,7 @@ internal sealed class SetPrototype : Prototype
         SetSymbols(symbols);
     }
 
-    private JsValue Size(JsValue thisObject, JsValue[] arguments)
+    private JsNumber Size(JsValue thisObject, JsValue[] arguments)
     {
         AssertSetInstance(thisObject);
         return JsNumber.Create(0);
@@ -80,7 +79,7 @@ internal sealed class SetPrototype : Prototype
         return Undefined;
     }
 
-    private JsValue Delete(JsValue thisObject, JsValue[] arguments)
+    private JsBoolean Delete(JsValue thisObject, JsValue[] arguments)
     {
         var set = AssertSetInstance(thisObject);
         return set.SetDelete(arguments.At(0))
@@ -88,7 +87,7 @@ internal sealed class SetPrototype : Prototype
             : JsBoolean.False;
     }
 
-    private JsValue Difference(JsValue thisObject, JsValue[] arguments)
+    private JsSet Difference(JsValue thisObject, JsValue[] arguments)
     {
         var set = AssertSetInstance(thisObject);
         var other = arguments.At(0);
@@ -104,11 +103,11 @@ internal sealed class SetPrototype : Prototype
         var otherRec = GetSetRecord(other);
         var resultSetData = new JsSet(_engine, new OrderedSet<JsValue>(set._set._set));
 
-        if (set._set.Count <= otherRec.Size)
+        if (set.Size <= otherRec.Size)
         {
             var index = 0;
             var args = new JsValue[1];
-            while (index < set._set.Count)
+            while (index < set.Size)
             {
                 var e = resultSetData[index];
                 if (e is not null)
@@ -148,7 +147,7 @@ internal sealed class SetPrototype : Prototype
         return resultSetData;
     }
 
-    private JsValue SymmetricDifference(JsValue thisObject, JsValue[] arguments)
+    private JsSet SymmetricDifference(JsValue thisObject, JsValue[] arguments)
     {
         var set = AssertSetInstance(thisObject);
         var other = arguments.At(0);
@@ -197,8 +196,52 @@ internal sealed class SetPrototype : Prototype
         return resultSetData;
     }
 
+    private JsBoolean IsSubsetOf(JsValue thisObject, JsValue[] arguments)
+    {
+        var set = AssertSetInstance(thisObject);
+        var other = arguments.At(0);
 
-    private JsValue Has(JsValue thisObject, JsValue[] arguments)
+        if (other is JsSet otherSet)
+        {
+            // fast path
+            return set._set._set.IsSubsetOf(otherSet._set._set) ? JsBoolean.True : JsBoolean.False;
+        }
+
+        var otherRec = GetSetRecord(other);
+        var resultSetData = new JsSet(_engine, new OrderedSet<JsValue>(set._set._set));
+        var thisSize = set.Size;
+
+        if (thisSize > otherRec.Size)
+        {
+            return JsBoolean.False;
+        }
+
+        if (thisSize <= otherRec.Size)
+        {
+            var index = 0;
+            var args = new JsValue[1];
+            while (index < thisSize)
+            {
+                var e = resultSetData[index];
+                if (e is not null)
+                {
+                    args[0] = e;
+                    var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
+                    if (!inOther)
+                    {
+                        return JsBoolean.False;
+                    }
+                }
+
+                thisSize = set.Size;
+                index++;
+            }
+        }
+
+        return JsBoolean.True;
+    }
+
+    private JsBoolean Has(JsValue thisObject, JsValue[] arguments)
     {
         var set = AssertSetInstance(thisObject);
         return set.Has(arguments.At(0))
@@ -206,7 +249,7 @@ internal sealed class SetPrototype : Prototype
             : JsBoolean.False;
     }
 
-    private JsValue Entries(JsValue thisObject, JsValue[] arguments)
+    private ObjectInstance Entries(JsValue thisObject, JsValue[] arguments)
     {
         var set = AssertSetInstance(thisObject);
         return set.Entries();
@@ -225,7 +268,7 @@ internal sealed class SetPrototype : Prototype
         return Undefined;
     }
 
-    private JsValue Union(JsValue thisObject, JsValue[] arguments)
+    private JsSet Union(JsValue thisObject, JsValue[] arguments)
     {
         var set = AssertSetInstance(thisObject);
         var other = arguments.At(0);
