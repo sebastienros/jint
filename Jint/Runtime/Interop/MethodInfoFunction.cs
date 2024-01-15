@@ -226,23 +226,16 @@ namespace Jint.Runtime.Interop
                     continue;
                 }
 
-                Type? returnType = null;
-                if (method.Method is MethodInfo methodInfo)
-                {
-                    returnType = methodInfo.ReturnType;
-                }
-
                 // todo: cache method info
                 try
                 {
-                    if (method.Method.IsGenericMethodDefinition && method.Method is MethodInfo)
+                    if (method.Method is MethodInfo { IsGenericMethodDefinition: true })
                     {
-                        var genericMethodInfo = resolvedMethod;
-                        var result = genericMethodInfo.Invoke(thisObj, parameters);
-                        return FromObjectWithType(Engine, result, returnType);
+                        var result = resolvedMethod.Invoke(thisObj, parameters);
+                        return FromObjectWithType(Engine, result, type: (resolvedMethod as MethodInfo)?.ReturnType);
                     }
 
-                    return FromObjectWithType(Engine, method.Method.Invoke(thisObj, parameters), returnType);
+                    return FromObjectWithType(Engine, method.Method.Invoke(thisObj, parameters), type: (method.Method as MethodInfo)?.ReturnType);
                 }
                 catch (TargetInvocationException exception)
                 {
