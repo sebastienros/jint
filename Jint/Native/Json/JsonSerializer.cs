@@ -6,7 +6,6 @@ using Jint.Native.BigInt;
 using Jint.Native.Boolean;
 using Jint.Native.Number;
 using Jint.Native.Object;
-using Jint.Native.Proxy;
 using Jint.Native.String;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;

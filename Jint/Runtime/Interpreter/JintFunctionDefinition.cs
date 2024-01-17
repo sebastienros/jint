@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Argument;
 using Jint.Native.Function;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;

@@ -1,8 +1,9 @@
+using Jint.Native.ArrayBuffer;
 using Jint.Native.Object;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
 
-namespace Jint.Native.ArrayBuffer;
+namespace Jint.Native;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-arraybuffer-objects

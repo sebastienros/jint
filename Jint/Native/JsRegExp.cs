@@ -1,10 +1,11 @@
 using System.Text.RegularExpressions;
 using Esprima;
 using Jint.Native.Object;
+using Jint.Native.RegExp;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
-namespace Jint.Native.RegExp
+namespace Jint.Native
 {
     public sealed class JsRegExp : ObjectInstance
     {

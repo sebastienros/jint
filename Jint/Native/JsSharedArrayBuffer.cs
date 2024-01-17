@@ -1,7 +1,6 @@
-using Jint.Native.ArrayBuffer;
 using Jint.Runtime;
 
-namespace Jint.Native.SharedArrayBuffer;
+namespace Jint.Native;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-sharedarraybuffer-objects

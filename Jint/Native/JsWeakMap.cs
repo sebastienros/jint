@@ -1,9 +1,8 @@
 using System.Runtime.CompilerServices;
-
 using Jint.Native.Object;
 using Jint.Runtime;
 
-namespace Jint.Native.WeakMap;
+namespace Jint.Native;
 
 internal sealed class JsWeakMap : ObjectInstance
 {

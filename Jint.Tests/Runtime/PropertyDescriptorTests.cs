@@ -1,5 +1,4 @@
 using Jint.Native;
-using Jint.Native.Argument;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;

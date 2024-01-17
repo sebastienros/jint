@@ -7,7 +7,6 @@ using Jint.Native.BigInt;
 using Jint.Native.Boolean;
 using Jint.Native.Json;
 using Jint.Native.Number;
-using Jint.Native.RegExp;
 using Jint.Native.String;
 using Jint.Native.Symbol;
 using Jint.Native.TypedArray;

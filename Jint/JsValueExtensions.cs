@@ -6,7 +6,6 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Promise;
-using Jint.Native.RegExp;
 using Jint.Native.Symbol;
 using Jint.Native.TypedArray;
 using Jint.Runtime;
