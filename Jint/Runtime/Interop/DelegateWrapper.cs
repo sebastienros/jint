@@ -131,17 +131,70 @@ namespace Jint.Runtime.Interop
             try
             {
                 var result = _d.DynamicInvoke(parameters);
-                if (result is not Task task)
+                if (!IsAwaitable(result))
                 {
                     return FromObject(Engine, result);
                 }
-                return ConvertTaskToPromise(task);
+                return ConvertAwaitableToPromise(result!);
             }
             catch (TargetInvocationException exception)
             {
                 ExceptionHelper.ThrowMeaningfulException(Engine, exception);
                 throw;
             }
+        }
+
+        private static bool IsAwaitable(object? obj)
+        {
+            if (obj is null)
+            {
+                return false;
+            }
+            if (obj is Task)
+            {
+                return true;
+            }
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
+            if (obj is ValueTask)
+            {
+                return true;
+            }
+
+            // ValueTask<T> is not derived from ValueTask, so we need to check for it explicitly
+            var type = obj.GetType();
+            if (!type.IsGenericType)
+            {
+                return false;
+            }
+
+            return type.GetGenericTypeDefinition() == typeof(ValueTask<>);
+#else
+            return false;
+#endif
+        }
+
+        private JsValue ConvertAwaitableToPromise(object obj)
+        {
+            if (obj is Task task)
+            {
+                return ConvertTaskToPromise(task);
+            }
+
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
+            if (obj is ValueTask valueTask)
+            {
+                return ConvertTaskToPromise(valueTask.AsTask());
+            }
+
+            // ValueTask<T>
+            var asTask = obj.GetType().GetMethod(nameof(ValueTask<object>.AsTask));
+            if (asTask is not null)
+            {
+                return ConvertTaskToPromise((Task) asTask.Invoke(obj, parameters: null)!);
+            }
+#endif
+
+            return FromObject(Engine, JsValue.Undefined);
         }
 
         private JsValue ConvertTaskToPromise(Task task)
@@ -190,5 +243,6 @@ namespace Jint.Runtime.Interop
 
             return promise;
         }
+
     }
 }
