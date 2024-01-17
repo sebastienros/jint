@@ -3,7 +3,6 @@ using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
-using Jint.Native.Argument;
 using Jint.Native.Function;
 using Jint.Native.Generator;
 using Jint.Native.Object;

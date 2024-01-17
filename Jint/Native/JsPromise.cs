@@ -1,40 +1,10 @@
 using Jint.Native.Object;
+using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 
-namespace Jint.Native.Promise;
-
-internal enum PromiseState
-{
-    Pending,
-    Fulfilled,
-    Rejected
-}
-
-internal enum ReactionType
-{
-    Fulfill,
-    Reject
-}
-
-internal sealed record PromiseReaction(
-    ReactionType Type,
-    PromiseCapability Capability,
-    JsValue Handler
-);
-
-internal sealed record ResolvingFunctions(
-    Function.Function Resolve,
-    Function.Function Reject
-);
-
-public sealed record ManualPromise(
-    JsValue Promise,
-    Action<JsValue> Resolve,
-    Action<JsValue> Reject
-);
-
+namespace Jint.Native;
 
 internal sealed class JsPromise : ObjectInstance
 {

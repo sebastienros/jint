@@ -1,7 +1,4 @@
-﻿using Jint.Constraints;
-using Jint.Runtime;
-
-namespace Jint.Tests.PublicInterface;
+﻿namespace Jint.Tests.PublicInterface;
 
 [Collection("ConstraintUsageTests")]
 public class ConstraintUsageTests

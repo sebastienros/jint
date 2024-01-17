@@ -1,5 +1,4 @@
 using Jint.Native;
-using Jint.Native.Argument;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
 

@@ -1,5 +1,4 @@
 ﻿using Jint.Native;
-using Jint.Native.Error;
 using Jint.Runtime;
 
 namespace Jint.Tests.PublicInterface

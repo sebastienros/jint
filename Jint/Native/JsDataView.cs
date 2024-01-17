@@ -1,7 +1,6 @@
-using Jint.Native.ArrayBuffer;
 using Jint.Native.Object;
 
-namespace Jint.Native.DataView;
+namespace Jint.Native;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-dataview-instances
