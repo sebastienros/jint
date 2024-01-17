@@ -1,9 +1,8 @@
 using System.Runtime.CompilerServices;
-
 using Jint.Native.Object;
 using Jint.Runtime;
 
-namespace Jint.Native.WeakSet;
+namespace Jint.Native;
 
 internal sealed class JsWeakSet : ObjectInstance
 {

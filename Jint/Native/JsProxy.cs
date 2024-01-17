@@ -3,7 +3,7 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
-namespace Jint.Native.Proxy
+namespace Jint.Native
 {
     internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     {

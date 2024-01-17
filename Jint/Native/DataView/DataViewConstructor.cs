@@ -1,7 +1,5 @@
-using Jint.Native.ArrayBuffer;
 using Jint.Native.Function;
 using Jint.Native.Object;
-using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 

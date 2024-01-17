@@ -51,7 +51,7 @@ namespace Jint.Native.Boolean
             var o = OrdinaryCreateFromConstructor(
                 newTarget,
                 static intrinsics => intrinsics.Boolean.PrototypeObject,
-                static (engine, realm, state) => new BooleanInstance(engine, (JsBoolean) state!), b);
+                static (engine, realm, state) => new BooleanInstance(engine, state!), b);
             return o;
         }
 

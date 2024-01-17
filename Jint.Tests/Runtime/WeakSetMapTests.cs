@@ -1,6 +1,4 @@
 using Jint.Native;
-using Jint.Native.WeakMap;
-using Jint.Native.WeakSet;
 using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;

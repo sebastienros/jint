@@ -3,7 +3,7 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
-namespace Jint.Native.Set;
+namespace Jint.Native;
 
 internal sealed class JsSet : ObjectInstance
 {

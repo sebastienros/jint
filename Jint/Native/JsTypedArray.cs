@@ -4,10 +4,11 @@ using Esprima;
 using Jint.Native.ArrayBuffer;
 using Jint.Native.Number;
 using Jint.Native.Object;
+using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
-namespace Jint.Native.TypedArray
+namespace Jint.Native
 {
     public sealed class JsTypedArray : ObjectInstance
     {

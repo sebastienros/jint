@@ -7,7 +7,7 @@ using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 
-namespace Jint.Native.Argument
+namespace Jint.Native
 {
     /// <summary>
     /// https://tc39.es/ecma262/#sec-arguments-exotic-objects

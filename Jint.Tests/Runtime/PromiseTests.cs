@@ -1,6 +1,5 @@
 using Jint.Native;
 using Jint.Native.Object;
-using Jint.Native.Promise;
 using Jint.Runtime;
 
 // obsolete GetCompletionValue

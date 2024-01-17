@@ -1,6 +1,5 @@
 ﻿using Esprima;
 using Jint.Native;
-using Jint.Native.ArrayBuffer;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;

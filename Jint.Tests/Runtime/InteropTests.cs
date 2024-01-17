@@ -3423,7 +3423,7 @@ try {
         }
 
         [Fact]
-        public void ShouldSomethingFoo()
+        public void ShouldRespectConcreteGenericReturnTypes()
         {
             var engine = new Engine(opt =>
             {

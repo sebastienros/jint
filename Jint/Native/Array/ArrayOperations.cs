@@ -2,7 +2,6 @@ using System.Collections;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
-using Jint.Native.TypedArray;
 using Jint.Runtime;
 
 namespace Jint.Native.Array

@@ -1,5 +1,4 @@
 ﻿using Jint.Native;
-using Jint.Native.RegExp;
 
 namespace Jint.Tests.Runtime
 {

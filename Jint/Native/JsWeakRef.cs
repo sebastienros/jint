@@ -1,6 +1,6 @@
 using Jint.Native.Object;
 
-namespace Jint.Native.WeakRef;
+namespace Jint.Native;
 
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-weak-ref-instances
