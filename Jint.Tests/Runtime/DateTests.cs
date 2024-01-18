@@ -104,6 +104,27 @@ public class DateTests
         Assert.Equal(expected, _engine.Evaluate($"new Date('{input}') * 1").AsNumber());
     }
 
+    [Theory]
+    [InlineData("December 31 1900 12:00:00 +0300", 31)]
+    [InlineData("January 1 1969 12:00:00 +0300", 1)]
+    [InlineData("December 31 1969 12:00:00 +0300", 31)]
+    [InlineData("January 1 1970 12:00:00 +0300", 1)]
+    [InlineData("December 31 1970 12:00:00 +0300", 31)]
+    public void CanParseDate(string input, int expectedDate)
+    {
+        TimeZoneInfo timeZoneInfo;
+        try
+        {
+            timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Kiev");
+        }
+        catch
+        {
+            timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("FLE Standard Time");
+        }
+        var engine = new Engine(options => options.LocalTimeZone(timeZoneInfo));
+        Assert.Equal(expectedDate, _engine.Evaluate($"new Date('{input}').getDate()").AsNumber());
+    }
+
     [Fact]
     public void CanUseMoment()
     {
