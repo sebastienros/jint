@@ -1270,7 +1270,7 @@ namespace Jint.Native.Date
 
         private static readonly int[] kDaysInMonths = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-        private static Date YearMonthDayFromTime(DatePresentation t) => YearMonthDayFromDays(t.Value / 1000 / 60 / 60 / 24);
+        private static Date YearMonthDayFromTime(DatePresentation t) => YearMonthDayFromDays((long) System.Math.Floor(t.Value / 1000 / 60 / 60 / 24d));
 
         private static Date YearMonthDayFromDays(long days)
         {
