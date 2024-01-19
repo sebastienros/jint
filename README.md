@@ -8,11 +8,7 @@
 
 Jint is a __Javascript interpreter__ for .NET which can run on __any modern .NET platform__ as it supports .NET Standard 2.0 and .NET 4.6.2 targets (and later).
 
-💡 You should prefer 3.x beta versions from NuGet over the 2.x. All new features and improvements are targeted against version 3.x.
-
 ## Supported features
-
-Following features are supported in version 3.x.
 
 #### ECMAScript 2015 (ES6)
 
@@ -114,8 +110,8 @@ Following features are supported in version 3.x.
 - ✔ Import attributes
 - ✔ JSON modules
 - ✔ `Promise.withResolvers`
-- ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
 - ✔ Resizable and growable ArrayBuffers
+- ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
 - ✔ ShadowRealm
 
 #### Other
@@ -124,10 +120,6 @@ Following features are supported in version 3.x.
 - Constraints for execution (recursion, memory usage, duration)
 
 > Follow new features as they are being implemented, see https://github.com/sebastienros/jint/issues/343
-
-### Version 2.x
-
-Version 2.x is no longer maintained and you should consider moving to using version 3.
 
 ## Performance
 
@@ -454,5 +446,3 @@ The following features provide you with a secure, sand-boxed environment to run 
 - The recommended branch is __main__, any PR should target this branch
 - The __main__ branch is automatically built and published on [MyGet](https://www.myget.org/feed/Packages/jint). Add this feed to your NuGet sources to use it: https://www.myget.org/F/jint/api/v3/index.json
 - The __main__ branch is occasionally published on [NuGet](https://www.nuget.org/packages/jint)
-- The 3.x releases have more features (from es6) and is faster than the 2.x ones. They run the same test suite so they are as reliable. For instance [RavenDB](https://github.com/ravendb/ravendb) is using the 3.x version.
-- The 3.x versions are marked as _beta_ as they might get breaking changes while es6 features are added.
