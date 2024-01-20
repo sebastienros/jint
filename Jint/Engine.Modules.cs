@@ -44,9 +44,9 @@ public partial class Engine
                 return module;
             }
 
-            if (_builders.TryGetValue(specifier, out var moduleBuilder))
+            if (_builders.TryGetValue(moduleResolution.Key, out var moduleBuilder))
             {
-                module = LoadFromBuilder(specifier, moduleBuilder, moduleResolution);
+                module = LoadFromBuilder(moduleResolution.Key, moduleBuilder, moduleResolution);
             }
             else
             {
@@ -64,7 +64,7 @@ public partial class Engine
         private BuilderModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution)
         {
             var parsedModule = moduleBuilder.Parse();
-            var module = new BuilderModule(_engine, _engine.Realm, parsedModule, location: null, async: false);
+            var module = new BuilderModule(_engine, _engine.Realm, parsedModule, location: parsedModule.Location.Source, async: false);
             _modules[moduleResolution.Key] = module;
             moduleBuilder.BindExportedValues(module);
             _builders.Remove(specifier);
