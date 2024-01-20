@@ -527,4 +527,91 @@ export const count = globals.counter;
 
         return Path.Combine(current.FullName, "Runtime", "Scripts");
     }
+
+    [Fact]
+    public void ModuleBuilderWithCustomModuleLoaderLoadsModulesProperly()
+    {
+        var engine = new Engine(o => o.EnableModules(new LocationResolveOnlyModuleLoader((_, moduleRequest) =>
+        {
+            var result = moduleRequest.Specifier;
+            if (moduleRequest.Specifier == "../library1/builder_module.js")
+            {
+                result = "library1/builder_module.js";
+            }
+            return result;
+        })));
+
+        var logStatements = new List<string>();
+        engine.SetValue("log", logStatements.Add);
+        engine.Modules.Add("library1/builder_module.js",
+            builder => builder.AddSource("export const value = 'builder_module_const'; log('builder_module')"));
+        engine.Modules.Add("library2/entry_point_module.js",
+            builder => builder.AddSource("import * as m from '../library1/builder_module.js'; log('entry_point_module')"));
+
+        engine.Modules.Import("library2/entry_point_module.js");
+
+        Assert.Collection(
+            logStatements,
+            s => Assert.Equal("builder_module", s),
+            s => Assert.Equal("entry_point_module", s));
+    }
+
+    [Fact]
+    public void ModuleBuilderPassesReferencingModuleLocationToModuleLoader()
+    {
+        var engine = new Engine(o => o.EnableModules(new LocationResolveOnlyModuleLoader((referencingModuleLocation, moduleRequest) =>
+        {
+            var result = moduleRequest.Specifier;
+            if (moduleRequest.Specifier == "../library1/builder_module.js")
+            {
+                Assert.Equal("library2/entry_point_module.js", referencingModuleLocation);
+                result = "library1/builder_module.js";
+            }
+            return result;
+        })));
+
+        var logStatements = new List<string>();
+        engine.SetValue("log", logStatements.Add);
+        engine.Modules.Add("library1/builder_module.js",
+            builder => builder.AddSource("export const value = 'builder_module_const'; log('builder_module')"));
+        engine.Modules.Add("library2/entry_point_module.js",
+            builder => builder.AddSource("import * as m from '../library1/builder_module.js'; log('entry_point_module')"));
+
+        engine.Modules.Import("library2/entry_point_module.js");
+
+        Assert.Collection(
+            logStatements,
+            s => Assert.Equal("builder_module", s),
+            s => Assert.Equal("entry_point_module", s));
+    }
+
+    /// <summary>
+    /// Custom <see cref="ModuleLoader"/> implementation which is only responsible to
+    /// resolve the correct module location (see <see cref="Resolve"/>). Modules
+    /// must be registered using <see cref="Jint.Engine.ModuleOperations"/> (e.g.
+    /// by using <see cref="Engine.ModuleOperations.Add(string,string)"/>)
+    /// </summary>
+    private sealed class LocationResolveOnlyModuleLoader : ModuleLoader
+    {
+        public delegate string ResolveHandler(string referencingModuleLocation, ModuleRequest moduleRequest);
+
+        private readonly ResolveHandler _resolveHandler;
+
+        public LocationResolveOnlyModuleLoader(ResolveHandler resolveHandler)
+        {
+            _resolveHandler = resolveHandler ?? throw new ArgumentNullException(nameof(resolveHandler));
+        }
+
+        public override ResolvedSpecifier Resolve(string referencingModuleLocation, ModuleRequest moduleRequest)
+        {
+            return new ResolvedSpecifier(
+                moduleRequest,
+                Key: _resolveHandler(referencingModuleLocation, moduleRequest),
+                Uri: null,
+                SpecifierType.RelativeOrAbsolute
+            );
+        }
+        protected override string LoadModuleContents(Engine engine, ResolvedSpecifier resolved)
+            => throw new InvalidOperationException();
+    }
 }

@@ -55,7 +55,8 @@ public class DefaultModuleLoader : ModuleLoader
         }
         else if (IsRelative(specifier))
         {
-            resolved = new Uri(referencingModuleLocation != null ? new Uri(referencingModuleLocation, UriKind.Absolute) : _basePath, specifier);
+            var baseUri = BuildBaseUri(referencingModuleLocation);
+            resolved = new Uri(baseUri, specifier);
         }
         else if (specifier[0] == '#')
         {
@@ -99,6 +100,25 @@ public class DefaultModuleLoader : ModuleLoader
             resolved,
             SpecifierType.RelativeOrAbsolute
         );
+    }
+
+    private Uri BuildBaseUri(string? referencingModuleLocation)
+    {
+        if (referencingModuleLocation is not null)
+        {
+            /*
+              "referencingModuleLocation" might be relative or an invalid URI when a module imports other
+               modules and the importing module is called directly from .NET code.
+               e.g. "engine.Modules.Import("my-module")" and "my-module" imports other modules.
+
+               Path traversal prevention is not a concern here because it is checked later
+               (if _restrictToBasePath is set to true).
+            */
+            if (Uri.TryCreate(referencingModuleLocation, UriKind.Absolute, out var referencingLocation) ||
+                Uri.TryCreate(_basePath, referencingModuleLocation, out referencingLocation))
+                return referencingLocation;
+        }
+        return _basePath;
     }
 
     protected override string LoadModuleContents(Engine engine, ResolvedSpecifier resolved)

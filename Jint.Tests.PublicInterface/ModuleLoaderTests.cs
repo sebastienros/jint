@@ -104,7 +104,7 @@ public class ModuleLoaderTests
         public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
         {
             Uri uri = Resolve(referencingModuleLocation, moduleRequest.Specifier);
-            return new ResolvedSpecifier(moduleRequest, moduleRequest.Specifier, uri, SpecifierType.Bare);
+            return new ResolvedSpecifier(moduleRequest, uri.ToString(), uri, SpecifierType.Bare);
         }
 
         private Uri Resolve(string? referencingModuleLocation, string specifier)
