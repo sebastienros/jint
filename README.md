@@ -8,6 +8,21 @@
 
 Jint is a __Javascript interpreter__ for .NET which can run on __any modern .NET platform__ as it supports .NET Standard 2.0 and .NET 4.6.2 targets (and later).
 
+## Use cases and users
+
+- Run JavaScript inside your .NET application in a safe sand-boxed environment
+- Expose native .NET objects and functions to your JavaScript code (get database query results as JSON, call .NET methods, etc.)
+- Support scripting in your .NET application, allowing users to customize your application using JavaScript (like Unity games) 
+
+Some users of Jint include 
+[RavenDB](https://github.com/ravendb/ravendb), 
+[EventStore](https://github.com/EventStore/EventStore), 
+[OrchardCore](https://github.com/OrchardCMS/OrchardCore), 
+[ELSA Workflows](https://github.com/elsa-workflows/elsa-core),
+[docfx](https://github.com/dotnet/docfx), 
+[JavaScript Engine Switcher](https://github.com/Taritsyn/JavaScriptEngineSwitcher),
+and many more.
+
 ## Supported features
 
 #### ECMAScript 2015 (ES6)
