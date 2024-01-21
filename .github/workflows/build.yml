@@ -24,7 +24,7 @@ jobs:
       run: dotnet test --configuration Release --logger GitHubActions
 
     - name: Pack with dotnet
-      run: dotnet pack Jint/Jint.csproj --output artifacts --configuration Release -p:PackageVersion=3.0.0-preview-$GITHUB_RUN_NUMBER
+      run: dotnet pack Jint/Jint.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER
 
     - name: Push with dotnet
       run: dotnet nuget push artifacts/*.nupkg --api-key ${{ secrets.MYGET_API_KEY }} --skip-duplicate --source https://www.myget.org/F/jint/api/v2/package
