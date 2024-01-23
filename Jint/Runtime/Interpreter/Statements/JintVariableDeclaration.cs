@@ -24,7 +24,6 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected override void Initialize(EvaluationContext context)
         {
-            var engine = context.Engine;
             _declarations = new ResolvedDeclaration[_statement.Declarations.Count];
             for (var i = 0; i < _declarations.Length; i++)
             {

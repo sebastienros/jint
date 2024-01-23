@@ -878,7 +878,7 @@ namespace Jint.Native.RegExp
             var fullUnicode = R.FullUnicode;
             var hasIndices = R.Indices;
 
-            if (!global & !sticky && !fullUnicode && !hasIndices)
+            if (!global && !sticky && !fullUnicode && !hasIndices)
             {
                 // we can the non-stateful fast path which is the common case
                 var m = matcher.Match(s, (int) lastIndex);

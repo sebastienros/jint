@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Text.RegularExpressions;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -27,35 +28,28 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal static JsValue? ConvertToJsValue(Literal literal)
         {
-            if (literal.TokenType == TokenType.BooleanLiteral)
+            switch (literal.TokenType)
             {
-                return literal.BooleanValue!.Value ? JsBoolean.True : JsBoolean.False;
-            }
-
-            if (literal.TokenType == TokenType.NullLiteral)
-            {
-                return JsValue.Null;
-            }
-
-            if (literal.TokenType == TokenType.NumericLiteral)
-            {
-                // unbox only once
-                var numericValue = (double) literal.Value!;
-                var intValue = (int) numericValue;
-                return numericValue == intValue
-                       && (intValue != 0 || BitConverter.DoubleToInt64Bits(numericValue) != JsNumber.NegativeZeroBits)
-                    ? JsNumber.Create(intValue)
-                    : JsNumber.Create(numericValue);
-            }
-
-            if (literal.TokenType == TokenType.StringLiteral)
-            {
-                return JsString.Create((string) literal.Value!);
-            }
-
-            if (literal.TokenType == TokenType.BigIntLiteral)
-            {
-                return JsBigInt.Create((BigInteger) literal.Value!);
+                case TokenType.BooleanLiteral:
+                    return literal.BooleanValue!.Value ? JsBoolean.True : JsBoolean.False;
+                case TokenType.NullLiteral:
+                    return JsValue.Null;
+                case TokenType.NumericLiteral:
+                    {
+                        // unbox only once
+                        var numericValue = (double) literal.Value!;
+                        var intValue = (int) numericValue;
+                        return numericValue == intValue
+                               && (intValue != 0 || BitConverter.DoubleToInt64Bits(numericValue) != JsNumber.NegativeZeroBits)
+                            ? JsNumber.Create(intValue)
+                            : JsNumber.Create(numericValue);
+                    }
+                case TokenType.StringLiteral:
+                    return JsString.Create((string) literal.Value!);
+                case TokenType.BigIntLiteral:
+                    return JsBigInt.Create((BigInteger) literal.Value!);
+                case TokenType.RegularExpression:
+                    break;
             }
 
             return null;
@@ -75,11 +69,12 @@ namespace Jint.Runtime.Interpreter.Expressions
             var expression = (Literal) _expression;
             if (expression.TokenType == TokenType.RegularExpression)
             {
-                var regExpLiteral = (RegExpLiteral) _expression;
+                var regExpLiteral = (RegExpLiteral) expression;
                 var regExpParseResult = regExpLiteral.ParseResult;
                 if (regExpParseResult.Success)
                 {
-                    return context.Engine.Realm.Intrinsics.RegExp.Construct(regExpParseResult.Regex!, regExpLiteral.Regex.Pattern, regExpLiteral.Regex.Flags, regExpParseResult);
+                    var regex = regExpLiteral.AssociatedData as Regex ?? regExpParseResult.Regex!;
+                    return context.Engine.Realm.Intrinsics.RegExp.Construct(regex, regExpLiteral.Regex.Pattern, regExpLiteral.Regex.Flags, regExpParseResult);
                 }
 
                 ExceptionHelper.ThrowSyntaxError(context.Engine.Realm, $"Unsupported regular expression. {regExpParseResult.ConversionError!.Description}");

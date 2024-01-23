@@ -58,6 +58,11 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected internal static JintStatement Build(Statement statement)
         {
+            if (statement.AssociatedData is JintStatement preparedStatement)
+            {
+                return preparedStatement;
+            }
+
             JintStatement? result = statement.Type switch
             {
                 Nodes.BlockStatement => new JintBlockStatement((BlockStatement) statement),
