@@ -26,42 +26,28 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal static JintExpression Build(UnaryExpression expression)
         {
-            if (expression.AssociatedData is JsValue cached)
-            {
-                return new JintConstantExpression(expression, cached);
-            }
-
             if (expression.Operator == UnaryOperator.TypeOf)
             {
-                if (expression.Argument is Literal l)
-                {
-                    var value = JintLiteralExpression.ConvertToJsValue(l);
-                    if (value is not null)
-                    {
-                        // valid for caching
-                        var evaluatedValue = JintTypeOfExpression.GetTypeOfString(value);
-                        expression.AssociatedData = evaluatedValue;
-                        return new JintConstantExpression(expression, evaluatedValue);
-                    }
-                }
-
                 return new JintTypeOfExpression(expression);
             }
 
-            if (expression.Operator == UnaryOperator.Minus
-                && expression.Argument is Literal literal)
+            return BuildConstantExpression(expression) ?? new JintUnaryExpression(expression);
+        }
+
+        internal static JintExpression? BuildConstantExpression(UnaryExpression expression)
+        {
+            if (expression is { Operator: UnaryOperator.Minus, Argument: Literal literal })
             {
                 var value = JintLiteralExpression.ConvertToJsValue(literal);
                 if (value is not null)
                 {
                     // valid for caching
                     var evaluatedValue = EvaluateMinus(value);
-                    expression.AssociatedData = evaluatedValue;
                     return new JintConstantExpression(expression, evaluatedValue);
                 }
             }
 
-            return new JintUnaryExpression(expression);
+            return null;
         }
 
         private sealed class JintTypeOfExpression : JintExpression
@@ -94,7 +80,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return JsString.UndefinedString;
                     }
 
-                    v = engine.GetValue(rf, true);
+                    v = engine.GetValue(rf, returnReferenceToPool: true);
                 }
                 else
                 {
@@ -104,7 +90,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return GetTypeOfString(v);
             }
 
-            internal static JsString GetTypeOfString(JsValue v)
+            private static JsString GetTypeOfString(JsValue v)
             {
                 if (v.IsUndefined())
                 {
@@ -268,7 +254,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
         }
 
-        private static JsValue EvaluateMinus(JsValue value)
+        internal static JsValue EvaluateMinus(JsValue value)
         {
             if (value.IsInteger())
             {

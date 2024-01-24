@@ -90,6 +90,11 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected internal static JintExpression Build(Expression expression)
         {
+            if (expression.AssociatedData is JintExpression preparedExpression)
+            {
+                return preparedExpression;
+            }
+
             var result = expression.Type switch
             {
                 Nodes.AssignmentExpression => JintAssignmentExpression.Build((AssignmentExpression) expression),
