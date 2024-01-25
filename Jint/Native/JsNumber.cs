@@ -88,7 +88,7 @@ public sealed class JsNumber : JsValue, IEquatable<JsNumber>
 
     internal static JsNumber Create(object value)
     {
-        var underlyingType = System.Type.GetTypeCode(Enum.GetUnderlyingType(value.GetType()));
+        var underlyingType = System.Type.GetTypeCode(value.GetType());
         return underlyingType switch
         {
             TypeCode.Int64 => Create(Convert.ToInt64(value, CultureInfo.InvariantCulture)),
