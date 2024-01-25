@@ -298,8 +298,11 @@ namespace Jint.Runtime.Interop
             {
                 var memberNameComparer = typeResolver.MemberNameComparer;
                 var typeResolverMemberNameCreator = typeResolver.MemberNameCreator;
-
+#if NET7_0_OR_GREATER
+                var enumValues = type.GetEnumValuesAsUnderlyingType();
+#else
                 var enumValues = Enum.GetValues(type);
+#endif
                 var enumNames = Enum.GetNames(type);
 
                 for (var i = 0; i < enumValues.Length; i++)
