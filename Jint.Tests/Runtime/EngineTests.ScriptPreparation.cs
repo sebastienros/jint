@@ -65,4 +65,15 @@ public partial class EngineTests
         var result = builtStatement.Execute(new EvaluationContext(_engine)).Value;
         Assert.Equal(JsBoolean.False, result);
     }
+
+    [Fact]
+    public void CompiledRegexShouldProduceSameResultAsNonCompiled()
+    {
+        const string Script = """JSON.stringify(/(.*?)a(?!(a+)b\2c)\2(.*)/.exec("baaabaac"))""";
+
+        var nonCompiled = _engine.Evaluate(Script);
+        var compiled = _engine.Evaluate(Engine.PrepareScript(Script));
+
+        Assert.Equal(nonCompiled, compiled);
+    }
 }

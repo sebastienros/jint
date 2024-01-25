@@ -92,7 +92,10 @@ public partial class Engine
                     {
                         var regExpLiteral = (RegExpLiteral) literal;
                         var regExpParseResult = regExpLiteral.ParseResult;
-                        if (regExpParseResult.Success)
+
+                        // only compile if there's no negative lookahead, it works incorrectly under NET 7 and NET 8
+                        // https://github.com/dotnet/runtime/issues/97455
+                        if (regExpParseResult.Success && !regExpLiteral.Raw.Contains("(?!"))
                         {
                             if (!_regexes.TryGetValue(regExpLiteral.Raw, out var regex))
                             {
