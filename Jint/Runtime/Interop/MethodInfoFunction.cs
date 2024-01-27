@@ -5,6 +5,10 @@ using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
 
+#pragma warning disable IL2067
+#pragma warning disable IL2072
+#pragma warning disable IL3050
+
 namespace Jint.Runtime.Interop
 {
     internal sealed class MethodInfoFunction : Function
@@ -39,7 +43,7 @@ namespace Jint.Runtime.Interop
                 return false;
             }
 
-            var result = TypeConverter.IsAssignableToGenericType(argObj.GetType(), parameterType);
+            var result = InteropHelper.IsAssignableToGenericType(argObj.GetType(), parameterType);
             if (result.Score < 0)
             {
                 return false;
@@ -59,7 +63,7 @@ namespace Jint.Runtime.Interop
                 return;
             }
 
-            var result = TypeConverter.IsAssignableToGenericType(argObj.GetType(), parameterType);
+            var result = InteropHelper.IsAssignableToGenericType(argObj.GetType(), parameterType);
             if (result.Score < 0)
             {
                 return;
@@ -161,7 +165,7 @@ namespace Jint.Runtime.Interop
             var converter = Engine.TypeConverter;
             var thisObj = thisObject.ToObject() ?? _target;
             object?[]? parameters = null;
-            foreach (var (method, arguments, _) in TypeConverter.FindBestMatch(_engine, _methods, ArgumentProvider))
+            foreach (var (method, arguments, _) in InteropHelper.FindBestMatch(_engine, _methods, ArgumentProvider))
             {
                 var methodParameters = method.Parameters;
                 if (parameters == null || parameters.Length != methodParameters.Length)

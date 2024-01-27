@@ -1,8 +1,11 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
+
+#pragma warning disable IL3050
 
 namespace Jint.Runtime.Interop
 {
@@ -12,6 +15,7 @@ namespace Jint.Runtime.Interop
     /// a new <see cref="NamespaceReference"/> as it assumes that the property is a deeper
     /// level of the current namespace
     /// </summary>
+    [RequiresUnreferencedCode("Dynamic loading")]
     public class NamespaceReference : ObjectInstance, ICallable
     {
         private readonly string _path;
@@ -76,6 +80,7 @@ namespace Jint.Runtime.Interop
             return GetPath(newPath);
         }
 
+        [RequiresUnreferencedCode("Dynamic loading")]
         public JsValue GetPath(string path)
         {
             if (_engine.TypeCache.TryGetValue(path, out var type))
@@ -107,7 +112,7 @@ namespace Jint.Runtime.Interop
             }
 
             // search in lookup assemblies
-            var comparedPath = path.Replace("+", ".");
+            var comparedPath = path.Replace('+', '.');
             foreach (var assembly in _engine.Options.Interop.AllowedAssemblies)
             {
                 type = assembly.GetType(path);
@@ -124,7 +129,7 @@ namespace Jint.Runtime.Interop
                 {
                     foreach (Type nType in GetAllNestedTypes(type))
                     {
-                        if (nType.FullName != null && nType.FullName.Replace("+", ".").Equals(comparedPath, StringComparison.Ordinal))
+                        if (nType.FullName != null && nType.FullName.Replace('+', '.').Equals(comparedPath, StringComparison.Ordinal))
                         {
                             _engine.TypeCache.Add(comparedPath, nType);
                             return TypeReference.CreateTypeReference(_engine, nType);
@@ -153,13 +158,13 @@ namespace Jint.Runtime.Interop
         /// <param name="typeName"> Name of the type. </param>
         ///
         /// <returns>   The type. </returns>
+        [RequiresUnreferencedCode("Assembly type loading")]
         private static Type? GetType(Assembly assembly, string typeName)
         {
-            var compared = typeName.Replace("+", ".");
-            Type[] types = assembly.GetTypes();
-            foreach (Type t in types)
+            var compared = typeName.Replace('+', '.');
+            foreach (Type t in assembly.GetTypes())
             {
-                if (string.Equals(t.FullName?.Replace("+", "."), compared, StringComparison.Ordinal))
+                if (string.Equals(t.FullName?.Replace('+', '.'), compared, StringComparison.Ordinal))
                 {
                     return t;
                 }
@@ -175,10 +180,11 @@ namespace Jint.Runtime.Interop
             return types.ToArray();
         }
 
-        private static void AddNestedTypesRecursively(List<Type> types, Type type)
+        private static void AddNestedTypesRecursively(
+            List<Type> types,
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicNestedTypes)] Type type)
         {
-            Type[] nestedTypes = type.GetNestedTypes(BindingFlags.Public);
-            foreach (Type nestedType in nestedTypes)
+            foreach (var nestedType in type.GetNestedTypes(BindingFlags.Public))
             {
                 types.Add(nestedType);
                 AddNestedTypesRecursively(types, nestedType);

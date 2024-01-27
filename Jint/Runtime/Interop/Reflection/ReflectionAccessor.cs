@@ -1,9 +1,14 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
+
+#pragma warning disable IL2098
+#pragma warning disable IL2072
+#pragma warning disable IL2077
 
 namespace Jint.Runtime.Interop.Reflection
 {
@@ -110,7 +115,7 @@ namespace Jint.Runtime.Interop.Reflection
             }
         }
 
-        protected virtual object? ConvertValueToSet(Engine engine, object value)
+        protected virtual object? ConvertValueToSet(Engine engine, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] object value)
         {
             return engine.TypeConverter.Convert(value, _memberType, CultureInfo.InvariantCulture);
         }

@@ -3431,7 +3431,7 @@ try {
             });
 
             var result = new List<string>();
-            void Debug(object? o)
+            void Debug(object o)
             {
                 result.Add($"{o?.GetType().Name ?? "null"}: {o ?? "null"}");
             }

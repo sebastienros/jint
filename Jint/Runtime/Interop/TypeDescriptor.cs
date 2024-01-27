@@ -3,6 +3,10 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
+#pragma warning disable IL2067
+#pragma warning disable IL2075
+#pragma warning disable IL2077
+
 namespace Jint.Runtime.Interop
 {
     internal sealed class TypeDescriptor
@@ -16,7 +20,8 @@ namespace Jint.Runtime.Interop
         private readonly PropertyInfo? _keysAccessor;
         private readonly Type? _valueType;
 
-        private TypeDescriptor(Type type)
+        private TypeDescriptor(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type)
         {
             // check if object has any generic dictionary signature that accepts string as key
             foreach (var i in type.GetInterfaces())
@@ -56,12 +61,13 @@ namespace Jint.Runtime.Interop
 
         public bool Iterable => IsArrayLike || IsDictionary || IsEnumerable;
 
-        public static TypeDescriptor Get(Type type)
+        public static TypeDescriptor Get(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type)
         {
             return _cache.GetOrAdd(type, t => new TypeDescriptor(t));
         }
 
-        private static bool DetermineIfObjectIsArrayLikeClrCollection(Type type)
+        private static bool DetermineIfObjectIsArrayLikeClrCollection([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type)
         {
             if (typeof(ICollection).IsAssignableFrom(type))
             {

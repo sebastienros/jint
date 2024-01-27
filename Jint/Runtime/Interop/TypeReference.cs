@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Jint.Collections;
 using Jint.Native;
@@ -6,6 +7,8 @@ using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop.Reflection;
+
+#pragma warning disable IL2072
 
 namespace Jint.Runtime.Interop
 {
@@ -17,7 +20,9 @@ namespace Jint.Runtime.Interop
 
         private readonly record struct MemberAccessorKey(Type Type, string PropertyName);
 
-        private TypeReference(Engine engine, Type type)
+        private TypeReference(
+            Engine engine,
+            [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] Type type)
             : base(engine, engine.Realm, _name)
         {
             ReferenceType = type;
@@ -33,12 +38,15 @@ namespace Jint.Runtime.Interop
 
         public Type ReferenceType { get; }
 
-        public static TypeReference CreateTypeReference<T>(Engine engine)
+        public static TypeReference CreateTypeReference<
+            [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] T>(Engine engine)
         {
             return CreateTypeReference(engine, typeof(T));
         }
 
-        public static TypeReference CreateTypeReference(Engine engine, Type type)
+        public static TypeReference CreateTypeReference(
+            Engine engine,
+            [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] Type type)
         {
             var reference = new TypeReference(engine, type);
             engine.RegisterTypeReference(reference);
@@ -172,7 +180,7 @@ namespace Jint.Runtime.Interop
                         return arguments;
                     });
 
-                    foreach (var (method, methodArguments, _) in TypeConverter.FindBestMatch(engine, constructors, argumentProvider))
+                    foreach (var (method, methodArguments, _) in InteropHelper.FindBestMatch(engine, constructors, argumentProvider))
                     {
                         var retVal = method.Call(engine, null, methodArguments);
                         result = TypeConverter.ToObject(realm, retVal);
@@ -290,7 +298,11 @@ namespace Jint.Runtime.Interop
             return accessor.CreatePropertyDescriptor(_engine, ReferenceType, enumerable: true);
         }
 
-        private static ReflectionAccessor ResolveMemberAccessor(Engine engine, Type type, string name)
+        private static ReflectionAccessor ResolveMemberAccessor(
+            Engine engine,
+            [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.PublicNestedTypes | DynamicallyAccessedMemberTypes.Interfaces)]
+            Type type,
+            string name)
         {
             var typeResolver = engine.Options.Interop.TypeResolver;
 

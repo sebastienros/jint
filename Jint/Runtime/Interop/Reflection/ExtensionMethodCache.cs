@@ -4,6 +4,9 @@ using System.Reflection;
 using System.Threading;
 using Jint.Extensions;
 
+#pragma warning disable IL2067
+#pragma warning disable IL2070
+
 namespace Jint.Runtime.Interop.Reflection
 {
     /// <summary>

@@ -4,13 +4,16 @@ using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
 
+#pragma warning disable IL2072
+#pragma warning disable IL3050
+
 namespace Jint.Runtime.Interop
 {
     /// <summary>
     /// Represents a FunctionInstance wrapper around a CLR method. This is used by user to pass
     /// custom methods to the engine.
     /// </summary>
-    public sealed class DelegateWrapper : Function
+    internal sealed class DelegateWrapper : Function
     {
         private static readonly JsString _name = new JsString("delegate");
         private readonly Delegate _d;

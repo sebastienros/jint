@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Esprima;
 using Esprima.Ast;
@@ -227,7 +228,7 @@ namespace Jint
         /// </summary>
         public Engine SetValue(string name, Delegate value)
         {
-            Realm.GlobalObject.FastSetProperty(name, new PropertyDescriptor(new DelegateWrapper(this, value), true, false, true));
+            Realm.GlobalObject.FastSetProperty(name, new PropertyDescriptor(new DelegateWrapper(this, value), PropertyFlag.NonEnumerable));
             return this;
         }
 
@@ -244,7 +245,7 @@ namespace Jint
         /// </summary>
         public Engine SetValue(string name, double value)
         {
-            return SetValue(name, JsNumber.Create(value));
+            return SetValue(name, (JsValue) JsNumber.Create(value));
         }
 
         /// <summary>
@@ -252,7 +253,7 @@ namespace Jint
         /// </summary>
         public Engine SetValue(string name, int value)
         {
-            return SetValue(name, JsNumber.Create(value));
+            return SetValue(name, (JsValue) JsNumber.Create(value));
         }
 
         /// <summary>
@@ -260,7 +261,7 @@ namespace Jint
         /// </summary>
         public Engine SetValue(string name, bool value)
         {
-            return SetValue(name, value ? JsBoolean.True : JsBoolean.False);
+            return SetValue(name, (JsValue) (value ? JsBoolean.True : JsBoolean.False));
         }
 
         /// <summary>
@@ -273,7 +274,7 @@ namespace Jint
         }
 
         /// <summary>
-        /// Registers an object value as variable, creates an interop wrapper when needed..
+        /// Registers an object value as variable, creates an interop wrapper when needed.
         /// </summary>
         public Engine SetValue(string name, object? obj)
         {
@@ -282,6 +283,26 @@ namespace Jint
                 : JsValue.FromObject(this, obj);
 
             return SetValue(name, value);
+        }
+
+        /// <summary>
+        /// Registers an object value as variable, creates an interop wrapper when needed.
+        /// </summary>
+        public Engine SetValue(string name, [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] Type type)
+        {
+#pragma warning disable IL2111
+            return SetValue(name, TypeReference.CreateTypeReference(this, type));
+#pragma warning restore IL2111
+        }
+
+        /// <summary>
+        /// Registers an object value as variable, creates an interop wrapper when needed.
+        /// </summary>
+        public Engine SetValue<[DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] T>(string name, T? obj)
+        {
+            return obj is Type t
+                ? SetValue(name, t)
+                : SetValue(name, JsValue.FromObject(this, obj));
         }
 
         internal void LeaveExecutionContext()

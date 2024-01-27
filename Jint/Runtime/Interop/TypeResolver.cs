@@ -5,6 +5,11 @@ using System.Reflection;
 using System.Threading;
 using Jint.Runtime.Interop.Reflection;
 
+#pragma warning disable IL2067
+#pragma warning disable IL2070
+#pragma warning disable IL2072
+#pragma warning disable IL2075
+
 namespace Jint.Runtime.Interop
 {
     /// <summary>
@@ -45,7 +50,7 @@ namespace Jint.Runtime.Interop
 
         internal ReflectionAccessor GetAccessor(
             Engine engine,
-            Type type,
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type,
             string member,
             bool mustBeReadable,
             bool mustBeWritable,
@@ -73,7 +78,7 @@ namespace Jint.Runtime.Interop
 
         private ReflectionAccessor ResolvePropertyDescriptorFactory(
             Engine engine,
-            Type type,
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type,
             string memberName,
             bool mustBeReadable,
             bool mustBeWritable)
@@ -245,7 +250,7 @@ namespace Jint.Runtime.Interop
 
         internal bool TryFindMemberAccessor(
             Engine engine,
-            Type type,
+            [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.Interfaces)] Type type,
             string memberName,
             BindingFlags bindingFlags,
             PropertyInfo? indexerToTry,
@@ -256,7 +261,7 @@ namespace Jint.Runtime.Interop
             var memberNameComparer = MemberNameComparer;
             var typeResolverMemberNameCreator = MemberNameCreator;
 
-            PropertyInfo? GetProperty(Type t)
+            PropertyInfo? GetProperty([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type t)
             {
                 foreach (var p in t.GetProperties(bindingFlags))
                 {

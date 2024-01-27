@@ -41,13 +41,13 @@ namespace Jint.Extensions
             };
         }
 
-        internal static IEnumerable<MethodInfo> GetExtensionMethods(this Type type)
+        internal static IEnumerable<MethodInfo> GetExtensionMethods([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] this Type type)
         {
             return type.GetMethods(BindingFlags.Public | BindingFlags.Static)
                 .Where(static m => m.IsExtensionMethod());
         }
 
-        internal static IEnumerable<MethodInfo> GetOperatorOverloadMethods(this Type type)
+        internal static IEnumerable<MethodInfo> GetOperatorOverloadMethods([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] this Type type)
         {
             return type.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
                 .Where(static m => m.IsSpecialName);
@@ -55,7 +55,7 @@ namespace Jint.Extensions
 
         private static bool IsExtensionMethod(this MethodBase methodInfo)
         {
-            return methodInfo.IsDefined(typeof(ExtensionAttribute), true);
+            return methodInfo.IsDefined(typeof(ExtensionAttribute), inherit: true);
         }
 
         public static bool IsNullable(this Type type)

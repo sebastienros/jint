@@ -3,6 +3,8 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Extensions;
 
+#pragma warning disable IL2072
+
 namespace Jint.Runtime.Interop
 {
     internal sealed class MethodDescriptor

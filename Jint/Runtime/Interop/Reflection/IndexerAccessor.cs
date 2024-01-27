@@ -6,6 +6,8 @@ using Jint.Native;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 
+#pragma warning disable IL2067
+
 namespace Jint.Runtime.Interop.Reflection
 {
     internal sealed class IndexerAccessor : ReflectionAccessor
@@ -32,7 +34,7 @@ namespace Jint.Runtime.Interop.Reflection
 
         internal static bool TryFindIndexer(
             Engine engine,
-            Type targetType,
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties)] Type targetType,
             string propertyName,
             [NotNullWhen(true)] out IndexerAccessor? indexerAccessor,
             [NotNullWhen(true)] out PropertyInfo? indexer)

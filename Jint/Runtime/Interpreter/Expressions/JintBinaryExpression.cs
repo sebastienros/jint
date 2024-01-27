@@ -66,7 +66,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     var methods = leftMethods.Concat(rightMethods).Where(x => string.Equals(x.Name, clrName, StringComparison.Ordinal) && x.GetParameters().Length == 2);
                     var methodDescriptors = MethodDescriptor.Build(methods.ToArray());
 
-                    return TypeConverter.FindBestMatch(context.Engine, methodDescriptors, _ => arguments).FirstOrDefault().Method;
+                    return InteropHelper.FindBestMatch(context.Engine, methodDescriptors, _ => arguments).FirstOrDefault().Method;
                 });
 
                 if (method != null)

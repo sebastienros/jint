@@ -2,6 +2,8 @@ using System.Dynamic;
 using System.Reflection;
 using Jint.Native;
 
+#pragma warning disable IL2092
+
 namespace Jint.Runtime.Interop.Reflection
 {
     internal sealed class DynamicObjectAccessor : ReflectionAccessor
