@@ -8,6 +8,10 @@ using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop.Reflection;
 
+#pragma warning disable IL2067
+#pragma warning disable IL2072
+#pragma warning disable IL2075
+
 namespace Jint.Runtime.Interop
 {
     /// <summary>
@@ -17,7 +21,10 @@ namespace Jint.Runtime.Interop
     {
         private readonly TypeDescriptor _typeDescriptor;
 
-        public ObjectWrapper(Engine engine, object obj, Type? type = null)
+        public ObjectWrapper(
+            Engine engine,
+            object obj,
+            Type? type = null)
             : base(engine)
         {
             Target = obj;
@@ -168,8 +175,7 @@ namespace Jint.Runtime.Interop
             else if (includeStrings)
             {
                 // we take public properties and fields
-                var type = ClrType;
-                foreach (var p in type.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+                foreach (var p in ClrType.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
                     var indexParameters = p.GetIndexParameters();
                     if (indexParameters.Length == 0)
@@ -179,7 +185,7 @@ namespace Jint.Runtime.Interop
                     }
                 }
 
-                foreach (var f in type.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+                foreach (var f in ClrType.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
                     var jsString = JsString.Create(f.Name);
                     yield return jsString;

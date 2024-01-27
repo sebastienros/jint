@@ -602,14 +602,15 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ForInStatement()
         {
-            RunTest(@"
+            var engine = new Engine();
+            var result = engine.Evaluate("""
                 var x, y, str = '';
                 for(var z in this) {
-                    str += z;
+                 str += z;
                 }
-
-                equal('xystrz', str);
-            ");
+                return str;
+         """);
+            Assert.Equal("xystrz", result);
         }
 
         [Fact]

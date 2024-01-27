@@ -1,10 +1,12 @@
-﻿using System.Diagnostics;
-using System.Reflection;
+﻿using System.Reflection;
 using Esprima;
 using Jint;
 using Jint.Native;
 using Jint.Native.Json;
 using Jint.Runtime;
+
+#pragma warning disable IL2026
+#pragma warning disable IL2111
 
 var engine = new Engine(cfg => cfg
     .AllowClr()
@@ -30,8 +32,7 @@ if (!string.IsNullOrEmpty(filename))
 }
 
 var assembly = Assembly.GetExecutingAssembly();
-var fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
-var version = fvi.FileVersion;
+var version = assembly.GetName().Version?.ToString();
 
 Console.WriteLine("Welcome to Jint ({0})", version);
 Console.WriteLine("Type 'exit' to leave, " +

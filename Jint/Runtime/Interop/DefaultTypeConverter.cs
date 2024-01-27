@@ -10,6 +10,12 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 
+#pragma warning disable IL2026
+#pragma warning disable IL2067
+#pragma warning disable IL2070
+#pragma warning disable IL2072
+#pragma warning disable IL3050
+
 namespace Jint.Runtime.Interop
 {
     public class DefaultTypeConverter : ITypeConverter
@@ -37,7 +43,10 @@ namespace Jint.Runtime.Interop
             _engine = engine;
         }
 
-        public virtual object? Convert(object? value, Type type, IFormatProvider formatProvider)
+        public virtual object? Convert(
+            object? value,
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] Type type,
+            IFormatProvider formatProvider)
         {
             if (!TryConvert(value, type, formatProvider, propagateException: true, out var converted, out var problemMessage))
             {
@@ -46,19 +55,28 @@ namespace Jint.Runtime.Interop
             return converted;
         }
 
-        public virtual bool TryConvert(object? value, Type type, IFormatProvider formatProvider, [NotNullWhen(true)] out object? converted)
+        public virtual bool TryConvert(object? value,
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] Type type,
+            IFormatProvider formatProvider,
+            [NotNullWhen(true)] out object? converted)
         {
             return TryConvert(value, type, formatProvider, propagateException: false, out converted, out _);
         }
 
-        private bool TryConvert(object? value, Type type, IFormatProvider formatProvider, bool propagateException, out object? converted, out string? problemMessage)
+        private bool TryConvert(
+            object? value,
+            [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] Type type,
+            IFormatProvider formatProvider,
+            bool propagateException,
+            out object? converted,
+            out string? problemMessage)
         {
             converted = null;
             problemMessage = null;
 
             if (value is null)
             {
-                if (TypeConverter.TypeIsNullable(type))
+                if (InteropHelper.TypeIsNullable(type))
                 {
                     return true;
                 }
@@ -76,7 +94,7 @@ namespace Jint.Runtime.Interop
 
             if (type.IsGenericType)
             {
-                var result = TypeConverter.IsAssignableToGenericType(value.GetType(), type);
+                var result = InteropHelper.IsAssignableToGenericType(value.GetType(), type);
                 if (result.IsAssignable)
                 {
                     converted = value;
@@ -245,7 +263,9 @@ namespace Jint.Runtime.Interop
             }
         }
 
-        private Delegate BuildDelegate(Type type, Func<JsValue, JsValue[], JsValue> function)
+        private Delegate BuildDelegate(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type type,
+            Func<JsValue, JsValue[], JsValue> function)
         {
             var method = type.GetMethod("Invoke");
             var arguments = method!.GetParameters();

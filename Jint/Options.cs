@@ -114,17 +114,20 @@ namespace Jint
             // add missing bits if needed
             if (Interop.Enabled)
             {
-                engine.Realm.GlobalObject.SetProperty("System",
-                    new PropertyDescriptor(new NamespaceReference(engine, "System"), PropertyFlag.AllForbidden));
+#pragma warning disable IL2026
+
+                engine.Realm.GlobalObject.SetProperty("System", new PropertyDescriptor(new NamespaceReference(engine, "System"), PropertyFlag.AllForbidden));
+
                 engine.Realm.GlobalObject.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunction(
                         engine,
                         "importNamespace",
                         (thisObj, arguments) =>
                             new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))),
                     PropertyFlag.AllForbidden));
-                engine.Realm.GlobalObject.SetProperty("clrHelper", new PropertyDescriptor(
-                    new ObjectWrapper(engine, new ClrHelper(Interop)),
-                    PropertyFlag.AllForbidden));
+
+                engine.Realm.GlobalObject.SetProperty("clrHelper", new PropertyDescriptor(new ObjectWrapper(engine, new ClrHelper(Interop)), PropertyFlag.AllForbidden));
+
+#pragma warning restore IL2026
             }
 
             if (Interop.ExtensionMethodTypes.Count > 0)

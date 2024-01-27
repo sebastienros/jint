@@ -1,4 +1,5 @@
-﻿using Esprima;
+﻿using System.Diagnostics.CodeAnalysis;
+using Esprima;
 using Esprima.Ast;
 using Esprima.Utils;
 using Jint.Native.Object;
@@ -55,9 +56,11 @@ public sealed class ShadowRealm : ObjectInstance
         _engine.RunAvailableContinuations();
         return value;
     }
+
+    [RequiresUnreferencedCode("User supplied delegate")]
     public ShadowRealm SetValue(string name, Delegate value)
     {
-        _shadowRealm.GlobalObject.FastSetProperty(name, new PropertyDescriptor(new DelegateWrapper(_engine, value), true, false, true));
+        _shadowRealm.GlobalObject.FastSetProperty(name, new PropertyDescriptor(new DelegateWrapper(_engine, value), PropertyFlag.NonEnumerable));
         return this;
     }
 

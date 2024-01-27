@@ -1,8 +1,10 @@
-﻿namespace Jint.Runtime.Interop;
+﻿using Jint.Native;
 
-using Jint.Native;
+namespace Jint.Runtime.Interop;
 
-public class ClrHelper
+#pragma warning disable IL2072
+
+internal sealed class ClrHelper
 {
     private readonly Options.InteropOptions _interopOptions;
 
@@ -74,10 +76,8 @@ public class ClrHelper
         {
             return TypeReference.CreateTypeReference(obj.Engine, t);
         }
-        else
-        {
-            ExceptionHelper.ThrowArgumentException("Must be an ObjectWrapper of Type", nameof(obj));
-        }
+
+        ExceptionHelper.ThrowArgumentException("Must be an ObjectWrapper of Type", nameof(obj));
         return JsValue.Undefined;
     }
 

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Esprima;
 using Esprima.Ast;
 using Jint.Native;
@@ -61,25 +62,25 @@ public sealed class ModuleBuilder
         return this;
     }
 
-    public ModuleBuilder ExportType<T>()
+    public ModuleBuilder ExportType<[DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] T>()
     {
         ExportType<T>(typeof(T).Name);
         return this;
     }
 
-    public ModuleBuilder ExportType<T>(string name)
+    public ModuleBuilder ExportType<[DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] T>(string name)
     {
         _exports.Add(name, TypeReference.CreateTypeReference<T>(_engine));
         return this;
     }
 
-    public ModuleBuilder ExportType(Type type)
+    public ModuleBuilder ExportType([DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] Type type)
     {
         ExportType(type.Name, type);
         return this;
     }
 
-    public ModuleBuilder ExportType(string name, Type type)
+    public ModuleBuilder ExportType(string name, [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] Type type)
     {
         _exports.Add(name, TypeReference.CreateTypeReference(_engine, type));
         return this;
