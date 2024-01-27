@@ -1,9 +1,8 @@
-namespace Jint.Native.Generator
+namespace Jint.Native.Generator;
+
+internal enum GeneratorKind
 {
-    internal enum GeneratorKind
-    {
-        NonGenerator,
-        Sync,
-        Async
-    }
+    NonGenerator,
+    Sync,
+    Async
 }

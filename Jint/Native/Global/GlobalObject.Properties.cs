@@ -23,6 +23,7 @@ public partial class GlobalObject
     private static readonly Key propertyFloat32Array = "Float32Array";
     private static readonly Key propertyFloat64Array = "Float64Array";
     private static readonly Key propertyFunction = "Function";
+    private static readonly Key propertyGeneratorFunction = "Generator";
     private static readonly Key propertyInt16Array = "Int16Array";
     private static readonly Key propertyInt32Array = "Int32Array";
     private static readonly Key propertyInt8Array = "Int8Array";
@@ -97,6 +98,7 @@ public partial class GlobalObject
         properties.AddDangerous(propertyFloat32Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Float32Array, PropertyFlags));
         properties.AddDangerous(propertyFloat64Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Float64Array, PropertyFlags));
         properties.AddDangerous(propertyFunction, new PropertyDescriptor(_realm.Intrinsics.Function, PropertyFlags));
+        properties.AddDangerous(propertyGeneratorFunction, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.GeneratorFunction, PropertyFlags));
         properties.AddDangerous(propertyInt16Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Int16Array, PropertyFlags));
         properties.AddDangerous(propertyInt32Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Int32Array, PropertyFlags));
         properties.AddDangerous(propertyInt8Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Int8Array, PropertyFlags));

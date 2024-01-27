@@ -293,6 +293,11 @@ namespace Jint.Runtime.Interpreter.Statements
                     if (result.Type != CompletionType.Continue || (context.Target != null && !string.Equals(context.Target, _statement?.LabelSet?.Name, StringComparison.Ordinal)))
                     {
                         completionType = result.Type;
+                        if (iterationKind == IterationKind.Enumerate)
+                        {
+                            // TODO es6-generators make sure we can start from where we left off
+                            //return result;
+                        }
                         if (result.IsAbrupt())
                         {
                             close = true;

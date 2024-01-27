@@ -114,8 +114,24 @@ namespace Jint.Native.Function
             Environment scope,
             PrivateEnvironment? privateScope)
         {
-            // TODO generators
-            return InstantiateOrdinaryFunctionObject(functionDeclaration, scope, privateScope);
+            var thisMode = functionDeclaration.Strict || _engine._isStrict
+                ? FunctionThisMode.Strict
+                : FunctionThisMode.Global;
+
+            var name = functionDeclaration.Function.Id?.Name ?? "default";
+            var F = OrdinaryFunctionCreate(
+                _realm.Intrinsics.GeneratorFunction.PrototypeObject,
+                functionDeclaration,
+                thisMode,
+                scope,
+                privateScope);
+
+            F.SetFunctionName(name);
+
+            var prototype = OrdinaryObjectCreate(_engine, _realm.Intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject);
+            F.DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, PropertyFlag.Writable));
+
+            return F;
         }
     }
 }

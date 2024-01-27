@@ -148,4 +148,36 @@ public class AsyncTests
         Assert.Equal("12", log);
     }
 #endif
+
+    [Fact(Skip = "TODO es6-await https://github.com/sebastienros/jint/issues/1385")]
+    public void ShouldHaveCorrectOrder()
+    {
+        var engine = new Engine();
+        engine.Evaluate("var log = [];");
+
+        const string Script = """
+          async function foo(name) {
+            log.push(name + " start");
+            await log.push(name + " middle");
+            log.push(name + " end");
+          }
+
+          foo("First");
+          foo("Second");
+        """;
+
+        engine.Execute(Script);
+
+        var log = engine.GetValue("log").AsArray();
+        string[] expected = [
+            "First start",
+            "First middle",
+            "Second start",
+            "Second middle",
+            "First end",
+            "Second end",
+        ];
+
+        Assert.Equal(expected, log.Select(x => x.AsString()).ToArray());
+    }
 }

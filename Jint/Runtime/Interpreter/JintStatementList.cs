@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Error;
@@ -16,7 +16,7 @@ namespace Jint.Runtime.Interpreter
 
         private Pair[]? _jintStatements;
         private bool _initialized;
-        private readonly uint _index;
+        private uint _index;
         private readonly bool _generator;
 
         public JintStatementList(IFunction function)
@@ -81,7 +81,7 @@ namespace Jint.Runtime.Interpreter
             var temp = _jintStatements!;
             try
             {
-                for (i = 0; i < (uint) temp.Length; i++)
+                for (; i < (uint) temp.Length; i++)
                 {
                     ref readonly var pair = ref temp[i];
 
@@ -99,6 +99,16 @@ namespace Jint.Runtime.Interpreter
                         c = new Completion(CompletionType.Return, pair.Value, pair.Statement._statement);
                     }
 
+                    if (_generator)
+                    {
+                        if (context.Engine.ExecutionContext.Suspended)
+                        {
+                            _index = i + 1;
+                            c = new Completion(CompletionType.Return, c.Value, pair.Statement._statement);
+                            break;
+                        }
+                    }
+
                     if (c.Type != CompletionType.Normal)
                     {
                         return c.UpdateEmpty(sl.Value);
@@ -113,6 +123,8 @@ namespace Jint.Runtime.Interpreter
             }
             catch (Exception ex)
             {
+                Reset();
+
                 if (ex is JintException)
                 {
                     c = HandleException(context, ex, temp[i].Statement);
@@ -128,24 +140,13 @@ namespace Jint.Runtime.Interpreter
 
         internal static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)
         {
-            if (exception is JavaScriptException javaScriptException)
+            return exception switch
             {
-                return CreateThrowCompletion(s, javaScriptException);
-            }
-
-            if (exception is TypeErrorException typeErrorException)
-            {
-                var node = typeErrorException.Node ?? s!._statement;
-                return CreateThrowCompletion(context.Engine.Realm.Intrinsics.TypeError, typeErrorException, node);
-            }
-
-            if (exception is RangeErrorException rangeErrorException)
-            {
-                return CreateThrowCompletion(context.Engine.Realm.Intrinsics.RangeError, rangeErrorException, s!._statement);
-            }
-
-            // should not happen unless there's problem in the engine
-            throw exception;
+                JavaScriptException javaScriptException => CreateThrowCompletion(s, javaScriptException),
+                TypeErrorException typeErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.TypeError, typeErrorException, typeErrorException.Node ?? s!._statement),
+                RangeErrorException rangeErrorException => CreateThrowCompletion(context.Engine.Realm.Intrinsics.RangeError, rangeErrorException, s!._statement),
+                _ => throw exception
+            };
         }
 
         internal static Completion HandleError(Engine engine, JintStatement? s)
@@ -211,6 +212,13 @@ namespace Jint.Runtime.Interpreter
                     env.InitializeBinding(fn, fo);
                 }
             }
+        }
+
+        public bool Completed => _index == _jintStatements?.Length;
+
+        public void Reset()
+        {
+            _index = 0;
         }
     }
 }

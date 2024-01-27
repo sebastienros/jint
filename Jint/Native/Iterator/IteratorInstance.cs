@@ -1,4 +1,5 @@
 using System.Globalization;
+using Jint.Native.Generator;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Runtime;
@@ -68,7 +69,7 @@ namespace Jint.Native.Iterator
                 var instance = jsValue as ObjectInstance;
                 if (instance is null)
                 {
-                    ExceptionHelper.ThrowTypeError(_target.Engine.Realm, "Iterator result " + jsValue + " is not an object");
+                    ExceptionHelper.ThrowTypeError(_target.Engine.Realm, $"Iterator result {jsValue} is not an object");
                 }
 
                 return instance;
@@ -210,5 +211,22 @@ namespace Jint.Native.Iterator
                 return false;
             }
         }
+
+        internal sealed class GeneratorIterator : IteratorInstance
+        {
+            private readonly GeneratorInstance _generator;
+
+            public GeneratorIterator(Engine engine, GeneratorInstance generator) : base(engine)
+            {
+                _generator = generator;
+            }
+
+            public override bool TryIteratorStep(out ObjectInstance nextItem)
+            {
+                nextItem = IteratorResult.CreateValueIteratorPosition(_engine, done: JsBoolean.True);
+                return false;
+            }
+        }
+
     }
 }
