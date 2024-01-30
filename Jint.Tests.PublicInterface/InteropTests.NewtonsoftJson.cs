@@ -2,7 +2,7 @@ using Jint.Native;
 using Jint.Runtime;
 using Newtonsoft.Json.Linq;
 
-namespace Jint.Tests.Runtime
+namespace Jint.Tests.PublicInterface
 {
     public partial class InteropTests
     {

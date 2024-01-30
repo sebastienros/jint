@@ -1,9 +1,8 @@
 using System.Dynamic;
 using Jint.Native;
 using Jint.Native.Symbol;
-using Jint.Tests.Runtime.Domain;
 
-namespace Jint.Tests.Runtime
+namespace Jint.Tests.PublicInterface
 {
     public partial class InteropTests
     {
@@ -142,6 +141,12 @@ namespace Jint.Tests.Runtime
             {
                 return _properties.ContainsKey(key);
             }
+        }
+
+        private class Person
+        {
+            public string Name { get; set; }
+            public int Age { get; set; }
         }
     }
 }

@@ -2,7 +2,7 @@ using System.Reflection;
 using System.Text.Json.Nodes;
 using Jint.Runtime.Interop;
 
-namespace Jint.Tests.Runtime;
+namespace Jint.Tests.PublicInterface;
 
 public partial class InteropTests
 {
@@ -37,7 +37,7 @@ public partial class InteropTests
                 var wrapped = new ObjectWrapper(e, target);
                 if (target is JsonArray)
                 {
-                    wrapped.SetPrototypeOf(e.Realm.Intrinsics.Array.PrototypeObject);
+                    wrapped.Prototype = e.Intrinsics.Array.PrototypeObject;
                 }
                 return wrapped;
             };
