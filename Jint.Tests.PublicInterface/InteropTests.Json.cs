@@ -1,7 +1,7 @@
 using System.Dynamic;
 using Jint.Runtime.Interop;
 
-namespace Jint.Tests.Runtime;
+namespace Jint.Tests.PublicInterface;
 
 public partial class InteropTests
 {

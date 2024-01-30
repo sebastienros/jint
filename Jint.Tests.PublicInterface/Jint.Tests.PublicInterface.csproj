@@ -28,6 +28,7 @@
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="NodaTime" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="System.Text.Json" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
