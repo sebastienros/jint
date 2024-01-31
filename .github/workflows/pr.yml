@@ -34,7 +34,7 @@ jobs:
       run: dotnet test --configuration Release --logger GitHubActions
 
   macos:
-    runs-on: macos-latest
+    runs-on: macos-14
     env:
         DOTNET_NOLOGO: true
         DOTNET_CLI_TELEMETRY_OPTOUT: 1
