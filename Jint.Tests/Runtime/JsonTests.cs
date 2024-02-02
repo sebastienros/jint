@@ -28,6 +28,10 @@ namespace Jint.Tests.Runtime
         [InlineData("{\"a\":\"\\u0000\"}", "\0")]
         [InlineData("{\"a\":\"\\u0001\"}", "\x01")]
         [InlineData("{\"a\":\"\\u0061\"}", "a")]
+        [InlineData("{\"a\":\"\\u003C\"}", "<")]
+        [InlineData("{\"a\":\"\\u003E\"}", ">")]
+        [InlineData("{\"a\":\"\\u003c\"}", "<")]
+        [InlineData("{\"a\":\"\\u003e\"}", ">")]
         public void ShouldParseEscapedCharactersCorrectly(string json, string expectedCharacter)
         {
             var engine = new Engine();
