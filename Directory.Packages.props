@@ -10,6 +10,9 @@
     <PackageVersion Include="Flurl.Http.Signed" Version="3.2.4" />
     <PackageVersion Include="Jurassic" Version="3.2.7" />
     <PackageVersion Include="Meziantou.Analyzer" Version="2.0.135" />
+    <PackageVersion Include="Microsoft.ClearScript.V8" Version="7.4.4" />
+    <PackageVersion Include="Microsoft.ClearScript.V8.Native.win-x64" Version="7.4.4" />
+    <PackageVersion Include="Microsoft.ClearScript.V8.Native.linux-x64" Version="7.4.4" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
