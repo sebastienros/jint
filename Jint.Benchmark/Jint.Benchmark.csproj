@@ -26,6 +26,9 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
     <PackageReference Include="Jurassic" />
+    <PackageReference Include="Microsoft.ClearScript.V8" />
+    <PackageReference Include="Microsoft.ClearScript.V8.Native.win-x64" />
+    <PackageReference Include="Microsoft.ClearScript.V8.Native.linux-x64" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="NiL.JS" />
     <PackageReference Include="YantraJS.Core" />

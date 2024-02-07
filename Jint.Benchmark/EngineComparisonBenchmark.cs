@@ -98,4 +98,11 @@ public class EngineComparisonBenchmark
         // if script is expecting global context as `this`
         engine.Eval(_files[FileName], null, engine);
     }
+
+    [Benchmark]
+    public void ClearScript()
+    {
+       var engine = new Microsoft.ClearScript.V8.V8ScriptEngine();
+       engine.Evaluate(_files[FileName]);
+    }
 }
