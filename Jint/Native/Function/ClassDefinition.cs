@@ -364,10 +364,10 @@ internal sealed class ClassDefinition
         {
             var methodDef = method.DefineMethod(obj);
             methodDef.Closure.SetFunctionName(methodDef.Key);
-            // TODO currently in the SourceText retrieved from Esprima, the method name is incorrect, so for now, use a regular replacement.
-#pragma warning disable MA0009
-            methodDef.Closure._sourceText = new Regex("function").Replace(methodDef.Closure.ToString(), methodDef.Key.ToString(), 1);
-#pragma warning restore MA0009
+            // TODO currently in the SourceText retrieved from Esprima, the method name is incorrect, so for now, use a string replacement.
+            var oldMethodName = methodDef.Closure.ToString(); 
+            var index = oldMethodName.IndexOf("function", StringComparison.Ordinal);
+            methodDef.Closure._sourceText = index > -1 ? oldMethodName.Remove(index, "function".Length).Insert(index, methodDef.Key.ToString()) : oldMethodName;
             return DefineMethodProperty(obj, methodDef.Key, methodDef.Closure, enumerable);
         }
 
