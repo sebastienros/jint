@@ -366,7 +366,7 @@ internal sealed class ClassDefinition
             methodDef.Closure.SetFunctionName(methodDef.Key);
             // TODO currently in the SourceText retrieved from Esprima, the method name is incorrect, so for now, use a regular replacement.
 #pragma warning disable MA0009
-            methodDef.Closure._sourceText = new Regex("function").Replace(methodDef.Closure.ToString(), methodDef.Key.AsString(), 1);
+            methodDef.Closure._sourceText = new Regex("function").Replace(methodDef.Closure.ToString(), methodDef.Key.ToString(), 1);
 #pragma warning restore MA0009
             return DefineMethodProperty(obj, methodDef.Key, methodDef.Closure, enumerable);
         }
