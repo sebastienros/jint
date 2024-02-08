@@ -207,6 +207,13 @@ namespace Jint.Native.Function
             if (!string.IsNullOrWhiteSpace(prefix))
             {
                 name = prefix + " " + name;
+                if (prefix is "get" or "set")
+                {
+                    // TODO currently in the SourceText retrieved from Esprima, the method name is incorrect, so for now, use a string replacement.
+                    var oldSourceText = ToString(); 
+                    var index = oldSourceText.IndexOf("function", StringComparison.Ordinal);
+                    _sourceText = index > -1 ? oldSourceText.Remove(index, 8).Insert(index, name.AsString()) : oldSourceText;
+                }
             }
 
             if (_functionDefinition != null)

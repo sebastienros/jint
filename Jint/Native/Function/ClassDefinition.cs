@@ -365,9 +365,9 @@ internal sealed class ClassDefinition
             var methodDef = method.DefineMethod(obj);
             methodDef.Closure.SetFunctionName(methodDef.Key);
             // TODO currently in the SourceText retrieved from Esprima, the method name is incorrect, so for now, use a string replacement.
-            var oldMethodName = methodDef.Closure.ToString(); 
-            var index = oldMethodName.IndexOf("function", StringComparison.Ordinal);
-            methodDef.Closure._sourceText = index > -1 ? oldMethodName.Remove(index, "function".Length).Insert(index, methodDef.Key.ToString()) : oldMethodName;
+            var oldSourceText = methodDef.Closure.ToString(); 
+            var index = oldSourceText.IndexOf("function", StringComparison.Ordinal);
+            methodDef.Closure._sourceText = index > -1 ? oldSourceText.Remove(index, 8).Insert(index, methodDef.Closure._functionDefinition.Name ?? string.Empty) : oldSourceText;
             return DefineMethodProperty(obj, methodDef.Key, methodDef.Closure, enumerable);
         }
 
