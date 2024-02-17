@@ -26,7 +26,7 @@ jobs:
         VERSION="${arrTag[2]}"
         VERSION="${VERSION//v}"
         echo "$VERSION"
-        dotnet pack Jint/Jint.csproj --output artifacts --configuration Release -p:Version=$VERSION
+        dotnet pack Jint/Jint.csproj --output artifacts --configuration Release -p:Version=$VERSION -p:ContinuousIntegrationBuild=True
 
     - name: Push with dotnet
       run: dotnet nuget push artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
