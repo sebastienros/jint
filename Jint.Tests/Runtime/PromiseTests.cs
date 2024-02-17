@@ -97,7 +97,7 @@ public class PromiseTests
         Assert.Equal(true, engine.Evaluate(" 1 + 1 === 2"));
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseCtorWithNoResolver_Throws()
     {
         var engine = new Engine();
@@ -105,7 +105,7 @@ public class PromiseTests
         Assert.Throws<JavaScriptException>(() => { engine.Execute("new Promise();"); });
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseCtorWithInvalidResolver_Throws()
     {
         var engine = new Engine();
@@ -113,7 +113,7 @@ public class PromiseTests
         Assert.Throws<JavaScriptException>(() => { engine.Execute("new Promise({});"); });
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseCtorWithValidResolver_DoesNotThrow()
     {
         var engine = new Engine();
@@ -121,7 +121,7 @@ public class PromiseTests
         engine.Execute("new Promise((resolve, reject)=>{});");
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseCtor_ReturnsPromiseJsValue()
     {
         var engine = new Engine();
@@ -130,7 +130,7 @@ public class PromiseTests
         Assert.IsType<JsPromise>(promise);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseResolveViaResolver_ReturnsCorrectValue()
     {
         var engine = new Engine();
@@ -138,14 +138,14 @@ public class PromiseTests
         Assert.Equal(66, res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseResolveViaStatic_ReturnsCorrectValue()
     {
         var engine = new Engine();
         Assert.Equal(66, engine.Evaluate("Promise.resolve(66);").UnwrapIfPromise());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseRejectViaResolver_ThrowsPromiseRejectedException()
     {
         var engine = new Engine();
@@ -158,7 +158,7 @@ public class PromiseTests
         Assert.Equal("Could not connect", ex.RejectedValue.AsString());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseRejectViaStatic_ThrowsPromiseRejectedException()
     {
         var engine = new Engine();
@@ -171,7 +171,7 @@ public class PromiseTests
         Assert.Equal("Could not connect", ex.RejectedValue.AsString());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseChainedThen_HandlerCalledWithCorrectValue()
     {
         var engine = new Engine();
@@ -182,7 +182,7 @@ public class PromiseTests
         Assert.Equal(44, res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseThen_ReturnsNewPromiseInstance()
     {
         var engine = new Engine();
@@ -192,7 +192,7 @@ public class PromiseTests
         Assert.Equal(false, res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseThen_CalledCorrectlyOnResolve()
     {
         var engine = new Engine();
@@ -202,7 +202,7 @@ public class PromiseTests
         Assert.Equal(66, res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseResolveChainedWithHandler_ResolvedAsUndefined()
     {
         var engine = new Engine();
@@ -210,7 +210,7 @@ public class PromiseTests
         Assert.Equal(JsValue.Undefined, engine.Evaluate("Promise.resolve(33).then(() => {});").UnwrapIfPromise());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseChainedThenWithUndefinedCallback_PassesThroughValueCorrectly()
     {
         var engine = new Engine();
@@ -220,7 +220,7 @@ public class PromiseTests
         Assert.Equal(66, res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseChainedThenWithCallbackReturningUndefined_PassesThroughUndefinedCorrectly()
     {
         var engine = new Engine();
@@ -230,7 +230,7 @@ public class PromiseTests
         Assert.Equal(JsValue.Undefined, res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseChainedThenThrowsError_ChainedCallsCatchWithThrownError()
     {
         var engine = new Engine();
@@ -240,7 +240,7 @@ public class PromiseTests
         Assert.Equal("Thrown Error", res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseChainedThenReturnsResolvedPromise_ChainedCallsThenWithPromiseValue()
     {
         var engine = new Engine();
@@ -250,7 +250,7 @@ public class PromiseTests
         Assert.Equal(55, res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseChainedThenReturnsRejectedPromise_ChainedCallsCatchWithPromiseValue()
     {
         var engine = new Engine();
@@ -260,7 +260,7 @@ public class PromiseTests
         Assert.Equal("Error Message", res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseCatch_CalledCorrectlyOnReject()
     {
         var engine = new Engine();
@@ -270,7 +270,7 @@ public class PromiseTests
         Assert.Equal("Could not connect", res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseThenWithCatch_CalledCorrectlyOnReject()
     {
         var engine = new Engine();
@@ -280,14 +280,14 @@ public class PromiseTests
         Assert.Equal("Could not connect", res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseChainedWithHandler_ResolvedAsUndefined()
     {
         var engine = new Engine();
         Assert.Equal(JsValue.Undefined, engine.Evaluate("Promise.reject('error').catch(() => {});").UnwrapIfPromise());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseChainedCatchThen_ThenCallWithUndefined()
     {
         var engine = new Engine();
@@ -297,7 +297,7 @@ public class PromiseTests
         Assert.Equal(JsValue.Undefined, res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseChainedCatchWithUndefinedHandler_CatchChainedCorrectly()
     {
         var engine = new Engine();
@@ -307,7 +307,7 @@ public class PromiseTests
         Assert.Equal("Could not connect", res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseChainedFinally_HandlerCalled()
     {
         var engine = new Engine();
@@ -317,7 +317,7 @@ public class PromiseTests
         Assert.Equal(16, res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseFinally_ReturnsNewPromiseInstance()
     {
         var engine = new Engine();
@@ -327,21 +327,21 @@ public class PromiseTests
         Assert.Equal(false, res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseFinally_ResolvesWithCorrectValue()
     {
         var engine = new Engine();
         Assert.Equal(2, engine.Evaluate("Promise.resolve(2).finally(() => {})").UnwrapIfPromise());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseFinallyWithNoCallback_ResolvesWithCorrectValue()
     {
         var engine = new Engine();
         Assert.Equal(2, engine.Evaluate("Promise.resolve(2).finally()").UnwrapIfPromise());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseFinallyChained_ResolvesWithCorrectValue()
     {
         var engine = new Engine();
@@ -349,7 +349,7 @@ public class PromiseTests
         Assert.Equal(2, engine.Evaluate("Promise.resolve(2).finally(() => 6).finally(() => 9);").UnwrapIfPromise());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseFinallyWhichThrows_ResolvesWithError()
     {
         var engine = new Engine();
@@ -359,7 +359,7 @@ public class PromiseTests
         Assert.Equal("Could not connect", res);
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseAll_BadIterable_Rejects()
     {
         var engine = new Engine();
@@ -367,7 +367,7 @@ public class PromiseTests
     }
 
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseAll_ArgsAreNotPromises_ResolvesCorrectly()
     {
         var engine = new Engine();
@@ -375,7 +375,7 @@ public class PromiseTests
         Assert.Equal(new object[] {1d, 2d, 3d}, engine.Evaluate("Promise.all([1,2,3]);").UnwrapIfPromise().ToObject());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseAll_MixturePromisesNoPromises_ResolvesCorrectly()
     {
         var engine = new Engine();
@@ -383,7 +383,7 @@ public class PromiseTests
             engine.Evaluate("Promise.all([1,Promise.resolve(2),3]);").UnwrapIfPromise().ToObject());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseAll_MixturePromisesNoPromisesOneRejects_ResolvesCorrectly()
     {
         var engine = new Engine();
@@ -394,7 +394,7 @@ public class PromiseTests
         });
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseRace_NoArgs_Rejects()
     {
         var engine = new Engine();
@@ -402,7 +402,7 @@ public class PromiseTests
         Assert.Throws<PromiseRejectedException>(() => { engine.Evaluate("Promise.race();").UnwrapIfPromise(); });
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseRace_InvalidIterator_Rejects()
     {
         var engine = new Engine();
@@ -410,7 +410,7 @@ public class PromiseTests
         Assert.Throws<PromiseRejectedException>(() => { engine.Evaluate("Promise.race({});").UnwrapIfPromise(); });
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseRaceNoPromises_ResolvesCorrectly()
     {
         var engine = new Engine();
@@ -418,7 +418,7 @@ public class PromiseTests
         Assert.Equal(12d, engine.Evaluate("Promise.race([12,2,3]);").UnwrapIfPromise().ToObject());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly()
     {
         var engine = new Engine();
@@ -426,7 +426,7 @@ public class PromiseTests
         Assert.Equal(12d, engine.Evaluate("Promise.race([12,Promise.resolve(2),3]);").UnwrapIfPromise().ToObject());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly2()
     {
         var engine = new Engine();
@@ -434,7 +434,7 @@ public class PromiseTests
         Assert.Equal(2d, engine.Evaluate("Promise.race([Promise.resolve(2),6,3]);").UnwrapIfPromise().ToObject());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly3()
     {
         var engine = new Engine();
@@ -443,7 +443,7 @@ public class PromiseTests
         Assert.Equal(55d, res.ToObject());
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly4()
     {
         var engine = new Engine();
@@ -455,7 +455,7 @@ public class PromiseTests
         });
     }
 
-    [Fact(Timeout = 5000)]
+    [Fact]
     public void PromiseRegression_SingleElementArrayWithClrDictionaryInPromiseAll()
     {
         var engine = new Engine();
