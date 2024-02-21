@@ -1,4 +1,5 @@
 ﻿using Jint.Native;
+using Jint.Runtime;
 
 namespace Jint.Tests.Runtime
 {
@@ -163,6 +164,39 @@ namespace Jint.Tests.Runtime
             Assert.Equal(false, value.IsRegExp());
             Assert.Equal(false, value.IsString());
             Assert.Equal(true, value.IsUndefined());
+        }
+
+        [Fact]
+        public void ShouldConvertArrayBuffer()
+        {
+            var value = _engine.Evaluate("new Uint8Array([102, 111, 111]).buffer");
+            Assert.Equal(true, value.IsArrayBuffer());
+            Assert.Equal([102, 111, 111], value.AsArrayBuffer());
+            Assert.Equal([102, 111, 111], value.ToObject() as byte[]);
+
+            (value as JsArrayBuffer).DetachArrayBuffer();
+
+            Assert.Equal(true, value.IsArrayBuffer());
+            Assert.Equal(null, value.AsArrayBuffer());
+            Assert.Throws<JavaScriptException>(value.ToObject);
+            Assert.Throws<ArgumentException>(JsValue.Undefined.AsArrayBuffer);
+        }
+
+        [Fact]
+        public void ShouldConvertDataView()
+        {
+            var value = _engine.Evaluate("new DataView(new Uint8Array([102, 102, 111, 111, 111]).buffer, 1, 3)");
+
+            Assert.Equal(true, value.IsDataView());
+            Assert.Equal([102, 111, 111], value.AsDataView());
+            Assert.Equal([102, 111, 111], value.ToObject() as byte[]);
+
+            (value as JsDataView)._viewedArrayBuffer.DetachArrayBuffer();
+
+            Assert.Equal(true, value.IsDataView());
+            Assert.Equal(null, value.AsDataView());
+            Assert.Throws<JavaScriptException>(value.ToObject);
+            Assert.Throws<ArgumentException>(JsValue.Undefined.AsDataView);
         }
     }
 }

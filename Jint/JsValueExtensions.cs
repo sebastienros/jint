@@ -246,6 +246,52 @@ public static class JsValueExtensions
         return value.ToString();
     }
 
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsArrayBuffer(this JsValue value)
+    {
+        return value is JsArrayBuffer;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static byte[]? AsArrayBuffer(this JsValue value)
+    {
+        if (!value.IsArrayBuffer())
+        {
+            ThrowWrongTypeException(value, "ArrayBuffer");
+        }
+
+        return ((JsArrayBuffer) value)._arrayBufferData;
+    }
+
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsDataView(this JsValue value)
+    {
+        return value is JsDataView;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static byte[]? AsDataView(this JsValue value)
+    {
+        if (!value.IsDataView())
+        {
+            ThrowWrongTypeException(value, "DataView");
+        }
+
+        var dataView = (JsDataView) value;
+
+        if (dataView._viewedArrayBuffer?._arrayBufferData == null)
+        {
+            return null; // should not happen
+        }
+
+        // create view
+        var res = new byte[dataView._byteLength];
+        Array.Copy(dataView._viewedArrayBuffer._arrayBufferData!, dataView._byteOffset, res, 0, dataView._byteLength);
+        return res;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsUint8Array(this JsValue value)
     {

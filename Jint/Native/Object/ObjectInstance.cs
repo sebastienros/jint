@@ -1081,6 +1081,24 @@ namespace Jint.Native.Object
                         break;
                     }
 
+                    if (this is JsArrayBuffer arrayBuffer)
+                    {
+                        // TODO: What to do here when buffer is detached? We're not allowed to return null
+                        arrayBuffer.AssertNotDetached();
+                        converted = arrayBuffer.ArrayBufferData;
+                        break;
+                    }
+
+                    if (this is JsDataView dataView)
+                    {
+                        // TODO: What to do here when buffer is detached? We're not allowed to return null
+                        dataView._viewedArrayBuffer!.AssertNotDetached();
+                        var res = new byte[dataView._byteLength];
+                        System.Array.Copy(dataView._viewedArrayBuffer._arrayBufferData!, dataView._byteOffset, res, 0, dataView._byteLength);
+                        converted = res;
+                        break;
+                    }
+
                     if (this is BigIntInstance bigIntInstance)
                     {
                         converted = bigIntInstance.BigIntData._value;
