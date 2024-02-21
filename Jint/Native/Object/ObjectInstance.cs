@@ -1059,7 +1059,7 @@ namespace Jint.Native.Object
                         converted = result;
                         break;
                     }
-                    
+
                     if (this is JsTypedArray typedArrayInstance)
                     {
                         converted = typedArrayInstance._arrayElementType switch
@@ -1703,14 +1703,14 @@ namespace Jint.Native.Object
                     var i = 0;
                     if (_obj._properties is not null)
                     {
-                        foreach(var key in _obj._properties)
+                        foreach (var key in _obj._properties)
                         {
                             keys[i++] = new KeyValuePair<JsValue, JsValue>(key.Key.Name, UnwrapJsValue(key.Value, _obj));
                         }
                     }
                     if (_obj._symbols is not null)
                     {
-                        foreach(var key in _obj._symbols)
+                        foreach (var key in _obj._symbols)
                         {
                             keys[i++] = new KeyValuePair<JsValue, JsValue>(key.Key, UnwrapJsValue(key.Value, _obj));
                         }
