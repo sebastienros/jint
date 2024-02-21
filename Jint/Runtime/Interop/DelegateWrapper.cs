@@ -138,7 +138,7 @@ namespace Jint.Runtime.Interop
                 {
                     return FromObject(Engine, result);
                 }
-                return ConvertAwaitableToPromise(result!);
+                return ConvertAwaitableToPromise(Engine, result!);
             }
             catch (TargetInvocationException exception)
             {
@@ -174,77 +174,6 @@ namespace Jint.Runtime.Interop
 #else
             return false;
 #endif
-        }
-
-        private JsValue ConvertAwaitableToPromise(object obj)
-        {
-            if (obj is Task task)
-            {
-                return ConvertTaskToPromise(task);
-            }
-
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
-            if (obj is ValueTask valueTask)
-            {
-                return ConvertTaskToPromise(valueTask.AsTask());
-            }
-
-            // ValueTask<T>
-            var asTask = obj.GetType().GetMethod(nameof(ValueTask<object>.AsTask));
-            if (asTask is not null)
-            {
-                return ConvertTaskToPromise((Task) asTask.Invoke(obj, parameters: null)!);
-            }
-#endif
-
-            return FromObject(Engine, JsValue.Undefined);
-        }
-
-        private JsValue ConvertTaskToPromise(Task task)
-        {
-            var (promise, resolve, reject) = Engine.RegisterPromise();
-            task = task.ContinueWith(continuationAction =>
-            {
-                if (continuationAction.IsFaulted)
-                {
-                    reject(FromObject(Engine, continuationAction.Exception));
-                }
-                else if (continuationAction.IsCanceled)
-                {
-                    reject(FromObject(Engine, new ExecutionCanceledException()));
-                }
-                else
-                {
-                    // Special case: Marshal `async Task` as undefined, as this is `Task<VoidTaskResult>` at runtime
-                    // See https://github.com/sebastienros/jint/pull/1567#issuecomment-1681987702
-                    if (Task.CompletedTask.Equals(continuationAction))
-                    {
-                        resolve(FromObject(Engine, JsValue.Undefined));
-                        return;
-                    }
-
-                    var result = continuationAction.GetType().GetProperty(nameof(Task<object>.Result));
-                    if (result is not null)
-                    {
-                        resolve(FromObject(Engine, result.GetValue(continuationAction)));
-                    }
-                    else
-                    {
-                        resolve(FromObject(Engine, JsValue.Undefined));
-                    }
-                }
-            });
-
-            Engine.AddToEventLoop(() =>
-            {
-                if (!task.IsCompleted)
-                {
-                    // Task.Wait has the potential of inlining the task's execution on the current thread; avoid this.
-                    ((IAsyncResult) task).AsyncWaitHandle.WaitOne();
-                }
-            });
-
-            return promise;
         }
 
     }

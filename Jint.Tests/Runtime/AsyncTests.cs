@@ -1,3 +1,5 @@
+using Jint.Tests.Runtime.TestClasses;
+
 namespace Jint.Tests.Runtime;
 
 public class AsyncTests
@@ -29,6 +31,26 @@ public class AsyncTests
     }
 
     [Fact]
+    public void ShouldReturnedTaskConvertedToPromiseInJS()
+    {
+        Engine engine = new();
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+        var result = engine.Evaluate("asyncTestClass.ReturnDelayedTaskAsync().then(x=>x)");
+        result = result.UnwrapIfPromise();
+        Assert.Equal(AsyncTestClass.TestString, result);
+    }
+
+    [Fact]
+    public void ShouldReturnedCompletedTaskConvertedToPromiseInJS()
+    {
+        Engine engine = new();
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+        var result = engine.Evaluate("asyncTestClass.ReturnCompletedTask().then(x=>x)");
+        result = result.UnwrapIfPromise();
+        Assert.Equal(AsyncTestClass.TestString, result);
+    }
+
+    [Fact]
     public void ShouldTaskCatchWhenCancelled()
     {
         Engine engine = new();
@@ -43,6 +65,19 @@ public class AsyncTests
         {
             await Task.FromCanceled(token);
         }
+    }
+
+    [Fact]
+    public void ShouldReturnedTaskCatchWhenCancelled()
+    {
+        Engine engine = new();
+        CancellationTokenSource cancel = new();
+        cancel.Cancel();
+        engine.SetValue("token", cancel.Token);
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+        engine.SetValue("assert", new Action<bool>(Assert.True));
+        var result = engine.Evaluate("asyncTestClass.ReturnCancelledTask(token).then(_ => assert(false)).catch(_ => assert(true))");
+        result = result.UnwrapIfPromise();
     }
 
     [Fact]
@@ -61,22 +96,35 @@ public class AsyncTests
     }
 
     [Fact]
+    public void ShouldReturnedTaskCatchWhenThrowError()
+    {
+        Engine engine = new();
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+        engine.SetValue("assert", new Action<bool>(Assert.True));
+        var result = engine.Evaluate("asyncTestClass.ThrowAfterDelayAsync().then(_ => assert(false)).catch(_ => assert(true))");
+        result = result.UnwrapIfPromise();
+    }
+
+    [Fact]
     public void ShouldTaskAwaitCurrentStack()
     {
         //https://github.com/sebastienros/jint/issues/514#issuecomment-1507127509
         Engine engine = new();
-        string log = "";
+        AsyncTestClass asyncTestClass = new();
+
         engine.SetValue("myAsyncMethod", new Func<Task>(async () =>
         {
             await Task.Delay(1000);
-            log += "1";
+            asyncTestClass.StringToAppend += "1";
         }));
-        engine.SetValue("myAsyncMethod2", new Action(() =>
+        engine.SetValue("mySyncMethod2", new Action(() =>
         {
-            log += "2";
+            asyncTestClass.StringToAppend += "2";
         }));
-        engine.Execute("async function hello() {await myAsyncMethod();myAsyncMethod2();} hello();");
-        Assert.Equal("12", log);
+        engine.SetValue("asyncTestClass", asyncTestClass);
+
+        engine.Execute("async function hello() {await myAsyncMethod();mySyncMethod2();await asyncTestClass.AddToStringDelayedAsync(\"3\")} hello();");
+        Assert.Equal("123", asyncTestClass.StringToAppend);
     }
 
 #if NETFRAMEWORK == false

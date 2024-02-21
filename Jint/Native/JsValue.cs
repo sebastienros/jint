@@ -119,6 +119,77 @@ namespace Jint.Native
             return true;
         }
 
+        internal static JsValue ConvertAwaitableToPromise(Engine engine, object obj)
+        {
+            if (obj is Task task)
+            {
+                return ConvertTaskToPromise(engine, task);
+            }
+
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
+            if (obj is ValueTask valueTask)
+            {
+                return ConvertTaskToPromise(engine, valueTask.AsTask());
+            }
+
+            // ValueTask<T>
+            var asTask = obj.GetType().GetMethod(nameof(ValueTask<object>.AsTask));
+            if (asTask is not null)
+            {
+                return ConvertTaskToPromise(engine, (Task) asTask.Invoke(obj, parameters: null)!);
+            }
+#endif
+
+            return FromObject(engine, JsValue.Undefined);
+        }
+
+        internal static JsValue ConvertTaskToPromise(Engine engine, Task task)
+        {
+            var (promise, resolve, reject) = engine.RegisterPromise();
+            task = task.ContinueWith(continuationAction =>
+            {
+                if (continuationAction.IsFaulted)
+                {
+                    reject(FromObject(engine, continuationAction.Exception));
+                }
+                else if (continuationAction.IsCanceled)
+                {
+                    reject(FromObject(engine, new ExecutionCanceledException()));
+                }
+                else
+                {
+                    // Special case: Marshal `async Task` as undefined, as this is `Task<VoidTaskResult>` at runtime
+                    // See https://github.com/sebastienros/jint/pull/1567#issuecomment-1681987702
+                    if (Task.CompletedTask.Equals(continuationAction))
+                    {
+                        resolve(FromObject(engine, JsValue.Undefined));
+                        return;
+                    }
+
+                    var result = continuationAction.GetType().GetProperty(nameof(Task<object>.Result));
+                    if (result is not null)
+                    {
+                        resolve(FromObject(engine, result.GetValue(continuationAction)));
+                    }
+                    else
+                    {
+                        resolve(FromObject(engine, JsValue.Undefined));
+                    }
+                }
+            });
+
+            engine.AddToEventLoop(() =>
+            {
+                if (!task.IsCompleted)
+                {
+                    // Task.Wait has the potential of inlining the task's execution on the current thread; avoid this.
+                    ((IAsyncResult) task).AsyncWaitHandle.WaitOne();
+                }
+            });
+
+            return promise;
+        }
+
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public Types Type
         {
