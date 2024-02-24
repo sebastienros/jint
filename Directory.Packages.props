@@ -7,6 +7,7 @@
     <PackageVersion Include="BenchmarkDotNet" Version="0.13.12" />
     <PackageVersion Include="BenchmarkDotNet.TestAdapter" Version="0.13.12" />
     <PackageVersion Include="Esprima" Version="3.0.4" />
+    <PackageVersion Include="FluentAssertions" Version="6.12.0" />
     <PackageVersion Include="Flurl.Http.Signed" Version="3.2.4" />
     <PackageVersion Include="Jurassic" Version="3.2.7" />
     <PackageVersion Include="Meziantou.Analyzer" Version="2.0.141" />

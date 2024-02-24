@@ -21,34 +21,32 @@ namespace Jint.Runtime.Interop
         private readonly Type? _valueType;
 
         private TypeDescriptor(
-            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type)
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)]
+            Type type)
         {
-            // check if object has any generic dictionary signature that accepts string as key
-            foreach (var i in type.GetInterfaces())
-            {
-                if (i.IsGenericType
-                    && i.GetGenericTypeDefinition() == _genericDictionaryType
-                    && i.GenericTypeArguments[0] == _stringType)
-                {
-                    _tryGetValueMethod = i.GetMethod("TryGetValue");
-                    _removeMethod = i.GetMethod("Remove");
-                    _keysAccessor = i.GetProperty("Keys");
-                    _valueType = i.GenericTypeArguments[1];
-                    break;
-                }
-            }
+            Analyze(
+                type,
+                out var isCollection,
+                out var isEnumerable,
+                out var isIntegerIndexedArray,
+                out var isDictionary,
+                out _tryGetValueMethod,
+                out _removeMethod,
+                out _keysAccessor,
+                out _valueType,
+                out var lengthProperty);
 
-            IsDictionary = _tryGetValueMethod is not null || typeof(IDictionary).IsAssignableFrom(type);
+            IsDictionary = _tryGetValueMethod is not null || isDictionary;
 
             // dictionaries are considered normal-object-like
-            IsArrayLike = !IsDictionary && DetermineIfObjectIsArrayLikeClrCollection(type);
+            IsArrayLike = !IsDictionary && isCollection;
 
-            IsEnumerable = typeof(IEnumerable).IsAssignableFrom(type);
+            IsEnumerable = isEnumerable;
 
             if (IsArrayLike)
             {
-                LengthProperty = type.GetProperty("Count") ?? type.GetProperty("Length");
-                IsIntegerIndexedArray = typeof(IList).IsAssignableFrom(type);
+                LengthProperty = lengthProperty;
+                IsIntegerIndexedArray = isIntegerIndexedArray;
             }
         }
 
@@ -62,33 +60,108 @@ namespace Jint.Runtime.Interop
         public bool Iterable => IsArrayLike || IsDictionary || IsEnumerable;
 
         public static TypeDescriptor Get(
-            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type)
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)]
+            Type type)
         {
             return _cache.GetOrAdd(type, t => new TypeDescriptor(t));
         }
 
-        private static bool DetermineIfObjectIsArrayLikeClrCollection([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type)
+        private static void Analyze(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)]
+            Type type,
+            out bool isCollection,
+            out bool isEnumerable,
+            out bool isIntegerIndexedArray,
+            out bool isDictionary,
+            out MethodInfo? tryGetValueMethod,
+            out MethodInfo? removeMethod,
+            out PropertyInfo? keysAccessor,
+            out Type? valueType,
+            out PropertyInfo? lengthProperty)
         {
-            if (typeof(ICollection).IsAssignableFrom(type))
-            {
-                return true;
-            }
+            AnalyzeType(
+                type,
+                out isCollection,
+                out isEnumerable,
+                out isIntegerIndexedArray,
+                out isDictionary,
+                out tryGetValueMethod,
+                out removeMethod,
+                out keysAccessor,
+                out valueType,
+                out lengthProperty);
 
-            foreach (var interfaceType in type.GetInterfaces())
+            foreach (var t in type.GetInterfaces())
             {
-                if (!interfaceType.IsGenericType)
+#pragma warning disable IL2072
+                AnalyzeType(
+                    t,
+                    out var isCollectionForSubType,
+                    out var isEnumerableForSubType,
+                    out var isIntegerIndexedArrayForSubType,
+                    out var isDictionaryForSubType,
+                    out var tryGetValueMethodForSubType,
+                    out var removeMethodForSubType,
+                    out var keysAccessorForSubType,
+                    out var valueTypeForSubType,
+                    out var lengthPropertyForSubType);
+#pragma warning restore IL2072
+
+                isCollection |= isCollectionForSubType;
+                isEnumerable |= isEnumerableForSubType;
+                isIntegerIndexedArray |= isIntegerIndexedArrayForSubType;
+                isDictionary |= isDictionaryForSubType;
+
+                tryGetValueMethod ??= tryGetValueMethodForSubType;
+                removeMethod ??= removeMethodForSubType;
+                keysAccessor ??= keysAccessorForSubType;
+                valueType ??= valueTypeForSubType;
+                lengthProperty ??= lengthPropertyForSubType;
+            }
+        }
+
+        private static void AnalyzeType(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties)]
+            Type type,
+            out bool isCollection,
+            out bool isEnumerable,
+            out bool isIntegerIndexedArray,
+            out bool isDictionary,
+            out MethodInfo? tryGetValueMethod,
+            out MethodInfo? removeMethod,
+            out PropertyInfo? keysAccessor,
+            out Type? valueType,
+            out PropertyInfo? lengthProperty)
+        {
+            isCollection = typeof(ICollection).IsAssignableFrom(type);
+            isEnumerable = typeof(IEnumerable).IsAssignableFrom(type);
+            isIntegerIndexedArray = typeof(IList).IsAssignableFrom(type);
+            isDictionary = typeof(IDictionary).IsAssignableFrom(type);
+            lengthProperty = type.GetProperty("Count") ?? type.GetProperty("Length");
+
+            tryGetValueMethod = null;
+            removeMethod = null;
+            keysAccessor = null;
+            valueType = null;
+
+            if (type.IsGenericType)
+            {
+                var genericTypeDefinition = type.GetGenericTypeDefinition();
+
+                // check if object has any generic dictionary signature that accepts string as key
+                var b = genericTypeDefinition == _genericDictionaryType;
+                if (b && type.GenericTypeArguments[0] == _stringType)
                 {
-                    continue;
+                    tryGetValueMethod = type.GetMethod("TryGetValue");
+                    removeMethod = type.GetMethod("Remove");
+                    keysAccessor = type.GetProperty("Keys");
+                    valueType = type.GenericTypeArguments[1];
                 }
 
-                if (interfaceType.GetGenericTypeDefinition() == typeof(IReadOnlyCollection<>)
-                    || interfaceType.GetGenericTypeDefinition() == typeof(ICollection<>))
-                {
-                    return true;
-                }
+                isCollection |= genericTypeDefinition == typeof(IReadOnlyCollection<>) || genericTypeDefinition == typeof(ICollection<>);
+                isIntegerIndexedArray |= genericTypeDefinition == typeof(IList<>);
+                isDictionary |= genericTypeDefinition == _genericDictionaryType;
             }
-
-            return false;
         }
 
         public bool TryGetValue(object target, string member, [NotNullWhen(true)] out object? o)
@@ -120,7 +193,7 @@ namespace Jint.Runtime.Interop
                 return false;
             }
 
-            return (bool) _removeMethod.Invoke(target , new object[] { key })!;
+            return (bool) _removeMethod.Invoke(target, new object[] { key })!;
         }
 
         public ICollection<string> GetKeys(object target)
