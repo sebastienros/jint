@@ -12,6 +12,10 @@ namespace Jint.Runtime.Interop
     internal sealed class TypeDescriptor
     {
         private static readonly ConcurrentDictionary<Type, TypeDescriptor> _cache = new();
+
+        private static readonly Type _listType = typeof(IList);
+        private static readonly PropertyInfo _listIndexer = typeof(IList).GetProperty("Item")!;
+
         private static readonly Type _genericDictionaryType = typeof(IDictionary<,>);
         private static readonly Type _stringType = typeof(string);
 
@@ -28,14 +32,15 @@ namespace Jint.Runtime.Interop
                 type,
                 out var isCollection,
                 out var isEnumerable,
-                out var isIntegerIndexedArray,
                 out var isDictionary,
                 out _tryGetValueMethod,
                 out _removeMethod,
                 out _keysAccessor,
                 out _valueType,
-                out var lengthProperty);
+                out var lengthProperty,
+                out var integerIndexer);
 
+            IntegerIndexerProperty = integerIndexer;
             IsDictionary = _tryGetValueMethod is not null || isDictionary;
 
             // dictionaries are considered normal-object-like
@@ -46,12 +51,21 @@ namespace Jint.Runtime.Interop
             if (IsArrayLike)
             {
                 LengthProperty = lengthProperty;
-                IsIntegerIndexedArray = isIntegerIndexedArray;
             }
         }
 
         public bool IsArrayLike { get; }
-        public bool IsIntegerIndexedArray { get; }
+
+        /// <summary>
+        /// Is this read-write indexed.
+        /// </summary>
+        public bool IsIntegerIndexed => IntegerIndexerProperty is not null;
+
+        /// <summary>
+        /// Read-write indexer.
+        /// </summary>
+        public PropertyInfo? IntegerIndexerProperty { get; }
+
         public bool IsDictionary { get; }
         public bool IsStringKeyedGenericDictionary => _tryGetValueMethod is not null;
         public bool IsEnumerable { get; }
@@ -71,25 +85,25 @@ namespace Jint.Runtime.Interop
             Type type,
             out bool isCollection,
             out bool isEnumerable,
-            out bool isIntegerIndexedArray,
             out bool isDictionary,
             out MethodInfo? tryGetValueMethod,
             out MethodInfo? removeMethod,
             out PropertyInfo? keysAccessor,
             out Type? valueType,
-            out PropertyInfo? lengthProperty)
+            out PropertyInfo? lengthProperty,
+            out PropertyInfo? integerIndexer)
         {
             AnalyzeType(
                 type,
                 out isCollection,
                 out isEnumerable,
-                out isIntegerIndexedArray,
                 out isDictionary,
                 out tryGetValueMethod,
                 out removeMethod,
                 out keysAccessor,
                 out valueType,
-                out lengthProperty);
+                out lengthProperty,
+                out integerIndexer);
 
             foreach (var t in type.GetInterfaces())
             {
@@ -98,18 +112,17 @@ namespace Jint.Runtime.Interop
                     t,
                     out var isCollectionForSubType,
                     out var isEnumerableForSubType,
-                    out var isIntegerIndexedArrayForSubType,
                     out var isDictionaryForSubType,
                     out var tryGetValueMethodForSubType,
                     out var removeMethodForSubType,
                     out var keysAccessorForSubType,
                     out var valueTypeForSubType,
-                    out var lengthPropertyForSubType);
+                    out var lengthPropertyForSubType,
+                    out var integerIndexerForSubType);
 #pragma warning restore IL2072
 
                 isCollection |= isCollectionForSubType;
                 isEnumerable |= isEnumerableForSubType;
-                isIntegerIndexedArray |= isIntegerIndexedArrayForSubType;
                 isDictionary |= isDictionaryForSubType;
 
                 tryGetValueMethod ??= tryGetValueMethodForSubType;
@@ -117,6 +130,7 @@ namespace Jint.Runtime.Interop
                 keysAccessor ??= keysAccessorForSubType;
                 valueType ??= valueTypeForSubType;
                 lengthProperty ??= lengthPropertyForSubType;
+                integerIndexer ??= integerIndexerForSubType;
             }
         }
 
@@ -125,17 +139,18 @@ namespace Jint.Runtime.Interop
             Type type,
             out bool isCollection,
             out bool isEnumerable,
-            out bool isIntegerIndexedArray,
             out bool isDictionary,
             out MethodInfo? tryGetValueMethod,
             out MethodInfo? removeMethod,
             out PropertyInfo? keysAccessor,
             out Type? valueType,
-            out PropertyInfo? lengthProperty)
+            out PropertyInfo? lengthProperty,
+            out PropertyInfo? integerIndexer)
         {
             isCollection = typeof(ICollection).IsAssignableFrom(type);
             isEnumerable = typeof(IEnumerable).IsAssignableFrom(type);
-            isIntegerIndexedArray = typeof(IList).IsAssignableFrom(type);
+            integerIndexer = _listType.IsAssignableFrom(type) ? _listIndexer : null;
+
             isDictionary = typeof(IDictionary).IsAssignableFrom(type);
             lengthProperty = type.GetProperty("Count") ?? type.GetProperty("Length");
 
@@ -159,7 +174,10 @@ namespace Jint.Runtime.Interop
                 }
 
                 isCollection |= genericTypeDefinition == typeof(IReadOnlyCollection<>) || genericTypeDefinition == typeof(ICollection<>);
-                isIntegerIndexedArray |= genericTypeDefinition == typeof(IList<>);
+                if (genericTypeDefinition == typeof(IList<>))
+                {
+                    integerIndexer ??= type.GetProperty("Item");
+                }
                 isDictionary |= genericTypeDefinition == _genericDictionaryType;
             }
         }

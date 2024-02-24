@@ -30,7 +30,7 @@ public class TypeDescriptorTests
         var descriptor = TypeDescriptor.Get(type);
         descriptor.IsArrayLike.Should().Be(isArrayLike);
         descriptor.Iterable.Should().Be(iterable);
-        descriptor.IsIntegerIndexedArray.Should().Be(isIntegerIndexedArray);
+        descriptor.IsIntegerIndexed.Should().Be(isIntegerIndexedArray);
         if (shouldHaveLength)
         {
             descriptor.LengthProperty.Should().NotBeNull();

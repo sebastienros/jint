@@ -46,7 +46,7 @@ namespace Jint.Runtime.Interop
 
         internal override bool HasOriginalIterator => IsArrayLike;
 
-        internal override bool IsIntegerIndexedArray => _typeDescriptor.IsIntegerIndexedArray;
+        internal override bool IsIntegerIndexedArray => _typeDescriptor.IsIntegerIndexed;
 
         public override bool Set(JsValue property, JsValue value, JsValue receiver)
         {
