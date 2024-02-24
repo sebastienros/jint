@@ -614,4 +614,51 @@ export const count = globals.counter;
         protected override string LoadModuleContents(Engine engine, ResolvedSpecifier resolved)
             => throw new InvalidOperationException();
     }
+
+    [Fact]
+    public void EngineShouldTransmitSourceModuleForModuleLoader()
+    {
+        var engine = new Engine(o => o.EnableModules(new ModuleLoaderForEngineShouldTransmitSourceModuleForModuleLoaderTest()));
+
+        var logs = new List<string>();
+        engine.SetValue("log", logs.Add);
+
+        engine.Modules.Import($"code/lib/module.js");
+
+        Assert.Collection(logs,
+            s => Assert.Equal("code/execute.js", s),
+            s => Assert.Equal("code/lib/module.js", s));
+    }
+    public class ModuleLoaderForEngineShouldTransmitSourceModuleForModuleLoaderTest : ModuleLoader
+    {
+        public override ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+        {
+            var moduleSpec = moduleRequest.Specifier;
+
+            // to resolve this statement requires information about source module
+            if (moduleSpec == "../execute.js")
+            {
+                Assert.True(!string.IsNullOrEmpty(referencingModuleLocation), "module loader cannot resolve referensing module - has no referencing module location");
+                moduleSpec = $"code/execute.js";
+            }
+
+            return new ResolvedSpecifier(
+                moduleRequest,
+                moduleSpec,
+                Uri: null,
+                SpecifierType.RelativeOrAbsolute
+            );
+        }
+        protected override string LoadModuleContents(Engine engine, ResolvedSpecifier resolved)
+        {
+            if (resolved.Key == $"code/lib/module.js")
+                return $"import * as m from '../execute.js'; log('code/lib/module.js')";
+            if (resolved.Key == $"code/execute.js")
+            {
+                return $"log('code/execute.js')";
+            }
+
+            throw new NotImplementedException(); // no need in this test
+        }
+    }
 }
