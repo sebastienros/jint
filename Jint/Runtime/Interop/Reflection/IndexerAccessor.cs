@@ -19,8 +19,6 @@ namespace Jint.Runtime.Interop.Reflection
         private readonly MethodInfo? _setter;
         private readonly MethodInfo? _containsKey;
 
-        private static readonly PropertyInfo _iListIndexer = typeof(IList).GetProperty("Item")!;
-
         private IndexerAccessor(PropertyInfo indexer, MethodInfo? containsKey, object key)
             : base(indexer.PropertyType, key)
         {
@@ -87,12 +85,13 @@ namespace Jint.Runtime.Interop.Reflection
             var filter = new Func<MemberInfo, bool>(m => engine.Options.Interop.TypeResolver.Filter(engine, m));
 
             // default indexer wins
-            if (typeof(IList).IsAssignableFrom(targetType) && filter(_iListIndexer))
+            var descriptor = TypeDescriptor.Get(targetType);
+            if (descriptor.IntegerIndexerProperty is not null && filter(descriptor.IntegerIndexerProperty))
             {
-                indexerAccessor = ComposeIndexerFactory(_iListIndexer, typeof(int));
+                indexerAccessor = ComposeIndexerFactory(descriptor.IntegerIndexerProperty, typeof(int));
                 if (indexerAccessor != null)
                 {
-                    indexer = _iListIndexer;
+                    indexer = descriptor.IntegerIndexerProperty;
                     return true;
                 }
             }
