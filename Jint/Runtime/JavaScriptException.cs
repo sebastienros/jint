@@ -88,7 +88,7 @@ public class JavaScriptException : JintException
             var errObj = Error.IsObject() ? Error.AsObject() : null;
             if (errObj is null)
             {
-                _callStack = engine.CallStack.BuildCallStackString(location);
+                _callStack = engine.CallStack.BuildCallStackString(engine, location);
                 return;
             }
 
@@ -99,7 +99,7 @@ public class JavaScriptException : JintException
             }
             else
             {
-                _callStack = engine.CallStack.BuildCallStackString(location);
+                _callStack = engine.CallStack.BuildCallStackString(engine, location);
                 errObj.FastSetProperty(CommonProperties.Stack._value, new PropertyDescriptor(_callStack, false, false, false));
             }
         }

@@ -27,6 +27,8 @@ public class Options
 
     public delegate bool ExceptionHandlerDelegate(Exception exception);
 
+    public delegate string? BuildCallStackDelegate(string shortDescription, SourceLocation location, List<string>? arguments);
+
     /// <summary>
     /// Execution constraints for the engine.
     /// </summary>
@@ -296,6 +298,13 @@ public class Options
         /// change the behavior.
         /// </summary>
         public WrapObjectDelegate WrapObjectHandler { get; set; } = static (engine, target, type) => ObjectWrapper.Create(engine, target, type);
+
+        /// <summary>
+        /// The handler used to build stack traces. Changing this enables mapping
+        /// stack traces to code different from the code being executed, eg. when
+        /// executing code transpiled from TypeScript.
+        /// </summary>
+        public BuildCallStackDelegate BuildCallStackHandler { get; set; } = static (string description, SourceLocation location, List<string>? arguments) => null;
 
         /// <summary>
         ///

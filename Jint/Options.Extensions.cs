@@ -128,6 +128,16 @@ public static class OptionsExtensions
     }
 
     /// <summary>
+    /// Sets the handler used to build stack traces. This is useful if the code currently
+    /// running was transpiled (eg. TypeScript) and the source map of original code is available.
+    /// </summary>
+    public static Options SetBuildCallStackHandler(this Options options, Options.BuildCallStackDelegate buildCallStackHandler)
+    {
+        options.Interop.BuildCallStackHandler = buildCallStackHandler;
+        return options;
+    }
+
+    /// <summary>
     /// Sets the type converter to use.
     /// </summary>
     public static Options SetTypeConverter(this Options options, Func<Engine, ITypeConverter> typeConverterFactory)

@@ -1,3 +1,6 @@
+using Jint.Runtime;
+using SourceMaps;
+
 namespace Jint.Tests.PublicInterface;
 
 public class CallStackTests
@@ -46,4 +49,60 @@ Trace
             _output.WriteLine($"Trace{Environment.NewLine}{_engine.Advanced.StackTrace}");
         }
     }
+
+    [Fact]
+    public void ShouldReturnTheSourceMapStack()
+    {
+        var sourceMap = SourceMapParser.Parse("""{"version":3,"file":"custom.js","sourceRoot":"","sources":["custom.ts"],"names":[],"mappings":"AAEA,SAAS,CAAC,CAAC,CAAM;IAChB,MAAM,IAAI,KAAK,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC;AAED,IAAI,CAAC,GAAG,UAAU,CAAM;IACvB,OAAO,CAAC,CAAC,CAAC,CAAC,CAAC;AACb,CAAC,CAAA;AAED,CAAC,CAAC,CAAC,CAAC,CAAC"}""");
+
+        string BuildCallStackHandler(string description, SourceLocation location, List<string> arguments)
+        {
+            if (location.SourceFile != sourceMap.File)
+            {
+                return null;
+            }
+
+            var originalPosition = sourceMap.OriginalPositionFor(location.End.Line, location.Start.Column + 1);
+
+            if (originalPosition is null)
+            {
+                return null;
+            }
+
+            var str = $"   at{
+                (!string.IsNullOrWhiteSpace(description) ? $" {description}" : "")
+            } {
+                originalPosition.Value.OriginalFileName
+            }:{
+                originalPosition.Value.OriginalLineNumber + 1
+            }:{
+                originalPosition.Value.OriginalColumnNumber
+            }{
+                Environment.NewLine
+            }";
+
+            return str;
+        }
+
+        var engine = new Engine(opt =>
+        {
+            opt.SetBuildCallStackHandler(BuildCallStackHandler);
+        });
+
+        const string Script = @"function a(v) {
+    throw new Error(v);
+}
+var b = function (v) {
+    return a(v);
+};
+b(7);
+//# sourceMappingURL=custom.js.map";
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(Script, "custom.js"));
+
+        var stack = ex.JavaScriptStackTrace!;
+        Assert.Equal(@"   at a custom.ts:4:7
+   at b custom.ts:8:9
+   at custom.ts:11:1".Replace("\r\n", "\n"), stack.Replace("\r\n", "\n"));
+    }
+
 }
