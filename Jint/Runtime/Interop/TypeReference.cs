@@ -295,7 +295,7 @@ namespace Jint.Runtime.Interop
         {
             var key = new MemberAccessorKey(ReferenceType, name);
             var accessor = _memberAccessors.GetOrAdd(key, x => ResolveMemberAccessor(_engine, x.Type, x.PropertyName));
-            return accessor.CreatePropertyDescriptor(_engine, ReferenceType, enumerable: true);
+            return accessor.CreatePropertyDescriptor(_engine, ReferenceType, name, enumerable: true);
         }
 
         private static ReflectionAccessor ResolveMemberAccessor(

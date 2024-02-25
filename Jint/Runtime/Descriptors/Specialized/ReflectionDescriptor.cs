@@ -3,63 +3,81 @@ using Jint.Native;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interop.Reflection;
 
-namespace Jint.Runtime.Descriptors.Specialized
+namespace Jint.Runtime.Descriptors.Specialized;
+
+internal sealed class ReflectionDescriptor : PropertyDescriptor
 {
-    internal sealed class ReflectionDescriptor : PropertyDescriptor
+    private readonly Engine _engine;
+    private readonly ReflectionAccessor _reflectionAccessor;
+    private readonly object _target;
+    private readonly string _propertyName;
+
+    private JsValue? _get;
+    private JsValue? _set;
+
+    public ReflectionDescriptor(
+        Engine engine,
+        ReflectionAccessor reflectionAccessor,
+        object target,
+        string propertyName,
+        bool enumerable)
+        : base((enumerable ? PropertyFlag.Enumerable : PropertyFlag.None) | PropertyFlag.CustomJsValue)
     {
-        private readonly Engine _engine;
-        private readonly ReflectionAccessor _reflectionAccessor;
-        private readonly object _target;
+        _flags |= PropertyFlag.NonData;
+        _engine = engine;
+        _reflectionAccessor = reflectionAccessor;
+        _target = target;
+        _propertyName = propertyName;
+    }
 
-        public ReflectionDescriptor(
-            Engine engine,
-            ReflectionAccessor reflectionAccessor,
-            object target,
-            bool enumerable)
-            : base((enumerable ? PropertyFlag.Enumerable : PropertyFlag.None) | PropertyFlag.CustomJsValue)
+    public override JsValue? Get
+    {
+        get
         {
-            _flags |= PropertyFlag.NonData;
-            _engine = engine;
-            _reflectionAccessor = reflectionAccessor;
-            _target = target;
+            if (_reflectionAccessor.Readable)
+            {
+                return _get ??= new GetterFunction(_engine, DoGet);
+            }
 
-            if (reflectionAccessor.Writable && engine.Options.Interop.AllowWrite)
-            {
-                Set = new SetterFunction(_engine, DoSet);
-            }
-            if (reflectionAccessor.Readable)
-            {
-                Get = new GetterFunction(_engine, DoGet);
-            }
+            return null;
         }
+    }
 
-        public override JsValue? Get { get; }
-        public override JsValue? Set { get; }
-
-
-        protected internal override JsValue? CustomValue
+    public override JsValue? Set
+    {
+        get
         {
-            get => DoGet(null);
-            set => DoSet(null, value);
-        }
-
-        private JsValue DoGet(JsValue? thisObj)
-        {
-            var value = _reflectionAccessor.GetValue(_engine, _target);
-            var type = _reflectionAccessor.MemberType;
-            return JsValue.FromObjectWithType(_engine, value, type);
-        }
-
-        private void DoSet(JsValue? thisObj, JsValue? v)
-        {
-            try
+            if (_reflectionAccessor.Writable && _engine.Options.Interop.AllowWrite)
             {
-                _reflectionAccessor.SetValue(_engine, _target, v!);
+                return _set ??= new SetterFunction(_engine, DoSet);
             }
-            catch (TargetInvocationException exception)
-            {
-                ExceptionHelper.ThrowMeaningfulException(_engine, exception);
-            }
+
+            return null;
+        }
+    }
+
+    protected internal override JsValue? CustomValue
+    {
+        get => DoGet(thisObj: null);
+        set => DoSet(thisObj: null, value);
+    }
+
+    private JsValue DoGet(JsValue? thisObj)
+    {
+        var value = _reflectionAccessor.GetValue(_engine, _target, _propertyName);
+        var type = _reflectionAccessor.MemberType;
+        return JsValue.FromObjectWithType(_engine, value, type);
+    }
+
+    private void DoSet(JsValue? thisObj, JsValue? v)
+    {
+        try
+        {
+            _reflectionAccessor.SetValue(_engine, _target, _propertyName, v!);
+        }
+        catch (TargetInvocationException exception)
+        {
+            ExceptionHelper.ThrowMeaningfulException(_engine, exception);
         }
     }
 }

@@ -66,6 +66,12 @@ namespace Jint.Runtime.Interop
 
             accessor = accessorFactory?.Invoke() ?? ResolvePropertyDescriptorFactory(engine, type, member, mustBeReadable, mustBeWritable);
 
+            // don't cache if numeric indexer
+            if (uint.TryParse(member, out _))
+            {
+                return accessor;
+            }
+
             // racy, we don't care, worst case we'll catch up later
             Interlocked.CompareExchange(ref engine._reflectionAccessors,
                 new Dictionary<Engine.ClrPropertyDescriptorFactoriesKey, ReflectionAccessor>(factories)
@@ -101,7 +107,7 @@ namespace Jint.Runtime.Interop
 
             if (typeof(DynamicObject).IsAssignableFrom(type))
             {
-                return new DynamicObjectAccessor(type, memberName);
+                return new DynamicObjectAccessor(type);
             }
 
             var typeResolverMemberNameComparer = MemberNameComparer;
@@ -139,7 +145,7 @@ namespace Jint.Runtime.Interop
 
                 if (list?.Count == 1)
                 {
-                    return new PropertyAccessor(memberName, list[0]);
+                    return new PropertyAccessor(list[0]);
                 }
 
                 // try to find explicit method implementations
@@ -166,7 +172,7 @@ namespace Jint.Runtime.Interop
 
                 if (explicitMethods?.Count > 0)
                 {
-                    return new MethodAccessor(type, memberName, MethodDescriptor.Build(explicitMethods));
+                    return new MethodAccessor(type, MethodDescriptor.Build(explicitMethods));
                 }
             }
 
@@ -224,7 +230,7 @@ namespace Jint.Runtime.Interop
 
                 if (matches.Count > 0)
                 {
-                    return new MethodAccessor(type, memberName, MethodDescriptor.Build(matches));
+                    return new MethodAccessor(type, MethodDescriptor.Build(matches));
                 }
             }
 
@@ -305,7 +311,7 @@ namespace Jint.Runtime.Interop
 
             if (property is not null)
             {
-                accessor = new PropertyAccessor(memberName, property, indexerToTry);
+                accessor = new PropertyAccessor(property, indexerToTry);
                 return true;
             }
 
@@ -330,7 +336,7 @@ namespace Jint.Runtime.Interop
 
             if (field is not null)
             {
-                accessor = new FieldAccessor(field, memberName, indexerToTry);
+                accessor = new FieldAccessor(field, indexerToTry);
                 return true;
             }
 
@@ -386,7 +392,7 @@ namespace Jint.Runtime.Interop
 
             if (methods?.Count > 0)
             {
-                accessor = new MethodAccessor(type, memberName, MethodDescriptor.Build(methods));
+                accessor = new MethodAccessor(type, MethodDescriptor.Build(methods));
                 return true;
             }
 
@@ -395,7 +401,7 @@ namespace Jint.Runtime.Interop
             if (nestedType != null)
             {
                 var typeReference = TypeReference.CreateTypeReference(engine, nestedType);
-                accessor = new NestedTypeAccessor(typeReference, memberName);
+                accessor = new NestedTypeAccessor(typeReference);
                 return true;
             }
 

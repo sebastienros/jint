@@ -3,6 +3,7 @@ using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Runtime;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Array
 {
@@ -44,6 +45,15 @@ namespace Jint.Native.Array
             if (instance is JsTypedArray typedArrayInstance)
             {
                 return new JsTypedArrayOperations(typedArrayInstance);
+            }
+
+            if (instance is ObjectWrapper wrapper)
+            {
+                var descriptor = wrapper._typeDescriptor;
+                if (descriptor.IsArrayLike && wrapper.Target is ICollection)
+                {
+                    return new IndexWrappedOperations(wrapper);
+                }
             }
 
             return new ObjectOperations(instance);
@@ -121,7 +131,9 @@ namespace Jint.Native.Array
                 {
                     return !_initialized
                         ? JsValue.Undefined
-                        : _obj.TryGetValue(_current, out var temp) ? temp : JsValue.Undefined;
+                        : _obj.TryGetValue(_current, out var temp)
+                            ? temp
+                            : JsValue.Undefined;
                 }
             }
 
@@ -356,7 +368,7 @@ namespace Jint.Native.Array
             public override bool HasProperty(ulong index) => _target.HasProperty(index);
         }
 
-                private sealed class JsStringOperations : ArrayOperations
+        private sealed class JsStringOperations : ArrayOperations
         {
             private readonly Realm _realm;
             private readonly JsString _target;
@@ -458,6 +470,70 @@ namespace Jint.Native.Array
             public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true) => throw new NotSupportedException();
 
             public override void DeletePropertyOrThrow(ulong index) => throw new NotSupportedException();
+        }
+
+        private sealed class IndexWrappedOperations : ArrayOperations
+        {
+            private readonly ObjectWrapper _target;
+            private readonly ICollection _collection;
+            private readonly IList _list;
+
+            public IndexWrappedOperations(ObjectWrapper wrapper)
+            {
+                _target = wrapper;
+                _collection = (ICollection) wrapper.Target;
+                _list = (IList) wrapper.Target;
+            }
+
+            public override ObjectInstance Target => _target;
+
+            public override ulong GetSmallestIndex(ulong length) => 0;
+
+            public override uint GetLength() => (uint) _collection.Count;
+
+            public override ulong GetLongLength() => GetLength();
+
+            public override void SetLength(ulong length) => throw new NotSupportedException();
+
+            public override void EnsureCapacity(ulong capacity)
+            {
+            }
+
+            public override JsValue Get(ulong index) => index < (ulong) _collection.Count ? ReadValue((int) index) : JsValue.Undefined;
+
+            public override bool TryGetValue(ulong index, out JsValue value)
+            {
+                if (index < (ulong) _collection.Count)
+                {
+                    value = ReadValue((int) index);
+                    return true;
+                }
+
+                value = JsValue.Undefined;
+                return false;
+            }
+
+            private JsValue ReadValue(int index)
+            {
+                if (_list is not null)
+                {
+                    return (uint) index < _list.Count ? JsValue.FromObject(_target.Engine, _list[index]) : JsValue.Undefined;
+                }
+
+                // via reflection is slow, but better than nothing
+                return JsValue.FromObject(_target.Engine, _target._typeDescriptor.IntegerIndexerProperty!.GetValue(Target, [index]));
+            }
+
+            public override bool HasProperty(ulong index) => index < (ulong) _collection.Count;
+
+            public override void CreateDataPropertyOrThrow(ulong index, JsValue value)
+                => _target.CreateDataPropertyOrThrow(index, value);
+
+            public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
+                => _target[(int) index] = value;
+
+            public override void DeletePropertyOrThrow(ulong index)
+                => _target.DeletePropertyOrThrow(index);
         }
     }
 
