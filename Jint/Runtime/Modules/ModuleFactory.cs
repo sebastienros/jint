@@ -22,7 +22,7 @@ public static class ModuleFactory
     /// <exception cref="JavaScriptException">Is thrown if an error occured when parsing <paramref name="code"/>.</exception>
     public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code)
     {
-        var source = resolved.Uri?.LocalPath;
+        var source = resolved.Uri?.LocalPath ?? resolved.Key;
         Esprima.Ast.Module module;
         try
         {
