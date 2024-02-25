@@ -19,7 +19,7 @@ namespace Jint.Runtime.Interop
     /// </summary>
     public sealed class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWrapper>
     {
-        private readonly TypeDescriptor _typeDescriptor;
+        internal readonly TypeDescriptor _typeDescriptor;
 
         public ObjectWrapper(
             Engine engine,
@@ -72,7 +72,7 @@ namespace Jint.Runtime.Interop
                         return false;
                     }
 
-                    accessor.SetValue(_engine, Target, value);
+                    accessor.SetValue(_engine, Target, member, value);
                     return true;
                 }
             }
@@ -115,12 +115,52 @@ namespace Jint.Runtime.Interop
             }
         }
 
+        public override bool HasProperty(JsValue property)
+        {
+            if (property.IsNumber())
+            {
+                var value = ((JsNumber) property)._value;
+                if (TypeConverter.IsIntegralNumber(value))
+                {
+                    var index = (int) value;
+                    if (Target is ICollection collection && index < collection.Count)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return base.HasProperty(property);
+        }
+
         public override JsValue Get(JsValue property, JsValue receiver)
         {
-            if (property.IsInteger() && Target is IList list)
+            if (property.IsInteger())
             {
                 var index = (int) ((JsNumber) property)._value;
-                return (uint) index < list.Count ? FromObject(_engine, list[index]) : Undefined;
+                if (Target is IList list)
+                {
+                    return (uint) index < list.Count ? FromObject(_engine, list[index]) : Undefined;
+                }
+
+                if (Target is ICollection collection
+                    && _typeDescriptor.IntegerIndexerProperty is not null)
+                {
+                    // via reflection is slow, but better than nothing
+                    if (index < collection.Count)
+                    {
+                        return FromObject(_engine, _typeDescriptor.IntegerIndexerProperty.GetValue(Target, [index]));
+                    }
+
+                    return Undefined;
+                }
+            }
+
+            if (!_typeDescriptor.IsDictionary
+                && Target is ICollection c
+                && CommonProperties.Length.Equals(property))
+            {
+                return JsNumber.Create(c.Count);
             }
 
             var desc = GetOwnProperty(property, mustBeReadable: true, mustBeWritable: false);
@@ -253,7 +293,7 @@ namespace Jint.Runtime.Interop
             }
 
             var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable, mustBeWritable);
-            var descriptor = accessor.CreatePropertyDescriptor(_engine, Target, enumerable: !isDictionary);
+            var descriptor = accessor.CreatePropertyDescriptor(_engine, Target, member, enumerable: !isDictionary);
             if (!isDictionary
                 && !ReferenceEquals(descriptor, PropertyDescriptor.Undefined)
                 && (!mustBeReadable || accessor.Readable)
@@ -274,15 +314,15 @@ namespace Jint.Runtime.Interop
             {
                 return member switch
                 {
-                    PropertyInfo pi => new PropertyAccessor(pi.Name, pi),
-                    MethodBase mb => new MethodAccessor(target.GetType(), member.Name, MethodDescriptor.Build(new[] { mb })),
+                    PropertyInfo pi => new PropertyAccessor(pi),
+                    MethodBase mb => new MethodAccessor(target.GetType(), MethodDescriptor.Build(new[] { mb })),
                     FieldInfo fi => new FieldAccessor(fi),
                     _ => null
                 };
             }
 
             var accessor = engine.Options.Interop.TypeResolver.GetAccessor(engine, target.GetType(), member.Name, mustBeReadable: false, mustBeWritable: false, Factory);
-            return accessor.CreatePropertyDescriptor(engine, target);
+            return accessor.CreatePropertyDescriptor(engine, target, member.Name);
         }
 
         internal static Type GetClrType(object obj, Type? type)
