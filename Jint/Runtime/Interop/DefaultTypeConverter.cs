@@ -227,8 +227,8 @@ namespace Jint.Runtime.Interop
                         continue;
                     }
 
-                    var name = member.Name.UpperToLowerCamelCase();
-                    if (typeDescriptor.TryGetValue(value, name, out var val))
+                    if (typeDescriptor.TryGetValue(value, member.Name, out var val)
+                        || typeDescriptor.TryGetValue(value, member.Name.UpperToLowerCamelCase(), out val))
                     {
                         var output = Convert(val, member.GetDefinedType(), formatProvider);
                         member.SetValue(obj, output);

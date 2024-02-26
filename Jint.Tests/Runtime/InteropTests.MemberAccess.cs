@@ -234,5 +234,27 @@ namespace Jint.Tests.Runtime
             public bool TryGetValue(string key, [MaybeNullWhen(false)] out TValue value) => _dictionary.TryGetValue(key, out value);
             IEnumerator IEnumerable.GetEnumerator() => _dictionary.GetEnumerator();
         }
+
+        public class ClassWithData
+        {
+            public DataType Data { get; set; }
+
+            public class DataType
+            {
+                public string Value { get; set; }
+            }
+        }
+
+        [Fact]
+        public void NewTypedObjectFromUntypedInitializerShouldBeMapped()
+        {
+            var engine = new Engine();
+
+            engine.SetValue("obj", new ClassWithData());
+            engine.Execute(@"obj.Data = { Value: '123' };");
+            var obj = engine.Evaluate("obj").ToObject() as ClassWithData;
+
+            Assert.Equal("123", obj?.Data.Value);
+        }
     }
 }

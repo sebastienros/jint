@@ -192,7 +192,7 @@ namespace Jint.Runtime.Interop
             // we could throw when indexing with an invalid key
             try
             {
-                var parameters = new[] { member, _valueType!.IsValueType ? Activator.CreateInstance(_valueType) : null };
+                object?[] parameters = [member, _valueType!.IsValueType ? Activator.CreateInstance(_valueType) : null];
                 var result = (bool) _tryGetValueMethod!.Invoke(target, parameters)!;
                 o = parameters[1];
                 return result;
@@ -211,7 +211,7 @@ namespace Jint.Runtime.Interop
                 return false;
             }
 
-            return (bool) _removeMethod.Invoke(target, new object[] { key })!;
+            return (bool) _removeMethod.Invoke(target, [key])!;
         }
 
         public ICollection<string> GetKeys(object target)
