@@ -16,6 +16,7 @@ public partial class InteropTests
         _engine.SetValue("o", o);
         Assert.True(_engine.Evaluate("return o.name == 'test-name'").AsBoolean());
     }
+
     [Fact]
     public void AccessingJsonNodeShouldWork()
     {
