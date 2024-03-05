@@ -9,12 +9,41 @@ public partial class InteropTests
     [Fact]
     public void AccessingJsonObjectShouldWork()
     {
+        var engine = new Engine(options =>
+        {
+            // make JsonArray behave like JS array
+            options.Interop.WrapObjectHandler = static (e, target, type) =>
+            {
+                var wrapped = new ObjectWrapper(e, target);
+                if (target is JsonArray)
+                {
+                    wrapped.Prototype = e.Intrinsics.Array.PrototypeObject;
+                }
+                return wrapped;
+            };
+
+            // we cannot access this[string] with anything else than JsonObject, otherwise itw will throw
+            options.Interop.TypeResolver = new TypeResolver
+            {
+                MemberFilter = static info =>
+                {
+                    if (info.ReflectedType != typeof(JsonObject) && info.Name == "Item" && info is PropertyInfo p)
+                    {
+                        var parameters = p.GetIndexParameters();
+                        return parameters.Length != 1 || parameters[0].ParameterType != typeof(string);
+                    }
+
+                    return true;
+                }
+            };
+        });
         var o = new JsonObject
         {
             ["name"] = "test-name"
         };
-        _engine.SetValue("o", o);
-        Assert.True(_engine.Evaluate("return o.name == 'test-name'").AsBoolean());
+        engine.SetValue("o", o);
+
+        Assert.True(engine.Evaluate("return o.name == 'test-name'").AsBoolean());
     }
 
     [Fact]
