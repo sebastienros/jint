@@ -1,11 +1,22 @@
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Jint.Runtime.Interop;
+using Newtonsoft.Json.Linq;
 
 namespace Jint.Tests.PublicInterface;
 
 public partial class InteropTests
 {
+    [Fact]
+    public void AccessingJsonObjectShouldWork()
+    {
+        var o = new JsonObject
+        {
+            ["name"] = "test-name"
+        };
+        _engine.SetValue("o", o);
+        Assert.True(_engine.Evaluate("return o.name == 'test-name'").AsBoolean());
+    }
     [Fact]
     public void AccessingJsonNodeShouldWork()
     {
