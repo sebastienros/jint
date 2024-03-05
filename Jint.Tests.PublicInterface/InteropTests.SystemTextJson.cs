@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Jint.Runtime.Interop;
-using Newtonsoft.Json.Linq;
 
 namespace Jint.Tests.PublicInterface;
 
