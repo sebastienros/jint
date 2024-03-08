@@ -26,7 +26,6 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
     <PackageReference Include="Jurassic" />
-    <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="NiL.JS" />
     <PackageReference Include="YantraJS.Core" />
   </ItemGroup>
