@@ -38,7 +38,6 @@ public partial class InteropTests
             // make JsonArray behave like JS array
             options.Interop.WrapObjectHandler = static (e, target, type) =>
             {
-
                 if (target is JsonArray)
                 {
                     var wrapped = new ObjectWrapper(e, target);
@@ -98,36 +97,36 @@ public partial class InteropTests
              """);
 
         // reading data
-        //var result = engine.Evaluate("populateFullName()").AsArray();
-        //Assert.Equal((uint) 2, result.Length);
-        //Assert.Equal("John Doe", result[0].AsObject()["fullName"]);
-        //Assert.Equal("Jane Doe", result[1].AsObject()["fullName"]);
+        var result = engine.Evaluate("populateFullName()").AsArray();
+        Assert.Equal((uint) 2, result.Length);
+        Assert.Equal("John Doe", result[0].AsObject()["fullName"]);
+        Assert.Equal("Jane Doe", result[1].AsObject()["fullName"]);
         Assert.True(engine.Evaluate("variables.employees.boolean == true").AsBoolean());
         Assert.True(engine.Evaluate("variables.employees.number == 123.456").AsBoolean());
         Assert.True(engine.Evaluate("variables.employees.other == 'abc'").AsBoolean());
 
         // mutating data via JS
-        //engine.Evaluate("variables.employees.type = 'array2'");
-        //engine.Evaluate("variables.employees.value[0].firstName = 'Jake'");
+        engine.Evaluate("variables.employees.type = 'array2'");
+        engine.Evaluate("variables.employees.value[0].firstName = 'Jake'");
 
         //Assert.Equal("array2", engine.Evaluate("variables['employees']['type']").ToString());
 
-        //result = engine.Evaluate("populateFullName()").AsArray();
-        //Assert.Equal((uint) 2, result.Length);
-        //Assert.Equal("Jake Doe", result[0].AsObject()["fullName"]);
+        result = engine.Evaluate("populateFullName()").AsArray();
+        Assert.Equal((uint) 2, result.Length);
+        Assert.Equal("Jake Doe", result[0].AsObject()["fullName"]);
 
         // mutating original object that is wrapped inside the engine
         variables["employees"]["boolean"] = false;
         variables["employees"]["number"] = 456.789;
         variables["employees"]["other"] = "def";
-        //variables["employees"]["type"] = "array";
-        //variables["employees"]["value"][0]["firstName"] = "John";
+        variables["employees"]["type"] = "array";
+        variables["employees"]["value"][0]["firstName"] = "John";
 
-        //Assert.Equal("array", engine.Evaluate("variables['employees']['type']").ToString());
+        Assert.Equal("array", engine.Evaluate("variables['employees']['type']").ToString());
 
-        //result = engine.Evaluate("populateFullName()").AsArray();
-        //Assert.Equal((uint) 2, result.Length);
-        //Assert.Equal("John Doe", result[0].AsObject()["fullName"]);
+        result = engine.Evaluate("populateFullName()").AsArray();
+        Assert.Equal((uint) 2, result.Length);
+        Assert.Equal("John Doe", result[0].AsObject()["fullName"]);
         Assert.True(engine.Evaluate("variables.employees.boolean == false").AsBoolean());
         Assert.True(engine.Evaluate("variables.employees.number == 456.789").AsBoolean());
         Assert.True(engine.Evaluate("variables.employees.other == 'def'").AsBoolean());
