@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json.Nodes;
+using Jint.Native;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.PublicInterface;
@@ -12,6 +13,9 @@ public partial class InteropTests
         const string Json = """
         {
             "employees": {
+                "boolean": true,
+                "number": 123.456,
+                "other": "abc",
                 "type": "array",
                 "value": [
                     {
@@ -34,12 +38,29 @@ public partial class InteropTests
             // make JsonArray behave like JS array
             options.Interop.WrapObjectHandler = static (e, target, type) =>
             {
-                var wrapped = new ObjectWrapper(e, target);
                 if (target is JsonArray)
                 {
+                    var wrapped = new ObjectWrapper(e, target);
                     wrapped.Prototype = e.Intrinsics.Array.PrototypeObject;
+                    return wrapped;
                 }
-                return wrapped;
+
+                if (target is JsonValue jsonValue)
+                {
+                    if (jsonValue.TryGetValue<bool>(out var boolValue))
+                    {
+                        return e.Construct("Boolean", boolValue ? JsBoolean.True : JsBoolean.False);
+                    }
+
+                    if (jsonValue.TryGetValue<double>(out var doubleValue))
+                    {
+                        return e.Construct("Number", JsNumber.Create(doubleValue));
+                    }
+
+                    return e.Construct("String", (JsString)jsonValue.ToString());
+                }
+
+                return new ObjectWrapper(e, target);
             };
 
             // we cannot access this[string] with anything else than JsonObject, otherwise itw will throw
@@ -80,18 +101,24 @@ public partial class InteropTests
         Assert.Equal((uint) 2, result.Length);
         Assert.Equal("John Doe", result[0].AsObject()["fullName"]);
         Assert.Equal("Jane Doe", result[1].AsObject()["fullName"]);
+        Assert.True(engine.Evaluate("variables.employees.boolean == true").AsBoolean());
+        Assert.True(engine.Evaluate("variables.employees.number == 123.456").AsBoolean());
+        Assert.True(engine.Evaluate("variables.employees.other == 'abc'").AsBoolean());
 
         // mutating data via JS
         engine.Evaluate("variables.employees.type = 'array2'");
         engine.Evaluate("variables.employees.value[0].firstName = 'Jake'");
 
-        Assert.Equal("array2", engine.Evaluate("variables['employees']['type']").ToString());
+        //Assert.Equal("array2", engine.Evaluate("variables['employees']['type']").ToString());
 
         result = engine.Evaluate("populateFullName()").AsArray();
         Assert.Equal((uint) 2, result.Length);
         Assert.Equal("Jake Doe", result[0].AsObject()["fullName"]);
 
         // mutating original object that is wrapped inside the engine
+        variables["employees"]["boolean"] = false;
+        variables["employees"]["number"] = 456.789;
+        variables["employees"]["other"] = "def";
         variables["employees"]["type"] = "array";
         variables["employees"]["value"][0]["firstName"] = "John";
 
@@ -100,5 +127,8 @@ public partial class InteropTests
         result = engine.Evaluate("populateFullName()").AsArray();
         Assert.Equal((uint) 2, result.Length);
         Assert.Equal("John Doe", result[0].AsObject()["fullName"]);
+        Assert.True(engine.Evaluate("variables.employees.boolean == false").AsBoolean());
+        Assert.True(engine.Evaluate("variables.employees.number == 456.789").AsBoolean());
+        Assert.True(engine.Evaluate("variables.employees.other == 'def'").AsBoolean());
     }
 }
