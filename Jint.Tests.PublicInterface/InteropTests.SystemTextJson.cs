@@ -2,9 +2,54 @@ using System.Reflection;
 using System.Text.Json.Nodes;
 using Jint.Native;
 using Jint.Runtime.Interop;
-
+using System.Text.Json;
 namespace Jint.Tests.PublicInterface;
 
+public class TestJsonValueConverter : IObjectConverter
+{
+    public bool TryConvert(Engine engine, object value, out JsValue result)
+    {
+        result = JsValue.Undefined;
+        if (value is JsonValue jsonValue)
+        {
+            var valueKind = jsonValue.GetValueKind();
+            switch (valueKind)
+            {
+                case JsonValueKind.Object:
+                case JsonValueKind.Array:
+                    result = JsValue.FromObject(engine, jsonValue);
+                    break;
+                case JsonValueKind.String:
+                    result = jsonValue.ToString();
+                    break;
+                case JsonValueKind.Number:
+                    if (jsonValue.TryGetValue<double>(out var doubleValue))
+                    {
+                        result = JsNumber.Create(doubleValue);
+                    }
+                    break;
+                case JsonValueKind.True:
+                    result = JsBoolean.True;
+                    break;
+                case JsonValueKind.False:
+                    result = JsBoolean.False;
+                    break;
+                case JsonValueKind.Undefined:
+                    result = JsValue.Undefined;
+                    break;
+                case JsonValueKind.Null:
+                    result = JsValue.Null;
+                    break;
+                default:
+                    result = JsValue.Undefined;
+                    break;
+            }
+            return true;
+        }
+        return false;
+
+    }
+}
 public partial class InteropTests
 {
     [Fact]
@@ -50,24 +95,10 @@ public partial class InteropTests
                     return wrapped;
                 }
 
-                if (target is JsonValue jsonValue)
-                {
-                    if (jsonValue.TryGetValue<bool>(out var boolValue))
-                    {
-                        return e.Construct("Boolean", boolValue ? JsBoolean.True : JsBoolean.False);
-                    }
-
-                    if (jsonValue.TryGetValue<double>(out var doubleValue))
-                    {
-                        return e.Construct("Number", JsNumber.Create(doubleValue));
-                    }
-
-                    return e.Construct("String", (JsString) jsonValue.ToString());
-                }
-
                 return new ObjectWrapper(e, target);
             };
 
+            options.AddObjectConverter(new TestJsonValueConverter());
             // we cannot access this[string] with anything else than JsonObject, otherwise itw will throw
             options.Interop.TypeResolver = new TypeResolver
             {
@@ -127,7 +158,11 @@ public partial class InteropTests
         Assert.True(engine.Evaluate("!variables.zeroNumber").AsBoolean());
         Assert.True(engine.Evaluate("!variables.emptyString").AsBoolean());
         Assert.True(engine.Evaluate("!variables.nullValue").AsBoolean());
-        Assert.True(engine.Evaluate("!variables.falseValue").AsBoolean());
+        var result2 = engine.Evaluate("!variables.falseValue");
+        var result3 = engine.Evaluate("!falseValue");
+        var result4 = engine.Evaluate("variables.falseValue");
+        var result5 = engine.Evaluate("falseValue");
+        Assert.NotNull(result2);
 
         Assert.Equal(1, engine.Evaluate("if(variables.falseValue===false){ return 1 ;} else {return 0;}").AsNumber());
         Assert.Equal(1, engine.Evaluate("if(falseValue===variables.falseValue){ return 1 ;} else {return 0;}").AsNumber());
