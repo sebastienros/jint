@@ -5,6 +5,7 @@ using Jint.Runtime.Interop;
 using System.Text.Json;
 namespace Jint.Tests.PublicInterface;
 
+#if NET8_0_OR_GREATER
 public class TestJsonValueConverter : IObjectConverter
 {
     public bool TryConvert(Engine engine, object value, out JsValue result)
@@ -192,3 +193,4 @@ public partial class InteropTests
         Assert.True(engine.Evaluate("variables.employees.other == 'def'").AsBoolean());
     }
 }
+#endif
