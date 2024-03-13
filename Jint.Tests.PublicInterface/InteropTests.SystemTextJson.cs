@@ -55,7 +55,6 @@ public partial class InteropTests
                     if (jsonValue.TryGetValue<bool>(out var boolValue))
                     {
                         return e.Construct("Boolean", boolValue ? JsBoolean.True : JsBoolean.False);
-                        //return e.Construct("Boolean", boolValue ? JsBoolean.True : JsBoolean.False);
                     }
 
                     if (jsonValue.TryGetValue<double>(out var doubleValue))
