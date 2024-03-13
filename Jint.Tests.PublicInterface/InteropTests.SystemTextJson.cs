@@ -12,10 +12,14 @@ public partial class InteropTests
     {
         const string Json = """
         {
+            "falseValue": false,
             "employees": {
                 "trueValue": true,
                 "falseValue": false,
                 "number": 123.456,
+                "zeroNumber": 0,
+                "emptyString":"",
+                "nullValue":null,
                 "other": "abc",
                 "type": "array",
                 "value": [
@@ -51,6 +55,7 @@ public partial class InteropTests
                     if (jsonValue.TryGetValue<bool>(out var boolValue))
                     {
                         return e.Construct("Boolean", boolValue ? JsBoolean.True : JsBoolean.False);
+                        //return e.Construct("Boolean", boolValue ? JsBoolean.True : JsBoolean.False);
                     }
 
                     if (jsonValue.TryGetValue<double>(out var doubleValue))
@@ -81,6 +86,7 @@ public partial class InteropTests
         });
 
         engine
+            .SetValue("falseValue", false)
             .SetValue("variables", variables)
             .Execute("""
                  function populateFullName() {
@@ -116,8 +122,18 @@ public partial class InteropTests
         Assert.Equal((uint) 2, result.Length);
         Assert.Equal("Jake Doe", result[0].AsObject()["fullName"]);
 
-        // Validate boolean vlue in the if condition.
-        Assert.Equal(1, engine.Evaluate("if(!variables.employees.falseValue) return 1 ; else return 0;").AsNumber());
+        // Validate boolean value in the if condition.
+        Assert.Equal(1, engine.Evaluate("if(!falseValue){ return 1 ;} else {return 0;}").AsNumber());
+        Assert.Equal(1, engine.Evaluate("if(falseValue===false){ return 1 ;} else {return 0;}").AsNumber());
+        Assert.True(engine.Evaluate("!variables.zeroNumber").AsBoolean());
+        Assert.True(engine.Evaluate("!variables.emptyString").AsBoolean());
+        Assert.True(engine.Evaluate("!variables.nullValue").AsBoolean());
+        Assert.True(engine.Evaluate("!variables.falseValue").AsBoolean());
+
+        Assert.Equal(1, engine.Evaluate("if(variables.falseValue===false){ return 1 ;} else {return 0;}").AsNumber());
+        Assert.Equal(1, engine.Evaluate("if(falseValue===variables.falseValue){ return 1 ;} else {return 0;}").AsNumber());
+        Assert.Equal(1, engine.Evaluate("if(!variables.falseValue){ return 1 ;} else {return 0;}").AsNumber());
+        Assert.Equal(1, engine.Evaluate("if(!variables.employees.falseValue){ return 1 ;} else {return 0;}").AsNumber());
         Assert.Equal(0, engine.Evaluate("if(!variables.employees.trueValue) return 1 ; else return 0;").AsNumber());
 
 
