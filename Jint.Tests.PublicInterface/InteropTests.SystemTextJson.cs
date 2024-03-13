@@ -9,7 +9,6 @@ public class TestJsonValueConverter : IObjectConverter
 {
     public bool TryConvert(Engine engine, object value, out JsValue result)
     {
-        result = JsValue.Undefined;
         if (value is JsonValue jsonValue)
         {
             var valueKind = jsonValue.GetValueKind();
@@ -26,6 +25,10 @@ public class TestJsonValueConverter : IObjectConverter
                     if (jsonValue.TryGetValue<double>(out var doubleValue))
                     {
                         result = JsNumber.Create(doubleValue);
+                    }
+                    else
+                    {
+                        result = JsValue.Undefined;
                     }
                     break;
                 case JsonValueKind.True:
@@ -46,6 +49,7 @@ public class TestJsonValueConverter : IObjectConverter
             }
             return true;
         }
+        result = JsValue.Undefined;
         return false;
 
     }
