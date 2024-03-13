@@ -13,7 +13,8 @@ public partial class InteropTests
         const string Json = """
         {
             "employees": {
-                "boolean": true,
+                "trueValue": true,
+                "falseValue": false,
                 "number": 123.456,
                 "other": "abc",
                 "type": "array",
@@ -57,7 +58,7 @@ public partial class InteropTests
                         return e.Construct("Number", JsNumber.Create(doubleValue));
                     }
 
-                    return e.Construct("String", (JsString)jsonValue.ToString());
+                    return e.Construct("String", (JsString) jsonValue.ToString());
                 }
 
                 return new ObjectWrapper(e, target);
@@ -101,7 +102,7 @@ public partial class InteropTests
         Assert.Equal((uint) 2, result.Length);
         Assert.Equal("John Doe", result[0].AsObject()["fullName"]);
         Assert.Equal("Jane Doe", result[1].AsObject()["fullName"]);
-        Assert.True(engine.Evaluate("variables.employees.boolean == true").AsBoolean());
+        Assert.True(engine.Evaluate("variables.employees.trueValue == true").AsBoolean());
         Assert.True(engine.Evaluate("variables.employees.number == 123.456").AsBoolean());
         Assert.True(engine.Evaluate("variables.employees.other == 'abc'").AsBoolean());
 
@@ -115,8 +116,13 @@ public partial class InteropTests
         Assert.Equal((uint) 2, result.Length);
         Assert.Equal("Jake Doe", result[0].AsObject()["fullName"]);
 
+        // Validate boolean vlue in the if condition.
+        Assert.Equal(1, engine.Evaluate("if(!variables.employees.falseValue) return 1 ; else return 0;").AsNumber());
+        Assert.Equal(0, engine.Evaluate("if(!variables.employees.trueValue) return 1 ; else return 0;").AsNumber());
+
+
         // mutating original object that is wrapped inside the engine
-        variables["employees"]["boolean"] = false;
+        variables["employees"]["trueValue"] = false;
         variables["employees"]["number"] = 456.789;
         variables["employees"]["other"] = "def";
         variables["employees"]["type"] = "array";
@@ -127,7 +133,7 @@ public partial class InteropTests
         result = engine.Evaluate("populateFullName()").AsArray();
         Assert.Equal((uint) 2, result.Length);
         Assert.Equal("John Doe", result[0].AsObject()["fullName"]);
-        Assert.True(engine.Evaluate("variables.employees.boolean == false").AsBoolean());
+        Assert.True(engine.Evaluate("variables.employees.trueValue == false").AsBoolean());
         Assert.True(engine.Evaluate("variables.employees.number == 456.789").AsBoolean());
         Assert.True(engine.Evaluate("variables.employees.other == 'def'").AsBoolean());
     }
