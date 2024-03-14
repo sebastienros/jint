@@ -925,7 +925,7 @@ namespace Jint.Native.Array
             {
                 insertCount = (ulong) (arguments.Length - 2);
                 var dc = TypeConverter.ToInteger(deleteCount);
-                actualDeleteCount = (ulong) System.Math.Min(System.Math.Max(dc,0), len - actualStart);
+                actualDeleteCount = (ulong) System.Math.Min(System.Math.Max(dc, 0), len - actualStart);
 
                 items = System.Array.Empty<JsValue>();
                 if (arguments.Length > 2)
@@ -982,7 +982,7 @@ namespace Jint.Native.Array
                 for (var k = len - actualDeleteCount; k > actualStart; k--)
                 {
                     var from = k + actualDeleteCount - 1;
-                    var to =  k + (ulong) items.Length - 1;
+                    var to = k + (ulong) items.Length - 1;
                     if (o.HasProperty(from))
                     {
                         var fromValue = o.Get(from);
@@ -1320,7 +1320,7 @@ namespace Jint.Native.Array
         private JsValue Concat(JsValue thisObject, JsValue[] arguments)
         {
             var o = TypeConverter.ToObject(_realm, thisObject);
-            var items = new List<JsValue>(arguments.Length + 1) {o};
+            var items = new List<JsValue>(arguments.Length + 1) { o };
             items.AddRange(arguments);
 
             uint n = 0;
@@ -1466,7 +1466,7 @@ namespace Jint.Native.Array
             {
                 insertCount = (ulong) (arguments.Length - 2);
                 var dc = TypeConverter.ToIntegerOrInfinity(deleteCount);
-                actualDeleteCount = (ulong) System.Math.Min(System.Math.Max(dc,0), len - actualStart);
+                actualDeleteCount = (ulong) System.Math.Min(System.Math.Max(dc, 0), len - actualStart);
 
                 items = System.Array.Empty<JsValue>();
                 if (arguments.Length > 2)
