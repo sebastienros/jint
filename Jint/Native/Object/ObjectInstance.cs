@@ -179,13 +179,6 @@ namespace Jint.Native.Object
             _properties[property] = value;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void SetDataProperty(string property, JsValue value)
-        {
-            _properties ??= new PropertyDictionary();
-            _properties[property] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
-        }
-
         [MethodImpl(MethodImplOptions.NoInlining)]
         private void SetPropertyUnlikely(JsValue property, PropertyDescriptor value)
         {
@@ -326,6 +319,7 @@ namespace Jint.Native.Object
 
         internal virtual IEnumerable<JsValue> GetInitialOwnStringPropertyKeys() => System.Linq.Enumerable.Empty<JsValue>();
 
+        [Obsolete("Will be removed")]
         protected virtual void AddProperty(JsValue property, PropertyDescriptor descriptor)
         {
             SetProperty(property, descriptor);
@@ -453,9 +447,7 @@ namespace Jint.Native.Object
             SetProperty(property, desc);
         }
 
-        /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-8.12.2
-        /// </summary>
+        [Obsolete("Use Get or GetOwnProperty")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PropertyDescriptor GetProperty(JsValue property)
         {
@@ -473,13 +465,8 @@ namespace Jint.Native.Object
         {
             value = Undefined;
             var desc = GetOwnProperty(property);
-            if (desc != null && desc != PropertyDescriptor.Undefined)
+            if (desc != PropertyDescriptor.Undefined)
             {
-                if (desc == PropertyDescriptor.Undefined)
-                {
-                    return false;
-                }
-
                 var descValue = desc.Value;
                 if (desc.WritableSet && !ReferenceEquals(descValue, null))
                 {
@@ -500,12 +487,7 @@ namespace Jint.Native.Object
                 return true;
             }
 
-            if (ReferenceEquals(Prototype, null))
-            {
-                return false;
-            }
-
-            return Prototype.TryGetValue(property, out value);
+            return Prototype?.TryGetValue(property, out value) == true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -654,7 +636,7 @@ namespace Jint.Native.Object
                 return Extensible;
             }
 
-            var inherited = Prototype.GetProperty(property);
+            var inherited = Prototype.GetOwnProperty(property);
 
             if (inherited == PropertyDescriptor.Undefined)
             {
@@ -1345,7 +1327,7 @@ namespace Jint.Native.Object
         }
 
         /// <summary>
-        /// https://tc39.es/ecma262/#sec-createdatapropertyorthrow
+        /// https://tc39.es/ecma262/#sec-createdataproperty
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool CreateDataProperty(JsValue p, JsValue v)
@@ -1353,9 +1335,8 @@ namespace Jint.Native.Object
             return DefineOwnProperty(p, new PropertyDescriptor(v, PropertyFlag.ConfigurableEnumerableWritable));
         }
 
-
         /// <summary>
-        /// https://tc39.es/ecma262/#sec-createdataproperty
+        /// https://tc39.es/ecma262/#sec-createdatapropertyorthrow
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool CreateDataPropertyOrThrow(JsValue p, JsValue v)

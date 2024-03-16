@@ -88,8 +88,7 @@ namespace Jint.Runtime.Environments
                 return false;
             }
 
-            var desc = _bindingObject.GetProperty(name.Value);
-            value = ObjectInstance.UnwrapJsValue(desc, _bindingObject);
+            value = _bindingObject.Get(name.Value);
             return true;
         }
 
@@ -154,13 +153,13 @@ namespace Jint.Runtime.Environments
 
         internal override JsValue GetBindingValue(Key name, bool strict)
         {
-            var desc = _bindingObject.GetProperty(name.Name);
-            if (strict && desc == PropertyDescriptor.Undefined)
+            JsValue value;
+            if (!_bindingObject.TryGetValue(name.Name, out value) && strict)
             {
-                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Name);
             }
 
-            return ObjectInstance.UnwrapJsValue(desc, _bindingObject);
+            return value;
         }
 
         internal override bool DeleteBinding(Key name) => _bindingObject.Delete(name.Name);

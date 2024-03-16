@@ -597,56 +597,31 @@ namespace Jint
                     var v = baseObj.Get(property, reference.ThisValue);
                     return v;
                 }
-                else
+
+                // check if we are accessing a string, boxing operation can be costly to do index access
+                // we have good chance to have fast path with integer or string indexer
+                ObjectInstance? o = null;
+                if ((property._type & (InternalTypes.String | InternalTypes.Integer)) != InternalTypes.Empty
+                    && baseValue is JsString s
+                    && TryHandleStringValue(property, s, ref o, out var jsValue))
                 {
-                    // check if we are accessing a string, boxing operation can be costly to do index access
-                    // we have good chance to have fast path with integer or string indexer
-                    ObjectInstance? o = null;
-                    if ((property._type & (InternalTypes.String | InternalTypes.Integer)) != InternalTypes.Empty
-                        && baseValue is JsString s
-                        && TryHandleStringValue(property, s, ref o, out var jsValue))
-                    {
-                        return jsValue;
-                    }
-
-                    if (o is null)
-                    {
-                        o = Runtime.TypeConverter.ToObject(Realm, baseValue);
-                    }
-
-                    if (reference.IsPrivateReference)
-                    {
-                        return o.PrivateGet((PrivateName) reference.ReferencedName);
-                    }
-
-                    var desc = o.GetProperty(property);
-                    if (desc == PropertyDescriptor.Undefined)
-                    {
-                        return JsValue.Undefined;
-                    }
-
-                    if (desc.IsDataDescriptor())
-                    {
-                        return desc.Value;
-                    }
-
-                    var getter = desc.Get!;
-                    if (getter.IsUndefined())
-                    {
-                        return JsValue.Undefined;
-                    }
-
-                    var callable = (ICallable) getter;
-                    return callable.Call(baseValue, Arguments.Empty);
+                    return jsValue;
                 }
+
+                if (o is null)
+                {
+                    o = Runtime.TypeConverter.ToObject(Realm, baseValue);
+                }
+
+                if (reference.IsPrivateReference)
+                {
+                    return o.PrivateGet((PrivateName) reference.ReferencedName);
+                }
+
+                return o.Get(property, reference.ThisValue);
             }
 
-            var record = baseValue as Environment;
-            if (record is null)
-            {
-                ExceptionHelper.ThrowArgumentException();
-            }
-
+            var record = (Environment) baseValue;
             var bindingValue = record.GetBindingValue(reference.ReferencedName.ToString(), reference.Strict);
 
             if (returnReferenceToPool)
