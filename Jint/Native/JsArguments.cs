@@ -153,7 +153,7 @@ namespace Jint.Native
             }
 
             // property is an accessor or inherited
-            var desc = GetProperty(property);
+            var desc = GetOwnProperty(property);
 
             if (desc.IsAccessorDescriptor())
             {

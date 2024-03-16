@@ -292,17 +292,6 @@ namespace Jint.Native.Array
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private JsNumber GetJsNumberLength() => _length is null ? JsNumber.PositiveZero : (JsNumber) _length._value!;
 
-        protected sealed override void AddProperty(JsValue property, PropertyDescriptor descriptor)
-        {
-            if (CommonProperties.Length.Equals(property ))
-            {
-                _length = descriptor;
-                return;
-            }
-
-            base.AddProperty(property, descriptor);
-        }
-
         protected sealed override bool TryGetProperty(JsValue property, [NotNullWhen(true)] out PropertyDescriptor? descriptor)
         {
             if (CommonProperties.Length.Equals(property))
@@ -436,7 +425,7 @@ namespace Jint.Native.Array
         {
             if (!TryGetValue(index, out var value))
             {
-                value = UnwrapJsValue(Prototype?.GetProperty(JsString.Create(index)) ?? PropertyDescriptor.Undefined);
+                value = Prototype?.Get(JsString.Create(index)) ?? Undefined;
             }
 
             return value;

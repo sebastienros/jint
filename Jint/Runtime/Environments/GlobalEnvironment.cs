@@ -240,7 +240,7 @@ namespace Jint.Runtime.Environments
             }
             else
             {
-                desc = _global.GetProperty(name.Name);
+                desc = _global.GetOwnProperty(name.Name);
             }
 
             if (strict && desc == PropertyDescriptor.Undefined)
