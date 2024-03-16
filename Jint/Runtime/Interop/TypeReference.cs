@@ -356,7 +356,7 @@ namespace Jint.Runtime.Interop
 
             var derivedType = other switch
             {
-                ObjectWrapper wrapper => wrapper.Target.GetType(),
+                IObjectWrapper wrapper => wrapper.Target.GetType(),
                 TypeReferencePrototype otherTypeReference => otherTypeReference.TypeReference.ReferenceType,
                 _ => null
             };

@@ -21,6 +21,7 @@ namespace Jint.Runtime.Interop
     {
         internal readonly TypeDescriptor _typeDescriptor;
 
+        [Obsolete("Use ObjectWrapper.Create instead of calling constructor directly")]
         public ObjectWrapper(
             Engine engine,
             object obj,
@@ -38,6 +39,14 @@ namespace Jint.Runtime.Interop
                 SetProperty(KnownKeys.Length, descriptor);
             }
         }
+
+        /// <summary>
+        /// Creates a new object wrapper for given object instance and exposed type.
+        /// </summary>
+        public static ObjectInstance Create(Engine engine, object obj, Type? type = null)
+#pragma warning disable CS0618 // Type or member is obsolete
+            => new ObjectWrapper(engine, obj, type);
+#pragma warning restore CS0618 // Type or member is obsolete
 
         public object Target { get; }
         internal Type ClrType { get; }

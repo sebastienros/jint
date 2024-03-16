@@ -395,7 +395,7 @@ namespace Jint.Runtime.Interop
 
         public static void SetHiddenClrObjectProperty(this ObjectInstance obj, string name, object value)
         {
-            obj.SetOwnProperty(name, new PropertyDescriptor(new ObjectWrapper(obj.Engine, value), PropertyFlag.AllForbidden));
+            obj.SetOwnProperty(name, new PropertyDescriptor(ObjectWrapper.Create(obj.Engine, value), PropertyFlag.AllForbidden));
         }
     }
 }

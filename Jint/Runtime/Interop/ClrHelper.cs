@@ -30,7 +30,7 @@ internal sealed class ClrHelper
     public JsValue Unwrap(ObjectWrapper obj)
 #pragma warning restore CA1822
     {
-        return new ObjectWrapper(obj.Engine, obj.Target);
+        return ObjectWrapper.Create(obj.Engine, obj.Target);
     }
 
     /// <summary>
@@ -44,7 +44,7 @@ internal sealed class ClrHelper
         {
             ExceptionHelper.ThrowTypeError(type.Engine.Realm, "Argument obj must be an instance of type");
         }
-        return new ObjectWrapper(obj.Engine, obj.Target, type.ReferenceType);
+        return ObjectWrapper.Create(obj.Engine, obj.Target, type.ReferenceType);
     }
 
     /// <summary>

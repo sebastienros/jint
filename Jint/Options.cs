@@ -125,7 +125,7 @@ namespace Jint
                             new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))),
                     PropertyFlag.AllForbidden));
 
-                engine.Realm.GlobalObject.SetProperty("clrHelper", new PropertyDescriptor(new ObjectWrapper(engine, new ClrHelper(Interop)), PropertyFlag.AllForbidden));
+                engine.Realm.GlobalObject.SetProperty("clrHelper", new PropertyDescriptor(ObjectWrapper.Create(engine, new ClrHelper(Interop)), PropertyFlag.AllForbidden));
 
 #pragma warning restore IL2026
             }
@@ -291,7 +291,7 @@ namespace Jint
             /// ObjectInstance using class ObjectWrapper. This function can be used to
             /// change the behavior.
             /// </summary>
-            public WrapObjectDelegate WrapObjectHandler { get; set; } = static (engine, target, type) => new ObjectWrapper(engine, target, type);
+            public WrapObjectDelegate WrapObjectHandler { get; set; } = static (engine, target, type) => ObjectWrapper.Create(engine, target, type);
 
             /// <summary>
             ///
