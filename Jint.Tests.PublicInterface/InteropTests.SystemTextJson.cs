@@ -3,10 +3,10 @@ using System.Text.Json.Nodes;
 using Jint.Native;
 using Jint.Runtime.Interop;
 using System.Text.Json;
+
 namespace Jint.Tests.PublicInterface;
 
-#if NET8_0_OR_GREATER
-public class TestJsonValueConverter : IObjectConverter
+public sealed class SystemTextJsonValueConverter : IObjectConverter
 {
     public bool TryConvert(Engine engine, object value, out JsValue result)
     {
@@ -95,15 +95,15 @@ public partial class InteropTests
             {
                 if (target is JsonArray)
                 {
-                    var wrapped = new ObjectWrapper(e, target);
+                    var wrapped = ObjectWrapper.Create(e, target);
                     wrapped.Prototype = e.Intrinsics.Array.PrototypeObject;
                     return wrapped;
                 }
 
-                return new ObjectWrapper(e, target);
+                return ObjectWrapper.Create(e, target);
             };
 
-            options.AddObjectConverter(new TestJsonValueConverter());
+            options.AddObjectConverter(new SystemTextJsonValueConverter());
             // we cannot access this[string] with anything else than JsonObject, otherwise itw will throw
             options.Interop.TypeResolver = new TypeResolver
             {
@@ -193,4 +193,3 @@ public partial class InteropTests
         Assert.True(engine.Evaluate("variables.employees.other == 'def'").AsBoolean());
     }
 }
-#endif

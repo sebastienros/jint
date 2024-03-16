@@ -850,7 +850,7 @@ namespace Jint.Tests.Runtime
                 .AllowClr(typeof(Person).Assembly)
                 .SetWrapObjectHandler((engine, target, type) =>
                 {
-                    var instance = new ObjectWrapper(engine, target);
+                    var instance = ObjectWrapper.Create(engine, target);
                     if (instance.IsArrayLike)
                     {
                         instance.SetPrototypeOf(engine.Realm.Intrinsics.Array.PrototypeObject);
@@ -885,7 +885,7 @@ namespace Jint.Tests.Runtime
             {
                 opt.SetWrapObjectHandler((eng, obj, type) =>
                 {
-                    var wrapper = new ObjectWrapper(eng, obj);
+                    var wrapper = ObjectWrapper.Create(eng, obj);
                     if (wrapper.IsArrayLike)
                     {
                         wrapper.SetPrototypeOf(eng.Realm.Intrinsics.Array.PrototypeObject);
@@ -2633,7 +2633,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void ObjectWrapperWrappingDictionaryShouldNotBeArrayLike()
         {
-            var wrapper = new ObjectWrapper(_engine, new Dictionary<string, object>());
+            var wrapper = ObjectWrapper.Create(_engine, new Dictionary<string, object>());
             Assert.False(wrapper.IsArrayLike);
         }
 

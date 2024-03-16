@@ -631,7 +631,7 @@ export const count = globals.counter;
     }
     public class ModuleLoaderForEngineShouldTransmitSourceModuleForModuleLoaderTest : ModuleLoader
     {
-        public override ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+        public override ResolvedSpecifier Resolve(string referencingModuleLocation, ModuleRequest moduleRequest)
         {
             var moduleSpec = moduleRequest.Specifier;
 

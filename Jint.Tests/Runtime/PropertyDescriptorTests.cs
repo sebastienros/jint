@@ -167,7 +167,7 @@ public class PropertyDescriptorTests
         JsValue ExtractClrAccessDescriptor(JsValue jsArugments)
         {
             var pd = ((JsArguments) jsArugments).ParameterMap.GetOwnProperty("0");
-            return new ObjectWrapper(_engine, pd);
+            return ObjectWrapper.Create(_engine, pd);
         }
         _engine.SetValue("ExtractClrAccessDescriptor", ExtractClrAccessDescriptor);
         var pdobj = _engine.Evaluate("""

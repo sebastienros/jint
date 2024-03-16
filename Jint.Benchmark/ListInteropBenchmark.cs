@@ -49,8 +49,8 @@ public class ListInteropBenchmark
             options
                 .SetWrapObjectHandler((engine, target, type) =>
                 {
-                    var instance = new ObjectWrapper(engine, target);
-                    var isArrayLike = IsArrayLike(instance.Target.GetType());
+                    var instance = ObjectWrapper.Create(engine, target);
+                    var isArrayLike = IsArrayLike(target.GetType());
                     if (isArrayLike)
                     {
                         instance.Prototype = engine.Intrinsics.Array.PrototypeObject;
