@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Esprima.Utils;
 using Jint.Native.Function;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -9,7 +10,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         public JintClassExpression(ClassExpression expression) : base(expression)
         {
-            _classDefinition = new ClassDefinition(expression.Id?.Name, expression.SuperClass, expression.Body);
+            _classDefinition = new ClassDefinition(className: expression.Id?.Name, classSource: expression.ToString(), superClass: expression.SuperClass, body: expression.Body);
         }
 
         protected override object EvaluateInternal(EvaluationContext context)

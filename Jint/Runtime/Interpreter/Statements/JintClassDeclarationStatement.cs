@@ -1,4 +1,5 @@
 using Esprima.Ast;
+using Esprima.Utils;
 using Jint.Native;
 using Jint.Native.Function;
 
@@ -10,7 +11,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         public JintClassDeclarationStatement(ClassDeclaration classDeclaration) : base(classDeclaration)
         {
-            _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name, classDeclaration.SuperClass, classDeclaration.Body);
+            _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name, classSource:classDeclaration.ToString(), superClass: classDeclaration.SuperClass, body: classDeclaration.Body);
         }
 
         protected override Completion ExecuteInternal(EvaluationContext context)

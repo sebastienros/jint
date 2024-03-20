@@ -17,7 +17,7 @@ internal sealed class JintFunctionDefinition
     private JintExpression? _bodyExpression;
     private JintStatementList? _bodyStatementList;
 
-    public readonly string? Name;
+    public string? Name;
     public readonly IFunction Function;
 
     public JintFunctionDefinition(IFunction function)

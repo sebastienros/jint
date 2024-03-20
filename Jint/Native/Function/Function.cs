@@ -28,6 +28,7 @@ namespace Jint.Native.Function
 
         internal Realm _realm;
         internal PrivateEnvironment? _privateEnvironment;
+        internal string? _sourceText;
         private readonly IScriptOrModule? _scriptOrModule;
 
         protected Function(
@@ -206,6 +207,18 @@ namespace Jint.Native.Function
             if (!string.IsNullOrWhiteSpace(prefix))
             {
                 name = prefix + " " + name;
+                if (prefix is "get" or "set")
+                {
+                    // TODO currently in the SourceText retrieved from Esprima, the method name is incorrect, so for now, use a string replacement.
+                    var oldSourceText = ToString(); 
+                    var index = oldSourceText.IndexOf("function", StringComparison.Ordinal);
+                    _sourceText = index > -1 ? oldSourceText.Remove(index, 8).Insert(index, name.AsString()) : oldSourceText;
+                }
+            }
+
+            if (_functionDefinition != null)
+            {
+                _functionDefinition.Name = name.AsString();
             }
 
             _nameDescriptor = new PropertyDescriptor(name, PropertyFlag.Configurable);
@@ -367,7 +380,15 @@ namespace Jint.Native.Function
 
         public override string ToString()
         {
-            // TODO no way to extract SourceText from Esprima at the moment, just returning native code
+            if (_sourceText != null)
+            {
+                return _sourceText;
+            }
+            if ((_sourceText = _functionDefinition?.Function?.ToString()) != null)
+            {
+                return _sourceText;
+            }
+
             var nameValue = _nameDescriptor != null ? UnwrapJsValue(_nameDescriptor) : JsString.Empty;
             var name = "";
             if (!nameValue.IsUndefined())
@@ -377,7 +398,7 @@ namespace Jint.Native.Function
 
             name = name.TrimStart(_functionNameTrimStartChars);
 
-            return "function " + name + "() { [native code] }";
+            return _sourceText = "function " + name + "() { [native code] }";
         }
 
         private sealed class ObjectInstanceWithConstructor : ObjectInstance
