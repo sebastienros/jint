@@ -178,15 +178,6 @@ namespace Jint.Native
                 }
             });
 
-            engine.AddToEventLoop(() =>
-            {
-                if (!task.IsCompleted)
-                {
-                    // Task.Wait has the potential of inlining the task's execution on the current thread; avoid this.
-                    ((IAsyncResult) task).AsyncWaitHandle.WaitOne();
-                }
-            });
-
             return promise;
         }
 

@@ -12,6 +12,7 @@ internal sealed class JsPromise : ObjectInstance
 
     // valid only in settled state (Fulfilled or Rejected)
     internal JsValue Value { get; private set; } = null!;
+    internal TaskCompletionSource<JsPromise> TaskCompletionSource { get; }= new();
 
     internal List<PromiseReaction> PromiseRejectReactions = new();
     internal List<PromiseReaction> PromiseFulfillReactions = new();
@@ -126,6 +127,7 @@ internal sealed class JsPromise : ObjectInstance
         var reactions = PromiseRejectReactions;
         PromiseRejectReactions = new List<PromiseReaction>();
         PromiseFulfillReactions.Clear();
+        TaskCompletionSource.SetCanceled();
 
         // Note that this part is skipped because there is no tracking yet
         // 7. If promise.[[PromiseIsHandled]] is false, perform HostPromiseRejectionTracker(promise, "reject").
@@ -145,6 +147,7 @@ internal sealed class JsPromise : ObjectInstance
         var reactions = PromiseFulfillReactions;
         PromiseFulfillReactions = new List<PromiseReaction>();
         PromiseRejectReactions.Clear();
+        TaskCompletionSource.SetResult(this);
 
         return PromiseOperations.TriggerPromiseReactions(_engine, reactions, result);
     }
