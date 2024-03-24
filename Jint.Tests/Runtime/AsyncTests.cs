@@ -228,4 +228,54 @@ public class AsyncTests
 
         Assert.Equal(expected, log.Select(x => x.AsString()).ToArray());
     }
+    
+    [Fact]
+    public void ShouldPromiseBeResolved()
+    {
+        var log = new List<string>();
+        Engine engine = new();
+        engine.SetValue("log", (string str) =>
+        {
+            log.Add(str);
+        });
+        
+        const string Script = """
+          async function main() {
+            return new Promise(function (resolve) {
+              log('Promise!')
+              resolve(null)
+            }).then(function () {
+              log('Resolved!')
+            });
+          }
+        """;
+        var result = engine.Execute(Script);
+        var val = result.GetValue("main");
+        val.Call().UnwrapIfPromise();
+        Assert.Equal(2, log.Count);
+        Assert.Equal("Promise!", log[0]);
+        Assert.Equal("Resolved!", log[1]);
+    }
+
+    [Fact]
+    public void ShouldPromiseBeResolved2()
+    {
+        Engine engine = new();
+        engine.SetValue("setTimeout",
+            (Action action, int ms) =>
+            {
+                Task.Delay(ms).ContinueWith(_ => action());
+            });
+        
+        const string Script = """
+          var delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+          async function main() {
+            await delay(100);
+            return 1;
+          }
+        """;
+        var result = engine.Execute(Script);
+        var val = result.GetValue("main").Call();
+        Assert.Equal(1, val.UnwrapIfPromise().AsInteger());
+    }
 }

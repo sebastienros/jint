@@ -631,6 +631,18 @@ public static class JsValueExtensions
     {
         if (value is JsPromise promise)
         {
+            var engine = promise.Engine;
+            var task = promise.TaskCompletionSource.Task;
+            engine.RunAvailableContinuations();
+            engine.AddToEventLoop(() =>
+            {
+                if (!task.IsCompleted)
+                {
+                    // Task.Wait has the potential of inlining the task's execution on the current thread; avoid this.
+                    ((IAsyncResult) task).AsyncWaitHandle.WaitOne();
+                }
+            });
+            engine.RunAvailableContinuations();
             switch (promise.State)
             {
                 case PromiseState.Pending:
