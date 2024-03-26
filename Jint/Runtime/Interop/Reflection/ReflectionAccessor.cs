@@ -38,7 +38,7 @@ internal abstract class ReflectionAccessor
 
     protected abstract void DoSetValue(object target, string memberName, object? value);
 
-    public object? GetValue(Engine engine, object target, string memberName)
+    public virtual object? GetValue(Engine engine, object target, string memberName)
     {
         var constantValue = ConstantValue;
         if (constantValue is not null)

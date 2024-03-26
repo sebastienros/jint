@@ -77,6 +77,44 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldBeAbleToMarkMembersAsReadonly()
+        {
+            var engine = new Engine(options => options
+                .SetTypeResolver(new TypeResolver
+                {
+                    ReadonlyFilter = (type, member) => member == "Readonly"
+                })
+            );
+
+            engine.SetValue("m", new ReadonlyMembers());
+
+            Assert.True(engine.Evaluate("m.Readonly").IsLooselyEqual("42"));
+            Assert.True(engine.Evaluate("m.Readonly = 'updated'; return m.Readonly").IsLooselyEqual("42"));
+            Assert.True(engine.Evaluate("m.Normal").IsLooselyEqual("normal"));
+            Assert.True(engine.Evaluate("m.Normal = 'updated'; return m.Normal").IsLooselyEqual("updated"));
+        }
+
+        [Fact]
+        public void ShouldBeAbleToMarDictionaryAsReadonly()
+        {
+            var engine = new Engine(options => options
+                .SetTypeResolver(new TypeResolver
+                {
+                    ReadonlyFilter = (type, member) => true
+                })
+            );
+
+            engine.SetValue("m", new Dictionary<string, string>
+            {
+                ["existing"] = "normal"
+            });
+
+            Assert.True(engine.Evaluate("m['key'] = 42; return m['key'];").IsUndefined());
+            Assert.True(engine.Evaluate("m['existing'] = '42'; return m['existing'];").IsLooselyEqual("normal"));
+            Assert.True(engine.Evaluate("m['existing']").IsLooselyEqual("normal"));
+        }
+
+        [Fact]
         public void ShouldBeAbleToExposeGetType()
         {
             var engine = new Engine(options =>
@@ -243,6 +281,13 @@ namespace Jint.Tests.Runtime
             {
                 public string Value { get; set; }
             }
+        }
+
+        public class ReadonlyMembers
+        {
+            public string Readonly { get; set; } = "42";
+
+            public string Normal { get; set; } = "normal";
         }
 
         [Fact]

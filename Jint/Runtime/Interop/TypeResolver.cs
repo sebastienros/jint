@@ -26,9 +26,19 @@ namespace Jint.Runtime.Interop
         /// <seealso cref="Options.InteropOptions.AllowGetType"/>
         public Predicate<MemberInfo> MemberFilter { get; set; } = _ => true;
 
+        /// <summary>
+        /// Registers a filter that determines whether a given type is readonly.
+        /// </summary>
+        public Func<Type, string, bool> ReadonlyFilter { get; set; } = (_, _) => false;
+
         internal bool Filter(Engine engine, MemberInfo m)
         {
             return (engine.Options.Interop.AllowGetType || !string.Equals(m.Name, nameof(GetType), StringComparison.Ordinal)) && MemberFilter(m);
+        }
+
+        internal bool IsReadonly(Type type, string member)
+        {
+            return ReadonlyFilter(type, member);
         }
 
         /// <summary>
@@ -70,6 +80,11 @@ namespace Jint.Runtime.Interop
             if (uint.TryParse(member, out _))
             {
                 return accessor;
+            }
+
+            if (accessor != ConstantValueAccessor.NullAccessor && IsReadonly(type, member))
+            {
+                accessor = new ReadonlyAccessor(accessor);
             }
 
             // racy, we don't care, worst case we'll catch up later
