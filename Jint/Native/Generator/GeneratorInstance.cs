@@ -78,7 +78,7 @@ internal sealed class GeneratorInstance : ObjectInstance
                 return new IteratorResult(_engine, abruptCompletion.Value, JsBoolean.True);
             }
 
-            ExceptionHelper.ThrowJavaScriptException(_engine, abruptCompletion.Value, (SourceLocation) default);
+            ExceptionHelper.ThrowJavaScriptException(_engine, abruptCompletion.Value, AstExtensions.DefaultLocation);
         }
 
         var genContext = _generatorContext;
@@ -95,7 +95,7 @@ internal sealed class GeneratorInstance : ObjectInstance
 
         if (_error is not null)
         {
-            ExceptionHelper.ThrowJavaScriptException(_engine, _error, (SourceLocation) default);
+            ExceptionHelper.ThrowJavaScriptException(_engine, _error, AstExtensions.DefaultLocation);
         }
 
         return ResumeExecution(genContext, new EvaluationContext(_engine));

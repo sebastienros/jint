@@ -209,7 +209,7 @@ namespace Jint.Runtime.Environments
 
                 try
                 {
-                    if (property is Property p)
+                    if (property is AssignmentProperty p)
                     {
                         var propertyName = p.GetKey(_engine);
                         processedProperties?.Add(propertyName.ToString());
@@ -326,7 +326,7 @@ namespace Jint.Runtime.Environments
 
             if (argument.IsUndefined())
             {
-                var expression = right.As<Expression>();
+                var expression = (Expression) right;
                 var jintExpression = JintExpression.Build(expression);
 
                 var oldEnv = _engine.ExecutionContext.LexicalEnvironment;

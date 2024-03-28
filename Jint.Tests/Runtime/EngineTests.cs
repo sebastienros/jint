@@ -1046,11 +1046,11 @@ namespace Jint.Tests.Runtime
             {
                 engine.Evaluate("1.2+ new", "jQuery.js");
             }
-            catch (ParseErrorException e)
+            catch (SyntaxErrorException e)
             {
                 Assert.Equal(1, e.LineNumber);
-                Assert.Equal(9, e.Column);
-                Assert.Equal("jQuery.js", e.SourceLocation);
+                Assert.Equal(8, e.Column);
+                Assert.Equal("jQuery.js", e.SourceFile);
             }
         }
         #region DateParsingAndStrings
@@ -1314,7 +1314,7 @@ var prep = function (fn) { fn(); };
         {
             var code = "if({ __proto__: [], __proto__:[] } instanceof Array) {}";
 
-            Exception ex = Assert.Throws<ParseErrorException>(() => _engine.Execute(code, new ScriptParsingOptions { Tolerant = false }));
+            Exception ex = Assert.Throws<SyntaxErrorException>(() => _engine.Execute(code, new ScriptParsingOptions { Tolerant = false }));
             Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
 
             ex = Assert.Throws<JavaScriptException>(() => _engine.Execute($"eval('{code}')"));
@@ -2865,8 +2865,8 @@ x.test = {
             Assert.Equal("Cannot delete property 'prototype' of function Boolean() { [native code] }", ex.Message);
 
             const string source2 = "'use strict'; delete foobar;";
-            ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(source2));
-            Assert.Equal("Delete of an unqualified identifier in strict mode.", ex.Message);
+            var ex2 = Assert.Throws<SyntaxErrorException>(() => engine.Evaluate(source2));
+            Assert.Equal("Delete of an unqualified identifier in strict mode", ex2.Description);
         }
 
         [Fact]
@@ -3011,13 +3011,13 @@ x.test = {
                 switch (beforeEvaluateTriggeredCount)
                 {
                     case 1:
-                        Assert.Equal("module1", ast.Location.Source);
+                        Assert.Equal("module1", ast.Location.SourceFile);
                         Assert.Collection(ast.Body,
                             node => Assert.IsType<ImportDeclaration>(node)
                         );
                         break;
                     case 2:
-                        Assert.Equal("module2", ast.Location.Source);
+                        Assert.Equal("module2", ast.Location.SourceFile);
                         Assert.Collection(ast.Body,
                             node => Assert.IsType<ExportDefaultDeclaration>(node)
                         );
@@ -3058,7 +3058,7 @@ x.test = {
             {
                 beforeEvaluateTriggered = true;
                 Assert.Equal(engine, sender);
-                Assert.Equal(expectedSource, ast.Location.Source);
+                Assert.Equal(expectedSource, ast.Location.SourceFile);
                 Assert.Collection(ast.Body, node => Assert.True(TestHelpers.IsLiteral(node, "dummy")));
             };
 

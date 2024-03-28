@@ -3,13 +3,13 @@ using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Statements
 {
-    internal sealed class JintBlockStatement : JintStatement<BlockStatement>
+    internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
     {
         private JintStatementList? _statementList;
         private JintStatement? _singleStatement;
         private List<Declaration>? _lexicalDeclarations;
 
-        public JintBlockStatement(BlockStatement blockStatement) : base(blockStatement)
+        public JintBlockStatement(NestedBlockStatement blockStatement) : base(blockStatement)
         {
         }
 

@@ -27,7 +27,7 @@ internal sealed class EvaluationContext
     public readonly Engine Engine;
     public bool DebugMode => Engine._isDebugMode;
 
-    public SyntaxElement LastSyntaxElement
+    public Node LastSyntaxElement
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => Engine.GetLastSyntaxElement();
@@ -41,7 +41,7 @@ internal sealed class EvaluationContext
     public string? Target;
     public CompletionType Completion;
 
-    public void RunBeforeExecuteStatementChecks(StatementListItem statement)
+    public void RunBeforeExecuteStatementChecks(StatementOrExpression statement)
     {
         if (_shouldRunBeforeExecuteStatementChecks)
         {

@@ -39,7 +39,7 @@ public abstract partial class Test262Test
 
                 var script = Engine.PrepareScript(args.At(0).AsString(), options: new ScriptPreparationOptions
                 {
-                    ParsingOptions = ScriptParsingOptions.Default with { CompileRegex = false, Tolerant = false },
+                    ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false },
                 });
 
                 return engine.Evaluate(script);
@@ -96,7 +96,7 @@ public abstract partial class Test262Test
         {
             var script = Engine.PrepareScript(file.Program, source: file.FileName, options: new ScriptPreparationOptions
             {
-                ParsingOptions = ScriptParsingOptions.Default with { CompileRegex = false, Tolerant = false },
+                ParsingOptions = ScriptParsingOptions.Default with { Tolerant = false },
             });
 
             engine.Execute(script);

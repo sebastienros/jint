@@ -76,7 +76,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 string? propName = null;
                 var property = properties[i];
-                if (property is Property p)
+                if (property is Acornima.Ast.ObjectProperty p)
                 {
                     if (p.Key is Literal literal)
                     {

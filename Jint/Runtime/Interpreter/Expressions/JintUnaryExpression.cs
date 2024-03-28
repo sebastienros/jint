@@ -7,7 +7,6 @@ using System.Numerics;
 using System.Reflection;
 
 using Environment = Jint.Runtime.Environments.Environment;
-using Operator = Esprima.Ast.UnaryOperator;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -19,13 +18,13 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _argument;
         private readonly Operator _operator;
 
-        private JintUnaryExpression(UnaryExpression expression) : base(expression)
+        private JintUnaryExpression(NonUpdateUnaryExpression expression) : base(expression)
         {
             _argument = Build(expression.Argument);
             _operator = expression.Operator;
         }
 
-        internal static JintExpression Build(UnaryExpression expression)
+        internal static JintExpression Build(NonUpdateUnaryExpression expression)
         {
             if (expression.Operator == Operator.TypeOf)
             {
@@ -35,9 +34,9 @@ namespace Jint.Runtime.Interpreter.Expressions
             return BuildConstantExpression(expression) ?? new JintUnaryExpression(expression);
         }
 
-        internal static JintExpression? BuildConstantExpression(UnaryExpression expression)
+        internal static JintExpression? BuildConstantExpression(NonUpdateUnaryExpression expression)
         {
-            if (expression is { Operator: Operator.Minus, Argument: Literal literal })
+            if (expression is { Operator: Operator.UnaryNegation, Argument: Literal literal })
             {
                 var value = JintLiteralExpression.ConvertToJsValue(literal);
                 if (value is not null)
@@ -55,7 +54,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             private readonly JintExpression _argument;
 
-            public JintTypeOfExpression(UnaryExpression expression) : base(expression)
+            public JintTypeOfExpression(NonUpdateUnaryExpression expression) : base(expression)
             {
                 _argument = Build(expression.Argument);
             }
@@ -138,7 +137,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var engine = context.Engine;
             switch (_operator)
             {
-                case Operator.Plus:
+                case Operator.UnaryPlus:
                 {
                     var v = _argument.GetValue(context);
                     if (context.OperatorOverloadingAllowed &&
@@ -149,7 +148,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     return TypeConverter.ToNumber(v);
                 }
-                case Operator.Minus:
+                case Operator.UnaryNegation:
                 {
                     var v = _argument.GetValue(context);
                     if (context.OperatorOverloadingAllowed &&

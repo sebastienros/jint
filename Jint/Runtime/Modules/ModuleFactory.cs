@@ -36,7 +36,7 @@ public static class ModuleFactory
         }
         catch (Exception)
         {
-            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", (SourceLocation) default);
+            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", AstExtensions.DefaultLocation);
             module = null;
         }
 
@@ -49,16 +49,16 @@ public static class ModuleFactory
     /// </summary>
     /// <remarks>
     /// The returned modules location (see <see cref="Module.Location"/>) will be set
-    /// to <see cref="SourceLocation.Source"/> of the <paramref name="preparedModule"/>.
+    /// to <see cref="SourceLocation.SourceFile"/> of the <paramref name="preparedModule"/>.
     /// </remarks>
-    public static Module BuildSourceTextModule(Engine engine, Prepared<AstModule> preparedModule)
+    public static Module BuildSourceTextModule(Engine engine, in Prepared<AstModule> preparedModule)
     {
         if (!preparedModule.IsValid)
         {
             ExceptionHelper.ThrowInvalidPreparedModuleArgumentException(nameof(preparedModule));
         }
 
-        return new SourceTextModule(engine, engine.Realm, preparedModule, preparedModule.Program!.Location.Source, async: false);
+        return new SourceTextModule(engine, engine.Realm, preparedModule, preparedModule.Program!.Location.SourceFile, async: false);
     }
 
     /// <summary>
@@ -81,7 +81,7 @@ public static class ModuleFactory
         }
         catch (Exception)
         {
-            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", (SourceLocation) default);
+            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", AstExtensions.DefaultLocation);
             module = null;
         }
 

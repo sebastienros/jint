@@ -22,7 +22,7 @@ public partial class Engine
         options ??= ScriptPreparationOptions.Default;
         var astAnalyzer = new AstAnalyzer(options);
         var parserOptions = options.GetParserOptions();
-        var preparedScript = new Parser(parserOptions with { OnNodeCreated = astAnalyzer.NodeVisitor }).ParseScript(code, source, strict);
+        var preparedScript = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor }).ParseScript(code, source, strict);
         return new Prepared<Script>(preparedScript, parserOptions);
     }
 
@@ -37,7 +37,7 @@ public partial class Engine
         options ??= ModulePreparationOptions.Default;
         var astAnalyzer = new AstAnalyzer(options);
         var parserOptions = options.GetParserOptions();
-        var preparedModule = new Parser(parserOptions with { OnNodeCreated = astAnalyzer.NodeVisitor }).ParseModule(code, source);
+        var preparedModule = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor }).ParseModule(code, source);
         return new Prepared<Module>(preparedModule, parserOptions);
     }
 
@@ -67,66 +67,40 @@ public partial class Engine
                         _bindingNames[name] = bindingName = new Environment.BindingName(JsString.CachedCreate(name));
                     }
 
-                    node.AssociatedData = new JintIdentifierExpression(identifier, bindingName);
+                    node.UserData = new JintIdentifierExpression(identifier, bindingName);
                     break;
 
                 case NodeType.Literal:
                     var literal = (Literal) node;
 
                     var constantValue = JintLiteralExpression.ConvertToJsValue(literal);
-                    node.AssociatedData = constantValue is not null ? new JintConstantExpression(literal, constantValue) : null;
-
-                    if (node.AssociatedData is null && literal.TokenType == TokenKind.RegularExpression
-                        && !_canCompileNegativeLookaroundAssertions && _preparationOptions.ParsingOptions.CompileRegex != false)
-                    {
-                        var regExpLiteral = (RegExpLiteral) literal;
-                        var regExpParseResult = regExpLiteral.ParseResult;
-
-                        // only compile if there's no negative lookahead, it works incorrectly under NET 7 and NET 8
-                        // https://github.com/dotnet/runtime/issues/97455
-                        if (regExpParseResult.Success && regExpLiteral.Raw.Contains("(?!"))
-                        {
-                            if (!_regexes.TryGetValue(regExpLiteral.Raw, out var regex))
-                            {
-                                regex = regExpParseResult.Regex!;
-                                if ((regex.Options & RegexOptions.Compiled) != RegexOptions.None)
-                                {
-                                    regex = new Regex(regex.ToString(), regex.Options & ~RegexOptions.Compiled, regex.MatchTimeout);
-                                }
-
-                                _regexes[regExpLiteral.Raw] = regex;
-                            }
-
-                            regExpLiteral.AssociatedData = regex;
-                        }
-                    }
-
+                    node.UserData = constantValue is not null ? new JintConstantExpression(literal, constantValue) : null;
                     break;
 
                 case NodeType.MemberExpression:
-                    node.AssociatedData = JintMemberExpression.InitializeDeterminedProperty((MemberExpression) node, cache: true);
+                    node.UserData = JintMemberExpression.InitializeDeterminedProperty((MemberExpression) node, cache: true);
                     break;
 
                 case NodeType.ArrowFunctionExpression:
                 case NodeType.FunctionDeclaration:
                 case NodeType.FunctionExpression:
                     var function = (IFunction) node;
-                    node.AssociatedData = JintFunctionDefinition.BuildState(function);
+                    node.UserData = JintFunctionDefinition.BuildState(function);
                     break;
 
                 case NodeType.Program:
-                    node.AssociatedData = new CachedHoistingScope((Program) node);
+                    node.UserData = new CachedHoistingScope((Program) node);
                     break;
 
                 case NodeType.UnaryExpression:
-                    node.AssociatedData = JintUnaryExpression.BuildConstantExpression((UnaryExpression) node);
+                    node.UserData = JintUnaryExpression.BuildConstantExpression((NonUpdateUnaryExpression) node);
                     break;
 
                 case NodeType.BinaryExpression:
-                    var binaryExpression = (BinaryExpression) node;
+                    var binaryExpression = (NonLogicalBinaryExpression) node;
                     if (_preparationOptions.FoldConstants
-                        && binaryExpression.Operator != BinaryOperator.InstanceOf
-                        && binaryExpression.Operator != BinaryOperator.In
+                        && binaryExpression.Operator != Operator.InstanceOf
+                        && binaryExpression.Operator != Operator.In
                         && binaryExpression is { Left: Literal leftLiteral, Right: Literal rightLiteral })
                     {
                         var left = JintLiteralExpression.ConvertToJsValue(leftLiteral);
@@ -139,7 +113,7 @@ public partial class Engine
                             {
                                 var result = JintBinaryExpression.Build(binaryExpression);
                                 var context = new EvaluationContext();
-                                node.AssociatedData = new JintConstantExpression(binaryExpression, (JsValue) result.EvaluateWithoutNodeTracking(context));
+                                node.UserData = new JintConstantExpression(binaryExpression, (JsValue) result.EvaluateWithoutNodeTracking(context));
                             }
                             catch
                             {
@@ -157,7 +131,7 @@ public partial class Engine
                         var returnValue = JintLiteralExpression.ConvertToJsValue(returnedLiteral);
                         if (returnValue is not null)
                         {
-                            node.AssociatedData = new ConstantStatement(returnStatement, CompletionType.Return, returnValue);
+                            node.UserData = new ConstantStatement(returnStatement, CompletionType.Return, returnValue);
                         }
                     }
                     break;
@@ -223,13 +197,13 @@ internal static class AstPreparationExtensions
 {
     internal static HoistingScope GetHoistingScope(this Program program)
     {
-        return program.AssociatedData is CachedHoistingScope cached ? cached.Scope : HoistingScope.GetProgramLevelDeclarations(program);
+        return program.UserData is CachedHoistingScope cached ? cached.Scope : HoistingScope.GetProgramLevelDeclarations(program);
     }
 
     internal static List<Key> GetVarNames(this Program program, HoistingScope hoistingScope)
     {
         List<Key> boundNames;
-        if (program.AssociatedData is CachedHoistingScope cached)
+        if (program.UserData is CachedHoistingScope cached)
         {
             boundNames = cached.VarNames;
         }
@@ -245,7 +219,7 @@ internal static class AstPreparationExtensions
     internal static List<CachedHoistingScope.CachedLexicalName> GetLexNames(this Program program, HoistingScope hoistingScope)
     {
         List<CachedHoistingScope.CachedLexicalName> boundNames;
-        if (program.AssociatedData is CachedHoistingScope cached)
+        if (program.UserData is CachedHoistingScope cached)
         {
             boundNames = cached.LexNames;
         }

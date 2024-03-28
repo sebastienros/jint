@@ -7,6 +7,7 @@ namespace Jint.Runtime.Debugger
     public sealed class CallFrame
     {
         private readonly CallStackExecutionContext _context;
+        private SourceLocation _location;
         private readonly CallStackElement? _element;
         private readonly Lazy<DebugScopes> _scopeChain;
 
@@ -18,7 +19,7 @@ namespace Jint.Runtime.Debugger
         {
             _element = element;
             _context = context;
-            Location = location;
+            _location = location;
             ReturnValue = returnValue;
 
             _scopeChain = new Lazy<DebugScopes>(() => new DebugScopes(Environment));
@@ -41,7 +42,7 @@ namespace Jint.Runtime.Debugger
         /// <summary>
         /// Currently executing source location in this call frame.
         /// </summary>
-        public SourceLocation Location { get; }
+        public ref SourceLocation Location => ref _location;
 
         /// <summary>
         /// The scope chain of this call frame.

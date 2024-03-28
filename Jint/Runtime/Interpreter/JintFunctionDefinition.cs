@@ -25,9 +25,9 @@ internal sealed class JintFunctionDefinition
         Name = !string.IsNullOrEmpty(function.Id?.Name) ? function.Id!.Name : null;
     }
 
-    public bool Strict => Function.Strict;
+    public bool Strict => Function.IsStrict();
 
-    public FunctionThisMode ThisMode => Function.Strict ? FunctionThisMode.Strict : FunctionThisMode.Global;
+    public FunctionThisMode ThisMode => Function.IsStrict() ? FunctionThisMode.Strict : FunctionThisMode.Global;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-ordinarycallevaluatebody
@@ -171,7 +171,7 @@ internal sealed class JintFunctionDefinition
     internal State Initialize()
     {
         var node = (Node) Function;
-        var state = (State) (node.AssociatedData ??= BuildState(Function));
+        var state = (State) (node.UserData ??= BuildState(Function));
         return state;
     }
 
@@ -210,7 +210,8 @@ internal sealed class JintFunctionDefinition
 
         ProcessParameters(function, state, out var hasArguments);
 
-        var hoistingScope = HoistingScope.GetFunctionLevelDeclarations(function.Strict, function);
+        var strict = function.IsStrict();
+        var hoistingScope = HoistingScope.GetFunctionLevelDeclarations(strict, function);
         var functionDeclarations = hoistingScope._functionDeclarations;
         var lexicalNames = hoistingScope._lexicalNames;
         state.VarNames = hoistingScope._varNames;
@@ -236,7 +237,7 @@ internal sealed class JintFunctionDefinition
         const string ParameterNameArguments = "arguments";
 
         state.ArgumentsObjectNeeded = true;
-        var thisMode = function.Strict ? FunctionThisMode.Strict : FunctionThisMode.Global;
+        var thisMode = strict ? FunctionThisMode.Strict : FunctionThisMode.Global;
         if (function.Type == NodeType.ArrowFunctionExpression)
         {
             thisMode = FunctionThisMode.Lexical;
@@ -393,7 +394,7 @@ internal sealed class JintFunctionDefinition
                 for (var i = 0; i < objectPatternProperties.Count; i++)
                 {
                     var property = objectPatternProperties[i];
-                    if (property is Property p)
+                    if (property is AssignmentProperty p)
                     {
                         GetBoundNames(
                             p.Value,

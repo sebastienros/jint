@@ -21,9 +21,8 @@ public partial class EngineTests
         var script = Engine.PrepareScript("var x = /[cgt]/ig; var y = /[cgt]/ig; 'g'.match(x).length;");
         var declaration = Assert.IsType<VariableDeclaration>(script.Program.Body[0]);
         var init = Assert.IsType<RegExpLiteral>(declaration.Declarations[0].Init);
-        var regex = Assert.IsType<Regex>(init.Value);
-        Assert.Equal("[cgt]", regex.ToString());
-        Assert.Equal(RegexOptions.Compiled, regex.Options & RegexOptions.Compiled);
+        Assert.Equal("[cgt]", init.Value.ToString());
+        Assert.Equal(RegexOptions.Compiled, init.Value.Options & RegexOptions.Compiled);
 
         Assert.Equal(1, _engine.Evaluate(script));
     }
@@ -33,7 +32,7 @@ public partial class EngineTests
     {
         var preparedScript = Engine.PrepareScript("return 1 + 2;");
         var returnStatement = Assert.IsType<ReturnStatement>(preparedScript.Program.Body[0]);
-        var constant = Assert.IsType<JintConstantExpression>(returnStatement.Argument?.AssociatedData);
+        var constant = Assert.IsType<JintConstantExpression>(returnStatement.Argument?.UserData);
         Assert.Equal(3, constant.GetValue(null!));
 
         Assert.Equal(3, _engine.Evaluate(preparedScript));
@@ -43,9 +42,9 @@ public partial class EngineTests
     public void ScriptPreparationOptimizesNegatingUnaryExpression()
     {
         var preparedScript = Engine.PrepareScript("-1");
-        var expression = Assert.IsType<ExpressionStatement>(preparedScript.Program.Body[0]);
-        var unaryExpression = Assert.IsType<UnaryExpression>(expression.Expression);
-        var constant = Assert.IsType<JintConstantExpression>(unaryExpression.AssociatedData);
+        var expression = Assert.IsType<NonSpecialExpressionStatement>(preparedScript.Program.Body[0]);
+        var unaryExpression = Assert.IsType<NonUpdateUnaryExpression>(expression.Expression);
+        var constant = Assert.IsType<JintConstantExpression>(unaryExpression.UserData);
 
         Assert.Equal(-1, constant.GetValue(null!));
         Assert.Equal(-1, _engine.Evaluate(preparedScript));
@@ -56,7 +55,7 @@ public partial class EngineTests
     {
         var preparedScript = Engine.PrepareScript("return false;");
         var statement = Assert.IsType<ReturnStatement>(preparedScript.Program.Body[0]);
-        var returnStatement = Assert.IsType<ConstantStatement>(statement.AssociatedData);
+        var returnStatement = Assert.IsType<ConstantStatement>(statement.UserData);
 
         var builtStatement = JintStatement.Build(statement);
         Assert.Same(returnStatement, builtStatement);

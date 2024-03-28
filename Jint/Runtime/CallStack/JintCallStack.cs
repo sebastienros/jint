@@ -149,7 +149,7 @@ namespace Jint.Runtime.CallStack
                 }
 
                 sb.Append(' ');
-                sb.Append(loc.Source);
+                sb.Append(loc.SourceFile);
                 sb.Append(':');
                 sb.Append(loc.End.Line.ToString(CultureInfo.InvariantCulture));
                 sb.Append(':');
@@ -202,7 +202,7 @@ namespace Jint.Runtime.CallStack
                 return identifier.Name ?? "";
             }
 
-            if (expression is StaticMemberExpression staticMemberExpression)
+            if (expression is MemberExpression { Computed: false } staticMemberExpression)
             {
                 return GetPropertyKey(staticMemberExpression.Object) + "." +
                        GetPropertyKey(staticMemberExpression.Property);

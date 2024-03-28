@@ -12,7 +12,6 @@ public sealed class ModuleBuilder
     private readonly List<string> _sourceRaw = new();
     private readonly Dictionary<string, JsValue> _exports = new(StringComparer.Ordinal);
     private readonly ParserOptions _defaultParserOptions;
-    private readonly Parser _defaultParser;
     private ModuleParsingOptions _parsingOptions;
 
     internal ModuleBuilder(Engine engine, string specifier)
@@ -20,20 +19,7 @@ public sealed class ModuleBuilder
         _engine = engine;
         _specifier = specifier;
         _parsingOptions = ModuleParsingOptions.Default;
-        _defaultParserOptions = _parsingOptions.GetParserOptions(engine.Options);
-        _defaultParser = new Parser(_defaultParserOptions);
-    }
-
-    private Parser GetParserFor(ModuleParsingOptions parsingOptions, out ParserOptions parserOptions)
-    {
-        if (ReferenceEquals(parsingOptions, ModuleParsingOptions.Default))
-        {
-            parserOptions = _defaultParserOptions;
-            return _defaultParser;
-        }
-
-        parserOptions = parsingOptions.GetParserOptions(_engine.Options);
-        return new Parser(parserOptions);
+        _defaultParserOptions = _engine.DefaultModuleParserOptions;
     }
 
     public ModuleBuilder AddSource(string code)
@@ -48,6 +34,11 @@ public sealed class ModuleBuilder
 
     public ModuleBuilder AddModule(in Prepared<AstModule> preparedModule)
     {
+        if (!preparedModule.IsValid)
+        {
+            ExceptionHelper.ThrowInvalidPreparedModuleArgumentException(nameof(preparedModule));
+        }
+
         if (_sourceRaw.Count > 0)
         {
             throw new InvalidOperationException("Cannot have both source text and pre-compiled.");
@@ -139,16 +130,16 @@ public sealed class ModuleBuilder
     {
         if (_module != null) return _module.Value;
 
-        ParserOptions parserOptions;
+        var parserOptions = ReferenceEquals(_parsingOptions, ModuleParsingOptions.Default)
+            ? _defaultParserOptions
+            : _parsingOptions.GetParserOptions(_engine.Options);
+
         if (_sourceRaw.Count <= 0)
         {
-            parserOptions = ReferenceEquals(_parsingOptions, ModuleParsingOptions.Default)
-                ? _defaultParserOptions
-                : _parsingOptions.GetParserOptions(_engine.Options);
             return new Prepared<AstModule>(new AstModule(NodeList.Create(Array.Empty<Statement>())), parserOptions);
         }
 
-        var parser = GetParserFor(_parsingOptions, out parserOptions);
+        var parser = new Parser(parserOptions);
         try
         {
             var source = _sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw);

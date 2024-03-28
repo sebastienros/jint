@@ -13,6 +13,8 @@ namespace Jint
 {
     public static class AstExtensions
     {
+        internal static readonly SourceLocation DefaultLocation;
+
         public static JsValue GetKey<T>(this T property, Engine engine) where T : IProperty => GetKey(property.Key, engine, property.Computed);
 
         public static JsValue GetKey(this Expression expression, Engine engine, bool resolveComputed = false)
@@ -37,7 +39,7 @@ namespace Jint
             JsValue key;
             if (expression is Literal literal)
             {
-                key = literal.TokenType == TokenKind.NullLiteral ? JsValue.Null : LiteralKeyToString(literal);
+                key = literal.Kind == TokenKind.NullLiteral ? JsValue.Null : LiteralKeyToString(literal);
             }
             else if (!resolveComputed && expression is Identifier identifier)
             {
@@ -92,6 +94,12 @@ namespace Jint
                 or NodeType.ClassExpression;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool IsStrict(this IFunction function)
+        {
+            return function.Body is FunctionBody { Strict: true };
+        }
+
         /// <summary>
         /// https://tc39.es/ecma262/#sec-static-semantics-isconstantdeclaration
         /// </summary>
@@ -109,12 +117,12 @@ namespace Jint
                 return false;
             }
 
-            if ((node as IFunction)?.Id is not null)
+            if (node is IFunction { Id: not null })
             {
                 return true;
             }
 
-            if ((node as ClassExpression)?.Id is not null)
+            if (node is ClassExpression { Id: not null })
             {
                 return true;
             }
@@ -141,26 +149,30 @@ namespace Jint
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool IsOptional<T>(this T node) where T : Expression
         {
-            switch (node)
-            {
-                case MemberExpression { Optional: true }:
-                case CallExpression { Optional: true }:
-                    return true;
-                default:
-                    return false;
+            return node is IChainElement { Optional: true };
             }
-        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string LiteralKeyToString(Literal literal)
         {
-            // prevent conversion to scientific notation
-            if (literal.Value is double d)
+            if (literal is StringLiteral stringLiteral)
             {
-                return TypeConverter.ToString(d);
+                return stringLiteral.Value;
             }
-
-            return literal.Value as string ?? Convert.ToString(literal.Value, provider: null) ?? "";
+            // prevent conversion to scientific notation
+            else if (literal is NumericLiteral numericLiteral)
+            {
+                return TypeConverter.ToString(numericLiteral.Value);
+            }
+            else if (literal is BigIntLiteral bigIntLiteral)
+            {
+                return bigIntLiteral.Value.ToString(provider: null);
+            }
+            else
+            {
+                // We shouldn't ever reach this line in the case of a literal property key.
+                return Convert.ToString(literal.Value, provider: null) ?? "";
+            }
         }
 
         internal static void GetBoundNames(this VariableDeclaration variableDeclaration, List<Key> target)
@@ -222,7 +234,7 @@ namespace Jint
                     for (var i = 0; i < objectPatternProperties.Count; i++)
                     {
                         var property = objectPatternProperties[i];
-                        if (property is Property p)
+                        if (property is AssignmentProperty p)
                         {
                             GetBoundNames(p.Value, target);
                         }
@@ -322,7 +334,7 @@ namespace Jint
 
         internal static void GetImportEntries(this ImportDeclaration import, List<ImportEntry> importEntries, HashSet<ModuleRequest> requestedModules)
         {
-            var source = import.Source.StringValue!;
+            var source = import.Source.Value;
             var specifiers = import.Specifiers;
             var attributes = GetAttributes(import.Attributes);
             requestedModules.Add(new ModuleRequest(source, attributes));
@@ -355,7 +367,8 @@ namespace Jint
             for (var i = 0; i < importAttributes.Count; i++)
             {
                 var attribute = importAttributes[i];
-                attributes[i] = new ModuleImportAttribute(attribute.Key.ToString(), attribute.Value.StringValue!);
+                var key = attribute.Key is Identifier identifier ? identifier.Name : ((StringLiteral) attribute.Key).Value;
+                attributes[i] = new ModuleImportAttribute(key, attribute.Value.Value);
             }
             return attributes;
         }
@@ -369,15 +382,15 @@ namespace Jint
                     break;
                 case ExportAllDeclaration allDeclaration:
                     //Note: there is a pending PR for Esprima to support exporting an imported modules content as a namespace i.e. 'export * as ns from "mod"'
-                    requestedModules.Add(new ModuleRequest(allDeclaration.Source.StringValue!, []));
-                    exportEntries.Add(new(allDeclaration.Exported?.GetModuleKey(), new ModuleRequest(allDeclaration.Source.StringValue!, []), "*", null));
+                    requestedModules.Add(new ModuleRequest(allDeclaration.Source.Value, []));
+                    exportEntries.Add(new(allDeclaration.Exported?.GetModuleKey(), new ModuleRequest(allDeclaration.Source.Value, []), "*", null));
                     break;
                 case ExportNamedDeclaration namedDeclaration:
                     ref readonly var specifiers = ref namedDeclaration.Specifiers;
                     if (specifiers.Count == 0)
                     {
                         ModuleRequest? moduleRequest = namedDeclaration.Source != null
-                            ? new ModuleRequest(namedDeclaration.Source?.StringValue!, [])
+                            ? new ModuleRequest(namedDeclaration.Source.Value, [])
                             : null;
 
                         GetExportEntries(false, namedDeclaration.Declaration!, exportEntries, moduleRequest);
@@ -389,7 +402,7 @@ namespace Jint
                             var specifier = specifiers[i];
                             if (namedDeclaration.Source != null)
                             {
-                                exportEntries.Add(new(specifier.Exported.GetModuleKey(), new ModuleRequest(namedDeclaration.Source.StringValue!, []), specifier.Local.GetModuleKey(), null));
+                                exportEntries.Add(new(specifier.Exported.GetModuleKey(), new ModuleRequest(namedDeclaration.Source.Value, []), specifier.Local.GetModuleKey(), null));
                             }
                             else
                             {
@@ -400,14 +413,14 @@ namespace Jint
 
                     if (namedDeclaration.Source is not null)
                     {
-                        requestedModules.Add(new ModuleRequest(namedDeclaration.Source.StringValue!, []));
+                        requestedModules.Add(new ModuleRequest(namedDeclaration.Source.Value, []));
                     }
 
                     break;
             }
         }
 
-        private static void GetExportEntries(bool defaultExport, StatementListItem declaration, List<ExportEntry> exportEntries, ModuleRequest? moduleRequest = null)
+        private static void GetExportEntries(bool defaultExport, StatementOrExpression declaration, List<ExportEntry> exportEntries, ModuleRequest? moduleRequest = null)
         {
             var names = GetExportNames(declaration);
 
@@ -429,7 +442,7 @@ namespace Jint
             }
         }
 
-        private static List<Key> GetExportNames(StatementListItem declaration)
+        private static List<Key> GetExportNames(StatementOrExpression declaration)
         {
             var result = new List<Key>();
 
@@ -461,7 +474,7 @@ namespace Jint
 
         private static string GetModuleKey(this Expression expression)
         {
-            return (expression as Identifier)?.Name ?? (expression as Literal)!.StringValue!;
+            return (expression as Identifier)?.Name ?? ((StringLiteral) expression).Value;
         }
 
         internal readonly record struct Record(JsValue Key, ScriptFunction Closure);
@@ -469,7 +482,7 @@ namespace Jint
         /// <summary>
         /// Creates a dummy node that can be used when only location available and node is required.
         /// </summary>
-        internal static SyntaxElement CreateLocationNode(in SourceLocation location)
+        internal static Node CreateLocationNode(in SourceLocation location)
         {
             return new MinimalSyntaxElement(location);
         }
@@ -483,12 +496,15 @@ namespace Jint
             validator.Visit(script);
         }
 
-        private sealed class MinimalSyntaxElement : SyntaxElement
+        private sealed class MinimalSyntaxElement : Node
         {
-            public MinimalSyntaxElement(in SourceLocation location)
+            public MinimalSyntaxElement(in SourceLocation location) : base(NodeType.Unknown)
             {
                 Location = location;
             }
+
+            protected override IEnumerator<Node>? GetChildNodes() => throw new NotImplementedException();
+            protected override object? Accept(AstVisitor visitor) => throw new NotImplementedException();
         }
 
         private sealed class PrivateIdentifierValidator : AstVisitor

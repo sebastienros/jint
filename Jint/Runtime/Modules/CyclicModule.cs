@@ -32,6 +32,7 @@ public abstract class CyclicModule : Module
     private int _pendingAsyncDependencies;
 
     internal JsValue _evalResult;
+    private SourceLocation _abnormalCompletionLocation;
 
     internal CyclicModule(Engine engine, Realm realm, string location, bool async) : base(engine, realm, location)
     {
@@ -39,7 +40,7 @@ public abstract class CyclicModule : Module
 
     internal ModuleStatus Status { get; private set; }
 
-    internal SourceLocation AbnormalCompletionLocation { get; private set; }
+    internal ref readonly SourceLocation AbnormalCompletionLocation => ref _abnormalCompletionLocation;
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-moduledeclarationlinking
@@ -131,7 +132,7 @@ public abstract class CyclicModule : Module
                 m._evalError = result;
             }
 
-            AbnormalCompletionLocation = result.Location;
+            _abnormalCompletionLocation = result.Location;
             capability.Reject.Call(Undefined, new[] { result.Value });
         }
         else

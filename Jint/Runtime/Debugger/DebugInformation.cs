@@ -55,7 +55,7 @@ namespace Jint.Runtime.Debugger
         /// The current source Location.
         /// For return points, this starts and ends at the end of the function body.
         /// </summary>
-        public SourceLocation Location => CurrentCallFrame.Location;
+        public ref readonly SourceLocation Location => ref CurrentCallFrame.Location;
 
         /// <summary>
         /// Not implemented. Will always return 0.

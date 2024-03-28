@@ -52,10 +52,10 @@ public class JavascriptParserTests
         Assert.Single(body);
         Assert.NotNull(binary = body.First().As<ExpressionStatement>().Expression.As<BinaryExpression>());
         Assert.Equal(3d, binary.Right.As<Literal>().Value);
-        Assert.Equal(BinaryOperator.Times, binary.Operator);
+        Assert.Equal(Operator.Multiplication, binary.Operator);
         Assert.Equal(1d, binary.Left.As<BinaryExpression>().Left.As<Literal>().Value);
         Assert.Equal(2d, binary.Left.As<BinaryExpression>().Right.As<Literal>().Value);
-        Assert.Equal(BinaryOperator.Plus, binary.Left.As<BinaryExpression>().Operator);
+        Assert.Equal(Operator.Addition, binary.Left.As<BinaryExpression>().Operator);
     }
 
     [Theory]
@@ -154,7 +154,7 @@ public class JavascriptParserTests
 \
 '
 ";
-        var program = new Parser(new ParserOptions()).ParseScript(Code);
+        var program = new Parser().ParseScript(Code);
         var expr = program.Body.First().As<ExpressionStatement>().Expression;
         Assert.Equal(1, expr.Location.Start.Line);
         Assert.Equal(0, expr.Location.Start.Column);
@@ -165,7 +165,7 @@ public class JavascriptParserTests
     [Fact]
     public void ShouldThrowErrorForInvalidLeftHandOperation()
     {
-        Assert.Throws<JavaScriptException>(() => new Engine().Execute("~ (WE0=1)--- l('1');"));
+        Assert.Throws<SyntaxErrorException>(() => new Engine().Execute("~ (WE0=1)--- l('1');"));
     }
 
 
@@ -176,6 +176,6 @@ public class JavascriptParserTests
     [InlineData("-.-")]
     public void ShouldThrowParseErrorExceptionForInvalidCode(string code)
     {
-        Assert.Throws<ParseErrorException>(() => new Parser().ParseScript(code));
+        Assert.Throws<SyntaxErrorException>(() => new Parser().ParseScript(code));
     }
 }

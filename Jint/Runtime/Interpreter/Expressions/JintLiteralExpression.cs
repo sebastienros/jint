@@ -14,7 +14,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal static JintExpression Build(Literal expression)
         {
-            var value = expression.AssociatedData ??= ConvertToJsValue(expression) ?? _nullMarker;
+            var value = expression.UserData ??= ConvertToJsValue(expression) ?? _nullMarker;
 
             if (value is JsValue constant)
             {
@@ -26,16 +26,15 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal static JsValue? ConvertToJsValue(Literal literal)
         {
-            switch (literal.TokenType)
+            switch (literal.Kind)
             {
                 case TokenKind.BooleanLiteral:
-                    return literal.BooleanValue!.Value ? JsBoolean.True : JsBoolean.False;
+                    return ((BooleanLiteral) literal).Value ? JsBoolean.True : JsBoolean.False;
                 case TokenKind.NullLiteral:
                     return JsValue.Null;
                 case TokenKind.NumericLiteral:
                     {
-                        // unbox only once
-                        var numericValue = (double) literal.Value!;
+                        var numericValue = ((NumericLiteral) literal).Value;
                         var intValue = (int) numericValue;
                         return numericValue == intValue
                                && (intValue != 0 || BitConverter.DoubleToInt64Bits(numericValue) != JsNumber.NegativeZeroBits)
@@ -43,10 +42,10 @@ namespace Jint.Runtime.Interpreter.Expressions
                             : JsNumber.Create(numericValue);
                     }
                 case TokenKind.StringLiteral:
-                    return JsString.Create((string) literal.Value!);
+                    return JsString.Create(((StringLiteral) literal).Value);
                 case TokenKind.BigIntLiteral:
-                    return JsBigInt.Create((BigInteger) literal.Value!);
-                case TokenKind.RegularExpression:
+                    return JsBigInt.Create(((BigIntLiteral) literal).Value);
+                case TokenKind.RegExpLiteral:
                     break;
             }
 
@@ -65,14 +64,13 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JsValue ResolveValue(EvaluationContext context)
         {
             var expression = (Literal) _expression;
-            if (expression.TokenType == TokenKind.RegularExpression)
+            if (expression is RegExpLiteral regExpLiteral)
             {
-                var regExpLiteral = (RegExpLiteral) expression;
                 var regExpParseResult = regExpLiteral.ParseResult;
                 if (regExpParseResult.Success)
                 {
-                    var regex = regExpLiteral.AssociatedData as Regex ?? regExpParseResult.Regex!;
-                    return context.Engine.Realm.Intrinsics.RegExp.Construct(regex, regExpLiteral.Regex.Pattern, regExpLiteral.Regex.Flags, regExpParseResult);
+                    var regex = regExpLiteral.UserData as Regex ?? regExpParseResult.Regex!;
+                    return context.Engine.Realm.Intrinsics.RegExp.Construct(regex, regExpLiteral.RegExp.Pattern, regExpLiteral.RegExp.Flags, regExpParseResult);
                 }
 
                 ExceptionHelper.ThrowSyntaxError(context.Engine.Realm, $"Unsupported regular expression. {regExpParseResult.ConversionError!.Description}");

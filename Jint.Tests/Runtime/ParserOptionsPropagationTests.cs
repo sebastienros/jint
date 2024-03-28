@@ -51,45 +51,44 @@ public class ParserOptionsPropagationTests
     }
 
     [Theory]
-    // NOTE: Can't test eval as Esprima can't parse eval code in non-tolerant mode.
-    //[InlineData(SourceKind.Script, @"'' + eval('!!({g\\u0065t y() {} })')", false, false, null)]
-    //[InlineData(SourceKind.Script, @"'' + eval('!!({g\\u0065t y() {} })')", true, false, null)]
-    //[InlineData(SourceKind.Script, @"({g\u0065t x() {} }) + eval('!!({g\\u0065t y() {} })')", false, true, "[object Object]true")]
-    //[InlineData(SourceKind.Script, @"({g\u0065t x() {} }) + eval('!!({g\\u0065t y() {} })')", true, true, "[object Object]true")]
-    //[InlineData(SourceKind.ModuleViaBuilder, @"export default '' + eval('!!({g\\u0065t y() {} })')", false, false, null)]
-    //[InlineData(SourceKind.ModuleViaBuilder, @"export default '' + eval('!!({g\\u0065t y() {} })')", true, false, null)]
-    //[InlineData(SourceKind.ModuleViaBuilder, @"export default ({g\u0065t x() {} }) + eval('!!({g\\u0065t y() {} })')", false, true, "[object Object]true")]
-    //[InlineData(SourceKind.ModuleViaBuilder, @"export default ({g\u0065t x() {} }) + eval('!!({g\\u0065t y() {} })')", true, true, "[object Object]true")]
-    //[InlineData(SourceKind.ModuleViaFactory, @"export default '' + eval('!!({g\\u0065t y() {} })')", false, false, null)]
-    //[InlineData(SourceKind.ModuleViaFactory, @"export default '' + eval('!!({g\\u0065t y() {} })')", true, false, null)]
-    //[InlineData(SourceKind.ModuleViaFactory, @"export default ({g\u0065t x() {} }) + eval('!!({g\\u0065t y() {} })')", false, true, "[object Object]true")]
-    //[InlineData(SourceKind.ModuleViaFactory, @"export default ({g\u0065t x() {} }) + eval('!!({g\\u0065t y() {} })')", true, true, "[object Object]true")]
+    [InlineData(SourceKind.Script, @"'' + eval('(1, 2,)')", false, false, null)]
+    [InlineData(SourceKind.Script, @"'' + eval('(1, 2,)')", true, false, null)]
+    [InlineData(SourceKind.Script, @"('',) + eval('(1, 2,)')", false, true, "2")]
+    [InlineData(SourceKind.Script, @"('',) + eval('(1, 2,)')", true, true, "2")]
+    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + eval('(1, 2,)')", false, false, null)]
+    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + eval('(1, 2,)')", true, false, null)]
+    [InlineData(SourceKind.ModuleViaBuilder, @"export default ('',) + eval('(1, 2,)')", false, true, "2")]
+    [InlineData(SourceKind.ModuleViaBuilder, @"export default ('',) + eval('(1, 2,)')", true, true, "2")]
+    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + eval('(1, 2,)')", false, false, null)]
+    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + eval('(1, 2,)')", true, false, null)]
+    [InlineData(SourceKind.ModuleViaFactory, @"export default ('',) + eval('(1, 2,)')", false, true, "2")]
+    [InlineData(SourceKind.ModuleViaFactory, @"export default ('',) + eval('(1, 2,)')", true, true, "2")]
 
-    [InlineData(SourceKind.Script, @"'' + new Function('return !!({g\\u0065t y() {} })')()", false, false, null)]
-    [InlineData(SourceKind.Script, @"'' + new Function('return !!({g\\u0065t y() {} })')()", true, false, null)]
-    [InlineData(SourceKind.Script, @"({g\u0065t x() {} }) + new Function('return !!({g\\u0065t y() {} })')()", false, true, "[object Object]true")]
-    [InlineData(SourceKind.Script, @"({g\u0065t x() {} }) + new Function('return !!({g\\u0065t y() {} })')()", true, true, "[object Object]true")]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + new Function('return !!({g\\u0065t y() {} })')()", false, false, null)]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + new Function('return !!({g\\u0065t y() {} })')()", true, false, null)]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default ({g\u0065t x() {} }) + new Function('return !!({g\\u0065t y() {} })')()", false, true, "[object Object]true")]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default ({g\u0065t x() {} }) + new Function('return !!({g\\u0065t y() {} })')()", true, true, "[object Object]true")]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + new Function('return !!({g\\u0065t y() {} })')()", false, false, null)]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + new Function('return !!({g\\u0065t y() {} })')()", true, false, null)]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default ({g\u0065t x() {} }) + new Function('return !!({g\\u0065t y() {} })')()", false, true, "[object Object]true")]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default ({g\u0065t x() {} }) + new Function('return !!({g\\u0065t y() {} })')()", true, true, "[object Object]true")]
+    [InlineData(SourceKind.Script, @"'' + new Function('return (1, 2,)')()", false, false, null)]
+    [InlineData(SourceKind.Script, @"'' + new Function('return (1, 2,)')()", true, false, null)]
+    [InlineData(SourceKind.Script, @"('',) + new Function('return (1, 2,)')()", false, true, "2")]
+    [InlineData(SourceKind.Script, @"('',) + new Function('return (1, 2,)')()", true, true, "2")]
+    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + new Function('return (1, 2,)')()", false, false, null)]
+    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + new Function('return (1, 2,)')()", true, false, null)]
+    [InlineData(SourceKind.ModuleViaBuilder, @"export default ('',) + new Function('return (1, 2,)')()", false, true, "2")]
+    [InlineData(SourceKind.ModuleViaBuilder, @"export default ('',) + new Function('return (1, 2,)')()", true, true, "2")]
+    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + new Function('return (1, 2,)')()", false, false, null)]
+    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + new Function('return (1, 2,)')()", true, false, null)]
+    [InlineData(SourceKind.ModuleViaFactory, @"export default ('',) + new Function('return (1, 2,)')()", false, true, "2")]
+    [InlineData(SourceKind.ModuleViaFactory, @"export default ('',) + new Function('return (1, 2,)')()", true, true, "2")]
 
-    [InlineData(SourceKind.Script, @"'' + new ShadowRealm().evaluate('!!({g\\u0065t y() {} })')", false, false, null)]
-    [InlineData(SourceKind.Script, @"'' + new ShadowRealm().evaluate('!!({g\\u0065t y() {} })')", true, false, null)]
-    [InlineData(SourceKind.Script, @"({g\u0065t x() {} }) + new ShadowRealm().evaluate('!!({g\\u0065t y() {} })')", false, true, "[object Object]true")]
-    [InlineData(SourceKind.Script, @"({g\u0065t x() {} }) + new ShadowRealm().evaluate('!!({g\\u0065t y() {} })')", true, true, "[object Object]true")]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + new ShadowRealm().evaluate('!!({g\\u0065t y() {} })')", false, false, null)]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + new ShadowRealm().evaluate('!!({g\\u0065t y() {} })')", true, false, null)]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default ({g\u0065t x() {} }) + new ShadowRealm().evaluate('!!({g\\u0065t y() {} })')", false, true, "[object Object]true")]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default ({g\u0065t x() {} }) + new ShadowRealm().evaluate('!!({g\\u0065t y() {} })')", true, true, "[object Object]true")]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + new ShadowRealm().evaluate('!!({g\\u0065t y() {} })')", false, false, null)]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + new ShadowRealm().evaluate('!!({g\\u0065t y() {} })')", true, false, null)]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default ({g\u0065t x() {} }) + new ShadowRealm().evaluate('!!({g\\u0065t y() {} })')", false, true, "[object Object]true")]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default ({g\u0065t x() {} }) + new ShadowRealm().evaluate('!!({g\\u0065t y() {} })')", true, true, "[object Object]true")]
+    [InlineData(SourceKind.Script, @"'' + new ShadowRealm().evaluate('(1, 2,)')", false, false, null)]
+    [InlineData(SourceKind.Script, @"'' + new ShadowRealm().evaluate('(1, 2,)')", true, false, null)]
+    [InlineData(SourceKind.Script, @"('',) + new ShadowRealm().evaluate('(1, 2,)')", false, true, "2")]
+    [InlineData(SourceKind.Script, @"('',) + new ShadowRealm().evaluate('(1, 2,)')", true, true, "2")]
+    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + new ShadowRealm().evaluate('(1, 2,)')", false, false, null)]
+    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + new ShadowRealm().evaluate('(1, 2,)')", true, false, null)]
+    [InlineData(SourceKind.ModuleViaBuilder, @"export default ('',) + new ShadowRealm().evaluate('(1, 2,)')", false, true, "2")]
+    [InlineData(SourceKind.ModuleViaBuilder, @"export default ('',) + new ShadowRealm().evaluate('(1, 2,)')", true, true, "2")]
+    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + new ShadowRealm().evaluate('(1, 2,)')", false, false, null)]
+    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + new ShadowRealm().evaluate('(1, 2,)')", true, false, null)]
+    [InlineData(SourceKind.ModuleViaFactory, @"export default ('',) + new ShadowRealm().evaluate('(1, 2,)')", false, true, "2")]
+    [InlineData(SourceKind.ModuleViaFactory, @"export default ('',) + new ShadowRealm().evaluate('(1, 2,)')", true, true, "2")]
     public void DynamicCodeShouldBeParsedWithCallerParserOptions(SourceKind sourceKind, string code, bool prepare, bool tolerant, string? expectedReturnValue)
     {
         Engine engine;
@@ -160,14 +159,14 @@ public class ParserOptionsPropagationTests
 
     [Theory]
     [InlineData(false, false, null)]
-    [InlineData(false, true, "true")]
+    [InlineData(false, true, "2")]
     [InlineData(true, false, null)]
-    [InlineData(true, true, "true")]
+    [InlineData(true, true, "2")]
     public void TransitivelyImportedModuleShouldBeParsedWithOwnParserOptions(bool mainTolerant, bool otherTolerant, string? expectedReturnValue)
     {
         var engine = new Engine();
-        engine.Modules.Add("main", o => o.AddSource("import { x } from 'other'; export default x").WithOptions(_ => ModuleParsingOptions.Default with { Tolerant = mainTolerant }));
-        engine.Modules.Add("other", o => o.AddSource("export const x = '' + new Function('return !!({g\\\\u0065t y() {} })')()").WithOptions(_ => ModuleParsingOptions.Default with { Tolerant = otherTolerant }));
+        engine.Modules.Add("main", o => o.AddSource("import { x } from 'other'; export default x").WithOptions(o => o with { Tolerant = mainTolerant }));
+        engine.Modules.Add("other", o => o.AddSource("export const x = '' + eval('(1, 2,)')").WithOptions(o => o with { Tolerant = otherTolerant }));
 
         var evalAction = () =>
         {
@@ -192,24 +191,24 @@ public class ParserOptionsPropagationTests
         var engine = new Engine();
 
         var parsingOptions = ScriptParsingOptions.Default with { AllowReturnOutsideFunction = true, Tolerant = true };
-        Assert.Equal("true", engine.Evaluate("return '' + new Function('return !!({g\\\\u0065t y() {} })')()", parsingOptions));
+        Assert.Equal("2", engine.Evaluate("return '' + eval('(1, 2,)')", parsingOptions));
 
         var shadowRealm1 = engine.Intrinsics.ShadowRealm.Construct();
         var shadowRealm2 = engine.Intrinsics.ShadowRealm.Construct();
 
-        var ex = Assert.Throws<JavaScriptException>(() => shadowRealm1.Evaluate("'' + new Function('return !!({g\\\\u0065t y() {} })')()", parsingOptions with { Tolerant = false }));
+        var ex = Assert.Throws<JavaScriptException>(() => shadowRealm1.Evaluate("'' + eval('(1, 2,)')", parsingOptions with { Tolerant = false }));
         Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.TypeError));
 
-        Assert.Equal("true", engine.Evaluate("'' + new Function('return !!({g\\\\u0065t y() {} })')()", parsingOptions));
+        Assert.Equal("2", engine.Evaluate("'' + eval('(1, 2,)')", parsingOptions));
 
-        ex = Assert.Throws<JavaScriptException>(() => shadowRealm2.Evaluate("'' + new Function('return !!({g\\\\u0065t y() {} })')()", parsingOptions with { Tolerant = false }));
+        ex = Assert.Throws<JavaScriptException>(() => shadowRealm2.Evaluate("'' + eval('(1, 2,)')", parsingOptions with { Tolerant = false }));
         Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.TypeError));
 
-        Assert.Equal("true", shadowRealm1.Evaluate("'' + new Function('return !!({g\\\\u0065t y() {} })')()", parsingOptions));
+        Assert.Equal("2", shadowRealm1.Evaluate("'' + eval('(1, 2,)')", parsingOptions));
 
-        ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("'' + new Function('return !!({g\\\\u0065t y() {} })')()", parsingOptions with { Tolerant = false }));
+        ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate("'' + eval('(1, 2,)')", parsingOptions with { Tolerant = false }));
         Assert.True(ex.Error.InstanceofOperator(engine.Intrinsics.SyntaxError));
 
-        Assert.Equal("true", shadowRealm2.Evaluate("'' + new Function('return !!({g\\\\u0065t y() {} })')()", parsingOptions));
+        Assert.Equal("2", shadowRealm2.Evaluate("'' + new Function('return (1, 2,)')()", parsingOptions));
     }
 }

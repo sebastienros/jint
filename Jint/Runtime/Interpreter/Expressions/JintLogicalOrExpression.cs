@@ -7,7 +7,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintExpression _left;
         private readonly JintExpression _right;
 
-        public JintLogicalOrExpression(BinaryExpression expression) : base(expression)
+        public JintLogicalOrExpression(LogicalExpression expression) : base(expression)
         {
             _left = Build(expression.Left);
             _right = Build(expression.Right);

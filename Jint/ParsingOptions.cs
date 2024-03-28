@@ -25,11 +25,8 @@ namespace Jint
 
         /// <summary>
         /// Gets or sets whether to parse the source code in tolerant mode.
-        /// Defaults to <see langword="true"/>.
+        /// Defaults to <see langword="false"/>.
         /// </summary>
-        /// <remarks>
-        /// Please note that there is a plan to change the default to <see langword="false"/> in the next major version.
-        /// </remarks>
         bool Tolerant { get; init; }
     }
 
@@ -47,9 +44,6 @@ namespace Jint
         /// Gets or sets whether to allow return statements at the top level.
         /// Defaults to <see langword="true"/>.
         /// </summary>
-        /// <remarks>
-        /// Please note that there is a plan to change the default to <see langword="false"/> in the next major version.
-        /// </remarks>
         public bool AllowReturnOutsideFunction { get; init; } = _defaultParserOptions.AllowReturnOutsideFunction;
 
         /// <inheritdoc/>

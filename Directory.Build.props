@@ -27,17 +27,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Using Include="Esprima" />
-    <Using Include="Esprima.Ast" />
-    <Using Include="Esprima.Utils" />
-
-    <Using Include="Esprima.Ast.BindingPattern" Alias="DestructuringPattern" />
-    <Using Include="Esprima.Ast.Module" Alias="AstModule" />
-    <Using Include="Esprima.Ast.Nodes" Alias="NodeType" />
-    <Using Include="Esprima.JavaScriptParser" Alias="Parser" />
-    <Using Include="Esprima.Location" Alias="SourceLocation" />
-    <Using Include="Esprima.TokenType" Alias="TokenKind" />
-    <Using Include="Esprima.ParserException" Alias="ParseErrorException" />
+    <Using Include="Acornima" />
+    <Using Include="Acornima.Ast" />
+    <Using Include="Acornima.Ast.Module" Alias="AstModule" />
   </ItemGroup>
 
 </Project>

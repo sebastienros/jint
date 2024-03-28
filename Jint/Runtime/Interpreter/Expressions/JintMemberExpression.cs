@@ -45,7 +45,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 _objectExpression = Build(_memberExpression.Object);
 
-                _determinedProperty ??= _expression.AssociatedData as JsValue ?? InitializeDeterminedProperty(_memberExpression, cache: false);
+                _determinedProperty ??= _expression.UserData as JsValue ?? InitializeDeterminedProperty(_memberExpression, cache: false);
 
                 if (ReferenceEquals(_determinedProperty, _nullMarker))
                 {

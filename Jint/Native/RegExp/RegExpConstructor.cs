@@ -104,7 +104,9 @@ namespace Jint.Native.RegExp
             var parserOptions = _engine.GetActiveParserOptions();
             try
             {
-                var regExpParseResult = Scanner.AdaptRegExp(p, f, compiled: false, parserOptions.RegexTimeout);
+                var regExpParseResult = Tokenizer.AdaptRegExp(p, f, compiled: false, parserOptions.RegexTimeout,
+                    ecmaVersion: parserOptions.EcmaVersion,
+                    experimentalESFeatures: parserOptions.ExperimentalESFeatures);
 
                 if (!regExpParseResult.Success)
                 {

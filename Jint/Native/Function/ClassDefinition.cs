@@ -21,7 +21,7 @@ internal sealed class ClassDefinition
 
     static ClassDefinition()
     {
-        var parser = new Parser();
+        var parser = new Parser(Engine.BaseParserOptions);
 
         // generate missing constructor AST only once
         static MethodDefinition CreateConstructorMethodDefinition(Parser parser, string source)
@@ -32,7 +32,7 @@ internal sealed class ClassDefinition
         }
 
         _superConstructor = CreateConstructorMethodDefinition(parser, "class temp extends X { constructor(...args) { super(...args); } }");
-        _defaultSuperCall = (CallExpression) ((ExpressionStatement) _superConstructor.Value.Body.Body[0]).Expression;
+        _defaultSuperCall = (CallExpression) ((NonSpecialExpressionStatement) _superConstructor.Value.Body.Body[0]).Expression;
         _emptyConstructor = CreateConstructorMethodDefinition(parser, "class temp { constructor() {} }");
     }
 
@@ -155,14 +155,14 @@ internal sealed class ClassDefinition
             var instanceFields = new List<ClassFieldDefinition>();
             var staticElements = new List<object>();
 
-            foreach (var e in elements)
+            foreach (IClassElement e in elements)
             {
                 if (e is MethodDefinition { Kind: PropertyKind.Constructor })
                 {
                     continue;
                 }
 
-                var isStatic = e is MethodDefinition { Static: true } or AccessorProperty { Static: true } or PropertyDefinition { Static: true } or StaticBlock;
+                var isStatic = e.Static;
 
                 var target = !isStatic ? proto : F;
                 var element = ClassElementEvaluation(engine, target, e);
@@ -239,13 +239,14 @@ internal sealed class ClassDefinition
     /// <summary>
     /// https://tc39.es/ecma262/#sec-static-semantics-classelementevaluation
     /// </summary>
-    private static object? ClassElementEvaluation(Engine engine, ObjectInstance target, ClassElement e)
+    private static object? ClassElementEvaluation(Engine engine, ObjectInstance target, IClassElement e)
     {
         return e switch
         {
             PropertyDefinition p => ClassFieldDefinitionEvaluation(engine, target, p),
             MethodDefinition m => MethodDefinitionEvaluation(engine, target, m, enumerable: false),
             StaticBlock s => ClassStaticBlockDefinitionEvaluation(engine, target, s),
+            // AccessorProperty ap => throw new NotImplementedException(), // not implemented yet
             _ => null
         };
     }
@@ -277,12 +278,12 @@ internal sealed class ClassDefinition
     private sealed class ClassFieldFunction : Node, IFunction
     {
         private readonly NodeList<Node> _nodeList;
-        private readonly BlockStatement _statement;
+        private readonly FunctionBody _statement;
 
         public ClassFieldFunction(Expression expression) : base(NodeType.ExpressionStatement)
         {
             var nodeList = NodeList.Create<Statement>(new [] { new ReturnStatement(expression) });
-            _statement = new BlockStatement(nodeList);
+            _statement = new FunctionBody(nodeList, strict: true);
         }
 
         protected override object Accept(AstVisitor visitor) => throw new NotImplementedException();
@@ -291,10 +292,9 @@ internal sealed class ClassDefinition
 
         public ref readonly NodeList<Node> Params => ref _nodeList;
 
-        public StatementListItem Body => _statement;
+        public StatementOrExpression Body => _statement;
         public bool Generator => false;
         public bool Expression => false;
-        public bool Strict => true;
         public bool Async => false;
     }
 
@@ -319,12 +319,12 @@ internal sealed class ClassDefinition
 
     private sealed class ClassStaticBlockFunction : Node, IFunction
     {
-        private readonly BlockStatement _statement;
+        private readonly FunctionBody _statement;
         private readonly NodeList<Node> _params;
 
         public ClassStaticBlockFunction(StaticBlock staticBlock) : base(NodeType.StaticBlock)
         {
-            _statement = new BlockStatement(staticBlock.Body);
+            _statement = new FunctionBody(staticBlock.Body, strict: true);
             _params = new NodeList<Node>();
         }
 
@@ -332,10 +332,9 @@ internal sealed class ClassDefinition
 
         public Identifier? Id => null;
         public ref readonly NodeList<Node> Params => ref _params;
-        public StatementListItem Body => _statement;
+        public StatementOrExpression Body => _statement;
         public bool Generator => false;
         public bool Expression => false;
-        public bool Strict => false;
         public bool Async => false;
     }
 

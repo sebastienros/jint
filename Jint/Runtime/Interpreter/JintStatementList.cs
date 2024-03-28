@@ -19,7 +19,7 @@ namespace Jint.Runtime.Interpreter
         private readonly bool _generator;
 
         public JintStatementList(IFunction function)
-            : this((BlockStatement) function.Body)
+            : this((FunctionBody) function.Body)
         {
             _generator = function.Generator;
         }
@@ -155,13 +155,13 @@ namespace Jint.Runtime.Interpreter
             return CreateThrowCompletion(error.ErrorConstructor, error.Message, engine._lastSyntaxElement ?? s!._statement);
         }
 
-        private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, string? message, SyntaxElement s)
+        private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, string? message, Node s)
         {
             var error = errorConstructor.Construct(message);
             return new Completion(CompletionType.Throw, error, s);
         }
 
-        private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, Exception e, SyntaxElement s)
+        private static Completion CreateThrowCompletion(ErrorConstructor errorConstructor, Exception e, Node s)
         {
             var error = errorConstructor.Construct(e.Message);
             return new Completion(CompletionType.Throw, error, s);
@@ -169,7 +169,7 @@ namespace Jint.Runtime.Interpreter
 
         private static Completion CreateThrowCompletion(JintStatement? s, JavaScriptException v)
         {
-            SyntaxElement source = s!._statement;
+            Node source = s!._statement;
             if (v.Location != default)
             {
                 source = AstExtensions.CreateLocationNode(v.Location);

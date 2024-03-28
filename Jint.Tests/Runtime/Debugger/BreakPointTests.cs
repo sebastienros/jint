@@ -157,7 +157,7 @@ test(z);";
             bool didBreak = false;
             engine.Debugger.Break += (sender, info) =>
             {
-                Assert.Equal("script2", info.Location.Source);
+                Assert.Equal("script2", info.Location.SourceFile);
                 Assert.Equal(3, info.Location.Start.Line);
                 Assert.Equal(0, info.Location.Start.Column);
                 didBreak = true;

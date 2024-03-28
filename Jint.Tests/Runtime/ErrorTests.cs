@@ -72,7 +72,7 @@ var b = function(v) {
             Assert.Equal("Cannot read property 'yyy' of undefined", e.Message);
             Assert.Equal(3, e.Location.Start.Line);
             Assert.Equal(15, e.Location.Start.Column);
-            Assert.Equal("custom.js", e.Location.Source);
+            Assert.Equal("custom.js", e.Location.SourceFile);
 
             var stack = e.JavaScriptStackTrace;
             EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:3:16
@@ -99,7 +99,7 @@ var b = function(v) {
             Assert.Equal("Error thrown from script", e.Message);
             Assert.Equal(3, e.Location.Start.Line);
             Assert.Equal(8, e.Location.Start.Column);
-            Assert.Equal("custom.js", e.Location.Source);
+            Assert.Equal("custom.js", e.Location.SourceFile);
 
             var stack = e.JavaScriptStackTrace;
             EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:3:9

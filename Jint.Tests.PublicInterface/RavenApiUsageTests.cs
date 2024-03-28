@@ -18,16 +18,15 @@ public class RavenApiUsageTests
 
         var properties = new List<Node>
         {
-            new Property(PropertyKind.Init, new Identifier("field"), false,
-                new StaticMemberExpression(new Identifier("self"), new Identifier("field"), optional: false), false, false)
+            new ObjectProperty(PropertyKind.Init, new Identifier("field"),
+                new MemberExpression(new Identifier("self"), new Identifier("field"), computed: false, optional: false), false, false, false)
         };
 
         var functionExp = new FunctionExpression(
             new Identifier("functionId"),
             NodeList.Create<Node>(new List<Expression> { new Identifier("self") }),
-            new BlockStatement(NodeList.Create(new List<Statement> { new ReturnStatement(new ObjectExpression(NodeList.Create(properties))) })),
+            new FunctionBody(NodeList.Create(new List<Statement> { new ReturnStatement(new ObjectExpression(NodeList.Create(properties))) }), strict: false),
             generator: false,
-            strict: false,
             async: false);
 
         var functionObject = new ScriptFunction(

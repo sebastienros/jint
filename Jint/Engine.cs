@@ -29,8 +29,8 @@ namespace Jint
     {
         private static readonly Options _defaultEngineOptions = new();
 
-        private readonly ParserOptions _defaultParserOptions;
         private readonly Parser _defaultParser;
+        private ParserOptions? _defaultModuleParserOptions; // cache default ParserOptions for ModuleBuilder instances
 
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
@@ -144,8 +144,8 @@ namespace Jint
             CallStack = new JintCallStack(Options.Constraints.MaxRecursionDepth >= 0);
             _stackGuard = new StackGuard(this);
 
-            _defaultParserOptions = ScriptParsingOptions.Default.GetParserOptions(Options);
-            _defaultParser = new Parser(_defaultParserOptions);
+            var defaultParserOptions = ScriptParsingOptions.Default.GetParserOptions(Options);
+            _defaultParser = new Parser(defaultParserOptions);
         }
 
         private void Reset()
@@ -164,7 +164,7 @@ namespace Jint
         // having a proper execution context established
         internal Realm? _realmInConstruction;
 
-        internal SyntaxElement? _lastSyntaxElement;
+        internal Node? _lastSyntaxElement;
 
         internal Realm Realm => _realmInConstruction ?? ExecutionContext.Realm;
 
@@ -191,27 +191,23 @@ namespace Jint
 
         public DebugHandler Debugger => _debugger ??= new DebugHandler(this, Options.Debugger.InitialStepMode);
 
-        // TODO: needed
+        internal ParserOptions DefaultModuleParserOptions => _defaultModuleParserOptions ??= ModuleParsingOptions.Default.GetParserOptions(Options);
+
         internal ParserOptions GetActiveParserOptions()
         {
-            return _executionContexts?.GetActiveParserOptions() ?? _defaultParserOptions;
+            return _executionContexts?.GetActiveParserOptions() ?? _defaultParser.Options;
         }
 
-        internal Parser GetParserFor(ScriptParsingOptions parsingOptions, out ParserOptions parserOptions)
+        internal Parser GetParserFor(ScriptParsingOptions parsingOptions)
         {
-            if (ReferenceEquals(parsingOptions, ScriptParsingOptions.Default))
-            {
-                parserOptions = _defaultParserOptions;
-                return _defaultParser;
-            }
-
-            parserOptions = parsingOptions.GetParserOptions(Options);
-            return new Parser(parserOptions);
+            return ReferenceEquals(parsingOptions, ScriptParsingOptions.Default)
+                ? _defaultParser
+                : new Parser(parsingOptions.GetParserOptions(Options));
         }
 
         internal Parser GetParserFor(ParserOptions parserOptions)
         {
-            return ReferenceEquals(parserOptions, _defaultParserOptions) ? _defaultParser : new Parser(parserOptions);
+            return ReferenceEquals(parserOptions, _defaultParser.Options) ? _defaultParser : new Parser(parserOptions);
         }
 
         internal void EnterExecutionContext(
@@ -345,7 +341,7 @@ namespace Jint
         public JsValue Evaluate(string code, string? source = null)
         {
             var script = _defaultParser.ParseScript(code, source ?? "<anonymous>", _isStrict);
-            return Evaluate(new Prepared<Script>(script, _defaultParserOptions));
+            return Evaluate(new Prepared<Script>(script, _defaultParser.Options));
         }
 
         /// <summary>
@@ -359,9 +355,9 @@ namespace Jint
         /// </summary>
         public JsValue Evaluate(string code, string source, ScriptParsingOptions parsingOptions)
         {
-            var parser = GetParserFor(parsingOptions, out var parserOptions);
+            var parser = GetParserFor(parsingOptions);
             var script = parser.ParseScript(code, source, _isStrict);
-            return Evaluate(new Prepared<Script>(script, parserOptions));
+            return Evaluate(new Prepared<Script>(script, parser.Options));
         }
 
         /// <summary>
@@ -376,7 +372,7 @@ namespace Jint
         public Engine Execute(string code, string? source = null)
         {
             var script = _defaultParser.ParseScript(code, source ?? "<anonymous>", _isStrict);
-            return Execute(new Prepared<Script>(script, _defaultParserOptions));
+            return Execute(new Prepared<Script>(script, _defaultParser.Options));
         }
 
         /// <summary>
@@ -390,9 +386,9 @@ namespace Jint
         /// </summary>
         public Engine Execute(string code, string source, ScriptParsingOptions parsingOptions)
         {
-            var parser = GetParserFor(parsingOptions, out var parserOptions);
+            var parser = GetParserFor(parsingOptions);
             var script = parser.ParseScript(code, source, _isStrict);
-            return Execute(new Prepared<Script>(script, parserOptions));
+            return Execute(new Prepared<Script>(script, parser.Options));
         }
 
         /// <summary>
@@ -408,7 +404,7 @@ namespace Jint
             var script = preparedScript.Program;
             var parserOptions = preparedScript.ParserOptions;
             var strict = _isStrict || script.Strict;
-            ExecuteWithConstraints(strict, () => ScriptEvaluation(new ScriptRecord(Realm, script, script.Location.Source), parserOptions));
+            ExecuteWithConstraints(strict, () => ScriptEvaluation(new ScriptRecord(Realm, script, script.Location.SourceFile), parserOptions));
 
             return this;
         }
@@ -536,7 +532,7 @@ namespace Jint
             }
         }
 
-        internal void RunBeforeExecuteStatementChecks(StatementListItem? statement)
+        internal void RunBeforeExecuteStatementChecks(StatementOrExpression? statement)
         {
             // Avoid allocating the enumerator because we run this loop very often.
             foreach (var constraint in _constraints)
@@ -878,7 +874,7 @@ namespace Jint
         /// <summary>
         /// Gets the last evaluated <see cref="Node"/>.
         /// </summary>
-        internal SyntaxElement GetLastSyntaxElement()
+        internal Node GetLastSyntaxElement()
         {
             return _lastSyntaxElement!;
         }

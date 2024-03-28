@@ -89,7 +89,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         protected internal static JintExpression Build(Expression expression)
         {
-            if (expression.AssociatedData is JintExpression preparedExpression)
+            if (expression.UserData is JintExpression preparedExpression)
             {
                 return preparedExpression;
             }
@@ -99,18 +99,18 @@ namespace Jint.Runtime.Interpreter.Expressions
                 NodeType.AssignmentExpression => JintAssignmentExpression.Build((AssignmentExpression) expression),
                 NodeType.ArrayExpression => JintArrayExpression.Build((ArrayExpression) expression),
                 NodeType.ArrowFunctionExpression => new JintArrowFunctionExpression((ArrowFunctionExpression) expression),
-                NodeType.BinaryExpression => JintBinaryExpression.Build((BinaryExpression) expression),
+                NodeType.BinaryExpression => JintBinaryExpression.Build((NonLogicalBinaryExpression) expression),
                 NodeType.CallExpression => new JintCallExpression((CallExpression) expression),
                 NodeType.ConditionalExpression => new JintConditionalExpression((ConditionalExpression) expression),
                 NodeType.FunctionExpression => new JintFunctionExpression((FunctionExpression) expression),
                 NodeType.Identifier => new JintIdentifierExpression((Identifier) expression),
                 NodeType.PrivateIdentifier => new JintPrivateIdentifierExpression((PrivateIdentifier) expression),
                 NodeType.Literal => JintLiteralExpression.Build((Literal) expression),
-                NodeType.LogicalExpression => ((BinaryExpression) expression).Operator switch
+                NodeType.LogicalExpression => ((LogicalExpression) expression).Operator switch
                 {
-                    BinaryOperator.LogicalAnd => new JintLogicalAndExpression((BinaryExpression) expression),
-                    BinaryOperator.LogicalOr => new JintLogicalOrExpression((BinaryExpression) expression),
-                    BinaryOperator.NullishCoalescing => new NullishCoalescingExpression((BinaryExpression) expression),
+                    Operator.LogicalAnd => new JintLogicalAndExpression((LogicalExpression) expression),
+                    Operator.LogicalOr => new JintLogicalOrExpression((LogicalExpression) expression),
+                    Operator.NullishCoalescing => new NullishCoalescingExpression((LogicalExpression) expression),
                     _ => null
                 },
                 NodeType.MemberExpression => new JintMemberExpression((MemberExpression) expression),
@@ -119,7 +119,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 NodeType.SequenceExpression => new JintSequenceExpression((SequenceExpression) expression),
                 NodeType.ThisExpression => new JintThisExpression((ThisExpression) expression),
                 NodeType.UpdateExpression => new JintUpdateExpression((UpdateExpression) expression),
-                NodeType.UnaryExpression => JintUnaryExpression.Build((UnaryExpression) expression),
+                NodeType.UnaryExpression => JintUnaryExpression.Build((NonUpdateUnaryExpression) expression),
                 NodeType.SpreadElement => new JintSpreadExpression((SpreadElement) expression),
                 NodeType.TemplateLiteral => new JintTemplateLiteralExpression((TemplateLiteral) expression),
                 NodeType.TaggedTemplateExpression => new JintTaggedTemplateExpression((TaggedTemplateExpression) expression),
