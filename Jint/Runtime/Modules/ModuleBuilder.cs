@@ -130,13 +130,13 @@ public sealed class ModuleBuilder
             return new global::Esprima.Ast.Module(NodeList.Create(Array.Empty<Statement>()));
         }
 
-        var javaScriptParser = new JavaScriptParser(_options);
+        var parser = new Parser(_options);
         try
         {
             var source = _sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw);
-            return javaScriptParser.ParseModule(source, _specifier);
+            return parser.ParseModule(source, _specifier);
         }
-        catch (ParserException ex)
+        catch (ParseErrorException ex)
         {
             var location = SourceLocation.From(Position.From(ex.LineNumber, ex.Column), Position.From(ex.LineNumber, ex.Column), _specifier);
             ExceptionHelper.ThrowSyntaxError(_engine.Realm, $"Error while loading module: error in module '{_specifier}': {ex.Error}", location);

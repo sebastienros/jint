@@ -30,7 +30,7 @@ namespace Jint
         private static readonly Options _defaultEngineOptions = new();
 
         private readonly ParserOptions _defaultParserOptions;
-        private readonly JavaScriptParser _defaultParser;
+        private readonly Parser _defaultParser;
 
         private readonly ExecutionContextStack _executionContexts;
         private JsValue _completionValue = JsValue.Undefined;
@@ -150,7 +150,7 @@ namespace Jint
                 RegexTimeout = Options.Constraints.RegexTimeout
             };
 
-            _defaultParser = new JavaScriptParser(_defaultParserOptions);
+            _defaultParser = new Parser(_defaultParserOptions);
         }
 
         private void Reset()
@@ -349,7 +349,7 @@ namespace Jint
         {
             var parser = ReferenceEquals(_defaultParserOptions, parserOptions)
                 ? _defaultParser
-                : new JavaScriptParser(parserOptions);
+                : new Parser(parserOptions);
 
             var script = parser.ParseScript(code, source, _isStrict);
 
@@ -381,7 +381,7 @@ namespace Jint
         {
             var parser = ReferenceEquals(_defaultParserOptions, parserOptions)
                 ? _defaultParser
-                : new JavaScriptParser(parserOptions);
+                : new Parser(parserOptions);
 
             var script = parser.ParseScript(code, source, _isStrict);
 

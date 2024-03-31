@@ -38,7 +38,7 @@ public abstract partial class Test262Test
                 }
 
                 var options = new ParserOptions { RegExpParseMode = RegExpParseMode.AdaptToInterpreted, Tolerant = false };
-                var parser = new JavaScriptParser(options);
+                var parser = new Parser(options);
                 var script = parser.ParseScript(args.At(0).AsString());
 
                 return engine.Evaluate(script);
@@ -93,7 +93,7 @@ public abstract partial class Test262Test
         }
         else
         {
-            engine.Execute(new JavaScriptParser().ParseScript(file.Program, source: file.FileName));
+            engine.Execute(new Parser().ParseScript(file.Program, source: file.FileName));
         }
     }
 

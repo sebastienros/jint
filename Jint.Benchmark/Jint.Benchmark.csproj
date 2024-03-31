@@ -34,5 +34,6 @@
   <ItemGroup>
     <Using Include="Esprima" />
     <Using Include="Esprima.Ast" />
+    <Using Include="Esprima.JavaScriptParser" Alias="Parser" />
   </ItemGroup>
 </Project>

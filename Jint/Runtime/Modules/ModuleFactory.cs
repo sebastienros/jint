@@ -17,7 +17,7 @@ public static class ModuleFactory
     /// <see cref="Uri.LocalPath"/> if <see cref="ResolvedSpecifier.Uri"/> is not null. If
     /// <see cref="ResolvedSpecifier.Uri"/> is null, the modules location source will be null as well.
     /// </remarks>
-    /// <exception cref="ParserException">Is thrown if the provided <paramref name="code"/> can not be parsed.</exception>
+    /// <exception cref="ParseErrorException">Is thrown if the provided <paramref name="code"/> can not be parsed.</exception>
     /// <exception cref="JavaScriptException">Is thrown if an error occured when parsing <paramref name="code"/>.</exception>
     public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code)
     {
@@ -25,9 +25,9 @@ public static class ModuleFactory
         Esprima.Ast.Module module;
         try
         {
-            module = new JavaScriptParser().ParseModule(code, source);
+            module = new Parser().ParseModule(code, source);
         }
-        catch (ParserException ex)
+        catch (ParseErrorException ex)
         {
             ExceptionHelper.ThrowSyntaxError(engine.Realm, $"Error while loading module: error in module '{source}': {ex.Error}");
             module = null;

@@ -38,7 +38,7 @@ public class EngineComparisonBenchmark
     [GlobalSetup]
     public void Setup()
     {
-        var javaScriptParser = new JavaScriptParser();
+        var parser = new Parser();
         foreach (var fileName in _files.Keys.ToList())
         {
             var script = File.ReadAllText($"Scripts/{fileName}.js");
@@ -47,7 +47,7 @@ public class EngineComparisonBenchmark
                 script = _dromaeoHelpers + Environment.NewLine + Environment.NewLine + script;
             }
             _files[fileName] = script;
-            _parsedScripts[fileName] = javaScriptParser.ParseScript(script, strict: true);
+            _parsedScripts[fileName] = parser.ParseScript(script, strict: true);
         }
     }
 

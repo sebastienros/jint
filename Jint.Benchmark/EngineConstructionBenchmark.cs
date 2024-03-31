@@ -12,7 +12,7 @@ public class EngineConstructionBenchmark
     [GlobalSetup]
     public void GlobalSetup()
     {
-        var parser = new JavaScriptParser();
+        var parser = new Parser();
         _program = parser.ParseScript("([].length + ''.length)");
         _simple = parser.ParseScript("1");
         new Engine().Evaluate(_program);

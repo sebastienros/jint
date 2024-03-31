@@ -11,7 +11,7 @@ namespace Jint.Runtime.Interpreter.Statements
         private sealed class ResolvedDeclaration
         {
             internal JintExpression? Left;
-            internal BindingPattern? LeftPattern;
+            internal DestructuringPattern? LeftPattern;
             internal JintExpression? Init;
             internal JintIdentifierExpression? LeftIdentifierExpression;
             internal bool EvalOrArguments;
@@ -30,9 +30,9 @@ namespace Jint.Runtime.Interpreter.Statements
 
                 JintExpression? left = null;
                 JintExpression? init = null;
-                BindingPattern? bindingPattern = null;
+                DestructuringPattern? bindingPattern = null;
 
-                if (declaration.Id is BindingPattern bp)
+                if (declaration.Id is DestructuringPattern bp)
                 {
                     bindingPattern = bp;
                 }

@@ -11,7 +11,7 @@ public sealed class EvalFunction : Function
     private static readonly JsString _functionName = new("eval");
 
     private static readonly ParserOptions _parserOptions = ParserOptions.Default with { Tolerant = true };
-    private readonly JavaScriptParser _parser = new(_parserOptions);
+    private readonly Parser _parser = new(_parserOptions);
 
     internal EvalFunction(
         Engine engine,
@@ -79,7 +79,7 @@ public sealed class EvalFunction : Function
         {
             script = _parser.ParseScript(x.ToString(), strict: strictCaller);
         }
-        catch (ParserException e)
+        catch (ParseErrorException e)
         {
             if (string.Equals(e.Description, Messages.InvalidLHSInAssignment, StringComparison.Ordinal))
             {

@@ -299,7 +299,7 @@ namespace Jint.Runtime.Environments
             {
                 SetItemSafely(restIdentifier.Name, array, initiallyEmpty);
             }
-            else if (restElement.Argument is BindingPattern bindingPattern)
+            else if (restElement.Argument is DestructuringPattern bindingPattern)
             {
                 SetFunctionParameter(context, bindingPattern, new [] { array }, 0, initiallyEmpty);
             }

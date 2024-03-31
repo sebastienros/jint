@@ -83,7 +83,7 @@ public class ShadowRealmTests
         var shadowRealm2 = engine.Intrinsics.ShadowRealm.Construct();
         shadowRealm2.SetValue("message", "realm 2");
 
-        var parser = new Esprima.JavaScriptParser();
+        var parser = new Parser();
         var script = parser.ParseScript("(function hello() {return \"hello \" + message})();");
 
         // Act & Assert

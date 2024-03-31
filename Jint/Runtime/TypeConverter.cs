@@ -587,7 +587,7 @@ namespace Jint.Runtime
         {
             if (!TryStringToBigInt(str, out var result))
             {
-                throw new ParserException(" Cannot convert " + str + " to a BigInt");
+                throw new ParseErrorException(" Cannot convert " + str + " to a BigInt");
             }
 
             return result;

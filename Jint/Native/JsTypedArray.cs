@@ -319,7 +319,7 @@ namespace Jint.Native
                         DoIntegerIndexedElementSet((int) index, numValue);
                     }
                 }
-                catch (ParserException ex)
+                catch (ParseErrorException ex)
                 {
                     ExceptionHelper.ThrowSyntaxError(_engine.Realm, ex.Message);
                 }

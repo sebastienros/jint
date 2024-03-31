@@ -72,7 +72,7 @@ namespace Jint.Tests.Runtime.Debugger
             {
                 var exception = Assert.Throws<DebugEvaluationException>(() =>
                     engine.Debugger.Evaluate("this is a syntax error"));
-                Assert.IsType<ParserException>(exception.InnerException);
+                Assert.IsType<ParseErrorException>(exception.InnerException);
             });
         }
 

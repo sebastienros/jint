@@ -19,7 +19,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         private ProbablyBlockStatement _body;
         private JintExpression? _expr;
-        private BindingPattern? _assignmentPattern;
+        private DestructuringPattern? _assignmentPattern;
         private JintExpression _right = null!;
         private List<Key>? _tdzNames;
         private bool _destructuring;
@@ -59,7 +59,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     id.GetBoundNames(_tdzNames);
                 }
 
-                if (id is BindingPattern bindingPattern)
+                if (id is DestructuringPattern bindingPattern)
                 {
                     _destructuring = true;
                     _assignmentPattern = bindingPattern;
@@ -70,7 +70,7 @@ namespace Jint.Runtime.Interpreter.Statements
                     _expr = new JintIdentifierExpression(identifier);
                 }
             }
-            else if (_leftNode is BindingPattern bindingPattern)
+            else if (_leftNode is DestructuringPattern bindingPattern)
             {
                 _destructuring = true;
                 _assignmentPattern = bindingPattern;

@@ -25,7 +25,7 @@ public partial class Engine
             AllowReturnOutsideFunction = true, OnNodeCreated = astAnalyzer.NodeVisitor
         };
 
-        return new JavaScriptParser(options).ParseScript(script, source, strict);
+        return new Parser(options).ParseScript(script, source, strict);
     }
 
     /// <summary>
@@ -42,7 +42,7 @@ public partial class Engine
             OnNodeCreated = astAnalyzer.NodeVisitor
         };
 
-        return new JavaScriptParser(options).ParseModule(script, source);
+        return new Parser(options).ParseModule(script, source);
     }
 
     [StructLayout(LayoutKind.Auto)]
@@ -86,7 +86,7 @@ public partial class Engine
                     var constantValue = JintLiteralExpression.ConvertToJsValue(literal);
                     node.AssociatedData = constantValue is not null ? new JintConstantExpression(literal, constantValue) : null;
 
-                    if (node.AssociatedData is null && literal.TokenType == TokenType.RegularExpression && _options.CompileRegex)
+                    if (node.AssociatedData is null && literal.TokenType == TokenKind.RegularExpression && _options.CompileRegex)
                     {
                         var regExpLiteral = (RegExpLiteral) literal;
                         var regExpParseResult = regExpLiteral.ParseResult;
