@@ -36,7 +36,7 @@ public readonly struct Completion
 
     public readonly CompletionType Type;
     public readonly JsValue Value;
-    public ref readonly Location Location => ref _source.Location;
+    public ref readonly SourceLocation Location => ref _source.Location;
 
     public static ref readonly Completion Empty() => ref _emptyCompletion;
 

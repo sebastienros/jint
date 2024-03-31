@@ -172,7 +172,7 @@ public partial class Engine
             {
                 var location = module is CyclicModule cyclicModuleRecord
                     ? cyclicModuleRecord.AbnormalCompletionLocation
-                    : Location.From(new Position(), new Position());
+                    : SourceLocation.From(new Position(), new Position());
 
                 var node = EsprimaExtensions.CreateLocationNode(location);
                 ExceptionHelper.ThrowJavaScriptException(_engine, promise.Value, node.Location);

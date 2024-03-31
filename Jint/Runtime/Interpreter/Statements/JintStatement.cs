@@ -44,7 +44,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected abstract Completion ExecuteInternal(EvaluationContext context);
 
-        public ref readonly Location Location => ref _statement.Location;
+        public ref readonly SourceLocation Location => ref _statement.Location;
 
         /// <summary>
         /// Opportunity to build one-time structures and caching based on lexical context.

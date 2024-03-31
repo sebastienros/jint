@@ -473,7 +473,7 @@ namespace Jint
         /// <summary>
         /// Creates a dummy node that can be used when only location available and node is required.
         /// </summary>
-        internal static SyntaxElement CreateLocationNode(in Location location)
+        internal static SyntaxElement CreateLocationNode(in SourceLocation location)
         {
             return new MinimalSyntaxElement(location);
         }
@@ -489,7 +489,7 @@ namespace Jint
 
         private sealed class MinimalSyntaxElement : SyntaxElement
         {
-            public MinimalSyntaxElement(in Location location)
+            public MinimalSyntaxElement(in SourceLocation location)
             {
                 Location = location;
             }

@@ -13,7 +13,7 @@ namespace Jint.Runtime.Debugger
         internal CallFrame(
             CallStackElement? element,
             in CallStackExecutionContext context,
-            Location location,
+            in SourceLocation location,
             JsValue? returnValue)
         {
             _element = element;
@@ -36,12 +36,12 @@ namespace Jint.Runtime.Debugger
         /// Source location of function of this call frame.
         /// </summary>
         /// <remarks>For top level (global) call frames, as well as functions not defined in script, this will be null.</remarks>
-        public Location? FunctionLocation => (_element?.Function._functionDefinition?.Function as Node)?.Location;
+        public SourceLocation? FunctionLocation => (_element?.Function._functionDefinition?.Function as Node)?.Location;
 
         /// <summary>
         /// Currently executing source location in this call frame.
         /// </summary>
-        public Location Location { get; }
+        public SourceLocation Location { get; }
 
         /// <summary>
         /// The scope chain of this call frame.

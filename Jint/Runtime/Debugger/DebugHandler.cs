@@ -66,7 +66,7 @@ namespace Jint.Runtime.Debugger
         /// The location is available as long as DebugMode is enabled - i.e. even when not stepping
         /// or hitting a breakpoint.
         /// </remarks>
-        public Location? CurrentLocation { get; private set; }
+        public SourceLocation? CurrentLocation { get; private set; }
 
         /// <summary>
         /// Collection of active breakpoints for the engine.
@@ -168,14 +168,14 @@ namespace Jint.Runtime.Debugger
 
             var bodyLocation = functionBody.Location;
             var functionBodyEnd = bodyLocation.End;
-            var location = Location.From(functionBodyEnd, functionBodyEnd, bodyLocation.Source);
+            var location = SourceLocation.From(functionBodyEnd, functionBodyEnd, bodyLocation.Source);
 
             CheckBreakPointAndPause(node: null, location, returnValue);
         }
 
         private void CheckBreakPointAndPause(
             Node? node,
-            Location location,
+            in SourceLocation location,
             JsValue? returnValue = null)
         {
             CurrentLocation = location;
@@ -214,7 +214,7 @@ namespace Jint.Runtime.Debugger
         private void Pause(
             PauseType type,
             Node? node,
-            Location location,
+            in SourceLocation location,
             JsValue? returnValue = null,
             BreakPoint? breakPoint = null)
         {

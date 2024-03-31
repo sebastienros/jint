@@ -34,7 +34,7 @@ public static class ModuleFactory
         }
         catch (Exception)
         {
-            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", (Location) default);
+            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", (SourceLocation) default);
             module = null;
         }
 
@@ -74,7 +74,7 @@ public static class ModuleFactory
         }
         catch (Exception)
         {
-            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", (Location) default);
+            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", (SourceLocation) default);
             module = null;
         }
 

@@ -269,7 +269,7 @@ let res = c();
             engine.Execute(script);
             return stepStatements;
 
-            void OutputPosition(Location location)
+            void OutputPosition(in SourceLocation location)
             {
                 var line = scriptLines[location.Start.Line - 1];
                 var withPositionIndicator = string.Concat(line.Substring(0, location.Start.Column), "»", line.Substring(location.Start.Column));

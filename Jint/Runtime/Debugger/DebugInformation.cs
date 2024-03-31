@@ -5,7 +5,7 @@ namespace Jint.Runtime.Debugger
     public sealed class DebugInformation : EventArgs
     {
         private readonly Engine _engine;
-        private readonly Location _currentLocation;
+        private readonly SourceLocation _currentLocation;
         private readonly JsValue? _returnValue;
 
         private DebugCallStack? _callStack;
@@ -13,7 +13,7 @@ namespace Jint.Runtime.Debugger
         internal DebugInformation(
             Engine engine,
             Node? currentNode,
-            Location currentLocation,
+            in SourceLocation currentLocation,
             JsValue? returnValue,
             long currentMemoryUsage,
             PauseType pauseType,
@@ -55,7 +55,7 @@ namespace Jint.Runtime.Debugger
         /// The current source Location.
         /// For return points, this starts and ends at the end of the function body.
         /// </summary>
-        public Location Location => CurrentCallFrame.Location;
+        public SourceLocation Location => CurrentCallFrame.Location;
 
         /// <summary>
         /// Not implemented. Will always return 0.
