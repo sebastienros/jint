@@ -31,7 +31,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 if (expression.Left is DestructuringPattern)
                 {
-                    return new BindingPatternAssignmentExpression(expression);
+                    return new DestructuringPatternAssignmentExpression(expression);
                 }
 
                 return new SimpleAssignmentExpression(expression);

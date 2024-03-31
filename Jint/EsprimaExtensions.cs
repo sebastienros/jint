@@ -287,13 +287,9 @@ namespace Jint
                 var catchEnvRecord = (DeclarativeEnvironment) env;
                 catchEnvRecord.CreateMutableBindingAndInitialize(identifier.Name, canBeDeleted: false, value);
             }
-            else if (expression is DestructuringPattern bindingPattern)
+            else if (expression is DestructuringPattern pattern)
             {
-                BindingPatternAssignmentExpression.ProcessPatterns(
-                    context,
-                    bindingPattern,
-                    value,
-                    env);
+                DestructuringPatternAssignmentExpression.ProcessPatterns(context, pattern, value, env);
             }
         }
 

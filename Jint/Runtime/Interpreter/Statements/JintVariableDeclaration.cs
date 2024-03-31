@@ -30,11 +30,11 @@ namespace Jint.Runtime.Interpreter.Statements
 
                 JintExpression? left = null;
                 JintExpression? init = null;
-                DestructuringPattern? bindingPattern = null;
+                DestructuringPattern? pattern = null;
 
                 if (declaration.Id is DestructuringPattern bp)
                 {
-                    bindingPattern = bp;
+                    pattern = bp;
                 }
                 else
                 {
@@ -50,7 +50,7 @@ namespace Jint.Runtime.Interpreter.Statements
                 _declarations[i] = new ResolvedDeclaration
                 {
                     Left = left,
-                    LeftPattern = bindingPattern,
+                    LeftPattern = pattern,
                     LeftIdentifierExpression = leftIdentifier,
                     EvalOrArguments = leftIdentifier?.HasEvalOrArguments == true,
                     Init = init
@@ -89,7 +89,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
                         var value = declaration.Init.GetValue(context);
 
-                        BindingPatternAssignmentExpression.ProcessPatterns(
+                        DestructuringPatternAssignmentExpression.ProcessPatterns(
                             context,
                             declaration.LeftPattern,
                             value,

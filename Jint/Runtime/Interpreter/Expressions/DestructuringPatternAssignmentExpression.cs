@@ -6,13 +6,13 @@ using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class BindingPatternAssignmentExpression : JintExpression
+    internal sealed class DestructuringPatternAssignmentExpression : JintExpression
     {
         private readonly DestructuringPattern _pattern;
         private JintExpression _right = null!;
         private bool _initialized;
 
-        public BindingPatternAssignmentExpression(AssignmentExpression expression) : base(expression)
+        public DestructuringPatternAssignmentExpression(AssignmentExpression expression) : base(expression)
         {
             _pattern = (DestructuringPattern) expression.Left;
         }
@@ -157,7 +157,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         AssignToReference(engine, reference, value, environment);
                     }
-                    else if (left is DestructuringPattern bindingPattern)
+                    else if (left is DestructuringPattern dp)
                     {
                         JsValue value;
                         if (arrayOperations != null)
@@ -169,7 +169,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             iterator!.TryIteratorStep(out var temp);
                             value = temp;
                         }
-                        ProcessPatterns(context, bindingPattern, value, environment);
+                        ProcessPatterns(context, dp, value, environment);
                     }
                     else if (left is RestElement restElement)
                     {
@@ -349,10 +349,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         AssignToIdentifier(context.Engine, target!.Name, value, environment, checkReference);
                     }
-                    else if (p.Value is DestructuringPattern bindingPattern)
+                    else if (p.Value is DestructuringPattern dp)
                     {
                         var value = source.Get(sourceKey);
-                        ProcessPatterns(context, bindingPattern, value, environment);
+                        ProcessPatterns(context, dp, value, environment);
                     }
                     else if (p.Value is MemberExpression memberExpression)
                     {
