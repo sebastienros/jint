@@ -4,4 +4,11 @@
     <UseArtifactsOutput>true</UseArtifactsOutput>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Using Include="Esprima" />
+    <Using Include="Esprima.Ast" />
+    <Using Include="Esprima.Utils" />
+    <Using Include="Esprima.Ast.Nodes" Alias="NodeType" />
+  </ItemGroup>
+
 </Project>

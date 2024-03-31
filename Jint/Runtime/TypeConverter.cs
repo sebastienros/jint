@@ -1,8 +1,6 @@
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Number;
 using Jint.Native.Object;

@@ -6,6 +6,7 @@ using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Modules;
+using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint.Runtime
 {

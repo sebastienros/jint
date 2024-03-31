@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Esprima.Ast;
 
 namespace Jint.Runtime.Interpreter.Statements;
 

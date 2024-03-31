@@ -1,5 +1,3 @@
-using Esprima;
-
 namespace Jint.Runtime.Modules;
 
 /// <summary>

@@ -1,5 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Runtime.Interpreter.Statements;

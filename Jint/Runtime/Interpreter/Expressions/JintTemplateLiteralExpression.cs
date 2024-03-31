@@ -1,5 +1,4 @@
 using System.Text;
-using Esprima.Ast;
 using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Expressions;

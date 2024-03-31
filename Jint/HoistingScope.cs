@@ -1,4 +1,3 @@
-using Esprima.Ast;
 using Jint.Runtime.Modules;
 using Module = Esprima.Ast.Module;
 
@@ -80,7 +79,7 @@ namespace Jint
             for (var i = 0; i < statementListItems.Count; i++)
             {
                 var node = statementListItems[i];
-                if (node.Type != Nodes.VariableDeclaration && node.Type != Nodes.FunctionDeclaration && node.Type != Nodes.ClassDeclaration)
+                if (node.Type != NodeType.VariableDeclaration && node.Type != NodeType.FunctionDeclaration && node.Type != NodeType.ClassDeclaration)
                 {
                     continue;
                 }
@@ -104,7 +103,7 @@ namespace Jint
             for (var i = 0; i < statementListItems.Count; i++)
             {
                 var node = statementListItems[i];
-                if (node.Type != Nodes.VariableDeclaration)
+                if (node.Type != NodeType.VariableDeclaration)
                 {
                     continue;
                 }
@@ -223,7 +222,7 @@ namespace Jint
                 foreach (var childNode in node.ChildNodes)
                 {
                     var childType = childNode.Type;
-                    if (childType == Nodes.VariableDeclaration)
+                    if (childType == NodeType.VariableDeclaration)
                     {
                         var variableDeclaration = (VariableDeclaration)childNode;
                         if (variableDeclaration.Kind == VariableDeclarationKind.Var)
@@ -262,24 +261,24 @@ namespace Jint
                             }
                         }
                     }
-                    else if (childType == Nodes.FunctionDeclaration)
+                    else if (childType == NodeType.FunctionDeclaration)
                     {
                         // function declarations are not hoisted if they are under block or case clauses
-                        if (parent is null || (node.Type != Nodes.BlockStatement && node.Type != Nodes.SwitchCase))
+                        if (parent is null || (node.Type != NodeType.BlockStatement && node.Type != NodeType.SwitchCase))
                         {
                             _functions ??= new List<FunctionDeclaration>();
                             _functions.Add((FunctionDeclaration)childNode);
                         }
                     }
-                    else if (childType == Nodes.ClassDeclaration && parent is null or Module)
+                    else if (childType == NodeType.ClassDeclaration && parent is null or Module)
                     {
                         _lexicalDeclarations ??= new List<Declaration>();
                         _lexicalDeclarations.Add((Declaration) childNode);
                     }
 
-                    if (childType != Nodes.FunctionDeclaration
-                        && childType != Nodes.ArrowFunctionExpression
-                        && childType != Nodes.FunctionExpression
+                    if (childType != NodeType.FunctionDeclaration
+                        && childType != NodeType.ArrowFunctionExpression
+                        && childType != NodeType.FunctionExpression
                         && !childNode.ChildNodes.IsEmpty())
                     {
                         Visit(childNode, node);
@@ -306,14 +305,14 @@ namespace Jint
             {
                 foreach (var childNode in node.ChildNodes)
                 {
-                    if (childNode.Type == Nodes.ImportDeclaration)
+                    if (childNode.Type == NodeType.ImportDeclaration)
                     {
                         _importEntries ??= [];
                         _requestedModules ??= [];
                         var import = (ImportDeclaration) childNode;
                         import.GetImportEntries(_importEntries, _requestedModules);
                     }
-                    else if (childNode.Type is Nodes.ExportAllDeclaration or Nodes.ExportDefaultDeclaration or Nodes.ExportNamedDeclaration)
+                    else if (childNode.Type is NodeType.ExportAllDeclaration or NodeType.ExportDefaultDeclaration or NodeType.ExportNamedDeclaration)
                     {
                         _exportEntries ??= [];
                         _requestedModules ??= [];

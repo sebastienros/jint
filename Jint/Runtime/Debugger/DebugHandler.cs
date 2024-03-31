@@ -1,5 +1,3 @@
-using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Interpreter;
 
@@ -198,7 +196,7 @@ namespace Jint.Runtime.Debugger
             {
                 pauseType = PauseType.Break;
             }
-            else if (node?.Type == Nodes.DebuggerStatement &&
+            else if (node?.Type == NodeType.DebuggerStatement &&
                 _engine.Options.Debugger.StatementHandling == DebuggerStatementHandling.Script)
             {
                 pauseType = PauseType.DebuggerStatement;

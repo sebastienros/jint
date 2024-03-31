@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Iterator;
 using Jint.Runtime.Environments;
@@ -221,7 +220,7 @@ namespace Jint.Runtime.Interpreter.Statements
                         else
                         {
                             var reference = (Reference) lhsRef;
-                            if (lhsKind == LhsKind.LexicalBinding || _leftNode.Type == Nodes.Identifier && !reference.IsUnresolvableReference)
+                            if (lhsKind == LhsKind.LexicalBinding || _leftNode.Type == NodeType.Identifier && !reference.IsUnresolvableReference)
                             {
                                 reference.InitializeReferencedBinding(nextValue);
                             }

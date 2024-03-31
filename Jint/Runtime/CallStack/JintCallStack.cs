@@ -2,8 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Text;
-using Esprima;
-using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;

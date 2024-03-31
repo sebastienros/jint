@@ -1,5 +1,4 @@
 using System.Text;
-using Esprima;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Native.Object;

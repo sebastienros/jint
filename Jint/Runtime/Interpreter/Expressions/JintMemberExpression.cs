@@ -1,4 +1,3 @@
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Environments;
 
@@ -32,7 +31,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     property = cache ? JsString.CachedCreate(identifier.Name) : JsString.Create(identifier.Name);
                 }
             }
-            else if (expression.Property.Type == Nodes.Literal)
+            else if (expression.Property.Type == NodeType.Literal)
             {
                 property = JintLiteralExpression.ConvertToJsValue((Literal) expression.Property);
             }

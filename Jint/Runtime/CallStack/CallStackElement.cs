@@ -1,5 +1,3 @@
-using Esprima;
-using Esprima.Ast;
 using Jint.Native.Function;
 using Jint.Runtime.Interpreter.Expressions;
 

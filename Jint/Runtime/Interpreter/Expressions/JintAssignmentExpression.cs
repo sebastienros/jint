@@ -1,5 +1,4 @@
 using System.Numerics;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
@@ -352,7 +351,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JsValue NamedEvaluation(EvaluationContext context, JintExpression expression)
         {
             var rval = expression.GetValue(context);
-            if (expression._expression.IsAnonymousFunctionDefinition() && _left._expression.Type == Nodes.Identifier)
+            if (expression._expression.IsAnonymousFunctionDefinition() && _left._expression.Type == NodeType.Identifier)
             {
                 ((Function) rval).SetFunctionName(((Identifier) _left._expression).Name);
             }

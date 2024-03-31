@@ -1,5 +1,3 @@
-using Esprima.Ast;
-
 namespace Jint.Runtime.Interpreter.Expressions;
 
 internal sealed class JintPrivateIdentifierExpression : JintExpression

@@ -1,4 +1,3 @@
-using Esprima.Ast;
 using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -29,7 +28,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var argument = expression.Arguments[i];
                 _jintArguments[i] = Build(argument);
-                _hasSpreads |= argument.Type == Nodes.SpreadElement;
+                _hasSpreads |= argument.Type == NodeType.SpreadElement;
             }
         }
 

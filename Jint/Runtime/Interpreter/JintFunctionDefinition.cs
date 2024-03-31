@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Generator;
@@ -238,7 +237,7 @@ internal sealed class JintFunctionDefinition
 
         state.ArgumentsObjectNeeded = true;
         var thisMode = function.Strict ? FunctionThisMode.Strict : FunctionThisMode.Global;
-        if (function.Type == Nodes.ArrowFunctionExpression)
+        if (function.Type == NodeType.ArrowFunctionExpression)
         {
             thisMode = FunctionThisMode.Lexical;
         }
@@ -442,16 +441,16 @@ internal sealed class JintFunctionDefinition
             var parameter = functionDeclarationParams[i];
             var type = parameter.Type;
 
-            if (type == Nodes.Identifier)
+            if (type == NodeType.Identifier)
             {
                 var id = (Identifier) parameter;
                 state.HasDuplicates |= parameterNames.Contains(id.Name);
                 hasArguments = string.Equals(id.Name, "arguments", StringComparison.Ordinal);
                 parameterNames.Add(id.Name);
             }
-            else if (type != Nodes.Literal)
+            else if (type != NodeType.Literal)
             {
-                countParameters &= type != Nodes.AssignmentPattern;
+                countParameters &= type != NodeType.AssignmentPattern;
                 state.IsSimpleParameterList = false;
                 GetBoundNames(
                     parameter,
@@ -463,7 +462,7 @@ internal sealed class JintFunctionDefinition
                     ref hasArguments);
             }
 
-            if (countParameters && type is Nodes.Identifier or Nodes.ObjectPattern or Nodes.ArrayPattern)
+            if (countParameters && type is NodeType.Identifier or NodeType.ObjectPattern or NodeType.ArrayPattern)
             {
                 state.Length++;
             }
@@ -498,14 +497,14 @@ internal sealed class JintFunctionDefinition
             foreach (var childNode in node.ChildNodes)
             {
                 var childType = childNode.Type;
-                if (childType == Nodes.Identifier)
+                if (childType == NodeType.Identifier)
                 {
                     if (string.Equals(((Identifier) childNode).Name, "arguments", StringComparison.Ordinal))
                     {
                         return true;
                     }
                 }
-                else if (childType != Nodes.FunctionDeclaration && !childNode.ChildNodes.IsEmpty())
+                else if (childType != NodeType.FunctionDeclaration && !childNode.ChildNodes.IsEmpty())
                 {
                     if (HasArgumentsReference(childNode))
                     {

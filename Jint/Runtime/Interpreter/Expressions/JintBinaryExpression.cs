@@ -4,7 +4,6 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Esprima.Ast;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Number;

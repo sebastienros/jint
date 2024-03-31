@@ -1,8 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 
 namespace Jint.Runtime;

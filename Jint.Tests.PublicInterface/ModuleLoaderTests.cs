@@ -3,6 +3,8 @@ using Jint.Native;
 using Jint.Native.Json;
 using Jint.Runtime.Modules;
 
+using Module = Jint.Runtime.Modules.Module;
+
 #nullable enable
 
 namespace Jint.Tests.PublicInterface;

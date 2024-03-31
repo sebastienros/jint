@@ -1,8 +1,6 @@
 ﻿using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Order;
-using Esprima;
-using Esprima.Ast;
 
 namespace Jint.Benchmark;
 

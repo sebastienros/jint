@@ -1,4 +1,3 @@
-using Esprima.Ast;
 using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Statements;

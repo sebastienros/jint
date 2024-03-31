@@ -1,6 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Interop;
 

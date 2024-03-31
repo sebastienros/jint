@@ -1,6 +1,3 @@
-using Esprima;
-using Esprima.Ast;
-using Esprima.Utils;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -280,7 +277,7 @@ internal sealed class ClassDefinition
         private readonly NodeList<Node> _nodeList;
         private readonly BlockStatement _statement;
 
-        public ClassFieldFunction(Expression expression) : base(Nodes.ExpressionStatement)
+        public ClassFieldFunction(Expression expression) : base(NodeType.ExpressionStatement)
         {
             var nodeList = NodeList.Create<Statement>(new [] { new ReturnStatement(expression) });
             _statement = new BlockStatement(nodeList);
@@ -323,7 +320,7 @@ internal sealed class ClassDefinition
         private readonly BlockStatement _statement;
         private readonly NodeList<Node> _params;
 
-        public ClassStaticBlockFunction(StaticBlock staticBlock) : base(Nodes.StaticBlock)
+        public ClassStaticBlockFunction(StaticBlock staticBlock) : base(NodeType.StaticBlock)
         {
             _statement = new BlockStatement(staticBlock.Body);
             _params = new NodeList<Node>();

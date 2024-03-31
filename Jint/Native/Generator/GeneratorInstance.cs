@@ -1,5 +1,4 @@
-﻿using Esprima;
-using Jint.Native.Iterator;
+﻿using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Environments;

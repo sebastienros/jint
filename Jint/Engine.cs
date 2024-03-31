@@ -1,8 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Generator;
@@ -531,7 +529,7 @@ namespace Jint
                 constraint.Check();
             }
 
-            if (_isDebugMode && statement != null && statement.Type != Nodes.BlockStatement)
+            if (_isDebugMode && statement != null && statement.Type != NodeType.BlockStatement)
             {
                 Debugger.OnStep(statement);
             }

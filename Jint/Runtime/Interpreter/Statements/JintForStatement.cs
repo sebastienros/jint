@@ -1,4 +1,3 @@
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
@@ -33,7 +32,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
             if (_statement.Init != null)
             {
-                if (_statement.Init.Type == Nodes.VariableDeclaration)
+                if (_statement.Init.Type == NodeType.VariableDeclaration)
                 {
                     var d = (VariableDeclaration) _statement.Init;
                     if (d.Kind != VariableDeclarationKind.Var)

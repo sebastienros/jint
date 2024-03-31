@@ -1,8 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
-using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Runtime.CallStack;

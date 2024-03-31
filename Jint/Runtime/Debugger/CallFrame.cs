@@ -1,5 +1,3 @@
-using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.CallStack;
 using Environment = Jint.Runtime.Environments.Environment;

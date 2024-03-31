@@ -1,7 +1,4 @@
 using System.Runtime.CompilerServices;
-using Esprima;
-using Esprima.Ast;
-using Esprima.Utils;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -64,19 +61,19 @@ namespace Jint
         private static JsValue TryGetComputedPropertyKey<T>(T expression, Engine engine)
             where T : Expression
         {
-            if (expression.Type is Nodes.Identifier
-                or Nodes.CallExpression
-                or Nodes.BinaryExpression
-                or Nodes.UpdateExpression
-                or Nodes.AssignmentExpression
-                or Nodes.UnaryExpression
-                or Nodes.MemberExpression
-                or Nodes.LogicalExpression
-                or Nodes.ConditionalExpression
-                or Nodes.ArrowFunctionExpression
-                or Nodes.FunctionExpression
-                or Nodes.YieldExpression
-                or Nodes.TemplateLiteral)
+            if (expression.Type is NodeType.Identifier
+                or NodeType.CallExpression
+                or NodeType.BinaryExpression
+                or NodeType.UpdateExpression
+                or NodeType.AssignmentExpression
+                or NodeType.UnaryExpression
+                or NodeType.MemberExpression
+                or NodeType.LogicalExpression
+                or NodeType.ConditionalExpression
+                or NodeType.ArrowFunctionExpression
+                or NodeType.FunctionExpression
+                or NodeType.YieldExpression
+                or NodeType.TemplateLiteral)
             {
                 var context = engine._activeEvaluationContext;
                 return JintExpression.Build(expression).GetValue(context!);
@@ -90,9 +87,9 @@ namespace Jint
         {
             var type = node.Type;
             return type
-                is Nodes.FunctionExpression
-                or Nodes.ArrowFunctionExpression
-                or Nodes.ClassExpression;
+                is NodeType.FunctionExpression
+                or NodeType.ArrowFunctionExpression
+                or NodeType.ClassExpression;
         }
 
         /// <summary>
@@ -178,7 +175,7 @@ namespace Jint
 
         internal static void GetBoundNames(this Node? parameter, List<Key> target)
         {
-            if (parameter is null || parameter.Type == Nodes.Literal)
+            if (parameter is null || parameter.Type == NodeType.Literal)
             {
                 return;
             }
@@ -257,18 +254,18 @@ namespace Jint
         /// </summary>
         internal static void PrivateBoundIdentifiers(this Node parameter, HashSet<PrivateIdentifier> target)
         {
-            if (parameter.Type == Nodes.PrivateIdentifier)
+            if (parameter.Type == NodeType.PrivateIdentifier)
             {
                 target.Add((PrivateIdentifier) parameter);
             }
-            else if (parameter.Type is Nodes.AccessorProperty or Nodes.MethodDefinition or Nodes.PropertyDefinition)
+            else if (parameter.Type is NodeType.AccessorProperty or NodeType.MethodDefinition or NodeType.PropertyDefinition)
             {
                 if (((ClassProperty) parameter).Key is PrivateIdentifier privateKeyIdentifier)
                 {
                     target.Add(privateKeyIdentifier);
                 }
             }
-            else if (parameter.Type == Nodes.ClassBody)
+            else if (parameter.Type == NodeType.ClassBody)
             {
                 ref readonly var elements = ref ((ClassBody) parameter).Body;
                 for (var i = 0; i < elements.Count; i++)

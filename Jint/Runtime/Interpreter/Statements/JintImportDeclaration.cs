@@ -1,6 +1,4 @@
-﻿using Esprima.Ast;
-
-namespace Jint.Runtime.Interpreter.Statements;
+﻿namespace Jint.Runtime.Interpreter.Statements;
 
 internal sealed class JintImportDeclaration : JintStatement<ImportDeclaration>
 {
