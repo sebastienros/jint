@@ -1,7 +1,29 @@
 <Project>
 
   <PropertyGroup>
+
+    <Copyright>Sebastien Ros</Copyright>
+    <Authors>Sebastien Ros</Authors>
+
+    <Description>Javascript interpreter for .NET.</Description>
+    <PackageTags>javascript, interpreter, es5, es2015, es6, ecmascript, interop</PackageTags>
+    <PackageProjectUrl>https://github.com/sebastienros/jint</PackageProjectUrl>
+    <PackageLicenseExpression>BSD-2-Clause</PackageLicenseExpression>
+
+    <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
+    <VersionPrefix>3.0.1</VersionPrefix>
+    <VersionSuffix>beta-$(BuildNumber)</VersionSuffix>
+    <FileVersion>$(VersionPrefix).$(BuildNumber)</FileVersion>
+
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <DebugType>portable</DebugType>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <UseArtifactsOutput>true</UseArtifactsOutput>
+
   </PropertyGroup>
 
   <ItemGroup>
