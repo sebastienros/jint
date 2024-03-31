@@ -5,7 +5,9 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Reflection;
+
 using Environment = Jint.Runtime.Environments.Environment;
+using Operator = Esprima.Ast.UnaryOperator;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -15,7 +17,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor?> _knownOperators = new();
 
         private readonly JintExpression _argument;
-        private readonly UnaryOperator _operator;
+        private readonly Operator _operator;
 
         private JintUnaryExpression(UnaryExpression expression) : base(expression)
         {
@@ -25,7 +27,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal static JintExpression Build(UnaryExpression expression)
         {
-            if (expression.Operator == UnaryOperator.TypeOf)
+            if (expression.Operator == Operator.TypeOf)
             {
                 return new JintTypeOfExpression(expression);
             }
@@ -35,7 +37,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal static JintExpression? BuildConstantExpression(UnaryExpression expression)
         {
-            if (expression is { Operator: UnaryOperator.Minus, Argument: Literal literal })
+            if (expression is { Operator: Operator.Minus, Argument: Literal literal })
             {
                 var value = JintLiteralExpression.ConvertToJsValue(literal);
                 if (value is not null)
@@ -136,7 +138,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var engine = context.Engine;
             switch (_operator)
             {
-                case UnaryOperator.Plus:
+                case Operator.Plus:
                 {
                     var v = _argument.GetValue(context);
                     if (context.OperatorOverloadingAllowed &&
@@ -147,7 +149,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     return TypeConverter.ToNumber(v);
                 }
-                case UnaryOperator.Minus:
+                case Operator.Minus:
                 {
                     var v = _argument.GetValue(context);
                     if (context.OperatorOverloadingAllowed &&
@@ -158,7 +160,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     return EvaluateMinus(v);
                 }
-                case UnaryOperator.BitwiseNot:
+                case Operator.BitwiseNot:
                 {
                     var v = _argument.GetValue(context);
                     if (context.OperatorOverloadingAllowed &&
@@ -175,7 +177,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     return JsBigInt.Create(~value.AsBigInt());
                 }
-                case UnaryOperator.LogicalNot:
+                case Operator.LogicalNot:
                 {
                     var v = _argument.GetValue(context);
                     if (context.OperatorOverloadingAllowed &&
@@ -187,7 +189,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return !TypeConverter.ToBoolean(v) ? JsBoolean.True : JsBoolean.False;
                 }
 
-                case UnaryOperator.Delete:
+                case Operator.Delete:
                     // https://262.ecma-international.org/5.1/#sec-11.4.1
                     if (_argument.Evaluate(context) is not Reference r)
                     {
@@ -243,7 +245,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                     return bindings.DeleteBinding(property.ToString()) ? JsBoolean.True : JsBoolean.False;
 
-                case UnaryOperator.Void:
+                case Operator.Void:
                     _argument.GetValue(context);
                     return JsValue.Undefined;
 

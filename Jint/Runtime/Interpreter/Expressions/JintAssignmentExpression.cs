@@ -2,7 +2,9 @@ using System.Numerics;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
+
 using Environment = Jint.Runtime.Environments.Environment;
+using Operator = Esprima.Ast.AssignmentOperator;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
@@ -12,7 +14,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private readonly JintIdentifierExpression? _leftIdentifier;
 
         private readonly JintExpression _right;
-        private readonly AssignmentOperator _operator;
+        private readonly Operator _operator;
 
         private JintAssignmentExpression(AssignmentExpression expression) : base(expression)
         {
@@ -25,7 +27,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal static JintExpression Build(AssignmentExpression expression)
         {
-            if (expression.Operator == AssignmentOperator.Assign)
+            if (expression.Operator == Operator.Assign)
             {
                 if (expression.Left is BindingPattern)
                 {
@@ -78,7 +80,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 switch (_operator)
                 {
-                    case AssignmentOperator.PlusAssign:
+                    case Operator.PlusAssign:
                     {
                         var rval = _right.GetValue(context);
                         if (AreIntegerOperands(originalLeftValue, rval))
@@ -113,7 +115,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         break;
                     }
 
-                    case AssignmentOperator.MinusAssign:
+                    case Operator.MinusAssign:
                     {
                         var rval = _right.GetValue(context);
                         if (AreIntegerOperands(originalLeftValue, rval))
@@ -132,7 +134,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         break;
                     }
 
-                    case AssignmentOperator.TimesAssign:
+                    case Operator.TimesAssign:
                     {
                         var rval = _right.GetValue(context);
                         if (AreIntegerOperands(originalLeftValue, rval))
@@ -155,14 +157,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                         break;
                     }
 
-                    case AssignmentOperator.DivideAssign:
+                    case Operator.DivideAssign:
                     {
                         var rval = _right.GetValue(context);
                         newLeftValue = Divide(context, originalLeftValue, rval);
                         break;
                     }
 
-                    case AssignmentOperator.ModuloAssign:
+                    case Operator.ModuloAssign:
                     {
                         var rval = _right.GetValue(context);
                         if (originalLeftValue.IsUndefined() || rval.IsUndefined())
@@ -177,49 +179,49 @@ namespace Jint.Runtime.Interpreter.Expressions
                         break;
                     }
 
-                    case AssignmentOperator.BitwiseAndAssign:
+                    case Operator.BitwiseAndAssign:
                     {
                         var rval = _right.GetValue(context);
                         newLeftValue = TypeConverter.ToInt32(originalLeftValue) & TypeConverter.ToInt32(rval);
                         break;
                     }
 
-                    case AssignmentOperator.BitwiseOrAssign:
+                    case Operator.BitwiseOrAssign:
                     {
                         var rval = _right.GetValue(context);
                         newLeftValue = TypeConverter.ToInt32(originalLeftValue) | TypeConverter.ToInt32(rval);
                         break;
                     }
 
-                    case AssignmentOperator.BitwiseXorAssign:
+                    case Operator.BitwiseXorAssign:
                     {
                         var rval = _right.GetValue(context);
                         newLeftValue = TypeConverter.ToInt32(originalLeftValue) ^ TypeConverter.ToInt32(rval);
                         break;
                     }
 
-                    case AssignmentOperator.LeftShiftAssign:
+                    case Operator.LeftShiftAssign:
                     {
                         var rval = _right.GetValue(context);
                         newLeftValue = TypeConverter.ToInt32(originalLeftValue) << (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
                     }
 
-                    case AssignmentOperator.RightShiftAssign:
+                    case Operator.RightShiftAssign:
                     {
                         var rval = _right.GetValue(context);
                         newLeftValue = TypeConverter.ToInt32(originalLeftValue) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
                     }
 
-                    case AssignmentOperator.UnsignedRightShiftAssign:
+                    case Operator.UnsignedRightShiftAssign:
                     {
                         var rval = _right.GetValue(context);
                         newLeftValue = (uint) TypeConverter.ToInt32(originalLeftValue) >> (int) (TypeConverter.ToUint32(rval) & 0x1F);
                         break;
                     }
 
-                    case AssignmentOperator.NullishAssign:
+                    case Operator.NullishAssign:
                     {
                         if (!originalLeftValue.IsNullOrUndefined())
                         {
@@ -231,7 +233,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         break;
                     }
 
-                    case AssignmentOperator.AndAssign:
+                    case Operator.AndAssign:
                     {
                         if (!TypeConverter.ToBoolean(originalLeftValue))
                         {
@@ -243,7 +245,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         break;
                     }
 
-                    case AssignmentOperator.OrAssign:
+                    case Operator.OrAssign:
                     {
                         if (TypeConverter.ToBoolean(originalLeftValue))
                         {
@@ -255,7 +257,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         break;
                     }
 
-                    case AssignmentOperator.ExponentiationAssign:
+                    case Operator.ExponentiationAssign:
                     {
                         var rval = _right.GetValue(context);
                         if (!originalLeftValue.IsBigInt() && !rval.IsBigInt())
@@ -296,41 +298,41 @@ namespace Jint.Runtime.Interpreter.Expressions
             string? operatorClrName = null;
             switch (_operator)
             {
-                case AssignmentOperator.PlusAssign:
+                case Operator.PlusAssign:
                     operatorClrName = "op_Addition";
                     break;
-                case AssignmentOperator.MinusAssign:
+                case Operator.MinusAssign:
                     operatorClrName = "op_Subtraction";
                     break;
-                case AssignmentOperator.TimesAssign:
+                case Operator.TimesAssign:
                     operatorClrName = "op_Multiply";
                     break;
-                case AssignmentOperator.DivideAssign:
+                case Operator.DivideAssign:
                     operatorClrName = "op_Division";
                     break;
-                case AssignmentOperator.ModuloAssign:
+                case Operator.ModuloAssign:
                     operatorClrName = "op_Modulus";
                     break;
-                case AssignmentOperator.BitwiseAndAssign:
+                case Operator.BitwiseAndAssign:
                     operatorClrName = "op_BitwiseAnd";
                     break;
-                case AssignmentOperator.BitwiseOrAssign:
+                case Operator.BitwiseOrAssign:
                     operatorClrName = "op_BitwiseOr";
                     break;
-                case AssignmentOperator.BitwiseXorAssign:
+                case Operator.BitwiseXorAssign:
                     operatorClrName = "op_ExclusiveOr";
                     break;
-                case AssignmentOperator.LeftShiftAssign:
+                case Operator.LeftShiftAssign:
                     operatorClrName = "op_LeftShift";
                     break;
-                case AssignmentOperator.RightShiftAssign:
+                case Operator.RightShiftAssign:
                     operatorClrName = "op_RightShift";
                     break;
-                case AssignmentOperator.UnsignedRightShiftAssign:
+                case Operator.UnsignedRightShiftAssign:
                     operatorClrName = "op_UnsignedRightShift";
                     break;
-                case AssignmentOperator.ExponentiationAssign:
-                case AssignmentOperator.Assign:
+                case Operator.ExponentiationAssign:
+                case Operator.Assign:
                 default:
                     break;
             }
