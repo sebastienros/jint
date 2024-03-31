@@ -165,3 +165,4 @@ BenchmarkDotNet.Artifacts*
 
 # generated code
 Jint.Tests.Test262/Generated
+/artifacts

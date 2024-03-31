@@ -1,5 +1,3 @@
-using Esprima;
-
 namespace Jint.Runtime.Modules;
 
 /// <summary>
@@ -18,7 +16,7 @@ public abstract class ModuleLoader : IModuleLoader
         }
         catch (Exception)
         {
-            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", (Location) default);
+            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", (SourceLocation) default);
             return default!;
         }
 

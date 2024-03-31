@@ -1,4 +1,3 @@
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Iterator;
 
@@ -32,7 +31,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     var expression = Build(expr);
                     expressions[n] = expression;
-                    _hasSpreads |= expr.Type == Nodes.SpreadElement;
+                    _hasSpreads |= expr.Type == NodeType.SpreadElement;
                 }
             }
 

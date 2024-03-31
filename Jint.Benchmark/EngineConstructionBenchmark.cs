@@ -1,6 +1,4 @@
 ﻿using BenchmarkDotNet.Attributes;
-using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 
 namespace Jint.Benchmark;

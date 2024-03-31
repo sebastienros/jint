@@ -9,6 +9,7 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
+using Expression = System.Linq.Expressions.Expression;
 
 #pragma warning disable IL2026
 #pragma warning disable IL2067

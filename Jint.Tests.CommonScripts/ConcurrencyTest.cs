@@ -1,5 +1,3 @@
-using Esprima;
-
 namespace Jint.Tests.CommonScripts;
 
 [Parallelizable(ParallelScope.Fixtures)]

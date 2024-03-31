@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using Esprima;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.Tests.Runtime.TestClasses;

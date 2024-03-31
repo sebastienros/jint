@@ -1,10 +1,10 @@
-﻿using Esprima;
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.Runtime.Interpreter;
 using Jint.Runtime.Modules;
+using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint;
 
@@ -172,7 +172,7 @@ public partial class Engine
             {
                 var location = module is CyclicModule cyclicModuleRecord
                     ? cyclicModuleRecord.AbnormalCompletionLocation
-                    : Location.From(new Position(), new Position());
+                    : SourceLocation.From(new Position(), new Position());
 
                 var node = EsprimaExtensions.CreateLocationNode(location);
                 ExceptionHelper.ThrowJavaScriptException(_engine, promise.Value, node.Location);

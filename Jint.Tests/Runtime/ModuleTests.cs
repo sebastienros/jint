@@ -2,6 +2,8 @@ using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Modules;
 
+using Module = Jint.Runtime.Modules.Module;
+
 namespace Jint.Tests.Runtime;
 
 public class ModuleTests

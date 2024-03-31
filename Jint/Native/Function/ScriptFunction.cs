@@ -1,4 +1,3 @@
-using Esprima.Ast;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;

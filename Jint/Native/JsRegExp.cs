@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using Esprima;
 using Jint.Native.Object;
 using Jint.Native.RegExp;
 using Jint.Runtime;

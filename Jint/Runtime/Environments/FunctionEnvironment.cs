@@ -1,5 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
-using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Function;
@@ -261,7 +260,7 @@ namespace Jint.Runtime.Environments
 
                 array = _engine.Realm.Intrinsics.Array.ArrayCreate(0);
                 var max = arrayPattern.Elements.Count;
-                if (max > 0 && arrayPattern.Elements[max - 1]?.Type == Nodes.RestElement)
+                if (max > 0 && arrayPattern.Elements[max - 1]?.Type == NodeType.RestElement)
                 {
                     // need to consume all
                     max = int.MaxValue;

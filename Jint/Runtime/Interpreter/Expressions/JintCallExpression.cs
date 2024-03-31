@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -41,7 +40,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     return false;
                 }
 
-                return e.Type == Nodes.SpreadElement || e is AssignmentExpression { Right.Type: Nodes.SpreadElement };
+                return e.Type == NodeType.SpreadElement || e is AssignmentExpression { Right.Type: NodeType.SpreadElement };
             }
 
             var cacheable = true;
@@ -49,7 +48,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 var expressionArgument = expressionArguments[i];
                 cachedArgumentsHolder.JintArguments[i] = Build(expressionArgument);
-                cacheable &= expressionArgument.Type == Nodes.Literal;
+                cacheable &= expressionArgument.Type == NodeType.Literal;
                 _hasSpreads |= CanSpread(expressionArgument);
                 if (expressionArgument is ArrayExpression ae)
                 {
@@ -90,7 +89,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return StackGuard.RunOnEmptyStack(EvaluateInternal, context);
             }
 
-            if (_calleeExpression._expression.Type == Nodes.Super)
+            if (_calleeExpression._expression.Type == NodeType.Super)
             {
                 return SuperCall(context);
             }

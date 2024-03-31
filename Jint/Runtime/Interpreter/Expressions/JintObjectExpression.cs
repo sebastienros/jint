@@ -1,4 +1,3 @@
-using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Function;

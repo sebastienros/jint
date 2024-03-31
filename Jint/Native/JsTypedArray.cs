@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using Esprima;
 using Jint.Native.ArrayBuffer;
 using Jint.Native.Number;
 using Jint.Native.Object;

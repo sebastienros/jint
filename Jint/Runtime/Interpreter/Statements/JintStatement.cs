@@ -1,6 +1,4 @@
 using System.Runtime.CompilerServices;
-using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime.Interpreter.Expressions;
 
@@ -29,7 +27,7 @@ namespace Jint.Runtime.Interpreter.Statements
         [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
         public Completion Execute(EvaluationContext context)
         {
-            if (_statement.Type != Nodes.BlockStatement)
+            if (_statement.Type != NodeType.BlockStatement)
             {
                 context.PrepareFor(_statement);
                 context.RunBeforeExecuteStatementChecks(_statement);
@@ -46,7 +44,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected abstract Completion ExecuteInternal(EvaluationContext context);
 
-        public ref readonly Location Location => ref _statement.Location;
+        public ref readonly SourceLocation Location => ref _statement.Location;
 
         /// <summary>
         /// Opportunity to build one-time structures and caching based on lexical context.
@@ -65,31 +63,31 @@ namespace Jint.Runtime.Interpreter.Statements
 
             JintStatement? result = statement.Type switch
             {
-                Nodes.BlockStatement => new JintBlockStatement((BlockStatement) statement),
-                Nodes.ReturnStatement => new JintReturnStatement((ReturnStatement) statement),
-                Nodes.VariableDeclaration => new JintVariableDeclaration((VariableDeclaration) statement),
-                Nodes.BreakStatement => new JintBreakStatement((BreakStatement) statement),
-                Nodes.ContinueStatement => new JintContinueStatement((ContinueStatement) statement),
-                Nodes.DoWhileStatement => new JintDoWhileStatement((DoWhileStatement) statement),
-                Nodes.EmptyStatement => new JintEmptyStatement((EmptyStatement) statement),
-                Nodes.ExpressionStatement => new JintExpressionStatement((ExpressionStatement) statement),
-                Nodes.ForStatement => new JintForStatement((ForStatement) statement),
-                Nodes.ForInStatement => new JintForInForOfStatement((ForInStatement) statement),
-                Nodes.ForOfStatement => new JintForInForOfStatement((ForOfStatement) statement),
-                Nodes.IfStatement => new JintIfStatement((IfStatement) statement),
-                Nodes.LabeledStatement => new JintLabeledStatement((LabeledStatement) statement),
-                Nodes.SwitchStatement => new JintSwitchStatement((SwitchStatement) statement),
-                Nodes.FunctionDeclaration => new JintFunctionDeclarationStatement((FunctionDeclaration) statement),
-                Nodes.ThrowStatement => new JintThrowStatement((ThrowStatement) statement),
-                Nodes.TryStatement => new JintTryStatement((TryStatement) statement),
-                Nodes.WhileStatement => new JintWhileStatement((WhileStatement) statement),
-                Nodes.WithStatement => new JintWithStatement((WithStatement) statement),
-                Nodes.DebuggerStatement => new JintDebuggerStatement((DebuggerStatement) statement),
-                Nodes.ClassDeclaration => new JintClassDeclarationStatement((ClassDeclaration) statement),
-                Nodes.ExportNamedDeclaration => new JintExportNamedDeclaration((ExportNamedDeclaration) statement),
-                Nodes.ExportAllDeclaration => new JintExportAllDeclaration((ExportAllDeclaration) statement),
-                Nodes.ExportDefaultDeclaration => new JintExportDefaultDeclaration((ExportDefaultDeclaration) statement),
-                Nodes.ImportDeclaration => new JintImportDeclaration((ImportDeclaration) statement),
+                NodeType.BlockStatement => new JintBlockStatement((BlockStatement) statement),
+                NodeType.ReturnStatement => new JintReturnStatement((ReturnStatement) statement),
+                NodeType.VariableDeclaration => new JintVariableDeclaration((VariableDeclaration) statement),
+                NodeType.BreakStatement => new JintBreakStatement((BreakStatement) statement),
+                NodeType.ContinueStatement => new JintContinueStatement((ContinueStatement) statement),
+                NodeType.DoWhileStatement => new JintDoWhileStatement((DoWhileStatement) statement),
+                NodeType.EmptyStatement => new JintEmptyStatement((EmptyStatement) statement),
+                NodeType.ExpressionStatement => new JintExpressionStatement((ExpressionStatement) statement),
+                NodeType.ForStatement => new JintForStatement((ForStatement) statement),
+                NodeType.ForInStatement => new JintForInForOfStatement((ForInStatement) statement),
+                NodeType.ForOfStatement => new JintForInForOfStatement((ForOfStatement) statement),
+                NodeType.IfStatement => new JintIfStatement((IfStatement) statement),
+                NodeType.LabeledStatement => new JintLabeledStatement((LabeledStatement) statement),
+                NodeType.SwitchStatement => new JintSwitchStatement((SwitchStatement) statement),
+                NodeType.FunctionDeclaration => new JintFunctionDeclarationStatement((FunctionDeclaration) statement),
+                NodeType.ThrowStatement => new JintThrowStatement((ThrowStatement) statement),
+                NodeType.TryStatement => new JintTryStatement((TryStatement) statement),
+                NodeType.WhileStatement => new JintWhileStatement((WhileStatement) statement),
+                NodeType.WithStatement => new JintWithStatement((WithStatement) statement),
+                NodeType.DebuggerStatement => new JintDebuggerStatement((DebuggerStatement) statement),
+                NodeType.ClassDeclaration => new JintClassDeclarationStatement((ClassDeclaration) statement),
+                NodeType.ExportNamedDeclaration => new JintExportNamedDeclaration((ExportNamedDeclaration) statement),
+                NodeType.ExportAllDeclaration => new JintExportAllDeclaration((ExportAllDeclaration) statement),
+                NodeType.ExportDefaultDeclaration => new JintExportDefaultDeclaration((ExportDefaultDeclaration) statement),
+                NodeType.ImportDeclaration => new JintImportDeclaration((ImportDeclaration) statement),
                 _ => null
             };
 

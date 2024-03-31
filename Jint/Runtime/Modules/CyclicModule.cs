@@ -1,6 +1,5 @@
 ﻿#nullable disable
 
-using Esprima;
 using Jint.Native;
 using Jint.Native.Promise;
 using Jint.Runtime.Descriptors;
@@ -40,7 +39,7 @@ public abstract class CyclicModule : Module
 
     internal ModuleStatus Status { get; private set; }
 
-    internal Location AbnormalCompletionLocation { get; private set; }
+    internal SourceLocation AbnormalCompletionLocation { get; private set; }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-moduledeclarationlinking

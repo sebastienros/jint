@@ -1,5 +1,4 @@
-﻿using Esprima;
-using Jint.Native.Iterator;
+﻿using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Environments;
@@ -79,7 +78,7 @@ internal sealed class GeneratorInstance : ObjectInstance
                 return new IteratorResult(_engine, abruptCompletion.Value, JsBoolean.True);
             }
 
-            ExceptionHelper.ThrowJavaScriptException(_engine, abruptCompletion.Value, new Location());
+            ExceptionHelper.ThrowJavaScriptException(_engine, abruptCompletion.Value, (SourceLocation) default);
         }
 
         var genContext = _generatorContext;
@@ -96,7 +95,7 @@ internal sealed class GeneratorInstance : ObjectInstance
 
         if (_error is not null)
         {
-            ExceptionHelper.ThrowJavaScriptException(_engine, _error, new Location());
+            ExceptionHelper.ThrowJavaScriptException(_engine, _error, (SourceLocation) default);
         }
 
         return ResumeExecution(genContext, new EvaluationContext(_engine));

@@ -1,6 +1,4 @@
-﻿using Esprima;
-using Esprima.Ast;
-using Jint.Runtime.Debugger;
+﻿using Jint.Runtime.Debugger;
 
 namespace Jint.Tests.Runtime.Debugger
 {
@@ -271,7 +269,7 @@ let res = c();
             engine.Execute(script);
             return stepStatements;
 
-            void OutputPosition(Location location)
+            void OutputPosition(in SourceLocation location)
             {
                 var line = scriptLines[location.Start.Line - 1];
                 var withPositionIndicator = string.Concat(line.Substring(0, location.Start.Column), "»", line.Substring(location.Start.Column));

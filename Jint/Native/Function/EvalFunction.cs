@@ -1,6 +1,3 @@
-using Esprima;
-using Esprima.Ast;
-using Esprima.Utils;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -214,13 +211,13 @@ public sealed class EvalFunction : Function
 
         protected override object? VisitMemberExpression(MemberExpression memberExpression)
         {
-            _containsSuperProperty |= memberExpression.Object.Type == Nodes.Super;
+            _containsSuperProperty |= memberExpression.Object.Type == NodeType.Super;
             return base.VisitMemberExpression(memberExpression);
         }
 
         protected override object? VisitCallExpression(CallExpression callExpression)
         {
-            _containsSuperCall |= callExpression.Callee.Type == Nodes.Super;
+            _containsSuperCall |= callExpression.Callee.Type == NodeType.Super;
             return base.VisitCallExpression(callExpression);
         }
     }

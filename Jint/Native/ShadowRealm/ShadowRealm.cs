@@ -1,7 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using Esprima;
-using Esprima.Ast;
-using Esprima.Utils;
 using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime;

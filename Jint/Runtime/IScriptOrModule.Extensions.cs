@@ -1,11 +1,10 @@
-using Esprima;
-using Jint.Runtime.Modules;
+using Module = Jint.Runtime.Modules.Module;
 
 namespace Jint.Runtime;
 
 internal static class ScriptOrModuleExtensions
 {
-    public static Module AsModule(this IScriptOrModule? scriptOrModule, Engine engine, Location location)
+    public static Module AsModule(this IScriptOrModule? scriptOrModule, Engine engine, in SourceLocation location)
     {
         if (scriptOrModule is not Module module)
         {

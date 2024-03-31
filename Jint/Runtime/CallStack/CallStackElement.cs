@@ -1,5 +1,3 @@
-using Esprima;
-using Esprima.Ast;
 using Jint.Native.Function;
 using Jint.Runtime.Interpreter.Expressions;
 
@@ -21,7 +19,7 @@ namespace Jint.Runtime.CallStack
         public readonly JintExpression? Expression;
         public readonly CallStackExecutionContext CallingExecutionContext;
 
-        public Location Location
+        public SourceLocation Location
         {
             get
             {

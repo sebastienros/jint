@@ -1,7 +1,5 @@
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Interpreter;
@@ -70,7 +68,7 @@ public partial class Engine
         {
             switch (node.Type)
             {
-                case Nodes.Identifier:
+                case NodeType.Identifier:
                     var identifier = (Identifier) node;
                     var name = identifier.Name;
 
@@ -82,7 +80,7 @@ public partial class Engine
                     node.AssociatedData = new JintIdentifierExpression(identifier, bindingName);
                     break;
 
-                case Nodes.Literal:
+                case NodeType.Literal:
                     var literal = (Literal) node;
 
                     var constantValue = JintLiteralExpression.ConvertToJsValue(literal);
@@ -114,26 +112,26 @@ public partial class Engine
 
                     break;
 
-                case Nodes.MemberExpression:
+                case NodeType.MemberExpression:
                     node.AssociatedData = JintMemberExpression.InitializeDeterminedProperty((MemberExpression) node, cache: true);
                     break;
 
-                case Nodes.ArrowFunctionExpression:
-                case Nodes.FunctionDeclaration:
-                case Nodes.FunctionExpression:
+                case NodeType.ArrowFunctionExpression:
+                case NodeType.FunctionDeclaration:
+                case NodeType.FunctionExpression:
                     var function = (IFunction) node;
                     node.AssociatedData = JintFunctionDefinition.BuildState(function);
                     break;
 
-                case Nodes.Program:
+                case NodeType.Program:
                     node.AssociatedData = new CachedHoistingScope((Program) node);
                     break;
 
-                case Nodes.UnaryExpression:
+                case NodeType.UnaryExpression:
                     node.AssociatedData = JintUnaryExpression.BuildConstantExpression((UnaryExpression) node);
                     break;
 
-                case Nodes.BinaryExpression:
+                case NodeType.BinaryExpression:
                     var binaryExpression = (BinaryExpression) node;
                     if (_options.FoldConstants
                         && binaryExpression.Operator != BinaryOperator.InstanceOf
@@ -161,7 +159,7 @@ public partial class Engine
 
                     break;
 
-                case Nodes.ReturnStatement:
+                case NodeType.ReturnStatement:
                     var returnStatement = (ReturnStatement) node;
                     if (returnStatement.Argument is Literal returnedLiteral)
                     {

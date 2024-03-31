@@ -1,5 +1,3 @@
-using Esprima.Ast;
-
 namespace Jint.Runtime
 {
     /// <summary>

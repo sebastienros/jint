@@ -1,4 +1,3 @@
-using Esprima.Ast;
 using Jint.Runtime.Modules;
 
 namespace Jint.Runtime.Interpreter.Expressions

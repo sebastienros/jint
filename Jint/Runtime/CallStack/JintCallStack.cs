@@ -2,8 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Text;
-using Esprima;
-using Esprima.Ast;
 using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Runtime.Environments;
@@ -117,12 +115,12 @@ namespace Jint.Runtime.CallStack
             return string.Join("->", _stack.Select(static cse => cse.ToString()).Reverse());
         }
 
-        internal string BuildCallStackString(Location location, int excludeTop = 0)
+        internal string BuildCallStackString(SourceLocation location, int excludeTop = 0)
         {
             static void AppendLocation(
                 ref ValueStringBuilder sb,
                 string shortDescription,
-                in Location loc,
+                in SourceLocation loc,
                 in CallStackElement? element)
             {
                 sb.Append("   at");

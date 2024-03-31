@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using Esprima;
 using Jint;
 using Jint.Native;
 using Jint.Native.Json;

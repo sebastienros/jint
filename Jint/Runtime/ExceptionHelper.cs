@@ -1,8 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
-using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 using Jint.Native.Error;
 using Jint.Runtime.CallStack;
@@ -24,7 +22,7 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowSyntaxError(Realm realm, string message, Location location)
+        public static void ThrowSyntaxError(Realm realm, string message, in SourceLocation location)
         {
             throw new JavaScriptException(realm.Intrinsics.SyntaxError, message).SetJavaScriptLocation(location);
         }
@@ -148,7 +146,7 @@ namespace Jint.Runtime
         }
 
         [DoesNotReturn]
-        public static void ThrowJavaScriptException(Engine engine, JsValue value, in Location location)
+        public static void ThrowJavaScriptException(Engine engine, JsValue value, in SourceLocation location)
         {
             throw new JavaScriptException(value).SetJavaScriptCallstack(engine, location);
         }

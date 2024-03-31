@@ -1,6 +1,4 @@
-﻿using Esprima;
-using Esprima.Ast;
-using Jint.Runtime;
+﻿using Jint.Runtime;
 
 namespace Jint.Tests.Parser
 {
@@ -13,7 +11,7 @@ namespace Jint.Tests.Parser
             var body = program.Body;
 
             Assert.Single(body);
-            Assert.Equal(Nodes.ThisExpression, body.First().As<ExpressionStatement>().Expression.Type);
+            Assert.Equal(NodeType.ThisExpression, body.First().As<ExpressionStatement>().Expression.Type);
         }
 
         [Fact]
@@ -23,7 +21,7 @@ namespace Jint.Tests.Parser
             var body = program.Body;
 
             Assert.Single(body);
-            Assert.Equal(Nodes.Literal, body.First().As<ExpressionStatement>().Expression.Type);
+            Assert.Equal(NodeType.Literal, body.First().As<ExpressionStatement>().Expression.Type);
             Assert.Equal(null, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
             Assert.Equal("null", body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw);
         }
@@ -38,7 +36,7 @@ namespace Jint.Tests.Parser
             var body = program.Body;
 
             Assert.Single(body);
-            Assert.Equal(Nodes.Literal, body.First().As<ExpressionStatement>().Expression.Type);
+            Assert.Equal(NodeType.Literal, body.First().As<ExpressionStatement>().Expression.Type);
             Assert.Equal(42d, body.First().As<ExpressionStatement>().Expression.As<Literal>().Value);
             Assert.Equal("42", body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw);
         }

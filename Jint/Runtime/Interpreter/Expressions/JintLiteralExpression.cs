@@ -1,7 +1,5 @@
 using System.Numerics;
 using System.Text.RegularExpressions;
-using Esprima;
-using Esprima.Ast;
 using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Expressions
