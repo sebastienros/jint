@@ -6,15 +6,15 @@ using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
-    internal sealed class BindingPatternAssignmentExpression : JintExpression
+    internal sealed class DestructuringPatternAssignmentExpression : JintExpression
     {
-        private readonly BindingPattern _pattern;
+        private readonly DestructuringPattern _pattern;
         private JintExpression _right = null!;
         private bool _initialized;
 
-        public BindingPatternAssignmentExpression(AssignmentExpression expression) : base(expression)
+        public DestructuringPatternAssignmentExpression(AssignmentExpression expression) : base(expression)
         {
-            _pattern = (BindingPattern) expression.Left;
+            _pattern = (DestructuringPattern) expression.Left;
         }
 
         protected override object EvaluateInternal(EvaluationContext context)
@@ -42,7 +42,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
         internal static JsValue ProcessPatterns(
             EvaluationContext context,
-            BindingPattern pattern,
+            DestructuringPattern pattern,
             JsValue argument,
             Environment? environment,
             bool checkPatternPropertyReference = true)
@@ -157,7 +157,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         AssignToReference(engine, reference, value, environment);
                     }
-                    else if (left is BindingPattern bindingPattern)
+                    else if (left is DestructuringPattern dp)
                     {
                         JsValue value;
                         if (arrayOperations != null)
@@ -169,7 +169,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             iterator!.TryIteratorStep(out var temp);
                             value = temp;
                         }
-                        ProcessPatterns(context, bindingPattern, value, environment);
+                        ProcessPatterns(context, dp, value, environment);
                     }
                     else if (left is RestElement restElement)
                     {
@@ -215,7 +215,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             AssignToIdentifier(engine, leftIdentifier.Name, array, environment, checkReference);
                         }
-                        else if (restElement.Argument is BindingPattern bp)
+                        else if (restElement.Argument is DestructuringPattern bp)
                         {
                             ProcessPatterns(context, bp, array, environment);
                         }
@@ -256,7 +256,7 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                             AssignToIdentifier(engine, leftIdentifier.Name, value, environment, checkReference);
                         }
-                        else if (assignmentPattern.Left is BindingPattern bp)
+                        else if (assignmentPattern.Left is DestructuringPattern bp)
                         {
                             ProcessPatterns(context, bp, value, environment);
                         }
@@ -334,7 +334,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                             value = completion;
                         }
 
-                        if (assignmentPattern.Left is BindingPattern bp)
+                        if (assignmentPattern.Left is DestructuringPattern bp)
                         {
                             ProcessPatterns(context, bp, value, environment);
                             continue;
@@ -349,10 +349,10 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                         AssignToIdentifier(context.Engine, target!.Name, value, environment, checkReference);
                     }
-                    else if (p.Value is BindingPattern bindingPattern)
+                    else if (p.Value is DestructuringPattern dp)
                     {
                         var value = source.Get(sourceKey);
-                        ProcessPatterns(context, bindingPattern, value, environment);
+                        ProcessPatterns(context, dp, value, environment);
                     }
                     else if (p.Value is MemberExpression memberExpression)
                     {
@@ -378,7 +378,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                         source.CopyDataProperties(rest, processedProperties);
                         AssignToIdentifier(context.Engine, leftIdentifier.Name, rest, environment, checkReference);
                     }
-                    else if (restElement.Argument is BindingPattern bp)
+                    else if (restElement.Argument is DestructuringPattern bp)
                     {
                         ProcessPatterns(context, bp, argument, environment);
                     }

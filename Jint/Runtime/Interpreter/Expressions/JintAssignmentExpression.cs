@@ -29,9 +29,9 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             if (expression.Operator == Operator.Assign)
             {
-                if (expression.Left is BindingPattern)
+                if (expression.Left is DestructuringPattern)
                 {
-                    return new BindingPatternAssignmentExpression(expression);
+                    return new DestructuringPatternAssignmentExpression(expression);
                 }
 
                 return new SimpleAssignmentExpression(expression);

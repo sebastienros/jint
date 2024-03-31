@@ -11,7 +11,7 @@ public class ConcurrencyTest
         var scriptContents = SunSpiderTests.GetEmbeddedFile("babel-standalone.js");
         var script = prepared
             ? Engine.PrepareScript(scriptContents)
-            : new JavaScriptParser().ParseScript(scriptContents);
+            : new Parser().ParseScript(scriptContents);
 
         Parallel.ForEach(Enumerable.Range(0, 3), x =>
         {

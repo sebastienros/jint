@@ -19,7 +19,7 @@ namespace Jint.Native.ShadowRealm;
 public sealed class ShadowRealm : ObjectInstance
 #pragma warning restore MA0049
 {
-    private readonly JavaScriptParser _parser;
+    private readonly Parser _parser;
     internal readonly Realm _shadowRealm;
     private readonly ExecutionContext _executionContext;
 
@@ -111,7 +111,7 @@ public sealed class ShadowRealm : ObjectInstance
         {
             script = _parser.ParseScript(sourceText, source: null, _engine._isStrict);
         }
-        catch (ParserException e)
+        catch (ParseErrorException e)
         {
             if (string.Equals(e.Description, Messages.InvalidLHSInAssignment, StringComparison.Ordinal))
             {

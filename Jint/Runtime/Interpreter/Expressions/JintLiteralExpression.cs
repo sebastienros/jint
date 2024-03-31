@@ -28,11 +28,11 @@ namespace Jint.Runtime.Interpreter.Expressions
         {
             switch (literal.TokenType)
             {
-                case TokenType.BooleanLiteral:
+                case TokenKind.BooleanLiteral:
                     return literal.BooleanValue!.Value ? JsBoolean.True : JsBoolean.False;
-                case TokenType.NullLiteral:
+                case TokenKind.NullLiteral:
                     return JsValue.Null;
-                case TokenType.NumericLiteral:
+                case TokenKind.NumericLiteral:
                     {
                         // unbox only once
                         var numericValue = (double) literal.Value!;
@@ -42,11 +42,11 @@ namespace Jint.Runtime.Interpreter.Expressions
                             ? JsNumber.Create(intValue)
                             : JsNumber.Create(numericValue);
                     }
-                case TokenType.StringLiteral:
+                case TokenKind.StringLiteral:
                     return JsString.Create((string) literal.Value!);
-                case TokenType.BigIntLiteral:
+                case TokenKind.BigIntLiteral:
                     return JsBigInt.Create((BigInteger) literal.Value!);
-                case TokenType.RegularExpression:
+                case TokenKind.RegularExpression:
                     break;
             }
 
@@ -65,7 +65,7 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JsValue ResolveValue(EvaluationContext context)
         {
             var expression = (Literal) _expression;
-            if (expression.TokenType == TokenType.RegularExpression)
+            if (expression.TokenType == TokenKind.RegularExpression)
             {
                 var regExpLiteral = (RegExpLiteral) expression;
                 var regExpParseResult = regExpLiteral.ParseResult;

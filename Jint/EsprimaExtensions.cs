@@ -37,7 +37,7 @@ namespace Jint
             JsValue key;
             if (expression is Literal literal)
             {
-                key = literal.TokenType == TokenType.NullLiteral ? JsValue.Null : LiteralKeyToString(literal);
+                key = literal.TokenType == TokenKind.NullLiteral ? JsValue.Null : LiteralKeyToString(literal);
             }
             else if (!resolveComputed && expression is Identifier identifier)
             {
@@ -287,13 +287,9 @@ namespace Jint
                 var catchEnvRecord = (DeclarativeEnvironment) env;
                 catchEnvRecord.CreateMutableBindingAndInitialize(identifier.Name, canBeDeleted: false, value);
             }
-            else if (expression is BindingPattern bindingPattern)
+            else if (expression is DestructuringPattern pattern)
             {
-                BindingPatternAssignmentExpression.ProcessPatterns(
-                    context,
-                    bindingPattern,
-                    value,
-                    env);
+                DestructuringPatternAssignmentExpression.ProcessPatterns(context, pattern, value, env);
             }
         }
 

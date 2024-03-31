@@ -661,7 +661,7 @@ public static class JsValueExtensions
         {
             return TypeConverter.ToBigInt(value);
         }
-        catch (ParserException ex)
+        catch (ParseErrorException ex)
         {
             ExceptionHelper.ThrowSyntaxError(engine.Realm, ex.Message);
             return default;

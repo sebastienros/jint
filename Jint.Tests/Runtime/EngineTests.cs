@@ -1046,7 +1046,7 @@ namespace Jint.Tests.Runtime
             {
                 engine.Evaluate("1.2+ new", "jQuery.js");
             }
-            catch (ParserException e)
+            catch (ParseErrorException e)
             {
                 Assert.Equal(1, e.LineNumber);
                 Assert.Equal(9, e.Column);
@@ -1314,7 +1314,7 @@ var prep = function (fn) { fn(); };
         {
             var code = "if({ __proto__: [], __proto__:[] } instanceof Array) {}";
 
-            Exception ex = Assert.Throws<ParserException>(() => _engine.Execute(code, new ParserOptions { Tolerant = false }));
+            Exception ex = Assert.Throws<ParseErrorException>(() => _engine.Execute(code, new ParserOptions { Tolerant = false }));
             Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
 
             ex = Assert.Throws<JavaScriptException>(() => _engine.Execute($"eval('{code}')"));

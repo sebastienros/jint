@@ -125,13 +125,13 @@ namespace Jint.Runtime.Debugger
         public JsValue Evaluate(string source, ParserOptions? options = null)
         {
             options ??= new ParserOptions();
-            var parser = new JavaScriptParser(options);
+            var parser = new Parser(options);
             try
             {
                 var script = parser.ParseScript(source, "evaluation");
                 return Evaluate(script);
             }
-            catch (ParserException ex)
+            catch (ParseErrorException ex)
             {
                 throw new DebugEvaluationException("An error occurred during debugger expression parsing", ex);
             }
