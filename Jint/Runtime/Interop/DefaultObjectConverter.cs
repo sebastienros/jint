@@ -86,6 +86,49 @@ namespace Jint
                 }
 #endif
 
+#if NET8_0_OR_GREATER
+                if (value is System.Text.Json.Nodes.JsonValue jsonValue)
+                {
+                    var valueKind = jsonValue.GetValueKind();
+                    switch (valueKind)
+                    {
+                        case System.Text.Json.JsonValueKind.Object:
+                        case System.Text.Json.JsonValueKind.Array:
+                            result = JsValue.FromObject(engine, jsonValue);
+                            break;
+                        case System.Text.Json.JsonValueKind.String:
+                            result = jsonValue.ToString();
+                            break;
+                        case System.Text.Json.JsonValueKind.Number:
+                            if (jsonValue.TryGetValue<double>(out var doubleValue))
+                            {
+                                result = JsNumber.Create(doubleValue);
+                            }
+                            else
+                            {
+                                result = JsValue.Undefined;
+                            }
+                            break;
+                        case System.Text.Json.JsonValueKind.True:
+                            result = JsBoolean.True;
+                            break;
+                        case System.Text.Json.JsonValueKind.False:
+                            result = JsBoolean.False;
+                            break;
+                        case System.Text.Json.JsonValueKind.Undefined:
+                            result = JsValue.Undefined;
+                            break;
+                        case System.Text.Json.JsonValueKind.Null:
+                            result = JsValue.Null;
+                            break;
+                        default:
+                            result = null;
+                            break;
+                    }
+                    return result is not null;
+                }
+#endif
+
                 var t = value.GetType();
 
                 if (!engine.Options.Interop.AllowSystemReflection

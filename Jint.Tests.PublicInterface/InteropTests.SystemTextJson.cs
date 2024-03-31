@@ -8,6 +8,12 @@ namespace Jint.Tests.PublicInterface;
 
 public sealed class SystemTextJsonValueConverter : IObjectConverter
 {
+    public static readonly SystemTextJsonValueConverter Instance = new();
+
+    private SystemTextJsonValueConverter()
+    {
+    }
+
     public bool TryConvert(Engine engine, object value, out JsValue result)
     {
         if (value is JsonValue jsonValue)
@@ -103,7 +109,10 @@ public partial class InteropTests
                 return ObjectWrapper.Create(e, target);
             };
 
-            options.AddObjectConverter(new SystemTextJsonValueConverter());
+#if !NET8_0_OR_GREATER
+            options.AddObjectConverter(SystemTextJsonValueConverter.Instance);
+#endif
+
             // we cannot access this[string] with anything else than JsonObject, otherwise itw will throw
             options.Interop.TypeResolver = new TypeResolver
             {
