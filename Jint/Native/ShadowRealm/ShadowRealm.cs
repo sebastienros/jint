@@ -22,7 +22,7 @@ public sealed class ShadowRealm : ObjectInstance
     internal readonly Realm _shadowRealm;
     private readonly ExecutionContext _executionContext;
 
-    internal ShadowRealm(Engine engine, ExecutionContext executionContext, Realm shadowRealm) : base(engine)
+    internal ShadowRealm(Engine engine, in ExecutionContext executionContext, Realm shadowRealm) : base(engine)
     {
         _executionContext = executionContext;
         _shadowRealm = shadowRealm;

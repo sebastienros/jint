@@ -19,29 +19,33 @@ namespace Jint.Runtime
         {
             var array = _stack._array;
             var size = _stack._size;
-            array[size - 1] = array[size - 1].UpdateLexicalEnvironment(newEnv);
+            ref var executionContext = ref array[size - 1];
+            executionContext = executionContext.UpdateLexicalEnvironment(newEnv);
         }
 
         public void ReplaceTopVariableEnvironment(Environment newEnv)
         {
             var array = _stack._array;
             var size = _stack._size;
-            array[size - 1] = array[size - 1].UpdateVariableEnvironment(newEnv);
+            ref var executionContext = ref array[size - 1];
+            executionContext = executionContext.UpdateVariableEnvironment(newEnv);
         }
 
         public void ReplaceTopPrivateEnvironment(PrivateEnvironment? newEnv)
         {
             var array = _stack._array;
             var size = _stack._size;
-            array[size - 1] = array[size - 1].UpdatePrivateEnvironment(newEnv);
+            ref var executionContext = ref array[size - 1];
+            executionContext = executionContext.UpdatePrivateEnvironment(newEnv);
         }
 
         public ref readonly ExecutionContext ReplaceTopGenerator(GeneratorInstance newEnv)
         {
             var array = _stack._array;
             var size = _stack._size;
-            array[size - 1] = array[size - 1].UpdateGenerator(newEnv);
-            return ref array[size - 1];
+            ref var executionContext = ref array[size - 1];
+            executionContext = executionContext.UpdateGenerator(newEnv);
+            return ref executionContext;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -62,7 +66,7 @@ namespace Jint.Runtime
             var size = _stack._size;
             for (var i = size - 1; i > -1; --i)
             {
-                var context = array[i];
+                ref readonly var context = ref array[i];
                 if (context.ScriptOrModule is not null)
                 {
                     return context.ScriptOrModule;

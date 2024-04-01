@@ -205,7 +205,7 @@ namespace Jint
             }
         }
 
-        internal ExecutionContext EnterExecutionContext(
+        internal void EnterExecutionContext(
             Environment lexicalEnvironment,
             Environment variableEnvironment,
             Realm realm,
@@ -220,13 +220,11 @@ namespace Jint
                 null);
 
             _executionContexts.Push(context);
-            return context;
         }
 
-        internal ExecutionContext EnterExecutionContext(in ExecutionContext context)
+        internal void EnterExecutionContext(in ExecutionContext context)
         {
             _executionContexts.Push(context);
-            return context;
         }
 
         /// <summary>

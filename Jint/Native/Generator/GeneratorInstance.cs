@@ -101,7 +101,7 @@ internal sealed class GeneratorInstance : ObjectInstance
         return ResumeExecution(genContext, new EvaluationContext(_engine));
     }
 
-    private ObjectInstance ResumeExecution(ExecutionContext genContext, EvaluationContext context)
+    private ObjectInstance ResumeExecution(in ExecutionContext genContext, EvaluationContext context)
     {
         _generatorState = GeneratorState.Executing;
         _engine.EnterExecutionContext(genContext);
