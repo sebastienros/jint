@@ -493,7 +493,25 @@ namespace Jint.Native.Array
 
             public override ulong GetLongLength() => GetLength();
 
-            public override void SetLength(ulong length) => throw new NotSupportedException();
+            public override void SetLength(ulong length)
+            {
+                if (_list == null)
+                {
+                    throw new NotSupportedException();
+                }
+                
+                while (_list.Count > (int) length)
+                {
+                    // shrink list to fit
+                    _list.RemoveAt(_list.Count - 1);
+                }
+                
+                while (_list.Count < (int) length)
+                {
+                    // expand list to fit
+                    _list.Add(null);
+                }
+            }
 
             public override void EnsureCapacity(ulong capacity)
             {
@@ -530,7 +548,14 @@ namespace Jint.Native.Array
                 => _target.CreateDataPropertyOrThrow(index, value);
 
             public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
-                => _target[(int) index] = value;
+            {
+                if (updateLength && _list != null && index >= (ulong) _list.Count)
+                {
+                    SetLength(index + 1);
+                }
+                
+                _target[(int) index] = value;
+            }
 
             public override void DeletePropertyOrThrow(ulong index)
                 => _target.DeletePropertyOrThrow(index);
