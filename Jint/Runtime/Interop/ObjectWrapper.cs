@@ -31,12 +31,19 @@ namespace Jint.Runtime.Interop
             Target = obj;
             ClrType = GetClrType(obj, type);
             _typeDescriptor = TypeDescriptor.Get(ClrType);
+
             if (_typeDescriptor.LengthProperty is not null)
             {
                 // create a forwarder to produce length from Count or Length if one of them is present
                 var functionInstance = new ClrFunction(engine, "length", GetLength);
                 var descriptor = new GetSetPropertyDescriptor(functionInstance, Undefined, PropertyFlag.Configurable);
                 SetProperty(KnownKeys.Length, descriptor);
+
+                if (_typeDescriptor.IsArrayLike && engine.Options.Interop.AttachArrayPrototype)
+                {
+                    // if we have array-like object, we can attach array prototype
+                    SetPrototypeOf(engine.Intrinsics.Array.PrototypeObject);
+                }
             }
         }
 
@@ -45,7 +52,18 @@ namespace Jint.Runtime.Interop
         /// </summary>
         public static ObjectInstance Create(Engine engine, object obj, Type? type = null)
 #pragma warning disable CS0618 // Type or member is obsolete
-            => new ObjectWrapper(engine, obj, type);
+        {
+
+#if NET8_0_OR_GREATER
+            if (type == typeof(System.Text.Json.Nodes.JsonNode))
+            {
+                // we need to always expose the actual type instead of the type nodes provide
+                type = obj.GetType();
+            }
+#endif
+
+            return new ObjectWrapper(engine, obj, type);
+        }
 #pragma warning restore CS0618 // Type or member is obsolete
 
         public object Target { get; }

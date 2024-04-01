@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text.Json.Nodes;
 using Jint.Native;
 using Jint.Runtime.Interop;
@@ -8,6 +7,12 @@ namespace Jint.Tests.PublicInterface;
 
 public sealed class SystemTextJsonValueConverter : IObjectConverter
 {
+    public static readonly SystemTextJsonValueConverter Instance = new();
+
+    private SystemTextJsonValueConverter()
+    {
+    }
+
     public bool TryConvert(Engine engine, object value, out JsValue result)
     {
         if (value is JsonValue jsonValue)
@@ -90,6 +95,9 @@ public partial class InteropTests
 
         var engine = new Engine(options =>
         {
+#if !NET8_0_OR_GREATER
+            // Jint doesn't know about the types statically as they are not part of the out-of-the-box experience
+
             // make JsonArray behave like JS array
             options.Interop.WrapObjectHandler = static (e, target, type) =>
             {
@@ -103,13 +111,14 @@ public partial class InteropTests
                 return ObjectWrapper.Create(e, target);
             };
 
-            options.AddObjectConverter(new SystemTextJsonValueConverter());
+            options.AddObjectConverter(SystemTextJsonValueConverter.Instance);
+
             // we cannot access this[string] with anything else than JsonObject, otherwise itw will throw
             options.Interop.TypeResolver = new TypeResolver
             {
                 MemberFilter = static info =>
                 {
-                    if (info.ReflectedType != typeof(JsonObject) && info.Name == "Item" && info is PropertyInfo p)
+                    if (info.ReflectedType != typeof(JsonObject) && info.Name == "Item" && info is System.Reflection.PropertyInfo p)
                     {
                         var parameters = p.GetIndexParameters();
                         return parameters.Length != 1 || parameters[0].ParameterType != typeof(string);
@@ -118,6 +127,7 @@ public partial class InteropTests
                     return true;
                 }
             };
+#endif
         });
 
         engine

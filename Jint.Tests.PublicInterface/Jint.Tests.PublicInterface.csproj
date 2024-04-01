@@ -27,7 +27,7 @@
     <PackageReference Include="MongoDB.Bson.signed" />
     <PackageReference Include="NodaTime" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
-    <PackageReference Include="System.Text.Json" />
+    <PackageReference Include="System.Text.Json" Condition="!$([MSBuild]::IsTargetFrameworkCompatible($(TargetFramework), 'net8.0'))" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>

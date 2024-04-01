@@ -276,9 +276,7 @@ namespace Jint.Runtime.Interop
                 return jsArguments;
             }
 
-            var jsArray = Engine.Realm.Intrinsics.Array.Construct(Arguments.Empty);
-            Engine.Realm.Intrinsics.Array.PrototypeObject.Push(jsArray, argsToTransform);
-
+            var jsArray = new JsArray(_engine, argsToTransform);
             var newArgumentsCollection = new JsValue[nonParamsArgumentsCount + 1];
             for (var j = 0; j < nonParamsArgumentsCount; ++j)
             {
