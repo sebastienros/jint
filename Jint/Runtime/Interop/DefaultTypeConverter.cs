@@ -56,7 +56,8 @@ namespace Jint.Runtime.Interop
             return converted;
         }
 
-        public virtual bool TryConvert(object? value,
+        public virtual bool TryConvert(
+            object? value,
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] Type type,
             IFormatProvider formatProvider,
             [NotNullWhen(true)] out object? converted)

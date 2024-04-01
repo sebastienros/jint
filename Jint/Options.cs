@@ -355,6 +355,11 @@ public class Options
         /// Defaults to <see cref="System.DateTimeKind.Utc"/>.
         /// </summary>
         public DateTimeKind DateTimeKind { get; set; } = DateTimeKind.Utc;
+
+        /// <summary>
+        /// Should the Array prototype be attached instead of Object prototype to the wrapped interop objects when type looks suitable. Defaults to true.
+        /// </summary>
+        public bool AttachArrayPrototype { get; set; } = true;
     }
 
     public class ConstraintOptions

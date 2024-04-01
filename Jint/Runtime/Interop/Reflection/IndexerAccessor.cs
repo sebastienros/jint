@@ -133,11 +133,14 @@ internal sealed class IndexerAccessor : ReflectionAccessor
         }
 #endif
 
-        object? key;
+        object? key = null;
         // int key is quite common case
-        if (paramType == typeof(int) && integerKey is not null)
+        if (paramType == typeof(int))
         {
-            key = integerKey;
+            if (integerKey is not null)
+            {
+                key = integerKey;
+            }
         }
         else
         {
@@ -177,7 +180,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
             return null;
         }
 
-        object[] parameters = { _key };
+        object[] parameters = [_key];
 
         if (_containsKey != null)
         {
