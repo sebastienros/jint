@@ -48,46 +48,13 @@ internal sealed class IndexerAccessor : ReflectionAccessor
             integerKey = intKeyTemp;
         }
 
-        IndexerAccessor? ComposeIndexerFactory(PropertyInfo candidate, Type paramType)
-        {
-            object? key = null;
-            // int key is quite common case
-            if (paramType == typeof(int) && integerKey is not null)
-            {
-                key = integerKey;
-            }
-            else
-            {
-                engine.TypeConverter.TryConvert(propertyName, paramType, CultureInfo.InvariantCulture, out key);
-            }
-
-            if (key is not null)
-            {
-                // the key can be converted for this indexer
-                var indexerProperty = candidate;
-                // get contains key method to avoid index exception being thrown in dictionaries
-                paramTypeArray[0] = paramType;
-                var containsKeyMethod = targetType.GetMethod(nameof(IDictionary<string, string>.ContainsKey), paramTypeArray);
-                if (containsKeyMethod is null && targetType.IsAssignableFrom(typeof(IDictionary)))
-                {
-                    paramTypeArray[0] = typeof(object);
-                    containsKeyMethod = targetType.GetMethod(nameof(IDictionary.Contains), paramTypeArray);
-                }
-
-                return new IndexerAccessor(indexerProperty, containsKeyMethod, key);
-            }
-
-            // the key type doesn't work for this indexer
-            return null;
-        }
-
         var filter = new Func<MemberInfo, bool>(m => engine.Options.Interop.TypeResolver.Filter(engine, m));
 
         // default indexer wins
         var descriptor = TypeDescriptor.Get(targetType);
-        if (descriptor.IntegerIndexerProperty is not null && filter(descriptor.IntegerIndexerProperty))
+        if (descriptor.IntegerIndexerProperty is not null && !filter(descriptor.IntegerIndexerProperty))
         {
-            indexerAccessor = ComposeIndexerFactory(descriptor.IntegerIndexerProperty, typeof(int));
+            indexerAccessor = ComposeIndexerFactory(engine, targetType, descriptor.IntegerIndexerProperty, paramType: typeof(int), propertyName, integerKey, paramTypeArray);
             if (indexerAccessor != null)
             {
                 indexer = descriptor.IntegerIndexerProperty;
@@ -113,7 +80,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
             if (candidate.GetGetMethod() != null || candidate.GetSetMethod() != null)
             {
                 var paramType = indexParameters[0].ParameterType;
-                indexerAccessor = ComposeIndexerFactory(candidate, paramType);
+                indexerAccessor = ComposeIndexerFactory(engine, targetType, candidate, paramType, propertyName, integerKey, paramTypeArray);
                 if (indexerAccessor != null)
                 {
                     if (paramType != typeof(string) ||  integerKey is null)
@@ -144,6 +111,59 @@ internal sealed class IndexerAccessor : ReflectionAccessor
         indexer = default;
         return false;
     }
+
+    private static IndexerAccessor? ComposeIndexerFactory(
+        Engine engine,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties)] Type targetType,
+        PropertyInfo candidate,
+        Type paramType,
+        string propertyName,
+        int? integerKey,
+        Type[] paramTypeArray)
+    {
+        // check for known incompatible types
+#if NET8_0_OR_GREATER
+        if (typeof(System.Text.Json.Nodes.JsonNode).IsAssignableFrom(targetType)
+            && (targetType != typeof(System.Text.Json.Nodes.JsonArray) || paramType != typeof(int))
+            && (targetType != typeof(System.Text.Json.Nodes.JsonObject) || paramType != typeof(string)))
+        {
+            // we cannot access this[string] with anything else than JsonObject, otherwise itw will throw
+            // we cannot access this[int] with anything else than JsonArray, otherwise itw will throw
+            return null;
+        }
+#endif
+
+        object? key;
+        // int key is quite common case
+        if (paramType == typeof(int) && integerKey is not null)
+        {
+            key = integerKey;
+        }
+        else
+        {
+            engine.TypeConverter.TryConvert(propertyName, paramType, CultureInfo.InvariantCulture, out key);
+        }
+
+        if (key is not null)
+        {
+            // the key can be converted for this indexer
+            var indexerProperty = candidate;
+            // get contains key method to avoid index exception being thrown in dictionaries
+            paramTypeArray[0] = paramType;
+            var containsKeyMethod = targetType.GetMethod(nameof(IDictionary<string, string>.ContainsKey), paramTypeArray);
+            if (containsKeyMethod is null && targetType.IsAssignableFrom(typeof(IDictionary)))
+            {
+                paramTypeArray[0] = typeof(object);
+                containsKeyMethod = targetType.GetMethod(nameof(IDictionary.Contains), paramTypeArray);
+            }
+
+            return new IndexerAccessor(indexerProperty, containsKeyMethod, key);
+        }
+
+        // the key type doesn't work for this indexer
+        return null;
+    }
+
 
     public override bool Readable => _indexer.CanRead;
 

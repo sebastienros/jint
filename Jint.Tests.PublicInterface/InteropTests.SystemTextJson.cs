@@ -111,7 +111,6 @@ public partial class InteropTests
 
 #if !NET8_0_OR_GREATER
             options.AddObjectConverter(SystemTextJsonValueConverter.Instance);
-#endif
 
             // we cannot access this[string] with anything else than JsonObject, otherwise itw will throw
             options.Interop.TypeResolver = new TypeResolver
@@ -127,6 +126,7 @@ public partial class InteropTests
                     return true;
                 }
             };
+#endif
         });
 
         engine

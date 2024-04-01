@@ -89,42 +89,7 @@ namespace Jint
 #if NET8_0_OR_GREATER
                 if (value is System.Text.Json.Nodes.JsonValue jsonValue)
                 {
-                    var valueKind = jsonValue.GetValueKind();
-                    switch (valueKind)
-                    {
-                        case System.Text.Json.JsonValueKind.Object:
-                        case System.Text.Json.JsonValueKind.Array:
-                            result = JsValue.FromObject(engine, jsonValue);
-                            break;
-                        case System.Text.Json.JsonValueKind.String:
-                            result = jsonValue.ToString();
-                            break;
-                        case System.Text.Json.JsonValueKind.Number:
-                            if (jsonValue.TryGetValue<double>(out var doubleValue))
-                            {
-                                result = JsNumber.Create(doubleValue);
-                            }
-                            else
-                            {
-                                result = JsValue.Undefined;
-                            }
-                            break;
-                        case System.Text.Json.JsonValueKind.True:
-                            result = JsBoolean.True;
-                            break;
-                        case System.Text.Json.JsonValueKind.False:
-                            result = JsBoolean.False;
-                            break;
-                        case System.Text.Json.JsonValueKind.Undefined:
-                            result = JsValue.Undefined;
-                            break;
-                        case System.Text.Json.JsonValueKind.Null:
-                            result = JsValue.Null;
-                            break;
-                        default:
-                            result = null;
-                            break;
-                    }
+                    result = ConvertSystemTextJsonValue(engine, jsonValue);
                     return result is not null;
                 }
 #endif
@@ -190,6 +155,24 @@ namespace Jint
 
             return result is not null;
         }
+
+#if NET8_0_OR_GREATER
+        private static JsValue? ConvertSystemTextJsonValue(Engine engine, System.Text.Json.Nodes.JsonValue value)
+        {
+            return value.GetValueKind() switch
+            {
+                System.Text.Json.JsonValueKind.Object => JsValue.FromObject(engine, value),
+                System.Text.Json.JsonValueKind.Array => JsValue.FromObject(engine, value),
+                System.Text.Json.JsonValueKind.String => JsString.Create(value.ToString()),
+                System.Text.Json.JsonValueKind.Number => value.TryGetValue<double>(out var doubleValue) ? JsNumber.Create(doubleValue) : JsValue.Undefined,
+                System.Text.Json.JsonValueKind.True => JsBoolean.True,
+                System.Text.Json.JsonValueKind.False => JsBoolean.False,
+                System.Text.Json.JsonValueKind.Undefined => JsValue.Undefined,
+                System.Text.Json.JsonValueKind.Null => JsValue.Null,
+                _ => null
+            };
+        }
+#endif
 
         private static bool TryConvertConvertible(Engine engine, IConvertible convertible, [NotNullWhen(true)] out JsValue? result)
         {
