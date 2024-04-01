@@ -160,6 +160,16 @@ namespace Jint.Runtime.Interop
             return base.HasProperty(property);
         }
 
+        public override bool Delete(JsValue property)
+        {
+            if (Target is IList && property.IsNumber())
+            {
+                return true;
+            }
+            
+            return base.Delete(property);
+        }
+
         public override JsValue Get(JsValue property, JsValue receiver)
         {
             if (property.IsInteger())

@@ -2914,6 +2914,48 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ArrayPrototypeFindWithInteropList()
+        {
+            var engine = new Jint.Engine();
+            var list = new List<string> { "A", "B", "C" };
+ 
+            engine.SetValue("list", list);
+
+            Assert.Equal(1, engine.Evaluate("list.findIndex((x) => x === 'B')"));
+            Assert.Equal('B', engine.Evaluate("list.find((x) => x === 'B')"));
+        }
+
+        [Fact]
+        public void ArrayPrototypePushWithInteropList()
+        {
+            var engine = new Jint.Engine();
+
+            var list = new List<string> { "A", "B", "C" };
+
+            engine.SetValue("list", list);
+
+            engine.Evaluate("list.push('D')");
+            Assert.Equal(4, list.Count);
+            Assert.Equal("D", list[3]);
+            Assert.Equal(3, engine.Evaluate("list.lastIndexOf('D')"));
+        }
+
+        [Fact]
+        public void ArrayPrototypePopWithInteropList()
+        {
+            var engine = new Jint.Engine();
+
+            var list = new List<string> { "A", "B", "C" };
+            engine.SetValue("list", list);
+
+            Assert.Equal(2, engine.Evaluate("list.lastIndexOf('C')"));
+            Assert.Equal(3, list.Count);
+            Assert.Equal("C", engine.Evaluate("list.pop()"));
+            Assert.Equal(2, list.Count);
+            Assert.Equal(-1, engine.Evaluate("list.lastIndexOf('C')"));
+        }
+
+        [Fact]
         public void ShouldBeJavaScriptException()
         {
             var engine = new Engine(cfg => cfg.AllowClr().AllowOperatorOverloading().CatchClrExceptions());
