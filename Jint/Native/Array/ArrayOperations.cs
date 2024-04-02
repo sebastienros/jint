@@ -47,13 +47,9 @@ namespace Jint.Native.Array
                 return new JsTypedArrayOperations(typedArrayInstance);
             }
 
-            if (instance is ObjectWrapper wrapper)
+            if (instance is ObjectWrapper { _typeDescriptor.IsArrayLike: true } wrapper)
             {
-                var descriptor = wrapper._typeDescriptor;
-                if (descriptor.IsArrayLike && wrapper.Target is ICollection)
-                {
-                    return new IndexWrappedOperations(wrapper);
-                }
+                return new IndexWrappedOperations(wrapper);
             }
 
             return new ObjectOperations(instance);
@@ -474,42 +470,50 @@ namespace Jint.Native.Array
 
         private sealed class IndexWrappedOperations : ArrayOperations
         {
-            private readonly ObjectWrapper _target;
-            private readonly ICollection _collection;
-            private readonly IList _list;
+            private readonly ObjectWrapper _wrapper;
+            private readonly object _target;
+            private readonly TypeDescriptor _descriptor;
+            private readonly ICollection? _collection;
+            private readonly IList? _list;
 
             public IndexWrappedOperations(ObjectWrapper wrapper)
             {
-                _target = wrapper;
-                _collection = (ICollection) wrapper.Target;
-                _list = (IList) wrapper.Target;
+                _wrapper = wrapper;
+                _target = wrapper.Target;
+                _descriptor = _wrapper._typeDescriptor;
+                _collection = wrapper.Target as ICollection;
+                _list = wrapper.Target as IList;
             }
 
-            public override ObjectInstance Target => _target;
+            public override ObjectInstance Target => _wrapper;
 
             public override ulong GetSmallestIndex(ulong length) => 0;
 
-            public override uint GetLength() => (uint) _collection.Count;
+            public override uint GetLength()
+            {
+                if (_collection is not null)
+                    return (uint) _collection.Count;
+                
+                return (uint) _descriptor.GetLength(_target);
+            } 
 
             public override ulong GetLongLength() => GetLength();
 
             public override void SetLength(ulong length)
             {
-                if (_list == null)
-                {
-                    throw new NotSupportedException();
-                }
-                
-                while (_list.Count > (int) length)
+                var currentLength = (int)GetLength();
+                while (currentLength > (int) length)
                 {
                     // shrink list to fit
-                    _list.RemoveAt(_list.Count - 1);
+                    _descriptor.RemoveAt(_target, currentLength - 1);
+                    currentLength--;
                 }
                 
-                while (_list.Count < (int) length)
+                while (currentLength < (int) length)
                 {
                     // expand list to fit
-                    _list.Add(null);
+                    _descriptor.AddDefault(_target);
+                    currentLength++;
                 }
             }
 
@@ -517,11 +521,11 @@ namespace Jint.Native.Array
             {
             }
 
-            public override JsValue Get(ulong index) => index < (ulong) _collection.Count ? ReadValue((int) index) : JsValue.Undefined;
+            public override JsValue Get(ulong index) => index < GetLongLength() ? ReadValue((int) index) : JsValue.Undefined;
 
             public override bool TryGetValue(ulong index, out JsValue value)
             {
-                if (index < (ulong) _collection.Count)
+                if (index < GetLongLength())
                 {
                     value = ReadValue((int) index);
                     return true;
@@ -535,30 +539,35 @@ namespace Jint.Native.Array
             {
                 if (_list is not null)
                 {
-                    return (uint) index < _list.Count ? JsValue.FromObject(_target.Engine, _list[index]) : JsValue.Undefined;
+                    return (uint) index < _list.Count ? JsValue.FromObject(_wrapper.Engine, _list[index]) : JsValue.Undefined;
                 }
 
                 // via reflection is slow, but better than nothing
-                return JsValue.FromObject(_target.Engine, _target._typeDescriptor.IntegerIndexerProperty!.GetValue(Target, [index]));
+                if (_descriptor.TryGetIndexerValue(_target, index, out var result))
+                {
+                    return JsValue.FromObject(_wrapper.Engine, result);
+                }
+                
+                return JsValue.Undefined;
             }
 
-            public override bool HasProperty(ulong index) => index < (ulong) _collection.Count;
+            public override bool HasProperty(ulong index) => index < GetLongLength();
 
             public override void CreateDataPropertyOrThrow(ulong index, JsValue value)
-                => _target.CreateDataPropertyOrThrow(index, value);
+                => _wrapper.CreateDataPropertyOrThrow(index, value);
 
             public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
             {
-                if (updateLength && _list != null && index >= (ulong) _list.Count)
+                if (updateLength && index >= GetLongLength())
                 {
                     SetLength(index + 1);
                 }
                 
-                _target[(int) index] = value;
+                _wrapper[(int) index] = value;
             }
 
             public override void DeletePropertyOrThrow(ulong index)
-                => _target.DeletePropertyOrThrow(index);
+                => _wrapper.DeletePropertyOrThrow(index);
         }
     }
 

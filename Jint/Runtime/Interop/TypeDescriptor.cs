@@ -14,6 +14,9 @@ namespace Jint.Runtime.Interop
         private static readonly ConcurrentDictionary<Type, TypeDescriptor> _cache = new();
 
         private static readonly Type _listType = typeof(IList);
+        private static readonly Type _genericCollectionType = typeof(ICollection<>);
+        private static readonly Type _genericListType = typeof(IList<>);
+        private static readonly Type _genericReadonlyListType = typeof(IReadOnlyList<>);
         private static readonly PropertyInfo _listIndexer = typeof(IList).GetProperty("Item")!;
 
         private static readonly Type _genericDictionaryType = typeof(IDictionary<,>);
@@ -21,8 +24,11 @@ namespace Jint.Runtime.Interop
 
         private readonly MethodInfo? _tryGetValueMethod;
         private readonly MethodInfo? _removeMethod;
+        private readonly MethodInfo? _remoteAtMethod;
+        private readonly MethodInfo? _addMethod;
         private readonly PropertyInfo? _keysAccessor;
         private readonly Type? _valueType;
+        private readonly Type? _arrayItemType;
 
         private TypeDescriptor(
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)]
@@ -38,8 +44,11 @@ namespace Jint.Runtime.Interop
                 out _keysAccessor,
                 out _valueType,
                 out var lengthProperty,
-                out var integerIndexer);
-
+                out var integerIndexer,
+                out _arrayItemType,
+                out _remoteAtMethod,
+                out _addMethod);
+            
             IntegerIndexerProperty = integerIndexer;
             IsDictionary = _tryGetValueMethod is not null || isDictionary;
 
@@ -91,7 +100,10 @@ namespace Jint.Runtime.Interop
             out PropertyInfo? keysAccessor,
             out Type? valueType,
             out PropertyInfo? lengthProperty,
-            out PropertyInfo? integerIndexer)
+            out PropertyInfo? integerIndexer,
+            out Type? arrayItemType,
+            out MethodInfo? remoteAtMethod,
+            out MethodInfo? addMethod)
         {
             AnalyzeType(
                 type,
@@ -103,7 +115,10 @@ namespace Jint.Runtime.Interop
                 out keysAccessor,
                 out valueType,
                 out lengthProperty,
-                out integerIndexer);
+                out integerIndexer,
+                out arrayItemType,
+                out remoteAtMethod,
+                out addMethod);
 
             foreach (var t in type.GetInterfaces())
             {
@@ -118,7 +133,10 @@ namespace Jint.Runtime.Interop
                     out var keysAccessorForSubType,
                     out var valueTypeForSubType,
                     out var lengthPropertyForSubType,
-                    out var integerIndexerForSubType);
+                    out var integerIndexerForSubType,
+                    out var arrayItemTypeForSubType,
+                    out var remoteAtMethodForSubType,
+                    out var addMethodForSubType);
 #pragma warning restore IL2072
 
                 isCollection |= isCollectionForSubType;
@@ -131,6 +149,10 @@ namespace Jint.Runtime.Interop
                 valueType ??= valueTypeForSubType;
                 lengthProperty ??= lengthPropertyForSubType;
                 integerIndexer ??= integerIndexerForSubType;
+                integerIndexer ??= integerIndexerForSubType;
+                arrayItemType ??= arrayItemTypeForSubType;
+                remoteAtMethod ??= remoteAtMethodForSubType;
+                addMethod ??= addMethodForSubType;
             }
         }
 
@@ -145,11 +167,44 @@ namespace Jint.Runtime.Interop
             out PropertyInfo? keysAccessor,
             out Type? valueType,
             out PropertyInfo? lengthProperty,
-            out PropertyInfo? integerIndexer)
+            out PropertyInfo? integerIndexer,
+            out Type? arrayItemType,
+            out MethodInfo? removeAtMethod,
+            out MethodInfo? addMethod)
         {
             isCollection = typeof(ICollection).IsAssignableFrom(type);
+            isCollection |= type.IsGenericType && type.GetGenericTypeDefinition() == _genericCollectionType;
             isEnumerable = typeof(IEnumerable).IsAssignableFrom(type);
             integerIndexer = _listType.IsAssignableFrom(type) ? _listIndexer : null;
+            
+            // generic list indexer
+            arrayItemType = null;
+            removeAtMethod = null;
+            addMethod = null;
+            
+#pragma warning disable IL2055
+#pragma warning disable IL2080
+#pragma warning disable IL3050
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == _genericListType)
+            {
+                arrayItemType = type.GenericTypeArguments[0];
+                integerIndexer ??= _genericListType.MakeGenericType(arrayItemType).GetProperty("Item");
+                removeAtMethod = _genericListType.MakeGenericType(arrayItemType).GetMethod("RemoveAt");
+                addMethod = _genericCollectionType.MakeGenericType(arrayItemType).GetMethod("Add");
+            }
+            else if (type.IsGenericType && type.GetGenericTypeDefinition() == _genericReadonlyListType)
+            {
+                arrayItemType = type.GenericTypeArguments[0];
+                integerIndexer ??= _genericReadonlyListType.MakeGenericType(arrayItemType).GetProperty("Item");
+            }
+            else if (type.IsGenericType && type.GetGenericTypeDefinition() == _genericCollectionType)
+            {
+                arrayItemType = type.GenericTypeArguments[0];
+                addMethod = _genericCollectionType.MakeGenericType(arrayItemType).GetMethod("Add");
+            }
+#pragma warning restore IL2055
+#pragma warning restore IL2080
+#pragma warning restore IL3050
 
             isDictionary = typeof(IDictionary).IsAssignableFrom(type);
             lengthProperty = type.GetProperty("Count") ?? type.GetProperty("Length");
@@ -204,6 +259,38 @@ namespace Jint.Runtime.Interop
             }
         }
 
+        public bool TryGetIndexerValue(object target, int index, [NotNullWhen(true)] out object? o)
+        {
+            if (target is IList list)
+            {
+                if (index >= 0 && index < list.Count)
+                {
+                    o = list[index];
+                    return o != null;
+                }
+                
+                o = null;
+                return false;
+            }
+            
+            if (!IsIntegerIndexed)
+            {
+                ExceptionHelper.ThrowInvalidOperationException("Not an integer-indexed object");
+            }
+            
+            // we could throw when indexing with an invalid key
+            try
+            {
+                o = IntegerIndexerProperty!.GetValue(target, [index]);
+                return o != null;
+            }
+            catch (TargetInvocationException tie) when (tie.InnerException is IndexOutOfRangeException)
+            {
+                o = null;
+                return false;
+            }
+        }
+
         public bool Remove(object target, string key)
         {
             if (_removeMethod is null)
@@ -212,6 +299,72 @@ namespace Jint.Runtime.Interop
             }
 
             return (bool) _removeMethod.Invoke(target, [key])!;
+        }
+
+        public void RemoveAt(object target, int index)
+        {
+            if (!IsIntegerIndexed)
+            {
+                ExceptionHelper.ThrowInvalidOperationException("Not an integer-indexed object");
+            }
+
+            if (target is IList list)
+            {
+                list.RemoveAt(index);
+            }
+            else
+            {
+                _remoteAtMethod!.Invoke(target, [index]);
+            }
+        }
+
+        public void AddDefault(object target)
+        {
+            if (!IsArrayLike)
+            {
+                ExceptionHelper.ThrowInvalidOperationException("Not an array-like object");
+            }
+
+            if (target is IList list)
+            {
+                list.Add(default);
+            }
+            else
+            {
+                if (_arrayItemType == null)
+                {
+                    ExceptionHelper.ThrowInvalidOperationException("Not a generic list");
+                }
+                
+                _addMethod!.Invoke(target, [CreateDefaultInstance(_arrayItemType)]);
+            }
+        }
+        
+        internal static object? CreateDefaultInstance(Type type)
+        {
+            if (type.IsValueType)
+            {
+#pragma warning disable IL3050
+                return Activator.CreateInstance(type);
+#pragma warning restore IL3050
+            }
+            
+            return null;
+        }
+        
+        public int GetLength(object target)
+        {
+            if (target is ICollection collection)
+            {
+                return collection.Count;
+            }
+            
+            if (LengthProperty is null)
+            {
+                ExceptionHelper.ThrowInvalidOperationException("Not an array-like object");
+            }
+
+            return (int) LengthProperty.GetValue(target)!;
         }
 
         public ICollection<string> GetKeys(object target)

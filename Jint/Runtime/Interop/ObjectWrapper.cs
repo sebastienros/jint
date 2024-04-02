@@ -162,7 +162,7 @@ namespace Jint.Runtime.Interop
 
         public override bool Delete(JsValue property)
         {
-            if (Target is IList && property.IsNumber())
+            if (IsArrayLike && property.IsNumber())
             {
                 return true;
             }

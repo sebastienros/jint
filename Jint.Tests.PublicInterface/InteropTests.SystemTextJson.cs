@@ -5,63 +5,50 @@ using System.Text.Json;
 
 namespace Jint.Tests.PublicInterface;
 
-public sealed class SystemTextJsonValueConverter : IObjectConverter
-{
-    public static readonly SystemTextJsonValueConverter Instance = new();
-
-    private SystemTextJsonValueConverter()
-    {
-    }
-
-    public bool TryConvert(Engine engine, object value, out JsValue result)
-    {
-        if (value is JsonValue jsonValue)
-        {
-            var valueKind = jsonValue.GetValueKind();
-            switch (valueKind)
-            {
-                case JsonValueKind.Object:
-                case JsonValueKind.Array:
-                    result = JsValue.FromObject(engine, jsonValue);
-                    break;
-                case JsonValueKind.String:
-                    result = jsonValue.ToString();
-                    break;
-                case JsonValueKind.Number:
-                    if (jsonValue.TryGetValue<double>(out var doubleValue))
-                    {
-                        result = JsNumber.Create(doubleValue);
-                    }
-                    else
-                    {
-                        result = JsValue.Undefined;
-                    }
-                    break;
-                case JsonValueKind.True:
-                    result = JsBoolean.True;
-                    break;
-                case JsonValueKind.False:
-                    result = JsBoolean.False;
-                    break;
-                case JsonValueKind.Undefined:
-                    result = JsValue.Undefined;
-                    break;
-                case JsonValueKind.Null:
-                    result = JsValue.Null;
-                    break;
-                default:
-                    result = JsValue.Undefined;
-                    break;
-            }
-            return true;
-        }
-        result = JsValue.Undefined;
-        return false;
-
-    }
-}
 public partial class InteropTests
 {
+
+    [Fact]
+    public void ArrayPrototypeFindWithInteropJsonArray()
+    {
+        var engine = GetEngine();
+        
+        var array = new JsonArray { "A", "B", "C" };
+        engine.SetValue("array", array);
+
+        Assert.Equal(1, engine.Evaluate("array.findIndex((x) => x === 'B')"));
+        Assert.Equal('B', engine.Evaluate("array.find((x) => x === 'B')"));
+    }
+
+    [Fact]
+    public void ArrayPrototypePushWithInteropJsonArray()
+    {
+        var engine = GetEngine();
+
+        var array = new JsonArray { "A", "B", "C" };
+        engine.SetValue("array", array);
+
+        engine.Evaluate("array.push('D')");
+        Assert.Equal(4, array.Count);
+        Assert.Equal("D", array[3]?.ToString());
+        Assert.Equal(3, engine.Evaluate("array.lastIndexOf('D')"));
+    }
+
+    [Fact]
+    public void ArrayPrototypePopWithInteropJsonArray()
+    {
+        var engine = GetEngine();
+
+        var array = new JsonArray { "A", "B", "C" };
+        engine.SetValue("array", array);
+
+        Assert.Equal(2, engine.Evaluate("array.lastIndexOf('C')"));
+        Assert.Equal(3, array.Count);
+        Assert.Equal("C", engine.Evaluate("array.pop()"));
+        Assert.Equal(2, array.Count);
+        Assert.Equal(-1, engine.Evaluate("array.lastIndexOf('C')"));
+    }
+
     [Fact]
     public void AccessingJsonNodeShouldWork()
     {
@@ -93,42 +80,7 @@ public partial class InteropTests
 
         var variables = JsonNode.Parse(Json);
 
-        var engine = new Engine(options =>
-        {
-#if !NET8_0_OR_GREATER
-            // Jint doesn't know about the types statically as they are not part of the out-of-the-box experience
-
-            // make JsonArray behave like JS array
-            options.Interop.WrapObjectHandler = static (e, target, type) =>
-            {
-                if (target is JsonArray)
-                {
-                    var wrapped = ObjectWrapper.Create(e, target);
-                    wrapped.Prototype = e.Intrinsics.Array.PrototypeObject;
-                    return wrapped;
-                }
-
-                return ObjectWrapper.Create(e, target);
-            };
-
-            options.AddObjectConverter(SystemTextJsonValueConverter.Instance);
-
-            // we cannot access this[string] with anything else than JsonObject, otherwise itw will throw
-            options.Interop.TypeResolver = new TypeResolver
-            {
-                MemberFilter = static info =>
-                {
-                    if (info.ReflectedType != typeof(JsonObject) && info.Name == "Item" && info is System.Reflection.PropertyInfo p)
-                    {
-                        var parameters = p.GetIndexParameters();
-                        return parameters.Length != 1 || parameters[0].ParameterType != typeof(string);
-                    }
-
-                    return true;
-                }
-            };
-#endif
-        });
+        var engine = GetEngine();
 
         engine
             .SetValue("falseValue", false)
@@ -201,5 +153,102 @@ public partial class InteropTests
         Assert.True(engine.Evaluate("variables.employees.trueValue == false").AsBoolean());
         Assert.True(engine.Evaluate("variables.employees.number == 456.789").AsBoolean());
         Assert.True(engine.Evaluate("variables.employees.other == 'def'").AsBoolean());
+    }
+
+    private static Engine GetEngine()
+    {
+        var engine = new Engine(options =>
+        {
+#if !NET8_0_OR_GREATER
+            // Jint doesn't know about the types statically as they are not part of the out-of-the-box experience
+
+            // make JsonArray behave like JS array
+            options.Interop.WrapObjectHandler = static (e, target, type) =>
+            {
+                if (target is JsonArray)
+                {
+                    var wrapped = ObjectWrapper.Create(e, target);
+                    wrapped.Prototype = e.Intrinsics.Array.PrototypeObject;
+                    return wrapped;
+                }
+
+                return ObjectWrapper.Create(e, target);
+            };
+
+            options.AddObjectConverter(SystemTextJsonValueConverter.Instance);
+
+            // we cannot access this[string] with anything else than JsonObject, otherwise itw will throw
+            options.Interop.TypeResolver = new TypeResolver
+            {
+                MemberFilter = static info =>
+                {
+                    if (info.ReflectedType != typeof(JsonObject) && info.Name == "Item" && info is System.Reflection.PropertyInfo p)
+                    {
+                        var parameters = p.GetIndexParameters();
+                        return parameters.Length != 1 || parameters[0].ParameterType != typeof(string);
+                    }
+
+                    return true;
+                }
+            };
+#endif
+        });
+        
+        return engine;
+    }
+}
+
+public sealed class SystemTextJsonValueConverter : IObjectConverter
+{
+    public static readonly SystemTextJsonValueConverter Instance = new();
+
+    private SystemTextJsonValueConverter()
+    {
+    }
+
+    public bool TryConvert(Engine engine, object value, out JsValue result)
+    {
+        if (value is JsonValue jsonValue)
+        {
+            var valueKind = jsonValue.GetValueKind();
+            switch (valueKind)
+            {
+                case JsonValueKind.Object:
+                case JsonValueKind.Array:
+                    result = JsValue.FromObject(engine, jsonValue);
+                    break;
+                case JsonValueKind.String:
+                    result = jsonValue.ToString();
+                    break;
+                case JsonValueKind.Number:
+                    if (jsonValue.TryGetValue<double>(out var doubleValue))
+                    {
+                        result = JsNumber.Create(doubleValue);
+                    }
+                    else
+                    {
+                        result = JsValue.Undefined;
+                    }
+                    break;
+                case JsonValueKind.True:
+                    result = JsBoolean.True;
+                    break;
+                case JsonValueKind.False:
+                    result = JsBoolean.False;
+                    break;
+                case JsonValueKind.Undefined:
+                    result = JsValue.Undefined;
+                    break;
+                case JsonValueKind.Null:
+                    result = JsValue.Null;
+                    break;
+                default:
+                    result = JsValue.Undefined;
+                    break;
+            }
+            return true;
+        }
+        result = JsValue.Undefined;
+        return false;
     }
 }
