@@ -47,6 +47,11 @@ namespace Jint.Native.Array
                 return new JsTypedArrayOperations(typedArrayInstance);
             }
 
+            if (instance is ArrayLikeWrapper arrayWrapper)
+            {
+                return new ArrayLikeOperations(arrayWrapper);
+            }
+
             if (instance is ObjectWrapper wrapper)
             {
                 var descriptor = wrapper._typeDescriptor;
@@ -555,6 +560,77 @@ namespace Jint.Native.Array
                 }
                 
                 _target[(int) index] = value;
+            }
+
+            public override void DeletePropertyOrThrow(ulong index)
+                => _target.DeletePropertyOrThrow(index);
+        }
+
+        private sealed class ArrayLikeOperations : ArrayOperations
+        {
+            private readonly ArrayLikeWrapper _target;
+
+            public ArrayLikeOperations(ArrayLikeWrapper wrapper)
+            {
+                _target = wrapper;
+            }
+
+            public override ObjectInstance Target => _target;
+
+            public override ulong GetSmallestIndex(ulong length) => 0;
+
+            public override uint GetLength() => (uint) _target.Length;
+
+            public override ulong GetLongLength() => GetLength();
+
+            public override void SetLength(ulong length)
+            {
+                while (_target.Length > (int) length)
+                {
+                    // shrink list to fit
+                    _target.RemoveAt(_target.Length - 1);
+                }
+                
+                while (_target.Length < (int) length)
+                {
+                    // expand list to fit
+                    _target.AddDefault();
+                }
+            }
+
+            public override void EnsureCapacity(ulong capacity)
+            {
+                _target.EnsureCapacity((int)capacity);
+            }
+
+            public override JsValue Get(ulong index) => index < (ulong) _target.Length ? ReadValue((int) index) : JsValue.Undefined;
+
+            public override bool TryGetValue(ulong index, out JsValue value)
+            {
+                if (index < (ulong) _target.Length)
+                {
+                    value = ReadValue((int) index);
+                    return true;
+                }
+
+                value = JsValue.Undefined;
+                return false;
+            }
+
+            private JsValue ReadValue(int index)
+            {
+                return (uint) index < _target.Length ? JsValue.FromObject(_target.Engine, _target.GetAt(index)) : JsValue.Undefined;
+            }
+
+            public override bool HasProperty(ulong index) => index < (ulong) _target.Length;
+
+            public override void CreateDataPropertyOrThrow(ulong index, JsValue value)
+                => _target.CreateDataPropertyOrThrow(index, value);
+
+            public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
+            {
+                EnsureCapacity(index + 1);
+                _target.SetAt((int)index, value);
             }
 
             public override void DeletePropertyOrThrow(ulong index)
