@@ -34,7 +34,6 @@ internal sealed class JintAwaitExpression : JintExpression
                 value = promiseInstance;
             }
 
-            engine.RunAvailableContinuations();
             return value.UnwrapIfPromise();
         }
         catch (PromiseRejectedException e)

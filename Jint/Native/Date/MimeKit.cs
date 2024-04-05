@@ -454,7 +454,9 @@ internal static class DateUtils
         return true;
     }
 
+#pragma warning disable CA1859
     private static bool TryParseUnknownDateFormat(IList<DateToken> tokens, byte[] text, out DateTimeOffset date)
+#pragma warning restore CA1859
     {
         int? day = null, month = null, year = null, tzone = null;
         int hour = 0, minute = 0, second = 0;
