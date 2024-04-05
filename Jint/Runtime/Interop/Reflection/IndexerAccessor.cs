@@ -14,20 +14,25 @@ internal sealed class IndexerAccessor : ReflectionAccessor
 {
     private readonly object _key;
 
-    internal readonly PropertyInfo _indexer;
     private readonly MethodInfo? _getter;
     private readonly MethodInfo? _setter;
     private readonly MethodInfo? _containsKey;
 
     private IndexerAccessor(PropertyInfo indexer, MethodInfo? containsKey, object key) : base(indexer.PropertyType)
     {
-        _indexer = indexer;
+        Indexer = indexer;
+        FirstIndexParameter = indexer.GetIndexParameters()[0];
+
         _containsKey = containsKey;
         _key = key;
 
         _getter = indexer.GetGetMethod();
         _setter = indexer.GetSetMethod();
     }
+
+    internal PropertyInfo Indexer { get; }
+
+    internal ParameterInfo FirstIndexParameter { get; }
 
     internal static bool TryFindIndexer(
         Engine engine,
@@ -48,7 +53,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
             integerKey = intKeyTemp;
         }
 
-        var filter = new Func<MemberInfo, bool>(m => engine.Options.Interop.TypeResolver.Filter(engine, m));
+        var filter = new Func<MemberInfo, bool>(m => engine.Options.Interop.TypeResolver.Filter(engine, targetType, m));
 
         // default indexer wins
         var descriptor = TypeDescriptor.Get(targetType);
@@ -168,9 +173,9 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     }
 
 
-    public override bool Readable => _indexer.CanRead;
+    public override bool Readable => Indexer.CanRead;
 
-    public override bool Writable => _indexer.CanWrite;
+    public override bool Writable => Indexer.CanWrite;
 
     protected override object? DoGetValue(object target, string memberName)
     {

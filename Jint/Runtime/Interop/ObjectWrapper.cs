@@ -81,10 +81,12 @@ namespace Jint.Runtime.Interop
             Engine engine,
             object target,
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type,
-            [NotNullWhen(true)] out ObjectInstance? instance)
+            [NotNullWhen(true)] out InteropArrayLikeWrapper? result)
         {
 #pragma warning disable IL2055
 #pragma warning disable IL3050
+
+            result = null;
 
             // check for generic interfaces
             foreach (var i in type.GetInterfaces())
@@ -99,15 +101,15 @@ namespace Jint.Runtime.Interop
                 if (i.GetGenericTypeDefinition() == typeof(IList<>))
                 {
                     var arrayWrapperType = typeof(GenericListWrapper<>).MakeGenericType(arrayItemType);
-                    instance = (ObjectInstance) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
-                    return true;
+                    result = (InteropArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
+                    break;
                 }
 
                 if (i.GetGenericTypeDefinition() == typeof(IReadOnlyList<>))
                 {
                     var arrayWrapperType = typeof(ReadOnlyListWrapper<>).MakeGenericType(arrayItemType);
-                    instance = (ObjectInstance) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
-                    return true;
+                    result = (InteropArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
+                    break;
                 }
             }
 
@@ -115,14 +117,12 @@ namespace Jint.Runtime.Interop
 #pragma warning restore IL2055
 
             // least specific
-            if (target is IList list)
+            if (result is null && target is IList list)
             {
-                instance = new ListWrapper(engine, list, type);
-                return true;
+                result = new ListWrapper(engine, list, type);
             }
 
-            instance = default;
-            return false;
+            return result is not null;
         }
 
         public object Target { get; }

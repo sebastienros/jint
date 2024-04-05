@@ -24,10 +24,32 @@ namespace Jint.Runtime.Interop
         /// By default allows all but will also be limited by <see cref="Options.InteropOptions.AllowGetType"/> configuration.
         /// </summary>
         /// <seealso cref="Options.InteropOptions.AllowGetType"/>
-        public Predicate<MemberInfo> MemberFilter { get; set; } = _ => true;
+        public Predicate<MemberInfo> MemberFilter { get; set; } = static _ => true;
 
-        internal bool Filter(Engine engine, MemberInfo m)
+        internal bool Filter(Engine engine, Type targetType, MemberInfo m)
         {
+            // some specific problematic indexer cases for JSON interop
+            if (string.Equals(m.Name, "Item", StringComparison.Ordinal) && m is PropertyInfo p)
+            {
+                var indexParameters = p.GetIndexParameters();
+                if (indexParameters.Length == 1)
+                {
+                    var parameter = indexParameters[0];
+                    if (string.Equals(m.DeclaringType?.FullName, "System.Text.Json.Nodes.JsonNode", StringComparison.Ordinal))
+                    {
+                        // STJ
+                        return parameter.ParameterType == typeof(string) && string.Equals(targetType.FullName, "System.Text.Json.Nodes.JsonObject", StringComparison.Ordinal)
+                               || parameter.ParameterType == typeof(int) && string.Equals(targetType.FullName, "System.Text.Json.Nodes.JsonArray", StringComparison.Ordinal);
+                    }
+
+                    if (string.Equals(targetType.FullName, "Newtonsoft.Json.Linq.JArray", StringComparison.Ordinal))
+                    {
+                        // NJ
+                        return parameter.ParameterType == typeof(int);
+                    }
+                }
+            }
+
             return (engine.Options.Interop.AllowGetType || !string.Equals(m.Name, nameof(GetType), StringComparison.Ordinal)) && MemberFilter(m);
         }
 
@@ -121,7 +143,7 @@ namespace Jint.Runtime.Interop
                 {
                     foreach (var iprop in iface.GetProperties())
                     {
-                        if (!Filter(engine, iprop))
+                        if (!Filter(engine, type, iprop))
                         {
                             continue;
                         }
@@ -154,7 +176,7 @@ namespace Jint.Runtime.Interop
                 {
                     foreach (var imethod in iface.GetMethods())
                     {
-                        if (!Filter(engine, imethod))
+                        if (!Filter(engine, type, imethod))
                         {
                             continue;
                         }
@@ -180,7 +202,7 @@ namespace Jint.Runtime.Interop
             var score = int.MaxValue;
             if (indexerAccessor != null)
             {
-                var parameter = indexerAccessor._indexer.GetIndexParameters()[0];
+                var parameter = indexerAccessor.FirstIndexParameter;
                 score = CalculateIndexerScore(parameter, isInteger);
             }
 
@@ -191,7 +213,13 @@ namespace Jint.Runtime.Interop
                 {
                     if (IndexerAccessor.TryFindIndexer(engine, interfaceType, memberName, out var accessor, out _))
                     {
-                        var parameter = accessor._indexer.GetIndexParameters()[0];
+                        // ensure that original type is allowed against indexer
+                        if (!Filter(engine, type, accessor.Indexer))
+                        {
+                            continue;
+                        }
+
+                        var parameter = accessor.FirstIndexParameter;
                         var newScore = CalculateIndexerScore(parameter, isInteger);
                         if (newScore < score)
                         {
@@ -214,7 +242,7 @@ namespace Jint.Runtime.Interop
                 var matches = new List<MethodInfo>();
                 foreach (var method in extensionMethods)
                 {
-                    if (!Filter(engine, method))
+                    if (!Filter(engine, type, method))
                     {
                         continue;
                     }
@@ -271,13 +299,13 @@ namespace Jint.Runtime.Interop
             {
                 foreach (var p in t.GetProperties(bindingFlags))
                 {
-                    if (!Filter(engine, p))
+                    if (!Filter(engine, type, p))
                     {
                         continue;
                     }
 
                     // only if it's not an indexer, we can do case-ignoring matches
-                    var isStandardIndexer = p.GetIndexParameters().Length == 1 && string.Equals(p.Name, "Item", StringComparison.Ordinal);
+                    var isStandardIndexer = string.Equals(p.Name, "Item", StringComparison.Ordinal) && p.GetIndexParameters().Length == 1;
                     if (!isStandardIndexer)
                     {
                         foreach (var name in typeResolverMemberNameCreator(p))
@@ -319,7 +347,7 @@ namespace Jint.Runtime.Interop
             FieldInfo? field = null;
             foreach (var f in type.GetFields(bindingFlags))
             {
-                if (!Filter(engine, f))
+                if (!Filter(engine, type, f))
                 {
                     continue;
                 }
@@ -344,7 +372,7 @@ namespace Jint.Runtime.Interop
             List<MethodInfo>? methods = null;
             void AddMethod(MethodInfo m)
             {
-                if (!Filter(engine, m))
+                if (!Filter(engine, type, m))
                 {
                     return;
                 }

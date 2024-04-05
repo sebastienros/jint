@@ -161,21 +161,6 @@ public partial class InteropTests
 #if !NET8_0_OR_GREATER
             // Jint doesn't know about the types statically as they are not part of the out-of-the-box experience
             options.AddObjectConverter(SystemTextJsonValueConverter.Instance);
-
-            // we cannot access this[string] with anything else than JsonObject, otherwise itw will throw
-            options.Interop.TypeResolver = new TypeResolver
-            {
-                MemberFilter = static info =>
-                {
-                    if (info.ReflectedType != typeof(JsonObject) && info.Name == "Item" && info is System.Reflection.PropertyInfo p)
-                    {
-                        var parameters = p.GetIndexParameters();
-                        return parameters.Length != 1 || parameters[0].ParameterType != typeof(string);
-                    }
-
-                    return true;
-                }
-            };
 #endif
         });
 
