@@ -73,6 +73,10 @@ namespace Jint.Runtime.Interop
 
         public bool Iterable => IsArrayLike || IsDictionary || IsEnumerable;
 
+        public MethodInfo? RemoveMethod => _removeMethod;
+
+        public PropertyInfo? KeysAccessor => _keysAccessor;
+
         public static TypeDescriptor Get(
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)]
             Type type)
@@ -202,26 +206,6 @@ namespace Jint.Runtime.Interop
                 o = null;
                 return false;
             }
-        }
-
-        public bool Remove(object target, string key)
-        {
-            if (_removeMethod is null)
-            {
-                return false;
-            }
-
-            return (bool) _removeMethod.Invoke(target, [key])!;
-        }
-
-        public ICollection<string> GetKeys(object target)
-        {
-            if (!IsStringKeyedGenericDictionary)
-            {
-                ExceptionHelper.ThrowInvalidOperationException("Not a string-keyed dictionary");
-            }
-
-            return (ICollection<string>) _keysAccessor!.GetValue(target)!;
         }
     }
 }

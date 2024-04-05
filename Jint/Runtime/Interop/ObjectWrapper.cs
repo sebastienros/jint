@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
 using Jint.Native;
@@ -17,7 +18,7 @@ namespace Jint.Runtime.Interop
     /// <summary>
     /// Wraps a CLR instance
     /// </summary>
-    public sealed class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWrapper>
+    public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWrapper>
     {
         internal readonly TypeDescriptor _typeDescriptor;
 
@@ -42,7 +43,7 @@ namespace Jint.Runtime.Interop
                 if (_typeDescriptor.IsArrayLike && engine.Options.Interop.AttachArrayPrototype)
                 {
                     // if we have array-like object, we can attach array prototype
-                    SetPrototypeOf(engine.Intrinsics.Array.PrototypeObject);
+                    _prototype = engine.Intrinsics.Array.PrototypeObject;
                 }
             }
         }
@@ -50,21 +51,79 @@ namespace Jint.Runtime.Interop
         /// <summary>
         /// Creates a new object wrapper for given object instance and exposed type.
         /// </summary>
-        public static ObjectInstance Create(Engine engine, object obj, Type? type = null)
-#pragma warning disable CS0618 // Type or member is obsolete
+        public static ObjectInstance Create(Engine engine, object target, Type? type = null)
         {
+            if (target == null)
+            {
+                ExceptionHelper.ThrowArgumentNullException(nameof(target));
+            }
 
-#if NET8_0_OR_GREATER
-            if (type == typeof(System.Text.Json.Nodes.JsonNode))
+            // STJ integration
+            if (string.Equals(type?.FullName, "System.Text.Json.Nodes.JsonNode", StringComparison.Ordinal))
             {
                 // we need to always expose the actual type instead of the type nodes provide
-                type = obj.GetType();
+                type = target.GetType();
             }
-#endif
 
-            return new ObjectWrapper(engine, obj, type);
-        }
+            type ??= target.GetType();
+
+            if (TryBuildArrayLikeWrapper(engine, target, type, out var wrapper))
+            {
+                return wrapper;
+            }
+
+#pragma warning disable CS0618 // Type or member is obsolete
+            return new ObjectWrapper(engine, target, type);
 #pragma warning restore CS0618 // Type or member is obsolete
+        }
+
+        private static bool TryBuildArrayLikeWrapper(
+            Engine engine,
+            object target,
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type,
+            [NotNullWhen(true)] out ObjectInstance? instance)
+        {
+#pragma warning disable IL2055
+#pragma warning disable IL3050
+
+            // check for generic interfaces
+            foreach (var i in type.GetInterfaces())
+            {
+                if (!i.IsGenericType)
+                {
+                    continue;
+                }
+
+                var arrayItemType = i.GenericTypeArguments[0];
+
+                if (i.GetGenericTypeDefinition() == typeof(IList<>))
+                {
+                    var arrayWrapperType = typeof(GenericListWrapper<>).MakeGenericType(arrayItemType);
+                    instance = (ObjectInstance) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
+                    return true;
+                }
+
+                if (i.GetGenericTypeDefinition() == typeof(IReadOnlyList<>))
+                {
+                    var arrayWrapperType = typeof(ReadOnlyListWrapper<>).MakeGenericType(arrayItemType);
+                    instance = (ObjectInstance) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
+                    return true;
+                }
+            }
+
+#pragma warning restore IL3050
+#pragma warning restore IL2055
+
+            // least specific
+            if (target is IList list)
+            {
+                instance = new ListWrapper(engine, list, type);
+                return true;
+            }
+
+            instance = default;
+            return false;
+        }
 
         public object Target { get; }
         internal Type ClrType { get; }
@@ -129,70 +188,18 @@ namespace Jint.Runtime.Interop
             return true;
         }
 
-        public override object ToObject()
-        {
-            return Target;
-        }
+        public override object ToObject() => Target;
 
         public override void RemoveOwnProperty(JsValue property)
         {
-            if (_engine.Options.Interop.AllowWrite && property is JsString jsString)
+            if (_engine.Options.Interop.AllowWrite && property is JsString jsString && _typeDescriptor.RemoveMethod is not null)
             {
-                _typeDescriptor.Remove(Target, jsString.ToString());
+                _typeDescriptor.RemoveMethod.Invoke(Target, [jsString.ToString()]);
             }
-        }
-
-        public override bool HasProperty(JsValue property)
-        {
-            if (property.IsNumber())
-            {
-                var value = ((JsNumber) property)._value;
-                if (TypeConverter.IsIntegralNumber(value))
-                {
-                    var index = (int) value;
-                    if (Target is ICollection collection && index < collection.Count)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return base.HasProperty(property);
-        }
-
-        public override bool Delete(JsValue property)
-        {
-            if (Target is IList && property.IsNumber())
-            {
-                return true;
-            }
-            
-            return base.Delete(property);
         }
 
         public override JsValue Get(JsValue property, JsValue receiver)
         {
-            if (property.IsInteger())
-            {
-                var index = (int) ((JsNumber) property)._value;
-                if (Target is IList list)
-                {
-                    return (uint) index < list.Count ? FromObject(_engine, list[index]) : Undefined;
-                }
-
-                if (Target is ICollection collection
-                    && _typeDescriptor.IntegerIndexerProperty is not null)
-                {
-                    // via reflection is slow, but better than nothing
-                    if (index < collection.Count)
-                    {
-                        return FromObject(_engine, _typeDescriptor.IntegerIndexerProperty.GetValue(Target, [index]));
-                    }
-
-                    return Undefined;
-                }
-            }
-
             if (!_typeDescriptor.IsDictionary
                 && Target is ICollection c
                 && CommonProperties.Length.Equals(property))
@@ -228,7 +235,7 @@ namespace Jint.Runtime.Interop
             var includeStrings = (types & Types.String) != Types.Empty;
             if (includeStrings && _typeDescriptor.IsStringKeyedGenericDictionary) // expando object for instance
             {
-                var keys = _typeDescriptor.GetKeys(Target);
+                var keys = (ICollection<string>) _typeDescriptor.KeysAccessor!.GetValue(Target)!;
                 foreach (var key in keys)
                 {
                     var jsString = JsString.Create(key);
@@ -368,18 +375,14 @@ namespace Jint.Runtime.Interop
             {
                 return obj.GetType();
             }
-            else
+
+            var underlyingType = Nullable.GetUnderlyingType(type);
+            if (underlyingType is not null)
             {
-                var underlyingType = Nullable.GetUnderlyingType(type);
-                if (underlyingType is not null)
-                {
-                    return underlyingType;
-                }
-                else
-                {
-                    return type;
-                }
+                return underlyingType;
             }
+
+            return type;
         }
 
         private static JsValue Iterator(JsValue thisObject, JsValue[] arguments)

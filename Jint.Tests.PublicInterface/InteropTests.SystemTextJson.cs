@@ -11,7 +11,7 @@ public partial class InteropTests
     public void ArrayPrototypeFindWithInteropJsonArray()
     {
         var engine = GetEngine();
-        
+
         var array = new JsonArray { "A", "B", "C" };
         engine.SetValue("array", array);
 
@@ -47,57 +47,57 @@ public partial class InteropTests
         Assert.Equal(2, array.Count);
         Assert.Equal(-1, engine.Evaluate("array.lastIndexOf('C')"));
     }
-    
+
     [Fact]
     public void AccessingJsonNodeShouldWork()
     {
         const string Json = """
-        {
-            "falseValue": false,
-            "employees": {
-                "trueValue": true,
-                "falseValue": false,
-                "number": 123.456,
-                "zeroNumber": 0,
-                "emptyString":"",
-                "nullValue":null,
-                "other": "abc",
-                "type": "array",
-                "value": [
-                    {
-                        "firstName": "John",
-                        "lastName": "Doe"
-                    },
-                    {
-                        "firstName": "Jane",
-                        "lastName": "Doe"
-                    }
-                ]
-            }
-        }
-        """;
+                            {
+                                "falseValue": false,
+                                "employees": {
+                                    "trueValue": true,
+                                    "falseValue": false,
+                                    "number": 123.456,
+                                    "zeroNumber": 0,
+                                    "emptyString":"",
+                                    "nullValue":null,
+                                    "other": "abc",
+                                    "type": "array",
+                                    "value": [
+                                        {
+                                            "firstName": "John",
+                                            "lastName": "Doe"
+                                        },
+                                        {
+                                            "firstName": "Jane",
+                                            "lastName": "Doe"
+                                        }
+                                    ]
+                                }
+                            }
+                            """;
 
         var variables = JsonNode.Parse(Json);
 
         var engine = GetEngine();
-        
+
         engine
             .SetValue("falseValue", false)
             .SetValue("variables", variables)
             .Execute("""
-                 function populateFullName() {
-                     return variables['employees'].value.map(item => {
-                         var newItem =
-                         {
-                             "firstName": item.firstName,
-                             "lastName": item.lastName,
-                             "fullName": item.firstName + ' ' + item.lastName
-                         };
-
-                         return newItem;
-                     });
-                 }
-             """);
+                         function populateFullName() {
+                             return variables['employees'].value.map(item => {
+                                 var newItem =
+                                 {
+                                     "firstName": item.firstName,
+                                     "lastName": item.lastName,
+                                     "fullName": item.firstName + ' ' + item.lastName
+                                 };
+                     
+                                 return newItem;
+                             });
+                         }
+                     """);
 
         // reading data
         var result = engine.Evaluate("populateFullName()").AsArray();
@@ -158,22 +158,8 @@ public partial class InteropTests
     {
         var engine = new Engine(options =>
         {
-            // make JsonArray behave like JS array
-            options.Interop.WrapObjectHandler = static (e, target, type) =>
-            {
-                if (target is JsonArray)
-                {
-                    var wrapped = ArrayLikeWrapper.Create(e, target);
-                    wrapped.Prototype = e.Intrinsics.Array.PrototypeObject;
-                    return wrapped;
-                }
-
-                return ObjectWrapper.Create(e, target);
-            };
-            
 #if !NET8_0_OR_GREATER
             // Jint doesn't know about the types statically as they are not part of the out-of-the-box experience
-
             options.AddObjectConverter(SystemTextJsonValueConverter.Instance);
 
             // we cannot access this[string] with anything else than JsonObject, otherwise itw will throw
@@ -192,12 +178,12 @@ public partial class InteropTests
             };
 #endif
         });
-        
+
         return engine;
     }
 }
 
-public sealed class SystemTextJsonValueConverter : IObjectConverter
+file sealed class SystemTextJsonValueConverter : IObjectConverter
 {
     public static readonly SystemTextJsonValueConverter Instance = new();
 
@@ -220,14 +206,7 @@ public sealed class SystemTextJsonValueConverter : IObjectConverter
                     result = jsonValue.ToString();
                     break;
                 case JsonValueKind.Number:
-                    if (jsonValue.TryGetValue<double>(out var doubleValue))
-                    {
-                        result = JsNumber.Create(doubleValue);
-                    }
-                    else
-                    {
-                        result = JsValue.Undefined;
-                    }
+                    result = jsonValue.TryGetValue<double>(out var doubleValue) ? JsNumber.Create(doubleValue) : JsValue.Undefined;
                     break;
                 case JsonValueKind.True:
                     result = JsBoolean.True;
@@ -245,10 +224,11 @@ public sealed class SystemTextJsonValueConverter : IObjectConverter
                     result = JsValue.Undefined;
                     break;
             }
+
             return true;
         }
+
         result = JsValue.Undefined;
         return false;
-
     }
 }
