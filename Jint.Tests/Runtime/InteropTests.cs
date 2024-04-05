@@ -848,16 +848,6 @@ namespace Jint.Tests.Runtime
         {
             var e = new Engine(cfg => cfg
                 .AllowClr(typeof(Person).Assembly)
-                .SetWrapObjectHandler((engine, target, type) =>
-                {
-                    var instance = ObjectWrapper.Create(engine, target);
-                    if (instance.IsArrayLike)
-                    {
-                        instance.SetPrototypeOf(engine.Realm.Intrinsics.Array.PrototypeObject);
-                    }
-
-                    return instance;
-                })
             );
 
             var person = new Person
@@ -881,19 +871,7 @@ namespace Jint.Tests.Runtime
         [Fact]
         public void CanSetIsConcatSpreadableForArrays()
         {
-            var engine = new Engine(opt =>
-            {
-                opt.SetWrapObjectHandler((eng, obj, type) =>
-                {
-                    var wrapper = ObjectWrapper.Create(eng, obj);
-                    if (wrapper.IsArrayLike)
-                    {
-                        wrapper.SetPrototypeOf(eng.Realm.Intrinsics.Array.PrototypeObject);
-                        wrapper.Set(GlobalSymbolRegistry.IsConcatSpreadable, true);
-                    }
-                    return wrapper;
-                });
-            });
+            var engine = new Engine();
 
             engine
                 .SetValue("list1", new List<string> { "A", "B", "C" })

@@ -44,22 +44,7 @@ public class ListInteropBenchmark
     [GlobalSetup]
     public void Setup()
     {
-        _engine = new Engine(options =>
-        {
-            options
-                .SetWrapObjectHandler((engine, target, type) =>
-                {
-                    var instance = ObjectWrapper.Create(engine, target);
-                    var isArrayLike = IsArrayLike(target.GetType());
-                    if (isArrayLike)
-                    {
-                        instance.Prototype = engine.Intrinsics.Array.PrototypeObject;
-                    }
-
-                    return instance;
-                })
-                ;
-        });
+        _engine = new Engine();
 
         _properties = new JsValue[Count];
         var input = new List<Data>(Count);

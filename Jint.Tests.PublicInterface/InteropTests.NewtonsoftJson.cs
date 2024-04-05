@@ -129,5 +129,31 @@ namespace Jint.Tests.PublicInterface
 
             Assert.Equal("CHANGED", result);
         }
+
+        [Fact]
+        public void ArraysShouldPassThroughCorrectly()
+        {
+            var engine = new Engine();
+
+            const string Json = """
+            {
+                'entries': [
+                    { 'id': 1, 'name': 'One' },
+                    { 'id': 2, 'name': 'Two' },
+                    { 'id': 3, 'name': 'Three' }
+                ]
+            }
+            """;
+
+            var obj = JObject.Parse(Json);
+            engine.SetValue("o", obj);
+
+            var names = engine.Evaluate("o.entries.map(e => e.name)").AsArray();
+
+            Assert.Equal((uint) 3, names.Length);
+            Assert.Equal("One", names[0]);
+            Assert.Equal("Two", names[1]);
+            Assert.Equal("Three", names[2]);
+        }
     }
 }
