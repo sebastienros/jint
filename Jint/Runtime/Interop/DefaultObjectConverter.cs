@@ -72,19 +72,22 @@ namespace Jint
                     return result is not null;
                 }
 
-                if (value is Task task)
+                if ((engine.Options.ExperimentalFeatures & ExperimentalFeature.TaskInterop) != ExperimentalFeature.None)
                 {
-                    result = JsValue.ConvertAwaitableToPromise(engine, task);
-                    return result is not null;
-                }
+                    if (value is Task task)
+                    {
+                        result = JsValue.ConvertAwaitableToPromise(engine, task);
+                        return result is not null;
+                    }
 
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
-                if (value is ValueTask valueTask)
-                {
-                    result = JsValue.ConvertAwaitableToPromise(engine, valueTask);
-                    return result is not null;
-                }
+                    if (value is ValueTask valueTask)
+                    {
+                        result = JsValue.ConvertAwaitableToPromise(engine, valueTask);
+                        return result is not null;
+                    }
 #endif
+                }
 
 #if NET8_0_OR_GREATER
                 if (value is System.Text.Json.Nodes.JsonValue jsonValue)

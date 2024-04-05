@@ -33,7 +33,7 @@ public class AsyncTests
     [Fact]
     public void ShouldReturnedTaskConvertedToPromiseInJS()
     {
-        Engine engine = new();
+        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnDelayedTaskAsync().then(x=>x)");
         result = result.UnwrapIfPromise();
@@ -43,7 +43,7 @@ public class AsyncTests
     [Fact]
     public void ShouldReturnedCompletedTaskConvertedToPromiseInJS()
     {
-        Engine engine = new();
+        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         var result = engine.Evaluate("asyncTestClass.ReturnCompletedTask().then(x=>x)");
         result = result.UnwrapIfPromise();
@@ -53,7 +53,7 @@ public class AsyncTests
     [Fact]
     public void ShouldTaskCatchWhenCancelled()
     {
-        Engine engine = new();
+        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         CancellationTokenSource cancel = new();
         cancel.Cancel();
         engine.SetValue("token", cancel.Token);
@@ -70,7 +70,7 @@ public class AsyncTests
     [Fact]
     public void ShouldReturnedTaskCatchWhenCancelled()
     {
-        Engine engine = new();
+        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         CancellationTokenSource cancel = new();
         cancel.Cancel();
         engine.SetValue("token", cancel.Token);
@@ -83,7 +83,7 @@ public class AsyncTests
     [Fact]
     public void ShouldTaskCatchWhenThrowError()
     {
-        Engine engine = new();
+        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         engine.SetValue("callable", Callable);
         engine.SetValue("assert", new Action<bool>(Assert.True));
         var result = engine.Evaluate("callable().then(_ => assert(false)).catch(_ => assert(true))");
@@ -98,7 +98,7 @@ public class AsyncTests
     [Fact]
     public void ShouldReturnedTaskCatchWhenThrowError()
     {
-        Engine engine = new();
+        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         engine.SetValue("assert", new Action<bool>(Assert.True));
         var result = engine.Evaluate("asyncTestClass.ThrowAfterDelayAsync().then(_ => assert(false)).catch(_ => assert(true))");
@@ -109,7 +109,7 @@ public class AsyncTests
     public void ShouldTaskAwaitCurrentStack()
     {
         //https://github.com/sebastienros/jint/issues/514#issuecomment-1507127509
-        Engine engine = new();
+        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
         AsyncTestClass asyncTestClass = new();
 
         engine.SetValue("myAsyncMethod", new Func<Task>(async () =>
