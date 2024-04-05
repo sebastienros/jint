@@ -482,7 +482,12 @@ public enum ExperimentalFeature
     Generators = 1,
 
     /// <summary>
+    /// Wrapping tasks to promises
+    /// </summary>
+    TaskInterop = 2,
+
+    /// <summary>
     /// All coercion rules enabled.
     /// </summary>
-    All = Generators
+    All = Generators | TaskInterop
 }
