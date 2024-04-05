@@ -47,7 +47,7 @@ namespace Jint.Native.Array
                 return new JsTypedArrayOperations(typedArrayInstance);
             }
 
-            if (instance is InteropArrayLikeWrapper arrayWrapper)
+            if (instance is ArrayLikeWrapper arrayWrapper)
             {
                 return new ArrayLikeOperations(arrayWrapper);
             }
@@ -568,9 +568,9 @@ namespace Jint.Native.Array
 
         private sealed class ArrayLikeOperations : ArrayOperations
         {
-            private readonly InteropArrayLikeWrapper _target;
+            private readonly ArrayLikeWrapper _target;
 
-            public ArrayLikeOperations(InteropArrayLikeWrapper wrapper)
+            public ArrayLikeOperations(ArrayLikeWrapper wrapper)
             {
                 _target = wrapper;
             }

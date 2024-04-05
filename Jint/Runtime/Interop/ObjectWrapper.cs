@@ -81,7 +81,7 @@ namespace Jint.Runtime.Interop
             Engine engine,
             object target,
             [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type,
-            [NotNullWhen(true)] out InteropArrayLikeWrapper? result)
+            [NotNullWhen(true)] out ArrayLikeWrapper? result)
         {
 #pragma warning disable IL2055
 #pragma warning disable IL3050
@@ -101,14 +101,14 @@ namespace Jint.Runtime.Interop
                 if (i.GetGenericTypeDefinition() == typeof(IList<>))
                 {
                     var arrayWrapperType = typeof(GenericListWrapper<>).MakeGenericType(arrayItemType);
-                    result = (InteropArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
+                    result = (ArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
                     break;
                 }
 
                 if (i.GetGenericTypeDefinition() == typeof(IReadOnlyList<>))
                 {
                     var arrayWrapperType = typeof(ReadOnlyListWrapper<>).MakeGenericType(arrayItemType);
-                    result = (InteropArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
+                    result = (ArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
                     break;
                 }
             }

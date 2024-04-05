@@ -6,10 +6,10 @@ using Jint.Native;
 
 namespace Jint.Runtime.Interop;
 
-internal abstract class InteropArrayLikeWrapper : ObjectWrapper
+internal abstract class ArrayLikeWrapper : ObjectWrapper
 {
 #pragma warning disable CS0618 // Type or member is obsolete
-    protected InteropArrayLikeWrapper(
+    protected ArrayLikeWrapper(
         Engine engine,
         object obj,
         Type itemType,
@@ -125,7 +125,7 @@ internal abstract class InteropArrayLikeWrapper : ObjectWrapper
     }
 }
 
-internal class ListWrapper : InteropArrayLikeWrapper
+internal class ListWrapper : ArrayLikeWrapper
 {
     private readonly IList? _list;
 
@@ -162,7 +162,7 @@ internal class ListWrapper : InteropArrayLikeWrapper
     public override void RemoveAt(int index) => _list?.RemoveAt(index);
 }
 
-internal class GenericListWrapper<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] T> : InteropArrayLikeWrapper
+internal class GenericListWrapper<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] T> : ArrayLikeWrapper
 {
     private readonly IList<T> _list;
 
@@ -197,7 +197,7 @@ internal class GenericListWrapper<[DynamicallyAccessedMembers(DynamicallyAccesse
     public override void RemoveAt(int index) => _list.RemoveAt(index);
 }
 
-internal sealed class ReadOnlyListWrapper<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] T> : InteropArrayLikeWrapper
+internal sealed class ReadOnlyListWrapper<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] T> : ArrayLikeWrapper
 {
     private readonly IReadOnlyList<T> _list;
 
