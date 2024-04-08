@@ -40,10 +40,10 @@ Console.WriteLine("Type 'exit' to leave, " +
 Console.WriteLine();
 
 var defaultColor = Console.ForegroundColor;
-var parserOptions = new ParserOptions
+var parserOptions = new ScriptParseOptions
 {
     Tolerant = true,
-    RegExpParseMode = RegExpParseMode.AdaptToInterpreted
+    CompileRegex = false,
 };
 
 var serializer = new JsonSerializer(engine);

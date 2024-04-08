@@ -1,4 +1,5 @@
-﻿using Jint.Native;
+﻿using Esprima;
+using Jint.Native;
 using Jint.Native.Json;
 
 namespace Jint.Runtime.Modules;
@@ -19,13 +20,14 @@ public static class ModuleFactory
     /// </remarks>
     /// <exception cref="ParseErrorException">Is thrown if the provided <paramref name="code"/> can not be parsed.</exception>
     /// <exception cref="JavaScriptException">Is thrown if an error occured when parsing <paramref name="code"/>.</exception>
-    public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code)
+    public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code, ModuleParseOptions? parseOptions = null)
     {
         var source = resolved.Uri?.LocalPath ?? resolved.Key;
         Esprima.Ast.Module module;
+        var parser = new Parser((parseOptions ?? ModuleParseOptions.Default).GetParserOptions(engine.Options));
         try
         {
-            module = new Parser().ParseModule(code, source);
+            module = parser.ParseModule(code, source);
         }
         catch (ParseErrorException ex)
         {

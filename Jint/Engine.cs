@@ -29,7 +29,6 @@ namespace Jint
     {
         private static readonly Options _defaultEngineOptions = new();
 
-        private readonly ParserOptions _defaultParserOptions;
         private readonly Parser _defaultParser;
 
         private readonly ExecutionContextStack _executionContexts;
@@ -144,13 +143,8 @@ namespace Jint
             CallStack = new JintCallStack(Options.Constraints.MaxRecursionDepth >= 0);
             _stackGuard = new StackGuard(this);
 
-            _defaultParserOptions = ParserOptions.Default with
-            {
-                AllowReturnOutsideFunction = true,
-                RegexTimeout = Options.Constraints.RegexTimeout
-            };
-
-            _defaultParser = new Parser(_defaultParserOptions);
+            var defaultScriptParserOptions = ScriptParseOptions.Default.GetParserOptions(Options);
+            _defaultParser = new Parser(defaultScriptParserOptions);
         }
 
         private void Reset()
@@ -196,6 +190,12 @@ namespace Jint
 
         public DebugHandler Debugger => _debugger ??= new DebugHandler(this, Options.Debugger.InitialStepMode);
 
+        internal Parser GetParserFor(ScriptParseOptions parseOptions)
+        {
+            return ReferenceEquals(parseOptions, ScriptParseOptions.Default)
+                ? _defaultParser
+                : new Parser(parseOptions.GetParserOptions(Options));
+        }
 
         internal ExecutionContext EnterExecutionContext(
             Environment lexicalEnvironment,
@@ -327,30 +327,21 @@ namespace Jint
         /// <summary>
         /// Evaluates code and returns last return value.
         /// </summary>
-        public JsValue Evaluate(string code)
-            => Evaluate(code, "<anonymous>", _defaultParserOptions);
+        public JsValue Evaluate(string code, string? source = null)
+            => Evaluate(_defaultParser.ParseScript(code, source ?? "<anonymous>", _isStrict));
 
         /// <summary>
         /// Evaluates code and returns last return value.
         /// </summary>
-        public JsValue Evaluate(string code, string source)
-            => Evaluate(code, source, _defaultParserOptions);
+        public JsValue Evaluate(string code, ScriptParseOptions parseOptions)
+            => Evaluate(code, "<anonymous>", parseOptions);
 
         /// <summary>
         /// Evaluates code and returns last return value.
         /// </summary>
-        public JsValue Evaluate(string code, ParserOptions parserOptions)
-            => Evaluate(code, "<anonymous>", parserOptions);
-
-        /// <summary>
-        /// Evaluates code and returns last return value.
-        /// </summary>
-        public JsValue Evaluate(string code, string source, ParserOptions parserOptions)
+        public JsValue Evaluate(string code, string source, ScriptParseOptions parseOptions)
         {
-            var parser = ReferenceEquals(_defaultParserOptions, parserOptions)
-                ? _defaultParser
-                : new Parser(parserOptions);
-
+            var parser = GetParserFor(parseOptions);
             var script = parser.ParseScript(code, source, _isStrict);
 
             return Evaluate(script);
@@ -366,23 +357,20 @@ namespace Jint
         /// Executes code into engine and returns the engine instance (useful for chaining).
         /// </summary>
         public Engine Execute(string code, string? source = null)
-            => Execute(code, source ?? "<anonymous>", _defaultParserOptions);
+            => Execute(_defaultParser.ParseScript(code, source ?? "<anonymous>", _isStrict));
 
         /// <summary>
         /// Executes code into engine and returns the engine instance (useful for chaining).
         /// </summary>
-        public Engine Execute(string code, ParserOptions parserOptions)
-            => Execute(code, "<anonymous>", parserOptions);
+        public Engine Execute(string code, ScriptParseOptions parseOptions)
+            => Execute(code, "<anonymous>", parseOptions);
 
         /// <summary>
         /// Executes code into engine and returns the engine instance (useful for chaining).
         /// </summary>
-        public Engine Execute(string code, string source, ParserOptions parserOptions)
+        public Engine Execute(string code, string source, ScriptParseOptions parseOptions)
         {
-            var parser = ReferenceEquals(_defaultParserOptions, parserOptions)
-                ? _defaultParser
-                : new Parser(parserOptions);
-
+            var parser = GetParserFor(parseOptions);
             var script = parser.ParseScript(code, source, _isStrict);
 
             return Execute(script);

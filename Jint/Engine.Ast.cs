@@ -17,15 +17,13 @@ public partial class Engine
     /// <remarks>
     /// Returned instance is reusable and thread-safe. You should prepare scripts only once and then reuse them.
     /// </remarks>
-    public static Script PrepareScript(string script, string? source = null, bool strict = false)
+    public static Script PrepareScript(string code, string? source = null, bool strict = false, ScriptPrepareOptions? options = null)
     {
-        var astAnalyzer = new AstAnalyzer(new ScriptPreparationOptions());
-        var options = ParserOptions.Default with
-        {
-            AllowReturnOutsideFunction = true, OnNodeCreated = astAnalyzer.NodeVisitor
-        };
-
-        return new Parser(options).ParseScript(script, source, strict);
+        options ??= ScriptPrepareOptions.Default;
+        var parserOptions = options.GetParserOptions();
+        var astAnalyzer = new AstAnalyzer(options, parserOptions);
+        var preparedScript = new Parser(parserOptions with { OnNodeCreated = astAnalyzer.NodeVisitor }).ParseScript(code, source, strict);
+        return preparedScript;
     }
 
     /// <summary>
@@ -34,34 +32,26 @@ public partial class Engine
     /// <remarks>
     /// Returned instance is reusable and thread-safe. You should prepare modules only once and then reuse them.
     /// </remarks>
-    public static Module PrepareModule(string script, string? source = null)
+    public static Module PrepareModule(string code, string? source = null, ModulePrepareOptions? options = null)
     {
-        var astAnalyzer = new AstAnalyzer(new ScriptPreparationOptions());
-        var options = ParserOptions.Default with
-        {
-            OnNodeCreated = astAnalyzer.NodeVisitor
-        };
-
-        return new Parser(options).ParseModule(script, source);
-    }
-
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct ScriptPreparationOptions(bool CompileRegex, bool FoldConstants)
-    {
-        public ScriptPreparationOptions() : this(CompileRegex: true, FoldConstants: true)
-        {
-        }
+        options ??= ModulePrepareOptions.Default;
+        var parserOptions = options.GetParserOptions();
+        var astAnalyzer = new AstAnalyzer(options, parserOptions);
+        var preparedModule = new Parser(parserOptions with { OnNodeCreated = astAnalyzer.NodeVisitor }).ParseModule(code, source);
+        return preparedModule;
     }
 
     private sealed class AstAnalyzer
     {
-        private readonly ScriptPreparationOptions _options;
+        private readonly IPrepareOptions<IParseOptions> _prepareOptions;
+        private readonly ParserOptions _parserOptions;
         private readonly Dictionary<string, Environment.BindingName> _bindingNames = new(StringComparer.Ordinal);
         private readonly Dictionary<string, Regex> _regexes = new(StringComparer.Ordinal);
 
-        public AstAnalyzer(ScriptPreparationOptions options)
+        public AstAnalyzer(IPrepareOptions<IParseOptions> prepareOptions, ParserOptions parserOptions)
         {
-            _options = options;
+            _prepareOptions = prepareOptions;
+            _parserOptions = parserOptions;
         }
 
         public void NodeVisitor(Node node)
@@ -86,7 +76,7 @@ public partial class Engine
                     var constantValue = JintLiteralExpression.ConvertToJsValue(literal);
                     node.AssociatedData = constantValue is not null ? new JintConstantExpression(literal, constantValue) : null;
 
-                    if (node.AssociatedData is null && literal.TokenType == TokenKind.RegularExpression && _options.CompileRegex)
+                    if (node.AssociatedData is null && literal.TokenType == TokenKind.RegularExpression && _parserOptions.RegExpParseMode == RegExpParseMode.AdaptToCompiled)
                     {
                         var regExpLiteral = (RegExpLiteral) literal;
                         var regExpParseResult = regExpLiteral.ParseResult;
@@ -133,7 +123,7 @@ public partial class Engine
 
                 case NodeType.BinaryExpression:
                     var binaryExpression = (BinaryExpression) node;
-                    if (_options.FoldConstants
+                    if (_prepareOptions.FoldConstants
                         && binaryExpression.Operator != BinaryOperator.InstanceOf
                         && binaryExpression.Operator != BinaryOperator.In
                         && binaryExpression is { Left: Literal leftLiteral, Right: Literal rightLiteral })

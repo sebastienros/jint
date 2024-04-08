@@ -19,25 +19,20 @@ namespace Jint.Native.ShadowRealm;
 public sealed class ShadowRealm : ObjectInstance
 #pragma warning restore MA0049
 {
-    private readonly Parser _parser;
     internal readonly Realm _shadowRealm;
     private readonly ExecutionContext _executionContext;
 
     internal ShadowRealm(Engine engine, ExecutionContext executionContext, Realm shadowRealm) : base(engine)
     {
-        _parser = new(new ParserOptions
-        {
-            Tolerant = false,
-            RegexTimeout = engine.Options.Constraints.RegexTimeout
-        });
         _executionContext = executionContext;
         _shadowRealm = shadowRealm;
     }
 
-    public JsValue Evaluate(string sourceText)
+    public JsValue Evaluate(string sourceText, ScriptParseOptions? parseOptions = null)
     {
         var callerRealm = _engine.Realm;
-        return PerformShadowRealmEval(sourceText, callerRealm);
+        var parser = _engine.GetParserFor(parseOptions ?? ScriptParseOptions.Default);
+        return PerformShadowRealmEval(sourceText, parser, callerRealm);
     }
 
     public JsValue Evaluate(Script script)
@@ -100,7 +95,7 @@ public sealed class ShadowRealm : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-performshadowrealmeval
     /// </summary>
-    internal JsValue PerformShadowRealmEval(string sourceText, Realm callerRealm)
+    internal JsValue PerformShadowRealmEval(string sourceText, Parser parser, Realm callerRealm)
     {
         var evalRealm = _shadowRealm;
 
@@ -109,7 +104,7 @@ public sealed class ShadowRealm : ObjectInstance
         Script script;
         try
         {
-            script = _parser.ParseScript(sourceText, source: null, _engine._isStrict);
+            script = parser.ParseScript(sourceText, source: null, _engine._isStrict);
         }
         catch (ParseErrorException e)
         {

@@ -1296,8 +1296,8 @@ var prep = function (fn) { fn(); };
         public void ShouldExecuteKnockoutWithoutErrorWhetherTolerantOrIntolerant()
         {
             var content = GetEmbeddedFile("knockout-3.4.0.js");
-            _engine.Execute(content, new ParserOptions { Tolerant = true });
-            _engine.Execute(content, new ParserOptions { Tolerant = false });
+            _engine.Execute(content, new ScriptParseOptions { Tolerant = true });
+            _engine.Execute(content, new ScriptParseOptions { Tolerant = false });
         }
 
         [Fact]
@@ -1314,7 +1314,7 @@ var prep = function (fn) { fn(); };
         {
             var code = "if({ __proto__: [], __proto__:[] } instanceof Array) {}";
 
-            Exception ex = Assert.Throws<ParseErrorException>(() => _engine.Execute(code, new ParserOptions { Tolerant = false }));
+            Exception ex = Assert.Throws<ParseErrorException>(() => _engine.Execute(code, new ScriptParseOptions { Tolerant = false }));
             Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
 
             ex = Assert.Throws<JavaScriptException>(() => _engine.Execute($"eval('{code}')"));
@@ -2944,7 +2944,7 @@ x.test = {
         public void ExecuteWithParserOptionsShouldTriggerBeforeEvaluateEvent()
         {
             TestBeforeEvaluateEvent(
-                (engine, code) => engine.Execute(code, ParserOptions.Default),
+                (engine, code) => engine.Execute(code, ScriptParseOptions.Default),
                 expectedSource: "<anonymous>"
             );
         }
@@ -2953,7 +2953,7 @@ x.test = {
         public void ExecuteWithSourceAndParserOptionsShouldTriggerBeforeEvaluateEvent()
         {
             TestBeforeEvaluateEvent(
-                (engine, code) => engine.Execute(code, "mysource", ParserOptions.Default),
+                (engine, code) => engine.Execute(code, "mysource", ScriptParseOptions.Default),
                 expectedSource: "mysource"
             );
         }
@@ -2980,7 +2980,7 @@ x.test = {
         public void EvaluateWithParserOptionsShouldTriggerBeforeEvaluateEvent()
         {
             TestBeforeEvaluateEvent(
-                (engine, code) => engine.Evaluate(code, ParserOptions.Default),
+                (engine, code) => engine.Evaluate(code, ScriptParseOptions.Default),
                 expectedSource: "<anonymous>"
             );
         }
@@ -2989,7 +2989,7 @@ x.test = {
         public void EvaluateWithSourceAndParserOptionsShouldTriggerBeforeEvaluateEvent()
         {
             TestBeforeEvaluateEvent(
-                (engine, code) => engine.Evaluate(code, "mysource", ParserOptions.Default),
+                (engine, code) => engine.Evaluate(code, "mysource", ScriptParseOptions.Default),
                 expectedSource: "mysource"
             );
         }

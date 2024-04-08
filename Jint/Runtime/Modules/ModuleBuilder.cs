@@ -11,16 +11,22 @@ public sealed class ModuleBuilder
     private global::Esprima.Ast.Module? _module;
     private readonly List<string> _sourceRaw = new();
     private readonly Dictionary<string, JsValue> _exports = new(StringComparer.Ordinal);
-    private readonly ParserOptions _options;
+    private readonly Parser _defaultParser;
+    private ModuleParseOptions _parseOptions;
 
     internal ModuleBuilder(Engine engine, string specifier)
     {
         _engine = engine;
         _specifier = specifier;
-        _options = new ParserOptions
-        {
-            RegexTimeout = engine.Options.Constraints.RegexTimeout
-        };
+        _defaultParser = new Parser(ModuleParseOptions.Default.GetParserOptions(engine.Options));
+        _parseOptions = ModuleParseOptions.Default;
+    }
+
+    private Parser GetParserFor(ModuleParseOptions parseOptions)
+    {
+        return ReferenceEquals(parseOptions, ModuleParseOptions.Default)
+            ? _defaultParser
+            : new Parser(parseOptions.GetParserOptions(_engine.Options));
     }
 
     public ModuleBuilder AddSource(string code)
@@ -116,9 +122,9 @@ public sealed class ModuleBuilder
         return this;
     }
 
-    public ModuleBuilder WithOptions(Action<ParserOptions> configure)
+    public ModuleBuilder WithOptions(Func<ModuleParseOptions, ModuleParseOptions> configure)
     {
-        configure(_options);
+        _parseOptions = configure(_parseOptions);
         return this;
     }
 
@@ -130,7 +136,7 @@ public sealed class ModuleBuilder
             return new global::Esprima.Ast.Module(NodeList.Create(Array.Empty<Statement>()));
         }
 
-        var parser = new Parser(_options);
+        var parser = GetParserFor(_parseOptions);
         try
         {
             var source = _sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw);
