@@ -40,19 +40,25 @@ public static class ModuleFactory
             module = null;
         }
 
-        return BuildSourceTextModule(engine, module);
+        return BuildSourceTextModule(engine, new Prepared<Esprima.Ast.Module>(module, Engine.BaseParserOptions));
     }
 
     /// <summary>
     /// Creates a <see cref="Module"/> for the usage within the given <paramref name="engine"/>
-    /// from the parsed <paramref name="parsedModule"/>.
+    /// from the parsed <paramref name="preparedModule"/>.
     /// </summary>
     /// <remarks>
     /// The returned modules location (see <see cref="Module.Location"/>) will be set
-    /// to <see cref="Location.Source"/> of the <paramref name="parsedModule"/>.
+    /// to <see cref="SourceLocation.Source"/> of the <paramref name="preparedModule"/>.
     /// </remarks>
-    public static Module BuildSourceTextModule(Engine engine, Esprima.Ast.Module parsedModule)
+    public static Module BuildSourceTextModule(Engine engine, Prepared<Esprima.Ast.Module> preparedModule)
     {
+        if (!preparedModule.IsValid)
+        {
+            ExceptionHelper.ThrowInvalidPreparedModuleArgumentException(nameof(preparedModule));
+        }
+
+        var parsedModule = preparedModule.Program;
         return new SourceTextModule(engine, engine.Realm, parsedModule, parsedModule.Location.Source, async: false);
     }
 

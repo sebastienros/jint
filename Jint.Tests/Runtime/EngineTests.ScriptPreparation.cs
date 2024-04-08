@@ -12,14 +12,14 @@ public partial class EngineTests
     public void ScriptPreparationAcceptsReturnOutsideOfFunctions()
     {
         var preparedScript = Engine.PrepareScript("return 1;");
-        Assert.IsType<ReturnStatement>(preparedScript.Body[0]);
+        Assert.IsType<ReturnStatement>(preparedScript.Program.Body[0]);
     }
 
     [Fact]
     public void CanPreCompileRegex()
     {
         var script = Engine.PrepareScript("var x = /[cgt]/ig; var y = /[cgt]/ig; 'g'.match(x).length;");
-        var declaration = Assert.IsType<VariableDeclaration>(script.Body[0]);
+        var declaration = Assert.IsType<VariableDeclaration>(script.Program.Body[0]);
         var init = Assert.IsType<RegExpLiteral>(declaration.Declarations[0].Init);
         var regex = Assert.IsType<Regex>(init.AssociatedData);
         Assert.Equal("[cgt]", regex.ToString());
@@ -32,7 +32,7 @@ public partial class EngineTests
     public void ScriptPreparationFoldsConstants()
     {
         var preparedScript = Engine.PrepareScript("return 1 + 2;");
-        var returnStatement = Assert.IsType<ReturnStatement>(preparedScript.Body[0]);
+        var returnStatement = Assert.IsType<ReturnStatement>(preparedScript.Program.Body[0]);
         var constant = Assert.IsType<JintConstantExpression>(returnStatement.Argument?.AssociatedData);
         Assert.Equal(3, constant.GetValue(null!));
 
@@ -43,7 +43,7 @@ public partial class EngineTests
     public void ScriptPreparationOptimizesNegatingUnaryExpression()
     {
         var preparedScript = Engine.PrepareScript("-1");
-        var expression = Assert.IsType<ExpressionStatement>(preparedScript.Body[0]);
+        var expression = Assert.IsType<ExpressionStatement>(preparedScript.Program.Body[0]);
         var unaryExpression = Assert.IsType<UnaryExpression>(expression.Expression);
         var constant = Assert.IsType<JintConstantExpression>(unaryExpression.AssociatedData);
 
@@ -55,7 +55,7 @@ public partial class EngineTests
     public void ScriptPreparationOptimizesConstantReturn()
     {
         var preparedScript = Engine.PrepareScript("return false;");
-        var statement = Assert.IsType<ReturnStatement>(preparedScript.Body[0]);
+        var statement = Assert.IsType<ReturnStatement>(preparedScript.Program.Body[0]);
         var returnStatement = Assert.IsType<ConstantStatement>(statement.AssociatedData);
 
         var builtStatement = JintStatement.Build(statement);

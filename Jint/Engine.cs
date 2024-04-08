@@ -29,6 +29,7 @@ namespace Jint
     {
         private static readonly Options _defaultEngineOptions = new();
 
+        private readonly ParserOptions _defaultParserOptions;
         private readonly Parser _defaultParser;
 
         private readonly ExecutionContextStack _executionContexts;
@@ -143,8 +144,8 @@ namespace Jint
             CallStack = new JintCallStack(Options.Constraints.MaxRecursionDepth >= 0);
             _stackGuard = new StackGuard(this);
 
-            var defaultScriptParserOptions = ScriptParseOptions.Default.GetParserOptions(Options);
-            _defaultParser = new Parser(defaultScriptParserOptions);
+            _defaultParserOptions = ScriptParseOptions.Default.GetParserOptions(Options);
+            _defaultParser = new Parser(_defaultParserOptions);
         }
 
         private void Reset()
@@ -190,11 +191,18 @@ namespace Jint
 
         public DebugHandler Debugger => _debugger ??= new DebugHandler(this, Options.Debugger.InitialStepMode);
 
-        internal Parser GetParserFor(ScriptParseOptions parseOptions)
+        internal Parser GetParserFor(ScriptParseOptions parseOptions, out ParserOptions parserOptions)
         {
-            return ReferenceEquals(parseOptions, ScriptParseOptions.Default)
-                ? _defaultParser
-                : new Parser(parseOptions.GetParserOptions(Options));
+            if (ReferenceEquals(parseOptions, ScriptParseOptions.Default))
+            {
+                parserOptions = _defaultParserOptions;
+                return _defaultParser;
+            }
+            else
+            {
+                parserOptions = parseOptions.GetParserOptions(Options);
+                return new Parser(parserOptions);
+            }
         }
 
         internal ExecutionContext EnterExecutionContext(
@@ -328,7 +336,10 @@ namespace Jint
         /// Evaluates code and returns last return value.
         /// </summary>
         public JsValue Evaluate(string code, string? source = null)
-            => Evaluate(_defaultParser.ParseScript(code, source ?? "<anonymous>", _isStrict));
+        {
+            var script = _defaultParser.ParseScript(code, source ?? "<anonymous>", _isStrict);
+            return Evaluate(new Prepared<Script>(script, _defaultParserOptions));
+        }
 
         /// <summary>
         /// Evaluates code and returns last return value.
@@ -341,23 +352,25 @@ namespace Jint
         /// </summary>
         public JsValue Evaluate(string code, string source, ScriptParseOptions parseOptions)
         {
-            var parser = GetParserFor(parseOptions);
+            var parser = GetParserFor(parseOptions, out var parserOptions);
             var script = parser.ParseScript(code, source, _isStrict);
-
-            return Evaluate(script);
+            return Evaluate(new Prepared<Script>(script, parserOptions));
         }
 
         /// <summary>
         /// Evaluates code and returns last return value.
         /// </summary>
-        public JsValue Evaluate(Script script)
-            => Execute(script)._completionValue;
+        public JsValue Evaluate(in Prepared<Script> preparedScript)
+            => Execute(preparedScript)._completionValue;
 
         /// <summary>
         /// Executes code into engine and returns the engine instance (useful for chaining).
         /// </summary>
         public Engine Execute(string code, string? source = null)
-            => Execute(_defaultParser.ParseScript(code, source ?? "<anonymous>", _isStrict));
+        {
+            var script = _defaultParser.ParseScript(code, source ?? "<anonymous>", _isStrict);
+            return Execute(new Prepared<Script>(script, _defaultParserOptions));
+        }
 
         /// <summary>
         /// Executes code into engine and returns the engine instance (useful for chaining).
@@ -370,17 +383,22 @@ namespace Jint
         /// </summary>
         public Engine Execute(string code, string source, ScriptParseOptions parseOptions)
         {
-            var parser = GetParserFor(parseOptions);
+            var parser = GetParserFor(parseOptions, out var parserOptions);
             var script = parser.ParseScript(code, source, _isStrict);
-
-            return Execute(script);
+            return Execute(new Prepared<Script>(script, parserOptions));
         }
 
         /// <summary>
         /// Executes code into engine and returns the engine instance (useful for chaining).
         /// </summary>
-        public Engine Execute(Script script)
+        public Engine Execute(in Prepared<Script> preparedScript)
         {
+            if (!preparedScript.IsValid)
+            {
+                ExceptionHelper.ThrowInvalidPreparedScriptArgumentException(nameof(preparedScript));
+            }
+
+            var script = preparedScript.Program;
             var strict = _isStrict || script.Strict;
             ExecuteWithConstraints(strict, () => ScriptEvaluation(new ScriptRecord(Realm, script, script.Location.Source)));
 

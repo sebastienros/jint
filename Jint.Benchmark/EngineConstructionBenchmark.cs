@@ -6,15 +6,14 @@ namespace Jint.Benchmark;
 [MemoryDiagnoser]
 public class EngineConstructionBenchmark
 {
-    private Script _program;
-    private Script _simple;
+    private Prepared<Script> _program;
+    private Prepared<Script> _simple;
 
     [GlobalSetup]
     public void GlobalSetup()
     {
-        var parser = new Parser();
-        _program = parser.ParseScript("([].length + ''.length)");
-        _simple = parser.ParseScript("1");
+        _program = Engine.PrepareScript("([].length + ''.length)");
+        _simple = Engine.PrepareScript("1");
         new Engine().Evaluate(_program);
     }
 

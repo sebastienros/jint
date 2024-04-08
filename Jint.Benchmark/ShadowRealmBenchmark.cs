@@ -11,7 +11,7 @@ public class ShadowRealmBenchmark
 ";
 
     private Engine engine;
-    private Script parsedScript;
+    private Prepared<Script> parsedScript;
 
     [GlobalSetup]
     public void Setup()

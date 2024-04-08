@@ -31,14 +31,19 @@ public sealed class ShadowRealm : ObjectInstance
     public JsValue Evaluate(string sourceText, ScriptParseOptions? parseOptions = null)
     {
         var callerRealm = _engine.Realm;
-        var parser = _engine.GetParserFor(parseOptions ?? ScriptParseOptions.Default);
+        var parser = _engine.GetParserFor(parseOptions ?? ScriptParseOptions.Default, out _);
         return PerformShadowRealmEval(sourceText, parser, callerRealm);
     }
 
-    public JsValue Evaluate(Script script)
+    public JsValue Evaluate(in Prepared<Script> preparedScript)
     {
+        if (!preparedScript.IsValid)
+        {
+            ExceptionHelper.ThrowInvalidPreparedScriptArgumentException(nameof(preparedScript));
+        }
+
         var callerRealm = _engine.Realm;
-        return PerformShadowRealmEval(script, callerRealm);
+        return PerformShadowRealmEval(preparedScript.Program, callerRealm);
     }
 
     public JsValue ImportValue(string specifier, string exportName)

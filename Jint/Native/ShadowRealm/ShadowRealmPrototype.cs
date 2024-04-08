@@ -53,7 +53,7 @@ internal sealed class ShadowRealmPrototype : Prototype
             ExceptionHelper.ThrowTypeError(_realm, "Invalid source text " + sourceText);
         }
 
-        var parser = _engine.GetParserFor(ScriptParseOptions.Default);
+        var parser = _engine.GetParserFor(ScriptParseOptions.Default, out _);
         return shadowRealm.PerformShadowRealmEval(sourceText.AsString(), parser, _realm);
     }
 

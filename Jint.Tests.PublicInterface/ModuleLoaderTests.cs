@@ -231,20 +231,24 @@ public class ModuleLoaderTests
 
         private sealed class ParsedModule
         {
-            private readonly Esprima.Ast.Module? _textModule;
+            private readonly Prepared<Esprima.Ast.Module>? _textModule;
             private readonly (JsValue Json, string Location)? _jsonModule;
 
-            private ParsedModule(Esprima.Ast.Module? textModule, (JsValue Json, string Location)? jsonModule)
+            private ParsedModule(in Prepared<Esprima.Ast.Module> textModule)
             {
                 _textModule = textModule;
-                _jsonModule = jsonModule;
+            }
+
+            private ParsedModule(JsValue json, string location)
+            {
+                _jsonModule = (json, location);
             }
 
             public static ParsedModule TextModule(string script, string location)
-                => new(Engine.PrepareModule(script, location), null);
+                => new(Engine.PrepareModule(script, location));
 
             public static ParsedModule JsonModule(string json, string location)
-                => new(null, (ParseJson(json), location));
+                => new(ParseJson(json), location);
 
             private static JsValue ParseJson(string json)
             {
@@ -258,7 +262,7 @@ public class ModuleLoaderTests
                 if (_jsonModule is not null)
                     return ModuleFactory.BuildJsonModule(engine, _jsonModule.Value.Json, _jsonModule.Value.Location);
                 if (_textModule is not null)
-                    return ModuleFactory.BuildSourceTextModule(engine, _textModule);
+                    return ModuleFactory.BuildSourceTextModule(engine, _textModule.Value);
                 throw new InvalidOperationException("Unexpected state - no module type available");
             }
         }

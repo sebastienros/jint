@@ -8,9 +8,10 @@ public sealed class ModuleBuilder
 {
     private readonly Engine _engine;
     private readonly string _specifier;
-    private global::Esprima.Ast.Module? _module;
+    private Prepared<Esprima.Ast.Module>? _module;
     private readonly List<string> _sourceRaw = new();
     private readonly Dictionary<string, JsValue> _exports = new(StringComparer.Ordinal);
+    private readonly ParserOptions _defaultParserOptions;
     private readonly Parser _defaultParser;
     private ModuleParseOptions _parseOptions;
 
@@ -18,15 +19,23 @@ public sealed class ModuleBuilder
     {
         _engine = engine;
         _specifier = specifier;
-        _defaultParser = new Parser(ModuleParseOptions.Default.GetParserOptions(engine.Options));
+        _defaultParserOptions = ModuleParseOptions.Default.GetParserOptions(engine.Options);
+        _defaultParser = new Parser(_defaultParserOptions);
         _parseOptions = ModuleParseOptions.Default;
     }
 
-    private Parser GetParserFor(ModuleParseOptions parseOptions)
+    private Parser GetParserFor(ModuleParseOptions parseOptions, out ParserOptions parserOptions)
     {
-        return ReferenceEquals(parseOptions, ModuleParseOptions.Default)
-            ? _defaultParser
-            : new Parser(parseOptions.GetParserOptions(_engine.Options));
+        if (ReferenceEquals(parseOptions, ModuleParseOptions.Default))
+        {
+            parserOptions = _defaultParserOptions;
+            return _defaultParser;
+        }
+        else
+        {
+            parserOptions = parseOptions.GetParserOptions(_engine.Options);
+            return new Parser(parserOptions);
+        }
     }
 
     public ModuleBuilder AddSource(string code)
@@ -39,7 +48,7 @@ public sealed class ModuleBuilder
         return this;
     }
 
-    public ModuleBuilder AddModule(global::Esprima.Ast.Module module)
+    public ModuleBuilder AddModule(in Prepared<Esprima.Ast.Module> preparedModule)
     {
         if (_sourceRaw.Count > 0)
         {
@@ -50,7 +59,7 @@ public sealed class ModuleBuilder
         {
             throw new InvalidOperationException("pre-compiled module already exists.");
         }
-        _module = module;
+        _module = preparedModule;
         return this;
     }
 
@@ -128,25 +137,28 @@ public sealed class ModuleBuilder
         return this;
     }
 
-    internal global::Esprima.Ast.Module Parse()
+    internal Prepared<Esprima.Ast.Module> Parse()
     {
-        if (_module != null) return _module;
+        if (_module != null) return _module.Value;
+
+        ParserOptions parserOptions;
         if (_sourceRaw.Count <= 0)
         {
-            return new global::Esprima.Ast.Module(NodeList.Create(Array.Empty<Statement>()));
+            parserOptions = _parseOptions.GetParserOptions();
+            return new Prepared<Esprima.Ast.Module>(new Esprima.Ast.Module(NodeList.Create(Array.Empty<Statement>())), parserOptions);
         }
 
-        var parser = GetParserFor(_parseOptions);
+        var parser = GetParserFor(_parseOptions, out parserOptions);
         try
         {
             var source = _sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw);
-            return parser.ParseModule(source, _specifier);
+            return new Prepared<Esprima.Ast.Module>(parser.ParseModule(source, _specifier), parserOptions);
         }
         catch (ParseErrorException ex)
         {
             var location = SourceLocation.From(Position.From(ex.LineNumber, ex.Column), Position.From(ex.LineNumber, ex.Column), _specifier);
             ExceptionHelper.ThrowSyntaxError(_engine.Realm, $"Error while loading module: error in module '{_specifier}': {ex.Error}", location);
-            return null!;
+            return default;
         }
     }
 

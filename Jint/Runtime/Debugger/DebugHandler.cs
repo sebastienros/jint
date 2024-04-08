@@ -80,8 +80,13 @@ namespace Jint.Runtime.Debugger
         /// Internally, this is used for evaluating breakpoint conditions, but may also be used for e.g. watch lists
         /// in a debugger.
         /// </remarks>
-        public JsValue Evaluate(Script script)
+        public JsValue Evaluate(in Prepared<Script> preparedScript)
         {
+            if (!preparedScript.IsValid)
+            {
+                ExceptionHelper.ThrowInvalidPreparedScriptArgumentException(nameof(preparedScript));
+            }
+
             var context = _engine._activeEvaluationContext;
             if (context == null)
             {
@@ -89,7 +94,7 @@ namespace Jint.Runtime.Debugger
             }
             var callStackSize = _engine.CallStack.Count;
 
-            var list = new JintStatementList(null, script.Body);
+            var list = new JintStatementList(null, preparedScript.Program.Body);
             Completion result;
             try
             {
@@ -121,14 +126,14 @@ namespace Jint.Runtime.Debugger
             return result.GetValueOrDefault();
         }
 
-        /// <inheritdoc cref="Evaluate(Script)" />
+        /// <inheritdoc cref="Evaluate(in Prepared{Script})" />
         public JsValue Evaluate(string code, ScriptParseOptions? parseOptions = null)
         {
-            var parser = _engine.GetParserFor(parseOptions ?? ScriptParseOptions.Default);
+            var parser = _engine.GetParserFor(parseOptions ?? ScriptParseOptions.Default, out var parserOptions);
             try
             {
                 var script = parser.ParseScript(code, "evaluation");
-                return Evaluate(script);
+                return Evaluate(new Prepared<Script>(script, parserOptions));
             }
             catch (ParseErrorException ex)
             {

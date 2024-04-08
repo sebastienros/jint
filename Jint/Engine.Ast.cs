@@ -17,13 +17,13 @@ public partial class Engine
     /// <remarks>
     /// Returned instance is reusable and thread-safe. You should prepare scripts only once and then reuse them.
     /// </remarks>
-    public static Script PrepareScript(string code, string? source = null, bool strict = false, ScriptPrepareOptions? options = null)
+    public static Prepared<Script> PrepareScript(string code, string? source = null, bool strict = false, ScriptPrepareOptions? options = null)
     {
         options ??= ScriptPrepareOptions.Default;
         var parserOptions = options.GetParserOptions();
         var astAnalyzer = new AstAnalyzer(options, parserOptions);
         var preparedScript = new Parser(parserOptions with { OnNodeCreated = astAnalyzer.NodeVisitor }).ParseScript(code, source, strict);
-        return preparedScript;
+        return new Prepared<Script>(preparedScript, parserOptions);
     }
 
     /// <summary>
@@ -32,13 +32,13 @@ public partial class Engine
     /// <remarks>
     /// Returned instance is reusable and thread-safe. You should prepare modules only once and then reuse them.
     /// </remarks>
-    public static Module PrepareModule(string code, string? source = null, ModulePrepareOptions? options = null)
+    public static Prepared<Module> PrepareModule(string code, string? source = null, ModulePrepareOptions? options = null)
     {
         options ??= ModulePrepareOptions.Default;
         var parserOptions = options.GetParserOptions();
         var astAnalyzer = new AstAnalyzer(options, parserOptions);
         var preparedModule = new Parser(parserOptions with { OnNodeCreated = astAnalyzer.NodeVisitor }).ParseModule(code, source);
-        return preparedModule;
+        return new Prepared<Module>(preparedModule, parserOptions);
     }
 
     private sealed class AstAnalyzer

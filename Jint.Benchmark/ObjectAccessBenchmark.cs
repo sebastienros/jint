@@ -5,7 +5,7 @@ namespace Jint.Benchmark;
 [MemoryDiagnoser]
 public class ObjectAccessBenchmark
 {
-    private readonly Script _script;
+    private readonly Prepared<Script> _script;
 
     public ObjectAccessBenchmark()
     {
