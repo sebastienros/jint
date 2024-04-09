@@ -53,7 +53,14 @@ internal sealed class ShadowRealmPrototype : Prototype
             ExceptionHelper.ThrowTypeError(_realm, "Invalid source text " + sourceText);
         }
 
-        return shadowRealm.PerformShadowRealmEval(sourceText.AsString(), _realm);
+        var parserOptions = _engine.GetActiveParserOptions();
+        // Just like in the case of eval, we don't allow top level returns.
+        var adjustedParserOptions = parserOptions.AllowReturnOutsideFunction
+            ? parserOptions with { AllowReturnOutsideFunction = false }
+            : parserOptions;
+        var parser = _engine.GetParserFor(adjustedParserOptions);
+
+        return shadowRealm.PerformShadowRealmEval(sourceText.AsString(), parserOptions, parser, _realm);
     }
 
     /// <summary>

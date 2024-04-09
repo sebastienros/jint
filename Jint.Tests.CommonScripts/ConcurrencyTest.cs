@@ -4,14 +4,10 @@ namespace Jint.Tests.CommonScripts;
 public class ConcurrencyTest
 {
     [Test]
-    [TestCase(true)]
-    [TestCase(false)]
-    public void ConcurrentEnginesCanUseSameAst(bool prepared)
+    public void ConcurrentEnginesCanUseSameAst()
     {
         var scriptContents = SunSpiderTests.GetEmbeddedFile("babel-standalone.js");
-        var script = prepared
-            ? Engine.PrepareScript(scriptContents)
-            : new Parser().ParseScript(scriptContents);
+        var script = Engine.PrepareScript(scriptContents);
 
         Parallel.ForEach(Enumerable.Range(0, 3), x =>
         {

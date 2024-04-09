@@ -19,31 +19,32 @@ namespace Jint.Native.ShadowRealm;
 public sealed class ShadowRealm : ObjectInstance
 #pragma warning restore MA0049
 {
-    private readonly Parser _parser;
     internal readonly Realm _shadowRealm;
     private readonly ExecutionContext _executionContext;
 
-    internal ShadowRealm(Engine engine, ExecutionContext executionContext, Realm shadowRealm) : base(engine)
+    internal ShadowRealm(Engine engine, in ExecutionContext executionContext, Realm shadowRealm) : base(engine)
     {
-        _parser = new(new ParserOptions
-        {
-            Tolerant = false,
-            RegexTimeout = engine.Options.Constraints.RegexTimeout
-        });
         _executionContext = executionContext;
         _shadowRealm = shadowRealm;
     }
 
-    public JsValue Evaluate(string sourceText)
+    public JsValue Evaluate(string sourceText, ScriptParsingOptions? parsingOptions = null)
     {
         var callerRealm = _engine.Realm;
-        return PerformShadowRealmEval(sourceText, callerRealm);
+        var parserOptions = parsingOptions?.GetParserOptions() ?? _engine.GetActiveParserOptions();
+        var parser = _engine.GetParserFor(parserOptions);
+        return PerformShadowRealmEval(sourceText, parserOptions, parser, callerRealm);
     }
 
-    public JsValue Evaluate(Script script)
+    public JsValue Evaluate(in Prepared<Script> preparedScript)
     {
+        if (!preparedScript.IsValid)
+        {
+            ExceptionHelper.ThrowInvalidPreparedScriptArgumentException(nameof(preparedScript));
+        }
+
         var callerRealm = _engine.Realm;
-        return PerformShadowRealmEval(script, callerRealm);
+        return PerformShadowRealmEval(preparedScript, callerRealm);
     }
 
     public JsValue ImportValue(string specifier, string exportName)
@@ -100,7 +101,7 @@ public sealed class ShadowRealm : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-performshadowrealmeval
     /// </summary>
-    internal JsValue PerformShadowRealmEval(string sourceText, Realm callerRealm)
+    internal JsValue PerformShadowRealmEval(string sourceText, ParserOptions parserOptions, Parser parser, Realm callerRealm)
     {
         var evalRealm = _shadowRealm;
 
@@ -109,7 +110,7 @@ public sealed class ShadowRealm : ObjectInstance
         Script script;
         try
         {
-            script = _parser.ParseScript(sourceText, source: null, _engine._isStrict);
+            script = parser.ParseScript(sourceText, source: null, _engine._isStrict);
         }
         catch (ParseErrorException e)
         {
@@ -125,22 +126,23 @@ public sealed class ShadowRealm : ObjectInstance
             return default;
         }
 
-        return PerformShadowRealmEvalInternal(script, callerRealm);
+        return PerformShadowRealmEvalInternal(new Prepared<Script>(script, parserOptions), callerRealm);
     }
 
-    internal JsValue PerformShadowRealmEval(Script script, Realm callerRealm)
+    internal JsValue PerformShadowRealmEval(in Prepared<Script> preparedScript, Realm callerRealm)
     {
         var evalRealm = _shadowRealm;
 
         _engine._host.EnsureCanCompileStrings(callerRealm, evalRealm);
 
-        return PerformShadowRealmEvalInternal(script, callerRealm);
+        return PerformShadowRealmEvalInternal(preparedScript, callerRealm);
     }
 
-    internal JsValue PerformShadowRealmEvalInternal(Script script, Realm callerRealm)
+    internal JsValue PerformShadowRealmEvalInternal(in Prepared<Script> preparedScript, Realm callerRealm)
     {
         var evalRealm = _shadowRealm;
 
+        var script = preparedScript.Program!;
         ref readonly var body = ref script.Body;
         if (body.Count == 0)
         {
@@ -162,7 +164,7 @@ public sealed class ShadowRealm : ObjectInstance
 
         // If runningContext is not already suspended, suspend runningContext.
 
-        var evalContext = new ExecutionContext(null, lexEnv, varEnv, null, evalRealm, null);
+        var evalContext = new ExecutionContext(null, lexEnv, varEnv, null, evalRealm, null, parserOptions: preparedScript.ParserOptions);
         _engine.EnterExecutionContext(evalContext);
 
         Completion result;
@@ -172,7 +174,19 @@ public sealed class ShadowRealm : ObjectInstance
 
             using (new StrictModeScope(strictEval, force: true))
             {
-                result = new JintScript(script).Execute(new EvaluationContext(_engine));
+                // _activeEvaluationContext must be set or e.g. a nested eval could lead to NullReferenceException...
+
+                // TODO: is this correct or should we join the current EvaluationContext if any?
+                var originalEvaluationContext = _engine._activeEvaluationContext;
+                _engine._activeEvaluationContext = new EvaluationContext(_engine);
+                try
+                {
+                    result = new JintScript(script).Execute(_engine._activeEvaluationContext);
+                }
+                finally
+                {
+                    _engine._activeEvaluationContext = originalEvaluationContext;
+                }
             }
 
             if (result.Type == CompletionType.Throw)

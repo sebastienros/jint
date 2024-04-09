@@ -689,11 +689,6 @@ namespace Jint.Native.Json
 
         public JsValue Parse(string code)
         {
-            return Parse(code, null);
-        }
-
-        public JsValue Parse(string code, ParserOptions? options)
-        {
             _source = code;
             _index = 0;
             _length = _source.Length;

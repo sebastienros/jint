@@ -19,13 +19,15 @@ public static class ModuleFactory
     /// </remarks>
     /// <exception cref="ParseErrorException">Is thrown if the provided <paramref name="code"/> can not be parsed.</exception>
     /// <exception cref="JavaScriptException">Is thrown if an error occured when parsing <paramref name="code"/>.</exception>
-    public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code)
+    public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code, ModuleParsingOptions? parsingOptions = null)
     {
         var source = resolved.Uri?.LocalPath ?? resolved.Key;
-        Esprima.Ast.Module module;
+        AstModule module;
+        var parserOptions = (parsingOptions ?? ModuleParsingOptions.Default).GetParserOptions();
+        var parser = new Parser(parserOptions);
         try
         {
-            module = new Parser().ParseModule(code, source);
+            module = parser.ParseModule(code, source);
         }
         catch (ParseErrorException ex)
         {
@@ -38,20 +40,25 @@ public static class ModuleFactory
             module = null;
         }
 
-        return BuildSourceTextModule(engine, module);
+        return BuildSourceTextModule(engine, new Prepared<AstModule>(module, parserOptions));
     }
 
     /// <summary>
     /// Creates a <see cref="Module"/> for the usage within the given <paramref name="engine"/>
-    /// from the parsed <paramref name="parsedModule"/>.
+    /// from the parsed <paramref name="preparedModule"/>.
     /// </summary>
     /// <remarks>
     /// The returned modules location (see <see cref="Module.Location"/>) will be set
-    /// to <see cref="Location.Source"/> of the <paramref name="parsedModule"/>.
+    /// to <see cref="SourceLocation.Source"/> of the <paramref name="preparedModule"/>.
     /// </remarks>
-    public static Module BuildSourceTextModule(Engine engine, Esprima.Ast.Module parsedModule)
+    public static Module BuildSourceTextModule(Engine engine, Prepared<AstModule> preparedModule)
     {
-        return new SourceTextModule(engine, engine.Realm, parsedModule, parsedModule.Location.Source, async: false);
+        if (!preparedModule.IsValid)
+        {
+            ExceptionHelper.ThrowInvalidPreparedModuleArgumentException(nameof(preparedModule));
+        }
+
+        return new SourceTextModule(engine, engine.Realm, preparedModule, preparedModule.Program!.Location.Source, async: false);
     }
 
     /// <summary>

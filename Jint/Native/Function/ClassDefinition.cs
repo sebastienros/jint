@@ -21,17 +21,19 @@ internal sealed class ClassDefinition
 
     static ClassDefinition()
     {
+        var parser = new Parser();
+
         // generate missing constructor AST only once
-        static MethodDefinition CreateConstructorMethodDefinition(string source)
+        static MethodDefinition CreateConstructorMethodDefinition(Parser parser, string source)
         {
-            var script = new Parser().ParseScript(source);
+            var script = parser.ParseScript(source);
             var classDeclaration = (ClassDeclaration) script.Body[0];
             return (MethodDefinition) classDeclaration.Body.Body[0];
         }
 
-        _superConstructor = CreateConstructorMethodDefinition("class temp { constructor(...args) { super(...args); } }");
+        _superConstructor = CreateConstructorMethodDefinition(parser, "class temp extends X { constructor(...args) { super(...args); } }");
         _defaultSuperCall = (CallExpression) ((ExpressionStatement) _superConstructor.Value.Body.Body[0]).Expression;
-        _emptyConstructor = CreateConstructorMethodDefinition("class temp { constructor() {} }");
+        _emptyConstructor = CreateConstructorMethodDefinition(parser, "class temp { constructor() {} }");
     }
 
     public ClassDefinition(

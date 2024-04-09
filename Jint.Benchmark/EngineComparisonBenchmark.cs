@@ -12,7 +12,7 @@ namespace Jint.Benchmark;
 [BenchmarkCategory("EngineComparison")]
 public class EngineComparisonBenchmark
 {
-    private static readonly Dictionary<string, Script> _parsedScripts = new();
+    private static readonly Dictionary<string, Prepared<Script>> _parsedScripts = new();
 
     private static readonly Dictionary<string, string> _files = new()
     {
@@ -38,7 +38,6 @@ public class EngineComparisonBenchmark
     [GlobalSetup]
     public void Setup()
     {
-        var parser = new Parser();
         foreach (var fileName in _files.Keys.ToList())
         {
             var script = File.ReadAllText($"Scripts/{fileName}.js");
@@ -47,7 +46,7 @@ public class EngineComparisonBenchmark
                 script = _dromaeoHelpers + Environment.NewLine + Environment.NewLine + script;
             }
             _files[fileName] = script;
-            _parsedScripts[fileName] = parser.ParseScript(script, strict: true);
+            _parsedScripts[fileName] = Engine.PrepareScript(script, strict: true);
         }
     }
 

@@ -284,7 +284,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-ordinarycallbindthis
         /// </summary>
-        internal void OrdinaryCallBindThis(ExecutionContext calleeContext, JsValue thisArgument)
+        internal void OrdinaryCallBindThis(in ExecutionContext calleeContext, JsValue thisArgument)
         {
             if (_thisMode == FunctionThisMode.Lexical)
             {
@@ -318,7 +318,7 @@ namespace Jint.Native.Function
         /// <summary>
         /// https://tc39.es/ecma262/#sec-prepareforordinarycall
         /// </summary>
-        internal ExecutionContext PrepareForOrdinaryCall(JsValue newTarget)
+        internal ref readonly ExecutionContext PrepareForOrdinaryCall(JsValue newTarget)
         {
             var callerContext = _engine.ExecutionContext;
 
@@ -339,7 +339,8 @@ namespace Jint.Native.Function
             // NOTE: Any exception objects produced after this point are associated with calleeRealm.
             // Return calleeContext.
 
-            return _engine.EnterExecutionContext(calleeContext);
+            _engine.EnterExecutionContext(calleeContext);
+            return ref _engine.ExecutionContext;
         }
 
         internal void MakeConstructor(bool writableProperty = true, ObjectInstance? prototype = null)

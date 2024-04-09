@@ -83,8 +83,7 @@ public class ShadowRealmTests
         var shadowRealm2 = engine.Intrinsics.ShadowRealm.Construct();
         shadowRealm2.SetValue("message", "realm 2");
 
-        var parser = new Parser();
-        var script = parser.ParseScript("(function hello() {return \"hello \" + message})();");
+        var script = Engine.PrepareScript("(function hello() {return \"hello \" + message})();");
 
         // Act & Assert
         Assert.Equal("hello engine", engine.Evaluate(script));

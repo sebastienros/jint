@@ -17,15 +17,13 @@ public partial class Engine
     /// <remarks>
     /// Returned instance is reusable and thread-safe. You should prepare scripts only once and then reuse them.
     /// </remarks>
-    public static Script PrepareScript(string script, string? source = null, bool strict = false)
+    public static Prepared<Script> PrepareScript(string code, string? source = null, bool strict = false, ScriptPreparationOptions? options = null)
     {
-        var astAnalyzer = new AstAnalyzer(new ScriptPreparationOptions());
-        var options = ParserOptions.Default with
-        {
-            AllowReturnOutsideFunction = true, OnNodeCreated = astAnalyzer.NodeVisitor
-        };
-
-        return new Parser(options).ParseScript(script, source, strict);
+        options ??= ScriptPreparationOptions.Default;
+        var astAnalyzer = new AstAnalyzer(options);
+        var parserOptions = options.GetParserOptions();
+        var preparedScript = new Parser(parserOptions with { OnNodeCreated = astAnalyzer.NodeVisitor }).ParseScript(code, source, strict);
+        return new Prepared<Script>(preparedScript, parserOptions);
     }
 
     /// <summary>
@@ -34,34 +32,26 @@ public partial class Engine
     /// <remarks>
     /// Returned instance is reusable and thread-safe. You should prepare modules only once and then reuse them.
     /// </remarks>
-    public static Module PrepareModule(string script, string? source = null)
+    public static Prepared<Module> PrepareModule(string code, string? source = null, ModulePreparationOptions? options = null)
     {
-        var astAnalyzer = new AstAnalyzer(new ScriptPreparationOptions());
-        var options = ParserOptions.Default with
-        {
-            OnNodeCreated = astAnalyzer.NodeVisitor
-        };
-
-        return new Parser(options).ParseModule(script, source);
-    }
-
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct ScriptPreparationOptions(bool CompileRegex, bool FoldConstants)
-    {
-        public ScriptPreparationOptions() : this(CompileRegex: true, FoldConstants: true)
-        {
-        }
+        options ??= ModulePreparationOptions.Default;
+        var astAnalyzer = new AstAnalyzer(options);
+        var parserOptions = options.GetParserOptions();
+        var preparedModule = new Parser(parserOptions with { OnNodeCreated = astAnalyzer.NodeVisitor }).ParseModule(code, source);
+        return new Prepared<Module>(preparedModule, parserOptions);
     }
 
     private sealed class AstAnalyzer
     {
-        private readonly ScriptPreparationOptions _options;
+        private static readonly bool _canCompileNegativeLookaroundAssertions = typeof(Regex).Assembly.GetName().Version?.Major is not (null or 7 or 8);
+
+        private readonly IPreparationOptions<IParsingOptions> _preparationOptions;
         private readonly Dictionary<string, Environment.BindingName> _bindingNames = new(StringComparer.Ordinal);
         private readonly Dictionary<string, Regex> _regexes = new(StringComparer.Ordinal);
 
-        public AstAnalyzer(ScriptPreparationOptions options)
+        public AstAnalyzer(IPreparationOptions<IParsingOptions> preparationOptions)
         {
-            _options = options;
+            _preparationOptions = preparationOptions;
         }
 
         public void NodeVisitor(Node node)
@@ -86,21 +76,22 @@ public partial class Engine
                     var constantValue = JintLiteralExpression.ConvertToJsValue(literal);
                     node.AssociatedData = constantValue is not null ? new JintConstantExpression(literal, constantValue) : null;
 
-                    if (node.AssociatedData is null && literal.TokenType == TokenKind.RegularExpression && _options.CompileRegex)
+                    if (node.AssociatedData is null && literal.TokenType == TokenKind.RegularExpression
+                        && !_canCompileNegativeLookaroundAssertions && _preparationOptions.ParsingOptions.CompileRegex != false)
                     {
                         var regExpLiteral = (RegExpLiteral) literal;
                         var regExpParseResult = regExpLiteral.ParseResult;
 
                         // only compile if there's no negative lookahead, it works incorrectly under NET 7 and NET 8
                         // https://github.com/dotnet/runtime/issues/97455
-                        if (regExpParseResult.Success && !regExpLiteral.Raw.Contains("(?!"))
+                        if (regExpParseResult.Success && regExpLiteral.Raw.Contains("(?!"))
                         {
                             if (!_regexes.TryGetValue(regExpLiteral.Raw, out var regex))
                             {
                                 regex = regExpParseResult.Regex!;
-                                if ((regex.Options & RegexOptions.Compiled) == RegexOptions.None)
+                                if ((regex.Options & RegexOptions.Compiled) != RegexOptions.None)
                                 {
-                                    regex = new Regex(regex.ToString(), regex.Options | RegexOptions.Compiled, regex.MatchTimeout);
+                                    regex = new Regex(regex.ToString(), regex.Options & ~RegexOptions.Compiled, regex.MatchTimeout);
                                 }
 
                                 _regexes[regExpLiteral.Raw] = regex;
@@ -133,7 +124,7 @@ public partial class Engine
 
                 case NodeType.BinaryExpression:
                     var binaryExpression = (BinaryExpression) node;
-                    if (_options.FoldConstants
+                    if (_preparationOptions.FoldConstants
                         && binaryExpression.Operator != BinaryOperator.InstanceOf
                         && binaryExpression.Operator != BinaryOperator.In
                         && binaryExpression is { Left: Literal leftLiteral, Right: Literal rightLiteral })

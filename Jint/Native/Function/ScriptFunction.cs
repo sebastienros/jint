@@ -63,7 +63,7 @@ namespace Jint.Native.Function
             {
                 try
                 {
-                    var calleeContext = PrepareForOrdinaryCall(Undefined);
+                    ref readonly var calleeContext = ref PrepareForOrdinaryCall(Undefined);
 
                     if (_isClassConstructor)
                     {
@@ -142,7 +142,7 @@ namespace Jint.Native.Function
                     static (Engine engine, Realm _, object? _) => new JsObject(engine));
             }
 
-            var calleeContext = PrepareForOrdinaryCall(newTarget);
+            ref readonly var calleeContext = ref PrepareForOrdinaryCall(newTarget);
             var constructorEnv = (FunctionEnvironment) calleeContext.LexicalEnvironment;
 
             var strict = _thisMode == FunctionThisMode.Strict;

@@ -40,10 +40,10 @@ Console.WriteLine("Type 'exit' to leave, " +
 Console.WriteLine();
 
 var defaultColor = Console.ForegroundColor;
-var parserOptions = new ParserOptions
+var parsingOptions = new ScriptParsingOptions
 {
     Tolerant = true,
-    RegExpParseMode = RegExpParseMode.AdaptToInterpreted
+    CompileRegex = false,
 };
 
 var serializer = new JsonSerializer(engine);
@@ -60,7 +60,7 @@ while (true)
 
     try
     {
-        var result = engine.Evaluate(input, parserOptions);
+        var result = engine.Evaluate(input, parsingOptions);
         JsValue str = result;
         if (!result.IsPrimitive() && result is not IJsPrimitive)
         {

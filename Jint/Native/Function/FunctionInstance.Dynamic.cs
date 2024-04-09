@@ -142,11 +142,12 @@ public partial class Function
                 }
             }
 
-            Parser parser = new(new ParserOptions
+            var parserOptions = _engine.GetActiveParserOptions();
+            if (!parserOptions.AllowReturnOutsideFunction)
             {
-                Tolerant = false,
-                RegexTimeout = _engine.Options.Constraints.RegexTimeout
-            });
+                parserOptions = parserOptions with { AllowReturnOutsideFunction = true };
+            }
+            Parser parser = new(parserOptions);
             function = (IFunction) parser.ParseScript(functionExpression, source: null, _engine._isStrict).Body[0];
         }
         catch (ParseErrorException ex)

@@ -1,4 +1,5 @@
-﻿using Jint.Native.Object;
+﻿using System.Diagnostics;
+using Jint.Native.Object;
 using Jint.Native.Promise;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
@@ -20,7 +21,8 @@ internal sealed record ExportEntry(string? ExportName, ModuleRequest? ModuleRequ
 /// </summary>
 internal class SourceTextModule : CyclicModule
 {
-    internal readonly Esprima.Ast.Module _source;
+    internal readonly AstModule _source;
+    private readonly ParserOptions _parserOptions;
     private ExecutionContext _context;
     private ObjectInstance? _importMeta;
     private readonly List<ImportEntry>? _importEntries;
@@ -28,10 +30,12 @@ internal class SourceTextModule : CyclicModule
     private readonly List<ExportEntry> _indirectExportEntries;
     private readonly List<ExportEntry> _starExportEntries;
 
-    internal SourceTextModule(Engine engine, Realm realm, Esprima.Ast.Module source, string? location, bool async)
+    internal SourceTextModule(Engine engine, Realm realm, in Prepared<AstModule> source, string? location, bool async)
         : base(engine, realm, location, async)
     {
-        _source = source;
+        Debug.Assert(source.IsValid);
+        _source = source.Program!;
+        _parserOptions = source.ParserOptions!;
 
         // https://tc39.es/ecma262/#sec-parsemodule
 
@@ -323,7 +327,7 @@ internal class SourceTextModule : CyclicModule
     /// </summary>
     internal override Completion ExecuteModule(PromiseCapability? capability = null)
     {
-        var moduleContext = new ExecutionContext(this, _environment, _environment, privateEnvironment: null, _realm);
+        var moduleContext = new ExecutionContext(this, _environment, _environment, privateEnvironment: null, _realm, parserOptions: _parserOptions);
         if (!_hasTLA)
         {
             using (new StrictModeScope(strict: true, force: true))

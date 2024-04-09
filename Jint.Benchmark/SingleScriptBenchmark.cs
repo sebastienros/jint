@@ -6,7 +6,7 @@ namespace Jint.Benchmark;
 public abstract class SingleScriptBenchmark
 {
     private string _script;
-    private Script _parsedScript;
+    private Prepared<Script> _parsedScript;
 
     protected abstract string FileName { get; }
 

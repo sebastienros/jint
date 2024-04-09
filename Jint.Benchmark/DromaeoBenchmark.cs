@@ -15,7 +15,7 @@ public class DromaeoBenchmark
         {"dromaeo-string-base64", null}
     };
 
-    private readonly Dictionary<string, Script> _prepared = new();
+    private readonly Dictionary<string, Prepared<Script>> _prepared = new();
 
     private Engine engine;
 

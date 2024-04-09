@@ -7,15 +7,18 @@ namespace Jint.Runtime.Modules;
 internal sealed class SyntheticModule : Module
 {
     private readonly JsValue _obj;
+    private readonly ParserOptions? _parserOptions;
     private readonly List<string> _exportNames = ["default"];
 
-    internal SyntheticModule(Engine engine, Realm realm, JsValue obj, string? location)
+    internal SyntheticModule(Engine engine, Realm realm, JsValue obj, string? location, ParserOptions? parserOptions = null)
         : base(engine, realm, location)
     {
         _obj = obj;
 
         var env = JintEnvironment.NewModuleEnvironment(_engine, realm.GlobalEnv);
         _environment = env;
+        _parserOptions = parserOptions;
+
     }
 
     public override List<string> GetExportedNames(List<CyclicModule>? exportStarSet = null) => _exportNames;
@@ -43,7 +46,8 @@ internal sealed class SyntheticModule : Module
             variableEnvironment: _environment,
             lexicalEnvironment: _environment,
             privateEnvironment: null,
-            generator: null);
+            generator: null,
+            parserOptions: _parserOptions);
 
         // 7.Suspend the currently running execution context.
         _engine.EnterExecutionContext(moduleContext);

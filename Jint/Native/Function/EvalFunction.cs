@@ -10,9 +10,6 @@ public sealed class EvalFunction : Function
 {
     private static readonly JsString _functionName = new("eval");
 
-    private static readonly ParserOptions _parserOptions = ParserOptions.Default with { Tolerant = true };
-    private readonly Parser _parser = new(_parserOptions);
-
     internal EvalFunction(
         Engine engine,
         Realm realm,
@@ -75,9 +72,14 @@ public sealed class EvalFunction : Function
         }
 
         Script? script = null;
+        var parserOptions = _engine.GetActiveParserOptions();
+        var adjustedParserOptions = !parserOptions.Tolerant || parserOptions.AllowReturnOutsideFunction
+            ? parserOptions with { Tolerant = true, AllowReturnOutsideFunction = false }
+            : parserOptions;
+        var parser = _engine.GetParserFor(adjustedParserOptions);
         try
         {
-            script = _parser.ParseScript(x.ToString(), strict: strictCaller);
+            script = parser.ParseScript(x.ToString(), strict: strictCaller);
         }
         catch (ParseErrorException e)
         {

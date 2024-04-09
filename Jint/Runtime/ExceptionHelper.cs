@@ -214,5 +214,17 @@ namespace Jint.Runtime
         {
             throw new ModuleResolutionException(message, specifier, parent, filePath);
         }
+
+        [DoesNotReturn]
+        public static void ThrowInvalidPreparedScriptArgumentException(string paramName)
+        {
+            throw new ArgumentException($"Instances of {typeof(Prepared<Script>)} returned by {nameof(Engine.PrepareScript)} are allowed only.", paramName);
+        }
+
+        [DoesNotReturn]
+        public static void ThrowInvalidPreparedModuleArgumentException(string paramName)
+        {
+            throw new ArgumentException($"Instances of {typeof(Prepared<AstModule>)} returned by {nameof(Engine.PrepareModule)} are allowed only.", paramName);
+        }
     }
 }

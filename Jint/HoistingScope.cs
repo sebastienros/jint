@@ -1,5 +1,4 @@
 using Jint.Runtime.Modules;
-using Module = Esprima.Ast.Module;
 
 namespace Jint
 {
@@ -57,7 +56,7 @@ namespace Jint
         }
 
         public static HoistingScope GetModuleLevelDeclarations(
-            Module module,
+            AstModule module,
             bool collectVarNames = false,
             bool collectLexicalNames = false)
         {
@@ -122,7 +121,7 @@ namespace Jint
         }
 
         public static void GetImportsAndExports(
-            Module module,
+            AstModule module,
             out HashSet<ModuleRequest> requestedModules,
             out List<ImportEntry>? importEntries,
             out List<ExportEntry> localExportEntries,
@@ -243,7 +242,7 @@ namespace Jint
                             }
                         }
 
-                        if (parent is null or Module && variableDeclaration.Kind != VariableDeclarationKind.Var)
+                        if (parent is null or AstModule && variableDeclaration.Kind != VariableDeclarationKind.Var)
                         {
                             _lexicalDeclarations ??= new List<Declaration>();
                             _lexicalDeclarations.Add(variableDeclaration);
@@ -270,7 +269,7 @@ namespace Jint
                             _functions.Add((FunctionDeclaration)childNode);
                         }
                     }
-                    else if (childType == NodeType.ClassDeclaration && parent is null or Module)
+                    else if (childType == NodeType.ClassDeclaration && parent is null or AstModule)
                     {
                         _lexicalDeclarations ??= new List<Declaration>();
                         _lexicalDeclarations.Add((Declaration) childNode);
