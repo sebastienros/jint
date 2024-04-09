@@ -37,9 +37,9 @@ public abstract partial class Test262Test
                     throw new Exception("only script parsing supported");
                 }
 
-                var script = Engine.PrepareScript(args.At(0).AsString(), options: new ScriptPrepareOptions
+                var script = Engine.PrepareScript(args.At(0).AsString(), options: new ScriptPreparationOptions
                 {
-                    ParseOptions = ScriptParseOptions.Default with { CompileRegex = false, Tolerant = false },
+                    ParsingOptions = ScriptParsingOptions.Default with { CompileRegex = false, Tolerant = false },
                 });
 
                 return engine.Evaluate(script);
@@ -94,9 +94,9 @@ public abstract partial class Test262Test
         }
         else
         {
-            var script = Engine.PrepareScript(file.Program, source: file.FileName, options: new ScriptPrepareOptions
+            var script = Engine.PrepareScript(file.Program, source: file.FileName, options: new ScriptPreparationOptions
             {
-                ParseOptions = ScriptParseOptions.Default with { CompileRegex = false, Tolerant = false },
+                ParsingOptions = ScriptParsingOptions.Default with { CompileRegex = false, Tolerant = false },
             });
 
             engine.Execute(script);

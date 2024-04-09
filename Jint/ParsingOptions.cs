@@ -2,7 +2,7 @@
 
 namespace Jint
 {
-    public interface IParseOptions
+    public interface IParsingOptions
     {
         /// <summary>
         /// Gets or sets whether to create compiled <see cref="Regex"/> instances when adapting regular expressions.
@@ -33,7 +33,7 @@ namespace Jint
         bool Tolerant { get; init; }
     }
 
-    public record class ScriptParseOptions : IParseOptions
+    public sealed record class ScriptParsingOptions : IParsingOptions
     {
         private static readonly ParserOptions _defaultParserOptions = Engine.BaseParserOptions with
         {
@@ -41,7 +41,7 @@ namespace Jint
             RegExpParseMode = RegExpParseMode.AdaptToInterpreted,
         };
 
-        public static readonly ScriptParseOptions Default = new();
+        public static readonly ScriptParsingOptions Default = new();
 
         /// <summary>
         /// Gets or sets whether to allow return statements at the top level.
@@ -79,14 +79,14 @@ namespace Jint
             => ApplyTo(_defaultParserOptions, _defaultParserOptions.RegExpParseMode, engineOptions.Constraints.RegexTimeout);
     }
 
-    public record class ModuleParseOptions : IParseOptions
+    public sealed record class ModuleParsingOptions : IParsingOptions
     {
         private static readonly ParserOptions _defaultParserOptions = Engine.BaseParserOptions with
         {
             RegExpParseMode = RegExpParseMode.AdaptToInterpreted,
         };
 
-        public static readonly ModuleParseOptions Default = new();
+        public static readonly ModuleParsingOptions Default = new();
 
         /// <inheritdoc/>
         public bool? CompileRegex { get; init; }

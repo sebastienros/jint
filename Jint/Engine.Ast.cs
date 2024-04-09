@@ -17,9 +17,9 @@ public partial class Engine
     /// <remarks>
     /// Returned instance is reusable and thread-safe. You should prepare scripts only once and then reuse them.
     /// </remarks>
-    public static Prepared<Script> PrepareScript(string code, string? source = null, bool strict = false, ScriptPrepareOptions? options = null)
+    public static Prepared<Script> PrepareScript(string code, string? source = null, bool strict = false, ScriptPreparationOptions? options = null)
     {
-        options ??= ScriptPrepareOptions.Default;
+        options ??= ScriptPreparationOptions.Default;
         var astAnalyzer = new AstAnalyzer(options);
         var parserOptions = options.GetParserOptions();
         var preparedScript = new Parser(parserOptions with { OnNodeCreated = astAnalyzer.NodeVisitor }).ParseScript(code, source, strict);
@@ -32,9 +32,9 @@ public partial class Engine
     /// <remarks>
     /// Returned instance is reusable and thread-safe. You should prepare modules only once and then reuse them.
     /// </remarks>
-    public static Prepared<Module> PrepareModule(string code, string? source = null, ModulePrepareOptions? options = null)
+    public static Prepared<Module> PrepareModule(string code, string? source = null, ModulePreparationOptions? options = null)
     {
-        options ??= ModulePrepareOptions.Default;
+        options ??= ModulePreparationOptions.Default;
         var astAnalyzer = new AstAnalyzer(options);
         var parserOptions = options.GetParserOptions();
         var preparedModule = new Parser(parserOptions with { OnNodeCreated = astAnalyzer.NodeVisitor }).ParseModule(code, source);
@@ -45,13 +45,13 @@ public partial class Engine
     {
         private static readonly bool _canCompileNegativeLookaroundAssertions = typeof(Regex).Assembly.GetName().Version?.Major is not (null or 7 or 8);
 
-        private readonly IPrepareOptions<IParseOptions> _prepareOptions;
+        private readonly IPreparationOptions<IParsingOptions> _preparationOptions;
         private readonly Dictionary<string, Environment.BindingName> _bindingNames = new(StringComparer.Ordinal);
         private readonly Dictionary<string, Regex> _regexes = new(StringComparer.Ordinal);
 
-        public AstAnalyzer(IPrepareOptions<IParseOptions> prepareOptions)
+        public AstAnalyzer(IPreparationOptions<IParsingOptions> preparationOptions)
         {
-            _prepareOptions = prepareOptions;
+            _preparationOptions = preparationOptions;
         }
 
         public void NodeVisitor(Node node)
@@ -77,7 +77,7 @@ public partial class Engine
                     node.AssociatedData = constantValue is not null ? new JintConstantExpression(literal, constantValue) : null;
 
                     if (node.AssociatedData is null && literal.TokenType == TokenKind.RegularExpression
-                        && !_canCompileNegativeLookaroundAssertions && _prepareOptions.ParseOptions.CompileRegex != false)
+                        && !_canCompileNegativeLookaroundAssertions && _preparationOptions.ParsingOptions.CompileRegex != false)
                     {
                         var regExpLiteral = (RegExpLiteral) literal;
                         var regExpParseResult = regExpLiteral.ParseResult;
@@ -124,7 +124,7 @@ public partial class Engine
 
                 case NodeType.BinaryExpression:
                     var binaryExpression = (BinaryExpression) node;
-                    if (_prepareOptions.FoldConstants
+                    if (_preparationOptions.FoldConstants
                         && binaryExpression.Operator != BinaryOperator.InstanceOf
                         && binaryExpression.Operator != BinaryOperator.In
                         && binaryExpression is { Left: Literal leftLiteral, Right: Literal rightLiteral })

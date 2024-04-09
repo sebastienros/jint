@@ -13,26 +13,26 @@ public sealed class ModuleBuilder
     private readonly Dictionary<string, JsValue> _exports = new(StringComparer.Ordinal);
     private readonly ParserOptions _defaultParserOptions;
     private readonly Parser _defaultParser;
-    private ModuleParseOptions _parseOptions;
+    private ModuleParsingOptions _parsingOptions;
 
     internal ModuleBuilder(Engine engine, string specifier)
     {
         _engine = engine;
         _specifier = specifier;
-        _parseOptions = ModuleParseOptions.Default;
-        _defaultParserOptions = _parseOptions.GetParserOptions(engine.Options);
+        _parsingOptions = ModuleParsingOptions.Default;
+        _defaultParserOptions = _parsingOptions.GetParserOptions(engine.Options);
         _defaultParser = new Parser(_defaultParserOptions);
     }
 
-    private Parser GetParserFor(ModuleParseOptions parseOptions, out ParserOptions parserOptions)
+    private Parser GetParserFor(ModuleParsingOptions parsingOptions, out ParserOptions parserOptions)
     {
-        if (ReferenceEquals(parseOptions, ModuleParseOptions.Default))
+        if (ReferenceEquals(parsingOptions, ModuleParsingOptions.Default))
         {
             parserOptions = _defaultParserOptions;
             return _defaultParser;
         }
 
-        parserOptions = parseOptions.GetParserOptions(_engine.Options);
+        parserOptions = parsingOptions.GetParserOptions(_engine.Options);
         return new Parser(parserOptions);
     }
 
@@ -129,9 +129,9 @@ public sealed class ModuleBuilder
         return this;
     }
 
-    public ModuleBuilder WithOptions(Func<ModuleParseOptions, ModuleParseOptions> configure)
+    public ModuleBuilder WithOptions(Func<ModuleParsingOptions, ModuleParsingOptions> configure)
     {
-        _parseOptions = configure(_parseOptions);
+        _parsingOptions = configure(_parsingOptions);
         return this;
     }
 
@@ -142,13 +142,13 @@ public sealed class ModuleBuilder
         ParserOptions parserOptions;
         if (_sourceRaw.Count <= 0)
         {
-            parserOptions = ReferenceEquals(_parseOptions, ModuleParseOptions.Default)
+            parserOptions = ReferenceEquals(_parsingOptions, ModuleParsingOptions.Default)
                 ? _defaultParserOptions
-                : _parseOptions.GetParserOptions(_engine.Options);
+                : _parsingOptions.GetParserOptions(_engine.Options);
             return new Prepared<AstModule>(new AstModule(NodeList.Create(Array.Empty<Statement>())), parserOptions);
         }
 
-        var parser = GetParserFor(_parseOptions, out parserOptions);
+        var parser = GetParserFor(_parsingOptions, out parserOptions);
         try
         {
             var source = _sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw);

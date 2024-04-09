@@ -127,9 +127,9 @@ namespace Jint.Runtime.Debugger
         }
 
         /// <inheritdoc cref="Evaluate(in Prepared{Script})" />
-        public JsValue Evaluate(string sourceText, ScriptParseOptions? parseOptions = null)
+        public JsValue Evaluate(string sourceText, ScriptParsingOptions? parsingOptions = null)
         {
-            var parserOptions = parseOptions?.GetParserOptions() ?? _engine.GetActiveParserOptions();
+            var parserOptions = parsingOptions?.GetParserOptions() ?? _engine.GetActiveParserOptions();
             var parser = _engine.GetParserFor(parserOptions);
             try
             {

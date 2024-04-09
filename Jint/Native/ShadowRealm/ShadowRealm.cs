@@ -28,10 +28,10 @@ public sealed class ShadowRealm : ObjectInstance
         _shadowRealm = shadowRealm;
     }
 
-    public JsValue Evaluate(string sourceText, ScriptParseOptions? parseOptions = null)
+    public JsValue Evaluate(string sourceText, ScriptParsingOptions? parsingOptions = null)
     {
         var callerRealm = _engine.Realm;
-        var parserOptions = parseOptions?.GetParserOptions() ?? _engine.GetActiveParserOptions();
+        var parserOptions = parsingOptions?.GetParserOptions() ?? _engine.GetActiveParserOptions();
         var parser = _engine.GetParserFor(parserOptions);
         return PerformShadowRealmEval(sourceText, parserOptions, parser, callerRealm);
     }

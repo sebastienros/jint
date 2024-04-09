@@ -19,11 +19,11 @@ public static class ModuleFactory
     /// </remarks>
     /// <exception cref="ParseErrorException">Is thrown if the provided <paramref name="code"/> can not be parsed.</exception>
     /// <exception cref="JavaScriptException">Is thrown if an error occured when parsing <paramref name="code"/>.</exception>
-    public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code, ModuleParseOptions? parseOptions = null)
+    public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code, ModuleParsingOptions? parsingOptions = null)
     {
         var source = resolved.Uri?.LocalPath ?? resolved.Key;
         AstModule module;
-        var parserOptions = (parseOptions ?? ModuleParseOptions.Default).GetParserOptions();
+        var parserOptions = (parsingOptions ?? ModuleParsingOptions.Default).GetParserOptions();
         var parser = new Parser(parserOptions);
         try
         {

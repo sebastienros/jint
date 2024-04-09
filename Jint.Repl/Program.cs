@@ -40,7 +40,7 @@ Console.WriteLine("Type 'exit' to leave, " +
 Console.WriteLine();
 
 var defaultColor = Console.ForegroundColor;
-var parserOptions = new ScriptParseOptions
+var parsingOptions = new ScriptParsingOptions
 {
     Tolerant = true,
     CompileRegex = false,
@@ -60,7 +60,7 @@ while (true)
 
     try
     {
-        var result = engine.Evaluate(input, parserOptions);
+        var result = engine.Evaluate(input, parsingOptions);
         JsValue str = result;
         if (!result.IsPrimitive() && result is not IJsPrimitive)
         {

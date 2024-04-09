@@ -294,12 +294,12 @@ var x = b(7);";
     return item;
 })(getItem);";
 
-            var parseOptions = new ScriptParseOptions
+            var parsingOptions = new ScriptParsingOptions
             {
                 CompileRegex = false,
                 Tolerant = true
             };
-            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script, "get-item.js", parseOptions));
+            var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script, "get-item.js", parsingOptions));
 
             const string expected = @"Error: Cannot read property '5' of null
    at getItem (items, itemIndex) get-item.js:2:22
@@ -383,9 +383,9 @@ try {
         [Fact]
         public void CallStackWorksWithRecursiveCalls()
         {
-            static ScriptParseOptions CreateParseOptions()
+            static ScriptParsingOptions CreateParsingOptions()
             {
-                return new ScriptParseOptions
+                return new ScriptParsingOptions
                 {
                     CompileRegex = false,
                     Tolerant = true
@@ -406,13 +406,13 @@ executeFile(""second-file.js"");",
 nuм -= 3;",
                         _ => throw new FileNotFoundException($"File '{path}' not exist.", path)
                     };
-                    engine.Execute(content, path, CreateParseOptions());
+                    engine.Execute(content, path, CreateParsingOptions());
                 }));
                 engine.Execute(
                     @"var num = 5;
 executeFile(""first-file.js"");",
                     "main-file.js",
-                    CreateParseOptions()
+                    CreateParsingOptions()
                 );
             });
 
