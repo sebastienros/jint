@@ -13,7 +13,8 @@ namespace Jint.Runtime.Environments
             PrivateEnvironment? privateEnvironment,
             Realm realm,
             GeneratorInstance? generator = null,
-            Function? function = null)
+            Function? function = null,
+            ParserOptions? parserOptions = null)
         {
             ScriptOrModule = scriptOrModule;
             LexicalEnvironment = lexicalEnvironment;
@@ -22,6 +23,7 @@ namespace Jint.Runtime.Environments
             Realm = realm;
             Function = function;
             Generator = generator;
+            ParserOptions = parserOptions;
         }
 
         public readonly IScriptOrModule? ScriptOrModule;
@@ -31,6 +33,7 @@ namespace Jint.Runtime.Environments
         public readonly Realm Realm;
         public readonly Function? Function;
         public readonly GeneratorInstance? Generator;
+        public readonly ParserOptions? ParserOptions;
 
         public bool Suspended => Generator?._generatorState == GeneratorState.SuspendedYield;
 

@@ -96,7 +96,7 @@ public abstract partial class Test262Test
         {
             var script = Engine.PrepareScript(file.Program, source: file.FileName, options: new ScriptPrepareOptions
             {
-                ParseOptions = ScriptParseOptions.Default with { CompileRegex = false },
+                ParseOptions = ScriptParseOptions.Default with { CompileRegex = false, Tolerant = false },
             });
 
             engine.Execute(script);

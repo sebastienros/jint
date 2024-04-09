@@ -31,8 +31,9 @@ public sealed class ShadowRealm : ObjectInstance
     public JsValue Evaluate(string sourceText, ScriptParseOptions? parseOptions = null)
     {
         var callerRealm = _engine.Realm;
-        var parser = _engine.GetParserFor(parseOptions ?? ScriptParseOptions.Default, out _);
-        return PerformShadowRealmEval(sourceText, parser, callerRealm);
+        var parserOptions = parseOptions?.GetParserOptions() ?? _engine.GetActiveParserOptions();
+        var parser = _engine.GetParserFor(parserOptions);
+        return PerformShadowRealmEval(sourceText, parserOptions, parser, callerRealm);
     }
 
     public JsValue Evaluate(in Prepared<Script> preparedScript)
@@ -43,7 +44,7 @@ public sealed class ShadowRealm : ObjectInstance
         }
 
         var callerRealm = _engine.Realm;
-        return PerformShadowRealmEval(preparedScript.Program, callerRealm);
+        return PerformShadowRealmEval(preparedScript, callerRealm);
     }
 
     public JsValue ImportValue(string specifier, string exportName)
@@ -100,7 +101,7 @@ public sealed class ShadowRealm : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-performshadowrealmeval
     /// </summary>
-    internal JsValue PerformShadowRealmEval(string sourceText, Parser parser, Realm callerRealm)
+    internal JsValue PerformShadowRealmEval(string sourceText, ParserOptions parserOptions, Parser parser, Realm callerRealm)
     {
         var evalRealm = _shadowRealm;
 
@@ -125,22 +126,23 @@ public sealed class ShadowRealm : ObjectInstance
             return default;
         }
 
-        return PerformShadowRealmEvalInternal(script, callerRealm);
+        return PerformShadowRealmEvalInternal(new Prepared<Script>(script, parserOptions), callerRealm);
     }
 
-    internal JsValue PerformShadowRealmEval(Script script, Realm callerRealm)
+    internal JsValue PerformShadowRealmEval(in Prepared<Script> preparedScript, Realm callerRealm)
     {
         var evalRealm = _shadowRealm;
 
         _engine._host.EnsureCanCompileStrings(callerRealm, evalRealm);
 
-        return PerformShadowRealmEvalInternal(script, callerRealm);
+        return PerformShadowRealmEvalInternal(preparedScript, callerRealm);
     }
 
-    internal JsValue PerformShadowRealmEvalInternal(Script script, Realm callerRealm)
+    internal JsValue PerformShadowRealmEvalInternal(in Prepared<Script> preparedScript, Realm callerRealm)
     {
         var evalRealm = _shadowRealm;
 
+        var script = preparedScript.Program!;
         ref readonly var body = ref script.Body;
         if (body.Count == 0)
         {
@@ -162,7 +164,7 @@ public sealed class ShadowRealm : ObjectInstance
 
         // If runningContext is not already suspended, suspend runningContext.
 
-        var evalContext = new ExecutionContext(null, lexEnv, varEnv, null, evalRealm, null);
+        var evalContext = new ExecutionContext(null, lexEnv, varEnv, null, evalRealm, null, parserOptions: preparedScript.ParserOptions);
         _engine.EnterExecutionContext(evalContext);
 
         Completion result;
@@ -172,7 +174,19 @@ public sealed class ShadowRealm : ObjectInstance
 
             using (new StrictModeScope(strictEval, force: true))
             {
-                result = new JintScript(script).Execute(new EvaluationContext(_engine));
+                // _activeEvaluationContext must be set or e.g. a nested eval could lead to NullReferenceException...
+
+                // TODO: is this correct or should we join the current EvaluationContext if any?
+                var originalEvaluationContext = _engine._activeEvaluationContext;
+                _engine._activeEvaluationContext = new EvaluationContext(_engine);
+                try
+                {
+                    result = new JintScript(script).Execute(_engine._activeEvaluationContext);
+                }
+                finally
+                {
+                    _engine._activeEvaluationContext = originalEvaluationContext;
+                }
             }
 
             if (result.Type == CompletionType.Throw)

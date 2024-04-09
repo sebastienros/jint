@@ -101,9 +101,10 @@ namespace Jint.Native.RegExp
 
             var f = flags.IsUndefined() ? "" : TypeConverter.ToString(flags);
 
+            var parserOptions = _engine.GetActiveParserOptions();
             try
             {
-                var regExpParseResult = Scanner.AdaptRegExp(p, f, compiled: false, _engine.Options.Constraints.RegexTimeout);
+                var regExpParseResult = Scanner.AdaptRegExp(p, f, compiled: false, parserOptions.RegexTimeout);
 
                 if (!regExpParseResult.Success)
                 {

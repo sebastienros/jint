@@ -19,9 +19,9 @@ public sealed class ModuleBuilder
     {
         _engine = engine;
         _specifier = specifier;
-        _defaultParserOptions = ModuleParseOptions.Default.GetParserOptions(engine.Options);
-        _defaultParser = new Parser(_defaultParserOptions);
         _parseOptions = ModuleParseOptions.Default;
+        _defaultParserOptions = _parseOptions.GetParserOptions(engine.Options);
+        _defaultParser = new Parser(_defaultParserOptions);
     }
 
     private Parser GetParserFor(ModuleParseOptions parseOptions, out ParserOptions parserOptions)
@@ -31,11 +31,9 @@ public sealed class ModuleBuilder
             parserOptions = _defaultParserOptions;
             return _defaultParser;
         }
-        else
-        {
-            parserOptions = parseOptions.GetParserOptions(_engine.Options);
-            return new Parser(parserOptions);
-        }
+
+        parserOptions = parseOptions.GetParserOptions(_engine.Options);
+        return new Parser(parserOptions);
     }
 
     public ModuleBuilder AddSource(string code)
@@ -144,7 +142,9 @@ public sealed class ModuleBuilder
         ParserOptions parserOptions;
         if (_sourceRaw.Count <= 0)
         {
-            parserOptions = _parseOptions.GetParserOptions();
+            parserOptions = ReferenceEquals(_parseOptions, ModuleParseOptions.Default)
+                ? _defaultParserOptions
+                : _parseOptions.GetParserOptions(_engine.Options);
             return new Prepared<Esprima.Ast.Module>(new Esprima.Ast.Module(NodeList.Create(Array.Empty<Statement>())), parserOptions);
         }
 

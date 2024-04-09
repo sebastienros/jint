@@ -75,5 +75,21 @@ namespace Jint.Runtime
 
             return null;
         }
+
+        public ParserOptions? GetActiveParserOptions()
+        {
+            var array = _stack._array;
+            var size = _stack._size;
+            for (var i = size - 1; i > -1; --i)
+            {
+                ref readonly var context = ref array[i];
+                if (context.ParserOptions is not null)
+                {
+                    return context.ParserOptions;
+                }
+            }
+
+            return null;
+        }
     }
 }

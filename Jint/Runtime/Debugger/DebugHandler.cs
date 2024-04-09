@@ -127,12 +127,13 @@ namespace Jint.Runtime.Debugger
         }
 
         /// <inheritdoc cref="Evaluate(in Prepared{Script})" />
-        public JsValue Evaluate(string code, ScriptParseOptions? parseOptions = null)
+        public JsValue Evaluate(string sourceText, ScriptParseOptions? parseOptions = null)
         {
-            var parser = _engine.GetParserFor(parseOptions ?? ScriptParseOptions.Default, out var parserOptions);
+            var parserOptions = parseOptions?.GetParserOptions() ?? _engine.GetActiveParserOptions();
+            var parser = _engine.GetParserFor(parserOptions);
             try
             {
-                var script = parser.ParseScript(code, "evaluation");
+                var script = parser.ParseScript(sourceText, "evaluation");
                 return Evaluate(new Prepared<Script>(script, parserOptions));
             }
             catch (ParseErrorException ex)

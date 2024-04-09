@@ -191,6 +191,12 @@ namespace Jint
 
         public DebugHandler Debugger => _debugger ??= new DebugHandler(this, Options.Debugger.InitialStepMode);
 
+        // TODO: needed
+        internal ParserOptions GetActiveParserOptions()
+        {
+            return _executionContexts?.GetActiveParserOptions() ?? _defaultParserOptions;
+        }
+
         internal Parser GetParserFor(ScriptParseOptions parseOptions, out ParserOptions parserOptions)
         {
             if (ReferenceEquals(parseOptions, ScriptParseOptions.Default))
@@ -198,11 +204,14 @@ namespace Jint
                 parserOptions = _defaultParserOptions;
                 return _defaultParser;
             }
-            else
-            {
-                parserOptions = parseOptions.GetParserOptions(Options);
-                return new Parser(parserOptions);
-            }
+
+            parserOptions = parseOptions.GetParserOptions(Options);
+            return new Parser(parserOptions);
+        }
+
+        internal Parser GetParserFor(ParserOptions parserOptions)
+        {
+            return ReferenceEquals(parserOptions, _defaultParserOptions) ? _defaultParser : new Parser(parserOptions);
         }
 
         internal void EnterExecutionContext(
@@ -397,8 +406,9 @@ namespace Jint
             }
 
             var script = preparedScript.Program;
+            var parserOptions = preparedScript.ParserOptions;
             var strict = _isStrict || script.Strict;
-            ExecuteWithConstraints(strict, () => ScriptEvaluation(new ScriptRecord(Realm, script, script.Location.Source)));
+            ExecuteWithConstraints(strict, () => ScriptEvaluation(new ScriptRecord(Realm, script, script.Location.Source), parserOptions));
 
             return this;
         }
@@ -406,7 +416,7 @@ namespace Jint
         /// <summary>
         /// https://tc39.es/ecma262/#sec-runtime-semantics-scriptevaluation
         /// </summary>
-        private Engine ScriptEvaluation(ScriptRecord scriptRecord)
+        private Engine ScriptEvaluation(ScriptRecord scriptRecord, ParserOptions parserOptions)
         {
             Debugger.OnBeforeEvaluate(scriptRecord.EcmaScriptCode);
 
@@ -417,7 +427,8 @@ namespace Jint
                 lexicalEnvironment: globalEnv,
                 variableEnvironment: globalEnv,
                 privateEnvironment: null,
-                Realm);
+                Realm,
+                parserOptions: parserOptions);
 
             EnterExecutionContext(scriptContext);
             try

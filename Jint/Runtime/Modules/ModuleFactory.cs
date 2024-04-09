@@ -1,5 +1,4 @@
-﻿using Esprima;
-using Jint.Native;
+﻿using Jint.Native;
 using Jint.Native.Json;
 
 namespace Jint.Runtime.Modules;
@@ -24,7 +23,8 @@ public static class ModuleFactory
     {
         var source = resolved.Uri?.LocalPath ?? resolved.Key;
         Esprima.Ast.Module module;
-        var parser = new Parser((parseOptions ?? ModuleParseOptions.Default).GetParserOptions(engine.Options));
+        var parserOptions = (parseOptions ?? ModuleParseOptions.Default).GetParserOptions();
+        var parser = new Parser(parserOptions);
         try
         {
             module = parser.ParseModule(code, source);
@@ -40,7 +40,7 @@ public static class ModuleFactory
             module = null;
         }
 
-        return BuildSourceTextModule(engine, new Prepared<Esprima.Ast.Module>(module, Engine.BaseParserOptions));
+        return BuildSourceTextModule(engine, new Prepared<Esprima.Ast.Module>(module, parserOptions));
     }
 
     /// <summary>
@@ -58,8 +58,7 @@ public static class ModuleFactory
             ExceptionHelper.ThrowInvalidPreparedModuleArgumentException(nameof(preparedModule));
         }
 
-        var parsedModule = preparedModule.Program;
-        return new SourceTextModule(engine, engine.Realm, parsedModule, parsedModule.Location.Source, async: false);
+        return new SourceTextModule(engine, engine.Realm, preparedModule, preparedModule.Program!.Location.Source, async: false);
     }
 
     /// <summary>
