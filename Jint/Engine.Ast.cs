@@ -20,8 +20,8 @@ public partial class Engine
     public static Prepared<Script> PrepareScript(string code, string? source = null, bool strict = false, ScriptPrepareOptions? options = null)
     {
         options ??= ScriptPrepareOptions.Default;
+        var astAnalyzer = new AstAnalyzer(options);
         var parserOptions = options.GetParserOptions();
-        var astAnalyzer = new AstAnalyzer(options, parserOptions);
         var preparedScript = new Parser(parserOptions with { OnNodeCreated = astAnalyzer.NodeVisitor }).ParseScript(code, source, strict);
         return new Prepared<Script>(preparedScript, parserOptions);
     }
@@ -35,23 +35,23 @@ public partial class Engine
     public static Prepared<Module> PrepareModule(string code, string? source = null, ModulePrepareOptions? options = null)
     {
         options ??= ModulePrepareOptions.Default;
+        var astAnalyzer = new AstAnalyzer(options);
         var parserOptions = options.GetParserOptions();
-        var astAnalyzer = new AstAnalyzer(options, parserOptions);
         var preparedModule = new Parser(parserOptions with { OnNodeCreated = astAnalyzer.NodeVisitor }).ParseModule(code, source);
         return new Prepared<Module>(preparedModule, parserOptions);
     }
 
     private sealed class AstAnalyzer
     {
+        private static readonly bool _canCompileNegativeLookaroundAssertions = typeof(Regex).Assembly.GetName().Version?.Major is not (null or 7 or 8);
+
         private readonly IPrepareOptions<IParseOptions> _prepareOptions;
-        private readonly ParserOptions _parserOptions;
         private readonly Dictionary<string, Environment.BindingName> _bindingNames = new(StringComparer.Ordinal);
         private readonly Dictionary<string, Regex> _regexes = new(StringComparer.Ordinal);
 
-        public AstAnalyzer(IPrepareOptions<IParseOptions> prepareOptions, ParserOptions parserOptions)
+        public AstAnalyzer(IPrepareOptions<IParseOptions> prepareOptions)
         {
             _prepareOptions = prepareOptions;
-            _parserOptions = parserOptions;
         }
 
         public void NodeVisitor(Node node)
@@ -76,21 +76,22 @@ public partial class Engine
                     var constantValue = JintLiteralExpression.ConvertToJsValue(literal);
                     node.AssociatedData = constantValue is not null ? new JintConstantExpression(literal, constantValue) : null;
 
-                    if (node.AssociatedData is null && literal.TokenType == TokenKind.RegularExpression && _parserOptions.RegExpParseMode == RegExpParseMode.AdaptToCompiled)
+                    if (node.AssociatedData is null && literal.TokenType == TokenKind.RegularExpression
+                        && !_canCompileNegativeLookaroundAssertions && _prepareOptions.ParseOptions.CompileRegex != false)
                     {
                         var regExpLiteral = (RegExpLiteral) literal;
                         var regExpParseResult = regExpLiteral.ParseResult;
 
                         // only compile if there's no negative lookahead, it works incorrectly under NET 7 and NET 8
                         // https://github.com/dotnet/runtime/issues/97455
-                        if (regExpParseResult.Success && !regExpLiteral.Raw.Contains("(?!"))
+                        if (regExpParseResult.Success && regExpLiteral.Raw.Contains("(?!"))
                         {
                             if (!_regexes.TryGetValue(regExpLiteral.Raw, out var regex))
                             {
                                 regex = regExpParseResult.Regex!;
-                                if ((regex.Options & RegexOptions.Compiled) == RegexOptions.None)
+                                if ((regex.Options & RegexOptions.Compiled) != RegexOptions.None)
                                 {
-                                    regex = new Regex(regex.ToString(), regex.Options | RegexOptions.Compiled, regex.MatchTimeout);
+                                    regex = new Regex(regex.ToString(), regex.Options & ~RegexOptions.Compiled, regex.MatchTimeout);
                                 }
 
                                 _regexes[regExpLiteral.Raw] = regex;

@@ -21,7 +21,7 @@ public partial class EngineTests
         var script = Engine.PrepareScript("var x = /[cgt]/ig; var y = /[cgt]/ig; 'g'.match(x).length;");
         var declaration = Assert.IsType<VariableDeclaration>(script.Program.Body[0]);
         var init = Assert.IsType<RegExpLiteral>(declaration.Declarations[0].Init);
-        var regex = Assert.IsType<Regex>(init.AssociatedData);
+        var regex = Assert.IsType<Regex>(init.Value);
         Assert.Equal("[cgt]", regex.ToString());
         Assert.Equal(RegexOptions.Compiled, regex.Options & RegexOptions.Compiled);
 
