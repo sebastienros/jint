@@ -32,6 +32,7 @@
     <Using Include="Esprima.Utils" />
 
     <Using Include="Esprima.Ast.BindingPattern" Alias="DestructuringPattern" />
+    <Using Include="Esprima.Ast.Module" Alias="AstModule" />
     <Using Include="Esprima.Ast.Nodes" Alias="NodeType" />
     <Using Include="Esprima.JavaScriptParser" Alias="Parser" />
     <Using Include="Esprima.Location" Alias="SourceLocation" />

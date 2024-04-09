@@ -9,7 +9,7 @@ internal sealed class BuilderModule : SourceTextModule
 {
     private List<KeyValuePair<string, JsValue>> _exportBuilderDeclarations = new();
 
-    internal BuilderModule(Engine engine, Realm realm, in Prepared<Esprima.Ast.Module> source, string? location, bool async)
+    internal BuilderModule(Engine engine, Realm realm, in Prepared<AstModule> source, string? location, bool async)
         : base(engine, realm, source, location, async)
     {
     }

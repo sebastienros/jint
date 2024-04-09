@@ -51,7 +51,7 @@ public class ModuleLoaderTests
     public void CustomModuleLoaderWithCachingSupport()
     {
         // Different engines use the same module loader.
-        // The module loader caches the parsed Esprima.Ast.Module
+        // The module loader caches the parsed Module
         // which allows to re-use these for different engine runs.
         var store = new ModuleStore(new Dictionary<string, string>()
         {
@@ -177,7 +177,7 @@ public class ModuleLoaderTests
     /// <summary>
     /// <para>
     /// A simple <see cref="IModuleLoader"/> implementation which will
-    /// re-use prepared <see cref="Esprima.Ast.Module"/> or <see cref="JsValue"/> modules to
+    /// re-use prepared <see cref="AstModule"/> or <see cref="JsValue"/> modules to
     /// produce <see cref="Jint.Runtime.Modules.Module"/>.
     /// </para>
     /// <para>
@@ -231,10 +231,10 @@ public class ModuleLoaderTests
 
         private sealed class ParsedModule
         {
-            private readonly Prepared<Esprima.Ast.Module>? _textModule;
+            private readonly Prepared<AstModule>? _textModule;
             private readonly (JsValue Json, string Location)? _jsonModule;
 
-            private ParsedModule(in Prepared<Esprima.Ast.Module> textModule)
+            private ParsedModule(in Prepared<AstModule> textModule)
             {
                 _textModule = textModule;
             }

@@ -22,7 +22,7 @@ public static class ModuleFactory
     public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code, ModuleParseOptions? parseOptions = null)
     {
         var source = resolved.Uri?.LocalPath ?? resolved.Key;
-        Esprima.Ast.Module module;
+        AstModule module;
         var parserOptions = (parseOptions ?? ModuleParseOptions.Default).GetParserOptions();
         var parser = new Parser(parserOptions);
         try
@@ -40,7 +40,7 @@ public static class ModuleFactory
             module = null;
         }
 
-        return BuildSourceTextModule(engine, new Prepared<Esprima.Ast.Module>(module, parserOptions));
+        return BuildSourceTextModule(engine, new Prepared<AstModule>(module, parserOptions));
     }
 
     /// <summary>
@@ -51,7 +51,7 @@ public static class ModuleFactory
     /// The returned modules location (see <see cref="Module.Location"/>) will be set
     /// to <see cref="SourceLocation.Source"/> of the <paramref name="preparedModule"/>.
     /// </remarks>
-    public static Module BuildSourceTextModule(Engine engine, Prepared<Esprima.Ast.Module> preparedModule)
+    public static Module BuildSourceTextModule(Engine engine, Prepared<AstModule> preparedModule)
     {
         if (!preparedModule.IsValid)
         {

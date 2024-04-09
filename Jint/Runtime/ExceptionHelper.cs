@@ -224,7 +224,7 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowInvalidPreparedModuleArgumentException(string paramName)
         {
-            throw new ArgumentException($"Instances of {typeof(Prepared<Esprima.Ast.Module>)} returned by {nameof(Engine.PrepareModule)} are allowed only.", paramName);
+            throw new ArgumentException($"Instances of {typeof(Prepared<AstModule>)} returned by {nameof(Engine.PrepareModule)} are allowed only.", paramName);
         }
     }
 }

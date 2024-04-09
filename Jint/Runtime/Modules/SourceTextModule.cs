@@ -21,7 +21,7 @@ internal sealed record ExportEntry(string? ExportName, ModuleRequest? ModuleRequ
 /// </summary>
 internal class SourceTextModule : CyclicModule
 {
-    internal readonly Esprima.Ast.Module _source;
+    internal readonly AstModule _source;
     private readonly ParserOptions _parserOptions;
     private ExecutionContext _context;
     private ObjectInstance? _importMeta;
@@ -30,7 +30,7 @@ internal class SourceTextModule : CyclicModule
     private readonly List<ExportEntry> _indirectExportEntries;
     private readonly List<ExportEntry> _starExportEntries;
 
-    internal SourceTextModule(Engine engine, Realm realm, in Prepared<Esprima.Ast.Module> source, string? location, bool async)
+    internal SourceTextModule(Engine engine, Realm realm, in Prepared<AstModule> source, string? location, bool async)
         : base(engine, realm, location, async)
     {
         Debug.Assert(source.IsValid);

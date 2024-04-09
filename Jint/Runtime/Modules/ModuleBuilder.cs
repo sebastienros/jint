@@ -8,7 +8,7 @@ public sealed class ModuleBuilder
 {
     private readonly Engine _engine;
     private readonly string _specifier;
-    private Prepared<Esprima.Ast.Module>? _module;
+    private Prepared<AstModule>? _module;
     private readonly List<string> _sourceRaw = new();
     private readonly Dictionary<string, JsValue> _exports = new(StringComparer.Ordinal);
     private readonly ParserOptions _defaultParserOptions;
@@ -46,7 +46,7 @@ public sealed class ModuleBuilder
         return this;
     }
 
-    public ModuleBuilder AddModule(in Prepared<Esprima.Ast.Module> preparedModule)
+    public ModuleBuilder AddModule(in Prepared<AstModule> preparedModule)
     {
         if (_sourceRaw.Count > 0)
         {
@@ -135,7 +135,7 @@ public sealed class ModuleBuilder
         return this;
     }
 
-    internal Prepared<Esprima.Ast.Module> Parse()
+    internal Prepared<AstModule> Parse()
     {
         if (_module != null) return _module.Value;
 
@@ -145,14 +145,14 @@ public sealed class ModuleBuilder
             parserOptions = ReferenceEquals(_parseOptions, ModuleParseOptions.Default)
                 ? _defaultParserOptions
                 : _parseOptions.GetParserOptions(_engine.Options);
-            return new Prepared<Esprima.Ast.Module>(new Esprima.Ast.Module(NodeList.Create(Array.Empty<Statement>())), parserOptions);
+            return new Prepared<AstModule>(new AstModule(NodeList.Create(Array.Empty<Statement>())), parserOptions);
         }
 
         var parser = GetParserFor(_parseOptions, out parserOptions);
         try
         {
             var source = _sourceRaw.Count == 1 ? _sourceRaw[0] : string.Join(Environment.NewLine, _sourceRaw);
-            return new Prepared<Esprima.Ast.Module>(parser.ParseModule(source, _specifier), parserOptions);
+            return new Prepared<AstModule>(parser.ParseModule(source, _specifier), parserOptions);
         }
         catch (ParseErrorException ex)
         {
