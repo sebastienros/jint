@@ -174,7 +174,7 @@ public partial class Engine
                     ? cyclicModuleRecord.AbnormalCompletionLocation
                     : SourceLocation.From(new Position(), new Position());
 
-                var node = EsprimaExtensions.CreateLocationNode(location);
+                var node = AstExtensions.CreateLocationNode(location);
                 ExceptionHelper.ThrowJavaScriptException(_engine, promise.Value, node.Location);
             }
             else if (promise.State != PromiseState.Fulfilled)

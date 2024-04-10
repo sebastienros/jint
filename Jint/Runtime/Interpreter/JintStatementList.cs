@@ -172,7 +172,7 @@ namespace Jint.Runtime.Interpreter
             SyntaxElement source = s!._statement;
             if (v.Location != default)
             {
-                source = EsprimaExtensions.CreateLocationNode(v.Location);
+                source = AstExtensions.CreateLocationNode(v.Location);
             }
 
             return new Completion(CompletionType.Throw, v.Error, source);
