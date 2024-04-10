@@ -64,7 +64,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             {
                 if (expression is Literal literal)
                 {
-                    return EsprimaExtensions.LiteralKeyToString(literal);
+                    return AstExtensions.LiteralKeyToString(literal);
                 }
 
                 if (expression is Identifier identifier)

@@ -80,7 +80,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 {
                     if (p.Key is Literal literal)
                     {
-                        propName = EsprimaExtensions.LiteralKeyToString(literal);
+                        propName = AstExtensions.LiteralKeyToString(literal);
                     }
 
                     if (!p.Computed && p.Key is Identifier identifier)

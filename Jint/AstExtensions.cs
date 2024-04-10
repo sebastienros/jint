@@ -11,7 +11,7 @@ using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint
 {
-    public static class EsprimaExtensions
+    public static class AstExtensions
     {
         public static JsValue GetKey<T>(this T property, Engine engine) where T : IProperty => GetKey(property.Key, engine, property.Computed);
 
