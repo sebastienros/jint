@@ -44,7 +44,7 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected abstract Completion ExecuteInternal(EvaluationContext context);
 
-        public ref readonly SourceLocation Location => ref _statement.Location;
+        public ref readonly SourceLocation Location => ref _statement.LocationRef;
 
         /// <summary>
         /// Opportunity to build one-time structures and caching based on lexical context.
@@ -56,14 +56,14 @@ namespace Jint.Runtime.Interpreter.Statements
 
         protected internal static JintStatement Build(Statement statement)
         {
-            if (statement.AssociatedData is JintStatement preparedStatement)
+            if (statement.UserData is JintStatement preparedStatement)
             {
                 return preparedStatement;
             }
 
             JintStatement? result = statement.Type switch
             {
-                NodeType.BlockStatement => new JintBlockStatement((BlockStatement) statement),
+                NodeType.BlockStatement => new JintBlockStatement((NestedBlockStatement) statement),
                 NodeType.ReturnStatement => new JintReturnStatement((ReturnStatement) statement),
                 NodeType.VariableDeclaration => new JintVariableDeclaration((VariableDeclaration) statement),
                 NodeType.BreakStatement => new JintBreakStatement((BreakStatement) statement),
@@ -99,7 +99,7 @@ namespace Jint.Runtime.Interpreter.Statements
             return result;
         }
 
-        internal static JsValue? FastResolve(StatementListItem statement)
+        internal static JsValue? FastResolve(StatementOrExpression statement)
         {
             if (statement is ReturnStatement rs && rs.Argument is Literal l)
             {

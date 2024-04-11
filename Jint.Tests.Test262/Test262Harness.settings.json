@@ -8,9 +8,9 @@
     "Array.fromAsync",
     "async-iteration",
     "Atomics",
+    "decorators",
     "import-assertions",
     "iterator-helpers",
-    "regexp-duplicate-named-groups",
     "regexp-lookbehind",
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
@@ -43,6 +43,24 @@
     "language/literals/regexp/u-case-mapping.js",
     "built-ins/RegExp/lookahead-quantifier-match-groups.js",
     "built-ins/RegExp/unicode_full_case_folding.js",
+    "built-ins/RegExp/named-groups/duplicate-names-exec.js",
+    "built-ins/RegExp/named-groups/duplicate-names-exec.js",
+    "built-ins/RegExp/named-groups/duplicate-names-match.js",
+    "built-ins/RegExp/named-groups/duplicate-names-match.js",
+    "built-ins/RegExp/named-groups/duplicate-names-match-indices.js",
+    "built-ins/RegExp/named-groups/duplicate-names-match-indices.js",
+    "built-ins/RegExp/named-groups/duplicate-names-replace.js",
+    "built-ins/RegExp/named-groups/duplicate-names-replace.js",
+    "built-ins/RegExp/named-groups/duplicate-names-replaceall.js",
+    "built-ins/RegExp/named-groups/duplicate-names-replaceall.js",
+    "built-ins/RegExp/prototype/exec/duplicate-named-groups-properties.js",
+    "built-ins/RegExp/prototype/exec/duplicate-named-groups-properties.js",
+    "built-ins/RegExp/prototype/exec/duplicate-named-indices-groups-properties.js",
+    "built-ins/RegExp/prototype/exec/duplicate-named-indices-groups-properties.js",
+    "built-ins/String/prototype/match/duplicate-named-groups-properties.js",
+    "built-ins/String/prototype/match/duplicate-named-groups-properties.js",
+    "built-ins/String/prototype/match/duplicate-named-indices-groups-properties.js",
+    "built-ins/String/prototype/match/duplicate-named-indices-groups-properties.js",
 
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",
@@ -67,10 +85,6 @@
 
     // C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308
     "language/types/number/8.5.1.js",
-
-    // inner binding is immutable (from parameters) Expected SameValue(«null», «function() {{ ... }}») to be true
-    "language/expressions/function/scope-name-var-open-non-strict.js",
-    "language/expressions/function/scope-name-var-open-strict.js",
 
     // generators
     "built-ins/GeneratorFunction/instance-yield-expr-in-param.js",
@@ -1018,15 +1032,6 @@
     "language/statements/variable/dstr/ary-ptrn-elision.js",
     "language/statements/variable/dstr/ary-ptrn-elision.js",
 
-     // Esprima problem
-    "language/expressions/object/let-non-strict-access.js",
-    "language/expressions/object/let-non-strict-syntax.js",
-    "language/expressions/object/yield-non-strict-access.js",
-    "language/expressions/object/yield-non-strict-syntax.js",
-    "language/expressions/tagged-template/invalid-escape-sequences.js",
-    "language/statements/for-of/dstr-obj-id-identifier-yield-ident-valid.js",
-    "language/statements/for/head-lhs-let.js",
-
     // SharedArrayBuffer not implemented
     "built-ins/SharedArrayBuffer/prototype/prop-desc.js",
 
@@ -1034,7 +1039,6 @@
     "built-ins/**/special_casing*.js",
 
     // failing tests in new test suite (due to updating to latest and using whole set)
-    "language/arguments-object/mapped/nonconfigurable-descriptors-define-failure.js",
     "language/eval-code/direct/arrow-fn-a-following-parameter-is-named-arguments-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js",
     "language/eval-code/direct/arrow-fn-a-following-parameter-is-named-arguments-arrow-func-declare-arguments-assign.js",
     "language/eval-code/direct/arrow-fn-a-preceding-parameter-is-named-arguments-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js",
@@ -1203,7 +1207,6 @@
     "language/expressions/assignment/dstr/array-elem-put-obj-literal-prop-ref-init.js",
     "language/expressions/assignment/dstr/obj-prop-elem-target-obj-literal-prop-ref-init-active.js",
     "language/expressions/assignment/dstr/obj-prop-elem-target-obj-literal-prop-ref-init.js",
-    "language/expressions/assignment/fn-name-lhs-member.js",
     "language/expressions/assignment/target-member-computed-reference-null.js",
     "language/expressions/assignment/target-member-computed-reference-undefined.js",
     "language/expressions/assignment/target-member-identifier-reference-null.js",
@@ -1243,8 +1246,6 @@
     "language/statements/for-of/dstr/obj-id-init-let.js",
     "language/statements/for-of/dstr/obj-prop-elem-target-obj-literal-prop-ref-init-active.js",
     "language/statements/for-of/dstr/obj-prop-elem-target-obj-literal-prop-ref-init.js",
-    "language/statements/for-of/head-lhs-async-dot.js",
-    "language/statements/for-of/head-lhs-async-escaped.js",
     "language/statements/function/cptn-decl.js",
     "language/statements/function/dstr/ary-init-iter-get-err-array-prototype.js",
     "language/statements/function/dstr/dflt-ary-init-iter-get-err-array-prototype.js",

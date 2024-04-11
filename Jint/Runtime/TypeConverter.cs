@@ -7,6 +7,7 @@ using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Native.Symbol;
 using Jint.Runtime.Interop;
+using Jint.Extensions;
 
 namespace Jint.Runtime
 {
@@ -587,7 +588,8 @@ namespace Jint.Runtime
         {
             if (!TryStringToBigInt(str, out var result))
             {
-                throw new ParseErrorException(" Cannot convert " + str + " to a BigInt");
+                // TODO: this doesn't seem a JS syntax error, use a dedicated exception type?
+                throw new SyntaxError("CannotConvertToBigInt", " Cannot convert " + str + " to a BigInt").ToException();
             }
 
             return result;

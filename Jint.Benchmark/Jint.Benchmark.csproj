@@ -32,8 +32,7 @@
     <PackageReference Include="YantraJS.Core" />
   </ItemGroup>
   <ItemGroup>
-    <Using Include="Esprima" />
-    <Using Include="Esprima.Ast" />
-    <Using Include="Esprima.JavaScriptParser" Alias="Parser" />
+    <Using Include="Acornima" />
+    <Using Include="Acornima.Ast" />
   </ItemGroup>
 </Project>

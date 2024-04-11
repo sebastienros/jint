@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Jint.Extensions;
 using Jint.Native.Object;
 using Jint.Native.String;
 using Jint.Runtime;

@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Acornima.Extras" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Flurl.Http.Signed" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />

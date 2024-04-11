@@ -38,11 +38,11 @@ namespace Jint.Tests.Runtime.Debugger
             Assert.Collection(nodes,
                 node => Assert.IsType<VariableDeclaration>(node), // let x = 0;
                 node => Assert.IsType<WhileStatement>(node),      // while ...
-                node => Assert.IsType<BinaryExpression>(node),    // x < 2
-                node => Assert.IsType<ExpressionStatement>(node), // x++;
-                node => Assert.IsType<BinaryExpression>(node),    // x < 2
-                node => Assert.IsType<ExpressionStatement>(node), // x++;
-                node => Assert.IsType<BinaryExpression>(node)     // x < 2 (false)
+                node => Assert.IsType<NonLogicalBinaryExpression>(node),    // x < 2
+                node => Assert.IsType<NonSpecialExpressionStatement>(node), // x++;
+                node => Assert.IsType<NonLogicalBinaryExpression>(node),    // x < 2
+                node => Assert.IsType<NonSpecialExpressionStatement>(node), // x++;
+                node => Assert.IsType<NonLogicalBinaryExpression>(node)     // x < 2 (false)
             );
         }
 
@@ -63,10 +63,10 @@ namespace Jint.Tests.Runtime.Debugger
             Assert.Collection(nodes,
                 node => Assert.IsType<VariableDeclaration>(node), // let x = 0;
                 node => Assert.IsType<DoWhileStatement>(node),    // do ...
-                node => Assert.IsType<ExpressionStatement>(node), // x++;
-                node => Assert.IsType<BinaryExpression>(node),    // x < 2
-                node => Assert.IsType<ExpressionStatement>(node), // x++;
-                node => Assert.IsType<BinaryExpression>(node)     // x < 2 (false)
+                node => Assert.IsType<NonSpecialExpressionStatement>(node), // x++;
+                node => Assert.IsType<NonLogicalBinaryExpression>(node),    // x < 2
+                node => Assert.IsType<NonSpecialExpressionStatement>(node), // x++;
+                node => Assert.IsType<NonLogicalBinaryExpression>(node)     // x < 2 (false)
             );
         }
 
@@ -85,13 +85,13 @@ namespace Jint.Tests.Runtime.Debugger
             Assert.Collection(nodes,
                 node => Assert.IsType<ForStatement>(node),        // for ...
                 node => Assert.IsType<VariableDeclaration>(node), // let x = 0
-                node => Assert.IsType<BinaryExpression>(node),    // x < 2
+                node => Assert.IsType<NonLogicalBinaryExpression>(node),    // x < 2
                 node => Assert.True(node.IsLiteral("dummy")),     // 'dummy';
                 node => Assert.IsType<UpdateExpression>(node),    // x++;
-                node => Assert.IsType<BinaryExpression>(node),    // x < 2
+                node => Assert.IsType<NonLogicalBinaryExpression>(node),    // x < 2
                 node => Assert.True(node.IsLiteral("dummy")),     // 'dummy';
                 node => Assert.IsType<UpdateExpression>(node),    // x++;
-                node => Assert.IsType<BinaryExpression>(node)     // x < 2 (false)
+                node => Assert.IsType<NonLogicalBinaryExpression>(node)     // x < 2 (false)
             );
         }
 
@@ -135,9 +135,9 @@ namespace Jint.Tests.Runtime.Debugger
                 node => Assert.IsType<VariableDeclaration>(node), // let obj = { x: 1, y: 2 };
                 node => Assert.IsType<ForInStatement>(node),      // for ...
                 node => Assert.IsType<VariableDeclaration>(node), // key
-                node => Assert.IsType<ExpressionStatement>(node), // 'dummy';
+                node => Assert.IsType<NonSpecialExpressionStatement>(node), // 'dummy';
                 node => Assert.IsType<VariableDeclaration>(node), // key
-                node => Assert.IsType<ExpressionStatement>(node)  // 'dummy';
+                node => Assert.IsType<NonSpecialExpressionStatement>(node)  // 'dummy';
             );
         }
 
@@ -160,7 +160,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             Assert.Collection(nodes,
                 node => Assert.IsType<ClassDeclaration>(node),          // class Test
-                node => Assert.IsType<ExpressionStatement>(node),       // new Test();
+                node => Assert.IsType<NonSpecialExpressionStatement>(node),       // new Test();
                 node => Assert.True(node.IsLiteral("in constructor")),  // 'in constructor()'
                 node => Assert.Null(node),                              // return point
                 node => Assert.True(node.IsLiteral("after construction"))
@@ -182,7 +182,7 @@ namespace Jint.Tests.Runtime.Debugger
 
             Assert.Collection(nodes,
                 node => Assert.IsType<FunctionDeclaration>(node), // function(test) ...;
-                node => Assert.IsType<ExpressionStatement>(node), // test();
+                node => Assert.IsType<NonSpecialExpressionStatement>(node), // test();
                 node => Assert.True(node.IsLiteral("dummy")),     // 'dummy';
                 node => Assert.Null(node)                         // return point
             );
@@ -202,7 +202,7 @@ namespace Jint.Tests.Runtime.Debugger
             var nodes = CollectStepNodes(script);
             Assert.Collection(nodes,
                 node => Assert.IsType<ClassDeclaration>(node),    // class Test
-                node => Assert.IsType<ExpressionStatement>(node), // new Test();
+                node => Assert.IsType<NonSpecialExpressionStatement>(node), // new Test();
                 node => Assert.True(node.IsLiteral("dummy"))      // 'dummy';
             );
         }

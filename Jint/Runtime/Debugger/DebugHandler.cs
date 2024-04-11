@@ -173,7 +173,7 @@ namespace Jint.Runtime.Debugger
 
             var bodyLocation = functionBody.Location;
             var functionBodyEnd = bodyLocation.End;
-            var location = SourceLocation.From(functionBodyEnd, functionBodyEnd, bodyLocation.Source);
+            var location = SourceLocation.From(functionBodyEnd, functionBodyEnd, bodyLocation.SourceFile);
 
             CheckBreakPointAndPause(node: null, location, returnValue);
         }
@@ -188,7 +188,7 @@ namespace Jint.Runtime.Debugger
             // Even if we matched a breakpoint, if we're stepping, the reason we're pausing is the step.
             // Still, we need to include the breakpoint at this location, in case the debugger UI needs to update
             // e.g. a hit count.
-            var breakLocation = new BreakLocation(location.Source, location.Start);
+            var breakLocation = new BreakLocation(location.SourceFile, location.Start);
             var breakPoint = BreakPoints.FindMatch(this, breakLocation);
 
             PauseType pauseType;

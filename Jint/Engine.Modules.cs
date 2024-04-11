@@ -64,7 +64,7 @@ public partial class Engine
         private BuilderModule LoadFromBuilder(string specifier, ModuleBuilder moduleBuilder, ResolvedSpecifier moduleResolution)
         {
             var parsedModule = moduleBuilder.Parse();
-            var module = new BuilderModule(_engine, _engine.Realm, parsedModule, location: parsedModule.Program!.Location.Source, async: false);
+            var module = new BuilderModule(_engine, _engine.Realm, parsedModule, location: parsedModule.Program!.Location.SourceFile, async: false);
             _modules[moduleResolution.Key] = module;
             moduleBuilder.BindExportedValues(module);
             _builders.Remove(specifier);

@@ -43,7 +43,6 @@ var defaultColor = Console.ForegroundColor;
 var parsingOptions = new ScriptParsingOptions
 {
     Tolerant = true,
-    CompileRegex = false,
 };
 
 var serializer = new JsonSerializer(engine);

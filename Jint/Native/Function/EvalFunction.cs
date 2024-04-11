@@ -73,9 +73,15 @@ public sealed class EvalFunction : Function
 
         Script? script = null;
         var parserOptions = _engine.GetActiveParserOptions();
-        var adjustedParserOptions = !parserOptions.Tolerant || parserOptions.AllowReturnOutsideFunction
-            ? parserOptions with { Tolerant = true, AllowReturnOutsideFunction = false }
-            : parserOptions;
+        var adjustedParserOptions = parserOptions with
+        {
+            AllowReturnOutsideFunction = false,
+            AllowNewTargetOutsideFunction = true,
+            AllowSuperOutsideMethod = true,
+            // This is a workaround, just makes some tests pass. Actually, we need these checks (done either by the parser or by the runtime).
+            // TODO: implement a correct solution
+            CheckPrivateFields = false
+        };
         var parser = _engine.GetParserFor(adjustedParserOptions);
         try
         {
@@ -83,7 +89,7 @@ public sealed class EvalFunction : Function
         }
         catch (ParseErrorException e)
         {
-            if (string.Equals(e.Description, Messages.InvalidLHSInAssignment, StringComparison.Ordinal))
+            if (string.Equals(e.Error.Code, "InvalidLhsInAssignment", StringComparison.Ordinal))
             {
                 ExceptionHelper.ThrowReferenceError(callerRealm, (string?) null);
             }

@@ -110,13 +110,13 @@ public sealed class ShadowRealm : ObjectInstance
         Script script;
         try
         {
-            script = parser.ParseScript(sourceText, source: null, _engine._isStrict);
+            script = parser.ParseScript(sourceText, strict: _engine._isStrict);
         }
         catch (ParseErrorException e)
         {
-            if (string.Equals(e.Description, Messages.InvalidLHSInAssignment, StringComparison.Ordinal))
+            if (string.Equals(e.Error.Code, "InvalidLhsInAssignment", StringComparison.Ordinal))
             {
-                ExceptionHelper.ThrowReferenceError(callerRealm, Messages.InvalidLHSInAssignment);
+                ExceptionHelper.ThrowReferenceError(callerRealm, e.Description);
             }
             else
             {

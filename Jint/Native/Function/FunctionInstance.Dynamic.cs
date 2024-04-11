@@ -148,7 +148,7 @@ public partial class Function
                 parserOptions = parserOptions with { AllowReturnOutsideFunction = true };
             }
             Parser parser = new(parserOptions);
-            function = (IFunction) parser.ParseScript(functionExpression, source: null, _engine._isStrict).Body[0];
+            function = (IFunction) parser.ParseScript(functionExpression, strict: _engine._isStrict).Body[0];
         }
         catch (ParseErrorException ex)
         {
@@ -161,7 +161,7 @@ public partial class Function
         PrivateEnvironment? privateEnv = null;
 
         var definition = new JintFunctionDefinition(function);
-        Function F = OrdinaryFunctionCreate(proto, definition, function.Strict ? FunctionThisMode.Strict : FunctionThisMode.Global, scope, privateEnv);
+        Function F = OrdinaryFunctionCreate(proto, definition, function.IsStrict() ? FunctionThisMode.Strict : FunctionThisMode.Global, scope, privateEnv);
         F.SetFunctionName(_functionNameAnonymous, force: true);
 
         if (kind == FunctionKind.Generator)

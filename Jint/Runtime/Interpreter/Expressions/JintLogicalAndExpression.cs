@@ -8,13 +8,13 @@ namespace Jint.Runtime.Interpreter.Expressions
         private JintExpression _right = null!;
         private bool _initialized;
 
-        public JintLogicalAndExpression(BinaryExpression expression) : base(expression)
+        public JintLogicalAndExpression(LogicalExpression expression) : base(expression)
         {
         }
 
         private void Initialize()
         {
-            var expression = (BinaryExpression) _expression;
+            var expression = (LogicalExpression) _expression;
             _left = Build(expression.Left);
             _right = Build(expression.Right);
         }

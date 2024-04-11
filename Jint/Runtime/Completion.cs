@@ -23,9 +23,9 @@ public readonly struct Completion
     private static readonly Node _emptyNode = new Identifier("");
     private static readonly Completion _emptyCompletion = new(CompletionType.Normal, JsEmpty.Instance, _emptyNode);
 
-    internal readonly SyntaxElement _source;
+    internal readonly Node _source;
 
-    public Completion(CompletionType type, JsValue value, SyntaxElement source)
+    public Completion(CompletionType type, JsValue value, Node source)
     {
         Debug.Assert(value is not null);
 
@@ -36,7 +36,7 @@ public readonly struct Completion
 
     public readonly CompletionType Type;
     public readonly JsValue Value;
-    public ref readonly SourceLocation Location => ref _source.Location;
+    public readonly ref readonly SourceLocation Location => ref _source.LocationRef;
 
     public static ref readonly Completion Empty() => ref _emptyCompletion;
 

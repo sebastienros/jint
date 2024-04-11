@@ -112,8 +112,8 @@ public class ModuleTests
         _engine.Modules.Add("my-module", "import { invalid } from 'imported';");
 
         var exc = Assert.Throws<JavaScriptException>(() =>  _engine.Modules.Import("my-module"));
-        Assert.Equal("Error while loading module: error in module 'imported': Line 1: Missing initializer in const declaration", exc.Message);
-        Assert.Equal("imported", exc.Location.Source);
+        Assert.Equal("Error while loading module: error in module 'imported': Missing initializer in const declaration (imported:1:21)", exc.Message);
+        Assert.Equal("imported", exc.Location.SourceFile);
     }
 
     [Fact]
@@ -123,8 +123,8 @@ public class ModuleTests
         _engine.Modules.Add("my-module", "import { value } from 'imported';");
 
         var exc = Assert.Throws<JavaScriptException>(() =>  _engine.Modules.Import("my-module"));
-        Assert.Equal("Error while loading module: error in module 'imported': Line 1: Unexpected identifier", exc.Message);
-        Assert.Equal("imported", exc.Location.Source);
+        Assert.Equal("Error while loading module: error in module 'imported': Unexpected identifier 'invalid' (imported:1:8)", exc.Message);
+        Assert.Equal("imported", exc.Location.SourceFile);
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public class ModuleTests
 
         var exc = Assert.Throws<JavaScriptException>(() =>  _engine.Modules.Import("my-module"));
         Assert.Equal("imported successfully", exc.Message);
-        Assert.Equal("my-module", exc.Location.Source);
+        Assert.Equal("my-module", exc.Location.SourceFile);
     }
 
     [Fact]

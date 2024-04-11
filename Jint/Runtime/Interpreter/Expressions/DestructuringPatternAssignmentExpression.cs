@@ -300,7 +300,7 @@ namespace Jint.Runtime.Interpreter.Expressions
             var source = TypeConverter.ToObject(context.Engine.Realm, argument);
             for (var i = 0; i < pattern.Properties.Count; i++)
             {
-                if (pattern.Properties[i] is Property p)
+                if (pattern.Properties[i] is AssignmentProperty p)
                 {
                     JsValue sourceKey;
                     var identifier = p.Key as Identifier;

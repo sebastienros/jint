@@ -22,11 +22,11 @@ namespace Jint.Runtime.Interpreter.Expressions
             var expression = (UpdateExpression) _expression;
             _prefix = expression.Prefix;
             _argument = Build(expression.Argument);
-            if (expression.Operator == UnaryOperator.Increment)
+            if (expression.Operator == Operator.Increment)
             {
                 _change = 1;
             }
-            else if (expression.Operator == UnaryOperator.Decrement)
+            else if (expression.Operator == Operator.Decrement)
             {
                 _change = -1;
             }

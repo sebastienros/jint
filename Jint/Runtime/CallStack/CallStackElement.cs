@@ -19,17 +19,18 @@ namespace Jint.Runtime.CallStack
         public readonly JintExpression? Expression;
         public readonly CallStackExecutionContext CallingExecutionContext;
 
-        public SourceLocation Location
+        public ref readonly SourceLocation Location
         {
             get
             {
-                var expressionLocation = Expression?._expression.Location;
-                if (expressionLocation != null && expressionLocation.Value != default)
+                ref readonly var expressionLocation = ref (Expression is not null ? ref Expression._expression.LocationRef : ref AstExtensions.DefaultLocation);
+                if (expressionLocation != default)
                 {
-                    return expressionLocation.Value;
+                    return ref expressionLocation;
                 }
 
-                return ((Node?) Function._functionDefinition?.Function)?.Location ?? default;
+                var function = (Node?) Function._functionDefinition?.Function;
+                return ref (function is not null ? ref function.LocationRef : ref AstExtensions.DefaultLocation);
             }
         }
 
