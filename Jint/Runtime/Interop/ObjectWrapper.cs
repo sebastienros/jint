@@ -22,8 +22,7 @@ namespace Jint.Runtime.Interop
     {
         internal readonly TypeDescriptor _typeDescriptor;
 
-        [Obsolete("Use ObjectWrapper.Create instead of calling constructor directly")]
-        public ObjectWrapper(
+        internal ObjectWrapper(
             Engine engine,
             object obj,
             Type? type = null)
@@ -72,9 +71,7 @@ namespace Jint.Runtime.Interop
                 return wrapper;
             }
 
-#pragma warning disable CS0618 // Type or member is obsolete
             return new ObjectWrapper(engine, target, type);
-#pragma warning restore CS0618 // Type or member is obsolete
         }
 
         private static bool TryBuildArrayLikeWrapper(

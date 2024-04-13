@@ -319,12 +319,6 @@ namespace Jint.Native.Object
 
         internal virtual IEnumerable<JsValue> GetInitialOwnStringPropertyKeys() => System.Linq.Enumerable.Empty<JsValue>();
 
-        [Obsolete("Will be removed")]
-        protected virtual void AddProperty(JsValue property, PropertyDescriptor descriptor)
-        {
-            SetProperty(property, descriptor);
-        }
-
         protected virtual bool TryGetProperty(JsValue property, [NotNullWhen(true)] out PropertyDescriptor? descriptor)
         {
             descriptor = null;
@@ -445,20 +439,6 @@ namespace Jint.Native.Object
         {
             EnsureInitialized();
             SetProperty(property, desc);
-        }
-
-        [Obsolete("Use Get or GetOwnProperty")]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public PropertyDescriptor GetProperty(JsValue property)
-        {
-            var prop = GetOwnProperty(property);
-
-            if (prop != PropertyDescriptor.Undefined)
-            {
-                return prop;
-            }
-
-            return Prototype?.GetProperty(property) ?? PropertyDescriptor.Undefined;
         }
 
         public bool TryGetValue(JsValue property, out JsValue value)
