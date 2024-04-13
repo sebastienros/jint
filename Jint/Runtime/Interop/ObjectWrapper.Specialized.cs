@@ -8,13 +8,11 @@ namespace Jint.Runtime.Interop;
 
 internal abstract class ArrayLikeWrapper : ObjectWrapper
 {
-#pragma warning disable CS0618 // Type or member is obsolete
     protected ArrayLikeWrapper(
         Engine engine,
         object obj,
         Type itemType,
         Type? type = null) : base(engine, obj, type)
-#pragma warning restore CS0618 // Type or member is obsolete
     {
         ItemType = itemType;
         if (engine.Options.Interop.AttachArrayPrototype)

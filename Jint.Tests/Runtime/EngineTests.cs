@@ -892,7 +892,7 @@ namespace Jint.Tests.Runtime
             var e = new Engine();
             e.Evaluate("var x = { literal: true };");
 
-            var pd = e.GetValue("x").AsObject().GetProperty("doesNotExist");
+            var pd = e.GetValue("x").AsObject().GetOwnProperty("doesNotExist");
             Assert.Throws<InvalidOperationException>(() => pd.Value = "oh no, assigning this breaks things");
         }
 
