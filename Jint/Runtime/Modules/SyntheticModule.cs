@@ -35,6 +35,7 @@ internal sealed class SyntheticModule : Module
 
     public override void Link()
     {
+        InnerModuleLinking(null!, 0);
     }
 
     public override JsValue Evaluate()

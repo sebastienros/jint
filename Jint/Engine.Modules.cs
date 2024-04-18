@@ -36,7 +36,6 @@ public partial class Engine
 
         internal Module Load(string? referencingModuleLocation, ModuleRequest request)
         {
-            var specifier = request.Specifier;
             var moduleResolution = ModuleLoader.Resolve(referencingModuleLocation, request);
 
             if (_modules.TryGetValue(moduleResolution.Key, out var module))
