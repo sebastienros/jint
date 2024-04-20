@@ -663,4 +663,104 @@ export const count = globals.counter;
             throw new NotImplementedException(); // no need in this test
         }
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CanStaticallyImportJsonModule(bool importViaLoader)
+    {
+        const string JsonModuleSpecifier = "./test.json";
+        const string JsonModuleContent =
+            """
+            { "message": "hello" }
+            """;
+
+        const string MainModuleSpecifier = "./main.js";
+        const string MainModuleCode =
+            $$"""
+            import json from "{{JsonModuleSpecifier}}" with { type: "json" };
+            export const msg = json.message;
+            """;
+
+        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>();
+        var engine = new Engine(o => o.EnableModules(new TestModuleLoader(loaderModules)));
+
+        loaderModules.Add(JsonModuleSpecifier, (engine, resolved) => ModuleFactory.BuildJsonModule(engine, resolved, JsonModuleContent));
+        if (importViaLoader)
+        {
+            loaderModules.Add(MainModuleSpecifier, (engine, resolved) => ModuleFactory.BuildSourceTextModule(engine, resolved, MainModuleCode));
+        }
+        else
+        {
+            engine.Modules.Add(MainModuleSpecifier, MainModuleCode);
+        }
+
+        var mainModule = engine.Modules.Import(MainModuleSpecifier);
+
+        Assert.Equal("hello", mainModule.Get("msg").AsString());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CanDynamicallyImportJsonModule(bool importViaLoader)
+    {
+        const string JsonModuleSpecifier = "./test.json";
+        const string JsonModuleContent =
+            """
+            { "message": "hello" }
+            """;
+
+        const string MainModuleSpecifier = "./main.js";
+        const string MainModuleCode =
+            $$"""
+            const json = await import("{{JsonModuleSpecifier}}", { with: { type: "json" } });
+            callback(json.default.message);
+            """;
+
+        var completionTcs = new TaskCompletionSource<JsValue>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var loaderModules = new Dictionary<string, Func<Engine, ResolvedSpecifier, Module>>();
+        var engine = new Engine(o => o.EnableModules(new TestModuleLoader(loaderModules)))
+            .SetValue("callback", new Action<JsValue>(value => completionTcs.SetResult(value)));
+
+        loaderModules.Add(JsonModuleSpecifier, (engine, resolved) => ModuleFactory.BuildJsonModule(engine, resolved, JsonModuleContent));
+        if (importViaLoader)
+        {
+            loaderModules.Add(MainModuleSpecifier, (engine, resolved) => ModuleFactory.BuildSourceTextModule(engine, resolved, MainModuleCode));
+        }
+        else
+        {
+            engine.Modules.Add(MainModuleSpecifier, MainModuleCode);
+        }
+
+        var mainModule = engine.Modules.Import(MainModuleSpecifier);
+
+        Assert.Equal("hello", (await completionTcs.Task).AsString());
+    }
+
+    private sealed class TestModuleLoader : IModuleLoader
+    {
+        private readonly Dictionary<string, Func<Engine, ResolvedSpecifier, Module>> _moduleFactories;
+
+        public TestModuleLoader(Dictionary<string, Func<Engine, ResolvedSpecifier, Module>> moduleFactories)
+        {
+            _moduleFactories = moduleFactories;
+        }
+
+        ResolvedSpecifier IModuleLoader.Resolve(string referencingModuleLocation, ModuleRequest moduleRequest)
+        {
+            return new ResolvedSpecifier(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.RelativeOrAbsolute);
+        }
+
+        Module IModuleLoader.LoadModule(Engine engine, ResolvedSpecifier resolved)
+        {
+            if (_moduleFactories.TryGetValue(resolved.ModuleRequest.Specifier, out var moduleFactory))
+            {
+                return moduleFactory(engine, resolved);
+            }
+
+            throw new ArgumentException(null, nameof(resolved));
+        }
+    }
 }
