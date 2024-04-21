@@ -1313,56 +1313,73 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            var begin = arguments.At(0);
+            var start = arguments.At(0);
             var end = arguments.At(1);
 
             var buffer = o._viewedArrayBuffer;
-            var srcLength = o.GetLength();
-            var relativeBegin = TypeConverter.ToIntegerOrInfinity(begin);
+            var srcRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
 
-            double beginIndex;
-            if (double.IsNegativeInfinity(relativeBegin))
+            uint srcLength = 0;
+            if (!srcRecord.IsTypedArrayOutOfBounds)
             {
-                beginIndex = 0;
+                srcLength = srcRecord.TypedArrayLength;
             }
-            else if (relativeBegin < 0)
+
+            var relativeStart = TypeConverter.ToIntegerOrInfinity(start);
+
+            double startIndex;
+            if (double.IsNegativeInfinity(relativeStart))
             {
-                beginIndex = System.Math.Max(srcLength + relativeBegin, 0);
+                startIndex = 0;
+            }
+            else if (relativeStart < 0)
+            {
+                startIndex = System.Math.Max(srcLength + relativeStart, 0);
             }
             else
             {
-                beginIndex = System.Math.Min(relativeBegin, srcLength);
+                startIndex = System.Math.Min(relativeStart, srcLength);
             }
 
-            double relativeEnd;
-            if (end.IsUndefined())
-            {
-                relativeEnd = srcLength;
-            }
-            else
-            {
-                relativeEnd = TypeConverter.ToIntegerOrInfinity(end);
-            }
-
-            double endIndex;
-            if (double.IsNegativeInfinity(relativeEnd))
-            {
-                endIndex = 0;
-            }
-            else if (relativeEnd < 0)
-            {
-                endIndex = System.Math.Max(srcLength + relativeEnd, 0);
-            }
-            else
-            {
-                endIndex = System.Math.Min(relativeEnd, srcLength);
-            }
-
-            var newLength = System.Math.Max(endIndex - beginIndex, 0);
             var elementSize = o._arrayElementType.GetElementSize();
             var srcByteOffset = o._byteOffset;
-            var beginByteOffset = srcByteOffset + beginIndex * elementSize;
-            var argumentsList = new JsValue[] { buffer, beginByteOffset, newLength };
+            var beginByteOffset = srcByteOffset + startIndex * elementSize;
+
+            JsValue[] argumentsList;
+            if (o._arrayLength == JsTypedArray.LengthAuto && end.IsUndefined())
+            {
+                argumentsList = [buffer, beginByteOffset];
+            }
+            else
+            {
+                double relativeEnd;
+                if (end.IsUndefined())
+                {
+                    relativeEnd = srcLength;
+                }
+                else
+                {
+                    relativeEnd = TypeConverter.ToIntegerOrInfinity(end);
+                }
+
+                double endIndex;
+                if (double.IsNegativeInfinity(relativeEnd))
+                {
+                    endIndex = 0;
+                }
+                else if (relativeEnd < 0)
+                {
+                    endIndex = System.Math.Max(srcLength + relativeEnd, 0);
+                }
+                else
+                {
+                    endIndex = System.Math.Min(relativeEnd, srcLength);
+                }
+
+                var newLength = System.Math.Max(endIndex - startIndex, 0);
+                argumentsList = [buffer, beginByteOffset, newLength];
+            }
+
             return _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, argumentsList);
         }
 

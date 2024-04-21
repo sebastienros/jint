@@ -145,6 +145,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     {
                         close = true;
                         var reference = GetReferenceFromMember(context, me);
+
                         JsValue value;
                         if (arrayOperations != null)
                         {
