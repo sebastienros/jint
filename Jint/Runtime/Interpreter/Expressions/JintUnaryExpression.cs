@@ -207,7 +207,6 @@ namespace Jint.Runtime.Interpreter.Expressions
                         return JsBoolean.True;
                     }
 
-                    var referencedName = r.ReferencedName;
                     if (r.IsPropertyReference)
                     {
                         if (r.IsSuperReference)
@@ -216,17 +215,20 @@ namespace Jint.Runtime.Interpreter.Expressions
                         }
 
                         var o = TypeConverter.ToObject(engine.Realm, r.Base);
-                        var deleteStatus = o.Delete(referencedName);
+
+                        r.EvaluateAndCachePropertyKey();
+                        var deleteStatus = o.Delete(r.ReferencedName);
+
                         if (!deleteStatus)
                         {
                             if (r.Strict)
                             {
-                                ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{referencedName}' of {o}");
+                                ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{r.ReferencedName}' of {o}");
                             }
 
-                            if (StrictModeScope.IsStrictModeCode && !r.Base.AsObject().GetOwnProperty(referencedName).Configurable)
+                            if (StrictModeScope.IsStrictModeCode && !r.Base.AsObject().GetOwnProperty(r.ReferencedName).Configurable)
                             {
-                                ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{referencedName}' of {o}");
+                                ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot delete property '{r.ReferencedName}' of {o}");
                             }
                         }
 
@@ -240,10 +242,9 @@ namespace Jint.Runtime.Interpreter.Expressions
                     }
 
                     var bindings = (Environment) r.Base;
-                    var property = referencedName;
                     engine._referencePool.Return(r);
 
-                    return bindings.DeleteBinding(property.ToString()) ? JsBoolean.True : JsBoolean.False;
+                    return bindings.DeleteBinding(r.ReferencedName.ToString()) ? JsBoolean.True : JsBoolean.False;
 
                 case Operator.Void:
                     _argument.GetValue(context);

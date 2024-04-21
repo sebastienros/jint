@@ -29,7 +29,6 @@ namespace Jint.Runtime.Environments
 
         // Environment records are needed by debugger
         internal readonly GlobalDeclarativeEnvironment _declarativeRecord;
-        private readonly HashSet<Key> _varNames = [];
 
         public GlobalEnvironment(Engine engine, ObjectInstance global) : base(engine)
         {
@@ -258,15 +257,10 @@ namespace Jint.Runtime.Environments
                 return _declarativeRecord.DeleteBinding(name);
             }
 
-            if (_global.HasOwnProperty(name.Name))
+            var n = JsString.Create(name.Name);
+            if (_global.HasOwnProperty(n))
             {
-                var status = _global.Delete(name.Name);
-                if (status)
-                {
-                    _varNames.Remove(name);
-                }
-
-                return status;
+                return _global.Delete(n);
             }
 
             return true;
@@ -279,8 +273,6 @@ namespace Jint.Runtime.Environments
         internal override JsValue WithBaseObject() => Undefined;
 
         internal override JsValue GetThisBinding() => _global;
-
-        internal bool HasVarDeclaration(Key name) => _varNames.Contains(name);
 
         internal bool HasLexicalDeclaration(Key name) => _declarativeRecord.HasBinding(name);
 
@@ -334,12 +326,14 @@ namespace Jint.Runtime.Environments
 
         public void CreateGlobalVarBinding(Key name, bool canBeDeleted)
         {
-            if (_global.Extensible && _global._properties!.TryAdd(name, new PropertyDescriptor(Undefined, canBeDeleted
-                    ? PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding
-                    : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding)))
+            if (!_global.Extensible)
             {
-                _varNames.Add(name);
+                return;
             }
+
+            _global._properties!.TryAdd(name, new PropertyDescriptor(Undefined, canBeDeleted
+                ? PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding
+                : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding));
         }
 
         internal void CreateGlobalVarBindings(List<Key> names, bool canBeDeleted)
@@ -356,8 +350,6 @@ namespace Jint.Runtime.Environments
                 _global._properties!.TryAdd(name, new PropertyDescriptor(Undefined, canBeDeleted
                     ? PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding
                     : PropertyFlag.NonConfigurable | PropertyFlag.MutableBinding));
-
-                _varNames.Add(name);
             }
         }
 
@@ -381,7 +373,6 @@ namespace Jint.Runtime.Environments
 
             _global.DefinePropertyOrThrow(jsString, desc);
             _global.Set(jsString, value, false);
-            _varNames.Add(name);
         }
 
         internal override bool HasBindings()

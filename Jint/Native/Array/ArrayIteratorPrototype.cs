@@ -13,6 +13,8 @@ namespace Jint.Native.Array;
 /// </summary>
 internal sealed class ArrayIteratorPrototype : IteratorPrototype
 {
+    private ClrFunction? _originalNextFunction;
+
     internal ArrayIteratorPrototype(
         Engine engine,
         Realm realm,
@@ -22,9 +24,10 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
 
     protected override void Initialize()
     {
+        _originalNextFunction = new ClrFunction(Engine, "next", Next, 0, PropertyFlag.Configurable);
         var properties = new PropertyDictionary(1, checkExistingKeys: false)
         {
-            [KnownKeys.Next] = new(new ClrFunction(Engine, "next", Next, 0, PropertyFlag.Configurable), true, false, true)
+            [KnownKeys.Next] = new(_originalNextFunction, PropertyFlag.NonEnumerable)
         };
         SetProperties(properties);
 
@@ -37,12 +40,20 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
 
     internal IteratorInstance Construct(ObjectInstance array, ArrayIteratorType kind)
     {
+        if (!HasOriginalNext)
+        {
+            return new IteratorInstance.ObjectIterator(this);
+        }
+
         IteratorInstance instance = array is JsArray jsArray
             ? new ArrayIterator(Engine, jsArray, kind)  { _prototype = this }
             : new ArrayLikeIterator(Engine, array, kind) { _prototype = this };
 
         return instance;
     }
+
+    internal bool HasOriginalNext
+        => ReferenceEquals(Get(CommonProperties.Next), _originalNextFunction);
 
     private sealed class ArrayIterator : IteratorInstance
     {
