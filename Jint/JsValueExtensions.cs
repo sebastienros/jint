@@ -445,6 +445,25 @@ public static class JsValueExtensions
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsFloat16Array(this JsValue value)
+    {
+        return value is JsTypedArray { _arrayElementType: TypedArrayElementType.Float16 };
+    }
+
+#if SUPPORTS_HALF
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Half[] AsFloat16Array(this JsValue value)
+    {
+        if (!value.IsFloat16Array())
+        {
+            ThrowWrongTypeException(value, "Float16Array");
+        }
+
+        return ((JsTypedArray) value).ToNativeArray<Half>();
+    }
+#endif
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsFloat32Array(this JsValue value)
     {
         return value is JsTypedArray { _arrayElementType: TypedArrayElementType.Float32 };

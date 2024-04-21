@@ -120,15 +120,31 @@ namespace Jint.Tests.Runtime
             Assert.Equal(source, fromEngine.AsBigUint64Array());
         }
 
+#if NET6_0_OR_GREATER
+        [Fact]
+        public void CanInteropWithFloat16()
+        {
+            var engine = new Engine();
+            var source = new[] { (Half) 42, (Half) 12 };
+            
+            engine.SetValue("testSubject", engine.Realm.Intrinsics.Float16Array.Construct(source));
+            ValidateCreatedTypeArray(engine, "Float16Array");
+            
+            var fromEngine = engine.GetValue("testSubject");
+            Assert.True(fromEngine.IsFloat16Array());
+            Assert.Equal(source, fromEngine.AsFloat16Array());
+        }
+#endif
+
         [Fact]
         public void CanInteropWithFloat32()
         {
             var engine = new Engine();
             var source = new float[] { 42f, 12f };
-            
+
             engine.SetValue("testSubject", engine.Realm.Intrinsics.Float32Array.Construct(source));
             ValidateCreatedTypeArray(engine, "Float32Array");
-            
+
             var fromEngine = engine.GetValue("testSubject");
             Assert.True(fromEngine.IsFloat32Array());
             Assert.Equal(source, fromEngine.AsFloat32Array());

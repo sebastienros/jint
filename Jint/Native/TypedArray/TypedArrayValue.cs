@@ -10,6 +10,13 @@ namespace Jint.Native.TypedArray;
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct TypedArrayValue(Types Type, double DoubleValue, BigInteger BigInteger) : IConvertible
 {
+#if SUPPORTS_HALF
+    public static implicit operator TypedArrayValue(Half value)
+    {
+        return new TypedArrayValue(Types.Number, (double) value, default);
+    }
+#endif
+
     public static implicit operator TypedArrayValue(double value)
     {
         return new TypedArrayValue(Types.Number, value, default);
@@ -153,6 +160,13 @@ internal readonly record struct TypedArrayValue(Types Type, double DoubleValue, 
         {
             return BigInteger;
         }
+
+#if SUPPORTS_HALF
+        if (conversionType == typeof(Half) && Type == Types.Number)
+        {
+            return (Half) DoubleValue;
+        }
+#endif
 
         ExceptionHelper.ThrowNotImplementedException();
         return default;

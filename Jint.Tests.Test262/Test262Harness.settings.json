@@ -9,7 +9,6 @@
     "async-iteration",
     "Atomics",
     "decorators",
-    "Float16Array",
     "import-assertions",
     "iterator-helpers",
     "regexp-lookbehind",

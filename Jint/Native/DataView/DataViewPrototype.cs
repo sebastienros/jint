@@ -31,7 +31,7 @@ namespace Jint.Native.DataView
         {
             const PropertyFlag lengthFlags = PropertyFlag.Configurable;
             const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            var properties = new PropertyDictionary(24, checkExistingKeys: false)
+            var properties = new PropertyDictionary(26, checkExistingKeys: false)
             {
                 ["buffer"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get buffer", Buffer, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
                 ["byteLength"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get byteLength", ByteLength, 0, lengthFlags), Undefined, PropertyFlag.Configurable),
@@ -39,6 +39,7 @@ namespace Jint.Native.DataView
                 ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
                 ["getBigInt64"] = new PropertyDescriptor(new ClrFunction(Engine, "getBigInt64", GetBigInt64, length: 1, lengthFlags), propertyFlags),
                 ["getBigUint64"] = new PropertyDescriptor(new ClrFunction(Engine, "getBigUint64", GetBigUint64, length: 1, lengthFlags), propertyFlags),
+                ["getFloat16"] = new PropertyDescriptor(new ClrFunction(Engine, "getFloat16", GetFloat16, length: 1, lengthFlags), propertyFlags),
                 ["getFloat32"] = new PropertyDescriptor(new ClrFunction(Engine, "getFloat32", GetFloat32, length: 1, lengthFlags), propertyFlags),
                 ["getFloat64"] = new PropertyDescriptor(new ClrFunction(Engine, "getFloat64", GetFloat64, length: 1, lengthFlags), propertyFlags),
                 ["getInt8"] = new PropertyDescriptor(new ClrFunction(Engine, "getInt8", GetInt8, length: 1, lengthFlags), propertyFlags),
@@ -49,6 +50,7 @@ namespace Jint.Native.DataView
                 ["getUint32"] = new PropertyDescriptor(new ClrFunction(Engine, "getUint32", GetUint32, length: 1, lengthFlags), propertyFlags),
                 ["setBigInt64"] = new PropertyDescriptor(new ClrFunction(Engine, "setBigInt64", SetBigInt64, length: 2, lengthFlags), propertyFlags),
                 ["setBigUint64"] = new PropertyDescriptor(new ClrFunction(Engine, "setBigUint64", SetBigUint64, length: 2, lengthFlags), propertyFlags),
+                ["setFloat16"] = new PropertyDescriptor(new ClrFunction(Engine, "setFloat16", SetFloat16, length: 2, lengthFlags), propertyFlags),
                 ["setFloat32"] = new PropertyDescriptor(new ClrFunction(Engine, "setFloat32", SetFloat32, length: 2, lengthFlags), propertyFlags),
                 ["setFloat64"] = new PropertyDescriptor(new ClrFunction(Engine, "setFloat64", SetFloat64, length: 2, lengthFlags), propertyFlags),
                 ["setInt8"] = new PropertyDescriptor(new ClrFunction(Engine, "setInt8", SetInt8, length: 2, lengthFlags), propertyFlags),
@@ -60,10 +62,7 @@ namespace Jint.Native.DataView
             };
             SetProperties(properties);
 
-            var symbols = new SymbolDictionary(1)
-            {
-                [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("DataView", PropertyFlag.Configurable)
-            };
+            var symbols = new SymbolDictionary(1) { [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("DataView", PropertyFlag.Configurable) };
             SetSymbols(symbols);
         }
 
@@ -137,6 +136,11 @@ namespace Jint.Native.DataView
             return GetViewValue(thisObject, arguments.At(0), arguments.At(1), TypedArrayElementType.BigUint64);
         }
 
+        private JsValue GetFloat16(JsValue thisObject, JsValue[] arguments)
+        {
+            return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Float16);
+        }
+
         private JsValue GetFloat32(JsValue thisObject, JsValue[] arguments)
         {
             return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Float32);
@@ -187,7 +191,12 @@ namespace Jint.Native.DataView
             return SetViewValue(thisObject, arguments.At(0), arguments.At(2), TypedArrayElementType.BigUint64, arguments.At(1));
         }
 
-        private JsValue SetFloat32 (JsValue thisObject, JsValue[] arguments)
+        private JsValue SetFloat16(JsValue thisObject, JsValue[] arguments)
+        {
+            return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Float16, arguments.At(1));
+        }
+
+        private JsValue SetFloat32(JsValue thisObject, JsValue[] arguments)
         {
             return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Float32, arguments.At(1));
         }
@@ -197,7 +206,7 @@ namespace Jint.Native.DataView
             return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Float64, arguments.At(1));
         }
 
-        private JsValue SetInt8 (JsValue thisObject, JsValue[] arguments)
+        private JsValue SetInt8(JsValue thisObject, JsValue[] arguments)
         {
             return SetViewValue(thisObject, arguments.At(0), JsBoolean.True, TypedArrayElementType.Int8, arguments.At(1));
         }

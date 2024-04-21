@@ -8,7 +8,10 @@ namespace Jint.Native.TypedArray
         Int8,
         Int16,
         Int32,
+
         BigInt64,
+
+        Float16,
         Float32,
         Float64,
 
@@ -34,6 +37,7 @@ namespace Jint.Native.TypedArray
                 TypedArrayElementType.Uint32 => 4,
                 TypedArrayElementType.BigInt64 => 8,
                 TypedArrayElementType.BigUint64 => 8,
+                TypedArrayElementType.Float16 => 2,
                 TypedArrayElementType.Float32 => 4,
                 TypedArrayElementType.Float64 => 8,
                 _ => 0
@@ -53,6 +57,7 @@ namespace Jint.Native.TypedArray
                 TypedArrayElementType.Uint32 => "Uint32Array",
                 TypedArrayElementType.BigInt64 => "BigInt64Array",
                 TypedArrayElementType.BigUint64 => "BigUint64Array",
+                TypedArrayElementType.Float16 => "Float16Array",
                 TypedArrayElementType.Float32 => "Float32Array",
                 TypedArrayElementType.Float64 => "Float64Array",
                 _ => ""
@@ -72,6 +77,7 @@ namespace Jint.Native.TypedArray
                 TypedArrayElementType.Uint32 => intrinsics.Uint32Array,
                 TypedArrayElementType.BigInt64 => intrinsics.BigInt64Array,
                 TypedArrayElementType.BigUint64 => intrinsics.BigUint64Array,
+                TypedArrayElementType.Float16 => intrinsics.Float16Array,
                 TypedArrayElementType.Float32 => intrinsics.Float32Array,
                 TypedArrayElementType.Float64 => intrinsics.Float64Array,
                 _ => null!
