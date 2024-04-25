@@ -108,4 +108,12 @@ public sealed class Reference
     {
         ((Environment) _base).InitializeBinding(TypeConverter.ToString(_referencedName), value);
     }
+
+    internal void EvaluateAndCachePropertyKey()
+    {
+        if (!(_referencedName.IsInteger() && _base.IsIntegerIndexedArray))
+        {
+            _referencedName = Runtime.TypeConverter.ToPropertyKey(_referencedName);
+        }
+    }
 }

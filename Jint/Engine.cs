@@ -566,6 +566,9 @@ namespace Jint
             return GetValue(reference, returnReferenceToPool);
         }
 
+        /// <summary>
+        /// https://tc39.es/ecma262/#sec-getvalue
+        /// </summary>
         internal JsValue GetValue(Reference reference, bool returnReferenceToPool)
         {
             var baseValue = reference.Base;
@@ -603,7 +606,8 @@ namespace Jint
                         return baseObj.PrivateGet((PrivateName) reference.ReferencedName);
                     }
 
-                    var v = baseObj.Get(property, reference.ThisValue);
+                    reference.EvaluateAndCachePropertyKey();
+                    var v = baseObj.Get(reference.ReferencedName, reference.ThisValue);
                     return v;
                 }
 
@@ -680,33 +684,35 @@ namespace Jint
         /// </summary>
         internal void PutValue(Reference reference, JsValue value)
         {
+            var property = reference.ReferencedName;
             if (reference.IsUnresolvableReference)
             {
-                if (reference.Strict && reference.ReferencedName != CommonProperties.Arguments)
+                if (reference.Strict && property != CommonProperties.Arguments)
                 {
                     ExceptionHelper.ThrowReferenceError(Realm, reference);
                 }
 
-                Realm.GlobalObject.Set(reference.ReferencedName, value, throwOnError: false);
+                Realm.GlobalObject.Set(property, value, throwOnError: false);
             }
             else if (reference.IsPropertyReference)
             {
                 var baseObject = Runtime.TypeConverter.ToObject(Realm, reference.Base);
                 if (reference.IsPrivateReference)
                 {
-                    baseObject.PrivateSet((PrivateName) reference.ReferencedName, value);
+                    baseObject.PrivateSet((PrivateName) property, value);
                     return;
                 }
 
+                reference.EvaluateAndCachePropertyKey();
                 var succeeded = baseObject.Set(reference.ReferencedName, value, reference.ThisValue);
                 if (!succeeded && reference.Strict)
                 {
-                    ExceptionHelper.ThrowTypeError(Realm, "Cannot assign to read only property '" + reference.ReferencedName + "' of " + baseObject);
+                    ExceptionHelper.ThrowTypeError(Realm, "Cannot assign to read only property '" + property + "' of " + baseObject);
                 }
             }
             else
             {
-                ((Environment) reference.Base).SetMutableBinding(Runtime.TypeConverter.ToString(reference.ReferencedName), value, reference.Strict);
+                ((Environment) reference.Base).SetMutableBinding(Runtime.TypeConverter.ToString(property), value, reference.Strict);
             }
         }
 
@@ -887,7 +893,7 @@ namespace Jint
         public JsValue GetValue(JsValue scope, JsValue property)
         {
             var reference = _referencePool.Rent(scope, property, _isStrict, thisValue: null);
-            var jsValue = GetValue(reference, false);
+            var jsValue = GetValue(reference, returnReferenceToPool: false);
             _referencePool.Return(reference);
             return jsValue;
         }
@@ -998,7 +1004,7 @@ namespace Jint
             for (var i = 0; i < lexNames.Count; i++)
             {
                 var (dn, constant) = lexNames[i];
-                if (env.HasVarDeclaration(dn) || env.HasLexicalDeclaration(dn) || env.HasRestrictedGlobalProperty(dn))
+                if (env.HasLexicalDeclaration(dn) || env.HasRestrictedGlobalProperty(dn))
                 {
                     ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{dn}' has already been declared");
                 }
@@ -1013,7 +1019,7 @@ namespace Jint
                 }
             }
 
-            // we need to go trough in reverse order to handle the hoisting correctly
+            // we need to go through in reverse order to handle the hoisting correctly
             for (var i = functionToInitialize.Count - 1; i > -1; i--)
             {
                 var f = functionToInitialize[i];
@@ -1363,7 +1369,7 @@ namespace Jint
             {
                 if (varEnvRec is GlobalEnvironment ger)
                 {
-                    ger.CreateGlobalVarBinding(vn, true);
+                    ger.CreateGlobalVarBinding(vn, canBeDeleted: true);
                 }
                 else
                 {
