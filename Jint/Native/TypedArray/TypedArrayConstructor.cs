@@ -51,12 +51,13 @@ namespace Jint.Native.TypedArray
 
             Func<Intrinsics, ObjectInstance> proto = _arrayElementType switch
             {
+                TypedArrayElementType.Float16 => static intrinsics => intrinsics.Float16Array.PrototypeObject,
                 TypedArrayElementType.Float32 => static intrinsics => intrinsics.Float32Array.PrototypeObject,
+                TypedArrayElementType.Float64 => static intrinsics => intrinsics.Float64Array.PrototypeObject,
                 TypedArrayElementType.Int8 => static intrinsics => intrinsics.Int8Array.PrototypeObject,
                 TypedArrayElementType.Int16 => static intrinsics => intrinsics.Int16Array.PrototypeObject,
                 TypedArrayElementType.Int32 => static intrinsics => intrinsics.Int32Array.PrototypeObject,
                 TypedArrayElementType.BigInt64 => static intrinsics => intrinsics.BigInt64Array.PrototypeObject,
-                TypedArrayElementType.Float64 => static intrinsics => intrinsics.Float64Array.PrototypeObject,
                 TypedArrayElementType.Uint8 => static intrinsics => intrinsics.Uint8Array.PrototypeObject,
                 TypedArrayElementType.Uint8C => static intrinsics => intrinsics.Uint8ClampedArray.PrototypeObject,
                 TypedArrayElementType.Uint16 => static intrinsics => intrinsics.Uint16Array.PrototypeObject,

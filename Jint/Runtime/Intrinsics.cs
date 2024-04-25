@@ -98,6 +98,7 @@ namespace Jint.Runtime
         private Uint32ArrayConstructor? _uint32Array;
         private BigInt64ArrayConstructor? _bigInt64Array;
         private BigUint64ArrayConstructor? _bigUint64Array;
+        private Float16ArrayConstructor? _float16Array;
         private Float32ArrayConstructor? _float32Array;
         private Float64ArrayConstructor? _float64Array;
 
@@ -175,6 +176,9 @@ namespace Jint.Runtime
 
         public BigUint64ArrayConstructor BigUint64Array =>
             _bigUint64Array ??= new BigUint64ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
+
+        public Float16ArrayConstructor Float16Array =>
+            _float16Array ??= new Float16ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
 
         public Float32ArrayConstructor Float32Array =>
             _float32Array ??= new Float32ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);

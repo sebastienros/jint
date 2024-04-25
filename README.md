@@ -122,6 +122,7 @@ and many more.
 
 - ✔ `ArrayBuffer.prototype.transfer`
 - ✔ Array Grouping - `Object.groupBy` and `Map.groupBy`
+- ✔ Float16Array (Jint v4, requires NET 6 target or higher)
 - ✔ Import attributes
 - ✔ JSON modules
 - ✔ `Promise.withResolvers`

@@ -110,7 +110,7 @@ public class JsArrayBuffer : ObjectInstance
         // 8 byte values require a little more at the moment
         var needsReverse = !isLittleEndian
                            && elementSize > 1
-                           && type is TypedArrayElementType.Float32 or TypedArrayElementType.Float64 or TypedArrayElementType.BigInt64 or TypedArrayElementType.BigUint64;
+                           && type is TypedArrayElementType.Float16 or TypedArrayElementType.Float32 or TypedArrayElementType.Float64 or TypedArrayElementType.BigInt64 or TypedArrayElementType.BigUint64;
 
         if (needsReverse)
         {
@@ -118,6 +118,26 @@ public class JsArrayBuffer : ObjectInstance
             byteIndex = 0;
             System.Array.Reverse(_workBuffer, 0, elementSize);
             rawBytes = _workBuffer;
+        }
+
+        if (type == TypedArrayElementType.Float16)
+        {
+#if SUPPORTS_HALF
+            // rawBytes concatenated and interpreted as a little-endian bit string encoding of an IEEE 754-2019 binary32 value.
+            var value = BitConverter.ToHalf(rawBytes, byteIndex);
+
+            // If value is an IEEE 754-2019 binary32 NaN value, return the NaN Number value.
+            if (Half.IsNaN(value))
+            {
+                return double.NaN;
+            }
+
+            return value;
+#else
+            ExceptionHelper.ThrowNotImplementedException("Float16/Half type is not supported in this build");
+            return default;
+#endif
+
         }
 
         if (type == TypedArrayElementType.Float32)
@@ -155,25 +175,21 @@ public class JsArrayBuffer : ObjectInstance
 
         TypedArrayValue? arrayValue = type switch
         {
-            TypedArrayElementType.Int8 => ((sbyte) rawBytes[byteIndex]),
-            TypedArrayElementType.Uint8 => (rawBytes[byteIndex]),
-            TypedArrayElementType.Uint8C =>(rawBytes[byteIndex]),
-            TypedArrayElementType.Int16 => (isLittleEndian
-                    ? (short) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8))
-                    : (short) (rawBytes[byteIndex + 1] | (rawBytes[byteIndex] << 8))
-                ),
-            TypedArrayElementType.Uint16 => (isLittleEndian
-                    ? (ushort) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8))
-                    : (ushort) (rawBytes[byteIndex + 1] | (rawBytes[byteIndex] << 8))
-                ),
-            TypedArrayElementType.Int32 => (isLittleEndian
-                    ? rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8) | (rawBytes[byteIndex + 2] << 16) | (rawBytes[byteIndex + 3] << 24)
-                    : rawBytes[byteIndex + 3] | (rawBytes[byteIndex + 2] << 8) | (rawBytes[byteIndex + 1] << 16) | (rawBytes[byteIndex + 0] << 24)
-                ),
-            TypedArrayElementType.Uint32 => (isLittleEndian
-                    ? (uint) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8) | (rawBytes[byteIndex + 2] << 16) | (rawBytes[byteIndex + 3] << 24))
-                    : (uint) (rawBytes[byteIndex + 3] | (rawBytes[byteIndex + 2] << 8) | (rawBytes[byteIndex + 1] << 16) | (rawBytes[byteIndex] << 24))
-                ),
+            TypedArrayElementType.Int8 => (sbyte) rawBytes[byteIndex],
+            TypedArrayElementType.Uint8 => rawBytes[byteIndex],
+            TypedArrayElementType.Uint8C =>rawBytes[byteIndex],
+            TypedArrayElementType.Int16 => isLittleEndian
+                ? (short) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8))
+                : (short) (rawBytes[byteIndex + 1] | (rawBytes[byteIndex] << 8)),
+            TypedArrayElementType.Uint16 => isLittleEndian
+                ? (ushort) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8))
+                : (ushort) (rawBytes[byteIndex + 1] | (rawBytes[byteIndex] << 8)),
+            TypedArrayElementType.Int32 => isLittleEndian
+                ? rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8) | (rawBytes[byteIndex + 2] << 16) | (rawBytes[byteIndex + 3] << 24)
+                : rawBytes[byteIndex + 3] | (rawBytes[byteIndex + 2] << 8) | (rawBytes[byteIndex + 1] << 16) | (rawBytes[byteIndex + 0] << 24),
+            TypedArrayElementType.Uint32 => isLittleEndian
+                ? (uint) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8) | (rawBytes[byteIndex + 2] << 16) | (rawBytes[byteIndex + 3] << 24))
+                : (uint) (rawBytes[byteIndex + 3] | (rawBytes[byteIndex + 2] << 8) | (rawBytes[byteIndex + 1] << 16) | (rawBytes[byteIndex] << 24)),
             _ => null
         };
 
@@ -205,7 +221,16 @@ public class JsArrayBuffer : ObjectInstance
     private byte[] NumericToRawBytes(TypedArrayElementType type, TypedArrayValue value, bool isLittleEndian)
     {
         byte[] rawBytes;
-        if (type == TypedArrayElementType.Float32)
+        if (type == TypedArrayElementType.Float16)
+        {
+#if SUPPORTS_HALF
+            rawBytes = BitConverter.GetBytes((Half) value.DoubleValue);
+#else
+            ExceptionHelper.ThrowNotImplementedException("Float16/Half type is not supported in this build");
+            return default!;
+#endif
+        }
+        else if (type == TypedArrayElementType.Float32)
         {
             // Let rawBytes be a List whose elements are the 4 bytes that are the result of converting value to IEEE 754-2019 binary32 format using roundTiesToEven mode. If isLittleEndian is false, the bytes are arranged in big endian order. Otherwise, the bytes are arranged in little endian order. If value is NaN, rawBytes may be set to any implementation chosen IEEE 754-2019 binary32 format Not-a-Number encoding. An implementation must always choose the same encoding for each implementation distinguishable NaN value.
             rawBytes = BitConverter.GetBytes((float) value.DoubleValue);
