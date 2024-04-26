@@ -167,7 +167,9 @@ namespace Jint
                 System.Text.Json.JsonValueKind.Object => JsValue.FromObject(engine, value),
                 System.Text.Json.JsonValueKind.Array => JsValue.FromObject(engine, value),
                 System.Text.Json.JsonValueKind.String => JsString.Create(value.ToString()),
-                System.Text.Json.JsonValueKind.Number => value.TryGetValue<double>(out var doubleValue) ? JsNumber.Create(doubleValue) : JsValue.Undefined,
+#pragma warning disable IL2026, IL3050
+                System.Text.Json.JsonValueKind.Number => value.TryGetValue<int>(out var intValue) ? JsNumber.Create(intValue) : System.Text.Json.JsonSerializer.Deserialize<double>(value),
+#pragma warning restore IL2026, IL3050
                 System.Text.Json.JsonValueKind.True => JsBoolean.True,
                 System.Text.Json.JsonValueKind.False => JsBoolean.False,
                 System.Text.Json.JsonValueKind.Undefined => JsValue.Undefined,
