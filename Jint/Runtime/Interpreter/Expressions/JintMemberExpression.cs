@@ -127,12 +127,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return MakePrivateReference(engine, baseValue, property);
             }
 
-            // only convert if necessary
-            var propertyKey = property.IsInteger() && baseValue.IsIntegerIndexedArray
-                ? property
-                : TypeConverter.ToPropertyKey(property);
-
-            return context.Engine._referencePool.Rent(baseValue, propertyKey, isStrictModeCode, thisValue: actualThis);
+            return context.Engine._referencePool.Rent(baseValue, property, isStrictModeCode, thisValue: actualThis);
         }
 
         /// <summary>

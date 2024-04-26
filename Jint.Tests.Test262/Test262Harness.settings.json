@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "45e740928f9ac3c2144307fee20bb58570fb9588",
+  "SuiteGitSha": "c2ae5ed5e90d86e17730730b003e9b6fb050693e",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -8,10 +8,12 @@
     "Array.fromAsync",
     "async-iteration",
     "Atomics",
+    "Float16Array",
     "import-assertions",
     "iterator-helpers",
     "regexp-duplicate-named-groups",
     "regexp-lookbehind",
+    "regexp-modifiers",
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
     "tail-call-optimization",
@@ -44,6 +46,9 @@
     "built-ins/RegExp/lookahead-quantifier-match-groups.js",
     "built-ins/RegExp/unicode_full_case_folding.js",
 
+    // needs "small" async rewrite
+    "language/module-code/top-level-await/async-module-does-not-block-sibling-modules.js",
+
     // requires investigation how to process complex function name evaluation for property
     "built-ins/Function/prototype/toString/method-computed-property-name.js",
     "language/expressions/class/elements/class-name-static-initializer-anonymous.js",
@@ -68,7 +73,7 @@
     // C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308
     "language/types/number/8.5.1.js",
 
-    // inner binding is immutable (from parameters) Expected SameValue(Â«nullÂ», Â«function() {{ ... }}Â») to be true
+    // inner binding is immutable (from parameters) Expected SameValue(«null», «function() {{ ... }}») to be true
     "language/expressions/function/scope-name-var-open-non-strict.js",
     "language/expressions/function/scope-name-var-open-strict.js",
 
