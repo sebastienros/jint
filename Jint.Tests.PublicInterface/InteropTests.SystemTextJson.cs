@@ -154,6 +154,16 @@ public partial class InteropTests
         Assert.True(engine.Evaluate("variables.employees.other == 'def'").AsBoolean());
     }
 
+    [Fact]
+    public void AccessingSystemTextJsonNumericTypes()
+    {
+        var engine = GetEngine();
+
+        Assert.Equal(15, engine.SetValue("int", JsonValue.Create(15)).Evaluate("int"));
+        Assert.Equal(15.0, engine.SetValue("double", JsonValue.Create(15.0)).Evaluate("double"));
+        Assert.Equal(15f, engine.SetValue("float", JsonValue.Create(15.0f)).Evaluate("float"));
+    }
+
     private static Engine GetEngine()
     {
         var engine = new Engine(options =>
@@ -181,34 +191,19 @@ file sealed class SystemTextJsonValueConverter : IObjectConverter
         if (value is JsonValue jsonValue)
         {
             var valueKind = jsonValue.GetValueKind();
-            switch (valueKind)
+            result = valueKind switch
             {
-                case JsonValueKind.Object:
-                case JsonValueKind.Array:
-                    result = JsValue.FromObject(engine, jsonValue);
-                    break;
-                case JsonValueKind.String:
-                    result = jsonValue.ToString();
-                    break;
-                case JsonValueKind.Number:
-                    result = jsonValue.TryGetValue<double>(out var doubleValue) ? JsNumber.Create(doubleValue) : JsValue.Undefined;
-                    break;
-                case JsonValueKind.True:
-                    result = JsBoolean.True;
-                    break;
-                case JsonValueKind.False:
-                    result = JsBoolean.False;
-                    break;
-                case JsonValueKind.Undefined:
-                    result = JsValue.Undefined;
-                    break;
-                case JsonValueKind.Null:
-                    result = JsValue.Null;
-                    break;
-                default:
-                    result = JsValue.Undefined;
-                    break;
-            }
+                JsonValueKind.Object or JsonValueKind.Array => JsValue.FromObject(engine, jsonValue),
+                JsonValueKind.String => jsonValue.ToString(),
+#pragma warning disable IL2026, IL3050
+                JsonValueKind.Number => jsonValue.TryGetValue<int>(out var intValue) ? JsNumber.Create(intValue) : JsonSerializer.Deserialize<double>(jsonValue),
+#pragma warning restore IL2026, IL3050
+                JsonValueKind.True => JsBoolean.True,
+                JsonValueKind.False => JsBoolean.False,
+                JsonValueKind.Undefined => JsValue.Undefined,
+                JsonValueKind.Null => JsValue.Null,
+                _ => JsValue.Undefined
+            };
 
             return true;
         }
