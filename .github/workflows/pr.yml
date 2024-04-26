@@ -3,7 +3,7 @@ name: PR Check
 on:
 
   pull_request:
-    branches: [ main, release/2.x ]
+    branches: [ main, release/2.x, 3.x ]
 
 jobs:
 
