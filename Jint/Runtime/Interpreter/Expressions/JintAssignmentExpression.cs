@@ -49,7 +49,6 @@ namespace Jint.Runtime.Interpreter.Expressions
             if (_leftIdentifier is not null && JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                     engine.ExecutionContext.LexicalEnvironment,
                     _leftIdentifier.Identifier,
-                    StrictModeScope.IsStrictModeCode,
                     out var identifierEnvironment,
                     out var temp))
             {

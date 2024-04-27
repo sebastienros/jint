@@ -54,14 +54,12 @@ internal sealed class JintIdentifierExpression : JintExpression
             return identifier.CalculatedValue;
         }
 
-        var strict = StrictModeScope.IsStrictModeCode;
         var engine = context.Engine;
         var env = engine.ExecutionContext.LexicalEnvironment;
 
         if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 env,
                 identifier,
-                strict,
                 out _,
                 out var value))
         {
@@ -72,7 +70,7 @@ internal sealed class JintIdentifierExpression : JintExpression
         }
         else
         {
-            var reference = engine._referencePool.Rent(JsValue.Undefined, identifier.Value, strict, thisValue: null);
+            var reference = engine._referencePool.Rent(JsValue.Undefined, identifier.Value, StrictModeScope.IsStrictModeCode, thisValue: null);
             value = engine.GetValue(reference, returnReferenceToPool: true);
         }
 

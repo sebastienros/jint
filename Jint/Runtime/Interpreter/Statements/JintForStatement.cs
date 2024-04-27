@@ -170,17 +170,10 @@ namespace Jint.Runtime.Interpreter.Statements
         private void CreatePerIterationEnvironment(EvaluationContext context)
         {
             var engine = context.Engine;
-            var lastIterationEnv = engine.ExecutionContext.LexicalEnvironment;
-            var lastIterationEnvRec = lastIterationEnv;
-            var outer = lastIterationEnv._outerEnv;
-            var thisIterationEnv = JintEnvironment.NewDeclarativeEnvironment(engine, outer);
+            var lastIterationEnv = (DeclarativeEnvironment) engine.ExecutionContext.LexicalEnvironment;
+            var thisIterationEnv = JintEnvironment.NewDeclarativeEnvironment(engine, lastIterationEnv._outerEnv);
 
-            for (var j = 0; j < _boundNames!.Count; j++)
-            {
-                var bn = _boundNames[j];
-                var lastValue = lastIterationEnvRec.GetBindingValue(bn, true);
-                thisIterationEnv.CreateMutableBindingAndInitialize(bn, false, lastValue);
-            }
+            lastIterationEnv.TransferTo(_boundNames!, thisIterationEnv);
 
             engine.UpdateLexicalEnvironment(thisIterationEnv);
         }

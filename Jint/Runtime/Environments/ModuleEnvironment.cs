@@ -47,16 +47,15 @@ internal sealed class ModuleEnvironment : DeclarativeEnvironment
         return base.GetBindingValue(name, strict);
     }
 
-    internal override bool TryGetBinding(BindingName name, bool strict, out Binding binding, [NotNullWhen(true)] out JsValue? value)
+    internal override bool TryGetBinding(BindingName name, [NotNullWhen(true)] out JsValue? value)
     {
         if (_importBindings.TryGetValue(name.Key, out var indirectBinding))
         {
             value = indirectBinding.Module._environment.GetBindingValue(indirectBinding.BindingName, strict: true);
-            binding = new(value, canBeDeleted: false, mutable: false, strict: true);
             return true;
         }
 
-        return base.TryGetBinding(name, strict, out binding, out value);
+        return base.TryGetBinding(name, out value);
     }
 
     /// <summary>

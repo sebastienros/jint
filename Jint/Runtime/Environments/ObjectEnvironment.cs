@@ -67,15 +67,9 @@ namespace Jint.Runtime.Environments
             return _bindingObject.HasProperty(property);
         }
 
-        internal override bool TryGetBinding(
-            BindingName name,
-            bool strict,
-            out Binding binding,
-            [NotNullWhen(true)] out JsValue? value)
+        internal override bool TryGetBinding(BindingName name, [NotNullWhen(true)] out JsValue? value)
         {
             // we unwrap by name
-            binding = default;
-
             if (!HasProperty(name.Value))
             {
                 value = default;
@@ -153,8 +147,7 @@ namespace Jint.Runtime.Environments
 
         internal override JsValue GetBindingValue(Key name, bool strict)
         {
-            JsValue value;
-            if (!_bindingObject.TryGetValue(name.Name, out value) && strict)
+            if (!_bindingObject.TryGetValue(name.Name, out var value) && strict)
             {
                 ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Name);
             }
