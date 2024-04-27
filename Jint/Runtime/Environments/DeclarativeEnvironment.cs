@@ -23,16 +23,16 @@ namespace Jint.Runtime.Environments
 
         internal sealed override bool HasBinding(Key name) => _dictionary is not null && _dictionary.ContainsKey(name);
 
-        internal override bool TryGetBinding(
-            BindingName name,
-            bool strict,
-            out Binding binding,
-            [NotNullWhen(true)] out JsValue? value)
+        internal override bool TryGetBinding(BindingName name, [NotNullWhen(true)] out JsValue? value)
         {
-            binding = default;
-            var success = _dictionary is not null &&_dictionary.TryGetValue(name.Key, out binding);
-            value = success && binding.IsInitialized() ? binding.Value : default;
-            return success;
+            if (_dictionary?.TryGetValue(name.Key, out var binding) == true)
+            {
+                value = binding.Value;
+                return true;
+            }
+
+            value = null;
+            return false;
         }
 
         internal void CreateMutableBindingAndInitialize(Key name, bool canBeDeleted, JsValue value)
@@ -75,6 +75,7 @@ namespace Jint.Runtime.Environments
                 {
                     ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
                 }
+
                 CreateMutableBindingAndInitialize(name, canBeDeleted: true, value);
                 return;
             }
@@ -168,6 +169,18 @@ namespace Jint.Runtime.Environments
         public void Clear()
         {
             _dictionary = null;
+        }
+
+        internal void TransferTo(List<Key> names, DeclarativeEnvironment env)
+        {
+            var source = _dictionary!;
+            var target = env._dictionary ??= new HybridDictionary<Binding>(names.Count, checkExistingKeys: true);
+            for (var j = 0; j < names.Count; j++)
+            {
+                var bn = names[j];
+                source.TryGetValue(bn, out var lastValue);
+                target[bn] = new Binding(lastValue.Value, canBeDeleted: false, mutable: true, strict: false);
+            }
         }
     }
 }

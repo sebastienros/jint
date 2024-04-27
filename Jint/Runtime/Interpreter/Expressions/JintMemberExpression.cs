@@ -57,21 +57,18 @@ namespace Jint.Runtime.Interpreter.Expressions
             }
 
             JsValue? actualThis = null;
-            string? baseReferenceName = null;
+            object? baseReferenceName = null;
             JsValue? baseValue = null;
-            var isStrictModeCode = StrictModeScope.IsStrictModeCode;
 
             var engine = context.Engine;
             if (_objectExpression is JintIdentifierExpression identifierExpression)
             {
                 var identifier = identifierExpression.Identifier;
                 baseReferenceName = identifier.Key.Name;
-                var strict = isStrictModeCode;
                 var env = engine.ExecutionContext.LexicalEnvironment;
                 JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                     env,
                     identifier,
-                    strict,
                     out _,
                     out baseValue);
             }
@@ -96,13 +93,12 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 if (baseReference is Reference reference)
                 {
-                    baseReferenceName = reference.ReferencedName.ToString();
-                    baseValue = engine.GetValue(reference, false);
-                    engine._referencePool.Return(reference);
+                    baseReferenceName = reference.ReferencedName;
+                    baseValue = engine.GetValue(reference, returnReferenceToPool: true);
                 }
                 else
                 {
-                    baseValue = engine.GetValue(baseReference, false);
+                    baseValue = engine.GetValue(baseReference, returnReferenceToPool: false);
                 }
             }
 
@@ -117,7 +113,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 // we can use base data types securely, object evaluation can mess things up
                 var referenceName = property.IsPrimitive()
                     ? TypeConverter.ToString(property)
-                    : _determinedProperty?.ToString() ?? baseReferenceName;
+                    : _determinedProperty?.ToString() ?? baseReferenceName?.ToString();
 
                 TypeConverter.CheckObjectCoercible(engine, baseValue, _memberExpression.Property, referenceName!);
             }
@@ -127,7 +123,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 return MakePrivateReference(engine, baseValue, property);
             }
 
-            return context.Engine._referencePool.Rent(baseValue, property, isStrictModeCode, thisValue: actualThis);
+            return context.Engine._referencePool.Rent(baseValue, property, StrictModeScope.IsStrictModeCode, thisValue: actualThis);
         }
 
         /// <summary>
