@@ -69,19 +69,14 @@ namespace Jint.Runtime.Environments
             return _global.HasProperty(name.Value);
         }
 
-        internal override bool TryGetBinding(
-            BindingName name,
-            bool strict,
-            out Binding binding,
-            [NotNullWhen(true)] out JsValue? value)
+        internal override bool TryGetBinding(BindingName name, [NotNullWhen(true)] out JsValue? value)
         {
-            if (_declarativeRecord._dictionary is not null && _declarativeRecord.TryGetBinding(name, strict, out binding, out value))
+            if (_declarativeRecord._dictionary is not null && _declarativeRecord.TryGetBinding(name, out value))
             {
                 return true;
             }
 
             // we unwrap by name
-            binding = default;
             value = default;
 
             // normal case is to find

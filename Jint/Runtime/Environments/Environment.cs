@@ -28,11 +28,7 @@ namespace Jint.Runtime.Environments
 
         internal abstract bool HasBinding(BindingName name);
 
-        internal abstract bool TryGetBinding(
-            BindingName name,
-            bool strict,
-            out Binding binding,
-            [NotNullWhen(true)] out JsValue? value);
+        internal abstract bool TryGetBinding(BindingName name, [NotNullWhen(true)] out JsValue? value);
 
         /// <summary>
         /// Creates a new mutable binding in an environment record.

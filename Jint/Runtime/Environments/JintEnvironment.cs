@@ -9,7 +9,7 @@ namespace Jint.Runtime.Environments
     {
         internal static bool TryGetIdentifierEnvironmentWithBinding(
             Environment env,
-            in Environment.BindingName name,
+            Environment.BindingName name,
             [NotNullWhen(true)] out Environment? record)
         {
             record = env;
@@ -34,8 +34,7 @@ namespace Jint.Runtime.Environments
 
         internal static bool TryGetIdentifierEnvironmentWithBindingValue(
             Environment env,
-            in Environment.BindingName name,
-            bool strict,
+            Environment.BindingName name,
             [NotNullWhen(true)] out Environment? record,
             [NotNullWhen(true)] out JsValue? value)
         {
@@ -44,16 +43,12 @@ namespace Jint.Runtime.Environments
 
             if (env._outerEnv is null)
             {
-                return ((GlobalEnvironment) env).TryGetBinding(name, strict, out _, out value);
+                return ((GlobalEnvironment) env).TryGetBinding(name, out value);
             }
 
             while (!ReferenceEquals(record, null))
             {
-                if (record.TryGetBinding(
-                    name,
-                    strict,
-                    out _,
-                    out value))
+                if (record.TryGetBinding(name, out value))
                 {
                     return true;
                 }

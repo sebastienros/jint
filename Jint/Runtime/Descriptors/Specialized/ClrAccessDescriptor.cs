@@ -31,14 +31,14 @@ namespace Jint.Runtime.Descriptors.Specialized
 
         private JsValue DoGet(JsValue n)
         {
-            return _env.TryGetBinding(_name, false, out var binding, out _)
-                ? binding.Value
+            return _env.TryGetBinding(_name, out var value)
+                ? value
                 : JsValue.Undefined;
         }
 
         private void DoSet(JsValue n, JsValue o)
         {
-            _env.SetMutableBinding(_name.Key, o, true);
+            _env.SetMutableBinding(_name.Key, o, strict: true);
         }
     }
 }
