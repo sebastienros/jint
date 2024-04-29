@@ -629,7 +629,6 @@ namespace Jint.Native.Array
 
             public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
             {
-                EnsureCapacity(index + 1);
                 _target.SetAt((int)index, value);
             }
 

@@ -81,7 +81,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     {
         if (_engine.Options.Interop.AllowWrite)
         {
-            EnsureCapacity(index);
+            EnsureCapacity(index + 1);
             DoSetAt(index, ConvertToItemType(value));
         }
     }
