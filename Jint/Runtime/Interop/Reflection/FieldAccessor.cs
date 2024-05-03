@@ -12,7 +12,7 @@ internal sealed class FieldAccessor : ReflectionAccessor
         _fieldInfo = fieldInfo;
     }
 
-    public override bool Writable => !_fieldInfo.Attributes.HasFlag(FieldAttributes.InitOnly);
+    public override bool Writable => (_fieldInfo.Attributes & FieldAttributes.InitOnly) == (FieldAttributes) 0;
 
     protected override object? DoGetValue(object target, string memberName)
     {

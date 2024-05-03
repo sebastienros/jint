@@ -13,7 +13,7 @@ internal sealed class JintYieldExpression : JintExpression
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        if (!context.Engine.Options.ExperimentalFeatures.HasFlag(ExperimentalFeature.Generators))
+        if ((context.Engine.Options.ExperimentalFeatures & ExperimentalFeature.Generators) == ExperimentalFeature.None)
         {
             ExceptionHelper.ThrowJavaScriptException(
                 context.Engine.Intrinsics.Error,

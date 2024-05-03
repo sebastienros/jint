@@ -1019,7 +1019,12 @@ namespace Jint.Native.Array
                 ExceptionHelper.ThrowTypeError(_realm, "Invalid array length");
             }
 
-            o.EnsureCapacity(len + argCount);
+            // only prepare for larger if we cannot rely on default growth algorithm
+            if (len + argCount > 2 * len)
+            {
+                o.EnsureCapacity(len + argCount);
+            }
+
             var minIndex = o.GetSmallestIndex(len);
             for (var k = len; k > minIndex; k--)
             {
