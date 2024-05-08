@@ -765,7 +765,14 @@ namespace Jint.Native.String
             var s = TypeConverter.ToString(thisObject);
             var that = TypeConverter.ToString(arguments.At(0));
 
-            return string.CompareOrdinal(s.Normalize(NormalizationForm.FormKD), that.Normalize(NormalizationForm.FormKD));
+            var culture = Engine.Options.Culture;
+
+            if (arguments.Length > 1 && arguments[1].IsString())
+            {
+                culture = CultureInfo.GetCultureInfo(arguments.At(1).AsString());
+            }
+
+            return culture.CompareInfo.Compare(s.Normalize(NormalizationForm.FormKD), that.Normalize(NormalizationForm.FormKD));
         }
 
         /// <summary>
