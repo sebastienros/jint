@@ -200,11 +200,9 @@ Assert.AreEqual("Minnie", p.Name);
 
 You can invoke JavaScript function reference
 ```c#
-var add = new Engine()
+var result = new Engine()
     .Execute("function add(a, b) { return a + b; }")
-    .GetValue("add");
-
-add.Invoke(1, 2); // -> 3
+    .Invoke("add",1, 2); // -> 3
 ```
 or directly by name 
 ```c#
