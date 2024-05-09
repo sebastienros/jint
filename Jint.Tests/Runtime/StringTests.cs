@@ -82,6 +82,14 @@ bar += 'bar';
         Assert.Equal("value", result["key"]);
     }
 
+    [Fact]
+    public void ShouldCompareWithLocale()
+    {
+        var engine = new Engine();
+        Assert.Equal(1, engine.Evaluate("'王五'.localeCompare('张三')").AsInteger());
+        Assert.Equal(-1, engine.Evaluate("'王五'.localeCompare('张三', 'zh-CN')").AsInteger());
+    }
+
     public static TheoryData GetLithuaniaTestsData()
     {
         return new StringTetsLithuaniaData().TestData();
