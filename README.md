@@ -299,7 +299,7 @@ You can configure them via the options:
 ```c#
 var engine = new Engine(options => {
 
-    // Limit memory allocations to MB
+    // Limit memory allocations to 4 MB
     options.LimitMemory(4_000_000);
 
     // Set a timeout to 4 seconds.
