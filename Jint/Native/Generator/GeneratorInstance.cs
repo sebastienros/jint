@@ -13,7 +13,9 @@ internal sealed class GeneratorInstance : ObjectInstance
 {
     internal GeneratorState _generatorState;
     private ExecutionContext _generatorContext;
+#pragma warning disable CS0649 // Field is never assigned to, and will always have its default value
     private readonly JsValue? _generatorBrand;
+#pragma warning restore CS0649 // Field is never assigned to, and will always have its default value
     private JintStatementList _generatorBody = null!;
 
     public JsValue? _nextValue;

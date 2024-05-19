@@ -183,7 +183,9 @@ namespace Jint.Tests.Runtime
 
         private class BaseClassWithStatics
         {
+#pragma warning disable CS0414 // Field is assigned but its value is never used
             public static int a = 42;
+#pragma warning restore CS0414 // Field is assigned but its value is never used
         }
 
         private class InheritingFromClassWithStatics : BaseClassWithStatics

@@ -1,4 +1,3 @@
-using System.Numerics;
 using System.Text.RegularExpressions;
 using Jint.Native;
 

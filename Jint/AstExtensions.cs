@@ -13,7 +13,9 @@ namespace Jint
 {
     public static class AstExtensions
     {
+#pragma warning disable CS0649 // Field is never assigned to, and will always have its default value
         internal static readonly SourceLocation DefaultLocation;
+#pragma warning restore CS0649 // Field is never assigned to, and will always have its default value
 
         public static JsValue GetKey<T>(this T property, Engine engine) where T : IProperty => GetKey(property.Key, engine, property.Computed);
 

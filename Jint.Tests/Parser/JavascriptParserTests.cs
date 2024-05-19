@@ -1,6 +1,4 @@
-﻿using Jint.Runtime;
-
-namespace Jint.Tests.Parsing;
+﻿namespace Jint.Tests.Parsing;
 
 public class JavascriptParserTests
 {

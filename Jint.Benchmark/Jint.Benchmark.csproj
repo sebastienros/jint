@@ -17,6 +17,7 @@
     <LangVersion>latest</LangVersion>
     <IsPackable>false</IsPackable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>$(NoWarn);CS8002</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <None Include=".\Scripts\*.*" CopyToOutputDirectory="PreserveNewest" />
