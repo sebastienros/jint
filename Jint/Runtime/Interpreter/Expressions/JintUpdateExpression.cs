@@ -1,6 +1,5 @@
 using Jint.Native;
 using Jint.Runtime.Environments;
-using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Expressions
 {
