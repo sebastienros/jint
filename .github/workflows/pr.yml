@@ -5,13 +5,14 @@ on:
   pull_request:
     branches: [ main, release/2.x, 3.x ]
 
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
 jobs:
 
   windows:
     runs-on: windows-latest
-    env:
-        DOTNET_NOLOGO: true
-        DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
     steps:
     - name: Checkout source code
@@ -22,9 +23,6 @@ jobs:
 
   linux:
     runs-on: ubuntu-latest
-    env:
-        DOTNET_NOLOGO: true
-        DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
     steps:
     - name: Checkout source code
@@ -35,9 +33,6 @@ jobs:
 
   macos:
     runs-on: macos-14
-    env:
-        DOTNET_NOLOGO: true
-        DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
     steps:
     - name: Checkout source code

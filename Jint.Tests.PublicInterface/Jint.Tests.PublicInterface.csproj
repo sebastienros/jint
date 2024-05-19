@@ -21,6 +21,7 @@
     <PackageReference Include="Flurl.Http.Signed" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="MongoDB.Bson.signed" />
+    <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="NodaTime" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="System.Text.Json" Condition="!$([MSBuild]::IsTargetFrameworkCompatible($(TargetFramework), 'net8.0'))" />
