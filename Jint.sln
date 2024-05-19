@@ -27,6 +27,24 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.AotExample", "Jint.AotExample\Jint.AotExample.csproj", "{E07CC7D2-2ADF-4D71-A5B1-88209FFC29CD}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{D60F0DFE-8860-4E25-8973-E1F11AE2466A}"
+	ProjectSection(SolutionItems) = preProject
+		.github\dependabot.yml = .github\dependabot.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{85015C4E-5BBE-475D-9A17-A63434F9AA2A}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\build.yml = .github\workflows\build.yml
+		.github\workflows\pr.yml = .github\workflows\pr.yml
+		.github\workflows\release.yml = .github\workflows\release.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ISSUE_TEMPLATE", "ISSUE_TEMPLATE", "{EEFDE656-C1C0-432A-941E-4EDD84452410}"
+	ProjectSection(SolutionItems) = preProject
+		.github\ISSUE_TEMPLATE\bug_report.md = .github\ISSUE_TEMPLATE\bug_report.md
+		.github\ISSUE_TEMPLATE\feature_request.md = .github\ISSUE_TEMPLATE\feature_request.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -68,5 +86,10 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D60F0DFE-8860-4E25-8973-E1F11AE2466A} = {4EB9DD72-0566-4EE4-9550-B064ED2C8332}
+		{85015C4E-5BBE-475D-9A17-A63434F9AA2A} = {D60F0DFE-8860-4E25-8973-E1F11AE2466A}
+		{EEFDE656-C1C0-432A-941E-4EDD84452410} = {D60F0DFE-8860-4E25-8973-E1F11AE2466A}
 	EndGlobalSection
 EndGlobal

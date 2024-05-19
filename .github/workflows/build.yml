@@ -8,14 +8,14 @@ on:
     - 'doc/**'
     - '**.md'
 
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
 jobs:
   build:
 
     runs-on: ubuntu-latest
-    env:
-        DOTNET_NOLOGO: true
-        DOTNET_CLI_TELEMETRY_OPTOUT: 1
-
     steps:
     - name: Checkout source code
       uses: actions/checkout@v4
