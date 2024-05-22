@@ -83,109 +83,74 @@ public partial class GlobalObject
         const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
 
         var properties = new StringDictionarySlim<PropertyDescriptor>(65);
-        properties.AddDangerous(propertyAggregateError, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.AggregateError, PropertyFlags));
-        properties.AddDangerous(propertyArray, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Array, PropertyFlags));
-        properties.AddDangerous(propertyArrayBuffer, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.ArrayBuffer, PropertyFlags));
-        properties.AddDangerous(propertyAtomics, new LazyPropertyDescriptor(this, static state => Undefined, PropertyFlags));
-        properties.AddDangerous(propertyBigInt, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.BigInt, PropertyFlags));
-        properties.AddDangerous(propertyBigInt64Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.BigInt64Array, PropertyFlags));
-        properties.AddDangerous(propertyBigUint64Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.BigUint64Array, PropertyFlags));
-        properties.AddDangerous(propertyBoolean, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Boolean, PropertyFlags));
-        properties.AddDangerous(propertyDataView, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.DataView, PropertyFlags));
-        properties.AddDangerous(propertyDate, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Date, PropertyFlags));
-        properties.AddDangerous(propertyError, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Error, PropertyFlags));
-        properties.AddDangerous(propertyEvalError, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.EvalError, PropertyFlags));
-        properties.AddDangerous(propertyFinalizationRegistry, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.FinalizationRegistry, PropertyFlags));
-        properties.AddDangerous(propertyFloat16Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Float16Array, PropertyFlags));
-        properties.AddDangerous(propertyFloat32Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Float32Array, PropertyFlags));
-        properties.AddDangerous(propertyFloat64Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Float64Array, PropertyFlags));
+        properties.AddDangerous(propertyAggregateError, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.AggregateError, PropertyFlags));
+        properties.AddDangerous(propertyArray, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Array, PropertyFlags));
+        properties.AddDangerous(propertyArrayBuffer, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.ArrayBuffer, PropertyFlags));
+        properties.AddDangerous(propertyAtomics, new LazyPropertyDescriptor<GlobalObject>(this, static _ => Undefined, PropertyFlags));
+        properties.AddDangerous(propertyBigInt, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.BigInt, PropertyFlags));
+        properties.AddDangerous(propertyBigInt64Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.BigInt64Array, PropertyFlags));
+        properties.AddDangerous(propertyBigUint64Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.BigUint64Array, PropertyFlags));
+        properties.AddDangerous(propertyBoolean, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Boolean, PropertyFlags));
+        properties.AddDangerous(propertyDataView, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.DataView, PropertyFlags));
+        properties.AddDangerous(propertyDate, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Date, PropertyFlags));
+        properties.AddDangerous(propertyError, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Error, PropertyFlags));
+        properties.AddDangerous(propertyEvalError, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.EvalError, PropertyFlags));
+        properties.AddDangerous(propertyFinalizationRegistry, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.FinalizationRegistry, PropertyFlags));
+        properties.AddDangerous(propertyFloat16Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Float16Array, PropertyFlags));
+        properties.AddDangerous(propertyFloat32Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Float32Array, PropertyFlags));
+        properties.AddDangerous(propertyFloat64Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Float64Array, PropertyFlags));
         properties.AddDangerous(propertyFunction, new PropertyDescriptor(_realm.Intrinsics.Function, PropertyFlags));
-        properties.AddDangerous(propertyGeneratorFunction, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.GeneratorFunction, PropertyFlags));
-        properties.AddDangerous(propertyInt16Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Int16Array, PropertyFlags));
-        properties.AddDangerous(propertyInt32Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Int32Array, PropertyFlags));
-        properties.AddDangerous(propertyInt8Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Int8Array, PropertyFlags));
-        // TODO properties.AddDapropertygerous(propertyIntl, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Intl, propertyFlags));
-        properties.AddDangerous(propertyJSON, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Json, PropertyFlags));
-        properties.AddDangerous(propertyMap, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Map, PropertyFlags));
-        properties.AddDangerous(propertyMath, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Math, PropertyFlags));
-        properties.AddDangerous(propertyNumber, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Number, PropertyFlags));
+        properties.AddDangerous(propertyGeneratorFunction, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.GeneratorFunction, PropertyFlags));
+        properties.AddDangerous(propertyInt16Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Int16Array, PropertyFlags));
+        properties.AddDangerous(propertyInt32Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Int32Array, PropertyFlags));
+        properties.AddDangerous(propertyInt8Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Int8Array, PropertyFlags));
+        // TODO properties.AddDapropertygerous(propertyIntl, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Intl, propertyFlags));
+        properties.AddDangerous(propertyJSON, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Json, PropertyFlags));
+        properties.AddDangerous(propertyMap, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Map, PropertyFlags));
+        properties.AddDangerous(propertyMath, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Math, PropertyFlags));
+        properties.AddDangerous(propertyNumber, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Number, PropertyFlags));
         properties.AddDangerous(propertyObject, new PropertyDescriptor(_realm.Intrinsics.Object, PropertyFlags));
-        properties.AddDangerous(propertyPromise, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Promise, PropertyFlags));
-        properties.AddDangerous(propertyProxy, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Proxy, PropertyFlags));
-        properties.AddDangerous(propertyRangeError, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.RangeError, PropertyFlags));
-        properties.AddDangerous(propertyReferenceError, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.ReferenceError, PropertyFlags));
-        properties.AddDangerous(propertyReflect, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Reflect, PropertyFlags));
-        properties.AddDangerous(propertyRegExp, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.RegExp, PropertyFlags));
-        properties.AddDangerous(propertySet, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Set, PropertyFlags));
-        properties.AddDangerous(propertyShadowRealm, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.ShadowRealm, PropertyFlags));
-        properties.AddDangerous(propertySharedArrayBuffer, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.SharedArrayBuffer, PropertyFlags));
-        properties.AddDangerous(propertyString, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.String, PropertyFlags));
-        properties.AddDangerous(propertySymbol, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Symbol, PropertyFlags));
-        properties.AddDangerous(propertySyntaxError, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.SyntaxError, PropertyFlags));
-        properties.AddDangerous(propertyTypeError, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.TypeError, PropertyFlags));
-        properties.AddDangerous(propertyTypedArray, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.TypedArray, PropertyFlags));
-        properties.AddDangerous(propertyURIError, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.UriError, PropertyFlags));
-        properties.AddDangerous(propertyUint16Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Uint16Array, PropertyFlags));
-        properties.AddDangerous(propertyUint32Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Uint32Array, PropertyFlags));
-        properties.AddDangerous(propertyUint8Array, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Uint8Array, PropertyFlags));
-        properties.AddDangerous(propertyUint8ClampedArray, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Uint8ClampedArray, PropertyFlags));
-        properties.AddDangerous(propertyWeakMap, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.WeakMap, PropertyFlags));
-        properties.AddDangerous(propertyWeakRef, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.WeakRef, PropertyFlags));
-        properties.AddDangerous(propertyWeakSet, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.WeakSet, PropertyFlags));
+        properties.AddDangerous(propertyPromise, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Promise, PropertyFlags));
+        properties.AddDangerous(propertyProxy, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Proxy, PropertyFlags));
+        properties.AddDangerous(propertyRangeError, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.RangeError, PropertyFlags));
+        properties.AddDangerous(propertyReferenceError, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.ReferenceError, PropertyFlags));
+        properties.AddDangerous(propertyReflect, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Reflect, PropertyFlags));
+        properties.AddDangerous(propertyRegExp, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.RegExp, PropertyFlags));
+        properties.AddDangerous(propertySet, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Set, PropertyFlags));
+        properties.AddDangerous(propertyShadowRealm, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.ShadowRealm, PropertyFlags));
+        properties.AddDangerous(propertySharedArrayBuffer, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.SharedArrayBuffer, PropertyFlags));
+        properties.AddDangerous(propertyString, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.String, PropertyFlags));
+        properties.AddDangerous(propertySymbol, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Symbol, PropertyFlags));
+        properties.AddDangerous(propertySyntaxError, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.SyntaxError, PropertyFlags));
+        properties.AddDangerous(propertyTypeError, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.TypeError, PropertyFlags));
+        properties.AddDangerous(propertyTypedArray, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.TypedArray, PropertyFlags));
+        properties.AddDangerous(propertyURIError, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.UriError, PropertyFlags));
+        properties.AddDangerous(propertyUint16Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Uint16Array, PropertyFlags));
+        properties.AddDangerous(propertyUint32Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Uint32Array, PropertyFlags));
+        properties.AddDangerous(propertyUint8Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Uint8Array, PropertyFlags));
+        properties.AddDangerous(propertyUint8ClampedArray, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Uint8ClampedArray, PropertyFlags));
+        properties.AddDangerous(propertyWeakMap, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.WeakMap, PropertyFlags));
+        properties.AddDangerous(propertyWeakRef, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.WeakRef, PropertyFlags));
+        properties.AddDangerous(propertyWeakSet, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.WeakSet, PropertyFlags));
 
         properties.AddDangerous(propertyNaN, _propertyDescriptorNan);
         properties.AddDangerous(propertyInfinity, _propertyDescriptorPositiveInfinity);
         properties.AddDangerous(propertyUndefined, _propertyDescriptorUndefined);
-        properties.AddDangerous(propertyParseInt, new LazyPropertyDescriptor(this, static state => new ClrFunction(((GlobalObject) state!)._engine, "parseInt", ParseInt, 2, LengthFlags), PropertyFlags));
-        properties.AddDangerous(propertyParseFloat, new LazyPropertyDescriptor(this, static state => new ClrFunction(((GlobalObject) state!)._engine, "parseFloat", ParseFloat, 1, LengthFlags), PropertyFlags));
-        properties.AddDangerous(propertyIsNaN, new LazyPropertyDescriptor(this, static state => new ClrFunction(((GlobalObject) state!)._engine, "isNaN", IsNaN, 1, LengthFlags), PropertyFlags));
-        properties.AddDangerous(propertyIsFinite, new LazyPropertyDescriptor(this, static state => new ClrFunction(((GlobalObject) state!)._engine, "isFinite", IsFinite, 1, LengthFlags), PropertyFlags));
-
-        properties.AddDangerous(propertyDecodeURI, new LazyPropertyDescriptor(this, static state =>
-        {
-            var global = (GlobalObject) state!;
-            return new ClrFunction(global._engine, "decodeURI", global.DecodeUri, 1, LengthFlags);
-        }, PropertyFlags));
-
-        properties.AddDangerous(propertyDecodeURIComponent, new LazyPropertyDescriptor(this, static state =>
-        {
-            var global = (GlobalObject) state!;
-            return new ClrFunction(global._engine, "decodeURIComponent", global.DecodeUriComponent, 1, LengthFlags);
-        }, PropertyFlags));
-
-        properties.AddDangerous(propertyEncodeURI, new LazyPropertyDescriptor(this, static state =>
-        {
-            var global = (GlobalObject) state!;
-            return new ClrFunction(global._engine, "encodeURI", global.EncodeUri, 1, LengthFlags);
-        }, PropertyFlags));
-
-        properties.AddDangerous(propertyEncodeURIComponent, new LazyPropertyDescriptor(this, static state =>
-        {
-            var global = (GlobalObject) state!;
-            return new ClrFunction(global._engine, "encodeURIComponent", global.EncodeUriComponent, 1, LengthFlags);
-        }, PropertyFlags));
-
-        properties.AddDangerous(propertyEscape, new LazyPropertyDescriptor(this, static state =>
-        {
-            var global = (GlobalObject) state!;
-            return new ClrFunction(global._engine, "escape", global.Escape, 1, LengthFlags);
-        }, PropertyFlags));
-
-        properties.AddDangerous(propertyUnescape, new LazyPropertyDescriptor(this, static state =>
-        {
-            var global = (GlobalObject) state!;
-            return new ClrFunction(global._engine, "unescape", global.Unescape, 1, LengthFlags);
-        }, PropertyFlags));
-
+        properties.AddDangerous(propertyParseInt, new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "parseInt", ParseInt, 2, LengthFlags), PropertyFlags));
+        properties.AddDangerous(propertyParseFloat, new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "parseFloat", ParseFloat, 1, LengthFlags), PropertyFlags));
+        properties.AddDangerous(propertyIsNaN, new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "isNaN", IsNaN, 1, LengthFlags), PropertyFlags));
+        properties.AddDangerous(propertyIsFinite, new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "isFinite", IsFinite, 1, LengthFlags), PropertyFlags));
+        properties.AddDangerous(propertyDecodeURI, new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "decodeURI", global.DecodeUri, 1, LengthFlags), PropertyFlags));
+        properties.AddDangerous(propertyDecodeURIComponent, new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "decodeURIComponent", global.DecodeUriComponent, 1, LengthFlags), PropertyFlags));
+        properties.AddDangerous(propertyEncodeURI, new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "encodeURI", global.EncodeUri, 1, LengthFlags), PropertyFlags));
+        properties.AddDangerous(propertyEncodeURIComponent, new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "encodeURIComponent", global.EncodeUriComponent, 1, LengthFlags), PropertyFlags));
+        properties.AddDangerous(propertyEscape, new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "escape", global.Escape, 1, LengthFlags), PropertyFlags));
+        properties.AddDangerous(propertyUnescape, new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "unescape", global.Unescape, 1, LengthFlags), PropertyFlags));
         properties.AddDangerous(propertyGlobalThis, new PropertyDescriptor(this, PropertyFlags));
-        properties.AddDangerous(propertyEval, new LazyPropertyDescriptor(this, static state => ((GlobalObject) state!)._realm.Intrinsics.Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
+        properties.AddDangerous(propertyEval, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Eval, PropertyFlag.Configurable | PropertyFlag.Writable));
 
         // toString is not mentioned or actually required in spec, but some tests rely on it
-        properties.AddDangerous(propertyToString, new LazyPropertyDescriptor(this, static state =>
-        {
-            var global = (GlobalObject) state!;
-            return new ClrFunction(global._engine, "toString", global.ToStringString, 1);
-        }, PropertyFlags));
+        properties.AddDangerous(propertyToString, new LazyPropertyDescriptor<GlobalObject>(this, static global => new ClrFunction(global._engine, "toString", global.ToStringString, 1), PropertyFlags));
 
         SetProperties(properties);
     }

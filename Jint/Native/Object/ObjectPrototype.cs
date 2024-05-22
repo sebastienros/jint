@@ -5,6 +5,7 @@ using Jint.Native.Array;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Object
@@ -24,17 +25,17 @@ namespace Jint.Native.Object
 
         protected override void Initialize()
         {
-            const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            const PropertyFlag lengthFlags = PropertyFlag.Configurable;
+            const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+            const PropertyFlag LengthFlags = PropertyFlag.Configurable;
             var properties = new PropertyDictionary(12, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(_constructor, propertyFlags),
-                ["__defineGetter__"] = new PropertyDescriptor(new ClrFunction(Engine, "__defineGetter__", DefineGetter, 2, lengthFlags), propertyFlags),
-                ["__defineSetter__"] = new PropertyDescriptor(new ClrFunction(Engine, "__defineSetter__", DefineSetter, 2, lengthFlags), propertyFlags),
-                ["__lookupGetter__"] = new PropertyDescriptor(new ClrFunction(Engine, "__lookupGetter__", LookupGetter, 1, lengthFlags), propertyFlags),
-                ["__lookupSetter__"] = new PropertyDescriptor(new ClrFunction(Engine, "__lookupSetter__", LookupSetter, 1, lengthFlags), propertyFlags),
+                ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlags),
+                ["__defineGetter__"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "__defineGetter__", prototype.DefineGetter, 2, LengthFlags), PropertyFlags),
+                ["__defineSetter__"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "__defineSetter__", prototype.DefineSetter, 2, LengthFlags), PropertyFlags),
+                ["__lookupGetter__"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "__lookupGetter__", prototype.LookupGetter, 1, LengthFlags), PropertyFlags),
+                ["__lookupSetter__"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "__lookupSetter__", prototype.LookupSetter, 1, LengthFlags), PropertyFlags),
                 ["__proto__"] = new GetSetPropertyDescriptor(
-                    new ClrFunction(Engine, "get __proto__", (thisObject, _) => TypeConverter.ToObject(_realm, thisObject).GetPrototypeOf() ?? Null, 0, lengthFlags),
+                    new ClrFunction(Engine, "get __proto__", (thisObject, _) => TypeConverter.ToObject(_realm, thisObject).GetPrototypeOf() ?? Null, 0, LengthFlags),
                     new ClrFunction(Engine, "set __proto__", (thisObject, arguments) =>
                     {
                         TypeConverter.CheckObjectCoercible(_engine, thisObject);
@@ -51,14 +52,14 @@ namespace Jint.Native.Object
                         }
 
                         return Undefined;
-                    }, 0, lengthFlags),
+                    }, 0, LengthFlags),
                     enumerable: false, configurable: true),
-                ["toString"] = new PropertyDescriptor(new ClrFunction(Engine, "toString", ToObjectString, 0, lengthFlags), propertyFlags),
-                ["toLocaleString"] = new PropertyDescriptor(new ClrFunction(Engine, "toLocaleString", ToLocaleString, 0, lengthFlags), propertyFlags),
-                ["valueOf"] = new PropertyDescriptor(new ClrFunction(Engine, "valueOf", ValueOf, 0, lengthFlags), propertyFlags),
-                ["hasOwnProperty"] = new PropertyDescriptor(new ClrFunction(Engine, "hasOwnProperty", HasOwnProperty, 1, lengthFlags), propertyFlags),
-                ["isPrototypeOf"] = new PropertyDescriptor(new ClrFunction(Engine, "isPrototypeOf", IsPrototypeOf, 1, lengthFlags), propertyFlags),
-                ["propertyIsEnumerable"] = new PropertyDescriptor(new ClrFunction(Engine, "propertyIsEnumerable", PropertyIsEnumerable, 1, lengthFlags), propertyFlags)
+                ["toString"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toString", prototype.ToObjectString, 0, LengthFlags), PropertyFlags),
+                ["toLocaleString"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toLocaleString", prototype.ToLocaleString, 0, LengthFlags), PropertyFlags),
+                ["valueOf"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "valueOf", prototype.ValueOf, 0, LengthFlags), PropertyFlags),
+                ["hasOwnProperty"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "hasOwnProperty",prototype. HasOwnProperty, 1, LengthFlags), PropertyFlags),
+                ["isPrototypeOf"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "isPrototypeOf", prototype.IsPrototypeOf, 1, LengthFlags), PropertyFlags),
+                ["propertyIsEnumerable"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "propertyIsEnumerable", prototype.PropertyIsEnumerable, 1, LengthFlags), PropertyFlags)
             };
             SetProperties(properties);
         }

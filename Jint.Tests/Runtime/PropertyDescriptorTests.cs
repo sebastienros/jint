@@ -1,4 +1,5 @@
 using Jint.Native;
+using Jint.Native.Global;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
@@ -101,7 +102,10 @@ public class PropertyDescriptorTests
     public void LazyPropertyDescriptor()
     {
         var pd = _engine.Evaluate("globalThis").AsObject().GetOwnProperty("decodeURI");
-        if (checkType) Assert.IsType<LazyPropertyDescriptor>(pd);
+        if (checkType)
+        {
+            Assert.IsType<LazyPropertyDescriptor<GlobalObject>>(pd);
+        }
         Assert.Equal(false, pd.IsAccessorDescriptor());
         Assert.Equal(true, pd.IsDataDescriptor());
     }
