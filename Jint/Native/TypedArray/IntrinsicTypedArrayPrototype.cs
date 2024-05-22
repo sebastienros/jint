@@ -11,6 +11,7 @@ using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.TypedArray
@@ -38,50 +39,50 @@ namespace Jint.Native.TypedArray
             const PropertyFlag PropertyFlags = PropertyFlag.Writable | PropertyFlag.Configurable;
             var properties = new PropertyDictionary(36, false)
             {
-                ["at"] = new(new ClrFunction(Engine, "at", At, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["at"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "at", prototype.At, 1, PropertyFlag.Configurable), PropertyFlags),
                 ["buffer"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get buffer", Buffer, 0, LengthFlags), Undefined, PropertyFlag.Configurable),
                 ["byteLength"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get byteLength", ByteLength, 0, LengthFlags), Undefined, PropertyFlag.Configurable),
-                ["byteOffset"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get byteOffset", ByteOffset, 0, LengthFlags), Undefined, PropertyFlag.Configurable),
+                ["byteOffset"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get byteOffset", ByteOffset, 0, LengthFlags), Undefined, PropertyFlag.Configurable),
                 ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),
-                ["copyWithin"] = new(new ClrFunction(Engine, "copyWithin", CopyWithin, 2, PropertyFlag.Configurable), PropertyFlags),
-                ["entries"] = new(new ClrFunction(Engine, "entries", Entries, 0, PropertyFlag.Configurable), PropertyFlags),
-                ["every"] = new(new ClrFunction(Engine, "every", Every, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["fill"] = new(new ClrFunction(Engine, "fill", Fill, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["filter"] = new(new ClrFunction(Engine, "filter", Filter, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["find"] = new(new ClrFunction(Engine, "find", Find, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["findIndex"] = new(new ClrFunction(Engine, "findIndex", FindIndex, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["findLast"] = new(new ClrFunction(Engine, "findLast", FindLast, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["findLastIndex"] = new(new ClrFunction(Engine, "findLastIndex", FindLastIndex, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["forEach"] = new(new ClrFunction(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["includes"] = new(new ClrFunction(Engine, "includes", Includes, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["indexOf"] = new(new ClrFunction(Engine, "indexOf", IndexOf, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["join"] = new(new ClrFunction(Engine, "join", Join, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["keys"] = new(new ClrFunction(Engine, "keys", Keys, 0, PropertyFlag.Configurable), PropertyFlags),
-                ["lastIndexOf"] = new(new ClrFunction(Engine, "lastIndexOf", LastIndexOf, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["length"] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get length", GetLength, 0, LengthFlags), Undefined, PropertyFlag.Configurable),
-                ["map"] = new(new ClrFunction(Engine, "map", Map, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["reduce"] = new(new ClrFunction(Engine, "reduce", Reduce, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["reduceRight"] = new(new ClrFunction(Engine, "reduceRight", ReduceRight, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["reverse"] = new(new ClrFunction(Engine, "reverse", Reverse, 0, PropertyFlag.Configurable), PropertyFlags),
-                ["set"] = new(new ClrFunction(Engine, "set", Set, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["slice"] = new(new ClrFunction(Engine, "slice", Slice, 2, PropertyFlag.Configurable), PropertyFlags),
-                ["some"] = new(new ClrFunction(Engine, "some", Some, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["sort"] = new(new ClrFunction(Engine, "sort", Sort, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["subarray"] = new(new ClrFunction(Engine, "subarray", Subarray, 2, PropertyFlag.Configurable), PropertyFlags),
-                ["toLocaleString"] = new(new ClrFunction(Engine, "toLocaleString", ToLocaleString, 0, PropertyFlag.Configurable), PropertyFlags),
-                ["toReversed"] = new PropertyDescriptor(new ClrFunction(Engine, "toReversed", ToReversed, 0, PropertyFlag.Configurable), PropertyFlags),
-                ["toSorted"] = new PropertyDescriptor(new ClrFunction(Engine, "toSorted", ToSorted, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["toString"] = new(new ClrFunction(Engine, "toLocaleString", _realm.Intrinsics.Array.PrototypeObject.ToString, 0, PropertyFlag.Configurable), PropertyFlags),
-                ["values"] = new(new ClrFunction(Engine, "values", Values, 0, PropertyFlag.Configurable), PropertyFlags),
-                ["with"] = new PropertyDescriptor(new ClrFunction(Engine, "with", With, 2, PropertyFlag.Configurable), PropertyFlags),
+                ["copyWithin"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "copyWithin", prototype.CopyWithin, 2, PropertyFlag.Configurable), PropertyFlags),
+                ["entries"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "entries", prototype.Entries, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["every"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "every", prototype.Every, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["fill"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "fill", prototype.Fill, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["filter"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "filter", prototype.Filter, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["find"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "find", prototype.Find, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["findIndex"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "findIndex",prototype. FindIndex, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["findLast"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "findLast", prototype.FindLast, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["findLastIndex"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "findLastIndex", prototype.FindLastIndex, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["forEach"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "forEach", prototype.ForEach, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["includes"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "includes", prototype.Includes, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["indexOf"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "indexOf", prototype.IndexOf, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["join"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "join", prototype.Join, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["keys"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "keys", prototype.Keys, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["lastIndexOf"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "lastIndexOf", prototype.LastIndexOf, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["length"] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get length", GetLength, 0, LengthFlags), Undefined, PropertyFlag.Configurable),
+                ["map"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "map", prototype.Map, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["reduce"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "reduce", prototype.Reduce, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["reduceRight"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "reduceRight", prototype.ReduceRight, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["reverse"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "reverse", prototype.Reverse, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["set"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "set", prototype.Set, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["slice"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "slice", prototype.Slice, 2, PropertyFlag.Configurable), PropertyFlags),
+                ["some"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "some", prototype.Some, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["sort"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "sort", prototype.Sort, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["subarray"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "subarray", prototype.Subarray, 2, PropertyFlag.Configurable), PropertyFlags),
+                ["toLocaleString"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toLocaleString", prototype.ToLocaleString, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["toReversed"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toReversed", prototype.ToReversed, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["toSorted"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toSorted", prototype.ToSorted, 1, PropertyFlag.Configurable), PropertyFlags),
+                ["toString"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toLocaleString", prototype._realm.Intrinsics.Array.PrototypeObject.ToString, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["values"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "values", prototype.Values, 0, PropertyFlag.Configurable), PropertyFlags),
+                ["with"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "with", prototype.With, 2, PropertyFlag.Configurable), PropertyFlags),
             };
             SetProperties(properties);
 
-            _originalIteratorFunction = new ClrFunction(Engine, "iterator", Values, 1);
+            _originalIteratorFunction = new ClrFunction(_engine, "iterator", Values, 1);
             var symbols = new SymbolDictionary(2)
             {
                 [GlobalSymbolRegistry.Iterator] = new(_originalIteratorFunction, PropertyFlags),
-                [GlobalSymbolRegistry.ToStringTag] = new GetSetPropertyDescriptor(new ClrFunction(Engine, "get [Symbol.toStringTag]", ToStringTag, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable)
+                [GlobalSymbolRegistry.ToStringTag] = new GetSetPropertyDescriptor(new ClrFunction(_engine, "get [Symbol.toStringTag]", ToStringTag, 0, PropertyFlag.Configurable), Undefined, PropertyFlag.Configurable)
             };
             SetSymbols(symbols);
         }

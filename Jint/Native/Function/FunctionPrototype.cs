@@ -6,6 +6,7 @@ using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop;
 
 namespace Jint.Native.Function
@@ -27,15 +28,15 @@ namespace Jint.Native.Function
 
         protected override void Initialize()
         {
-            const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            const PropertyFlag lengthFlags = PropertyFlag.Configurable;
+            const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+            const PropertyFlag LengthFlags = PropertyFlag.Configurable;
             var properties = new PropertyDictionary(7, checkExistingKeys: false)
             {
-                ["constructor"] = new PropertyDescriptor(_realm.Intrinsics.Function, PropertyFlag.NonEnumerable),
-                ["toString"] = new PropertyDescriptor(new ClrFunction(_engine, "toString", ToString, 0, lengthFlags), propertyFlags),
-                ["apply"] = new PropertyDescriptor(new ClrFunction(_engine, "apply", Apply, 2, lengthFlags), propertyFlags),
-                ["call"] = new PropertyDescriptor(new ClrFunction(_engine, "call", CallImpl, 1, lengthFlags), propertyFlags),
-                ["bind"] = new PropertyDescriptor(new ClrFunction(_engine, "bind", Bind, 1, lengthFlags), propertyFlags),
+                ["constructor"] = new LazyPropertyDescriptor<FunctionPrototype>(this, static prototype => prototype._realm.Intrinsics.Function, PropertyFlag.NonEnumerable),
+                ["toString"] = new LazyPropertyDescriptor<FunctionPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toString", prototype.ToString, 0, LengthFlags), PropertyFlags),
+                ["apply"] = new LazyPropertyDescriptor<FunctionPrototype>(this, static prototype => new ClrFunction(prototype._engine, "apply", prototype.Apply, 2, LengthFlags), PropertyFlags),
+                ["call"] = new LazyPropertyDescriptor<FunctionPrototype>(this, static prototype => new ClrFunction(prototype._engine, "call", prototype.CallImpl, 1, LengthFlags), PropertyFlags),
+                ["bind"] = new LazyPropertyDescriptor<FunctionPrototype>(this, static prototype => new ClrFunction(prototype._engine, "bind", prototype.Bind, 1, LengthFlags), PropertyFlags),
                 ["arguments"] = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.Configurable),
                 ["caller"] = new GetSetPropertyDescriptor.ThrowerPropertyDescriptor(_engine, PropertyFlag.Configurable)
             };
