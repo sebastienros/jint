@@ -660,20 +660,17 @@ namespace Jint
             if (property is JsNumber number && number.IsInteger())
             {
                 var index = number.AsInteger();
-                var str = s._value;
-                if (index < 0 || index >= str.Length)
+                if (index < 0 || index >= s.Length)
                 {
                     jsValue = JsValue.Undefined;
                     return true;
                 }
 
-                jsValue = JsString.Create(str[index]);
+                jsValue = JsString.Create(s[index]);
                 return true;
             }
 
-            if (property is JsString propertyString
-                && propertyString._value.Length > 0
-                && char.IsLower(propertyString._value[0]))
+            if (property is JsString { Length: > 0 } propertyString && char.IsLower(propertyString[0]))
             {
                 // trying to find property that's always in prototype
                 o = Realm.Intrinsics.String.PrototypeObject;
