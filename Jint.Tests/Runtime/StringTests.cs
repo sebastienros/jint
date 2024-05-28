@@ -90,7 +90,7 @@ bar += 'bar';
         Assert.Equal(-1, engine.Evaluate("'王五'.localeCompare('张三', 'zh-CN')").AsInteger());
     }
 
-    public static TheoryData GetLithuaniaTestsData()
+    public static TheoryData<string, string> GetLithuaniaTestsData()
     {
         return new StringTetsLithuaniaData().TestData();
     }
