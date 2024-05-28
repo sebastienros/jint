@@ -25,7 +25,7 @@
     <PackageVersion Include="Spectre.Console.Cli" Version="0.45.0" />
     <PackageVersion Include="System.Text.Json" Version="8.0.3" />
     <PackageVersion Include="Test262Harness" Version="1.0.0" />
-    <PackageVersion Include="xunit" Version="2.8.0" />
+    <PackageVersion Include="xunit" Version="2.8.1" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.1" PrivateAssets="all" />
     <PackageVersion Include="YantraJS.Core" Version="1.2.209" />
   </ItemGroup>
