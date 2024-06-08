@@ -1,5 +1,6 @@
 using System.Reflection;
 using Jint.Native;
+using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
@@ -33,23 +34,8 @@ internal sealed class JintAwaitExpression : JintExpression
                 var promiseInstance = new JsPromise(engine);
                 var underlyingObject = value.ToObject();
 
-                if (underlyingObject is Task task)
-                {
-                    var taskType = underlyingObject.GetType();
-                    var taskResult = taskType.GetProperty("Result", bindingAttr: BindingFlags.Public | BindingFlags.Instance);
-                    if (taskResult != null)
-                    {
-                        try
-                        {
-                            var resultValue = taskResult.GetValue(underlyingObject);
-                            value = JsValue.FromObject(engine, resultValue);
-                        }
-                        catch (TargetInvocationException ex)
-                        {
-                            ExceptionHelper.ThrowMeaningfulException(engine, ex);
-                        }
-                    }
-                }
+                if (InteropHelper.IsAwaitable(underlyingObject))
+                    value = JsValue.ConvertAwaitableToPromise(engine, underlyingObject!);
 
                 promiseInstance.Resolve(value);
                 value = promiseInstance;
