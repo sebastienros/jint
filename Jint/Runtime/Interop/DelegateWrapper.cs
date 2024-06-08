@@ -134,7 +134,7 @@ namespace Jint.Runtime.Interop
             try
             {
                 var result = _d.DynamicInvoke(parameters);
-                if (!InteropHelper.IsAwaitable(result))
+                if (!IsAwaitable(result))
                 {
                     return FromObject(Engine, result);
                 }
@@ -146,5 +146,35 @@ namespace Jint.Runtime.Interop
                 throw;
             }
         }
+
+        private static bool IsAwaitable(object? obj)
+        {
+            if (obj is null)
+            {
+                return false;
+            }
+            if (obj is Task)
+            {
+                return true;
+            }
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
+            if (obj is ValueTask)
+            {
+                return true;
+            }
+
+            // ValueTask<T> is not derived from ValueTask, so we need to check for it explicitly
+            var type = obj.GetType();
+            if (!type.IsGenericType)
+            {
+                return false;
+            }
+
+            return type.GetGenericTypeDefinition() == typeof(ValueTask<>);
+#else
+            return false;
+#endif
+        }
+
     }
 }

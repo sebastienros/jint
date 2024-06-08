@@ -1,6 +1,4 @@
-using System.Reflection;
 using Jint.Native;
-using Jint.Runtime.Interop;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
@@ -32,11 +30,6 @@ internal sealed class JintAwaitExpression : JintExpression
             if (value is not JsPromise)
             {
                 var promiseInstance = new JsPromise(engine);
-                var underlyingObject = value.ToObject();
-
-                if (InteropHelper.IsAwaitable(underlyingObject))
-                    value = JsValue.ConvertAwaitableToPromise(engine, underlyingObject!);
-
                 promiseInstance.Resolve(value);
                 value = promiseInstance;
             }
