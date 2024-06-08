@@ -146,9 +146,18 @@ namespace Jint.Native
         internal static JsValue ConvertTaskToPromise(Engine engine, Task task)
         {
             var (promise, resolve, reject) = engine.RegisterPromise();
+            var lockObject = new object();
+            var handled = false;
 
             void HandleTask(Task continuationAction)
             {
+                lock (lockObject)
+                {
+                    if (handled)
+                        return;
+                    handled = true;
+                }
+
                 if (continuationAction.IsFaulted)
                 {
                     reject(FromObject(engine, continuationAction.Exception));
@@ -179,10 +188,9 @@ namespace Jint.Native
                 }
             }
 
+            _ = task.ContinueWith(HandleTask);
             if (task.IsCompleted)
                 HandleTask(task);
-            else
-                task = task.ContinueWith(HandleTask);
 
             return promise;
         }
