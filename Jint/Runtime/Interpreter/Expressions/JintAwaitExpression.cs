@@ -1,3 +1,4 @@
+using System.Reflection;
 using Jint.Native;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -30,6 +31,24 @@ internal sealed class JintAwaitExpression : JintExpression
             if (value is not JsPromise)
             {
                 var promiseInstance = new JsPromise(engine);
+                var underlyingObject = value.ToObject();
+
+                if (underlyingObject is Task task)
+                {
+                    var taskType = underlyingObject.GetType();
+                    var taskResult = taskType.GetProperty("Result", bindingAttr: BindingFlags.Public | BindingFlags.Instance);
+                    if (taskResult != null)
+                    {
+                        var resultValue = taskResult.GetValue(underlyingObject);
+                        value = JsValue.FromObject(engine, resultValue);
+                    }
+                    else
+                    {
+                        task.Wait();
+                        value = JsValue.Undefined;
+                    }
+                }
+
                 promiseInstance.Resolve(value);
                 value = promiseInstance;
             }
