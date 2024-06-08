@@ -39,13 +39,15 @@ internal sealed class JintAwaitExpression : JintExpression
                     var taskResult = taskType.GetProperty("Result", bindingAttr: BindingFlags.Public | BindingFlags.Instance);
                     if (taskResult != null)
                     {
-                        var resultValue = taskResult.GetValue(underlyingObject);
-                        value = JsValue.FromObject(engine, resultValue);
-                    }
-                    else
-                    {
-                        task.Wait();
-                        value = JsValue.Undefined;
+                        try
+                        {
+                            var resultValue = taskResult.GetValue(underlyingObject);
+                            value = JsValue.FromObject(engine, resultValue);
+                        }
+                        catch (TargetInvocationException ex)
+                        {
+                            ExceptionHelper.ThrowMeaningfulException(engine, ex);
+                        }
                     }
                 }
 
