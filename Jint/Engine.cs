@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Native;
@@ -508,25 +509,13 @@ namespace Jint
         internal void RunAvailableContinuations()
         {
             var queue = _eventLoop.Events;
-            if (queue.Count == 0)
-            {
-                return;
-            }
-
             DoProcessEventLoop(queue);
         }
 
-        private static void DoProcessEventLoop(Queue<Action> queue)
+        private static void DoProcessEventLoop(ConcurrentQueue<Action> queue)
         {
-            while (true)
+            while (queue.TryDequeue(out var nextContinuation))
             {
-                if (queue.Count == 0)
-                {
-                    return;
-                }
-
-                var nextContinuation = queue.Dequeue();
-
                 // note that continuation can enqueue new events
                 nextContinuation();
             }
