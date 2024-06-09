@@ -289,10 +289,10 @@ public class AsyncTests
         // [NOTE] perform 5 runs since the bug does not always happen
         for (int run = 0; run < 5; run++)
         {
-            var tasks = new List<TaskCompletionSource>();
+            var tasks = new List<TaskCompletionSource<object>>();
 
             for (int i = 0; i < ParallelCount; i++)
-                tasks.Add(new TaskCompletionSource());
+                tasks.Add(new TaskCompletionSource<object>());
 
             for (int i = 0; i < ParallelCount; i++)
             {
@@ -323,7 +323,7 @@ public class AsyncTests
                         var result = engine.Execute(Script);
                         var testObj = JsValue.FromObject(engine, new TestAsyncClass());
                         var val = result.GetValue("main").Call(testObj);
-                        tasks[taskIdx].SetResult();
+                        tasks[taskIdx].SetResult(null);
                     }
                     catch (Exception ex)
                     {
