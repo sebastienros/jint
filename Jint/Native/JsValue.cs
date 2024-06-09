@@ -176,7 +176,7 @@ namespace Jint.Native
                         resolve(FromObject(engine, JsValue.Undefined));
                     }
                 }
-            });
+            }, TaskContinuationOptions.AttachedToParent); // Ensure continuation is completed before unwrapping Promise
 
             return promise;
         }
