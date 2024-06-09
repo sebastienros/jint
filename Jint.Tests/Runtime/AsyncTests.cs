@@ -284,17 +284,17 @@ public class AsyncTests
     [Fact]
     public async Task ShouldEventLoopBeThreadSafeWhenCalledConcurrently()
     {
-        const int LoopCount = 1000;
+        const int ParallelCount = 1000;
 
         // [NOTE] perform 5 runs since the bug does not always happen
         for (int run = 0; run < 5; run++)
         {
             var tasks = new List<TaskCompletionSource>();
 
-            for (int i = 0; i < LoopCount; i++)
+            for (int i = 0; i < ParallelCount; i++)
                 tasks.Add(new TaskCompletionSource());
 
-            for (int i = 0; i < LoopCount; i++)
+            for (int i = 0; i < ParallelCount; i++)
             {
                 int taskIdx = i;
                 _ = Task.Factory.StartNew(() =>
@@ -332,15 +332,8 @@ public class AsyncTests
                 }, creationOptions: TaskCreationOptions.LongRunning);
             }
 
-            try
-            {
-                await Task.WhenAll(tasks.Select(t => t.Task));
-                Assert.True(true);
-            }
-            catch (Exception ex)
-            {
-                Assert.Fail(ex.Message);
-            }
+            await Task.WhenAll(tasks.Select(t => t.Task));
+            await Task.Delay(100);
         }
     }
 
