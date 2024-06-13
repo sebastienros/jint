@@ -18,9 +18,9 @@ namespace Jint.Runtime.Interop
     [RequiresUnreferencedCode("Dynamic loading")]
     public class NamespaceReference : ObjectInstance, ICallable
     {
-        private readonly string _path;
+        private readonly string? _path;
 
-        public NamespaceReference(Engine engine, string path) : base(engine)
+        public NamespaceReference(Engine engine, string? path) : base(engine)
         {
             _path = path;
         }
@@ -75,7 +75,9 @@ namespace Jint.Runtime.Interop
 
         public override JsValue Get(JsValue property, JsValue receiver)
         {
-            var newPath = _path + "." + property;
+            var newPath = string.IsNullOrEmpty(_path)
+                ? property.ToString()
+                : $"{_path}.{property}";
 
             return GetPath(newPath);
         }
@@ -123,8 +125,11 @@ namespace Jint.Runtime.Interop
                 }
 
                 var lastPeriodPos = path.LastIndexOf('.');
-                var trimPath = path.Substring(0, lastPeriodPos);
-                type = GetType(assembly, trimPath);
+                if (lastPeriodPos != -1)
+                {
+                    var trimPath = path.Substring(0, lastPeriodPos);
+                    type = GetType(assembly, trimPath);
+                }
                 if (type != null)
                 {
                     foreach (Type nType in GetAllNestedTypes(type))

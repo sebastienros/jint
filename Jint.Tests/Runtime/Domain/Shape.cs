@@ -1,5 +1,10 @@
 ﻿using Jint.Tests.Runtime.Domain;
 
+public class ShapeWithoutNameSpace : Shapes.Shape
+{
+    public override double Perimeter() => 42;
+}
+
 namespace Shapes
 {
     public abstract class Shape
