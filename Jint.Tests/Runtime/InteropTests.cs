@@ -1302,6 +1302,22 @@ namespace Jint.Tests.Runtime
         }
 
         [Fact]
+        public void ShouldImportEmptyNamespace()
+        {
+            RunTest("""
+                var nullSpace = importNamespace(null);
+                var c1 = new nullSpace.ShapeWithoutNameSpace();
+                assert(c1.Perimeter() === 42);
+                var undefinedSpace = importNamespace(undefined);
+                var c2 = new undefinedSpace.ShapeWithoutNameSpace();
+                assert(c2.Perimeter() === 42);
+                var defaultSpace = importNamespace();
+                var c3 = new defaultSpace.ShapeWithoutNameSpace();
+                assert(c3.Perimeter() === 42);
+            """);
+        }
+
+        [Fact]
         public void ShouldConstructReferenceTypeWithParameters()
         {
             RunTest(@"
