@@ -355,6 +355,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                 }
                 else
                 {
+                    JintBinaryExpression.AssertValidBigIntArithmeticOperands(left, right);
                     number = JsBigInt.Create(TypeConverter.ToBigInt(left) - TypeConverter.ToBigInt(right));
                 }
 
