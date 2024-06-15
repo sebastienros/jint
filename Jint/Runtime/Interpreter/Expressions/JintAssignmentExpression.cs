@@ -101,13 +101,14 @@ namespace Jint.Runtime.Interpreter.Expressions
 
                                 newLeftValue = jsString.Append(rprim);
                             }
-                            else if (!AreIntegerOperands(originalLeftValue, rval))
+                            else if (JintBinaryExpression.AreNonBigIntOperands(originalLeftValue, rval))
                             {
                                 newLeftValue = TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim);
                             }
                             else
                             {
-                                newLeftValue = TypeConverter.ToBigInt(lprim) + TypeConverter.ToBigInt(rprim);
+                                JintBinaryExpression.AssertValidBigIntArithmeticOperands(lprim, rprim);
+                                newLeftValue = JsBigInt.Create(TypeConverter.ToBigInt(lprim) + TypeConverter.ToBigInt(rprim));
                             }
                         }
 
@@ -121,13 +122,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             newLeftValue = JsNumber.Create(originalLeftValue.AsInteger() - rval.AsInteger());
                         }
-                        else if (!AreIntegerOperands(originalLeftValue, rval))
+                        else if (JintBinaryExpression.AreNonBigIntOperands(originalLeftValue, rval))
                         {
                             newLeftValue = JsNumber.Create(TypeConverter.ToNumber(originalLeftValue) - TypeConverter.ToNumber(rval));
                         }
                         else
                         {
-                            newLeftValue = JsNumber.Create(TypeConverter.ToBigInt(originalLeftValue) - TypeConverter.ToBigInt(rval));
+                            JintBinaryExpression.AssertValidBigIntArithmeticOperands(originalLeftValue, rval);
+                            newLeftValue = JsBigInt.Create(TypeConverter.ToBigInt(originalLeftValue) - TypeConverter.ToBigInt(rval));
                         }
 
                         break;
@@ -144,13 +146,14 @@ namespace Jint.Runtime.Interpreter.Expressions
                         {
                             newLeftValue = JsValue.Undefined;
                         }
-                        else if (!AreIntegerOperands(originalLeftValue, rval))
+                        else if (JintBinaryExpression.AreNonBigIntOperands(originalLeftValue, rval))
                         {
                             newLeftValue = TypeConverter.ToNumber(originalLeftValue) * TypeConverter.ToNumber(rval);
                         }
                         else
                         {
-                            newLeftValue = TypeConverter.ToBigInt(originalLeftValue) * TypeConverter.ToBigInt(rval);
+                            JintBinaryExpression.AssertValidBigIntArithmeticOperands(originalLeftValue, rval);
+                            newLeftValue = JsBigInt.Create(TypeConverter.ToBigInt(originalLeftValue) * TypeConverter.ToBigInt(rval));
                         }
 
                         break;

@@ -19,6 +19,7 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
         {
             bigIntegers[i] = new JsBigInt(i);
         }
+
         _bigIntegerToJsValue = bigIntegers;
     }
 
@@ -40,11 +41,8 @@ public sealed class JsBigInt : JsValue, IEquatable<JsBigInt>
 
     internal static JsBigInt Create(JsValue value)
     {
-        return value is JsBigInt jsBigInt
-            ? jsBigInt
-            : Create(TypeConverter.ToBigInt(value));
+        return value as JsBigInt ?? Create(TypeConverter.ToBigInt(value));
     }
-
 
     public override object ToObject() => _value;
 
