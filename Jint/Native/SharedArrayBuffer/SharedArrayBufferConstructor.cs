@@ -94,16 +94,23 @@ internal sealed class SharedArrayBufferConstructor : Constructor
             ExceptionHelper.ThrowRangeError(_realm);
         }
 
+        var allocLength = maxByteLength.GetValueOrDefault(byteLength);
+
         var obj = OrdinaryCreateFromConstructor(
             constructor,
             static intrinsics => intrinsics.SharedArrayBuffer.PrototypeObject,
-            static (engine, _, state) => new JsSharedArrayBuffer(engine, state!.Item1, state.Item2),
-            new Tuple<uint?, uint>(maxByteLength, byteLength));
-
-        var allocLength = maxByteLength.GetValueOrDefault(byteLength);
-        var block = JsSharedArrayBuffer.CreateSharedByteDataBlock(_realm, allocLength);
-        obj._arrayBufferData = block;
+            static (engine, _, state) =>
+            {
+                var buffer = new JsSharedArrayBuffer(engine, [], state.MaxByteLength, state.ArrayBufferByteLengthData)
+                {
+                    _arrayBufferData = state.Block ?? (state.ByteLength > 0 ? JsSharedArrayBuffer.CreateSharedByteDataBlock(engine.Realm, state.ByteLength) : []),
+                };
+                return buffer;
+            },
+            new ConstructState(Block: null, allocLength, maxByteLength, byteLength));
 
         return obj;
     }
+
+    private readonly record struct ConstructState(byte[]? Block, uint ByteLength, uint? MaxByteLength, uint ArrayBufferByteLengthData);
 }
