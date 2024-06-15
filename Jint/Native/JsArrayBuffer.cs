@@ -20,6 +20,7 @@ public class JsArrayBuffer : ObjectInstance
 
     internal JsArrayBuffer(
         Engine engine,
+        byte[] data,
         uint? arrayBufferMaxByteLength = null) : base(engine)
     {
         if (arrayBufferMaxByteLength is > int.MaxValue)
@@ -27,6 +28,7 @@ public class JsArrayBuffer : ObjectInstance
             ExceptionHelper.ThrowRangeError(engine.Realm, "arrayBufferMaxByteLength cannot be larger than int32.MaxValue");
         }
 
+        _arrayBufferData = data;
         _arrayBufferMaxByteLength = (int?) arrayBufferMaxByteLength;
     }
 

@@ -11,8 +11,9 @@ internal sealed class JsSharedArrayBuffer : JsArrayBuffer
 
     internal JsSharedArrayBuffer(
         Engine engine,
+        byte[] data,
         uint? arrayBufferMaxByteLength,
-        uint arrayBufferByteLengthData) : base(engine, arrayBufferMaxByteLength)
+        uint arrayBufferByteLengthData) : base(engine, data, arrayBufferMaxByteLength)
     {
         if (arrayBufferByteLengthData > int.MaxValue)
         {

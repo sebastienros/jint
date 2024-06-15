@@ -141,7 +141,7 @@ namespace Jint.Runtime
         internal DataViewConstructor DataView =>
             _dataView ??= new DataViewConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
-        internal ArrayBufferConstructor ArrayBuffer =>
+        public ArrayBufferConstructor ArrayBuffer =>
             _arrayBufferConstructor ??= new ArrayBufferConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
         internal SharedArrayBufferConstructor SharedArrayBuffer =>
