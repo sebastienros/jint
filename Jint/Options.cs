@@ -126,8 +126,7 @@ public class Options
             engine.Realm.GlobalObject.SetProperty("importNamespace", new PropertyDescriptor(new ClrFunction(
                     engine,
                     "importNamespace",
-                    (thisObj, arguments) =>
-                        new NamespaceReference(engine, TypeConverter.ToString(arguments.At(0)))),
+                    (_, arguments) => new NamespaceReference(engine, arguments.At(0).IsNullOrUndefined() ? null : TypeConverter.ToString(arguments.At(0)))),
                 PropertyFlag.AllForbidden));
 
             engine.Realm.GlobalObject.SetProperty("clrHelper", new PropertyDescriptor(ObjectWrapper.Create(engine, new ClrHelper(Interop)), PropertyFlag.AllForbidden));
