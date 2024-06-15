@@ -11,7 +11,7 @@ namespace Jint.Native.ArrayBuffer;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-properties-of-the-arraybuffer-constructor
 /// </summary>
-internal sealed class ArrayBufferConstructor : Constructor
+public sealed class ArrayBufferConstructor : Constructor
 {
     private static readonly JsString _functionName = new("ArrayBuffer");
 
@@ -47,20 +47,19 @@ internal sealed class ArrayBufferConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-arraybuffer.isview
+    /// Constructs a new JsArrayBuffer instance and takes ownership of the given byte array and uses it as backing store.
     /// </summary>
-    private static JsValue IsView(JsValue thisObject, JsValue[] arguments)
+    public JsArrayBuffer Construct(byte[] data)
     {
-        var arg = arguments.At(0);
-        return arg is JsDataView or JsTypedArray;
+        return CreateJsArrayBuffer(this, data, byteLength: (ulong) data.Length, maxByteLength: null);
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-get-arraybuffer-@@species
+    /// Constructs a new JsArrayBuffer with given byte length and optional max byte length.
     /// </summary>
-    private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+    public JsArrayBuffer Construct(ulong byteLength, uint? maxByteLength = null)
     {
-        return thisObject;
+        return AllocateArrayBuffer(this, byteLength, maxByteLength);
     }
 
     public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
@@ -79,6 +78,23 @@ internal sealed class ArrayBufferConstructor : Constructor
     }
 
     /// <summary>
+    /// https://tc39.es/ecma262/#sec-get-arraybuffer-@@species
+    /// </summary>
+    private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+    {
+        return thisObject;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-arraybuffer.isview
+    /// </summary>
+    private static JsValue IsView(JsValue thisObject, JsValue[] arguments)
+    {
+        var arg = arguments.At(0);
+        return arg is JsDataView or JsTypedArray;
+    }
+
+    /// <summary>
     /// https://tc39.es/ecma262/#sec-allocatearraybuffer
     /// </summary>
     internal JsArrayBuffer AllocateArrayBuffer(JsValue constructor, ulong byteLength, uint? maxByteLength = null)
@@ -90,15 +106,27 @@ internal sealed class ArrayBufferConstructor : Constructor
             ExceptionHelper.ThrowRangeError(_realm);
         }
 
+        return CreateJsArrayBuffer(constructor, block: null, byteLength, maxByteLength);
+    }
+
+    private JsArrayBuffer CreateJsArrayBuffer(JsValue constructor, byte[]? block, ulong byteLength, uint? maxByteLength)
+    {
         var obj = OrdinaryCreateFromConstructor(
             constructor,
             static intrinsics => intrinsics.ArrayBuffer.PrototypeObject,
-            static (engine, _, state) => new JsArrayBuffer(engine, state!.Item1),
-            new Tuple<uint?>(maxByteLength));
+            static (engine, _, state) =>
+            {
+                var buffer = new JsArrayBuffer(engine, [], state.MaxByteLength)
+                {
+                    _arrayBufferData = state.Block ?? (state.ByteLength > 0 ? JsArrayBuffer.CreateByteDataBlock(engine.Realm, state.ByteLength) : []),
+                };
 
-        var block = byteLength > 0 ? JsArrayBuffer.CreateByteDataBlock(_realm, byteLength) : System.Array.Empty<byte>();
-        obj._arrayBufferData = block;
+                return buffer;
+            },
+            new ConstructState(block, byteLength, maxByteLength));
 
         return obj;
     }
+
+    private readonly record struct ConstructState(byte[]? Block, ulong ByteLength, uint? MaxByteLength);
 }

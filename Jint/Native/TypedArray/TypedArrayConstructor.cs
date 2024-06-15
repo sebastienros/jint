@@ -42,6 +42,13 @@ namespace Jint.Native.TypedArray
             SetProperties(properties);
         }
 
+        public JsTypedArray Construct(JsArrayBuffer buffer, int? byteOffset = null, int? length = null)
+        {
+            var o = AllocateTypedArray(this);
+            InitializeTypedArrayFromArrayBuffer(o, buffer, byteOffset, length);
+            return o;
+        }
+
         public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
         {
             if (newTarget.IsUndefined())
@@ -49,40 +56,25 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-            Func<Intrinsics, ObjectInstance> proto = _arrayElementType switch
-            {
-                TypedArrayElementType.Float32 => static intrinsics => intrinsics.Float32Array.PrototypeObject,
-                TypedArrayElementType.Int8 => static intrinsics => intrinsics.Int8Array.PrototypeObject,
-                TypedArrayElementType.Int16 => static intrinsics => intrinsics.Int16Array.PrototypeObject,
-                TypedArrayElementType.Int32 => static intrinsics => intrinsics.Int32Array.PrototypeObject,
-                TypedArrayElementType.BigInt64 => static intrinsics => intrinsics.BigInt64Array.PrototypeObject,
-                TypedArrayElementType.Float64 => static intrinsics => intrinsics.Float64Array.PrototypeObject,
-                TypedArrayElementType.Uint8 => static intrinsics => intrinsics.Uint8Array.PrototypeObject,
-                TypedArrayElementType.Uint8C => static intrinsics => intrinsics.Uint8ClampedArray.PrototypeObject,
-                TypedArrayElementType.Uint16 => static intrinsics => intrinsics.Uint16Array.PrototypeObject,
-                TypedArrayElementType.Uint32 => static intrinsics => intrinsics.Uint32Array.PrototypeObject,
-                TypedArrayElementType.BigUint64 => static intrinsics => intrinsics.BigUint64Array.PrototypeObject,
-                _ => null!
-            };
 
             var numberOfArgs = arguments.Length;
             if (numberOfArgs == 0)
             {
-                return AllocateTypedArray(newTarget, proto, 0);
+                return AllocateTypedArray(newTarget, 0);
             }
 
             var firstArgument = arguments[0];
             if (firstArgument.IsObject())
             {
-                var o = AllocateTypedArray(newTarget, proto);
+                var o = AllocateTypedArray(newTarget);
                 if (firstArgument is JsTypedArray typedArrayInstance)
                 {
                     InitializeTypedArrayFromTypedArray(o, typedArrayInstance);
                 }
                 else if (firstArgument is JsArrayBuffer arrayBuffer)
                 {
-                    var byteOffset = numberOfArgs > 1 ? arguments[1] : Undefined;
-                    var length = numberOfArgs > 2 ? arguments[2] : Undefined;
+                    int? byteOffset = !arguments.At(1).IsUndefined() ? (int) TypeConverter.ToIndex(_realm, arguments[1]) : null;
+                    int? length = !arguments.At(2).IsUndefined() ? (int) TypeConverter.ToIndex(_realm, arguments[2]) : null;
                     InitializeTypedArrayFromArrayBuffer(o, arrayBuffer, byteOffset, length);
                 }
                 else
@@ -103,7 +95,7 @@ namespace Jint.Native.TypedArray
             }
 
             var elementLength = TypeConverter.ToIndex(_realm, firstArgument);
-            return AllocateTypedArray(newTarget, proto, elementLength);
+            return AllocateTypedArray(newTarget, elementLength);
         }
 
         /// <summary>
@@ -184,29 +176,25 @@ namespace Jint.Native.TypedArray
         private void InitializeTypedArrayFromArrayBuffer(
             JsTypedArray o,
             JsArrayBuffer buffer,
-            JsValue byteOffset,
-            JsValue length)
+            int? byteOffset,
+            int? length)
         {
             var elementSize = o._arrayElementType.GetElementSize();
-            var offset = (int) TypeConverter.ToIndex(_realm, byteOffset);
+            var offset = byteOffset ?? 0;
             if (offset % elementSize != 0)
             {
                 ExceptionHelper.ThrowRangeError(_realm, "Invalid offset");
             }
 
             int newByteLength;
-            var newLength = 0;
-            if (!length.IsUndefined())
-            {
-                newLength = (int) TypeConverter.ToIndex(_realm, length);
-            }
+            var newLength = length ?? 0;
 
             var bufferIsFixedLength = buffer.IsFixedLengthArrayBuffer;
 
             buffer.AssertNotDetached();
 
             var bufferByteLength = IntrinsicTypedArrayPrototype.ArrayBufferByteLength(buffer, ArrayBufferOrder.SeqCst);
-            if (length.IsUndefined() && !bufferIsFixedLength)
+            if (length == null && !bufferIsFixedLength)
             {
                 if (offset > bufferByteLength)
                 {
@@ -218,7 +206,7 @@ namespace Jint.Native.TypedArray
             }
             else
             {
-                if (length.IsUndefined())
+                if (length == null)
                 {
                     if (bufferByteLength % elementSize != 0)
                     {
@@ -275,8 +263,24 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-allocatetypedarray
         /// </summary>
-        private JsTypedArray AllocateTypedArray(JsValue newTarget, Func<Intrinsics, ObjectInstance> defaultProto, uint length = 0)
+        private JsTypedArray AllocateTypedArray(JsValue newTarget, uint length = 0)
         {
+            Func<Intrinsics, ObjectInstance> defaultProto = _arrayElementType switch
+            {
+                TypedArrayElementType.Float32 => static intrinsics => intrinsics.Float32Array.PrototypeObject,
+                TypedArrayElementType.Float64 => static intrinsics => intrinsics.Float64Array.PrototypeObject,
+                TypedArrayElementType.Int8 => static intrinsics => intrinsics.Int8Array.PrototypeObject,
+                TypedArrayElementType.Int16 => static intrinsics => intrinsics.Int16Array.PrototypeObject,
+                TypedArrayElementType.Int32 => static intrinsics => intrinsics.Int32Array.PrototypeObject,
+                TypedArrayElementType.BigInt64 => static intrinsics => intrinsics.BigInt64Array.PrototypeObject,
+                TypedArrayElementType.Uint8 => static intrinsics => intrinsics.Uint8Array.PrototypeObject,
+                TypedArrayElementType.Uint8C => static intrinsics => intrinsics.Uint8ClampedArray.PrototypeObject,
+                TypedArrayElementType.Uint16 => static intrinsics => intrinsics.Uint16Array.PrototypeObject,
+                TypedArrayElementType.Uint32 => static intrinsics => intrinsics.Uint32Array.PrototypeObject,
+                TypedArrayElementType.BigUint64 => static intrinsics => intrinsics.BigUint64Array.PrototypeObject,
+                _ => null!
+            };
+
             var proto = GetPrototypeFromConstructor(newTarget, defaultProto);
             var realm = GetFunctionRealm(newTarget);
             var obj = new JsTypedArray(_engine, realm.Intrinsics, _arrayElementType, length)
