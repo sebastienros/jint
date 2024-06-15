@@ -20,6 +20,7 @@ public class JsArrayBuffer : ObjectInstance
 
     internal JsArrayBuffer(
         Engine engine,
+        byte[] data,
         uint? arrayBufferMaxByteLength = null) : base(engine)
     {
         if (arrayBufferMaxByteLength is > int.MaxValue)
@@ -27,6 +28,7 @@ public class JsArrayBuffer : ObjectInstance
             ExceptionHelper.ThrowRangeError(engine.Realm, "arrayBufferMaxByteLength cannot be larger than int32.MaxValue");
         }
 
+        _arrayBufferData = data;
         _arrayBufferMaxByteLength = (int?) arrayBufferMaxByteLength;
     }
 
@@ -104,6 +106,11 @@ public class JsArrayBuffer : ObjectInstance
     /// </summary>
     internal TypedArrayValue RawBytesToNumeric(TypedArrayElementType type, int byteIndex, bool isLittleEndian)
     {
+        if (type is TypedArrayElementType.Uint8 or TypedArrayElementType.Uint8C)
+        {
+            return new TypedArrayValue(Types.Number, _arrayBufferData![byteIndex], default);
+        }
+
         var elementSize = type.GetElementSize();
         var rawBytes = _arrayBufferData!;
 
@@ -155,25 +162,19 @@ public class JsArrayBuffer : ObjectInstance
 
         TypedArrayValue? arrayValue = type switch
         {
-            TypedArrayElementType.Int8 => ((sbyte) rawBytes[byteIndex]),
-            TypedArrayElementType.Uint8 => (rawBytes[byteIndex]),
-            TypedArrayElementType.Uint8C =>(rawBytes[byteIndex]),
-            TypedArrayElementType.Int16 => (isLittleEndian
-                    ? (short) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8))
-                    : (short) (rawBytes[byteIndex + 1] | (rawBytes[byteIndex] << 8))
-                ),
-            TypedArrayElementType.Uint16 => (isLittleEndian
-                    ? (ushort) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8))
-                    : (ushort) (rawBytes[byteIndex + 1] | (rawBytes[byteIndex] << 8))
-                ),
-            TypedArrayElementType.Int32 => (isLittleEndian
-                    ? rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8) | (rawBytes[byteIndex + 2] << 16) | (rawBytes[byteIndex + 3] << 24)
-                    : rawBytes[byteIndex + 3] | (rawBytes[byteIndex + 2] << 8) | (rawBytes[byteIndex + 1] << 16) | (rawBytes[byteIndex + 0] << 24)
-                ),
-            TypedArrayElementType.Uint32 => (isLittleEndian
-                    ? (uint) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8) | (rawBytes[byteIndex + 2] << 16) | (rawBytes[byteIndex + 3] << 24))
-                    : (uint) (rawBytes[byteIndex + 3] | (rawBytes[byteIndex + 2] << 8) | (rawBytes[byteIndex + 1] << 16) | (rawBytes[byteIndex] << 24))
-                ),
+            TypedArrayElementType.Int8 => (sbyte) rawBytes[byteIndex],
+            TypedArrayElementType.Int16 => isLittleEndian
+                ? (short) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8))
+                : (short) (rawBytes[byteIndex + 1] | (rawBytes[byteIndex] << 8)),
+            TypedArrayElementType.Uint16 => isLittleEndian
+                ? (ushort) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8))
+                : (ushort) (rawBytes[byteIndex + 1] | (rawBytes[byteIndex] << 8)),
+            TypedArrayElementType.Int32 => isLittleEndian
+                ? rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8) | (rawBytes[byteIndex + 2] << 16) | (rawBytes[byteIndex + 3] << 24)
+                : rawBytes[byteIndex + 3] | (rawBytes[byteIndex + 2] << 8) | (rawBytes[byteIndex + 1] << 16) | (rawBytes[byteIndex + 0] << 24),
+            TypedArrayElementType.Uint32 => isLittleEndian
+                ? (uint) (rawBytes[byteIndex] | (rawBytes[byteIndex + 1] << 8) | (rawBytes[byteIndex + 2] << 16) | (rawBytes[byteIndex + 3] << 24))
+                : (uint) (rawBytes[byteIndex + 3] | (rawBytes[byteIndex + 2] << 8) | (rawBytes[byteIndex + 1] << 16) | (rawBytes[byteIndex] << 24)),
             _ => null
         };
 
@@ -196,10 +197,21 @@ public class JsArrayBuffer : ObjectInstance
         ArrayBufferOrder order,
         bool? isLittleEndian = null)
     {
+        if (type is TypedArrayElementType.Uint8)
+        {
+            var doubleValue = value.DoubleValue;
+            var intValue = double.IsNaN(doubleValue) || doubleValue == 0 || double.IsInfinity(doubleValue)
+                ? 0
+                : (long) doubleValue;
+
+            _arrayBufferData![byteIndex] = (byte) intValue;
+            return;
+        }
+
         var block = _arrayBufferData!;
         // If isLittleEndian is not present, set isLittleEndian to the value of the [[LittleEndian]] field of the surrounding agent's Agent Record.
         var rawBytes = NumericToRawBytes(type, value, isLittleEndian ?? BitConverter.IsLittleEndian);
-        System.Array.Copy(rawBytes, 0, block,  byteIndex, type.GetElementSize());
+        System.Array.Copy(rawBytes, 0, block, byteIndex, type.GetElementSize());
     }
 
     private byte[] NumericToRawBytes(TypedArrayElementType type, TypedArrayValue value, bool isLittleEndian)
@@ -241,7 +253,7 @@ public class JsArrayBuffer : ObjectInstance
                     rawBytes[0] = (byte) intValue;
                     break;
                 case TypedArrayElementType.Uint8C:
-                    rawBytes[0] = (byte) TypeConverter.ToUint8Clamp(value.DoubleValue);
+                    rawBytes[0] = TypeConverter.ToUint8Clamp(value.DoubleValue);
                     break;
                 case TypedArrayElementType.Int16:
 #if !NETSTANDARD2_1

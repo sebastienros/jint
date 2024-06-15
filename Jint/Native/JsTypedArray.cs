@@ -28,10 +28,7 @@ namespace Jint.Native
             uint length) : base(engine)
         {
             _intrinsics = intrinsics;
-            _viewedArrayBuffer = new JsArrayBuffer(engine)
-            {
-                _arrayBufferData = System.Array.Empty<byte>()
-            };
+            _viewedArrayBuffer = new JsArrayBuffer(engine, []);
 
             _arrayElementType = type;
             _contentType = type != TypedArrayElementType.BigInt64 && type != TypedArrayElementType.BigUint64
