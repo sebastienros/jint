@@ -40,7 +40,7 @@ namespace Jint.Native.Promise
         {
             const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
             const PropertyFlag LengthFlags = PropertyFlag.Configurable;
-            var properties = new PropertyDictionary(6, checkExistingKeys: false)
+            var properties = new PropertyDictionary(8, checkExistingKeys: false)
             {
                 ["all"] = new(new PropertyDescriptor(new ClrFunction(Engine, "all", All, 1, LengthFlags), PropertyFlags)),
                 ["allSettled"] = new(new PropertyDescriptor(new ClrFunction(Engine, "allSettled", AllSettled, 1, LengthFlags), PropertyFlags)),
@@ -48,6 +48,7 @@ namespace Jint.Native.Promise
                 ["race"] = new(new PropertyDescriptor(new ClrFunction(Engine, "race", Race, 1, LengthFlags), PropertyFlags)),
                 ["reject"] = new(new PropertyDescriptor(new ClrFunction(Engine, "reject", Reject, 1, LengthFlags), PropertyFlags)),
                 ["resolve"] = new(new PropertyDescriptor(new ClrFunction(Engine, "resolve", Resolve, 1, LengthFlags), PropertyFlags)),
+                ["try"] = new(new PropertyDescriptor(new ClrFunction(Engine, "try", Try, 1, LengthFlags), PropertyFlags)),
                 ["withResolvers"] = new(new PropertyDescriptor(new ClrFunction(Engine, "withResolvers", WithResolvers , 0, LengthFlags), PropertyFlags)),
             };
             SetProperties(properties);
@@ -167,6 +168,32 @@ namespace Jint.Native.Promise
             reject.Call(Undefined, new[] { r });
 
             return instance;
+        }
+
+        /// <summary>
+        /// https://tc39.es/proposal-promise-try/
+        /// </summary>
+        private JsValue Try(JsValue thisObject, JsValue[] arguments)
+        {
+            if (!thisObject.IsObject())
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "Promise.try called on non-object");
+            }
+
+            var callbackfn = arguments.At(0);
+            var promiseCapability = NewPromiseCapability(_engine, thisObject);
+
+            try
+            {
+                var status = callbackfn.Call(Undefined, arguments.Skip(1));
+                promiseCapability.Resolve.Call(Undefined, new[] { status });
+            }
+            catch (JavaScriptException e)
+            {
+                promiseCapability.Reject.Call(Undefined, new[] { e.Error });
+            }
+
+            return promiseCapability.PromiseInstance;
         }
 
         // This helper methods executes the first 6 steps in the specs belonging to static Promise methods like all, any etc.

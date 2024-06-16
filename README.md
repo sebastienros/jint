@@ -125,6 +125,7 @@ and many more.
 - ✔ Float16Array (Jint v4, requires NET 6 target or higher)
 - ✔ Import attributes
 - ✔ JSON modules
+- ✔ `Promise.try` (Jint v4)
 - ✔ `Promise.withResolvers`
 - ✔ Resizable and growable ArrayBuffers
 - ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
