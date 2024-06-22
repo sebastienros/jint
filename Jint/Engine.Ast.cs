@@ -54,7 +54,7 @@ public partial class Engine
             _preparationOptions = preparationOptions;
         }
 
-        public void NodeVisitor(Node node)
+        public void NodeVisitor(Node node, OnNodeContext _)
         {
             switch (node.Type)
             {
