@@ -82,13 +82,13 @@ public partial class Function
                 switch (kind)
                 {
                     case FunctionKind.Normal:
-                        functionExpression = "function f(){}";
+                        functionExpression = "function " + _functionNameAnonymous + "(){}";
                         break;
                     case FunctionKind.Generator:
-                        functionExpression = "function* f(){}";
+                        functionExpression = "function* " + _functionNameAnonymous + "(){}";
                         break;
                     case FunctionKind.Async:
-                        functionExpression = "async function f(){}";
+                        functionExpression = "async function " + _functionNameAnonymous + "(){}";
                         break;
                     case FunctionKind.AsyncGenerator:
                         ExceptionHelper.ThrowNotImplementedException("Async generators not implemented");
@@ -103,13 +103,13 @@ public partial class Function
                 switch (kind)
                 {
                     case FunctionKind.Normal:
-                        functionExpression = "function f(";
+                        functionExpression = "function " + _functionNameAnonymous + "(";
                         break;
                     case FunctionKind.Async:
-                        functionExpression = "async function f(";
+                        functionExpression = "async function " + _functionNameAnonymous + "(";
                         break;
                     case FunctionKind.Generator:
-                        functionExpression = "function* f(";
+                        functionExpression = "function* " + _functionNameAnonymous +"(";
                         break;
                     case FunctionKind.AsyncGenerator:
                         ExceptionHelper.ThrowNotImplementedException("Async generators not implemented");
