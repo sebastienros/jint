@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using Jint.Native;
 using Jint.Tests.Runtime.TestClasses;
 
 namespace Jint.Tests.Runtime;
@@ -277,5 +279,74 @@ public class AsyncTests
         var result = engine.Execute(Script);
         var val = result.GetValue("main").Call();
         Assert.Equal(1, val.UnwrapIfPromise().AsInteger());
+    }
+
+    [Fact]
+    public async Task ShouldEventLoopBeThreadSafeWhenCalledConcurrently()
+    {
+        const int ParallelCount = 1000;
+
+        // [NOTE] perform 5 runs since the bug does not always happen
+        for (int run = 0; run < 5; run++)
+        {
+            var tasks = new List<TaskCompletionSource<object>>();
+
+            for (int i = 0; i < ParallelCount; i++)
+                tasks.Add(new TaskCompletionSource<object>());
+
+            for (int i = 0; i < ParallelCount; i++)
+            {
+                int taskIdx = i;
+                _ = Task.Factory.StartNew(() =>
+                {
+                    try
+                    {
+                        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+
+                        const string Script = """
+                        async function main(testObj) {
+                            async function run(i) {
+                                await testObj.Delay(100);
+                                await testObj.Add(`${i}`);
+                            }
+                        
+                            const tasks = [];
+                            for (let i = 0; i < 10; i++) {
+                                tasks.push(run(i));
+                            }
+                            for (let i = 0; i < 10; i++) {
+                                await tasks[i];
+                            }
+                            return 1;
+                        }
+                        """;
+                        var result = engine.Execute(Script);
+                        var testObj = JsValue.FromObject(engine, new TestAsyncClass());
+                        var val = result.GetValue("main").Call(testObj);
+                        tasks[taskIdx].SetResult(null);
+                    }
+                    catch (Exception ex)
+                    {
+                        tasks[taskIdx].SetException(ex);
+                    }
+                }, creationOptions: TaskCreationOptions.LongRunning);
+            }
+
+            await Task.WhenAll(tasks.Select(t => t.Task));
+            await Task.Delay(100);
+        }
+    }
+
+    class TestAsyncClass
+    {
+        private readonly ConcurrentBag<string> _values = new();
+
+        public Task Delay(int ms) => Task.Delay(ms);
+
+        public Task Add(string value)
+        {
+            _values.Add(value);
+            return Task.CompletedTask;
+        }
     }
 }
