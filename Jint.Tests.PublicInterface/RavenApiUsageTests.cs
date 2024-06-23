@@ -16,7 +16,7 @@ public class RavenApiUsageTests
     {
         var engine = new Engine();
 
-        var properties = new List<Node>
+        var properties = new Node[]
         {
             new ObjectProperty(PropertyKind.Init, new Identifier("field"),
                 new MemberExpression(new Identifier("self"), new Identifier("field"), computed: false, optional: false), false, false, false)
@@ -24,8 +24,8 @@ public class RavenApiUsageTests
 
         var functionExp = new FunctionExpression(
             new Identifier("functionId"),
-            NodeList.Create<Node>(new List<Expression> { new Identifier("self") }),
-            new FunctionBody(NodeList.Create(new List<Statement> { new ReturnStatement(new ObjectExpression(NodeList.Create(properties))) }), strict: false),
+            NodeList.From<Node>(new Identifier("self")),
+            new FunctionBody(NodeList.From<Statement>(new ReturnStatement(new ObjectExpression(NodeList.From(properties)))), strict: false),
             generator: false,
             async: false);
 

@@ -282,7 +282,7 @@ internal sealed class ClassDefinition
 
         public ClassFieldFunction(Expression expression) : base(NodeType.ExpressionStatement)
         {
-            var nodeList = NodeList.Create<Statement>(new [] { new ReturnStatement(expression) });
+            var nodeList = NodeList.From<Statement>(new ReturnStatement(expression));
             _statement = new FunctionBody(nodeList, strict: true);
         }
 

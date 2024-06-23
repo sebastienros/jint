@@ -136,7 +136,7 @@ public sealed class ModuleBuilder
 
         if (_sourceRaw.Count <= 0)
         {
-            return new Prepared<AstModule>(new AstModule(NodeList.Create(Array.Empty<Statement>())), parserOptions);
+            return new Prepared<AstModule>(new AstModule(NodeList.From(Array.Empty<Statement>())), parserOptions);
         }
 
         var parser = new Parser(parserOptions);
