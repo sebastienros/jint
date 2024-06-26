@@ -1327,20 +1327,13 @@ namespace Jint.Native.Array
                 for (var i = sourceStartIndex; i < sourceStartIndex + length; ++i, j++)
                 {
                     JsValue? sourceValue;
-                    if (i < (uint) sourceDense.Length && sourceDense[i] is not null)
+                    if (i < (uint) sourceDense.Length)
                     {
                         sourceValue = sourceDense[i];
                     }
                     else
                     {
-                        if (!source.TryGetValue(i, out var temp))
-                        {
-                            sourceValue = source.Prototype?.Get(JsString.Create(i));
-                        }
-                        else
-                        {
-                            sourceValue = temp;
-                        }
+                        source.TryGetValue(i, out sourceValue);
                     }
 
                     dense[targetStartIndex + j] = sourceValue;
