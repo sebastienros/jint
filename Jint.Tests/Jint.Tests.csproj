@@ -33,6 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Using Include="FluentAssertions" />
     <Using Include="Xunit" />
   </ItemGroup>
 

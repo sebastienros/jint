@@ -303,6 +303,31 @@ public class ArrayTests
     }
 
     [Fact]
+    public void ConcatHandlesHolesCorrectly()
+    {
+        const string Code = """
+           function colors(specifier) {
+             var n = specifier.length / 6 | 0, colors = new Array(n), i = 0;
+             while (i < n) colors[i] = "#" + specifier.slice(i * 6, ++i * 6);
+             return colors;
+           }
+        
+           new Array(3).concat("d8b365f5f5f55ab4ac","a6611adfc27d80cdc1018571").map(colors);
+        """;
+
+        var engine = new Engine();
+
+        var a = engine.Evaluate(Code).AsArray();
+
+        a.Length.Should().Be(5);
+        a[0].Should().Be(JsValue.Undefined);
+        a[1].Should().Be(JsValue.Undefined);
+        a[2].Should().Be(JsValue.Undefined);
+        a[3].Should().BeOfType<JsArray>().Which.Should().ContainInOrder("#d8b365", "#f5f5f5", "#5ab4ac");
+        a[4].Should().BeOfType<JsArray>().Which.Should().ContainInOrder("#a6611a", "#dfc27d", "#80cdc1", "#018571");
+    }
+
+    [Fact]
     public void Shift()
     {
         const string Script = @"
