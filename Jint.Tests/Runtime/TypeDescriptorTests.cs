@@ -1,5 +1,4 @@
 using System.Collections;
-using FluentAssertions;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime;
