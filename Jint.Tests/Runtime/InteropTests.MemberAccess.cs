@@ -239,6 +239,8 @@ namespace Jint.Tests.Runtime
 
         public class ClassWithData
         {
+            public int Age => 42;
+
             public DataType Data { get; set; }
 
             public class DataType
@@ -253,10 +255,30 @@ namespace Jint.Tests.Runtime
             var engine = new Engine();
 
             engine.SetValue("obj", new ClassWithData());
-            engine.Execute(@"obj.Data = { Value: '123' };");
+            engine.Execute("obj.Data = { Value: '123' };");
             var obj = engine.Evaluate("obj").ToObject() as ClassWithData;
 
             Assert.Equal("123", obj?.Data.Value);
+        }
+
+        [Fact]
+        public void CanConfigureStrictAccess()
+        {
+            var engine = new Engine();
+
+            engine.SetValue("obj", new ClassWithData());
+            engine.Evaluate("obj.Age").AsNumber().Should().Be(42);
+            engine.Evaluate("obj.AgeMissing").Should().Be(JsValue.Undefined);
+
+            engine = new Engine(options =>
+            {
+                options.Interop.ThrowOnUnresolvedMember = true;
+            });
+
+            engine.SetValue("obj", new ClassWithData());
+            engine.Evaluate("obj.Age").AsNumber().Should().Be(42);
+
+            engine.Invoking(e => e.Evaluate("obj.AgeMissing")).Should().Throw<MissingMemberException>();
         }
     }
 }

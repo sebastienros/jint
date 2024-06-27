@@ -359,6 +359,11 @@ public class Options
         /// Should the Array prototype be attached instead of Object prototype to the wrapped interop objects when type looks suitable. Defaults to true.
         /// </summary>
         public bool AttachArrayPrototype { get; set; } = true;
+
+        /// <summary>
+        /// Whether the engine should throw an error when a member is not found on a CLR object. Defaults to false.
+        /// </summary>
+        public bool ThrowOnUnresolvedMember { get; set; }
     }
 
     public class ConstraintOptions
