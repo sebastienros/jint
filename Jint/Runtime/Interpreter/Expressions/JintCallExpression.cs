@@ -5,6 +5,7 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime.CallStack;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interop;
 using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter.Expressions
@@ -226,9 +227,20 @@ namespace Jint.Runtime.Interpreter.Expressions
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void ThrowMemberIsNotFunction(Reference? referenceRecord1, object reference, Engine engine)
         {
-            var message = referenceRecord1 == null
-                ? reference + " is not a function"
-                : $"Property '{referenceRecord1.ReferencedName}' of object is not a function";
+            string message = reference + " is not a function";
+
+            if (referenceRecord1 != null)
+            {
+                if (referenceRecord1.ThisValue is ObjectWrapper clrObject)
+                {
+                    message = $"'{clrObject.ClrType}' does not contain a definition for '{referenceRecord1.ReferencedName}'";
+                }
+                else
+                {
+                    message = $"Property '{referenceRecord1.ReferencedName}' of object is not a function";
+                }
+            }
+
             ExceptionHelper.ThrowTypeError(engine.Realm, message);
         }
 
