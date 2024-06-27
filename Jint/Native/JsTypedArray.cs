@@ -54,6 +54,8 @@ namespace Jint.Native
 
         internal override uint GetLength() => IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(this, ArrayBufferOrder.Unordered).TypedArrayLength;
 
+        internal override bool IsArrayLike => true;
+
         internal override bool IsIntegerIndexedArray => true;
 
         /// <summary>

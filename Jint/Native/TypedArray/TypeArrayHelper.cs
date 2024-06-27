@@ -16,7 +16,7 @@ internal static class TypeArrayHelper
         var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(typedArray, order);
         if (taRecord.IsTypedArrayOutOfBounds)
         {
-            ExceptionHelper.ThrowTypeError(realm);
+            ExceptionHelper.ThrowTypeError(realm, "TypedArray is out of bounds");
         }
 
         return taRecord;

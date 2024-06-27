@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "c2ae5ed5e90d86e17730730b003e9b6fb050693e",
+  "SuiteGitSha": "c3a326ace810e7c80a4e1b8df8c8b704ed223c28",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -11,6 +11,7 @@
     "Float16Array",
     "import-assertions",
     "iterator-helpers",
+    "promise-try",
     "regexp-duplicate-named-groups",
     "regexp-lookbehind",
     "regexp-modifiers",
@@ -73,7 +74,7 @@
     // C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308
     "language/types/number/8.5.1.js",
 
-    // inner binding is immutable (from parameters) Expected SameValue(«null», «function() {{ ... }}») to be true
+    // inner binding is immutable (from parameters) Expected SameValue(ï¿½nullï¿½, ï¿½function() {{ ... }}ï¿½) to be true
     "language/expressions/function/scope-name-var-open-non-strict.js",
     "language/expressions/function/scope-name-var-open-strict.js",
 
