@@ -262,6 +262,11 @@ namespace Jint.Runtime.Interop
                 }
             }
 
+            if (engine.Options.Interop.ThrowOnUnresolvedMember)
+            {
+                throw new MissingMemberException($"Cannot access property '{memberName}' on type '{type.FullName}");
+            }
+
             return ConstantValueAccessor.NullAccessor;
         }
 
