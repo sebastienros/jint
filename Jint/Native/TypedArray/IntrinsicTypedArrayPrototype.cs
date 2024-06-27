@@ -209,7 +209,8 @@ namespace Jint.Native.TypedArray
                     var byteOffset  = o._byteOffset;
                     var elementSize = o._arrayElementType.GetElementSize();
                     var byteLength = (double) CachedBufferByteLength;
-                    return (uint) System.Math.Floor((byteLength - byteOffset) / elementSize);
+                    var floor = System.Math.Floor((byteLength - byteOffset) / elementSize);
+                    return floor < 0 ? 0 : (uint) floor;
                 }
             }
 
@@ -338,8 +339,16 @@ namespace Jint.Native.TypedArray
                 var buffer = o._viewedArrayBuffer;
                 buffer.AssertNotDetached();
 
+                taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
+                if (taRecord.IsTypedArrayOutOfBounds)
+                {
+                    ExceptionHelper.ThrowTypeError(_realm, "TypedArray is out of bounds");
+                }
+
+                len = taRecord.TypedArrayLength;
                 var elementSize = o._arrayElementType.GetElementSize();
                 var byteOffset = o._byteOffset;
+                var bufferByteLimit = len * elementSize + byteOffset;
                 var toByteIndex = to * elementSize + byteOffset;
                 var fromByteIndex = from * elementSize + byteOffset;
                 var countBytes = count * elementSize;
@@ -358,11 +367,18 @@ namespace Jint.Native.TypedArray
 
                 while (countBytes > 0)
                 {
-                    var value = buffer.GetValueFromBuffer((int) fromByteIndex, TypedArrayElementType.Uint8, true, ArrayBufferOrder.Unordered);
-                    buffer.SetValueInBuffer((int) toByteIndex, TypedArrayElementType.Uint8, value, true, ArrayBufferOrder.Unordered);
-                    fromByteIndex += direction;
-                    toByteIndex += direction;
-                    countBytes--;
+                    if (fromByteIndex < bufferByteLimit && toByteIndex < bufferByteLimit)
+                    {
+                        var value = buffer.GetValueFromBuffer((int) fromByteIndex, TypedArrayElementType.Uint8, isTypedArray: true, ArrayBufferOrder.Unordered);
+                        buffer.SetValueInBuffer((int) toByteIndex, TypedArrayElementType.Uint8, value, isTypedArray: true, ArrayBufferOrder.Unordered);
+                        fromByteIndex += direction;
+                        toByteIndex += direction;
+                        countBytes--;
+                    }
+                    else
+                    {
+                        countBytes = 0;
+                    }
                 }
             }
 
@@ -451,24 +467,33 @@ namespace Jint.Native.TypedArray
                 k = (int) System.Math.Min(relativeStart, len);
             }
 
-            uint final;
+            uint endIndex;
             var relativeEnd = end.IsUndefined() ? len : TypeConverter.ToIntegerOrInfinity(end);
             if (double.IsNegativeInfinity(relativeEnd))
             {
-                final = 0;
+                endIndex = 0;
             }
             else if (relativeEnd < 0)
             {
-                final = (uint) System.Math.Max(len + relativeEnd, 0);
+                endIndex = (uint) System.Math.Max(len + relativeEnd, 0);
             }
             else
             {
-                final = (uint) System.Math.Min(relativeEnd, len);
+                endIndex = (uint) System.Math.Min(relativeEnd, len);
             }
+
+            taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
+            if (taRecord.IsTypedArrayOutOfBounds)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "TypedArray is out of bounds");
+            }
+
+            len = taRecord.TypedArrayLength;
+            endIndex = System.Math.Min(endIndex, len);
 
             o._viewedArrayBuffer.AssertNotDetached();
 
-            for (var i = k; i < final; ++i)
+            for (var i = k; i < endIndex; ++i)
             {
                 o[i] = value;
             }
