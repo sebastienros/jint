@@ -1,7 +1,9 @@
 using Jint.Collections;
+using Jint.Native.ArrayBuffer;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
+using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -119,7 +121,12 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
             if (_typedArray is not null)
             {
                 _typedArray._viewedArrayBuffer.AssertNotDetached();
-                len = _typedArray.GetLength();
+                var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(_typedArray, ArrayBufferOrder.SeqCst);
+                if (!_closed && taRecord.IsTypedArrayOutOfBounds)
+                {
+                    ExceptionHelper.ThrowTypeError(_typedArray.Engine.Realm, "TypedArray is out of bounds");
+                }
+                len = taRecord.TypedArrayLength;
             }
             else
             {

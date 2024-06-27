@@ -174,7 +174,7 @@ namespace Jint.Native.TypedArray
             {
                 if (taRecord.IsTypedArrayOutOfBounds)
                 {
-                    ExceptionHelper.ThrowTypeError(realm);
+                    ExceptionHelper.ThrowTypeError(realm, "TypedArray is out of bounds");
                 }
                 if (newTypedArray.GetLength() < number._value)
                 {
