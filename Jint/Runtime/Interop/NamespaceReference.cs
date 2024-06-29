@@ -55,7 +55,7 @@ namespace Jint.Runtime.Interop
 
             var typeReference = GetPath(_path + "`" + arguments.Length.ToString(CultureInfo.InvariantCulture)).As<TypeReference>();
 
-            if (ReferenceEquals(typeReference, null))
+            if (typeReference is null)
             {
                 return Undefined;
             }

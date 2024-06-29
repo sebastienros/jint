@@ -220,7 +220,7 @@ namespace Jint.Native.Object
             {
                 v = v.Prototype;
 
-                if (ReferenceEquals(v, null))
+                if (v is null)
                 {
                     return JsBoolean.False;
                 }

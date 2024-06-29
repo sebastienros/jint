@@ -741,7 +741,7 @@ namespace Jint.Native.Array
                     args[0] = kvalue;
                     args[1] = k;
                     var testResult = callable.Call(thisArg, args);
-                    if (false == TypeConverter.ToBoolean(testResult))
+                    if (!TypeConverter.ToBoolean(testResult))
                     {
                         return JsBoolean.False;
                     }
@@ -1695,8 +1695,8 @@ namespace Jint.Native.Array
 
             public int Compare(JsValue? x, JsValue? y)
             {
-                var xIsNull = ReferenceEquals(x, null);
-                var yIsNull = ReferenceEquals(y, null);
+                var xIsNull = x is null;
+                var yIsNull = y is null;
 
                 if (xIsNull)
                 {

@@ -448,7 +448,7 @@ namespace Jint.Native.Object
             if (desc != PropertyDescriptor.Undefined)
             {
                 var descValue = desc.Value;
-                if (desc.WritableSet && !ReferenceEquals(descValue, null))
+                if (desc.WritableSet && descValue is not null)
                 {
                     value = descValue;
                     return true;
@@ -600,7 +600,7 @@ namespace Jint.Native.Object
                 if (desc.IsAccessorDescriptor())
                 {
                     var set = desc.Set;
-                    if (ReferenceEquals(set, null) || set.IsUndefined())
+                    if (set is null || set.IsUndefined())
                     {
                         return false;
                     }
@@ -611,7 +611,7 @@ namespace Jint.Native.Object
                 return desc.Writable;
             }
 
-            if (ReferenceEquals(Prototype, null))
+            if (Prototype is null)
             {
                 return Extensible;
             }
@@ -626,7 +626,7 @@ namespace Jint.Native.Object
             if (inherited.IsAccessorDescriptor())
             {
                 var set = inherited.Set;
-                if (ReferenceEquals(set, null) || set.IsUndefined())
+                if (set is null || set.IsUndefined())
                 {
                     return false;
                 }
@@ -781,9 +781,9 @@ namespace Jint.Native.Object
 
             // 4. If every field in Desc is absent, return true.
             if ((current._flags & (PropertyFlag.ConfigurableSet | PropertyFlag.EnumerableSet | PropertyFlag.WritableSet)) == PropertyFlag.None &&
-                ReferenceEquals(currentGet, null) &&
-                ReferenceEquals(currentSet, null) &&
-                ReferenceEquals(currentValue, null))
+                currentGet is null &&
+                currentSet is null &&
+                currentValue is null)
             {
                 return true;
             }
@@ -795,9 +795,9 @@ namespace Jint.Native.Object
                 current.Configurable == desc.Configurable && current.ConfigurableSet == desc.ConfigurableSet &&
                 current.Writable == desc.Writable && current.WritableSet == desc.WritableSet &&
                 current.Enumerable == desc.Enumerable && current.EnumerableSet == desc.EnumerableSet &&
-                ((ReferenceEquals(currentGet, null) && ReferenceEquals(descGet, null)) || (!ReferenceEquals(currentGet, null) && !ReferenceEquals(descGet, null) && SameValue(currentGet, descGet))) &&
-                ((ReferenceEquals(currentSet, null) && ReferenceEquals(descSet, null)) || (!ReferenceEquals(currentSet, null) && !ReferenceEquals(descSet, null) && SameValue(currentSet, descSet))) &&
-                ((ReferenceEquals(currentValue, null) && ReferenceEquals(descValue, null)) || (!ReferenceEquals(currentValue, null) && !ReferenceEquals(descValue, null) && currentValue == descValue))
+                ((currentGet is null && descGet is null) || (currentGet is not null && descGet is not null && SameValue(currentGet, descGet))) &&
+                ((currentSet is null && descSet is null) || (currentSet is not null && descSet is not null && SameValue(currentSet, descSet))) &&
+                ((currentValue is null && descValue is null) || (currentValue is not null && descValue is not null && currentValue == descValue))
             )
             {
                 return true;
@@ -856,7 +856,7 @@ namespace Jint.Native.Object
 
                         if (!current.Writable)
                         {
-                            if (!ReferenceEquals(descValue, null) && !SameValue(descValue, currentValue!))
+                            if (descValue is not null && !SameValue(descValue, currentValue!))
                             {
                                 return false;
                             }
@@ -867,9 +867,9 @@ namespace Jint.Native.Object
                 {
                     if (!current.Configurable)
                     {
-                        if ((!ReferenceEquals(descSet, null) && !SameValue(descSet, currentSet ?? Undefined))
+                        if ((descSet is not null && !SameValue(descSet, currentSet ?? Undefined))
                             ||
-                            (!ReferenceEquals(descGet, null) && !SameValue(descGet, currentGet ?? Undefined)))
+                            (descGet is not null && !SameValue(descGet, currentGet ?? Undefined)))
                         {
                             return false;
                         }
@@ -879,7 +879,7 @@ namespace Jint.Native.Object
 
             if (o is not null)
             {
-                if (!ReferenceEquals(descValue, null))
+                if (descValue is not null)
                 {
                     current.Value = descValue;
                 }
@@ -900,13 +900,13 @@ namespace Jint.Native.Object
                 }
 
                 PropertyDescriptor? mutable = null;
-                if (!ReferenceEquals(descGet, null))
+                if (descGet is not null)
                 {
                     mutable = new GetSetPropertyDescriptor(mutable ?? current);
                     ((GetSetPropertyDescriptor) mutable).SetGet(descGet);
                 }
 
-                if (!ReferenceEquals(descSet, null))
+                if (descSet is not null)
                 {
                     mutable = new GetSetPropertyDescriptor(mutable ?? current);
                     ((GetSetPropertyDescriptor) mutable).SetSet(descSet);

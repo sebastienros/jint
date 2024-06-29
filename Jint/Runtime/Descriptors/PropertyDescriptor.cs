@@ -390,7 +390,7 @@ namespace Jint.Runtime.Descriptors
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsAccessorDescriptor()
         {
-            return !ReferenceEquals(Get, null) || !ReferenceEquals(Set, null);
+            return Get is not null || Set is not null;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -401,8 +401,8 @@ namespace Jint.Runtime.Descriptors
                 return false;
             }
             return (_flags & (PropertyFlag.WritableSet | PropertyFlag.Writable)) != PropertyFlag.None
-                   || (_flags & PropertyFlag.CustomJsValue) != PropertyFlag.None && !ReferenceEquals(CustomValue, null)
-                   || !ReferenceEquals(_value, null);
+                   || (_flags & PropertyFlag.CustomJsValue) != PropertyFlag.None && CustomValue is not null
+                   || _value is not null;
         }
 
         /// <summary>

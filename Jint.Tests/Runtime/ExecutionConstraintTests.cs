@@ -56,7 +56,11 @@ namespace Jint.Tests.Runtime
 
                             sleep(100);
                             waitHandle.Set();
-                            sleep(5000);
+                            sleep(1000);
+                            sleep(1000);
+                            sleep(1000);
+                            sleep(1000);
+                            sleep(1000);
                         ");
                     }
                 }

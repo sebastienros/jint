@@ -110,7 +110,7 @@ namespace Jint.Native.Array
                 a = ArrayCreate(length);
             }
 
-            var args = !ReferenceEquals(callable, null)
+            var args = callable is not null
                 ? _engine._jsValueArrayPool.RentArray(2)
                 : null;
 
@@ -119,7 +119,7 @@ namespace Jint.Native.Array
             for (uint i = 0; i < length; i++)
             {
                 var value = source.Get(i);
-                if (!ReferenceEquals(callable, null))
+                if (callable is not null)
                 {
                     args![0] = value;
                     args[1] = i;
@@ -133,7 +133,7 @@ namespace Jint.Native.Array
                 n++;
             }
 
-            if (!ReferenceEquals(callable, null))
+            if (callable is not null)
             {
                 _engine._jsValueArrayPool.ReturnArray(args!);
             }
@@ -165,7 +165,7 @@ namespace Jint.Native.Array
             {
                 _index++;
                 JsValue jsValue;
-                if (!ReferenceEquals(_callable, null))
+                if (_callable is not null)
                 {
                     arguments[0] = currentValue;
                     arguments[1] = _index;
