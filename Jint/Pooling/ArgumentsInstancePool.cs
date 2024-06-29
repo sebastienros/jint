@@ -43,7 +43,7 @@ namespace Jint.Pooling
 
         public void Return(JsArguments instance)
         {
-            if (ReferenceEquals(instance, null))
+            if (instance is null)
             {
                 return;
             }

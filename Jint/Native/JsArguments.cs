@@ -113,7 +113,7 @@ namespace Jint.Native
         {
             EnsureInitialized();
 
-            if (!ReferenceEquals(ParameterMap, null))
+            if (ParameterMap is not null)
             {
                 var desc = base.GetOwnProperty(property);
                 if (desc == PropertyDescriptor.Undefined)
@@ -182,7 +182,7 @@ namespace Jint.Native
 
             EnsureInitialized();
 
-            if (!ReferenceEquals(ParameterMap, null))
+            if (ParameterMap is not null)
             {
                 var map = ParameterMap;
                 var isMapped = map.GetOwnProperty(property);
@@ -201,7 +201,7 @@ namespace Jint.Native
                     else
                     {
                         var descValue = desc.Value;
-                        if (!ReferenceEquals(descValue, null) && !descValue.IsUndefined())
+                        if (descValue is not null && !descValue.IsUndefined())
                         {
                             map.Set(property, descValue, false);
                         }
@@ -223,7 +223,7 @@ namespace Jint.Native
         {
             EnsureInitialized();
 
-            if (!ReferenceEquals(ParameterMap, null))
+            if (ParameterMap is not null)
             {
                 var map = ParameterMap;
                 var isMapped = map.GetOwnProperty(property);

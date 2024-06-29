@@ -167,7 +167,7 @@ namespace Jint.Runtime.Environments
 
         internal override string[] GetAllBindingNames()
         {
-            if (!ReferenceEquals(_bindingObject, null))
+            if (_bindingObject is not null)
             {
                 var names = new List<string>(_bindingObject._properties?.Count ?? 0);
                 foreach (var name in _bindingObject.GetOwnProperties())

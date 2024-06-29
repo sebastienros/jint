@@ -178,7 +178,7 @@ namespace Jint.Native.Array
             private double GetIntegerLength()
             {
                 var descValue = _target.Get(CommonProperties.Length);
-                if (!ReferenceEquals(descValue, null))
+                if (descValue is not null)
                 {
                     return TypeConverter.ToInteger(descValue);
                 }
@@ -329,7 +329,7 @@ namespace Jint.Native.Array
                 }
 
                 var descValue = _target.Get(CommonProperties.Length);
-                if (!ReferenceEquals(descValue, null))
+                if (descValue is not null)
                 {
                     return (uint) TypeConverter.ToInteger(descValue);
                 }

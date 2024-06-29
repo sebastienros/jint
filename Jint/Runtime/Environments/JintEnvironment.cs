@@ -19,7 +19,7 @@ namespace Jint.Runtime.Environments
                 return env.HasBinding(name);
             }
 
-            while (!ReferenceEquals(record, null))
+            while (record is not null)
             {
                 if (record.HasBinding(name))
                 {
@@ -46,7 +46,7 @@ namespace Jint.Runtime.Environments
                 return ((GlobalEnvironment) env).TryGetBinding(name, out value);
             }
 
-            while (!ReferenceEquals(record, null))
+            while (record is not null)
             {
                 if (record.TryGetBinding(name, out value))
                 {

@@ -130,7 +130,7 @@ namespace Jint.Native.Array
         private bool DefineLength(PropertyDescriptor desc)
         {
             var value = desc.Value;
-            if (ReferenceEquals(value, null))
+            if (value is null)
             {
                 return base.DefineOwnProperty(CommonProperties.Length, desc);
             }
