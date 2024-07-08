@@ -68,6 +68,7 @@ namespace Jint.Runtime
         private MathInstance? _math;
         private JsonInstance? _json;
         private SymbolConstructor? _symbol;
+        private AsyncGeneratorFunctionConstructor? _asyncGeneratorFunction;
         private GeneratorFunctionConstructor? _generatorFunction;
         private RegExpConstructor? _regExp;
         private RegExpStringIteratorPrototype? _regExpStringIteratorPrototype;
@@ -257,6 +258,9 @@ namespace Jint.Runtime
 
         internal GeneratorFunctionConstructor GeneratorFunction =>
             _generatorFunction ??= new GeneratorFunctionConstructor(_engine, _realm, Function.PrototypeObject, IteratorPrototype);
+
+        internal AsyncGeneratorFunctionConstructor AsyncGeneratorFunction =>
+            _asyncGeneratorFunction ??= new AsyncGeneratorFunctionConstructor(_engine, _realm, AsyncFunction.PrototypeObject, IteratorPrototype);
 
         public EvalFunction Eval =>
             _eval ??= new EvalFunction(_engine, _realm, Function.PrototypeObject);

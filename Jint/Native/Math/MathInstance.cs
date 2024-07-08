@@ -21,50 +21,51 @@ namespace Jint.Native.Math
         {
             var properties = new PropertyDictionary(45, checkExistingKeys: false)
             {
+                ["E"] = new PropertyDescriptor(System.Math.E, PropertyFlag.AllForbidden),
+                ["LN10"] = new PropertyDescriptor(System.Math.Log(10), PropertyFlag.AllForbidden),
+                ["LN2"] = new PropertyDescriptor(System.Math.Log(2), PropertyFlag.AllForbidden),
+                ["LOG10E"] = new PropertyDescriptor(System.Math.Log(System.Math.E, 10), PropertyFlag.AllForbidden),
+                ["LOG2E"] = new PropertyDescriptor(System.Math.Log(System.Math.E, 2), PropertyFlag.AllForbidden),
+                ["PI"] = new PropertyDescriptor(System.Math.PI, PropertyFlag.AllForbidden),
+                ["SQRT1_2"] = new PropertyDescriptor(System.Math.Sqrt(0.5), PropertyFlag.AllForbidden),
+                ["SQRT2"] = new PropertyDescriptor(System.Math.Sqrt(2), PropertyFlag.AllForbidden),
                 ["abs"] = new PropertyDescriptor(new ClrFunction(Engine, "abs", Abs, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["acos"] = new PropertyDescriptor(new ClrFunction(Engine, "acos", Acos, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["acosh"] = new PropertyDescriptor(new ClrFunction(Engine, "acosh", Acosh, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["asin"] = new PropertyDescriptor(new ClrFunction(Engine, "asin", Asin, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["asinh"] = new PropertyDescriptor(new ClrFunction(Engine, "asinh", Asinh, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["atan"] = new PropertyDescriptor(new ClrFunction(Engine, "atan", Atan, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-                ["atanh"] = new PropertyDescriptor(new ClrFunction(Engine, "atanh", Atanh, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["atan2"] = new PropertyDescriptor(new ClrFunction(Engine, "atan2", Atan2, 2, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+                ["atanh"] = new PropertyDescriptor(new ClrFunction(Engine, "atanh", Atanh, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+                ["cbrt"] = new PropertyDescriptor(new ClrFunction(Engine, "cbrt", Cbrt, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["ceil"] = new PropertyDescriptor(new ClrFunction(Engine, "ceil", Ceil, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+                ["clz32"] = new PropertyDescriptor(new ClrFunction(Engine, "clz32", Clz32, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["cos"] = new PropertyDescriptor(new ClrFunction(Engine, "cos", Cos, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["cosh"] = new PropertyDescriptor(new ClrFunction(Engine, "cosh", Cosh, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["exp"] = new PropertyDescriptor(new ClrFunction(Engine, "exp", Exp, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["expm1"] = new PropertyDescriptor(new ClrFunction(Engine, "expm1", Expm1, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-                ["floor"] = new PropertyDescriptor(new ClrFunction(Engine, "floor", Floor, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["f16round"] = new PropertyDescriptor(new ClrFunction(Engine, "f16round", F16Round, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+                ["floor"] = new PropertyDescriptor(new ClrFunction(Engine, "floor", Floor, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+                ["fround"] = new PropertyDescriptor(new ClrFunction(Engine, "fround", Fround, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+                ["hypot"] = new PropertyDescriptor(new ClrFunction(Engine, "hypot", Hypot, 2, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+                ["imul"] = new PropertyDescriptor(new ClrFunction(Engine, "imul", Imul, 2, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["log"] = new PropertyDescriptor(new ClrFunction(Engine, "log", Log, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+                ["log10"] = new PropertyDescriptor(new ClrFunction(Engine, "log10", Log10, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["log1p"] = new PropertyDescriptor(new ClrFunction(Engine, "log1p", Log1p, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["log2"] = new PropertyDescriptor(new ClrFunction(Engine, "log2", Log2, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-                ["log10"] = new PropertyDescriptor(new ClrFunction(Engine, "log10", Log10, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["max"] = new PropertyDescriptor(new ClrFunction(Engine, "max", Max, 2, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["min"] = new PropertyDescriptor(new ClrFunction(Engine, "min", Min, 2, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["pow"] = new PropertyDescriptor(new ClrFunction(Engine, "pow", Pow, 2, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["random"] = new PropertyDescriptor(new ClrFunction(Engine, "random", Random, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["round"] = new PropertyDescriptor(new ClrFunction(Engine, "round", Round, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-                ["fround"] = new PropertyDescriptor(new ClrFunction(Engine, "fround", Fround, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+                ["sign"] = new PropertyDescriptor(new ClrFunction(Engine, "sign", Sign, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["sin"] = new PropertyDescriptor(new ClrFunction(Engine, "sin", Sin, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["sinh"] = new PropertyDescriptor(new ClrFunction(Engine, "sinh", Sinh, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+                ["sumPrecise"] = new PropertyDescriptor(new ClrFunction(Engine, "sumPrecise", SumPrecise, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["sqrt"] = new PropertyDescriptor(new ClrFunction(Engine, "sqrt", Sqrt, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["tan"] = new PropertyDescriptor(new ClrFunction(Engine, "tan", Tan, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["tanh"] = new PropertyDescriptor(new ClrFunction(Engine, "tanh", Tanh, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
                 ["trunc"] = new PropertyDescriptor(new ClrFunction(Engine, "trunc", Truncate, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-                ["sign"] = new PropertyDescriptor(new ClrFunction(Engine, "sign", Sign, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-                ["cbrt"] = new PropertyDescriptor(new ClrFunction(Engine, "cbrt", Cbrt, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-                ["hypot"] = new PropertyDescriptor(new ClrFunction(Engine, "hypot", Hypot, 2, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-                ["imul"] = new PropertyDescriptor(new ClrFunction(Engine, "imul", Imul, 2, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-                ["clz32"] = new PropertyDescriptor(new ClrFunction(Engine, "clz32", Clz32, 1, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
-                ["E"] = new PropertyDescriptor(System.Math.E, PropertyFlag.AllForbidden),
-                ["LN10"] = new PropertyDescriptor(System.Math.Log(10), PropertyFlag.AllForbidden),
-                ["LN2"] = new PropertyDescriptor(System.Math.Log(2), PropertyFlag.AllForbidden),
-                ["LOG2E"] = new PropertyDescriptor(System.Math.Log(System.Math.E, 2), PropertyFlag.AllForbidden),
-                ["LOG10E"] = new PropertyDescriptor(System.Math.Log(System.Math.E, 10), PropertyFlag.AllForbidden),
-                ["PI"] = new PropertyDescriptor(System.Math.PI, PropertyFlag.AllForbidden),
-                ["SQRT1_2"] = new PropertyDescriptor(System.Math.Sqrt(0.5), PropertyFlag.AllForbidden),
-                ["SQRT2"] = new PropertyDescriptor(System.Math.Sqrt(2), PropertyFlag.AllForbidden),
             };
             SetProperties(properties);
 
@@ -1064,6 +1065,96 @@ namespace Jint.Native.Math
             }
 
             return System.Math.Sqrt(y);
+        }
+
+        /// <summary>
+        /// https://github.com/tc39/proposal-math-sum
+        /// </summary>
+        private JsValue SumPrecise(JsValue thisObject, JsValue[] arguments)
+        {
+            var items = arguments.At(0);
+            if (items.IsNullOrUndefined())
+            {
+                ExceptionHelper.ThrowTypeError(_engine.Realm);
+            }
+
+            var iteratorRecord = items.GetIterator(_engine.Realm);
+            var state = JsNumber.NegativeZero._value;
+            List<double> sum = [];
+            long count = 0;
+            const double Finite = 1;
+            try
+            {
+                while (iteratorRecord.TryIteratorStep(out var next))
+                {
+                    next.TryGetValue(CommonProperties.Value, out var value);
+                    count++;
+                    if (count > 9007199254740992)
+                    {
+                        ExceptionHelper.ThrowRangeError(_engine.Realm);
+                    }
+
+                    if (value is not JsNumber jsNumber)
+                    {
+                        ExceptionHelper.ThrowTypeError(_engine.Realm, "Input is not a number: " + next);
+                        return default;
+                    }
+
+                    if (!double.IsNaN(state))
+                    {
+                        var n = jsNumber._value;
+                        if (double.IsNaN(n))
+                        {
+                            state = double.NaN;
+                        }
+                        else if (double.IsPositiveInfinity(n))
+                        {
+                            if (double.IsNegativeInfinity(state))
+                            {
+                                state = double.NaN;
+                            }
+                            else
+                            {
+                                state = double.PositiveInfinity;
+                            }
+                        }
+                        else if (double.IsNegativeInfinity(n))
+                        {
+                            if (double.IsPositiveInfinity(state))
+                            {
+                                state = double.NaN;
+                            }
+                            else
+                            {
+                                state = double.NegativeInfinity;
+                            }
+                        }
+                        else if (!NumberInstance.IsNegativeZero(n) && (NumberInstance.IsNegativeZero(state)  || state == Finite))
+                        {
+                            state = Finite;
+                            sum.Add(n);
+                        }
+                    }
+                }
+
+            }
+            catch
+            {
+                iteratorRecord.Close(CompletionType.Throw);
+                iteratorRecord = null;
+                throw;
+            }
+            finally
+            {
+                iteratorRecord?.Close(CompletionType.Normal);
+            }
+
+            if (state != Finite)
+            {
+                return state;
+            }
+
+            return sum.FSum();
         }
 
         private static double[] Coerced(JsValue[] arguments)
