@@ -351,7 +351,7 @@ namespace Jint.Native.Array
 
             public override bool TryGetValue(ulong index, out JsValue value)
             {
-                if (index < _target.GetLength())
+                if (_target.IsValidIntegerIndex(index))
                 {
                     value = _target[(int) index];
                     return true;

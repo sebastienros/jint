@@ -47,6 +47,8 @@ public partial class Function
                 fallbackProto = static intrinsics => intrinsics.GeneratorFunction.PrototypeObject;
                 break;
             case FunctionKind.AsyncGenerator:
+                fallbackProto = static intrinsics => intrinsics.AsyncGeneratorFunction.PrototypeObject;
+                break;
             default:
                 ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(kind), kind.ToString());
                 break;
@@ -91,7 +93,7 @@ public partial class Function
                         functionExpression = "async function f(){}";
                         break;
                     case FunctionKind.AsyncGenerator:
-                        ExceptionHelper.ThrowNotImplementedException("Async generators not implemented");
+                        functionExpression = "async function* f(){}";
                         break;
                     default:
                         ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(kind), kind.ToString());
@@ -112,7 +114,7 @@ public partial class Function
                         functionExpression = "function* f(";
                         break;
                     case FunctionKind.AsyncGenerator:
-                        ExceptionHelper.ThrowNotImplementedException("Async generators not implemented");
+                        functionExpression = "async function* f(";
                         break;
                     default:
                         ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(kind), kind.ToString());
@@ -171,10 +173,8 @@ public partial class Function
         }
         else if (kind == FunctionKind.AsyncGenerator)
         {
-            // TODO
-            // Let prototype be ! OrdinaryObjectCreate(%AsyncGeneratorFunction.prototype.prototype%).
-            // Perform DefinePropertyOrThrow(F, "prototype", PropertyDescriptor { [[Value]]: prototype, [[Writable]]: true, [[Enumerable]]: false, [[Configurable]]: false }).
-            ExceptionHelper.ThrowNotImplementedException("async generators not implemented");
+            var prototype = OrdinaryObjectCreate(_engine, _realm.Intrinsics.AsyncGeneratorFunction.PrototypeObject.PrototypeObject);
+            F.DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, PropertyFlag.Writable));
         }
         else if (kind == FunctionKind.Normal)
         {

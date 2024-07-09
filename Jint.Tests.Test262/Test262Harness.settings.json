@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "c3a326ace810e7c80a4e1b8df8c8b704ed223c28",
+  "SuiteGitSha": "b8cb40b66a61afd57550a84f4170e16ebfbd1e46",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -11,11 +11,14 @@
     "decorators",
     "import-assertions",
     "iterator-helpers",
+    "Math.sumPrecise",
     "regexp-lookbehind",
     "regexp-modifiers",
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
+    "source-phase-imports",
     "tail-call-optimization",
+    "uint8array-base64",
     "Temporal",
     "u180e"
   ],
