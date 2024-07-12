@@ -49,9 +49,7 @@ namespace Jint.Native.TypedArray
 
         public JsTypedArray Construct(byte[] values)
         {
-            var array = (JsTypedArray) base.Construct([values.Length], this);
-            FillTypedArrayInstance(array, values);
-            return array;
+            return base.Construct(new JsArrayBuffer(_engine, values));
         }
 
         private JsTypedArray FromBase64(JsValue thisObject, JsValue[] arguments)
@@ -73,8 +71,7 @@ namespace Jint.Native.TypedArray
                 throw result.Error;
             }
 
-            var resultLength = result.Bytes.Length;
-            var ta = AllocateTypedArray(resultLength);
+            var ta = _realm.Intrinsics.Uint8Array.Construct(new JsArrayBuffer(_engine, result.Bytes));
             ta._viewedArrayBuffer._arrayBufferData = result.Bytes;
             return ta;
         }
@@ -135,8 +132,7 @@ namespace Jint.Native.TypedArray
                 throw result.Error;
             }
 
-            var resultLength = result.Bytes.Length;
-            var ta = AllocateTypedArray(resultLength);
+            var ta = _realm.Intrinsics.Uint8Array.Construct(new JsArrayBuffer(_engine, result.Bytes));
             ta._viewedArrayBuffer._arrayBufferData = result.Bytes;
             return  ta;
         }
@@ -144,7 +140,7 @@ namespace Jint.Native.TypedArray
         internal static FromEncodingResult FromHex(Engine engine, string s, uint maxLength = int.MaxValue)
         {
             var length = s.Length;
-            var bytes = new byte[length / 2];
+            var bytes = new byte[System.Math.Min(maxLength, length / 2)];
             var read = 0;
 
             if (length % 2 != 0)
@@ -152,8 +148,9 @@ namespace Jint.Native.TypedArray
                 return new FromEncodingResult(bytes, ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid hex string"), read);
             }
 
+            int byteIndex = 0;
             const string Allowed = "0123456789abcdefABCDEF";
-            while (read < length && bytes.Length < maxLength)
+            while (read < length && byteIndex < maxLength)
             {
                 var hexits = s.AsSpan(read, 2);
                 if (!Allowed.Contains(hexits[0]) || !Allowed.Contains(hexits[1]))
@@ -166,7 +163,7 @@ namespace Jint.Native.TypedArray
 #else
                 var b  = byte.Parse(hexits.ToString(), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
 #endif
-                bytes[read / 2] = b;
+                bytes[byteIndex++] = b;
                 read += 2;
             }
             return new FromEncodingResult(bytes, Error: null, read);

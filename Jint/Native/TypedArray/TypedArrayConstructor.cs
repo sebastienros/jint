@@ -59,7 +59,6 @@ namespace Jint.Native.TypedArray
                 ExceptionHelper.ThrowTypeError(_realm);
             }
 
-
             var numberOfArgs = arguments.Length;
             if (numberOfArgs == 0)
             {

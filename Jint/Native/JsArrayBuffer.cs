@@ -28,6 +28,7 @@ public class JsArrayBuffer : ObjectInstance
             ExceptionHelper.ThrowRangeError(engine.Realm, "arrayBufferMaxByteLength cannot be larger than int32.MaxValue");
         }
 
+        _prototype = engine.Intrinsics.ArrayBuffer.PrototypeObject;
         _arrayBufferData = data;
         _arrayBufferMaxByteLength = (int?) arrayBufferMaxByteLength;
     }
