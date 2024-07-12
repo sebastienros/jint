@@ -128,15 +128,25 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
             return a.Equals(b);
         }
 
-        if (a is null)
-        {
-            return b is null;
-        }
-
-        return b is not null && a.Equals(b);
+        return b is null;
     }
 
     public static bool operator !=(JsString a, JsValue b)
+    {
+        return !(a == b);
+    }
+
+    public static bool operator ==(JsString? a, string? b)
+    {
+        if (a is not null)
+        {
+            return a.Equals(b);
+        }
+
+        return b is null;
+    }
+
+    public static bool operator !=(JsString? a, string? b)
     {
         return !(a == b);
     }

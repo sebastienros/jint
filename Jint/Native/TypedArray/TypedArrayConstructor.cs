@@ -24,14 +24,17 @@ namespace Jint.Native.TypedArray
             TypedArrayElementType type) : base(engine, realm, new JsString(type.GetTypedArrayName()))
         {
             _arrayElementType = type;
-
             _prototype = functionPrototype;
-            PrototypeObject = new TypedArrayPrototype(engine, objectPrototype, this, type);
+
+            PrototypeObject = type == TypedArrayElementType.Uint8
+                ? new Uint8ArrayPrototype(engine, objectPrototype, this)
+                : new TypedArrayPrototype(engine, objectPrototype, this, type);
+
             _length = new PropertyDescriptor(JsNumber.PositiveThree, PropertyFlag.Configurable);
             _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
         }
 
-        private TypedArrayPrototype PrototypeObject { get; }
+        private Prototype PrototypeObject { get; }
 
         protected override void Initialize()
         {
@@ -263,7 +266,7 @@ namespace Jint.Native.TypedArray
         /// <summary>
         /// https://tc39.es/ecma262/#sec-allocatetypedarray
         /// </summary>
-        private JsTypedArray AllocateTypedArray(JsValue newTarget, uint length = 0)
+        internal JsTypedArray AllocateTypedArray(JsValue newTarget, uint length = 0)
         {
             Func<Intrinsics, ObjectInstance> defaultProto = _arrayElementType switch
             {
