@@ -122,7 +122,7 @@ internal sealed class Uint8ArrayPrototype : Prototype
     {
        var o = ValidateUint8Array(thisObject);
 
-        var opts = Uint8ArrayConstructor.GetOptionsObject(_engine, arguments.At(1));
+        var opts = Uint8ArrayConstructor.GetOptionsObject(_engine, arguments.At(0));
         var alphabet = Uint8ArrayConstructor.GetAndValidateAlphabetOption(_engine, opts);
 
         var omitPadding = TypeConverter.ToBoolean(opts.Get("omitPadding"));
