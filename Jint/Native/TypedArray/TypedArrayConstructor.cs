@@ -298,7 +298,7 @@ namespace Jint.Native.TypedArray
             return obj;
         }
 
-        internal static void FillTypedArrayInstance<T>(JsTypedArray target, T[] values)
+        internal static void FillTypedArrayInstance<T>(JsTypedArray target, ReadOnlySpan<T>values)
         {
             for (var i = 0; i < values.Length; ++i)
             {
@@ -306,7 +306,7 @@ namespace Jint.Native.TypedArray
             }
         }
 
-        internal static void FillTypedArrayInstance(JsTypedArray target, ulong[] values)
+        internal static void FillTypedArrayInstance(JsTypedArray target, ReadOnlySpan<ulong> values)
         {
             for (var i = 0; i < values.Length; ++i)
             {
@@ -314,7 +314,7 @@ namespace Jint.Native.TypedArray
             }
         }
 
-        internal static void FillTypedArrayInstance(JsTypedArray target, long[] values)
+        internal static void FillTypedArrayInstance(JsTypedArray target, ReadOnlySpan<long> values)
         {
             for (var i = 0; i < values.Length; ++i)
             {

@@ -147,9 +147,7 @@ internal sealed class Uint8ArrayPrototype : Prototype
         using var outString = new ValueStringBuilder();
         for (var i = 0; i < toEncode.Length; i++)
         {
-            var hex = toEncode[i].ToString("x", CultureInfo.InvariantCulture);
-            hex = hex.PadLeft(2, '0');
-            outString.Append(hex);
+            outString.Append(toEncode[i].ToString("X2", CultureInfo.InvariantCulture));
         }
 
         return outString.ToString();

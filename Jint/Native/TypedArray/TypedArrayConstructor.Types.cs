@@ -17,7 +17,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public JsTypedArray Construct(sbyte[] values)
+        public JsTypedArray Construct(ReadOnlySpan<sbyte> values)
         {
             var array = (JsTypedArray) base.Construct([values.Length], this);
             FillTypedArrayInstance(array, values);
@@ -47,9 +47,11 @@ namespace Jint.Native.TypedArray
             SetProperties(properties);
         }
 
-        public JsTypedArray Construct(byte[] values)
+        public JsTypedArray Construct(ReadOnlySpan<byte> values)
         {
-            return base.Construct(new JsArrayBuffer(_engine, values));
+            var array = (JsTypedArray) base.Construct([values.Length], this);
+            FillTypedArrayInstance(array, values);
+            return array;
         }
 
         private JsTypedArray FromBase64(JsValue thisObject, JsValue[] arguments)
@@ -196,7 +198,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public JsTypedArray Construct(byte[] values)
+        public JsTypedArray Construct(ReadOnlySpan<byte> values)
         {
             var array = (JsTypedArray) base.Construct([values.Length], this);
             FillTypedArrayInstance(array, values);
@@ -214,7 +216,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public JsTypedArray Construct(short[] values)
+        public JsTypedArray Construct(ReadOnlySpan<short> values)
         {
             var array = (JsTypedArray) base.Construct([values.Length], this);
             FillTypedArrayInstance(array, values);
@@ -232,7 +234,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public JsTypedArray Construct(ushort[] values)
+        public JsTypedArray Construct(ReadOnlySpan<ushort> values)
         {
             var array = (JsTypedArray) base.Construct([values.Length], this);
             FillTypedArrayInstance(array, values);
@@ -250,7 +252,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public JsTypedArray Construct(int[] values)
+        public JsTypedArray Construct(ReadOnlySpan<int> values)
         {
             var array = (JsTypedArray) base.Construct([values.Length], this);
             FillTypedArrayInstance(array, values);
@@ -268,7 +270,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public JsTypedArray Construct(uint[] values)
+        public JsTypedArray Construct(ReadOnlySpan<uint> values)
         {
             var array = (JsTypedArray) base.Construct([values.Length], this);
             FillTypedArrayInstance(array, values);
@@ -287,7 +289,7 @@ namespace Jint.Native.TypedArray
         }
 
 #if SUPPORTS_HALF
-        public JsTypedArray Construct(Half[] values)
+        public JsTypedArray Construct(ReadOnlySpan<Half> values)
         {
             var array = (JsTypedArray) base.Construct([values.Length], this);
             for (var i = 0; i < values.Length; ++i)
@@ -309,7 +311,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public JsTypedArray Construct(float[] values)
+        public JsTypedArray Construct(ReadOnlySpan<float> values)
         {
             var array = (JsTypedArray) base.Construct([values.Length], this);
             FillTypedArrayInstance(array, values);
@@ -327,7 +329,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public JsTypedArray Construct(double[] values)
+        public JsTypedArray Construct(ReadOnlySpan<double> values)
         {
             var array = (JsTypedArray) base.Construct([values.Length], this);
             FillTypedArrayInstance(array, values);
@@ -345,7 +347,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public JsTypedArray Construct(long[] values)
+        public JsTypedArray Construct(ReadOnlySpan<long> values)
         {
             var array = (JsTypedArray) base.Construct([values.Length], this);
             FillTypedArrayInstance(array, values);
@@ -363,7 +365,7 @@ namespace Jint.Native.TypedArray
         {
         }
 
-        public JsTypedArray Construct(ulong[] values)
+        public JsTypedArray Construct(ReadOnlySpan<ulong> values)
         {
             var array = (JsTypedArray) base.Construct([values.Length], this);
             FillTypedArrayInstance(array, values);
