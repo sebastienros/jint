@@ -53,7 +53,6 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
         }
 
         var ta = _realm.Intrinsics.Uint8Array.Construct(new JsArrayBuffer(_engine, result.Bytes));
-        ta._viewedArrayBuffer._arrayBufferData = result.Bytes;
         return ta;
     }
 
@@ -104,7 +103,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
 
         var read = 0;
         var bytes = new List<byte>();
-        var chunk = string.Empty;
+        var chunk = new char[4];
         var chunkLength = 0;
         var index = 0;
         var length = input.Length;
@@ -133,7 +132,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
                             return new FromEncodingResult([], ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid base64 chunk length."), read);
                         }
 
-                        DecodeBase64Chunk(engine, bytes, chunk, throwOnExtraBits: false);
+                        DecodeBase64Chunk(engine, bytes, chunk, chunkLength, throwOnExtraBits: false);
                     }
                     else // strict
                     {
@@ -181,7 +180,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
                     return new FromEncodingResult([], ExceptionHelper.CreateSyntaxError(engine.Realm, "Extra characters after base64 string."), read);
                 }
 
-                DecodeBase64Chunk(engine, bytes, chunk, throwOnExtraBits);
+                DecodeBase64Chunk(engine, bytes, chunk, chunkLength, throwOnExtraBits);
                 return new FromEncodingResult(bytes.ToArray(), Error: null, length);
             }
 
@@ -214,13 +213,12 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
                 return new FromEncodingResult(bytes.ToArray(), Error: null, read);
             }
 
-            chunk += currentChar;
+            chunk[chunkLength] = currentChar;
             chunkLength++;
 
             if (chunkLength == 4)
             {
-                DecodeBase64Chunk(engine, bytes, chunk, throwOnExtraBits: false);
-                chunk = string.Empty;
+                DecodeBase64Chunk(engine, bytes, chunk, chunkLength, throwOnExtraBits: false);
                 chunkLength = 0;
                 read = index;
                 if (bytes.Count == maxLength)
@@ -250,20 +248,21 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
     private static void DecodeBase64Chunk(
         Engine engine,
         List<byte> into,
-        string chunk,
+        char[] chunk,
+        int chunkLength,
         bool throwOnExtraBits = false)
     {
-        int chunkLength = chunk.Length;
         if (chunkLength == 2)
         {
-            chunk += "AA";
+            chunk[2] = 'A';
+            chunk[3] = 'A';
         }
         else if (chunkLength == 3)
         {
-            chunk += "A";
+            chunk[3] = 'A';
         }
 
-        byte[] bytes = WebEncoders.Base64UrlDecode(chunk);
+        var bytes = WebEncoders.Base64UrlDecode(chunk);
 
         if (chunkLength == 2)
         {
