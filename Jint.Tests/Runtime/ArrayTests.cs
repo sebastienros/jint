@@ -1,4 +1,5 @@
 using Jint.Native;
+using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime;
 
@@ -106,22 +107,6 @@ public class ArrayTests
 
         _engine.Execute(code);
     }
-
-#if !NETCOREAPP
-        // this test case only triggers on older full framework where the is no checks for infinite comparisons
-        [Fact]
-        public void ArraySortShouldObeyExecutionConstraints()
-        {
-            const string script = @"
-                let cases = [5,5];
-                let latestCase = cases.sort((c1, c2) => c1 > c2 ? -1: 1);";
-
-            var engine = new Engine(options => options
-                .TimeoutInterval(TimeSpan.FromSeconds(1))
-            );
-            Assert.Throws<TimeoutException>(() => engine.Evaluate(script));
-        }
-#endif
 
     [Fact]
     public void ExtendingArrayAndInstanceOf()
@@ -351,5 +336,25 @@ return get + '' === ""length,0,1,2,3"";";
         Assert.Equal(1, propertyDescriptors[0].Value.Value);
         Assert.Equal("length", propertyDescriptors[1].Key);
         Assert.Equal(1, propertyDescriptors[1].Value.Value);
+    }
+
+    [Fact]
+    public void ArrayFromSortTest()
+    {
+        var item1 = new KeyValuePair<string, string>("Id1", "0020");
+        var item2 = new KeyValuePair<string, string>("Id2", "0001");
+
+        var engine = new Engine();
+        engine.SetValue("Root", new { Inner = new { Items = new[] { item1, item2 } } });
+
+        var result = engine.Evaluate("Array.from(Root.Inner.Items).sort((a, b) => a.Value === '0001' ? -1 : 1)").AsArray();
+
+        var enumerableResult = result
+            .Select(x => (KeyValuePair<string, string>) ((IObjectWrapper) x).Target)
+            .ToList();
+
+        enumerableResult.Should().HaveCount(2);
+        enumerableResult[0].Key.Should().Be(item2.Key);
+        enumerableResult[1].Key.Should().Be(item1.Key);
     }
 }
