@@ -1267,7 +1267,7 @@ namespace Jint.Native.Array
                 return s;
             }
 
-            using var sb = new ValueStringBuilder(stackalloc char[256]);
+            using var sb = new ValueStringBuilder();
             sb.Append(s);
             for (uint k = 1; k < len; k++)
             {
