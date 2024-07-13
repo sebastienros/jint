@@ -18,7 +18,6 @@
     "regexp-v-flag",
     "source-phase-imports",
     "tail-call-optimization",
-    "uint8array-base64",
     "Temporal",
     "u180e"
   ],

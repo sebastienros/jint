@@ -130,6 +130,7 @@ and many more.
 - ✔ Resizable and growable ArrayBuffers
 - ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
 - ✔ ShadowRealm
+- ✔ Uint8Array to/from base64
 
 #### Other
 

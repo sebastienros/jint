@@ -18,19 +18,24 @@ namespace Jint.Runtime
         [DoesNotReturn]
         public static void ThrowSyntaxError(Realm realm, string? message = null)
         {
-            throw new JavaScriptException(realm.Intrinsics.SyntaxError, message);
+            throw CreateSyntaxError(realm, message);
         }
 
         [DoesNotReturn]
         public static void ThrowSyntaxError(Realm realm, string message, in SourceLocation location)
         {
-            throw new JavaScriptException(realm.Intrinsics.SyntaxError, message).SetJavaScriptLocation(location);
+            throw CreateSyntaxError(realm, message).SetJavaScriptLocation(location);
+        }
+
+        public static JavaScriptException CreateSyntaxError(Realm realm, string? message)
+        {
+            return new JavaScriptException(realm.Intrinsics.SyntaxError, message);
         }
 
         [DoesNotReturn]
         public static void ThrowArgumentException(string? message = null)
         {
-            ThrowArgumentException(message, null);
+            ThrowArgumentException(message, paramName: null);
         }
 
         [DoesNotReturn]

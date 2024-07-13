@@ -28,7 +28,7 @@ public sealed class ArrayBufferConstructor : Constructor
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
     }
 
-    private ArrayBufferPrototype PrototypeObject { get; }
+    internal ArrayBufferPrototype PrototypeObject { get; }
 
     protected override void Initialize()
     {
