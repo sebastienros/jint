@@ -1077,14 +1077,33 @@ namespace Jint.Native.Array
             // don't eat inner exceptions
             try
             {
-                var array = items.OrderBy(x => x, ArrayComparer.WithFunction(_engine, compareFn!)).ToArray();
-
-                uint j;
-                for (j = 0; j < itemCount; ++j)
+                var comparer = ArrayComparer.WithFunction(_engine, compareFn);
+                IEnumerable<JsValue> ordered;
+#if !NETCOREAPP
+                if (comparer is not null)
                 {
-                    var updateLength = j == itemCount - 1;
-                    obj.Set(j, array[j], updateLength: updateLength, throwOnError: true);
+                    // sort won't be stable on .NET Framework, but at least it cant go into infinite loop when comparer is badly implemented
+                    items.Sort(comparer);
+                    ordered = items;
                 }
+                else
+                {
+                    ordered = items.OrderBy(x => x, comparer);
+                }
+#else
+    #if NET8_0_OR_GREATER
+                ordered = items.Order(comparer);
+    #else
+                ordered = items.OrderBy(x => x, comparer);
+    #endif
+#endif
+                uint j = 0;
+                foreach (var item in ordered)
+                {
+                    obj.Set(j, item, updateLength: false, throwOnError: true);
+                    j++;
+                }
+
                 for (; j < len; ++j)
                 {
                     obj.DeletePropertyOrThrow(j);
