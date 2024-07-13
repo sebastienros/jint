@@ -1,5 +1,6 @@
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.Object;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 
@@ -18,8 +19,12 @@ internal sealed class JintArrowFunctionExpression : JintExpression
         var env = engine.ExecutionContext.LexicalEnvironment;
         var privateEnv = engine.ExecutionContext.PrivateEnvironment;
 
+        ObjectInstance prototype = _function.Function.Async
+            ? engine.Realm.Intrinsics.AsyncFunction.PrototypeObject
+            : engine.Realm.Intrinsics.Function.PrototypeObject;
+
         var closure = engine.Realm.Intrinsics.Function.OrdinaryFunctionCreate(
-            engine.Realm.Intrinsics.Function.PrototypeObject,
+            prototype,
             _function,
             FunctionThisMode.Lexical,
             env,
