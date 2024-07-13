@@ -1079,7 +1079,7 @@ namespace Jint.Native.Array
             {
                 var comparer = ArrayComparer.WithFunction(_engine, compareFn);
                 IEnumerable<JsValue> ordered;
-#if NETFRAMEWORK
+#if !NETCOREAPP
                 if (comparer is not null)
                 {
                     // sort won't be stable on .NET Framework, but at least it cant go into infinite loop when comparer is badly implemented
