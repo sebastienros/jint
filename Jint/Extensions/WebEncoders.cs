@@ -106,15 +106,16 @@ internal static class WebEncoders
     /// Encodes <paramref name="input"/> using base64url encoding.
     /// </summary>
     /// <param name="input">The binary input to encode.</param>
+    /// <param name="omitPadding"></param>
     /// <returns>The base64url-encoded form of <paramref name="input"/>.</returns>
-    public static string Base64UrlEncode(byte[] input)
+    public static string Base64UrlEncode(byte[] input, bool omitPadding)
     {
         if (input == null)
         {
             throw new ArgumentNullException(nameof(input));
         }
 
-        return Base64UrlEncode(input, offset: 0, count: input.Length);
+        return Base64UrlEncode(input, offset: 0, count: input.Length, omitPadding);
     }
 
     /// <summary>
@@ -123,8 +124,9 @@ internal static class WebEncoders
     /// <param name="input">The binary input to encode.</param>
     /// <param name="offset">The offset into <paramref name="input"/> at which to begin encoding.</param>
     /// <param name="count">The number of bytes from <paramref name="input"/> to encode.</param>
+    /// <param name="omitPadding"></param>
     /// <returns>The base64url-encoded form of <paramref name="input"/>.</returns>
-    public static string Base64UrlEncode(byte[] input, int offset, int count)
+    public static string Base64UrlEncode(byte[] input, int offset, int count, bool omitPadding)
     {
         if (input == null)
         {
@@ -132,7 +134,7 @@ internal static class WebEncoders
         }
 
 #if NETCOREAPP
-        return Base64UrlEncode(input.AsSpan(offset, count));
+        return Base64UrlEncode(input.AsSpan(offset, count), omitPadding);
 #else
             // Special-case empty input
             if (count == 0)
@@ -141,7 +143,7 @@ internal static class WebEncoders
             }
 
             var buffer = new char[GetArraySizeRequiredToEncode(count)];
-            var numBase64Chars = Base64UrlEncode(input, offset, buffer, outputOffset: 0, count: count);
+            var numBase64Chars = Base64UrlEncode(input, offset, buffer, outputOffset: 0, count: count, omitPadding);
 
             return new string(buffer, startIndex: 0, length: numBase64Chars);
 #endif
@@ -162,10 +164,11 @@ internal static class WebEncoders
     /// <paramref name="input"/>.
     /// </param>
     /// <param name="count">The number of <c>byte</c>s from <paramref name="input"/> to encode.</param>
+    /// <param name="omitPadding"></param>
     /// <returns>
     /// The number of characters written to <paramref name="output"/>, less any padding characters.
     /// </returns>
-    public static int Base64UrlEncode(byte[] input, int offset, char[] output, int outputOffset, int count)
+    public static int Base64UrlEncode(byte[] input, int offset, char[] output, int outputOffset, int count, bool omitPadding)
     {
         if (input == null)
         {
@@ -188,7 +191,7 @@ internal static class WebEncoders
         }
 
 #if NETCOREAPP
-        return Base64UrlEncode(input.AsSpan(offset, count), output.AsSpan(outputOffset));
+        return Base64UrlEncode(input.AsSpan(offset, count), output.AsSpan(outputOffset), omitPadding);
 #else
             // Special-case empty input.
             if (count == 0)
@@ -213,7 +216,7 @@ internal static class WebEncoders
                 {
                     output[i] = '_';
                 }
-                else if (ch == '=')
+                else if (omitPadding && ch == '=')
                 {
                     // We've reached a padding character; truncate the remainder.
                     return i - outputOffset;
@@ -226,7 +229,7 @@ internal static class WebEncoders
 
     /// <summary>
     /// Get the minimum output <c>char[]</c> size required for encoding <paramref name="count"/>
-    /// <see cref="byte"/>s with the <see cref="Base64UrlEncode(byte[], int, char[], int, int)"/> method.
+    /// <see cref="byte"/>s with the <see cref="Base64UrlEncode(byte[], int, char[], int, int, bool)"/> method.
     /// </summary>
     /// <param name="count">The number of characters to encode.</param>
     /// <returns>
@@ -243,8 +246,9 @@ internal static class WebEncoders
     /// Encodes <paramref name="input"/> using base64url encoding.
     /// </summary>
     /// <param name="input">The binary input to encode.</param>
+    /// <param name="omitPadding"></param>
     /// <returns>The base64url-encoded form of <paramref name="input"/>.</returns>
-    public static string Base64UrlEncode(ReadOnlySpan<byte> input)
+    public static string Base64UrlEncode(ReadOnlySpan<byte> input, bool omitPadding)
     {
         if (input.IsEmpty)
         {
@@ -258,7 +262,7 @@ internal static class WebEncoders
             ? stackalloc char[bufferSize]
             : bufferToReturnToPool = ArrayPool<char>.Shared.Rent(bufferSize);
 
-        var numBase64Chars = Base64UrlEncode(input, buffer);
+        var numBase64Chars = Base64UrlEncode(input, buffer, omitPadding);
         var base64Url = new string(buffer.Slice(0, numBase64Chars));
 
         if (bufferToReturnToPool != null)
@@ -269,7 +273,7 @@ internal static class WebEncoders
         return base64Url;
     }
 
-    private static int Base64UrlEncode(ReadOnlySpan<byte> input, Span<char> output)
+    private static int Base64UrlEncode(ReadOnlySpan<byte> input, Span<char> output, bool omitPadding)
     {
         Debug.Assert(output.Length >= GetArraySizeRequiredToEncode(input.Length));
 
@@ -294,7 +298,7 @@ internal static class WebEncoders
             {
                 output[i] = '_';
             }
-            else if (ch == '=')
+            else if (omitPadding && ch == '=')
             {
                 // We've reached a padding character; truncate the remainder.
                 return i;

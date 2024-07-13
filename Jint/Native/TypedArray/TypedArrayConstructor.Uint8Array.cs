@@ -129,14 +129,14 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
                     {
                         if (chunkLength == 1)
                         {
-                            return new FromEncodingResult([], ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid base64 chunk length."), read);
+                            return new FromEncodingResult(bytes.ToArray(), ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid base64 chunk length."), read);
                         }
 
                         DecodeBase64Chunk(engine, bytes, chunk, chunkLength, throwOnExtraBits: false);
                     }
                     else // strict
                     {
-                        return new FromEncodingResult([], ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid base64 chunk length in strict mode."), read);
+                        return new FromEncodingResult(bytes.ToArray(), ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid base64 chunk length in strict mode."), read);
                     }
                 }
 
@@ -150,7 +150,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
             {
                 if (chunkLength < 2)
                 {
-                    return new FromEncodingResult([], ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid '=' placement in base64 string."), read);
+                    return new FromEncodingResult(bytes.ToArray(), ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid '=' placement in base64 string."), read);
                 }
 
                 index = SkipAsciiWhitespace(input, index);
@@ -163,13 +163,13 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
                             return new FromEncodingResult(bytes.ToArray(), Error: null, read);
                         }
 
-                        return new FromEncodingResult([], ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid base64 string termination."), read);
+                        return new FromEncodingResult(bytes.ToArray(), ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid base64 string termination."), read);
                     }
 
                     currentChar = input[index];
                     if (currentChar != '=')
                     {
-                        return new FromEncodingResult([], ExceptionHelper.CreateSyntaxError(engine.Realm, "Expected '=' in base64 string."), read);
+                        return new FromEncodingResult(bytes.ToArray(), ExceptionHelper.CreateSyntaxError(engine.Realm, "Expected '=' in base64 string."), read);
                     }
 
                     index = SkipAsciiWhitespace(input, index + 1);
@@ -177,7 +177,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
 
                 if (index < length)
                 {
-                    return new FromEncodingResult([], ExceptionHelper.CreateSyntaxError(engine.Realm, "Extra characters after base64 string."), read);
+                    return new FromEncodingResult(bytes.ToArray(), ExceptionHelper.CreateSyntaxError(engine.Realm, "Extra characters after base64 string."), read);
                 }
 
                 DecodeBase64Chunk(engine, bytes, chunk, chunkLength, throwOnExtraBits);
@@ -188,7 +188,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
             {
                 if (currentChar is '+' or '/')
                 {
-                    return new FromEncodingResult([], ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid character in base64url string."), read);
+                    return new FromEncodingResult(bytes.ToArray(), ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid character in base64url string."), read);
                 }
 
                 if (currentChar == '-')
@@ -204,7 +204,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
 
             if (!Base64Alphabet.Contains(currentChar))
             {
-                return new FromEncodingResult([], ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid base64 character."), read);
+                return new FromEncodingResult(bytes.ToArray(), ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid base64 character."), read);
             }
 
             ulong remaining = maxLength - (ulong) bytes.Count;
@@ -318,7 +318,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
 
         if (length % 2 != 0)
         {
-            return new FromEncodingResult(bytes, ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid hex string"), read);
+            return new FromEncodingResult([], ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid hex string"), read);
         }
 
         var byteIndex = 0;
@@ -327,7 +327,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
             var hexits = s.AsSpan(read, 2);
             if (!HexAlphabet.Contains(hexits[0]) || !HexAlphabet.Contains(hexits[1]))
             {
-                return new FromEncodingResult(bytes, ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid hex value"), read);
+                return new FromEncodingResult(bytes.AsSpan(0, byteIndex).ToArray(), ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid hex value"), read);
             }
 
 #if SUPPORTS_SPAN_PARSE

@@ -60,12 +60,12 @@ internal sealed class Uint8ArrayPrototype : Prototype
 
         var byteLength = taRecord.TypedArrayLength;
         var result = Uint8ArrayConstructor.FromBase64(_engine, s.ToString(), alphabet.ToString(), lastChunkHandling.ToString(), byteLength);
+        SetUint8ArrayBytes(into, result.Bytes);
+
         if (result.Error is not null)
         {
             throw result.Error;
         }
-
-        SetUint8ArrayBytes(into, result.Bytes);
 
         var resultObject = OrdinaryObjectCreate(_engine, _engine.Intrinsics.Object);
         resultObject.CreateDataPropertyOrThrow("read", result.Read);
@@ -105,12 +105,12 @@ internal sealed class Uint8ArrayPrototype : Prototype
 
         var byteLength = taRecord.TypedArrayLength;
         var result = Uint8ArrayConstructor.FromHex(_engine, s.ToString(), byteLength);
+        SetUint8ArrayBytes(into, result.Bytes);
+
         if (result.Error is not null)
         {
             throw result.Error;
         }
-
-        SetUint8ArrayBytes(into, result.Bytes);
 
         var resultObject = OrdinaryObjectCreate(_engine, _engine.Intrinsics.Object);
         resultObject.CreateDataPropertyOrThrow("read", result.Read);
@@ -136,10 +136,14 @@ internal sealed class Uint8ArrayPrototype : Prototype
         if (alphabet == "base64")
         {
             outAscii = Convert.ToBase64String(toEncode);
+            if (omitPadding)
+            {
+                outAscii = outAscii.TrimEnd('=');
+            }
         }
         else
         {
-            outAscii = WebEncoders.Base64UrlEncode(toEncode);
+            outAscii = WebEncoders.Base64UrlEncode(toEncode, omitPadding);
         }
 
         return outAscii;
