@@ -308,6 +308,8 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
         return ta;
     }
 
+    private static readonly SearchValues<char> HexAlphabet = SearchValues.Create("0123456789abcdefABCDEF");
+
     internal static FromEncodingResult FromHex(Engine engine, string s, uint maxLength = int.MaxValue)
     {
         var length = s.Length;
@@ -319,12 +321,11 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
             return new FromEncodingResult(bytes, ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid hex string"), read);
         }
 
-        int byteIndex = 0;
-        const string Allowed = "0123456789abcdefABCDEF";
+        var byteIndex = 0;
         while (read < length && byteIndex < maxLength)
         {
             var hexits = s.AsSpan(read, 2);
-            if (!Allowed.Contains(hexits[0]) || !Allowed.Contains(hexits[1]))
+            if (!HexAlphabet.Contains(hexits[0]) || !HexAlphabet.Contains(hexits[1]))
             {
                 return new FromEncodingResult(bytes, ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid hex value"), read);
             }
@@ -332,7 +333,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
 #if SUPPORTS_SPAN_PARSE
             var b = byte.Parse(hexits, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
 #else
-                var b = byte.Parse(hexits.ToString(), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+            var b = byte.Parse(hexits.ToString(), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
 #endif
             bytes[byteIndex++] = b;
             read += 2;
