@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "c3a326ace810e7c80a4e1b8df8c8b704ed223c28",
+  "SuiteGitSha": "694fae5b10fa760951dbc9c2fe22a2fa38383c66",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -8,18 +8,22 @@
     "Array.fromAsync",
     "async-iteration",
     "Atomics",
+    "Atomics.pause",
     "Float16Array",
     "import-assertions",
     "iterator-helpers",
+    "Math.sumPrecise",
     "promise-try",
     "regexp-duplicate-named-groups",
     "regexp-lookbehind",
     "regexp-modifiers",
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
+    "source-phase-imports",
     "tail-call-optimization",
     "Temporal",
-    "u180e"
+    "u180e",
+    "uint8array-base64"
   ],
   "ExcludedFlags": [
   ],
