@@ -1,375 +1,206 @@
-using System.Globalization;
-using Jint.Collections;
-using Jint.Native.Object;
 using Jint.Runtime;
-using Jint.Runtime.Descriptors;
-using Jint.Runtime.Interop;
 
-namespace Jint.Native.TypedArray
+namespace Jint.Native.TypedArray;
+
+public sealed class Int8ArrayConstructor : TypedArrayConstructor
 {
-    public sealed class Int8ArrayConstructor : TypedArrayConstructor
+    internal Int8ArrayConstructor(
+        Engine engine,
+        Realm realm,
+        IntrinsicTypedArrayConstructor functionPrototype,
+        IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Int8)
     {
-        internal Int8ArrayConstructor(
-            Engine engine,
-            Realm realm,
-            IntrinsicTypedArrayConstructor functionPrototype,
-            IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Int8)
-        {
-        }
-
-        public JsTypedArray Construct(ReadOnlySpan<sbyte> values)
-        {
-            var array = (JsTypedArray) base.Construct([values.Length], this);
-            FillTypedArrayInstance(array, values);
-            return array;
-        }
     }
 
-    public sealed class Uint8ArrayConstructor : TypedArrayConstructor
+    public JsTypedArray Construct(ReadOnlySpan<sbyte> values)
     {
-        internal Uint8ArrayConstructor(
-            Engine engine,
-            Realm realm,
-            IntrinsicTypedArrayConstructor functionPrototype,
-            IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Uint8)
-        {
-        }
+        var array = (JsTypedArray) base.Construct([values.Length], this);
+        FillTypedArrayInstance(array, values);
+        return array;
+    }
+}
 
-        protected override void Initialize()
-        {
-            const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-            var properties = new PropertyDictionary(1, checkExistingKeys: false)
-            {
-                ["BYTES_PER_ELEMENT"] = new(new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.AllForbidden)),
-                ["fromBase64"] = new(new ClrFunction(Engine, "fromBase64", FromBase64, 1, PropertyFlag.Configurable), PropertyFlags),
-                ["fromHex"] = new(new ClrFunction(Engine, "fromHex", FromHex, 1, PropertyFlag.Configurable), PropertyFlags),
-            };
-            SetProperties(properties);
-        }
-
-        public JsTypedArray Construct(ReadOnlySpan<byte> values)
-        {
-            var array = (JsTypedArray) base.Construct([values.Length], this);
-            FillTypedArrayInstance(array, values);
-            return array;
-        }
-
-        private JsTypedArray FromBase64(JsValue thisObject, JsValue[] arguments)
-        {
-            var s = arguments.At(0);
-
-            if (!s.IsString())
-            {
-                ExceptionHelper.ThrowTypeError(_realm, "fromBase64 must be called with a string");
-            }
-
-            var opts = GetOptionsObject(_engine, arguments.At(1));
-            var alphabet = GetAndValidateAlphabetOption(_engine, opts);
-            var lastChunkHandling = GetAndValidateLastChunkHandling(_engine, opts);
-
-            var result = FromBase64(s.ToString(), alphabet.ToString(), lastChunkHandling.ToString());
-            if (result.Error is not null)
-            {
-                throw result.Error;
-            }
-
-            var ta = _realm.Intrinsics.Uint8Array.Construct(new JsArrayBuffer(_engine, result.Bytes));
-            ta._viewedArrayBuffer._arrayBufferData = result.Bytes;
-            return ta;
-        }
-
-        internal static JsString GetAndValidateLastChunkHandling(Engine engine, ObjectInstance opts)
-        {
-            var lastChunkHandling = opts.Get("lastChunkHandling");
-            if (lastChunkHandling.IsUndefined())
-            {
-                lastChunkHandling = "loose";
-            }
-
-            if (lastChunkHandling is not JsString s || (s != "loose" && s != "strict" && s != "stop-before-partial"))
-            {
-                ExceptionHelper.ThrowTypeError(engine.Realm, "lastChunkHandling must be either 'loose', 'strict' or 'stop-before-partial'");
-                return default;
-            }
-
-            return s;
-        }
-
-        internal static JsString GetAndValidateAlphabetOption(Engine engine, ObjectInstance opts)
-        {
-            var alphabet = opts.Get("alphabet");
-            if (alphabet.IsUndefined())
-            {
-                alphabet = "base64";
-            }
-
-            if (alphabet is not JsString s || (s != "base64" && s != "base64url"))
-            {
-                ExceptionHelper.ThrowTypeError(engine.Realm, "alphabet must be either 'base64' or 'base64url'");
-                return default;
-            }
-
-            return s;
-        }
-
-        internal readonly record struct FromEncodingResult(byte[] Bytes, JavaScriptException? Error, int Read);
-
-        internal static FromEncodingResult FromBase64(string s, string alphabet, string lastChunkHandling, uint? maxLength = null)
-        {
-            throw new NotImplementedException();
-        }
-
-        private JsTypedArray FromHex(JsValue thisObject, JsValue[] arguments)
-        {
-            var s = arguments.At(0);
-
-            if (!s.IsString())
-            {
-                ExceptionHelper.ThrowTypeError(_realm, "fromHex must be called with a string");
-            }
-
-            var result = FromHex(_engine, s.ToString());
-            if (result.Error is not null)
-            {
-                throw result.Error;
-            }
-
-            var ta = _realm.Intrinsics.Uint8Array.Construct(new JsArrayBuffer(_engine, result.Bytes));
-            ta._viewedArrayBuffer._arrayBufferData = result.Bytes;
-            return  ta;
-        }
-
-        internal static FromEncodingResult FromHex(Engine engine, string s, uint maxLength = int.MaxValue)
-        {
-            var length = s.Length;
-            var bytes = new byte[System.Math.Min(maxLength, length / 2)];
-            var read = 0;
-
-            if (length % 2 != 0)
-            {
-                return new FromEncodingResult(bytes, ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid hex string"), read);
-            }
-
-            int byteIndex = 0;
-            const string Allowed = "0123456789abcdefABCDEF";
-            while (read < length && byteIndex < maxLength)
-            {
-                var hexits = s.AsSpan(read, 2);
-                if (!Allowed.Contains(hexits[0]) || !Allowed.Contains(hexits[1]))
-                {
-                    return new FromEncodingResult(bytes, ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid hex value"), read);
-                }
-
-#if SUPPORTS_SPAN_PARSE
-                var b  = byte.Parse(hexits, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-#else
-                var b  = byte.Parse(hexits.ToString(), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-#endif
-                bytes[byteIndex++] = b;
-                read += 2;
-            }
-            return new FromEncodingResult(bytes, Error: null, read);
-        }
-
-        internal static ObjectInstance GetOptionsObject(Engine engine, JsValue options)
-        {
-            if (options.IsUndefined())
-            {
-                return new JsObject(engine);
-            }
-
-            if (options.IsObject())
-            {
-                return options.AsObject();
-            }
-
-            ExceptionHelper.ThrowTypeError(engine.Realm, "Invalid options");
-            return default;
-        }
+public sealed class Uint8ClampedArrayConstructor : TypedArrayConstructor
+{
+    internal Uint8ClampedArrayConstructor(
+        Engine engine,
+        Realm realm,
+        IntrinsicTypedArrayConstructor functionPrototype,
+        IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Uint8C)
+    {
     }
 
-    public sealed class Uint8ClampedArrayConstructor : TypedArrayConstructor
+    public JsTypedArray Construct(ReadOnlySpan<byte> values)
     {
-        internal Uint8ClampedArrayConstructor(
-            Engine engine,
-            Realm realm,
-            IntrinsicTypedArrayConstructor functionPrototype,
-            IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Uint8C)
-        {
-        }
+        var array = (JsTypedArray) base.Construct([values.Length], this);
+        FillTypedArrayInstance(array, values);
+        return array;
+    }
+}
 
-        public JsTypedArray Construct(ReadOnlySpan<byte> values)
-        {
-            var array = (JsTypedArray) base.Construct([values.Length], this);
-            FillTypedArrayInstance(array, values);
-            return array;
-        }
+public sealed class Int16ArrayConstructor : TypedArrayConstructor
+{
+    internal Int16ArrayConstructor(
+        Engine engine,
+        Realm realm,
+        IntrinsicTypedArrayConstructor functionPrototype,
+        IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Int16)
+    {
     }
 
-    public sealed class Int16ArrayConstructor : TypedArrayConstructor
+    public JsTypedArray Construct(ReadOnlySpan<short> values)
     {
-        internal Int16ArrayConstructor(
-            Engine engine,
-            Realm realm,
-            IntrinsicTypedArrayConstructor functionPrototype,
-            IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Int16)
-        {
-        }
+        var array = (JsTypedArray) base.Construct([values.Length], this);
+        FillTypedArrayInstance(array, values);
+        return array;
+    }
+}
 
-        public JsTypedArray Construct(ReadOnlySpan<short> values)
-        {
-            var array = (JsTypedArray) base.Construct([values.Length], this);
-            FillTypedArrayInstance(array, values);
-            return array;
-        }
+public sealed class Uint16ArrayConstructor : TypedArrayConstructor
+{
+    internal Uint16ArrayConstructor(
+        Engine engine,
+        Realm realm,
+        IntrinsicTypedArrayConstructor functionPrototype,
+        IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Uint16)
+    {
     }
 
-    public sealed class Uint16ArrayConstructor : TypedArrayConstructor
+    public JsTypedArray Construct(ReadOnlySpan<ushort> values)
     {
-        internal Uint16ArrayConstructor(
-            Engine engine,
-            Realm realm,
-            IntrinsicTypedArrayConstructor functionPrototype,
-            IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Uint16)
-        {
-        }
+        var array = (JsTypedArray) base.Construct([values.Length], this);
+        FillTypedArrayInstance(array, values);
+        return array;
+    }
+}
 
-        public JsTypedArray Construct(ReadOnlySpan<ushort> values)
-        {
-            var array = (JsTypedArray) base.Construct([values.Length], this);
-            FillTypedArrayInstance(array, values);
-            return array;
-        }
+public sealed class Int32ArrayConstructor : TypedArrayConstructor
+{
+    internal Int32ArrayConstructor(
+        Engine engine,
+        Realm realm,
+        IntrinsicTypedArrayConstructor functionPrototype,
+        IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Int32)
+    {
     }
 
-    public sealed class Int32ArrayConstructor : TypedArrayConstructor
+    public JsTypedArray Construct(ReadOnlySpan<int> values)
     {
-        internal Int32ArrayConstructor(
-            Engine engine,
-            Realm realm,
-            IntrinsicTypedArrayConstructor functionPrototype,
-            IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Int32)
-        {
-        }
+        var array = (JsTypedArray) base.Construct([values.Length], this);
+        FillTypedArrayInstance(array, values);
+        return array;
+    }
+}
 
-        public JsTypedArray Construct(ReadOnlySpan<int> values)
-        {
-            var array = (JsTypedArray) base.Construct([values.Length], this);
-            FillTypedArrayInstance(array, values);
-            return array;
-        }
+public sealed class Uint32ArrayConstructor : TypedArrayConstructor
+{
+    internal Uint32ArrayConstructor(
+        Engine engine,
+        Realm realm,
+        IntrinsicTypedArrayConstructor functionPrototype,
+        IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Uint32)
+    {
     }
 
-    public sealed class Uint32ArrayConstructor : TypedArrayConstructor
+    public JsTypedArray Construct(ReadOnlySpan<uint> values)
     {
-        internal Uint32ArrayConstructor(
-            Engine engine,
-            Realm realm,
-            IntrinsicTypedArrayConstructor functionPrototype,
-            IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Uint32)
-        {
-        }
-
-        public JsTypedArray Construct(ReadOnlySpan<uint> values)
-        {
-            var array = (JsTypedArray) base.Construct([values.Length], this);
-            FillTypedArrayInstance(array, values);
-            return array;
-        }
+        var array = (JsTypedArray) base.Construct([values.Length], this);
+        FillTypedArrayInstance(array, values);
+        return array;
     }
+}
 
-    public sealed class Float16ArrayConstructor : TypedArrayConstructor
+public sealed class Float16ArrayConstructor : TypedArrayConstructor
+{
+    internal Float16ArrayConstructor(
+        Engine engine,
+        Realm realm,
+        IntrinsicTypedArrayConstructor functionPrototype,
+        IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Float16)
     {
-        internal Float16ArrayConstructor(
-            Engine engine,
-            Realm realm,
-            IntrinsicTypedArrayConstructor functionPrototype,
-            IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Float16)
-        {
-        }
+    }
 
 #if SUPPORTS_HALF
-        public JsTypedArray Construct(ReadOnlySpan<Half> values)
+    public JsTypedArray Construct(ReadOnlySpan<Half> values)
+    {
+        var array = (JsTypedArray) base.Construct([values.Length], this);
+        for (var i = 0; i < values.Length; ++i)
         {
-            var array = (JsTypedArray) base.Construct([values.Length], this);
-            for (var i = 0; i < values.Length; ++i)
-            {
-                array.DoIntegerIndexedElementSet(i, values[i]);
-            }
-            return array;
+            array.DoIntegerIndexedElementSet(i, values[i]);
         }
+        return array;
+    }
 #endif
+}
+
+public sealed class Float32ArrayConstructor : TypedArrayConstructor
+{
+    internal Float32ArrayConstructor(
+        Engine engine,
+        Realm realm,
+        IntrinsicTypedArrayConstructor functionPrototype,
+        IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Float32)
+    {
     }
 
-    public sealed class Float32ArrayConstructor : TypedArrayConstructor
+    public JsTypedArray Construct(ReadOnlySpan<float> values)
     {
-        internal Float32ArrayConstructor(
-            Engine engine,
-            Realm realm,
-            IntrinsicTypedArrayConstructor functionPrototype,
-            IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Float32)
-        {
-        }
+        var array = (JsTypedArray) base.Construct([values.Length], this);
+        FillTypedArrayInstance(array, values);
+        return array;
+    }
+}
 
-        public JsTypedArray Construct(ReadOnlySpan<float> values)
-        {
-            var array = (JsTypedArray) base.Construct([values.Length], this);
-            FillTypedArrayInstance(array, values);
-            return array;
-        }
+public sealed class Float64ArrayConstructor : TypedArrayConstructor
+{
+    internal Float64ArrayConstructor(
+        Engine engine,
+        Realm realm,
+        IntrinsicTypedArrayConstructor functionPrototype,
+        IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Float64)
+    {
     }
 
-    public sealed class Float64ArrayConstructor : TypedArrayConstructor
+    public JsTypedArray Construct(ReadOnlySpan<double> values)
     {
-        internal Float64ArrayConstructor(
-            Engine engine,
-            Realm realm,
-            IntrinsicTypedArrayConstructor functionPrototype,
-            IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.Float64)
-        {
-        }
+        var array = (JsTypedArray) base.Construct([values.Length], this);
+        FillTypedArrayInstance(array, values);
+        return array;
+    }
+}
 
-        public JsTypedArray Construct(ReadOnlySpan<double> values)
-        {
-            var array = (JsTypedArray) base.Construct([values.Length], this);
-            FillTypedArrayInstance(array, values);
-            return array;
-        }
+public sealed class BigInt64ArrayConstructor : TypedArrayConstructor
+{
+    internal BigInt64ArrayConstructor(
+        Engine engine,
+        Realm realm,
+        IntrinsicTypedArrayConstructor functionPrototype,
+        IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.BigInt64)
+    {
     }
 
-    public sealed class BigInt64ArrayConstructor : TypedArrayConstructor
+    public JsTypedArray Construct(ReadOnlySpan<long> values)
     {
-        internal BigInt64ArrayConstructor(
-            Engine engine,
-            Realm realm,
-            IntrinsicTypedArrayConstructor functionPrototype,
-            IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.BigInt64)
-        {
-        }
+        var array = (JsTypedArray) base.Construct([values.Length], this);
+        FillTypedArrayInstance(array, values);
+        return array;
+    }
+}
 
-        public JsTypedArray Construct(ReadOnlySpan<long> values)
-        {
-            var array = (JsTypedArray) base.Construct([values.Length], this);
-            FillTypedArrayInstance(array, values);
-            return array;
-        }
+public sealed class BigUint64ArrayConstructor : TypedArrayConstructor
+{
+    internal BigUint64ArrayConstructor(
+        Engine engine,
+        Realm realm,
+        IntrinsicTypedArrayConstructor functionPrototype,
+        IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.BigUint64)
+    {
     }
 
-    public sealed class BigUint64ArrayConstructor : TypedArrayConstructor
+    public JsTypedArray Construct(ReadOnlySpan<ulong> values)
     {
-        internal BigUint64ArrayConstructor(
-            Engine engine,
-            Realm realm,
-            IntrinsicTypedArrayConstructor functionPrototype,
-            IntrinsicTypedArrayPrototype objectPrototype) : base(engine, realm, functionPrototype, objectPrototype, TypedArrayElementType.BigUint64)
-        {
-        }
-
-        public JsTypedArray Construct(ReadOnlySpan<ulong> values)
-        {
-            var array = (JsTypedArray) base.Construct([values.Length], this);
-            FillTypedArrayInstance(array, values);
-            return array;
-        }
+        var array = (JsTypedArray) base.Construct([values.Length], this);
+        FillTypedArrayInstance(array, values);
+        return array;
     }
 }

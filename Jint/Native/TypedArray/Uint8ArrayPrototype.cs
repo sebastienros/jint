@@ -1,6 +1,6 @@
-using System.Globalization;
 using System.Text;
 using Jint.Collections;
+using Jint.Extensions;
 using Jint.Native.ArrayBuffer;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -59,7 +59,7 @@ internal sealed class Uint8ArrayPrototype : Prototype
         }
 
         var byteLength = taRecord.TypedArrayLength;
-        var result = Uint8ArrayConstructor.FromBase64(s.ToString(), alphabet.ToString(), lastChunkHandling.ToString(), byteLength);
+        var result = Uint8ArrayConstructor.FromBase64(_engine, s.ToString(), alphabet.ToString(), lastChunkHandling.ToString(), byteLength);
         if (result.Error is not null)
         {
             throw result.Error;
@@ -126,15 +126,20 @@ internal sealed class Uint8ArrayPrototype : Prototype
         var alphabet = Uint8ArrayConstructor.GetAndValidateAlphabetOption(_engine, opts);
 
         var omitPadding = TypeConverter.ToBoolean(opts.Get("omitPadding"));
+#if NETCOREAPP
         var toEncode = GetUint8ArrayBytes(o);
+#else
+        var toEncode = GetUint8ArrayBytes(o).ToArray();
+#endif
+
         string outAscii;
         if (alphabet == "base64")
         {
-            outAscii = Convert.ToBase64String(toEncode, omitPadding ? Base64FormattingOptions.None : Base64FormattingOptions.InsertLineBreaks);
+            outAscii = Convert.ToBase64String(toEncode);
         }
         else
         {
-            outAscii = Convert.ToBase64String(toEncode, omitPadding ? Base64FormattingOptions.None : Base64FormattingOptions.InsertLineBreaks) + "";
+            outAscii = WebEncoders.Base64UrlEncode(toEncode);
         }
 
         return outAscii;
@@ -144,16 +149,21 @@ internal sealed class Uint8ArrayPrototype : Prototype
     {
         var o = ValidateUint8Array(thisObject);
         var toEncode = GetUint8ArrayBytes(o);
+
         using var outString = new ValueStringBuilder();
-        for (var i = 0; i < toEncode.Length; i++)
+        foreach (var b in toEncode)
         {
-            outString.Append(toEncode[i].ToString("X2", CultureInfo.InvariantCulture));
+            var b1 = (byte)(b >> 4);
+            outString.Append((char)(b1 > 9 ? b1 - 10 + 'a' : b1 + '0'));
+
+            var b2 = (byte)(b & 0x0F);
+            outString.Append((char)(b2 > 9 ? b2 - 10 + 'a' : b2 + '0'));
         }
 
         return outString.ToString();
     }
 
-    private byte[] GetUint8ArrayBytes(JsTypedArray ta)
+    private ReadOnlySpan<byte> GetUint8ArrayBytes(JsTypedArray ta)
     {
         var buffer = ta._viewedArrayBuffer;
         var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(ta, ArrayBufferOrder.SeqCst);
@@ -162,19 +172,7 @@ internal sealed class Uint8ArrayPrototype : Prototype
             ExceptionHelper.ThrowTypeError(_realm, "TypedArray is out of bounds");
         }
 
-        var len = taRecord.TypedArrayLength;
-        var byteOffset = ta._byteOffset;
-        var bytes = new byte[len];
-        var index = 0;
-        while (index < len)
-        {
-            var byteIndex = byteOffset + index;
-            var b = buffer.GetValueFromBuffer(byteIndex, TypedArrayElementType.Uint8, isTypedArray: true, ArrayBufferOrder.Unordered);
-            bytes[index] = (byte) b.DoubleValue;
-            index++;
-        }
-
-        return bytes;
+        return buffer._arrayBufferData!.AsSpan(0, (int) taRecord.TypedArrayLength);
     }
 
     private JsTypedArray ValidateUint8Array(JsValue ta)
