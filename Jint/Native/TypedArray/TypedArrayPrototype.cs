@@ -24,7 +24,7 @@ internal sealed class TypedArrayPrototype : Prototype
 
     protected override void Initialize()
     {
-        var properties = new PropertyDictionary(2, false)
+        var properties = new PropertyDictionary(2, checkExistingKeys: false)
         {
             ["BYTES_PER_ELEMENT"] = new(JsNumber.Create(_arrayElementType.GetElementSize()), PropertyFlag.AllForbidden),
             ["constructor"] = new(_constructor, PropertyFlag.NonEnumerable),

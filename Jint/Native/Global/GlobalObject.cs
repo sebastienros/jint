@@ -283,25 +283,17 @@ namespace Jint.Native.Global
         private static bool IsValidHexaChar(char c) => Uri.IsHexDigit(c);
 
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.3.2
+        /// https://tc39.es/ecma262/#sec-encodeuri-uri
         /// </summary>
-        /// <param name="thisObject"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
         private JsValue EncodeUri(JsValue thisObject, JsValue[] arguments)
         {
             var uriString = TypeConverter.ToString(arguments.At(0));
-
             return Encode(uriString, UnescapedUriSet);
         }
 
-
         /// <summary>
-        /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.3.4
+        /// https://tc39.es/ecma262/#sec-encodeuricomponent-uricomponent
         /// </summary>
-        /// <param name="thisObject"></param>
-        /// <param name="arguments"></param>
-        /// <returns></returns>
         private JsValue EncodeUriComponent(JsValue thisObject, JsValue[] arguments)
         {
             var uriString = TypeConverter.ToString(arguments.At(0));

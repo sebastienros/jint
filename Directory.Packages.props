@@ -23,7 +23,7 @@
     <PackageVersion Include="NUnit3TestAdapter" Version="4.5.0" />
     <PackageVersion Include="SharpZipLib" Version="1.4.0" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.45.0" />
-    <PackageVersion Include="System.Text.Json" Version="8.0.3" />
+    <PackageVersion Include="System.Text.Json" Version="8.0.4" />
     <PackageVersion Include="Test262Harness" Version="1.0.0" />
     <PackageVersion Include="xunit" Version="2.8.1" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.1" PrivateAssets="all" />

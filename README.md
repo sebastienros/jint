@@ -118,25 +118,30 @@ and many more.
 - ✔ Hashbang Grammar
 - ✔ Symbols as WeakMap keys
 
+#### ECMAScript 2024
+
+- ✔ ArrayBuffer enhancements - `ArrayBuffer.prototype.resize` and `ArrayBuffer.prototype.transfer`
+- ❌ `Atomics.waitAsync` 
+- ✔ Ensuring that strings are well-formed - `String.prototype.ensureWellFormed` and `String.prototype.isWellFormed`
+- ✔ Grouping synchronous iterables - `Object.groupBy` and `Map.groupBy`
+- ✔ `Promise.withResolvers`
+- ❌ Regular expression flag `/v`
+
 #### ECMAScript Stage 3 (no version yet)
 
-- ✔ `ArrayBuffer.prototype.transfer`
-- ✔ Array Grouping - `Object.groupBy` and `Map.groupBy`
 - ✔ Float16Array (Jint v4, requires NET 6 target or higher)
 - ✔ Import attributes
 - ✔ JSON modules
 - ✔ `Promise.try` (Jint v4)
-- ✔ `Promise.withResolvers`
-- ✔ Resizable and growable ArrayBuffers
 - ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
 - ✔ ShadowRealm
+- ✔ Uint8Array to/from base64
 
 #### Other
 
 - Further refined .NET CLR interop capabilities
 - Constraints for execution (recursion, memory usage, duration)
 
-> Follow new features as they are being implemented, see https://github.com/sebastienros/jint/issues/343
 
 ## Performance
 
