@@ -132,7 +132,7 @@ namespace Jint.Runtime.Interpreter.Expressions
                     : new JintMemberExpression((MemberExpression) ((ChainExpression) expression).Expression),
                 NodeType.AwaitExpression => new JintAwaitExpression((AwaitExpression) expression),
                 NodeType.YieldExpression => new JintYieldExpression((YieldExpression) expression),
-                _ =>  null
+                _ => null
             };
 
             if (result is null)

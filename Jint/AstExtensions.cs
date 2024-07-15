@@ -79,7 +79,16 @@ namespace Jint
                 or NodeType.YieldExpression
                 or NodeType.TemplateLiteral)
             {
-                var context = engine._activeEvaluationContext;
+                var context = new EvaluationContext();
+
+                if (engine._activeEvaluationContext == null)
+                {
+                    context = new EvaluationContext(engine);
+                }
+                else
+                {
+                    context = engine._activeEvaluationContext;
+                }
                 return JintExpression.Build(expression).GetValue(context!);
             }
 
@@ -152,7 +161,7 @@ namespace Jint
         internal static bool IsOptional<T>(this T node) where T : Expression
         {
             return node is IChainElement { Optional: true };
-            }
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static string LiteralKeyToString(Literal literal)
@@ -318,7 +327,7 @@ namespace Jint
 
             var runningExecutionContext = engine.ExecutionContext;
             var env = runningExecutionContext.LexicalEnvironment;
-            var privateEnv= runningExecutionContext.PrivateEnvironment;
+            var privateEnv = runningExecutionContext.PrivateEnvironment;
 
             var prototype = functionPrototype ?? intrinsics.Function.PrototypeObject;
             var function = m.Value as IFunction;
