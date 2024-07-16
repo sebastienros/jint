@@ -11,9 +11,9 @@
     <PackageVersion Include="FluentAssertions" Version="6.12.0" />
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
     <PackageVersion Include="Jurassic" Version="3.2.7" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.159" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.160" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.6.0" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.7.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageVersion Include="MongoDB.Bson.signed" Version="2.19.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
@@ -21,12 +21,12 @@
     <PackageVersion Include="NodaTime" Version="3.1.11" />
     <PackageVersion Include="NUnit" Version="4.1.0" />
     <PackageVersion Include="NUnit3TestAdapter" Version="4.5.0" />
-    <PackageVersion Include="SharpZipLib" Version="1.4.0" />
+    <PackageVersion Include="SharpZipLib" Version="1.4.2" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.45.0" />
-    <PackageVersion Include="System.Text.Json" Version="8.0.3" />
-    <PackageVersion Include="Test262Harness" Version="1.0.0" />
-    <PackageVersion Include="xunit" Version="2.8.1" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.1" PrivateAssets="all" />
+    <PackageVersion Include="System.Text.Json" Version="8.0.4" />
+    <PackageVersion Include="Test262Harness" Version="1.0.1" />
+    <PackageVersion Include="xunit" Version="2.9.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
     <PackageVersion Include="YantraJS.Core" Version="1.2.209" />
   </ItemGroup>
   <ItemGroup>

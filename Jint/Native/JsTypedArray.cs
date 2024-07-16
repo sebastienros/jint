@@ -52,7 +52,11 @@ namespace Jint.Native
 
         public uint Length => GetLength();
 
-        internal override uint GetLength() => IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(this, ArrayBufferOrder.Unordered).TypedArrayLength;
+        internal override uint GetLength()
+        {
+            var record = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(this, ArrayBufferOrder.Unordered);
+            return record.IsTypedArrayOutOfBounds ? 0 : record.TypedArrayLength;
+        }
 
         internal override bool IsArrayLike => true;
 
