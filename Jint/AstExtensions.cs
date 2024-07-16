@@ -62,7 +62,7 @@ namespace Jint
             return key;
         }
 
-        private static JsValue TryGetComputedPropertyKey<T>(T expression, Engine engine)
+        internal static JsValue TryGetComputedPropertyKey<T>(T expression, Engine engine)
             where T : Expression
         {
             if (expression.Type is NodeType.Identifier
