@@ -1,6 +1,7 @@
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter;
 using Jint.Runtime.Interpreter.Statements;
 using Environment = Jint.Runtime.Environments.Environment;
 
@@ -178,7 +179,9 @@ public sealed class EvalFunction : Function
                 Engine.EvalDeclarationInstantiation(script, varEnv, lexEnv, privateEnv, strictEval);
 
                 var statement = new JintScript(script);
-                var result = statement.Execute(_engine._activeEvaluationContext!);
+                var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+                var result = statement.Execute(context);
+
                 var value = result.GetValueOrDefault();
 
                 if (result.Type == CompletionType.Throw)
