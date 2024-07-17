@@ -58,7 +58,7 @@ namespace Jint
             return key;
         }
 
-        private static JsValue TryGetComputedPropertyKey<T>(T expression, Engine engine)
+        internal static JsValue TryGetComputedPropertyKey<T>(T expression, Engine engine)
             where T : Expression
         {
             if (expression.Type is NodeType.Identifier
@@ -75,7 +75,7 @@ namespace Jint
                 or NodeType.YieldExpression
                 or NodeType.TemplateLiteral)
             {
-                var context = engine._activeEvaluationContext;
+                var context = engine._activeEvaluationContext ?? new EvaluationContext(engine);
                 return JintExpression.Build(expression).GetValue(context!);
             }
 

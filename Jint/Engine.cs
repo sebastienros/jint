@@ -61,7 +61,7 @@ namespace Jint
         internal readonly Dictionary<string, Type?> TypeCache = new(StringComparer.Ordinal);
 
         // we use registered type reference as prototype if it's known
-        internal Dictionary<Type,TypeReference>? _typeReferences;
+        internal Dictionary<Type, TypeReference>? _typeReferences;
 
         // cache for already wrapped CLR objects to keep object identity
         internal ConditionalWeakTable<object, ObjectInstance>? _objectWrapperCache;
@@ -462,7 +462,7 @@ namespace Jint
                 // TODO what about callstack and thrown exceptions?
                 RunAvailableContinuations();
 
-               return this;
+                return this;
             }
             finally
             {
@@ -1258,7 +1258,7 @@ namespace Jint
             {
                 foreach (var name in pointer.Names)
                 {
-                    privateIdentifiers??= new HashSet<PrivateIdentifier>(PrivateIdentifierNameComparer._instance);
+                    privateIdentifiers ??= new HashSet<PrivateIdentifier>(PrivateIdentifierNameComparer._instance);
                     privateIdentifiers.Add(name.Key);
                 }
 
