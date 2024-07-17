@@ -1,15 +1,14 @@
-﻿namespace Jint.Tests.Runtime
+﻿namespace Jint.Tests.Runtime;
+
+public class EvaluationContextTests
 {
-    public class EvaluationContextTests
+    [Fact]
+    public void ShouldThrowJavaScriptException()
     {
-        [Fact]
-        public void ShouldThrowJavaScriptException()
-        {
-            var mockedEngine = new Engine();
+        var mockedEngine = new Engine();
 
-            Expression expression = new Identifier(NodeType.MemberExpression.ToString());
+        Expression expression = new Identifier(NodeType.MemberExpression.ToString());
 
-            Assert.Throws<Jint.Runtime.JavaScriptException>(() => AstExtensions.TryGetComputedPropertyKey(expression, mockedEngine));
-        }
+        Assert.Throws<Jint.Runtime.JavaScriptException>(() => AstExtensions.TryGetComputedPropertyKey(expression, mockedEngine));
     }
 }

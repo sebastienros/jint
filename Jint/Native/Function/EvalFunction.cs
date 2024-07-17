@@ -179,16 +179,8 @@ public sealed class EvalFunction : Function
                 Engine.EvalDeclarationInstantiation(script, varEnv, lexEnv, privateEnv, strictEval);
 
                 var statement = new JintScript(script);
-                var result = new Completion();
-
-                if (_engine._activeEvaluationContext == null)
-                {
-                    result = statement.Execute(new EvaluationContext(_engine));
-                }
-                else
-                {
-                    result = statement.Execute(_engine._activeEvaluationContext);
-                }
+                var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
+                var result = statement.Execute(context);
 
                 var value = result.GetValueOrDefault();
 

@@ -79,17 +79,8 @@ namespace Jint
                 or NodeType.YieldExpression
                 or NodeType.TemplateLiteral)
             {
-                var context = new EvaluationContext();
-
-                if (engine._activeEvaluationContext == null)
-                {
-                    context = new EvaluationContext(engine);
-                }
-                else
-                {
-                    context = engine._activeEvaluationContext;
-                }
-                return JintExpression.Build(expression).GetValue(context!);
+                var context = engine._activeEvaluationContext ?? new EvaluationContext(engine);
+                return JintExpression.Build(expression).GetValue(context);
             }
 
             return JsValue.Undefined;
