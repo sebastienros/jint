@@ -131,9 +131,6 @@ and many more.
 
 - ✔ Import attributes
 - ✔ JSON modules
-- ✔ Resizable and growable ArrayBuffers
-- ✔ Import attributes
-- ✔ JSON modules
 - ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
 - ✔ ShadowRealm
 
