@@ -7,7 +7,6 @@
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);CS8002</NoWarn>
     <GeneratedTestSuiteDir>Generated</GeneratedTestSuiteDir>
-    <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>

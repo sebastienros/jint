@@ -6,9 +6,7 @@
     <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
     <IsPackable>false</IsPackable>
-    <LangVersion>latest</LangVersion>
-    <NoWarn>612</NoWarn>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>$(NoWarn);612</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
