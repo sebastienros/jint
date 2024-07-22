@@ -341,7 +341,7 @@ namespace Jint
         /// </summary>
         public JsValue Evaluate(string code, string? source = null)
         {
-            var script = _defaultParser.ParseScript(code, source ?? "<anonymous>", _isStrict);
+            var script = _defaultParser.ParseScriptGuarded(Realm, code, source ?? "<anonymous>", _isStrict);
             return Evaluate(new Prepared<Script>(script, _defaultParser.Options));
         }
 
@@ -357,7 +357,7 @@ namespace Jint
         public JsValue Evaluate(string code, string source, ScriptParsingOptions parsingOptions)
         {
             var parser = GetParserFor(parsingOptions);
-            var script = parser.ParseScript(code, source, _isStrict);
+            var script = parser.ParseScriptGuarded(Realm, code, source, _isStrict);
             return Evaluate(new Prepared<Script>(script, parser.Options));
         }
 
@@ -372,7 +372,7 @@ namespace Jint
         /// </summary>
         public Engine Execute(string code, string? source = null)
         {
-            var script = _defaultParser.ParseScript(code, source ?? "<anonymous>", _isStrict);
+            var script = _defaultParser.ParseScriptGuarded(Realm, code, source ?? "<anonymous>", _isStrict);
             return Execute(new Prepared<Script>(script, _defaultParser.Options));
         }
 
@@ -388,7 +388,7 @@ namespace Jint
         public Engine Execute(string code, string source, ScriptParsingOptions parsingOptions)
         {
             var parser = GetParserFor(parsingOptions);
-            var script = parser.ParseScript(code, source, _isStrict);
+            var script = parser.ParseScriptGuarded(Realm, code, source, _isStrict);
             return Execute(new Prepared<Script>(script, parser.Options));
         }
 
