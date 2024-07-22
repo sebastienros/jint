@@ -110,7 +110,7 @@ public sealed class ShadowRealm : ObjectInstance
         Script script;
         try
         {
-            script = parser.ParseScript(sourceText, strict: _engine._isStrict);
+            script = parser.ParseScriptGuarded(callerRealm, sourceText, strict: _engine._isStrict);
         }
         catch (ParseErrorException e)
         {

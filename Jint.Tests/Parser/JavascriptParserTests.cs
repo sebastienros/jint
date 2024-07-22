@@ -1,4 +1,6 @@
-﻿namespace Jint.Tests.Parsing;
+﻿using Jint.Runtime;
+
+namespace Jint.Tests.Parsing;
 
 public class JavascriptParserTests
 {
@@ -163,7 +165,8 @@ public class JavascriptParserTests
     [Fact]
     public void ShouldThrowErrorForInvalidLeftHandOperation()
     {
-        Assert.Throws<SyntaxErrorException>(() => new Engine().Execute("~ (WE0=1)--- l('1');"));
+        var ex = Assert.Throws<JavaScriptException>(() => new Engine().Execute("~ (WE0=1)--- l('1');"));
+        Assert.Equal("Invalid left-hand side expression in postfix operation (<anonymous>:1:4)", ex.Message);
     }
 
 

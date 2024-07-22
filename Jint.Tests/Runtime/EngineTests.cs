@@ -1046,11 +1046,11 @@ namespace Jint.Tests.Runtime
             {
                 engine.Evaluate("1.2+ new", "jQuery.js");
             }
-            catch (SyntaxErrorException e)
+            catch (JavaScriptException e)
             {
-                Assert.Equal(1, e.LineNumber);
-                Assert.Equal(8, e.Column);
-                Assert.Equal("jQuery.js", e.SourceFile);
+                Assert.Equal(1, e.Location.Start.Line);
+                Assert.Equal(8, e.Location.Start.Column);
+                Assert.Equal("jQuery.js", e.Location.SourceFile);
             }
         }
         #region DateParsingAndStrings
@@ -1314,7 +1314,7 @@ var prep = function (fn) { fn(); };
         {
             var code = "if({ __proto__: [], __proto__:[] } instanceof Array) {}";
 
-            Exception ex = Assert.Throws<SyntaxErrorException>(() => _engine.Execute(code, new ScriptParsingOptions { Tolerant = false }));
+            Exception ex = Assert.Throws<JavaScriptException>(() => _engine.Execute(code, new ScriptParsingOptions { Tolerant = false }));
             Assert.Contains("Duplicate __proto__ fields are not allowed in object literals", ex.Message);
 
             ex = Assert.Throws<JavaScriptException>(() => _engine.Execute($"eval('{code}')"));
@@ -2865,8 +2865,8 @@ x.test = {
             Assert.Equal("Cannot delete property 'prototype' of function Boolean() { [native code] }", ex.Message);
 
             const string source2 = "'use strict'; delete foobar;";
-            var ex2 = Assert.Throws<SyntaxErrorException>(() => engine.Evaluate(source2));
-            Assert.Equal("Delete of an unqualified identifier in strict mode", ex2.Description);
+            ex = Assert.Throws<JavaScriptException>(() => engine.Evaluate(source2));
+            Assert.Equal("Delete of an unqualified identifier in strict mode (<anonymous>:1:22)", ex.Message);
         }
 
         [Fact]

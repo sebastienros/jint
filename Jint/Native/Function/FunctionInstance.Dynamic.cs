@@ -150,7 +150,7 @@ public partial class Function
                 parserOptions = parserOptions with { AllowReturnOutsideFunction = true };
             }
             Parser parser = new(parserOptions);
-            function = (IFunction) parser.ParseScript(functionExpression, strict: _engine._isStrict).Body[0];
+            function = (IFunction) parser.ParseScriptGuarded(callerRealm, functionExpression, strict: _engine._isStrict).Body[0];
         }
         catch (ParseErrorException ex)
         {

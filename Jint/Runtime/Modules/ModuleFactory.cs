@@ -22,23 +22,9 @@ public static class ModuleFactory
     public static Module BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code, ModuleParsingOptions? parsingOptions = null)
     {
         var source = resolved.Uri?.LocalPath ?? resolved.Key;
-        AstModule module;
         var parserOptions = (parsingOptions ?? ModuleParsingOptions.Default).GetParserOptions();
         var parser = new Parser(parserOptions);
-        try
-        {
-            module = parser.ParseModule(code, source);
-        }
-        catch (ParseErrorException ex)
-        {
-            ExceptionHelper.ThrowSyntaxError(engine.Realm, $"Error while loading module: error in module '{source}': {ex.Error}");
-            module = null;
-        }
-        catch (Exception)
-        {
-            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", AstExtensions.DefaultLocation);
-            module = null;
-        }
+        var module = parser.ParseModuleGuarded(engine, code, source);
 
         return BuildSourceTextModule(engine, new Prepared<AstModule>(module, parserOptions));
     }

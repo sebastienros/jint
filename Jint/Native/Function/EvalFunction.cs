@@ -84,21 +84,7 @@ public sealed class EvalFunction : Function
             CheckPrivateFields = false
         };
         var parser = _engine.GetParserFor(adjustedParserOptions);
-        try
-        {
-            script = parser.ParseScript(x.ToString(), strict: strictCaller);
-        }
-        catch (ParseErrorException e)
-        {
-            if (string.Equals(e.Error.Code, "InvalidLhsInAssignment", StringComparison.Ordinal))
-            {
-                ExceptionHelper.ThrowReferenceError(callerRealm, (string?) null);
-            }
-            else
-            {
-                ExceptionHelper.ThrowSyntaxError(callerRealm, e.Message);
-            }
-        }
+        script = parser.ParseScriptGuarded(_engine.Realm, x.ToString(), strict: strictCaller);
 
         var body = script.Body;
         if (body.Count == 0)
