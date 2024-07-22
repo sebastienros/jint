@@ -14,13 +14,13 @@ internal sealed class JintPrivateIdentifierExpression : JintExpression
         var engine = context.Engine;
         var env = engine.ExecutionContext.PrivateEnvironment;
 
-        var privateIdentifier = env!.ResolvePrivateIdentifier(_privateIdentifierString);
+        var privateIdentifier = env?.ResolvePrivateIdentifier(_privateIdentifierString);
         if (privateIdentifier is not null)
         {
             return privateIdentifier;
         }
 
-        ExceptionHelper.ThrowReferenceError(engine.Realm, "TODO Not found!!");
+        ExceptionHelper.ThrowSyntaxError(engine.Realm, $"Unexpected identifier '#{_privateIdentifierString}'");
         return null;
     }
 }
