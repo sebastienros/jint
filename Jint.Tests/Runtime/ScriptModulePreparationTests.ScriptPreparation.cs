@@ -6,13 +6,13 @@ using Jint.Runtime.Interpreter.Statements;
 
 namespace Jint.Tests.Runtime;
 
-public partial class EngineTests
+public class ScriptModulePreparationTests
 {
     [Fact]
     public void ScriptPreparationAcceptsReturnOutsideOfFunctions()
     {
         var preparedScript = Engine.PrepareScript("return 1;");
-        Assert.IsType<ReturnStatement>(preparedScript.Program.Body[0]);
+        preparedScript.Program.Body[0].Should().BeOfType<ReturnStatement>();
     }
 
     [Fact]
@@ -21,10 +21,10 @@ public partial class EngineTests
         var script = Engine.PrepareScript("var x = /[cgt]/ig; var y = /[cgt]/ig; 'g'.match(x).length;");
         var declaration = Assert.IsType<VariableDeclaration>(script.Program.Body[0]);
         var init = Assert.IsType<RegExpLiteral>(declaration.Declarations[0].Init);
-        Assert.Equal("[cgt]", init.Value.ToString());
-        Assert.Equal(RegexOptions.Compiled, init.Value.Options & RegexOptions.Compiled);
 
-        Assert.Equal(1, _engine.Evaluate(script));
+        init.Value.ToString().Should().Be("[cgt]");
+        (init.Value.Options & RegexOptions.Compiled).Should().Be(RegexOptions.Compiled);
+        new Engine().Evaluate(script).AsNumber().Should().Be(1);
     }
 
     [Fact]
@@ -33,9 +33,9 @@ public partial class EngineTests
         var preparedScript = Engine.PrepareScript("return 1 + 2;");
         var returnStatement = Assert.IsType<ReturnStatement>(preparedScript.Program.Body[0]);
         var constant = Assert.IsType<JintConstantExpression>(returnStatement.Argument?.UserData);
-        Assert.Equal(3, constant.GetValue(null!));
 
-        Assert.Equal(3, _engine.Evaluate(preparedScript));
+        constant.GetValue(null!).AsNumber().Should().Be(3);
+        new Engine().Evaluate(preparedScript).AsNumber().Should().Be(3);
     }
 
     [Fact]
@@ -46,8 +46,8 @@ public partial class EngineTests
         var unaryExpression = Assert.IsType<NonUpdateUnaryExpression>(expression.Expression);
         var constant = Assert.IsType<JintConstantExpression>(unaryExpression.UserData);
 
-        Assert.Equal(-1, constant.GetValue(null!));
-        Assert.Equal(-1, _engine.Evaluate(preparedScript));
+        constant.GetValue(null!).AsNumber().Should().Be(-1);
+        new Engine().Evaluate(preparedScript).AsNumber().Should().Be(-1);
     }
 
     [Fact]
@@ -58,10 +58,10 @@ public partial class EngineTests
         var returnStatement = Assert.IsType<ConstantStatement>(statement.UserData);
 
         var builtStatement = JintStatement.Build(statement);
-        Assert.Same(returnStatement, builtStatement);
+        returnStatement.Should().BeSameAs(builtStatement);
 
-        var result = builtStatement.Execute(new EvaluationContext(_engine)).Value;
-        Assert.Equal(JsBoolean.False, result);
+        var result = builtStatement.Execute(new EvaluationContext( new Engine())).Value;
+        result.Should().Be(JsBoolean.False);
     }
 
     [Fact]
@@ -69,9 +69,26 @@ public partial class EngineTests
     {
         const string Script = """JSON.stringify(/(.*?)a(?!(a+)b\2c)\2(.*)/.exec("baaabaac"))""";
 
-        var nonCompiled = _engine.Evaluate(Script);
-        var compiled = _engine.Evaluate(Engine.PrepareScript(Script));
+        var engine = new Engine();
+        var nonCompiledResult = engine.Evaluate(Script);
+        var compiledResult = engine.Evaluate(Engine.PrepareScript(Script));
 
-        Assert.Equal(nonCompiled, compiled);
+        nonCompiledResult.Should().Be(compiledResult);
+    }
+
+    [Fact]
+    public void PrepareScriptShouldNotLeakAcornimaException()
+    {
+        var ex = Assert.Throws<ScriptPreparationException>(() => Engine.PrepareScript("class A { } A().#nonexistent = 1;"));
+        ex.Message.Should().Be("Could not prepare script: Private field '#nonexistent' must be declared in an enclosing class (1:17)");
+        ex.InnerException.Should().BeOfType<SyntaxErrorException>();
+    }
+
+    [Fact]
+    public void PrepareModuleShouldNotLeakAcornimaException()
+    {
+        var ex = Assert.Throws<ScriptPreparationException>(() => Engine.PrepareModule("class A { } A().#nonexistent = 1;"));
+        ex.Message.Should().Be("Could not prepare script: Private field '#nonexistent' must be declared in an enclosing class (1:17)");
+        ex.InnerException.Should().BeOfType<SyntaxErrorException>();
     }
 }

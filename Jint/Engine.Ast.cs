@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Interpreter;
@@ -20,10 +19,20 @@ public partial class Engine
     public static Prepared<Script> PrepareScript(string code, string? source = null, bool strict = false, ScriptPreparationOptions? options = null)
     {
         options ??= ScriptPreparationOptions.Default;
+
         var astAnalyzer = new AstAnalyzer(options);
         var parserOptions = options.GetParserOptions();
-        var preparedScript = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor }).ParseScript(code, source, strict);
-        return new Prepared<Script>(preparedScript, parserOptions);
+        var parser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor });
+
+        try
+        {
+            var preparedScript = parser.ParseScript(code, source, strict);
+            return new Prepared<Script>(preparedScript, parserOptions);
+        }
+        catch (Exception e)
+        {
+            throw new ScriptPreparationException("Could not prepare script: " + e.Message, e);
+        }
     }
 
     /// <summary>
@@ -35,19 +44,26 @@ public partial class Engine
     public static Prepared<Module> PrepareModule(string code, string? source = null, ModulePreparationOptions? options = null)
     {
         options ??= ModulePreparationOptions.Default;
+
         var astAnalyzer = new AstAnalyzer(options);
         var parserOptions = options.GetParserOptions();
-        var preparedModule = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor }).ParseModule(code, source);
-        return new Prepared<Module>(preparedModule, parserOptions);
+        var parser = new Parser(parserOptions with { OnNode = astAnalyzer.NodeVisitor });
+
+        try
+        {
+            var preparedModule = parser.ParseModule(code, source);
+            return new Prepared<Module>(preparedModule, parserOptions);
+        }
+        catch (Exception e)
+        {
+            throw new ScriptPreparationException("Could not prepare script: " + e.Message, e);
+        }
     }
 
     private sealed class AstAnalyzer
     {
-        private static readonly bool _canCompileNegativeLookaroundAssertions = typeof(Regex).Assembly.GetName().Version?.Major is not (null or 7 or 8);
-
         private readonly IPreparationOptions<IParsingOptions> _preparationOptions;
         private readonly Dictionary<string, Environment.BindingName> _bindingNames = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, Regex> _regexes = new(StringComparer.Ordinal);
 
         public AstAnalyzer(IPreparationOptions<IParsingOptions> preparationOptions)
         {
