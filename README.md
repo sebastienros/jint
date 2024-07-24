@@ -129,10 +129,10 @@ and many more.
 
 #### ECMAScript Stage 3 (no version yet)
 
-- ✔ Float16Array (Jint v4, requires NET 6 target or higher)
+- ✔ Float16Array (Requires NET 6 or higher)
 - ✔ Import attributes
 - ✔ JSON modules
-- ✔ `Promise.try` (Jint v4)
+- ✔ `Promise.try`
 - ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
 - ✔ ShadowRealm
 - ✔ Uint8Array to/from base64
