@@ -86,7 +86,7 @@ public partial class GlobalObject
         properties.AddDangerous(propertyAggregateError, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.AggregateError, PropertyFlags));
         properties.AddDangerous(propertyArray, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Array, PropertyFlags));
         properties.AddDangerous(propertyArrayBuffer, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.ArrayBuffer, PropertyFlags));
-        properties.AddDangerous(propertyAtomics, new LazyPropertyDescriptor<GlobalObject>(this, static _ => Undefined, PropertyFlags));
+        properties.AddDangerous(propertyAtomics, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.Atomics, PropertyFlags));
         properties.AddDangerous(propertyBigInt, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.BigInt, PropertyFlags));
         properties.AddDangerous(propertyBigInt64Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.BigInt64Array, PropertyFlags));
         properties.AddDangerous(propertyBigUint64Array, new LazyPropertyDescriptor<GlobalObject>(this, static global => global._realm.Intrinsics.BigUint64Array, PropertyFlags));

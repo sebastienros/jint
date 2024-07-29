@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "b8cb40b66a61afd57550a84f4170e16ebfbd1e46",
+  "SuiteGitSha": "242f6f98f0f86c0a3276929b4a450438526057cb",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -16,6 +16,7 @@
     "regexp-modifiers",
     "regexp-unicode-property-escapes",
     "regexp-v-flag",
+    "RegExp.escape",
     "source-phase-imports",
     "tail-call-optimization",
     "Temporal",

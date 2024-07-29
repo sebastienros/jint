@@ -3,6 +3,7 @@ using Jint.Native.AggregateError;
 using Jint.Native.Array;
 using Jint.Native.ArrayBuffer;
 using Jint.Native.AsyncFunction;
+using Jint.Native.Atomics;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;
 using Jint.Native.DataView;
@@ -82,6 +83,7 @@ namespace Jint.Runtime
         private SetIteratorPrototype? _setIteratorPrototype;
         private ArrayConstructor? _array;
         private ArrayIteratorPrototype? _arrayIteratorPrototype;
+        private AtomicsInstance? _atomics;
         private BooleanConstructor? _boolean;
         private ArrayBufferConstructor? _arrayBufferConstructor;
         private SharedArrayBufferConstructor? _sharedArrayBufferConstructor;
@@ -132,6 +134,9 @@ namespace Jint.Runtime
 
         public ArrayConstructor Array =>
             _array ??= new ArrayConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+        internal AtomicsInstance Atomics =>
+            _atomics ??= new AtomicsInstance(_engine, _realm, Object.PrototypeObject);
 
         internal AggregateErrorConstructor AggregateError =>
             _aggregateError ??= new AggregateErrorConstructor(_engine, _realm, Error);
