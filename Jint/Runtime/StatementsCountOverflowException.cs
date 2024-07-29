@@ -1,9 +1,8 @@
-namespace Jint.Runtime
+namespace Jint.Runtime;
+
+public sealed class StatementsCountOverflowException : JintException
 {
-    public sealed class StatementsCountOverflowException : JintException
+    public StatementsCountOverflowException() : base("The maximum number of statements executed have been reached.")
     {
-        public StatementsCountOverflowException() : base("The maximum number of statements executed have been reached.")
-        {
-        }
     }
 }

@@ -1,9 +1,8 @@
-namespace Jint.Native.Function
+namespace Jint.Native.Function;
+
+internal enum FunctionThisMode
 {
-    internal enum FunctionThisMode
-    {
-        Lexical,
-        Strict,
-        Global
-    }
+    Lexical,
+    Strict,
+    Global
 }

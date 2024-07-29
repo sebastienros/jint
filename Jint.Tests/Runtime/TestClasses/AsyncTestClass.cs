@@ -1,40 +1,39 @@
-﻿namespace Jint.Tests.Runtime.TestClasses
+﻿namespace Jint.Tests.Runtime.TestClasses;
+
+internal class AsyncTestClass
 {
-    internal class AsyncTestClass
+    public static readonly string TestString = "Hello World";
+
+    public string StringToAppend { get; set; } = string.Empty;
+
+    public async Task AddToStringDelayedAsync(string appendWith)
     {
-        public static readonly string TestString = "Hello World";
+        await Task.Delay(1000).ConfigureAwait(false);
 
-        public string StringToAppend { get; set; } = string.Empty;
+        StringToAppend += appendWith;
+    }
 
-        public async Task AddToStringDelayedAsync(string appendWith)
-        {
-            await Task.Delay(1000).ConfigureAwait(false);
+    public async Task<string> ReturnDelayedTaskAsync()
+    {
+        await Task.Delay(1000).ConfigureAwait(false);
 
-            StringToAppend += appendWith;
-        }
+        return TestString;
+    }
 
-        public async Task<string> ReturnDelayedTaskAsync()
-        {
-            await Task.Delay(1000).ConfigureAwait(false);
+    public Task<string> ReturnCompletedTask()
+    {
+        return Task.FromResult(TestString);
+    }
 
-            return TestString;
-        }
+    public Task<string> ReturnCancelledTask(CancellationToken token)
+    {
+        return Task.FromCanceled<string>(token);
+    }
 
-        public Task<string> ReturnCompletedTask()
-        {
-            return Task.FromResult(TestString);
-        }
+    public async Task<string> ThrowAfterDelayAsync()
+    {
+        await Task.Delay(100).ConfigureAwait(false);
 
-        public Task<string> ReturnCancelledTask(CancellationToken token)
-        {
-            return Task.FromCanceled<string>(token);
-        }
-
-        public async Task<string> ThrowAfterDelayAsync()
-        {
-            await Task.Delay(100).ConfigureAwait(false);
-
-            throw new Exception("Task threw exception");
-        }
+        throw new Exception("Task threw exception");
     }
 }

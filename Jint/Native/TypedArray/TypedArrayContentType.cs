@@ -1,8 +1,7 @@
-namespace Jint.Native.TypedArray
+namespace Jint.Native.TypedArray;
+
+internal enum TypedArrayContentType : byte
 {
-    internal enum TypedArrayContentType : byte
-    {
-        Number,
-        BigInt
-    }
+    Number,
+    BigInt
 }

@@ -1,10 +1,9 @@
-﻿namespace Jint.Tests.Runtime.Domain
+﻿namespace Jint.Tests.Runtime.Domain;
+
+[Flags]
+public enum Colors
 {
-    [Flags]
-    public enum Colors
-    {
-        Red,
-        Green,
-        Blue = 10
-    }
+    Red,
+    Green,
+    Blue = 10
 }

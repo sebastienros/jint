@@ -1,8 +1,7 @@
-namespace Jint.Native.Function
+namespace Jint.Native.Function;
+
+internal enum ConstructorKind
 {
-    internal enum ConstructorKind
-    {
-        Base,
-        Derived
-    }
+    Base,
+    Derived
 }

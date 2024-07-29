@@ -1,21 +1,21 @@
-namespace Jint.Tests.Runtime
+namespace Jint.Tests.Runtime;
+
+public class ConstTests
 {
-    public class ConstTests
+    private readonly Engine _engine;
+
+    public ConstTests()
     {
-        private readonly Engine _engine;
+        _engine = new Engine()
+            .SetValue("log", new Action<object>(Console.WriteLine))
+            .SetValue("assert", new Action<bool>(Assert.True))
+            .SetValue("equal", new Action<object, object>(Assert.Equal));
+    }
 
-        public ConstTests()
-        {
-            _engine = new Engine()
-                .SetValue("log", new Action<object>(Console.WriteLine))
-                .SetValue("assert", new Action<bool>(Assert.True))
-                .SetValue("equal", new Action<object, object>(Assert.Equal));
-        }
-
-        [Fact]
-        public void ConstInsideIife()
-        {
-            _engine.Execute(@"
+    [Fact]
+    public void ConstInsideIife()
+    {
+        _engine.Execute(@"
                 (function(){
                     const testVariable = 'test';
                     function render() {
@@ -24,23 +24,23 @@ namespace Jint.Tests.Runtime
                     render();
                 })();
             ");
-        }
+    }
 
-        [Fact]
-        public void ConstDestructuring()
-        {
-            _engine.Execute(@"
+    [Fact]
+    public void ConstDestructuring()
+    {
+        _engine.Execute(@"
                 let obj = {};
                 for (var i = 0; i < 1; i++) {
                     const { subElement } = obj;
                 }
             ");
-        }
+    }
 
-        [Fact]
-        public void DestructuringWithFunctionArgReferenceInStrictMode()
-        {
-            _engine.Execute(@"
+    [Fact]
+    public void DestructuringWithFunctionArgReferenceInStrictMode()
+    {
+        _engine.Execute(@"
                 'use strict';
                 function tst(a) {
                     let [let1, let2, let3] = a;
@@ -60,6 +60,5 @@ namespace Jint.Tests.Runtime
 
                 tst([1,2])
             ");
-        }
     }
 }

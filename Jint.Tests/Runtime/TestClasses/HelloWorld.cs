@@ -1,11 +1,10 @@
-﻿namespace Jint.Tests.Runtime.TestClasses
+﻿namespace Jint.Tests.Runtime.TestClasses;
+
+public class HelloWorld
 {
-    public class HelloWorld
+    public void ThrowException()
     {
-        public void ThrowException()
-        {
-            int zero = 0;
-            int x = 5 / zero;
-        }
+        int zero = 0;
+        int x = 5 / zero;
     }
 }

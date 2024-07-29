@@ -1,12 +1,12 @@
-﻿namespace Jint.Tests.Runtime
+﻿namespace Jint.Tests.Runtime;
+
+public class CallStackTests
 {
-    public class CallStackTests
+    [Fact]
+    public void ShouldUnwindAfterCaughtException()
     {
-        [Fact]
-        public void ShouldUnwindAfterCaughtException()
-        {
-            var engine = new Engine();
-            engine.Execute(@"
+        var engine = new Engine();
+        engine.Execute(@"
                 function thrower()
                 {
                     throw new Error('test');
@@ -20,15 +20,15 @@
                 {
                 }
                 "
-            );
-            Assert.Equal(0, engine.CallStack.Count);
-        }
+        );
+        Assert.Equal(0, engine.CallStack.Count);
+    }
 
-        [Fact]
-        public void ShouldUnwindAfterCaughtExceptionNested()
-        {
-            var engine = new Engine();
-            engine.Execute(@"
+    [Fact]
+    public void ShouldUnwindAfterCaughtExceptionNested()
+    {
+        var engine = new Engine();
+        engine.Execute(@"
                 function thrower2()
                 {
                     throw new Error('test');
@@ -47,7 +47,6 @@
                 {
                 }
             ");
-            Assert.Equal(0, engine.CallStack.Count);
-        }
+        Assert.Equal(0, engine.CallStack.Count);
     }
 }

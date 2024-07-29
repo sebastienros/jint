@@ -1,20 +1,20 @@
 using Flurl.Http;
 
-namespace Jint.Tests.Runtime.ExtensionMethods
-{
-    public class FlurlExtensionTest
-    {
-        [RunnableInDebugOnlyAttribute]
-        public void CanUseFlurlExtensionMethods()
-        {
-            var engine = new Engine(options =>
-            {
-                options.AddExtensionMethods(
-                    typeof(GeneratedExtensions),
-                    typeof(Flurl.GeneratedExtensions));
-            });
+namespace Jint.Tests.Runtime.ExtensionMethods;
 
-            const string script = @"
+public class FlurlExtensionTest
+{
+    [RunnableInDebugOnlyAttribute]
+    public void CanUseFlurlExtensionMethods()
+    {
+        var engine = new Engine(options =>
+        {
+            options.AddExtensionMethods(
+                typeof(GeneratedExtensions),
+                typeof(Flurl.GeneratedExtensions));
+        });
+
+        const string script = @"
 var result = 'https://httpbin.org/anything'
         .AppendPathSegment('person')
         .SetQueryParams({ a: 1, b: 2 })
@@ -25,9 +25,8 @@ var result = 'https://httpbin.org/anything'
          }).GetAwaiter().GetResult();
 ";
 
-            engine.Execute(script);
+        engine.Execute(script);
 
-            var result = engine.GetValue("result").ToObject();
-        }
+        var result = engine.GetValue("result").ToObject();
     }
 }

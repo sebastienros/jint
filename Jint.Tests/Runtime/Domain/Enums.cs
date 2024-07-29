@@ -1,14 +1,13 @@
-namespace Jint.Tests.Runtime.Domain
+namespace Jint.Tests.Runtime.Domain;
+
+public enum IntegerEnum
 {
-    public enum IntegerEnum
-    {
-        a,
-        b
-    }   
+    a,
+    b
+}   
     
-    public enum UintEnum : uint
-    {
-        a, 
-        b
-    }
+public enum UintEnum : uint
+{
+    a, 
+    b
 }

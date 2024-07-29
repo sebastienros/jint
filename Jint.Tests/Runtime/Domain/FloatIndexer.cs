@@ -1,7 +1,6 @@
-﻿namespace Jint.Tests.Runtime.Domain
+﻿namespace Jint.Tests.Runtime.Domain;
+
+public class FloatIndexer
 {
-    public class FloatIndexer
-    {
-		public string this[int index] => "";
-    }
+    public string this[int index] => "";
 }
