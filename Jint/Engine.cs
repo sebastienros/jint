@@ -312,7 +312,7 @@ namespace Jint
         {
             return obj is Type t
                 ? SetValue(name, t)
-                : SetValue(name, JsValue.FromObject(this, obj));
+                : SetValue(name, JsValue.FromObjectWithType(this, obj, typeof(T)));
         }
 
         internal void LeaveExecutionContext()

@@ -33,6 +33,11 @@ public class InterfaceTests
 
         string I1.SubPropertySuperMethod { get; } = "I1.SubPropertySuperMethod";
 
+        public string CI1Method()
+        {
+            return "CI1.CI1Method";
+        }
+
         public string OverloadSuperMethod()
         {
             return "I0.OverloadSuperMethod()";
@@ -93,6 +98,7 @@ public class InterfaceTests
         public Indexer<CI1> IndexerCI1 { get; }
         public Indexer<I1> IndexerI1 { get; }
         public Indexer<Super> IndexerSuper { get; }
+
     }
 
     private readonly Engine _engine;
@@ -109,7 +115,9 @@ public class InterfaceTests
                 .SetValue("assert", new Action<bool>(Assert.True))
                 .SetValue("equal", new Action<object, object>(Assert.Equal))
                 .SetValue("holder", holder)
-            ;
+                .SetValue<I1>("i1FromHolder", (I1)holder.CI1) // written explicitely to make the intent clear
+                .SetValue<CI1>("ci1FromHolder", holder.CI1); // written explicitely to make the intent clear
+        ;
     }
 
     [Fact]
@@ -146,6 +154,34 @@ public class InterfaceTests
                 holder.I1.SubPropertySuperMethod(),
                 _engine.Evaluate("holder.I1.SubPropertySuperMethod()"));
         });
-        Assert.Equal("Property 'SubPropertySuperMethod' of object is not a function", ex.Message);
+        Assert.Equal("'Jint.Tests.Runtime.InterfaceTests+I1' does not contain a definition for 'SubPropertySuperMethod'", ex.Message);
+    }
+
+    [Fact]
+    public void CallClassMethodsFromInterfaceInstance()
+    {
+        Assert.Equal(
+            holder.CI1.CI1Method(),
+            _engine.Evaluate("ci1FromHolder.CI1Method()"));
+
+        Assert.Equal(
+            holder.CI1.CI1Method(),
+            _engine.Evaluate("holder.CI1.CI1Method()"));
+
+        var exFromSetValue = Assert.Throws<JavaScriptException>(() =>
+        {
+            Assert.Equal(
+                holder.CI1.CI1Method(),
+                _engine.Evaluate("i1FromHolder.CI1Method()"));
+        });
+        Assert.Equal("'Jint.Tests.Runtime.InterfaceTests+I1' does not contain a definition for 'CI1Method'", exFromSetValue.Message);
+
+        var exFromInvokeReturn = Assert.Throws<JavaScriptException>(() =>
+        {
+            Assert.Equal(
+                holder.CI1.CI1Method(),
+                _engine.Evaluate("holder.I1.CI1Method()"));
+        });
+        Assert.Equal("'Jint.Tests.Runtime.InterfaceTests+I1' does not contain a definition for 'CI1Method'", exFromInvokeReturn.Message);
     }
 }

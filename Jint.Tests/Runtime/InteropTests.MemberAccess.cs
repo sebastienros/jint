@@ -108,7 +108,7 @@ namespace Jint.Tests.Runtime
             Assert.Equal("System.Uri", TestAllowGetTypeOption(allowGetType: true));
 
             var ex = Assert.Throws<JavaScriptException>(() => TestAllowGetTypeOption(allowGetType: false));
-            Assert.Equal("Property 'GetType' of object is not a function", ex.Message);
+            Assert.Equal("'System.Uri' does not contain a definition for 'GetType'", ex.Message);
         }
 
         [Fact]
