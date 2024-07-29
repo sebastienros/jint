@@ -1,45 +1,44 @@
-﻿namespace Jint.Tests.Runtime.Domain
+﻿namespace Jint.Tests.Runtime.Domain;
+
+public class Person : IPerson
 {
-    public class Person : IPerson
+    public string Name { get; set; }
+    public int Age { get; set; }
+
+    public Type TypeProperty { get; set; } = typeof(Person);
+
+    public override string ToString()
     {
-        public string Name { get; set; }
-        public int Age { get; set; }
+        return Name;
+    }
 
-        public Type TypeProperty { get; set; } = typeof(Person);
+    protected bool Equals(Person other)
+    {
+        return Name == other.Name;
+    }
 
-        public override string ToString()
+    public override bool Equals(object obj)
+    {
+        if (ReferenceEquals(null, obj))
         {
-            return Name;
+            return false;
         }
 
-        protected bool Equals(Person other)
+        if (ReferenceEquals(this, obj))
         {
-            return Name == other.Name;
+            return true;
         }
 
-        public override bool Equals(object obj)
+        if (obj.GetType() != GetType())
         {
-            if (ReferenceEquals(null, obj))
-            {
-                return false;
-            }
-
-            if (ReferenceEquals(this, obj))
-            {
-                return true;
-            }
-
-            if (obj.GetType() != GetType())
-            {
-                return false;
-            }
-
-            return Equals((Person) obj);
+            return false;
         }
 
-        public override int GetHashCode()
-        {
-            return (Name != null ? Name.GetHashCode() : 0);
-        }
+        return Equals((Person) obj);
+    }
+
+    public override int GetHashCode()
+    {
+        return (Name != null ? Name.GetHashCode() : 0);
     }
 }

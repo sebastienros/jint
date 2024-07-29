@@ -1,10 +1,9 @@
-﻿namespace Jint.Tests.Runtime.ExtensionMethods
+﻿namespace Jint.Tests.Runtime.ExtensionMethods;
+
+public static class DoubleExtensions
 {
-    public static class DoubleExtensions
+    public static double Add(this double integer, int add)
     {
-        public static double Add(this double integer, int add)
-        {
-            return integer + add;
-        }
+        return integer + add;
     }
 }

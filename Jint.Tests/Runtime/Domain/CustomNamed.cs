@@ -1,65 +1,64 @@
-namespace Jint.Tests.Runtime.Domain
+namespace Jint.Tests.Runtime.Domain;
+
+[AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+public class CustomNameAttribute : Attribute
 {
-    [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-    public class CustomNameAttribute : Attribute
+    public CustomNameAttribute(string name)
     {
-        public CustomNameAttribute(string name)
-        {
-            Name = name;
-        }
-
-        public string Name { get; }
+        Name = name;
     }
 
-    public interface ICustomNamed
-    {
-        [CustomName("jsInterfaceStringProperty")]
-        public string InterfaceStringProperty { get; }
+    public string Name { get; }
+}
 
-        [CustomName("jsInterfaceMethod")]
-        public string InterfaceMethod();
-    }
+public interface ICustomNamed
+{
+    [CustomName("jsInterfaceStringProperty")]
+    public string InterfaceStringProperty { get; }
 
-    [CustomName("jsCustomName")]
-    public class CustomNamed : ICustomNamed
-    {
-        [CustomName("jsStringField")]
-        [CustomName("jsStringField2")]
-        public string StringField = "StringField";
+    [CustomName("jsInterfaceMethod")]
+    public string InterfaceMethod();
+}
 
-        [CustomName("jsStaticStringField")]
-        public static string StaticStringField = "StaticStringField";
+[CustomName("jsCustomName")]
+public class CustomNamed : ICustomNamed
+{
+    [CustomName("jsStringField")]
+    [CustomName("jsStringField2")]
+    public string StringField = "StringField";
 
-        [CustomName("jsStringProperty")]
-        public string StringProperty => "StringProperty";
+    [CustomName("jsStaticStringField")]
+    public static string StaticStringField = "StaticStringField";
 
-        [CustomName("jsMethod")]
-        public string Method() => "Method";
+    [CustomName("jsStringProperty")]
+    public string StringProperty => "StringProperty";
 
-        [CustomName("jsStaticMethod")]
-        public static string StaticMethod() => "StaticMethod";
+    [CustomName("jsMethod")]
+    public string Method() => "Method";
 
-        public string InterfaceStringProperty => "InterfaceStringProperty";
+    [CustomName("jsStaticMethod")]
+    public static string StaticMethod() => "StaticMethod";
 
-        public string InterfaceMethod() => "InterfaceMethod";
+    public string InterfaceStringProperty => "InterfaceStringProperty";
 
-        [CustomName("jsEnumProperty")]
-        public CustomNamedEnum EnumProperty { get; set; }
-    }
+    public string InterfaceMethod() => "InterfaceMethod";
 
-    [CustomName("XmlHttpRequest")]
-    public enum CustomNamedEnum
-    {
-        [CustomName("NONE")]
-        None = 0,
+    [CustomName("jsEnumProperty")]
+    public CustomNamedEnum EnumProperty { get; set; }
+}
 
-        [CustomName("HEADERS_RECEIVED")]
-        HeadersReceived = 2
-    }
+[CustomName("XmlHttpRequest")]
+public enum CustomNamedEnum
+{
+    [CustomName("NONE")]
+    None = 0,
 
-    public static class CustomNamedExtensions
-    {
-        [CustomName("jsExtensionMethod")]
-        public static string ExtensionMethod(this CustomNamed customNamed) => "ExtensionMethod";
-    }
+    [CustomName("HEADERS_RECEIVED")]
+    HeadersReceived = 2
+}
+
+public static class CustomNamedExtensions
+{
+    [CustomName("jsExtensionMethod")]
+    public static string ExtensionMethod(this CustomNamed customNamed) => "ExtensionMethod";
 }

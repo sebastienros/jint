@@ -33,128 +33,127 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace Jint.Native.Number.Dtoa
+namespace Jint.Native.Number.Dtoa;
+
+/// <summary>
+/// Helper functions for doubles.
+/// </summary>
+internal sealed class DoubleHelper
 {
-    /// <summary>
-    /// Helper functions for doubles.
-    /// </summary>
-    internal sealed class DoubleHelper
+    internal const ulong KExponentMask = 0x7FF0000000000000L;
+    internal const ulong KSignificandMask = 0x000FFFFFFFFFFFFFL;
+    private const ulong KHiddenBit = 0x0010000000000000L;
+
+    private static DiyFp AsDiyFp(ulong d64)
     {
-        internal const ulong KExponentMask = 0x7FF0000000000000L;
-        internal const ulong KSignificandMask = 0x000FFFFFFFFFFFFFL;
-        private const ulong KHiddenBit = 0x0010000000000000L;
-
-        private static DiyFp AsDiyFp(ulong d64)
-        {
-            Debug.Assert(!IsSpecial(d64));
-            return new DiyFp(Significand(d64), Exponent(d64));
-        }
-
-        // this->Significand() must not be 0.
-        internal static DiyFp AsNormalizedDiyFp(ulong d64)
-        {
-            ulong f = Significand(d64);
-            int e = Exponent(d64);
-
-            Debug.Assert(f != 0);
-
-            // The current double could be a denormal.
-            while ((f & KHiddenBit) == 0)
-            {
-                f <<= 1;
-                e--;
-            }
-            // Do the final shifts in one go. Don't forget the hidden bit (the '-1').
-            f <<= DiyFp.KSignificandSize - KSignificandSize - 1;
-            e -= DiyFp.KSignificandSize - KSignificandSize - 1;
-            return new DiyFp(f, e);
-        }
-
-        internal static int Exponent(ulong d64)
-        {
-            if (IsDenormal(d64)) return KDenormalExponent;
-
-            int biasedE = (int) ((d64 & KExponentMask).UnsignedShift(KSignificandSize) & 0xffffffffL);
-            return biasedE - KExponentBias;
-        }
-
-        internal static int NormalizedExponent(ulong significand, int exponent)
-        {
-            Debug.Assert(significand != 0);
-            while ((significand & KHiddenBit) == 0)
-            {
-                significand = significand << 1;
-                exponent = exponent - 1;
-            }
-            return exponent;
-        }
-
-        internal static ulong Significand(ulong d64)
-        {
-            ulong significand = d64 & KSignificandMask;
-            if (!IsDenormal(d64))
-            {
-                return significand + KHiddenBit;
-            }
-
-            return significand;
-        }
-
-        // Returns true if the double is a denormal.
-        private static bool IsDenormal(ulong d64)
-        {
-            return (d64 & KExponentMask) == 0L;
-        }
-
-        // We consider denormals not to be special.
-        // Hence only Infinity and NaN are special.
-        private static bool IsSpecial(ulong d64)
-        {
-            return (d64 & KExponentMask) == KExponentMask;
-        }
-
-        [StructLayout(LayoutKind.Auto)]
-        internal readonly struct NormalizedBoundariesResult
-        {
-            public NormalizedBoundariesResult(DiyFp minus, DiyFp plus)
-            {
-                Minus = minus;
-                Plus = plus;
-            }
-
-            internal readonly DiyFp Minus;
-            internal readonly DiyFp Plus;
-        }
-
-        // Returns the two boundaries of first argument.
-        // The bigger boundary (m_plus) is normalized. The lower boundary has the same
-        // exponent as m_plus.
-        internal static NormalizedBoundariesResult NormalizedBoundaries(ulong d64)
-        {
-            DiyFp v = AsDiyFp(d64);
-            bool significandIsZero = (v.F == KHiddenBit);
-            var mPlus = DiyFp.Normalize((v.F << 1) + 1, v.E - 1);
-            DiyFp mMinus;
-            if (significandIsZero && v.E != KDenormalExponent)
-            {
-                // The boundary is closer. Think of v = 1000e10 and v- = 9999e9.
-                // Then the boundary (== (v - v-)/2) is not just at a distance of 1e9 but
-                // at a distance of 1e8.
-                // The only exception is for the smallest normal: the largest denormal is
-                // at the same distance as its successor.
-                // Note: denormals have the same exponent as the smallest normals.
-                mMinus = new DiyFp((v.F << 2) - 1, v.E - 2);
-            }
-            else
-            {
-                mMinus = new DiyFp((v.F << 1) - 1, v.E - 1);
-            }
-            mMinus = new DiyFp(mMinus.F << (mMinus.E - mPlus.E), mPlus.E);
-            return new NormalizedBoundariesResult(mMinus, mPlus);
-        }
-
-        private const int KSignificandSize = 52; // Excludes the hidden bit.
-        private const int KExponentBias = 0x3FF + KSignificandSize;
-        private const int KDenormalExponent = -KExponentBias + 1;
+        Debug.Assert(!IsSpecial(d64));
+        return new DiyFp(Significand(d64), Exponent(d64));
     }
+
+    // this->Significand() must not be 0.
+    internal static DiyFp AsNormalizedDiyFp(ulong d64)
+    {
+        ulong f = Significand(d64);
+        int e = Exponent(d64);
+
+        Debug.Assert(f != 0);
+
+        // The current double could be a denormal.
+        while ((f & KHiddenBit) == 0)
+        {
+            f <<= 1;
+            e--;
+        }
+        // Do the final shifts in one go. Don't forget the hidden bit (the '-1').
+        f <<= DiyFp.KSignificandSize - KSignificandSize - 1;
+        e -= DiyFp.KSignificandSize - KSignificandSize - 1;
+        return new DiyFp(f, e);
+    }
+
+    internal static int Exponent(ulong d64)
+    {
+        if (IsDenormal(d64)) return KDenormalExponent;
+
+        int biasedE = (int) ((d64 & KExponentMask).UnsignedShift(KSignificandSize) & 0xffffffffL);
+        return biasedE - KExponentBias;
+    }
+
+    internal static int NormalizedExponent(ulong significand, int exponent)
+    {
+        Debug.Assert(significand != 0);
+        while ((significand & KHiddenBit) == 0)
+        {
+            significand = significand << 1;
+            exponent = exponent - 1;
+        }
+        return exponent;
+    }
+
+    internal static ulong Significand(ulong d64)
+    {
+        ulong significand = d64 & KSignificandMask;
+        if (!IsDenormal(d64))
+        {
+            return significand + KHiddenBit;
+        }
+
+        return significand;
+    }
+
+    // Returns true if the double is a denormal.
+    private static bool IsDenormal(ulong d64)
+    {
+        return (d64 & KExponentMask) == 0L;
+    }
+
+    // We consider denormals not to be special.
+    // Hence only Infinity and NaN are special.
+    private static bool IsSpecial(ulong d64)
+    {
+        return (d64 & KExponentMask) == KExponentMask;
+    }
+
+    [StructLayout(LayoutKind.Auto)]
+    internal readonly struct NormalizedBoundariesResult
+    {
+        public NormalizedBoundariesResult(DiyFp minus, DiyFp plus)
+        {
+            Minus = minus;
+            Plus = plus;
+        }
+
+        internal readonly DiyFp Minus;
+        internal readonly DiyFp Plus;
+    }
+
+    // Returns the two boundaries of first argument.
+    // The bigger boundary (m_plus) is normalized. The lower boundary has the same
+    // exponent as m_plus.
+    internal static NormalizedBoundariesResult NormalizedBoundaries(ulong d64)
+    {
+        DiyFp v = AsDiyFp(d64);
+        bool significandIsZero = (v.F == KHiddenBit);
+        var mPlus = DiyFp.Normalize((v.F << 1) + 1, v.E - 1);
+        DiyFp mMinus;
+        if (significandIsZero && v.E != KDenormalExponent)
+        {
+            // The boundary is closer. Think of v = 1000e10 and v- = 9999e9.
+            // Then the boundary (== (v - v-)/2) is not just at a distance of 1e9 but
+            // at a distance of 1e8.
+            // The only exception is for the smallest normal: the largest denormal is
+            // at the same distance as its successor.
+            // Note: denormals have the same exponent as the smallest normals.
+            mMinus = new DiyFp((v.F << 2) - 1, v.E - 2);
+        }
+        else
+        {
+            mMinus = new DiyFp((v.F << 1) - 1, v.E - 1);
+        }
+        mMinus = new DiyFp(mMinus.F << (mMinus.E - mPlus.E), mPlus.E);
+        return new NormalizedBoundariesResult(mMinus, mPlus);
+    }
+
+    private const int KSignificandSize = 52; // Excludes the hidden bit.
+    private const int KExponentBias = 0x3FF + KSignificandSize;
+    private const int KDenormalExponent = -KExponentBias + 1;
 }

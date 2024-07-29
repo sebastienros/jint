@@ -1,35 +1,34 @@
 using Jint.Native;
 using Jint.Native.Function;
 
-namespace Jint.Runtime.Interpreter.Statements
+namespace Jint.Runtime.Interpreter.Statements;
+
+internal sealed class JintClassDeclarationStatement : JintStatement<ClassDeclaration>
 {
-    internal sealed class JintClassDeclarationStatement : JintStatement<ClassDeclaration>
+    private readonly ClassDefinition _classDefinition;
+
+    public JintClassDeclarationStatement(ClassDeclaration classDeclaration) : base(classDeclaration)
     {
-        private readonly ClassDefinition _classDefinition;
+        _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name, classDeclaration.SuperClass, classDeclaration.Body);
+    }
 
-        public JintClassDeclarationStatement(ClassDeclaration classDeclaration) : base(classDeclaration)
+    protected override Completion ExecuteInternal(EvaluationContext context)
+    {
+        var engine = context.Engine;
+        var env = engine.ExecutionContext.LexicalEnvironment;
+        var value = _classDefinition.BuildConstructor(context, env);
+
+        if (context.IsAbrupt())
         {
-            _classDefinition = new ClassDefinition(className: classDeclaration.Id?.Name, classDeclaration.SuperClass, classDeclaration.Body);
+            return new Completion(context.Completion, value, _statement);
         }
 
-        protected override Completion ExecuteInternal(EvaluationContext context)
+        var classBinding = _classDefinition._className;
+        if (classBinding != null)
         {
-            var engine = context.Engine;
-            var env = engine.ExecutionContext.LexicalEnvironment;
-            var value = _classDefinition.BuildConstructor(context, env);
-
-            if (context.IsAbrupt())
-            {
-                return new Completion(context.Completion, value, _statement);
-            }
-
-            var classBinding = _classDefinition._className;
-            if (classBinding != null)
-            {
-                env.InitializeBinding(classBinding, value);
-            }
-
-            return new Completion(CompletionType.Normal, JsEmpty.Instance, _statement);
+            env.InitializeBinding(classBinding, value);
         }
+
+        return new Completion(CompletionType.Normal, JsEmpty.Instance, _statement);
     }
 }

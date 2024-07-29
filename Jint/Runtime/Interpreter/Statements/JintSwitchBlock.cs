@@ -3,134 +3,133 @@ using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Expressions;
 using Environment = Jint.Runtime.Environments.Environment;
 
-namespace Jint.Runtime.Interpreter.Statements
+namespace Jint.Runtime.Interpreter.Statements;
+
+internal sealed class JintSwitchBlock
 {
-    internal sealed class JintSwitchBlock
+    private readonly NodeList<SwitchCase> _switchBlock;
+    private JintSwitchCase[] _jintSwitchBlock = Array.Empty<JintSwitchCase>();
+    private bool _initialized;
+
+    public JintSwitchBlock(NodeList<SwitchCase> switchBlock)
     {
-        private readonly NodeList<SwitchCase> _switchBlock;
-        private JintSwitchCase[] _jintSwitchBlock = Array.Empty<JintSwitchCase>();
-        private bool _initialized;
+        _switchBlock = switchBlock;
+    }
 
-        public JintSwitchBlock(NodeList<SwitchCase> switchBlock)
+    private void Initialize()
+    {
+        _jintSwitchBlock = new JintSwitchCase[_switchBlock.Count];
+        for (var i = 0; i < _jintSwitchBlock.Length; i++)
         {
-            _switchBlock = switchBlock;
+            _jintSwitchBlock[i] = new JintSwitchCase(_switchBlock[i]);
+        }
+    }
+
+    public Completion Execute(EvaluationContext context, JsValue input)
+    {
+        if (!_initialized)
+        {
+            Initialize();
+            _initialized = true;
         }
 
-        private void Initialize()
+        var v = JsValue.Undefined;
+        var l = context.LastSyntaxElement;
+        var hit = false;
+        var defaultCaseIndex = -1;
+
+        var i = 0;
+        Environment? oldEnv = null;
+        var temp = _jintSwitchBlock;
+
+        DeclarativeEnvironment? blockEnv = null;
+
+        start:
+        for (; i < temp.Length; i++)
         {
-            _jintSwitchBlock = new JintSwitchCase[_switchBlock.Count];
-            for (var i = 0; i < _jintSwitchBlock.Length; i++)
+            var clause = temp[i];
+            if (clause.LexicalDeclarations is not null && oldEnv is null)
             {
-                _jintSwitchBlock[i] = new JintSwitchCase(_switchBlock[i]);
-            }
-        }
+                oldEnv = context.Engine.ExecutionContext.LexicalEnvironment;
+                blockEnv ??= JintEnvironment.NewDeclarativeEnvironment(context.Engine, oldEnv);
+                blockEnv.Clear();
 
-        public Completion Execute(EvaluationContext context, JsValue input)
-        {
-            if (!_initialized)
-            {
-                Initialize();
-                _initialized = true;
+                JintStatementList.BlockDeclarationInstantiation(blockEnv, clause.LexicalDeclarations);
+                context.Engine.UpdateLexicalEnvironment(blockEnv);
             }
 
-            var v = JsValue.Undefined;
-            var l = context.LastSyntaxElement;
-            var hit = false;
-            var defaultCaseIndex = -1;
-
-            var i = 0;
-            Environment? oldEnv = null;
-            var temp = _jintSwitchBlock;
-
-            DeclarativeEnvironment? blockEnv = null;
-
-            start:
-            for (; i < temp.Length; i++)
+            if (clause.Test == null)
             {
-                var clause = temp[i];
-                if (clause.LexicalDeclarations is not null && oldEnv is null)
-                {
-                    oldEnv = context.Engine.ExecutionContext.LexicalEnvironment;
-                    blockEnv ??= JintEnvironment.NewDeclarativeEnvironment(context.Engine, oldEnv);
-                    blockEnv.Clear();
-
-                    JintStatementList.BlockDeclarationInstantiation(blockEnv, clause.LexicalDeclarations);
-                    context.Engine.UpdateLexicalEnvironment(blockEnv);
-                }
-
-                if (clause.Test == null)
-                {
-                    defaultCaseIndex = i;
-                    if (!hit)
-                    {
-                        continue;
-                    }
-                }
-
-                var clauseSelector = clause.Test?.GetValue(context);
-                if (clauseSelector == input)
-                {
-                    hit = true;
-                }
-
+                defaultCaseIndex = i;
                 if (!hit)
                 {
-                    if (oldEnv is not null)
-                    {
-                        context.Engine.UpdateLexicalEnvironment(oldEnv);
-                        oldEnv = null;
-                    }
                     continue;
                 }
+            }
 
-                var r = clause.Consequent.Execute(context);
+            var clauseSelector = clause.Test?.GetValue(context);
+            if (clauseSelector == input)
+            {
+                hit = true;
+            }
 
-                if (r.Type != CompletionType.Normal)
+            if (!hit)
+            {
+                if (oldEnv is not null)
                 {
-                    if (oldEnv is not null)
-                    {
-                        context.Engine.UpdateLexicalEnvironment(oldEnv);
-                    }
+                    context.Engine.UpdateLexicalEnvironment(oldEnv);
+                    oldEnv = null;
+                }
+                continue;
+            }
 
-                    return r.UpdateEmpty(v);
+            var r = clause.Consequent.Execute(context);
+
+            if (r.Type != CompletionType.Normal)
+            {
+                if (oldEnv is not null)
+                {
+                    context.Engine.UpdateLexicalEnvironment(oldEnv);
                 }
 
-                l = r._source;
-                v = r.Value.IsUndefined() ? v : r.Value;
+                return r.UpdateEmpty(v);
             }
 
-            // do we need to execute the default case ?
-            if (!hit && defaultCaseIndex != -1)
-            {
-                // jump back to loop and start from default case
-                hit = true;
-                i = defaultCaseIndex;
-                goto start;
-            }
-
-            if (oldEnv is not null)
-            {
-                context.Engine.UpdateLexicalEnvironment(oldEnv);
-            }
-
-            return new Completion(CompletionType.Normal, v, l);
+            l = r._source;
+            v = r.Value.IsUndefined() ? v : r.Value;
         }
 
-        private sealed class JintSwitchCase
+        // do we need to execute the default case ?
+        if (!hit && defaultCaseIndex != -1)
         {
-            internal readonly JintStatementList Consequent;
-            internal readonly JintExpression? Test;
-            internal readonly List<Declaration>? LexicalDeclarations;
+            // jump back to loop and start from default case
+            hit = true;
+            i = defaultCaseIndex;
+            goto start;
+        }
 
-            public JintSwitchCase(SwitchCase switchCase)
+        if (oldEnv is not null)
+        {
+            context.Engine.UpdateLexicalEnvironment(oldEnv);
+        }
+
+        return new Completion(CompletionType.Normal, v, l);
+    }
+
+    private sealed class JintSwitchCase
+    {
+        internal readonly JintStatementList Consequent;
+        internal readonly JintExpression? Test;
+        internal readonly List<Declaration>? LexicalDeclarations;
+
+        public JintSwitchCase(SwitchCase switchCase)
+        {
+            Consequent = new JintStatementList(statement: null, switchCase.Consequent);
+            LexicalDeclarations = HoistingScope.GetLexicalDeclarations(switchCase);
+
+            if (switchCase.Test != null)
             {
-                Consequent = new JintStatementList(statement: null, switchCase.Consequent);
-                LexicalDeclarations = HoistingScope.GetLexicalDeclarations(switchCase);
-
-                if (switchCase.Test != null)
-                {
-                    Test = JintExpression.Build(switchCase.Test);
-                }
+                Test = JintExpression.Build(switchCase.Test);
             }
         }
     }

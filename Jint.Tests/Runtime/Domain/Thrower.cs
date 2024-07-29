@@ -1,25 +1,24 @@
-﻿namespace Jint.Tests.Runtime.Domain
+﻿namespace Jint.Tests.Runtime.Domain;
+
+public class Thrower
 {
-    public class Thrower
+    public void ThrowArgumentNullException()
     {
-        public void ThrowArgumentNullException()
-        {
-            throw new ArgumentNullException();
-        }
+        throw new ArgumentNullException();
+    }
 
-        public void ThrowExceptionWithMessage(string message)
-        {
-            throw new Exception(message);
-        }
+    public void ThrowExceptionWithMessage(string message)
+    {
+        throw new Exception(message);
+    }
 
-        public void ThrowNotSupportedException()
-        {
-            throw new NotSupportedException();
-        }
+    public void ThrowNotSupportedException()
+    {
+        throw new NotSupportedException();
+    }
 
-        public void ThrowNotSupportedExceptionWithMessage(string message)
-        {
-            throw new NotSupportedException(message);
-        }
+    public void ThrowNotSupportedExceptionWithMessage(string message)
+    {
+        throw new NotSupportedException(message);
     }
 }

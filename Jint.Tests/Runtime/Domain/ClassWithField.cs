@@ -1,7 +1,6 @@
-﻿namespace Jint.Tests.Runtime.Domain
+﻿namespace Jint.Tests.Runtime.Domain;
+
+public class ClassWithField
 {
-    public class ClassWithField
-    {
-        public string Field;
-    }
+    public string Field;
 }

@@ -1,51 +1,50 @@
 using System.Runtime.InteropServices;
 
-namespace Jint
+namespace Jint;
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly struct StrictModeScope : IDisposable
 {
-    [StructLayout(LayoutKind.Auto)]
-    internal readonly struct StrictModeScope : IDisposable
+    private readonly bool _strict;
+    private readonly bool _force;
+    private readonly ushort _forcedRefCount;
+
+    [ThreadStatic]
+    private static ushort _refCount;
+
+    public StrictModeScope(bool strict = true, bool force = false)
     {
-        private readonly bool _strict;
-        private readonly bool _force;
-        private readonly ushort _forcedRefCount;
+        _strict = strict;
+        _force = force;
 
-        [ThreadStatic]
-        private static ushort _refCount;
-
-        public StrictModeScope(bool strict = true, bool force = false)
+        if (_force)
         {
-            _strict = strict;
-            _force = force;
-
-            if (_force)
-            {
-                _forcedRefCount = _refCount;
-                _refCount = 0;
-            }
-            else
-            {
-                _forcedRefCount = 0;
-            }
-
-            if (_strict)
-            {
-                _refCount++;
-            }
+            _forcedRefCount = _refCount;
+            _refCount = 0;
+        }
+        else
+        {
+            _forcedRefCount = 0;
         }
 
-        public void Dispose()
+        if (_strict)
         {
-            if (_strict)
-            {
-                _refCount--;
-            }
-
-            if (_force)
-            {
-                _refCount = _forcedRefCount;
-            }
+            _refCount++;
         }
-
-        public static bool IsStrictModeCode => _refCount > 0;
     }
+
+    public void Dispose()
+    {
+        if (_strict)
+        {
+            _refCount--;
+        }
+
+        if (_force)
+        {
+            _refCount = _forcedRefCount;
+        }
+    }
+
+    public static bool IsStrictModeCode => _refCount > 0;
 }
