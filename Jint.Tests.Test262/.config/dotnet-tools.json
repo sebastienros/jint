@@ -3,7 +3,7 @@
   "isRoot": true,
   "tools": {
     "test262harness.console": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "commands": [
         "test262"
       ]

@@ -2,12 +2,8 @@
 
   <PropertyGroup>
     <TargetFrameworks>net462;net8.0</TargetFrameworks>
-    <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
-    <SignAssembly>true</SignAssembly>
     <IsPackable>false</IsPackable>
-    <LangVersion>latest</LangVersion>
     <NoWarn>612</NoWarn>
-    <ImplicitUsings>enable</ImplicitUsings>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
   </PropertyGroup>
 
