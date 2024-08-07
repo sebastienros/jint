@@ -61,6 +61,7 @@ and many more.
 ####  ECMAScript 2017
 
 - ✔ `Object.values`, `Object.entries` and `Object.getOwnPropertyDescriptors`
+- ❌ Shared memory and atomics
 
 #### ECMAScript 2018
 

@@ -1125,7 +1125,13 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var targetBuffer = target._viewedArrayBuffer;
         targetBuffer.AssertNotDetached();
 
-        var targetLength = target._arrayLength;
+        var targetRecord = MakeTypedArrayWithBufferWitnessRecord(target, ArrayBufferOrder.SeqCst);
+        if (targetRecord.IsTypedArrayOutOfBounds)
+        {
+            ExceptionHelper.ThrowTypeError(_realm);
+        }
+
+        var targetLength = targetRecord.TypedArrayLength;
         var src = ArrayOperations.For(_realm, source, forWrite: false);
         var srcLength = src.GetLength();
 
