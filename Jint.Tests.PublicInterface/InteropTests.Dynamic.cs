@@ -114,6 +114,52 @@ namespace Jint.Tests.PublicInterface
             Assert.False(engine.Evaluate("test.ContainsKey('c')").AsBoolean());
         }
 
+        [Fact]
+        public void ShouldAccessCustomDynamicObjectProperties()
+        {
+            var t = new DynamicType
+            {
+                ["MemberKey"] = new MemberType
+                {
+                    Field = 4
+                }
+            };
+            var e = new Engine().SetValue("dynamicObj", t);
+            Assert.Equal(4, ((dynamic) t).MemberKey.Field);
+            Assert.Equal(4, e.Evaluate("dynamicObj.MemberKey.Field"));
+        }
+
+        private class MemberType
+        {
+            public int Field;
+        }
+
+        private class DynamicType : DynamicObject
+        {
+            private readonly Dictionary<string, object> _data = new();
+
+            public override bool TryGetMember(GetMemberBinder binder, out object result)
+            {
+                if (_data.ContainsKey(binder.Name))
+                {
+                    result = this[binder.Name];
+                    return true;
+                }
+
+                return base.TryGetMember(binder, out result);
+            }
+
+            public object this[string key]
+            {
+                get
+                {
+                    _data.TryGetValue(key, out var value);
+                    return value;
+                }
+                set => _data[key] = value;
+            }
+        }
+
         private class DynamicClass : DynamicObject
         {
             private readonly Dictionary<string, object> _properties = new Dictionary<string, object>();

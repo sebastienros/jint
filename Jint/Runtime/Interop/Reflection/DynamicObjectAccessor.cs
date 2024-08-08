@@ -11,9 +11,7 @@ internal sealed class DynamicObjectAccessor : ReflectionAccessor
     private JintSetMemberBinder? _setter;
     private JintGetMemberBinder? _getter;
 
-    public DynamicObjectAccessor(
-        Type memberType,
-        PropertyInfo? indexer = null) : base(memberType, indexer)
+    public DynamicObjectAccessor() : base(memberType: null)
     {
     }
 

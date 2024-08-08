@@ -129,7 +129,7 @@ namespace Jint.Runtime.Interop
 
             if (typeof(DynamicObject).IsAssignableFrom(type))
             {
-                return new DynamicObjectAccessor(type);
+                return new DynamicObjectAccessor();
             }
 
             var typeResolverMemberNameComparer = MemberNameComparer;
