@@ -162,6 +162,51 @@ Here is a short video of how Jint works and some sample usage
 
 https://docs.microsoft.com/shows/code-conversations/sebastien-ros-on-jint-javascript-interpreter-net
 
+the implement in video is old,the new version for jint 3.x:
+
+```c#
+static void Main(string[] args)
+{
+    var engine = new Engine();
+
+    Console.WriteLine("Welcome to use Jint Shell,Jint Verssion:3.1.1\r\ninput exit() to exit");
+    var code = "let hw=()=>\"hello world\";hw();";
+    Console.WriteLine($"[Jint Shell]>{code}");
+    var result = engine.Evaluate(code);
+    Console.WriteLine(result.ToString());
+    while (true)
+    {
+        try
+        {
+            Console.Write("[Jint Shell]>");
+            var input = Console.ReadLine();
+            if (input == "exit()")
+            {
+                Console.WriteLine("Bye Bye !");
+                Environment.Exit(0);
+            }
+
+            result = engine.Evaluate(input);
+            var output = string.Empty;
+            if (result.IsUndefined())
+            {
+                output = input;
+            }
+            else
+            {
+                output = result.ToString();
+            }
+
+            Console.WriteLine(output);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+    }
+}
+```
+
 ## Thread-safety
 
 Engine instances are not thread-safe and they should not accessed from multiple threads simultaneously. 
@@ -205,13 +250,7 @@ var engine = new Engine()
 Assert.AreEqual("Minnie", p.Name);
 ```
 
-You can invoke JavaScript function reference
-```c#
-var result = new Engine()
-    .Execute("function add(a, b) { return a + b; }")
-    .Invoke("add",1, 2); // -> 3
-```
-or directly by name 
+You can invoke JavaScript function directly by name 
 ```c#
 var engine = new Engine()
    .Execute("function add(a, b) { return a + b; }");
@@ -391,6 +430,7 @@ var engine = new Engine(options =>
 
 var ns = engine.Modules.Import("./my-module.js");
 
+// this will execute the code in module
 var value = ns.Get("value").AsString();
 ```
 
@@ -430,6 +470,128 @@ var id = ns.Get("result").AsInteger();
 ```
 
 Note that you don't need to `EnableModules` if you only use modules created using `Engine.Modules.Add`.
+
+### import js lib(e.g. lodash)and write custom js file
+
+the full code is [here](https://github.com/DHclly/IceDog.Jint.Test)
+
+if you want to use jint as custom js engine to execute js code ,you want to import `lodash.js` and custom js file,there has two way.
+
+#### mount as global object,method,variable
+
+the file tree: 
+```bash
+js
+    ├─esm
+    │      main.js
+    │      Person.js
+    │      tool.js
+    │
+    └─old
+            lodash.js
+            Person.js
+            tool.js
+```
+
+```c#
+engine.Modules.Import("./old/tool.js");
+engine.Modules.Import("./old/lodash.js");
+
+var code = @"
+        let p1 = new Person(`tom`,20);
+        logger.info(p1.introSelf());
+        logger.info(p1.greet(`jerry`));
+
+        let arr = _.map([1,2,3],x=>x*x);
+        logger.info(JSON.stringify(arr));
+
+        logger.info(`lodash version:${_.VERSION}`);
+";
+engine.Execute(code);
+```
+
+import lodash.js the lodash is already mount on `globalThis`,if custom js file,
+we need handle mount object to `globalThis`(not like in browser will auto mount  on  `window`).
+
+example: js/old/tool.js
+
+```js
+const goodNum = 42;
+
+const greet = (name) => `hello,${name},nice to meet you`;
+
+globalThis.goodNum = goodNum;
+
+globalThis.greet = greet;
+```
+
+#### use esm module
+
+the esm module is write simple,just write like run in browser
+
+js/esm/tool.js
+
+```js
+const goodNum = 42;
+
+const greet = (name) => `hello,${name},nice to meet you`;
+
+export { goodNum, greet }
+
+```
+js/esm/Person.js
+
+```js
+import { goodNum, greet } from './tool.js'
+export default class Person {
+    constructor(name, age) {
+        this.name = name;
+        this.age = age;
+        this.goodNum = goodNum;
+    }
+
+    introSelf() {
+        return `name:${this.name},age:${this.age},likeNum:${this.goodNum}`
+    }
+
+    greet(name) {
+        return greet(name);
+    }
+}
+```
+js/esm/main.js
+
+```js
+// this import js path relative the main.js file path
+
+import Person from './Person.js';
+import * as lodash from '../old/lodash.js';// just import lodash.js,not lodash-es
+
+let p1 = new Person(`tom`, 20);
+logger.info(p1.introSelf());
+logger.info(p1.greet(`jerry`));
+let arr = _.map([1, 2, 3,4], x => x * x);
+logger.info(JSON.stringify(arr));
+
+logger.info(`lodash version:${_.VERSION}`);
+
+export const returnVal = 1;
+```
+
+but the code not run by `engine.Execute(code)` or `engine.Evaluate(code)`,
+we need run code like this:
+
+```c#
+// we can write code to main.js directly
+var main2 = engine.Modules.Import("./esm/main.js");
+
+// the module should run by Get Or  As* Method,use like engine.Execute will error
+// the module main only execute once
+var moduleMain2 = main2.AsObject();
+double returnVal = main2.Get("returnVal").AsNumber();
+```
+we need to get the module instance,then get the module result ,the code in module
+will execute.
 
 ## .NET Interoperability
 
