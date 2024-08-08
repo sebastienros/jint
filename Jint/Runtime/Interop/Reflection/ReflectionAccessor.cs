@@ -17,13 +17,13 @@ namespace Jint.Runtime.Interop.Reflection;
 /// </summary>
 internal abstract class ReflectionAccessor
 {
-    private readonly Type _memberType;
+    private readonly Type? _memberType;
     private readonly PropertyInfo? _indexer;
 
-    public Type MemberType => _memberType;
+    public Type? MemberType => _memberType;
 
     protected ReflectionAccessor(
-        Type memberType,
+        Type? memberType,
         PropertyInfo? indexer = null)
     {
         _memberType = memberType;
@@ -114,7 +114,8 @@ internal abstract class ReflectionAccessor
 
     protected virtual object? ConvertValueToSet(Engine engine, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] object value)
     {
-        return engine.TypeConverter.Convert(value, _memberType, CultureInfo.InvariantCulture);
+        var memberType = _memberType ?? value.GetType();
+        return engine.TypeConverter.Convert(value, memberType, CultureInfo.InvariantCulture);
     }
 
     public virtual PropertyDescriptor CreatePropertyDescriptor(Engine engine, object target, string memberName, bool enumerable = true)

@@ -129,7 +129,7 @@ public sealed class TypeResolver
 
         if (typeof(DynamicObject).IsAssignableFrom(type))
         {
-            return new DynamicObjectAccessor(type);
+            return new DynamicObjectAccessor();
         }
 
         var typeResolverMemberNameComparer = MemberNameComparer;
