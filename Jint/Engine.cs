@@ -49,7 +49,10 @@ namespace Jint
         internal readonly Constraint[] _constraints;
         internal readonly bool _isDebugMode;
         internal readonly bool _isStrict;
+
+        private bool _customResolver;
         internal readonly IReferenceResolver _referenceResolver;
+
         internal readonly ReferencePool _referencePool;
         internal readonly ArgumentsInstancePool _argumentsInstancePool;
         internal readonly JsValueArrayPool _jsValueArrayPool;
@@ -134,6 +137,7 @@ namespace Jint
 
             _constraints = Options.Constraints.Constraints.ToArray();
             _referenceResolver = Options.ReferenceResolver;
+            _customResolver = !ReferenceEquals(_referenceResolver, DefaultReferenceResolver.Instance);
 
             _referencePool = new ReferencePool();
             _argumentsInstancePool = new ArgumentsInstancePool(this);
@@ -579,18 +583,25 @@ namespace Jint
 
             if (baseValue.IsUndefined())
             {
-                if (_referenceResolver.TryUnresolvableReference(this, reference, out var val))
+                if (_customResolver)
                 {
-                    return val;
+                    reference.EvaluateAndCachePropertyKey();
+                    if (_referenceResolver.TryUnresolvableReference(this, reference, out var val))
+                    {
+                        return val;
+                    }
                 }
 
                 ExceptionHelper.ThrowReferenceError(Realm, reference);
             }
 
-            if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == InternalTypes.Empty
-                && _referenceResolver.TryPropertyReference(this, reference, ref baseValue))
+            if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == InternalTypes.Empty && _customResolver)
             {
-                return baseValue;
+                reference.EvaluateAndCachePropertyKey();
+                if (_referenceResolver.TryPropertyReference(this, reference, ref baseValue))
+                {
+                    return baseValue;
+                }
             }
 
             if (reference.IsPropertyReference)

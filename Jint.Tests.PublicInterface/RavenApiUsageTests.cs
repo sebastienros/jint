@@ -202,6 +202,36 @@ public class RavenApiUsageTests
         var engine = new Engine();
         engine.Advanced.ResetCallStack();
     }
+
+    [Fact]
+    public void CanUseCustomReferenceResolver()
+    {
+        var engine = new Engine(options =>
+        {
+            options.ReferenceResolver = new MyReferenceResolver();
+        });
+
+        engine
+            .Execute("""
+                          function output(doc) {
+                         var rows123 = [{}];
+                     var test = null;
+                         return { 
+                             Rows : [{}].map(row=>({row:row, myRows:test.filter(x=>x)
+                             })).map(__rvn4=>({
+                                 Custom:__rvn4.myRows[0].Custom,
+                                 Custom2:__rvn4.myRows
+                                 }))
+                                 };
+                     }
+                     """);
+
+        var result = engine.Evaluate("output()");
+
+        var rows = result.AsObject()["Rows"];
+        var custom = rows.AsArray()[0].AsObject()["Custom"];
+        Assert.Equal(JsValue.Null, custom);
+    }
 }
 
 file sealed class CustomString : JsString
@@ -286,5 +316,37 @@ file sealed class CustomUndefined : JsValue
     public override string ToString()
     {
         return "null";
+    }
+}
+
+file sealed class MyReferenceResolver : IReferenceResolver
+{
+    public bool TryUnresolvableReference(Engine engine, Reference reference, out JsValue value)
+    {
+        JsValue referencedName = reference.ReferencedName;
+
+        if (referencedName.IsString())
+        {
+            value = reference.IsPropertyReference ? JsValue.Undefined : JsValue.Null;
+            return true;
+        }
+
+        throw new InvalidOperationException();
+    }
+
+    public bool TryPropertyReference(Engine engine, Reference reference, ref JsValue value)
+    {
+        return value.IsNull() || value.IsUndefined();
+    }
+
+    public bool TryGetCallable(Engine engine, object callee, out JsValue value)
+    {
+        value = new ClrFunction(engine, "function", static (_, _) => JsValue.Undefined);
+        return true;
+    }
+
+    public bool CheckCoercible(JsValue value)
+    {
+        return true;
     }
 }
