@@ -65,7 +65,7 @@ internal sealed class ReflectionDescriptor : PropertyDescriptor
     private JsValue DoGet(JsValue? thisObj)
     {
         var value = _reflectionAccessor.GetValue(_engine, _target, _propertyName);
-        var type = _reflectionAccessor.MemberType;
+        var type = _reflectionAccessor.MemberType ?? value?.GetType();
         return JsValue.FromObjectWithType(_engine, value, type);
     }
 
