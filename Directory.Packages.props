@@ -6,7 +6,7 @@
   <ItemGroup>
     <PackageVersion Include="Acornima" Version="1.1.0" />
     <PackageVersion Include="Acornima.Extras" Version="1.1.0" />
-    <PackageVersion Include="BenchmarkDotNet" Version="0.13.12" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
     <PackageVersion Include="BenchmarkDotNet.TestAdapter" Version="0.13.12" />
     <PackageVersion Include="FluentAssertions" Version="6.12.0" />
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
@@ -27,7 +27,7 @@
     <PackageVersion Include="Test262Harness" Version="1.0.1" />
     <PackageVersion Include="xunit" Version="2.9.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
-    <PackageVersion Include="YantraJS.Core" Version="1.2.209" />
+    <PackageVersion Include="YantraJS.Core" Version="1.2.214" />
   </ItemGroup>
   <ItemGroup>
     <GlobalPackageReference Include="GitHubActionsTestLogger" Version="2.4.1" />
