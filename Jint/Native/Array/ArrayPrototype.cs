@@ -1300,42 +1300,35 @@ public sealed class ArrayPrototype : ArrayInstance
         return sb.ToString();
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-array.prototype.tolocalestring
+    /// </summary>
     private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
     {
+        const string Separator = ",";
+
         var array = ArrayOperations.For(_realm, thisObject, forWrite: false);
         var len = array.GetLength();
-        const string Separator = ",";
         if (len == 0)
         {
             return JsString.Empty;
         }
 
-        JsValue r;
-        if (!array.TryGetValue(0, out var firstElement) || firstElement.IsNull() || firstElement.IsUndefined())
+        using var r = new ValueStringBuilder();
+        for (uint k = 0; k < len; k++)
         {
-            r = JsString.Empty;
-        }
-        else
-        {
-            r = Invoke(firstElement, "toLocaleString", System.Array.Empty<JsValue>());
-        }
-
-        for (uint k = 1; k < len; k++)
-        {
-            var s = r + Separator;
-            if (!array.TryGetValue(k, out var nextElement) || nextElement.IsNull())
+            if (k > 0)
             {
-                r = JsString.Empty;
+                r.Append(Separator);
             }
-            else
+            if (array.TryGetValue(k, out var nextElement) && !nextElement.IsNullOrUndefined())
             {
-                r = Invoke(nextElement, "toLocaleString", System.Array.Empty<JsValue>());
+                var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", []));
+                r.Append(s);
             }
-
-            r = s + r;
         }
 
-        return r;
+        return r.ToString();
     }
 
     /// <summary>
