@@ -225,7 +225,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             yield return new KeyValuePair<JsValue, PropertyDescriptor>(key, GetOwnProperty(key));
         }
     }
-
+    
     private IEnumerable<JsValue> EnumerateOwnPropertyKeys(Types types)
     {
         // prefer object order, add possible other properties after
@@ -255,21 +255,36 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
         else if (includeStrings)
         {
-            // we take public properties and fields
-            foreach (var p in ClrType.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+            // we take public properties, fields and methods
+            if ((_engine.Options.Interop.ObjectWrapperReportedMemberTypes & MemberTypes.Property) == MemberTypes.Property)
             {
-                var indexParameters = p.GetIndexParameters();
-                if (indexParameters.Length == 0)
+                foreach (var p in ClrType.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
-                    var jsString = JsString.Create(p.Name);
+                    var indexParameters = p.GetIndexParameters();
+                    if (indexParameters.Length == 0)
+                    {
+                        var jsString = JsString.Create(p.Name);
+                        yield return jsString;
+                    }
+                }   
+            }
+
+            if ((_engine.Options.Interop.ObjectWrapperReportedMemberTypes & MemberTypes.Field) == MemberTypes.Field)
+            {
+                foreach (var f in ClrType.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+                {
+                    var jsString = JsString.Create(f.Name);
                     yield return jsString;
                 }
             }
-
-            foreach (var f in ClrType.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+            
+            if ((_engine.Options.Interop.ObjectWrapperReportedMemberTypes & MemberTypes.Method) == MemberTypes.Method)
             {
-                var jsString = JsString.Create(f.Name);
-                yield return jsString;
+                foreach (var m in ClrType.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+                {
+                    var jsString = JsString.Create(m.Name);
+                    yield return jsString;
+                }
             }
         }
     }

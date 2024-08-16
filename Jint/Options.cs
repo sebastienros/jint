@@ -364,6 +364,13 @@ public class Options
         /// Whether the engine should throw an error when a member is not found on a CLR object. Defaults to false.
         /// </summary>
         public bool ThrowOnUnresolvedMember { get; set; }
+
+        /// <summary>
+        /// Types of CLR members reported by <see cref="ObjectWrapper"/> when enumerating properties/serializing <see cref="ObjectWrapper.ToObject"/>.
+        /// Supported values are: <see cref="MemberTypes.Field"/>, <see cref="MemberTypes.Property"/>, <see cref="MemberTypes.Method"/>.
+        /// All other values are ignored.
+        /// </summary>
+        public MemberTypes ObjectWrapperReportedMemberTypes { get; set; } = MemberTypes.Field | MemberTypes.Property;
     }
 
     public class ConstraintOptions

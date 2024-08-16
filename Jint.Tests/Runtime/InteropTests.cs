@@ -3483,4 +3483,52 @@ try {
         Assert.Equal("KeyValuePair`2: [test, val]", result[2]);
         Assert.Equal("String: test", result[3]);
     }
+
+    private class ClrMembersVisibilityTestClass
+    {
+        public int A { get; set; } = 10;
+
+        public int F()
+        {
+            return 4;
+        }
+    }
+
+    [Fact]
+    public void ShouldNotSeeClrMethods()
+    {
+        var engine = new Engine(opt =>
+        {
+            
+        });
+        
+        engine.SetValue("clrInstance", new ClrMembersVisibilityTestClass());
+        
+         var val = engine.GetValue("clrInstance");
+
+         var obj = val.AsObject();
+         var props = obj.GetOwnProperties().ToList();
+         
+         Assert.Equal(props.Count, 1);
+    }
+    
+    [Fact]
+    public void ShouldSeeClrMethods()
+    {
+        var engine = new Engine(opt =>
+        {
+            opt.Interop.ObjectWrapperReportedMemberTypes = MemberTypes.Method | MemberTypes.Field | MemberTypes.Property;
+        });
+        
+        engine.SetValue("clrInstance", new ClrMembersVisibilityTestClass());
+
+        var getValue = engine.Evaluate("clrInstance.get_A()");
+        Assert.Equal(getValue, 10);
+        
+        var val = engine.GetValue("clrInstance");
+        var obj = val.AsObject();
+        var props = obj.GetOwnProperties().ToList();
+        
+        Assert.Equal(props.Count, 8); // A get/set + F + GetType + ToString + Equals + GetHashCode
+    }
 }
