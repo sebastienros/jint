@@ -48,9 +48,12 @@ internal sealed class NumberPrototype : NumberInstance
         SetProperties(properties);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-number.prototype.tolocalestring
+    /// </summary>
     private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
     {
-        if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
+        if (!thisObject.IsNumber() && thisObject is not NumberInstance)
         {
             ExceptionHelper.ThrowTypeError(_realm);
         }

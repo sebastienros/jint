@@ -1198,54 +1198,61 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var len = taRecord.TypedArrayLength;
 
         var relativeStart = TypeConverter.ToIntegerOrInfinity(start);
-        int k;
+        int startIndex;
         if (double.IsNegativeInfinity(relativeStart))
         {
-            k = 0;
+            startIndex = 0;
         }
         else if (relativeStart < 0)
         {
-            k = (int) System.Math.Max(len + relativeStart, 0);
+            startIndex = (int) System.Math.Max(len + relativeStart, 0);
         }
         else
         {
-            k = (int) System.Math.Min(relativeStart, len);
+            startIndex = (int) System.Math.Min(relativeStart, len);
         }
 
         var relativeEnd = end.IsUndefined()
             ? len
             : TypeConverter.ToIntegerOrInfinity(end);
 
-        long final;
+        long endIndex;
         if (double.IsNegativeInfinity(relativeEnd))
         {
-            final = 0;
+            endIndex = 0;
         }
         else if (relativeEnd < 0)
         {
-            final = (long) System.Math.Max(len + relativeEnd, 0);
+            endIndex = (long) System.Math.Max(len + relativeEnd, 0);
         }
         else
         {
-            final = (long) System.Math.Min(relativeEnd, len);
+            endIndex = (long) System.Math.Min(relativeEnd, len);
         }
 
-        var count = System.Math.Max(final - k, 0);
-        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, new JsValue[] { count });
+        var countBytes = System.Math.Max(endIndex - startIndex, 0);
+        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, new JsValue[] { countBytes });
 
-        if (count > 0)
+        if (countBytes > 0)
         {
-            o._viewedArrayBuffer.AssertNotDetached();
+            taRecord = MakeTypedArrayWithBufferWitnessRecord(o, ArrayBufferOrder.SeqCst);
+            if (taRecord.IsTypedArrayOutOfBounds)
+            {
+                ExceptionHelper.ThrowTypeError(_realm, "TypedArray is out of bounds");
+            }
+
+            endIndex = System.Math.Min(endIndex, taRecord.TypedArrayLength);
+            countBytes = System.Math.Max(endIndex - startIndex, 0);
             var srcType = o._arrayElementType;
             var targetType = a._arrayElementType;
             if (srcType != targetType)
             {
                 var n = 0;
-                while (k < final)
+                while (startIndex < endIndex)
                 {
-                    var kValue = o[k];
+                    var kValue = o[startIndex];
                     a[n] = kValue;
-                    k++;
+                    startIndex++;
                     n++;
                 }
             }
@@ -1256,8 +1263,8 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
                 var elementSize = srcType.GetElementSize();
                 var srcByteOffset = o._byteOffset;
                 var targetByteIndex = a._byteOffset;
-                var srcByteIndex = (int) k * elementSize + srcByteOffset;
-                var limit = targetByteIndex + count * elementSize;
+                var srcByteIndex = (int) startIndex * elementSize + srcByteOffset;
+                var limit = targetByteIndex + countBytes * elementSize;
                 while (targetByteIndex < limit)
                 {
                     var value = srcBuffer.GetValueFromBuffer(srcByteIndex, TypedArrayElementType.Uint8, true, ArrayBufferOrder.Unordered);
@@ -1428,49 +1435,32 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
          * any observable changes in the specified behaviour of the algorithm.
          */
 
+        const string Separator = ",";
+
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var array = taRecord.Object;
         var len = taRecord.TypedArrayLength;
 
-        const string separator = ",";
         if (len == 0)
         {
             return JsString.Empty;
         }
 
-        JsValue r;
-        if (!array.TryGetValue(0, out var firstElement) || firstElement.IsNull() || firstElement.IsUndefined())
+        using var r = new ValueStringBuilder();
+        for (uint k = 0; k < len; k++)
         {
-            r = JsString.Empty;
-        }
-        else
-        {
-            var elementObj = TypeConverter.ToObject(_realm, firstElement);
-            var func = elementObj.Get("toLocaleString") as ICallable;
-            if (func is null)
+            if (k > 0)
             {
-                ExceptionHelper.ThrowTypeError(_realm);
+                r.Append(Separator);
             }
-
-            r = func.Call(elementObj, Arguments.Empty);
-        }
-
-        for (var k = 1; k < len; k++)
-        {
-            var s = r + separator;
-            var elementObj = TypeConverter.ToObject(_realm, array[k]);
-            var func = elementObj.Get("toLocaleString") as ICallable;
-            if (func is null)
+            if (array.TryGetValue(k, out var nextElement) && !nextElement.IsNullOrUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_realm);
+                var s = TypeConverter.ToString(Invoke(nextElement, "toLocaleString", []));
+                r.Append(s);
             }
-
-            r = func.Call(elementObj, Arguments.Empty);
-
-            r = s + r;
         }
 
-        return r;
+        return r.ToString();
     }
 
     /// <summary>

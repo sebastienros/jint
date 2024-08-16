@@ -142,8 +142,16 @@ public sealed class JsTypedArray : ObjectInstance
         var numericIndex = TypeConverter.CanonicalNumericIndexString(property);
         if (numericIndex is not null)
         {
-            IntegerIndexedElementSet(numericIndex.Value, value);
-            return true;
+            if (ReferenceEquals(this, receiver))
+            {
+                IntegerIndexedElementSet(numericIndex.Value, value);
+                return true;
+            }
+
+            if (!IsValidIntegerIndex(numericIndex.Value))
+            {
+                return true;
+            }
         }
 
         return base.Set(property, value, receiver);
