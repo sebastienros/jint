@@ -282,6 +282,11 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             {
                 foreach (var m in ClrType.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
                 {
+                    if (m.IsSpecialName || m.DeclaringType == typeof(object))
+                    {
+                        continue;
+                    }
+                    
                     var jsString = JsString.Create(m.Name);
                     yield return jsString;
                 }

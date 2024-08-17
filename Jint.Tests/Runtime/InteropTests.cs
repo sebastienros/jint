@@ -3499,7 +3499,7 @@ try {
     {
         var engine = new Engine(opt =>
         {
-            
+            opt.Interop.ObjectWrapperReportedMemberTypes = MemberTypes.Field | MemberTypes.Property;
         });
         
         engine.SetValue("clrInstance", new ClrMembersVisibilityTestClass());
@@ -3510,25 +3510,43 @@ try {
          var props = obj.GetOwnProperties().ToList();
          
          Assert.Equal(props.Count, 1);
+         props.Should().ContainSingle(x => x.Key == "A");
     }
     
     [Fact]
     public void ShouldSeeClrMethods()
     {
-        var engine = new Engine(opt =>
-        {
-            opt.Interop.ObjectWrapperReportedMemberTypes = MemberTypes.Method | MemberTypes.Field | MemberTypes.Property;
-        });
+        var engine = new Engine();
         
         engine.SetValue("clrInstance", new ClrMembersVisibilityTestClass());
-
-        var getValue = engine.Evaluate("clrInstance.get_A()");
-        Assert.Equal(getValue, 10);
         
         var val = engine.GetValue("clrInstance");
         var obj = val.AsObject();
         var props = obj.GetOwnProperties().ToList();
         
-        Assert.Equal(props.Count, 8); // A get/set + F + GetType + ToString + Equals + GetHashCode
+        Assert.Equal(props.Count, 2);
+        props.Should().ContainSingle(x => x.Key.AsString() == "A");
+        props.Should().ContainSingle(x => x.Key.AsString() == "F");
+    }
+    
+    private class ClrMembersVisibilityTestClass2
+    {
+        public int Get_A { get; set; } = 5;
+    }
+    
+    [Fact]
+    public void ShouldSeeClrMethods2()
+    {
+        var engine = new Engine();
+        
+        engine.SetValue("clrInstance", new ClrMembersVisibilityTestClass2());
+        
+        var val = engine.GetValue("clrInstance");
+
+        var obj = val.AsObject();
+        var props = obj.GetOwnProperties().ToList();
+         
+        Assert.Equal(props.Count, 1);
+        props.Should().ContainSingle(x => x.Key == "Get_A");
     }
 }
