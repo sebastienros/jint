@@ -253,12 +253,18 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
         else if (includeStrings)
         {
-            // we take public properties, fields and methods
-            const BindingFlags BindingFlags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public;
+            var interopOptions = _engine.Options.Interop;
 
-            if ((_engine.Options.Interop.ObjectWrapperReportedMemberTypes & MemberTypes.Property) == MemberTypes.Property)
+            // we take public properties, fields and methods
+            var bindingFlags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public;
+            if (interopOptions.ObjectWrapperReportOnlyDeclaredMembers)
             {
-                foreach (var p in ClrType.GetProperties(BindingFlags))
+                bindingFlags |= BindingFlags.DeclaredOnly;
+            }
+
+            if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Property) == MemberTypes.Property)
+            {
+                foreach (var p in ClrType.GetProperties(bindingFlags))
                 {
                     var indexParameters = p.GetIndexParameters();
                     if (indexParameters.Length == 0)
@@ -268,17 +274,17 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 }
             }
 
-            if ((_engine.Options.Interop.ObjectWrapperReportedMemberTypes & MemberTypes.Field) == MemberTypes.Field)
+            if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Field) == MemberTypes.Field)
             {
-                foreach (var f in ClrType.GetFields(BindingFlags | BindingFlags.DeclaredOnly))
+                foreach (var f in ClrType.GetFields(bindingFlags))
                 {
                     yield return JsString.Create(f.Name);
                 }
             }
 
-            if ((_engine.Options.Interop.ObjectWrapperReportedMemberTypes & MemberTypes.Method) == MemberTypes.Method)
+            if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Method) == MemberTypes.Method)
             {
-                foreach (var m in ClrType.GetMethods(BindingFlags | BindingFlags.DeclaredOnly))
+                foreach (var m in ClrType.GetMethods(bindingFlags | BindingFlags.DeclaredOnly))
                 {
                     if (m.IsSpecialName)
                     {
