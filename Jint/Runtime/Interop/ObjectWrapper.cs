@@ -123,7 +123,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     }
 
     public object Target { get; }
-    internal Type ClrType { get; }
+    public Type ClrType { get; }
 
     internal override bool IsArrayLike => _typeDescriptor.IsArrayLike;
 
