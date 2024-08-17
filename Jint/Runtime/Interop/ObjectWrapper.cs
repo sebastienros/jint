@@ -235,8 +235,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             var keys = (ICollection<string>) _typeDescriptor.KeysAccessor!.GetValue(Target)!;
             foreach (var key in keys)
             {
-                var jsString = JsString.Create(key);
-                yield return jsString;
+                yield return JsString.Create(key);
             }
         }
         else if (includeStrings && Target is IDictionary dictionary)
@@ -248,47 +247,45 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 if (stringKey is not null
                     || _engine.TypeConverter.TryConvert(key, typeof(string), CultureInfo.InvariantCulture, out stringKey))
                 {
-                    var jsString = JsString.Create((string) stringKey!);
-                    yield return jsString;
+                    yield return JsString.Create((string) stringKey!);
                 }
             }
         }
         else if (includeStrings)
         {
             // we take public properties, fields and methods
+            const BindingFlags BindingFlags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public;
+
             if ((_engine.Options.Interop.ObjectWrapperReportedMemberTypes & MemberTypes.Property) == MemberTypes.Property)
             {
-                foreach (var p in ClrType.GetProperties(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+                foreach (var p in ClrType.GetProperties(BindingFlags))
                 {
                     var indexParameters = p.GetIndexParameters();
                     if (indexParameters.Length == 0)
                     {
-                        var jsString = JsString.Create(p.Name);
-                        yield return jsString;
+                        yield return JsString.Create(p.Name);
                     }
-                }   
+                }
             }
 
             if ((_engine.Options.Interop.ObjectWrapperReportedMemberTypes & MemberTypes.Field) == MemberTypes.Field)
             {
-                foreach (var f in ClrType.GetFields(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+                foreach (var f in ClrType.GetFields(BindingFlags | BindingFlags.DeclaredOnly))
                 {
-                    var jsString = JsString.Create(f.Name);
-                    yield return jsString;
+                    yield return JsString.Create(f.Name);
                 }
             }
-            
+
             if ((_engine.Options.Interop.ObjectWrapperReportedMemberTypes & MemberTypes.Method) == MemberTypes.Method)
             {
-                foreach (var m in ClrType.GetMethods(BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public))
+                foreach (var m in ClrType.GetMethods(BindingFlags | BindingFlags.DeclaredOnly))
                 {
-                    if (m.IsSpecialName || m.DeclaringType == typeof(object))
+                    if (m.IsSpecialName)
                     {
                         continue;
                     }
-                    
-                    var jsString = JsString.Create(m.Name);
-                    yield return jsString;
+
+                    yield return JsString.Create(m.Name);
                 }
             }
         }

@@ -3507,10 +3507,9 @@ try {
          var val = engine.GetValue("clrInstance");
 
          var obj = val.AsObject();
-         var props = obj.GetOwnProperties().ToList();
+         var props = obj.GetOwnProperties().Select(x => x.Key.ToString()).ToList();
          
-         Assert.Equal(props.Count, 1);
-         props.Should().ContainSingle(x => x.Key == "A");
+         props.Should().BeEquivalentTo(["A"]);
     }
     
     [Fact]
@@ -3522,11 +3521,9 @@ try {
         
         var val = engine.GetValue("clrInstance");
         var obj = val.AsObject();
-        var props = obj.GetOwnProperties().ToList();
-        
-        Assert.Equal(props.Count, 2);
-        props.Should().ContainSingle(x => x.Key.AsString() == "A");
-        props.Should().ContainSingle(x => x.Key.AsString() == "F");
+        var props = obj.GetOwnProperties().Select(x => x.Key.ToString()).ToList();
+
+        props.Should().BeEquivalentTo(["A", "F"]);
     }
     
     private class ClrMembersVisibilityTestClass2
@@ -3544,9 +3541,8 @@ try {
         var val = engine.GetValue("clrInstance");
 
         var obj = val.AsObject();
-        var props = obj.GetOwnProperties().ToList();
+        var props = obj.GetOwnProperties().Select(x => x.Key.ToString()).ToList();
          
-        Assert.Equal(props.Count, 1);
-        props.Should().ContainSingle(x => x.Key == "Get_A");
+        props.Should().BeEquivalentTo(["Get_A"]);
     }
 }
