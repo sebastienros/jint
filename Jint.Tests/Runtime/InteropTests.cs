@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
@@ -3544,5 +3545,44 @@ try {
         var props = obj.GetOwnProperties().Select(x => x.Key.ToString()).ToList();
          
         props.Should().BeEquivalentTo(["Get_A"]);
+    }
+    
+    [Fact]
+    public void ShouldNotThrowOnInspectingClrFunction()
+    {
+        var engine = new Engine();
+        
+        engine.SetValue("clrDelegate", () => 4);
+        
+        var val = engine.GetValue("clrDelegate");
+
+        var fn = val as Function;
+        var decl = fn!.FunctionDeclaration;
+
+        decl.Should().BeNull();
+    }
+    
+    private class ShouldNotThrowOnInspectingClrFunctionTestClass
+    {
+        public int MyInt()
+        {
+            return 4;
+        }
+    }
+    
+    [Fact]
+    public void ShouldNotThrowOnInspectingClrClassFunction()
+    {
+        var engine = new Engine();
+        
+        engine.SetValue("clrCls", new ShouldNotThrowOnInspectingClrFunctionTestClass());
+        
+        var val = engine.GetValue("clrCls");
+        var clrFn = val.Get("MyInt");
+        
+        var fn = clrFn as Function;
+        var decl = fn!.FunctionDeclaration;
+        
+        decl.Should().BeNull();
     }
 }

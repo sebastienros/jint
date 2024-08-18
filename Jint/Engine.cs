@@ -1047,7 +1047,7 @@ public sealed partial class Engine : IDisposable
         var env = (FunctionEnvironment) ExecutionContext.LexicalEnvironment;
         var strict = _isStrict || StrictModeScope.IsStrictModeCode;
 
-        var configuration = func.Initialize();
+        var configuration = func!.Initialize();
         var parameterNames = configuration.ParameterNames;
         var hasDuplicates = configuration.HasDuplicates;
         var simpleParameterList = configuration.IsSimpleParameterList;
