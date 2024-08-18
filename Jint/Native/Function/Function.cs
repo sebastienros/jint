@@ -20,7 +20,7 @@ public abstract partial class Function : ObjectInstance, ICallable
     internal PropertyDescriptor? _nameDescriptor;
 
     internal Environment? _environment;
-    internal readonly JintFunctionDefinition _functionDefinition = null!;
+    internal readonly JintFunctionDefinition? _functionDefinition;
     internal readonly FunctionThisMode _thisMode;
     internal JsValue _homeObject = Undefined;
     internal ConstructorKind _constructorKind = ConstructorKind.Base;
@@ -71,7 +71,7 @@ public abstract partial class Function : ObjectInstance, ICallable
     }
 
     // for example RavenDB wants to inspect this
-    public IFunction FunctionDeclaration => _functionDefinition.Function;
+    public IFunction? FunctionDeclaration => _functionDefinition?.Function;
 
     internal override bool IsCallable => true;
 

@@ -58,7 +58,7 @@ public sealed class ScriptFunction : Function, IConstructor
     /// </summary>
     protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
     {
-        var strict = _functionDefinition.Strict || _thisMode == FunctionThisMode.Strict;
+        var strict = _functionDefinition!.Strict || _thisMode == FunctionThisMode.Strict;
         using (new StrictModeScope(strict, true))
         {
             try
@@ -158,7 +158,7 @@ public sealed class ScriptFunction : Function, IConstructor
 
                 var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
 
-                var result = _functionDefinition.EvaluateBody(context, this, arguments);
+                var result = _functionDefinition!.EvaluateBody(context, this, arguments);
 
                 // The DebugHandler needs the current execution context before the return for stepping through the return point
                 // We exclude the empty constructor generated for classes without an explicit constructor.
