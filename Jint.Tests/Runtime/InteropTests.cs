@@ -3585,4 +3585,20 @@ try {
         
         decl.Should().BeNull();
     }
+
+    [Fact]
+    public void StringifyShouldIncludeInheritedFieldsAndProperties()
+    {
+        var engine = new Engine();
+        engine.SetValue("c", new Circle(12.34));
+        engine.Evaluate("JSON.stringify(c)").ToString().Should().Be("{\"Radius\":12.34,\"Color\":0,\"Id\":123}");
+
+
+        engine = new Engine(options =>
+        {
+            options.Interop.ObjectWrapperReportOnlyDeclaredMembers = true;
+        });
+        engine.SetValue("c", new Circle(12.34));
+        engine.Evaluate("JSON.stringify(c)").ToString().Should().Be("{\"Radius\":12.34}");
+    }
 }
