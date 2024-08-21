@@ -13,7 +13,7 @@
     <PackageVersion Include="Jurassic" Version="3.2.7" />
     <PackageVersion Include="Meziantou.Analyzer" Version="2.0.163" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.7.0" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.8.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageVersion Include="MongoDB.Bson.signed" Version="2.19.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
@@ -27,7 +27,7 @@
     <PackageVersion Include="Test262Harness" Version="1.0.1" />
     <PackageVersion Include="xunit" Version="2.9.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
-    <PackageVersion Include="YantraJS.Core" Version="1.2.214" />
+    <PackageVersion Include="YantraJS.Core" Version="1.2.218" />
   </ItemGroup>
   <ItemGroup>
     <GlobalPackageReference Include="GitHubActionsTestLogger" Version="2.4.1" />

@@ -16,6 +16,7 @@
   <ItemGroup>
     <PackageReference Include="Acornima.Extras" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" />
     <PackageReference Include="Test262Harness" />
