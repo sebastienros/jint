@@ -44,6 +44,22 @@ public class ModuleTests
     }
 
     [Fact]
+    public void ShouldExportDefaultFunctionWithoutName()
+    {
+        _engine.Modules.Add("module1", "export default function main() { return 1; }");
+        _engine.Modules.Add("module2", "export default function () { return 1; }");
+        var ns = _engine.Modules.Import("module1");
+
+        var func = ns.Get("default");
+        Assert.Equal(1, func.Call());
+
+        ns = _engine.Modules.Import("module2");
+
+        func = ns.Get("default");
+        Assert.Equal(1, func.Call());
+    }
+
+    [Fact]
     public void ShouldExportAll()
     {
         _engine.Modules.Add("module1", "export const value = 'exported value';");
