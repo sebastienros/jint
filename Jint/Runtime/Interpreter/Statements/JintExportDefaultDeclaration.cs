@@ -42,6 +42,13 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         var env = context.Engine.ExecutionContext.LexicalEnvironment;
+        if (env.HasBinding("*default*"))
+        {
+            // We already have the default binding.
+            // Initialized in SourceTextModule.InitializeEnvironment.
+            return Completion.Empty();
+        }
+
         JsValue value;
         if (_classDefinition is not null)
         {
