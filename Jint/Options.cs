@@ -371,13 +371,6 @@ public class Options
         /// All other values are ignored.
         /// </summary>
         public MemberTypes ObjectWrapperReportedMemberTypes { get; set; } = MemberTypes.Field | MemberTypes.Property | MemberTypes.Method;
-
-        /// <summary>
-        /// Whether object wrapper should only report members that are declared on the object type itself, not inherited members. Defaults to false.
-        /// This is different from JS logic where only object's own members are reported and not prototypes.
-        /// </summary>
-        /// <remarks>This configuration does not affect methods, only methods declared in type itself will be reported.</remarks>
-        public bool ObjectWrapperReportOnlyDeclaredMembers { get; set; }
     }
 
     public class ConstraintOptions

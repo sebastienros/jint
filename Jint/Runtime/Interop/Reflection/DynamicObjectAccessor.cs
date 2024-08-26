@@ -1,5 +1,4 @@
 using System.Dynamic;
-using System.Reflection;
 using Jint.Native;
 
 #pragma warning disable IL2092

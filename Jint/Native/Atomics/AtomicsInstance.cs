@@ -1,4 +1,3 @@
-using System.Numerics;
 using System.Threading;
 using Jint.Collections;
 using Jint.Native.Object;
