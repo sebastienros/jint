@@ -257,15 +257,16 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
             // we take public properties, fields and methods
             var bindingFlags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public;
-            if (interopOptions.ObjectWrapperReportOnlyDeclaredMembers)
-            {
-                bindingFlags |= BindingFlags.DeclaredOnly;
-            }
 
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Property) == MemberTypes.Property)
             {
                 foreach (var p in ClrType.GetProperties(bindingFlags))
                 {
+                    if (!interopOptions.TypeResolver.Filter(_engine, ClrType, p))
+                    {
+                        continue;
+                    }
+
                     var indexParameters = p.GetIndexParameters();
                     if (indexParameters.Length == 0)
                     {
@@ -278,15 +279,21 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             {
                 foreach (var f in ClrType.GetFields(bindingFlags))
                 {
+                    if (!interopOptions.TypeResolver.Filter(_engine, ClrType, f))
+                    {
+                        continue;
+                    }
+
                     yield return JsString.Create(f.Name);
                 }
             }
 
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Method) == MemberTypes.Method)
             {
-                foreach (var m in ClrType.GetMethods(bindingFlags | BindingFlags.DeclaredOnly))
+                foreach (var m in ClrType.GetMethods(bindingFlags))
                 {
-                    if (m.IsSpecialName)
+                    // we won't report anything from base object as it would usually not be something to expect from JS perspective
+                    if (m.DeclaringType == typeof(object) || m.IsSpecialName || !interopOptions.TypeResolver.Filter(_engine, ClrType, m))
                     {
                         continue;
                     }

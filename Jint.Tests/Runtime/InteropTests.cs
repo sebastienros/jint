@@ -3297,9 +3297,13 @@ try {
         public BaseClass Get() => _child;
     }
 
-    private class BaseClass { }
+    private class BaseClass
+    {
+    }
 
-    private class Child : BaseClass { }
+    private class Child : BaseClass
+    {
+    }
 
     [Fact]
     public void AccessingBaseTypeShouldBeEqualToAccessingDerivedType()
@@ -3328,6 +3332,7 @@ try {
     public class Strings : IStringCollection
     {
         private readonly string[] _strings;
+
         public Strings(string[] strings)
         {
             _strings = strings;
@@ -3340,7 +3345,7 @@ try {
 
     public class Utils
     {
-        public IStringCollection GetStrings() => new Strings(new [] { "a", "b", "c" });
+        public IStringCollection GetStrings() => new Strings(new[] { "a", "b", "c" });
     }
 
     [Fact]
@@ -3384,6 +3389,7 @@ try {
         public bool ContainsKey(string key) => throw new NotImplementedException();
         public void Add(string key, object value) => throw new NotImplementedException();
         public bool Remove(string key) => throw new NotImplementedException();
+
         public bool TryGetValue(string key, out object value)
         {
             value = "from-wrapper";
@@ -3467,6 +3473,7 @@ try {
         });
 
         var result = new List<string>();
+
         void Debug(object o)
         {
             result.Add($"{o?.GetType().Name ?? "null"}: {o ?? "null"}");
@@ -3487,73 +3494,97 @@ try {
 
     private class ClrMembersVisibilityTestClass
     {
-        public int A { get; set; } = 10;
+        public string Field = "field";
 
-        public int F()
+        public int Property { get; set; } = 10;
+
+        public int Method()
         {
             return 4;
         }
+
+        public string Extras { get; set; }
     }
 
     [Fact]
-    public void ShouldNotSeeClrMethods()
+    public void PropertiesShouldNotSeeReportMethodsWhenMemberTypesActive()
     {
         var engine = new Engine(opt =>
         {
             opt.Interop.ObjectWrapperReportedMemberTypes = MemberTypes.Field | MemberTypes.Property;
         });
-        
-        engine.SetValue("clrInstance", new ClrMembersVisibilityTestClass());
-        
-         var val = engine.GetValue("clrInstance");
 
-         var obj = val.AsObject();
-         var props = obj.GetOwnProperties().Select(x => x.Key.ToString()).ToList();
-         
-         props.Should().BeEquivalentTo(["A"]);
+        engine.SetValue("clrInstance", new ClrMembersVisibilityTestClass());
+
+        var val = engine.GetValue("clrInstance");
+
+        var obj = val.AsObject();
+        var props = obj.GetOwnProperties().Select(x => x.Key.ToString()).ToList();
+
+        props.Should().BeEquivalentTo("Property", "Extras", "Field");
     }
-    
+
     [Fact]
-    public void ShouldSeeClrMethods()
+    public void PropertyKeysShouldReportMethods()
     {
         var engine = new Engine();
-        
+
         engine.SetValue("clrInstance", new ClrMembersVisibilityTestClass());
-        
+
         var val = engine.GetValue("clrInstance");
         var obj = val.AsObject();
         var props = obj.GetOwnProperties().Select(x => x.Key.ToString()).ToList();
 
-        props.Should().BeEquivalentTo(["A", "F"]);
+        props.Should().BeEquivalentTo("Property", "Extras", "Field", "Method");
     }
-    
+
+    [Fact]
+    public void PropertyKeysShouldObeyMemberFilter()
+    {
+        var engine = new Engine(options =>
+        {
+            options.SetTypeResolver(new TypeResolver
+            {
+                MemberFilter = member => member.Name == "Extras"
+            });
+        });
+
+        engine.SetValue("clrInstance", new ClrMembersVisibilityTestClass());
+
+        var val = engine.GetValue("clrInstance");
+        var obj = val.AsObject();
+        var props = obj.GetOwnProperties().Select(x => x.Key.ToString()).ToList();
+
+        props.Should().BeEquivalentTo("Extras");
+    }
+
     private class ClrMembersVisibilityTestClass2
     {
         public int Get_A { get; set; } = 5;
     }
-    
+
     [Fact]
     public void ShouldSeeClrMethods2()
     {
         var engine = new Engine();
-        
+
         engine.SetValue("clrInstance", new ClrMembersVisibilityTestClass2());
-        
+
         var val = engine.GetValue("clrInstance");
 
         var obj = val.AsObject();
         var props = obj.GetOwnProperties().Select(x => x.Key.ToString()).ToList();
-         
-        props.Should().BeEquivalentTo(["Get_A"]);
+
+        props.Should().BeEquivalentTo("Get_A");
     }
-    
+
     [Fact]
     public void ShouldNotThrowOnInspectingClrFunction()
     {
         var engine = new Engine();
-        
+
         engine.SetValue("clrDelegate", () => 4);
-        
+
         var val = engine.GetValue("clrDelegate");
 
         var fn = val as Function;
@@ -3561,7 +3592,7 @@ try {
 
         decl.Should().BeNull();
     }
-    
+
     private class ShouldNotThrowOnInspectingClrFunctionTestClass
     {
         public int MyInt()
@@ -3569,20 +3600,20 @@ try {
             return 4;
         }
     }
-    
+
     [Fact]
     public void ShouldNotThrowOnInspectingClrClassFunction()
     {
         var engine = new Engine();
-        
+
         engine.SetValue("clrCls", new ShouldNotThrowOnInspectingClrFunctionTestClass());
-        
+
         var val = engine.GetValue("clrCls");
         var clrFn = val.Get("MyInt");
-        
+
         var fn = clrFn as Function;
         var decl = fn!.FunctionDeclaration;
-        
+
         decl.Should().BeNull();
     }
 
@@ -3592,13 +3623,5 @@ try {
         var engine = new Engine();
         engine.SetValue("c", new Circle(12.34));
         engine.Evaluate("JSON.stringify(c)").ToString().Should().Be("{\"Radius\":12.34,\"Color\":0,\"Id\":123}");
-
-
-        engine = new Engine(options =>
-        {
-            options.Interop.ObjectWrapperReportOnlyDeclaredMembers = true;
-        });
-        engine.SetValue("c", new Circle(12.34));
-        engine.Evaluate("JSON.stringify(c)").ToString().Should().Be("{\"Radius\":12.34}");
     }
 }
