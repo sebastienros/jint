@@ -69,9 +69,9 @@ internal sealed class GlobalEnvironment : Environment
         return _global.HasProperty(name.Value);
     }
 
-    internal override bool TryGetBinding(BindingName name, [NotNullWhen(true)] out JsValue? value)
+    internal override bool TryGetBinding(BindingName name, bool strict, [NotNullWhen(true)] out JsValue? value)
     {
-        if (_declarativeRecord._dictionary is not null && _declarativeRecord.TryGetBinding(name, out value))
+        if (_declarativeRecord._dictionary is not null && _declarativeRecord.TryGetBinding(name, strict, out value))
         {
             return true;
         }

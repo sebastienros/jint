@@ -35,6 +35,7 @@ internal static class JintEnvironment
     internal static bool TryGetIdentifierEnvironmentWithBindingValue(
         Environment env,
         Environment.BindingName name,
+        bool strict,
         [NotNullWhen(true)] out Environment? record,
         [NotNullWhen(true)] out JsValue? value)
     {
@@ -43,12 +44,12 @@ internal static class JintEnvironment
 
         if (env._outerEnv is null)
         {
-            return ((GlobalEnvironment) env).TryGetBinding(name, out value);
+            return ((GlobalEnvironment) env).TryGetBinding(name, strict, out value);
         }
 
         while (record is not null)
         {
-            if (record.TryGetBinding(name, out value))
+            if (record.TryGetBinding(name, strict, out value))
             {
                 return true;
             }

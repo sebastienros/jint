@@ -79,7 +79,7 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
     public abstract JsValue Get(ulong index);
 
     public virtual JsValue[] GetAll(
-        Types elementTypes = Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.Object,
+        Types elementTypes = Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.BigInt | Types.Object,
         bool skipHoles = false)
     {
         uint writeIndex = 0;
@@ -265,13 +265,15 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override JsValue Get(ulong index) => _target.Get((uint) index);
 
-        public override JsValue[] GetAll(Types elementTypes = Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Symbol | Types.Number | Types.Object, bool skipHoles = false)
+        public override JsValue[] GetAll(
+            Types elementTypes = Types.Empty | Types.Undefined | Types.Null | Types.Boolean | Types.String | Types.Number | Types.Symbol | Types.BigInt | Types.Object,
+            bool skipHoles = false)
         {
             var n = _target.GetLength();
 
             if (_target._dense == null || _target._dense.Length < n)
             {
-                return base.GetAll(elementTypes);
+                return base.GetAll(elementTypes, skipHoles);
             }
 
             // optimized

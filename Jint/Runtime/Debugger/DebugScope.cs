@@ -57,7 +57,7 @@ public sealed class DebugScope
     /// <returns>Value of the binding</returns>
     public JsValue? GetBindingValue(string name)
     {
-        _record.TryGetBinding(new Environment.BindingName(name), out var result);
+        _record.TryGetBinding(new Environment.BindingName(name), strict: false, out var result);
         return result;
     }
 

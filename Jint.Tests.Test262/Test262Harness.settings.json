@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "941813e1f0e64ae9a5c4c5c8075f49ff89b0c642",
+  "SuiteGitSha": "d62fa93c8f9ce5e687c0bbaa5d2b59670ab2ff60",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -10,7 +10,6 @@
     "Atomics",
     "decorators",
     "explicit-resource-management",
-    "import-assertions",
     "iterator-helpers",
     "Math.sumPrecise",
     "regexp-lookbehind",

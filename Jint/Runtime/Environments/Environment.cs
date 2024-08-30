@@ -28,7 +28,7 @@ internal abstract class Environment : JsValue
 
     internal abstract bool HasBinding(BindingName name);
 
-    internal abstract bool TryGetBinding(BindingName name, [NotNullWhen(true)] out JsValue? value);
+    internal abstract bool TryGetBinding(BindingName name, bool strict, [NotNullWhen(true)] out JsValue? value);
 
     /// <summary>
     /// Creates a new mutable binding in an environment record.

@@ -47,7 +47,7 @@ internal sealed class ModuleEnvironment : DeclarativeEnvironment
         return base.GetBindingValue(name, strict);
     }
 
-    internal override bool TryGetBinding(BindingName name, [NotNullWhen(true)] out JsValue? value)
+    internal override bool TryGetBinding(BindingName name, bool strict, [NotNullWhen(true)] out JsValue? value)
     {
         if (_importBindings.TryGetValue(name.Key, out var indirectBinding))
         {
@@ -55,7 +55,7 @@ internal sealed class ModuleEnvironment : DeclarativeEnvironment
             return true;
         }
 
-        return base.TryGetBinding(name, out value);
+        return base.TryGetBinding(name, strict, out value);
     }
 
     /// <summary>

@@ -61,6 +61,7 @@ internal sealed class JintMemberExpression : JintExpression
         JsValue? baseValue = null;
 
         var engine = context.Engine;
+        var strict = StrictModeScope.IsStrictModeCode;
         if (_objectExpression is JintIdentifierExpression identifierExpression)
         {
             var identifier = identifierExpression.Identifier;
@@ -69,6 +70,7 @@ internal sealed class JintMemberExpression : JintExpression
             JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 env,
                 identifier,
+                strict,
                 out _,
                 out baseValue);
         }

@@ -122,13 +122,16 @@ internal sealed class JintUpdateExpression : JintExpression
     private JsValue? UpdateIdentifier(EvaluationContext context)
     {
         var name = _leftIdentifier!.Identifier;
+        var strict = StrictModeScope.IsStrictModeCode;
+
         if (JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 context.Engine.ExecutionContext.LexicalEnvironment,
                 name,
+                strict,
                 out var environmentRecord,
                 out var value))
         {
-            if (_evalOrArguments && StrictModeScope.IsStrictModeCode)
+            if (_evalOrArguments && strict)
             {
                 ExceptionHelper.ThrowSyntaxError(context.Engine.Realm);
             }
@@ -163,7 +166,7 @@ internal sealed class JintUpdateExpression : JintExpression
                 }
             }
 
-            environmentRecord.SetMutableBinding(name.Key, newValue!, StrictModeScope.IsStrictModeCode);
+            environmentRecord.SetMutableBinding(name.Key, newValue!, strict);
             if (_prefix)
             {
                 return newValue;

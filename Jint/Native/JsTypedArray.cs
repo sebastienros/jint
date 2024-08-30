@@ -88,13 +88,10 @@ public sealed class JsTypedArray : ObjectInstance
     /// </summary>
     public override bool HasProperty(JsValue property)
     {
-        if (property.IsString())
+        var numericIndex = TypeConverter.CanonicalNumericIndexString(property);
+        if (numericIndex is not null)
         {
-            var numericIndex = TypeConverter.CanonicalNumericIndexString(property);
-            if (numericIndex is not null)
-            {
-                return IsValidIntegerIndex(numericIndex.Value);
-            }
+            return IsValidIntegerIndex(numericIndex.Value);
         }
 
         return base.HasProperty(property);
@@ -162,39 +159,36 @@ public sealed class JsTypedArray : ObjectInstance
     /// </summary>
     public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
-        if (property.IsString())
+        var numericIndex = TypeConverter.CanonicalNumericIndexString(property);
+        if (numericIndex is not null)
         {
-            var numericIndex = TypeConverter.CanonicalNumericIndexString(property);
-            if (numericIndex is not null)
+            if (!IsValidIntegerIndex(numericIndex.Value))
             {
-                if (!IsValidIntegerIndex(numericIndex.Value))
-                {
-                    return false;
-                }
-
-                if (desc.ConfigurableSet && !desc.Configurable)
-                {
-                    return false;
-                }
-
-                if (desc.EnumerableSet && !desc.Enumerable)
-                {
-                    return false;
-                }
-
-                if (desc.IsAccessorDescriptor())
-                {
-                    return false;
-                }
-
-                if (desc.WritableSet && !desc.Writable)
-                {
-                    return false;
-                }
-
-                IntegerIndexedElementSet(numericIndex.Value, desc.Value);
-                return true;
+                return false;
             }
+
+            if (desc is { ConfigurableSet: true, Configurable: false })
+            {
+                return false;
+            }
+
+            if (desc is { EnumerableSet: true, Enumerable: false })
+            {
+                return false;
+            }
+
+            if (desc.IsAccessorDescriptor())
+            {
+                return false;
+            }
+
+            if (desc is { WritableSet: true, Writable: false })
+            {
+                return false;
+            }
+
+            IntegerIndexedElementSet(numericIndex.Value, desc.Value);
+            return true;
         }
 
         return base.DefineOwnProperty(property, desc);
