@@ -23,7 +23,7 @@ internal class DeclarativeEnvironment : Environment
 
     internal sealed override bool HasBinding(Key name) => _dictionary is not null && _dictionary.ContainsKey(name);
 
-    internal override bool TryGetBinding(BindingName name, [NotNullWhen(true)] out JsValue? value)
+    internal override bool TryGetBinding(BindingName name, bool strict, [NotNullWhen(true)] out JsValue? value)
     {
         if (_dictionary?.TryGetValue(name.Key, out var binding) == true)
         {

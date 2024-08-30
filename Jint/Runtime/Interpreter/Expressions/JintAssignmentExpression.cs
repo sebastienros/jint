@@ -42,17 +42,19 @@ internal sealed class JintAssignmentExpression : JintExpression
     protected override object EvaluateInternal(EvaluationContext context)
     {
         var engine = context.Engine;
+        var strict = StrictModeScope.IsStrictModeCode;
 
         JsValue originalLeftValue;
         Reference lref;
         if (_leftIdentifier is not null && JintEnvironment.TryGetIdentifierEnvironmentWithBindingValue(
                 engine.ExecutionContext.LexicalEnvironment,
                 _leftIdentifier.Identifier,
+                strict,
                 out var identifierEnvironment,
                 out var temp))
         {
             originalLeftValue = temp;
-            lref = engine._referencePool.Rent(identifierEnvironment, _leftIdentifier.Identifier.Value, StrictModeScope.IsStrictModeCode, thisValue: null);
+            lref = engine._referencePool.Rent(identifierEnvironment, _leftIdentifier.Identifier.Value, strict, thisValue: null);
         }
         else
         {

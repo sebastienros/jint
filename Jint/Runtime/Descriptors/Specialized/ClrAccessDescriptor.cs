@@ -31,7 +31,7 @@ internal sealed class ClrAccessDescriptor : PropertyDescriptor
 
     private JsValue DoGet(JsValue n)
     {
-        return _env.TryGetBinding(_name, out var value)
+        return _env.TryGetBinding(_name, strict: true, out var value)
             ? value
             : JsValue.Undefined;
     }

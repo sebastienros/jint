@@ -30,7 +30,7 @@ internal sealed class ObjectEnvironment : Environment
     internal override bool HasBinding(Key name)
     {
         var property = new JsString(name.Name);
-        var foundBinding = HasProperty(property);
+        var foundBinding = _bindingObject.HasProperty(property);
 
         if (!foundBinding)
         {
@@ -47,7 +47,7 @@ internal sealed class ObjectEnvironment : Environment
 
     internal override bool HasBinding(BindingName name)
     {
-        var foundBinding = HasProperty(name.Value);
+        var foundBinding = _bindingObject.HasProperty(name.Value);
 
         if (!foundBinding)
         {
@@ -62,15 +62,10 @@ internal sealed class ObjectEnvironment : Environment
         return !IsBlocked(name.Value);
     }
 
-    private bool HasProperty(JsValue property)
-    {
-        return _bindingObject.HasProperty(property);
-    }
-
-    internal override bool TryGetBinding(BindingName name, [NotNullWhen(true)] out JsValue? value)
+    internal override bool TryGetBinding(BindingName name, bool strict, [NotNullWhen(true)] out JsValue? value)
     {
         // we unwrap by name
-        if (!HasProperty(name.Value))
+        if (!_bindingObject.HasProperty(name.Value))
         {
             value = default;
             return false;
@@ -83,6 +78,13 @@ internal sealed class ObjectEnvironment : Environment
         }
 
         value = _bindingObject.Get(name.Value);
+
+        if (strict && value.IsUndefined() && !_bindingObject.HasProperty(name.Value))
+        {
+            // data was deleted during reading of unscopable information, of course...
+            ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Key);
+        }
+
         return true;
     }
 
