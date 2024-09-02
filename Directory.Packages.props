@@ -19,7 +19,7 @@
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="NiL.JS" Version="2.5.1684" />
     <PackageVersion Include="NodaTime" Version="3.1.11" />
-    <PackageVersion Include="NUnit" Version="4.2.1" />
+    <PackageVersion Include="NUnit" Version="4.2.2" />
     <PackageVersion Include="NUnit3TestAdapter" Version="4.6.0" />
     <PackageVersion Include="SharpZipLib" Version="1.4.2" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.45.0" />
@@ -27,7 +27,7 @@
     <PackageVersion Include="Test262Harness" Version="1.0.1" />
     <PackageVersion Include="xunit" Version="2.9.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
-    <PackageVersion Include="YantraJS.Core" Version="1.2.218" />
+    <PackageVersion Include="YantraJS.Core" Version="1.2.232" />
   </ItemGroup>
   <ItemGroup>
     <GlobalPackageReference Include="GitHubActionsTestLogger" Version="2.4.1" />
