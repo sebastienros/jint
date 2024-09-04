@@ -280,4 +280,25 @@ public partial class InteropTests
 
         engine.Invoking(e => e.Evaluate("obj.AgeMissing")).Should().Throw<MissingMemberException>();
     }
+
+    public class ClassWithPropertyToHide
+    {
+        public int x { get; set; } = 2;
+        public int y { get; set; } = 3;
+    }
+
+    public class ClassThatHidesProperty : ClassWithPropertyToHide
+    {
+        public new bool x { get; set; } = true;
+    }
+
+    [Fact]
+    public void ShouldRespectExplicitHiding()
+    {
+        var engine = new Engine();
+
+        engine.SetValue("obj", new ClassThatHidesProperty());
+        engine.Evaluate("obj.x").AsBoolean().Should().BeTrue();
+        engine.Evaluate("obj.y").AsNumber().Should().Be(3);
+    }
 }
