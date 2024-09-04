@@ -317,6 +317,14 @@ public sealed class TypeResolver
                     {
                         if (memberNameComparer.Equals(name, memberName))
                         {
+                            // If one property hides another (e.g., by public new), the derived property is returned.
+                            if (property is not null
+                                && p.DeclaringType is not null
+                                && property.DeclaringType is not null
+                                && property.DeclaringType.IsSubclassOf(p.DeclaringType))
+                            {
+                                continue;
+                            }
                             property = p;
                             break;
                         }
