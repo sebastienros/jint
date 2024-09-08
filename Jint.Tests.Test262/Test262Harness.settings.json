@@ -74,29 +74,15 @@
     "built-ins/Function/prototype/toString/method-computed-property-name.js",
     "language/expressions/class/elements/class-name-static-initializer-anonymous.js",
 
-    // http://www.ecma-international.org/ecma-262/#sec-block-level-function-declarations-web-legacy-compatibility-semantics not implemented (block level functions)
-    "language/statements/let/block-local-closure-set-before-initialization.js",
-
-    // Windows line ending differences
-    "built-ins/String/raw/special-characters.js",
-
     // delete/add detection not implemented for map iterator during iteration
     "built-ins/Map/prototype/forEach/iterates-values-deleted-then-readded.js",
     "built-ins/MapIteratorPrototype/next/iteration-mutable.js",
     "built-ins/Set/prototype/forEach/iterates-values-revisits-after-delete-re-add.js",
 
-    // Line feed problems (git, windows, linux)
-    "language/expressions/template-literal/tv-line-terminator-sequence.js",
-
     // 100 fraction digits is not supported due to .NET format specifier limitation
     "built-ins/Number/prototype/toFixed/range.js",
 
-    // C# can't distinguish 1.797693134862315808e+308 and 1.797693134862315708145274237317e+308
-    "language/types/number/8.5.1.js",
-
     // generators
-    "built-ins/GeneratorFunction/instance-yield-expr-in-param.js",
-    "built-ins/GeneratorFunction/instance-yield-expr-in-param.js",
     "built-ins/GeneratorPrototype/next/return-yield-expr.js",
     "built-ins/GeneratorPrototype/next/return-yield-expr.js",
     "built-ins/GeneratorPrototype/return/try-catch-before-try.js",
@@ -199,7 +185,6 @@
     "language/expressions/assignment/dstr/array-rest-nested-obj-yield-expr.js",
     "language/expressions/assignment/dstr/array-rest-yield-expr.js",
     "language/expressions/assignment/dstr/array-rest-yield-expr.js",
-    "language/expressions/assignment/dstr/obj-id-identifier-yield-ident-valid.js",
     "language/expressions/assignment/dstr/obj-id-init-yield-expr.js",
     "language/expressions/assignment/dstr/obj-id-init-yield-expr.js",
     "language/expressions/assignment/dstr/obj-prop-elem-init-yield-expr.js",
@@ -923,7 +908,6 @@
     "language/statements/for-of/dstr/let-ary-ptrn-elem-ary-elision-init.js",
     "language/statements/for-of/dstr/let-ary-ptrn-elision.js",
     "language/statements/for-of/dstr/let-ary-ptrn-elision.js",
-    "language/statements/for-of/dstr/obj-id-identifier-yield-ident-valid.js",
     "language/statements/for-of/dstr/obj-id-init-yield-expr.js",
     "language/statements/for-of/dstr/obj-id-init-yield-expr.js",
     "language/statements/for-of/dstr/obj-prop-elem-init-yield-expr.js",
@@ -1025,8 +1009,6 @@
     "language/statements/generators/yield-spread-obj.js",
     "language/statements/generators/yield-star-before-newline.js",
     "language/statements/generators/yield-star-before-newline.js",
-    "language/statements/labeled/value-yield-non-strict-escaped.js",
-    "language/statements/labeled/value-yield-non-strict.js",
     "language/statements/let/dstr/ary-ptrn-elem-ary-elision-init.js",
     "language/statements/let/dstr/ary-ptrn-elem-ary-elision-init.js",
     "language/statements/let/dstr/ary-ptrn-elision.js",
@@ -1039,9 +1021,6 @@
     "language/statements/variable/dstr/ary-ptrn-elem-ary-elision-init.js",
     "language/statements/variable/dstr/ary-ptrn-elision.js",
     "language/statements/variable/dstr/ary-ptrn-elision.js",
-
-    // SharedArrayBuffer not implemented
-    "built-ins/SharedArrayBuffer/prototype/prop-desc.js",
 
     // special casing data
     "built-ins/**/special_casing*.js",
@@ -1188,29 +1167,12 @@
     "language/eval-code/direct/meth-fn-body-cntns-arguments-var-bind-declare-arguments.js",
     "language/eval-code/direct/meth-no-pre-existing-arguments-bindings-are-present-declare-arguments-and-assign.js",
     "language/eval-code/direct/meth-no-pre-existing-arguments-bindings-are-present-declare-arguments.js",
-    "language/eval-code/direct/new.target-fn.js",
-    "language/eval-code/direct/super-prop-method.js",
     "language/eval-code/indirect/always-non-strict.js",
-    "language/eval-code/indirect/non-definable-global-function.js",
-    "language/eval-code/indirect/non-definable-global-var.js",
-    "language/eval-code/indirect/realm.js",
-    "language/eval-code/indirect/var-env-func-init-global-new.js",
-    "language/eval-code/indirect/var-env-func-init-global-update-configurable.js",
-    "language/eval-code/indirect/var-env-func-init-multi.js",
-    "language/eval-code/indirect/var-env-func-non-strict.js",
-    "language/eval-code/indirect/var-env-global-lex-non-strict.js",
-    "language/eval-code/indirect/var-env-var-init-global-exstng.js",
-    "language/eval-code/indirect/var-env-var-init-global-new.js",
-    "language/eval-code/indirect/var-env-var-non-strict.js",
-    "language/expressions/arrow-function/dstr/ary-init-iter-get-err-array-prototype.js",
-    "language/expressions/arrow-function/dstr/dflt-ary-init-iter-get-err-array-prototype.js",
     "language/expressions/arrow-function/eval-var-scope-syntax-err.js",
     "language/expressions/arrow-function/scope-param-elem-var-close.js",
     "language/expressions/arrow-function/scope-param-elem-var-open.js",
     "language/expressions/arrow-function/scope-param-rest-elem-var-close.js",
     "language/expressions/arrow-function/scope-param-rest-elem-var-open.js",
-    "language/expressions/assignment/assignment-operator-calls-putvalue-lref--rval--1.js",
-    "language/expressions/assignment/assignment-operator-calls-putvalue-lref--rval-.js",
     "language/expressions/assignment/dstr/array-elem-put-obj-literal-prop-ref-init-active.js",
     "language/expressions/assignment/dstr/array-elem-put-obj-literal-prop-ref-init.js",
     "language/expressions/assignment/dstr/obj-prop-elem-target-obj-literal-prop-ref-init-active.js",
@@ -1228,10 +1190,7 @@
     "language/expressions/function/scope-param-rest-elem-var-close.js",
     "language/expressions/function/scope-param-rest-elem-var-open.js",
     "language/expressions/object/cpn-obj-lit-computed-property-name-from-null.js",
-    "language/expressions/object/dstr/meth-ary-init-iter-get-err-array-prototype.js",
-    "language/expressions/object/dstr/meth-dflt-ary-init-iter-get-err-array-prototype.js",
     "language/expressions/object/dstr/object-rest-proxy-get-not-called-on-dontenum-keys.js",
-    "language/expressions/object/dstr/object-rest-proxy-gopd-not-called-on-excluded-keys.js",
     "language/expressions/object/method-definition/forbidden-ext/b1/meth-forbidden-ext-direct-access-prop-arguments.js",
     "language/expressions/object/method-definition/forbidden-ext/b1/meth-forbidden-ext-direct-access-prop-caller.js",
     "language/expressions/object/method-definition/meth-eval-var-scope-syntax-err.js",
@@ -1241,22 +1200,13 @@
     "language/expressions/object/scope-meth-param-rest-elem-var-close.js",
     "language/expressions/object/scope-meth-param-rest-elem-var-open.js",
     "language/expressions/super/call-proto-not-ctor.js",
-    "language/expressions/template-literal/tv-line-continuation.js",
     "language/function-code/eval-param-env-with-computed-key.js",
     "language/function-code/eval-param-env-with-prop-initializer.js",
-    "language/literals/string/line-separator-eval.js",
-    "language/literals/string/line-separator.js",
-    "language/literals/string/paragraph-separator-eval.js",
-    "language/literals/string/paragraph-separator.js",
     "language/statementList/eval-block-with-statment-block.js",
     "language/statements/for-of/dstr/array-elem-put-obj-literal-prop-ref-init-active.js",
     "language/statements/for-of/dstr/array-elem-put-obj-literal-prop-ref-init.js",
-    "language/statements/for-of/dstr/obj-id-init-let.js",
     "language/statements/for-of/dstr/obj-prop-elem-target-obj-literal-prop-ref-init-active.js",
     "language/statements/for-of/dstr/obj-prop-elem-target-obj-literal-prop-ref-init.js",
-    "language/statements/function/cptn-decl.js",
-    "language/statements/function/dstr/ary-init-iter-get-err-array-prototype.js",
-    "language/statements/function/dstr/dflt-ary-init-iter-get-err-array-prototype.js",
     "language/statements/function/eval-var-scope-syntax-err.js",
     "language/statements/function/S13_A12_T2.js",
     "language/statements/function/scope-param-elem-var-close.js",
