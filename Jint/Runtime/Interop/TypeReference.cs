@@ -95,7 +95,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
                     var newArguments = new JsValue[parameters.Length];
                     var currentParameter = parameters[parameters.Length - 1];
                     var isParamArray = currentParameter.ParameterType.IsArray &&
-                                       currentParameter.GetCustomAttribute(typeof(ParamArrayAttribute)) is not null;
+                                       currentParameter.GetCustomAttribute<ParamArrayAttribute>() is not null;
 
                     // last parameter is a ParamArray
                     if (isParamArray && arguments.Length >= parameters.Length - 1)
