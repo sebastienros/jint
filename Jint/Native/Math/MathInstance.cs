@@ -1154,7 +1154,7 @@ internal sealed class MathInstance : ObjectInstance
             return state;
         }
 
-        return sum.FSum();
+        return Math.SumPrecise.Sum(sum);
     }
 
     private static double[] Coerced(JsValue[] arguments)
