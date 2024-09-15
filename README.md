@@ -133,6 +133,7 @@ and many more.
 - ✔ Float16Array (Requires NET 6 or higher)
 - ✔ Import attributes
 - ✔ JSON modules
+- ✔ Math.sumPrecise
 - ✔ `Promise.try`
 - ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
 - ✔ ShadowRealm
