@@ -3624,4 +3624,45 @@ try {
         engine.SetValue("c", new Circle(12.34));
         engine.Evaluate("JSON.stringify(c)").ToString().Should().Be("{\"Radius\":12.34,\"Color\":0,\"Id\":123}");
     }
+
+    public class Animal
+    {
+        public virtual string name { get; set; } = "animal";
+    }
+
+    public class Elephant : Animal
+    {
+        public override string name { get; set; } = "elephant";
+        public int earSize = 5;
+    }
+
+    public class Lion : Animal
+    {
+        public override string name { get; set; } = "lion";
+        public int maneLength = 10;
+    }
+
+    public class Zoo
+    {
+        public Animal king { get => (new Animal[] { new Lion() })[0]; }
+        public Animal[] animals { get => new Animal[] { new Lion(), new Elephant() }; }
+    }
+
+    [Fact]
+    public void CanFindDerivedPropertiesFail() // Fails in 4.01 but success in 2.11
+    {
+        var engine = new Engine();
+        engine.SetValue("zoo", new Zoo());
+        var kingManeLength = engine.Evaluate("zoo.King.maneLength");
+        Assert.Equal(10, kingManeLength.AsNumber());
+    }
+
+    [Fact]
+    public void CanFindDerivedPropertiesSucceed() // Similar case that continues to succeed
+    {
+        var engine = new Engine();
+        engine.SetValue("zoo", new Zoo());
+        var lionManeLength = engine.Evaluate("zoo.animals[0].maneLength");
+        Assert.Equal(10, lionManeLength.AsNumber());
+    }
 }
