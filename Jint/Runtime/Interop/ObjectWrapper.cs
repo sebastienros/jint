@@ -364,7 +364,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         var accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, ClrType, member, mustBeReadable, mustBeWritable);
-        if (accessor == ConstantValueAccessor.NullAccessor)
+        if (accessor == ConstantValueAccessor.NullAccessor && ClrType != Target.GetType())
         {
             accessor = _engine.Options.Interop.TypeResolver.GetAccessor(_engine, Target.GetType(), member, mustBeReadable, mustBeWritable);
         }
