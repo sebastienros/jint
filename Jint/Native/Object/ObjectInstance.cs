@@ -1217,6 +1217,9 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
     internal virtual uint GetLength() => (uint) TypeConverter.ToLength(Get(CommonProperties.Length));
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-ordinarypreventextensions
+    /// </summary>
     public virtual bool PreventExtensions()
     {
         Extensible = false;

@@ -58,6 +58,38 @@ public sealed class JsTypedArray : ObjectInstance
         return record.IsTypedArrayOutOfBounds ? 0 : record.TypedArrayLength;
     }
 
+    public override bool PreventExtensions()
+    {
+        if (!IsTypedArrayFixedLength)
+        {
+            return false;
+        }
+
+        return base.PreventExtensions();
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-istypedarrayfixedlength
+    /// </summary>
+    private bool IsTypedArrayFixedLength
+    {
+        get
+        {
+            if (_arrayLength == LengthAuto)
+            {
+                return false;
+            }
+
+            var buffer = _viewedArrayBuffer;
+            if (!buffer.IsFixedLengthArrayBuffer && !buffer.IsSharedArrayBuffer)
+            {
+                return false;
+            }
+
+            return true;
+        }
+    }
+
     internal override bool IsArrayLike => true;
 
     internal override bool IsIntegerIndexedArray => true;

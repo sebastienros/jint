@@ -27,10 +27,13 @@ internal sealed class ObjectEnvironment : Environment
         _withEnvironment = withEnvironment;
     }
 
-    internal override bool HasBinding(Key name)
+    internal override bool HasBinding(Key name) => HasBinding(JsString.Create(name.Name));
+
+    internal override bool HasBinding(BindingName name) => HasBinding(name.Value);
+
+    private bool HasBinding(JsString nameValue)
     {
-        var property = new JsString(name.Name);
-        var foundBinding = _bindingObject.HasProperty(property);
+        var foundBinding = _bindingObject.HasProperty(nameValue);
 
         if (!foundBinding)
         {
@@ -42,24 +45,7 @@ internal sealed class ObjectEnvironment : Environment
             return true;
         }
 
-        return !IsBlocked(property);
-    }
-
-    internal override bool HasBinding(BindingName name)
-    {
-        var foundBinding = _bindingObject.HasProperty(name.Value);
-
-        if (!foundBinding)
-        {
-            return false;
-        }
-
-        if (!_withEnvironment)
-        {
-            return true;
-        }
-
-        return !IsBlocked(name.Value);
+        return !IsBlocked(nameValue);
     }
 
     internal override bool TryGetBinding(BindingName name, bool strict, [NotNullWhen(true)] out JsValue? value)
@@ -77,13 +63,16 @@ internal sealed class ObjectEnvironment : Environment
             return false;
         }
 
-        value = _bindingObject.Get(name.Value);
-
-        if (strict && value.IsUndefined() && !_bindingObject.HasProperty(name.Value))
+        if (!_bindingObject.HasProperty(name.Value))
         {
-            // data was deleted during reading of unscopable information, of course...
-            ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Key);
+            if (strict)
+            {
+                // data was deleted during reading of unscopable information, of course...
+                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Key);
+            }
         }
+
+        value = _bindingObject.Get(name.Value);
 
         return true;
     }
@@ -129,32 +118,41 @@ internal sealed class ObjectEnvironment : Environment
     internal override void SetMutableBinding(Key name, JsValue value, bool strict)
     {
         var jsString = new JsString(name);
-        if (strict && !_bindingObject.HasProperty(jsString))
+        if (!_bindingObject.HasProperty(jsString))
         {
-            ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+            if (strict)
+            {
+                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+            }
         }
 
-        _bindingObject.Set(jsString, value);
+        _bindingObject.Set(jsString, value, strict);
     }
 
     internal override void SetMutableBinding(BindingName name, JsValue value, bool strict)
     {
-        if (strict && !_bindingObject.HasProperty(name.Value))
+        if (!_bindingObject.HasProperty(name.Value))
         {
-            ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Key);
+            if (strict)
+            {
+                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Key);
+            }
         }
 
-        _bindingObject.Set(name.Value, value);
+        _bindingObject.Set(name.Value, value, strict);
     }
 
     internal override JsValue GetBindingValue(Key name, bool strict)
     {
-        if (!_bindingObject.TryGetValue(name.Name, out var value) && strict)
+        if (!_bindingObject.HasProperty(name.Name))
         {
-            ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Name);
+            if (strict)
+            {
+                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Name);
+            }
         }
 
-        return value;
+        return _bindingObject.Get(name.Name);
     }
 
     internal override bool DeleteBinding(Key name) => _bindingObject.Delete(name.Name);
