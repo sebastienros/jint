@@ -40,7 +40,7 @@ public class ArrayTests
     }
 
     [Fact]
-    public void ArrayPrototypeToStringSelfReference()
+    public void ArrayPrototypeToStringWithCircularReference()
     {
         var result = _engine.Evaluate("Array.prototype.toString.call((c = [1, 2, 3, 4], c[1] = c, c))").AsString();
 
