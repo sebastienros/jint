@@ -1273,14 +1273,14 @@ public sealed class ArrayPrototype : ArrayInstance
             return JsString.Empty;
         }
 
-        static string StringFromJsValue(JsValue value)
+        static string StringFromJsValue(JsValue value, JsValue thisObject)
         {
-            return value.IsNullOrUndefined()
+            return value.IsNullOrUndefined() || thisObject == value
                 ? ""
                 : TypeConverter.ToString(value);
         }
 
-        var s = StringFromJsValue(o.Get(0));
+        var s = StringFromJsValue(o.Get(0), thisObject);
         if (len == 1)
         {
             return s;
@@ -1294,7 +1294,7 @@ public sealed class ArrayPrototype : ArrayInstance
             {
                 sb.Append(sep);
             }
-            sb.Append(StringFromJsValue(o.Get(k)));
+            sb.Append(StringFromJsValue(o.Get(k), thisObject));
         }
 
         return sb.ToString();

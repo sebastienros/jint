@@ -40,6 +40,14 @@ public class ArrayTests
     }
 
     [Fact]
+    public void ArrayPrototypeToStringSelfReference()
+    {
+        var result = _engine.Evaluate("Array.prototype.toString.call((c = [1, 2, 3, 4], c[1] = c, c))").AsString();
+
+        Assert.Equal("1,,3,4", result);
+    }
+
+    [Fact]
     public void EmptyStringKey()
     {
         var result = _engine.Evaluate("var x=[];x[\"\"]=8;x[\"\"];").AsNumber();
