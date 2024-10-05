@@ -1261,35 +1261,30 @@ public sealed class ArrayPrototype : ArrayInstance
     /// </summary>
     private JsValue Join(JsValue thisObject, JsValue[] arguments)
     {
-        static JsValue RemoveCircularReferences(JsValue thisObject, Engine engine, HashSet<JsArray>? visited = null)
+        static JsValue RemoveCircularReferences(JsArray array, Engine engine, HashSet<JsArray>? visited = null)
         {
             visited ??= [];
 
-            if (thisObject is JsArray array)
+            if (visited.Contains(array))
             {
-                if (visited.Contains(array))
-                {
-                    return JsUndefined.Undefined;
-                }
-
-                visited.Add(array);
-                var filteredArray = new JsValue[array.Length];
-
-                for (var i = 0; i < array.Length; i++)
-                {
-                    var item = array[i];
-                    filteredArray[i] = item is JsArray nestedArray ? RemoveCircularReferences(nestedArray, engine, visited) : item;
-                }
-
-                return new JsArray(engine, filteredArray);
+                return JsUndefined.Undefined;
             }
 
-            return thisObject;
+            visited.Add(array);
+            var filteredArray = new JsValue[array.Length];
+
+            for (var i = 0; i < array.Length; i++)
+            {
+                var item = array[i];
+                filteredArray[i] = item is JsArray nestedArray ? RemoveCircularReferences(nestedArray, engine, visited) : item;
+            }
+
+            return new JsArray(engine, filteredArray);
         }
 
-        if (thisObject is JsArray)
+        if (thisObject is JsArray thisArrayObject)
         {
-            thisObject = RemoveCircularReferences(thisObject, Engine);
+            thisObject = RemoveCircularReferences(thisArrayObject, Engine);
         }
 
         var separator = arguments.At(0);
