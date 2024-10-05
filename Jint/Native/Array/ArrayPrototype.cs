@@ -1261,6 +1261,37 @@ public sealed class ArrayPrototype : ArrayInstance
     /// </summary>
     private JsValue Join(JsValue thisObject, JsValue[] arguments)
     {
+        static JsValue RemoveCircularReferences(JsValue thisObject, Engine engine, HashSet<JsArray>? visited = null)
+        {
+            visited ??= [];
+
+            if (thisObject is JsArray array)
+            {
+                if (visited.Contains(array))
+                {
+                    return JsUndefined.Undefined;
+                }
+
+                visited.Add(array);
+                var filteredArray = new JsValue[array.Length];
+
+                for (var i = 0; i < array.Length; i++)
+                {
+                    var item = array[i];
+                    filteredArray[i] = item is JsArray nestedArray ? RemoveCircularReferences(nestedArray, engine, visited) : item;
+                }
+
+                return new JsArray(engine, filteredArray);
+            }
+
+            return thisObject;
+        }
+
+        if (thisObject is JsArray)
+        {
+            thisObject = RemoveCircularReferences(thisObject, Engine);
+        }
+
         var separator = arguments.At(0);
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
         var len = o.GetLength();
@@ -1273,14 +1304,14 @@ public sealed class ArrayPrototype : ArrayInstance
             return JsString.Empty;
         }
 
-        static string StringFromJsValue(JsValue value, JsValue thisObject)
+        static string StringFromJsValue(JsValue value)
         {
-            return value.IsNullOrUndefined() || thisObject == value
+            return value.IsNullOrUndefined()
                 ? ""
                 : TypeConverter.ToString(value);
         }
 
-        var s = StringFromJsValue(o.Get(0), thisObject);
+        var s = StringFromJsValue(o.Get(0));
         if (len == 1)
         {
             return s;
@@ -1294,7 +1325,7 @@ public sealed class ArrayPrototype : ArrayInstance
             {
                 sb.Append(sep);
             }
-            sb.Append(StringFromJsValue(o.Get(k), thisObject));
+            sb.Append(StringFromJsValue(o.Get(k)));
         }
 
         return sb.ToString();
