@@ -21,6 +21,7 @@ public sealed class ArrayPrototype : ArrayInstance
 {
     private readonly Realm _realm;
     private readonly ArrayConstructor _constructor;
+    private readonly ObjectTraverseStack _joinStack;
     internal ClrFunction? _originalIteratorFunction;
 
     internal ArrayPrototype(
@@ -33,6 +34,7 @@ public sealed class ArrayPrototype : ArrayInstance
         _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Writable);
         _realm = realm;
         _constructor = arrayConstructor;
+        _joinStack = new(engine);
     }
 
     protected override void Initialize()
@@ -1273,6 +1275,11 @@ public sealed class ArrayPrototype : ArrayInstance
             return JsString.Empty;
         }
 
+        if (!_joinStack.TryEnter(thisObject))
+        {
+            return JsString.Empty;
+        }
+
         static string StringFromJsValue(JsValue value)
         {
             return value.IsNullOrUndefined()
@@ -1283,6 +1290,7 @@ public sealed class ArrayPrototype : ArrayInstance
         var s = StringFromJsValue(o.Get(0));
         if (len == 1)
         {
+            _joinStack.Exit();
             return s;
         }
 
@@ -1296,6 +1304,7 @@ public sealed class ArrayPrototype : ArrayInstance
             }
             sb.Append(StringFromJsValue(o.Get(k)));
         }
+        _joinStack.Exit();
 
         return sb.ToString();
     }
@@ -1314,6 +1323,11 @@ public sealed class ArrayPrototype : ArrayInstance
             return JsString.Empty;
         }
 
+        if (!_joinStack.TryEnter(thisObject))
+        {
+            return JsString.Empty;
+        }
+
         using var r = new ValueStringBuilder();
         for (uint k = 0; k < len; k++)
         {
@@ -1327,6 +1341,7 @@ public sealed class ArrayPrototype : ArrayInstance
                 r.Append(s);
             }
         }
+        _joinStack.Exit();
 
         return r.ToString();
     }
