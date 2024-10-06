@@ -21,6 +21,7 @@ public sealed class ArrayPrototype : ArrayInstance
 {
     private readonly Realm _realm;
     private readonly ArrayConstructor _constructor;
+    private readonly ObjectTraverseStack _joinStack;
     internal ClrFunction? _originalIteratorFunction;
 
     internal ArrayPrototype(
@@ -33,6 +34,7 @@ public sealed class ArrayPrototype : ArrayInstance
         _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Writable);
         _realm = realm;
         _constructor = arrayConstructor;
+        _joinStack = new(engine);
     }
 
     protected override void Initialize()
@@ -1261,32 +1263,6 @@ public sealed class ArrayPrototype : ArrayInstance
     /// </summary>
     private JsValue Join(JsValue thisObject, JsValue[] arguments)
     {
-        static JsValue RemoveCircularReferences(JsArray array, Engine engine, HashSet<JsArray>? visited = null)
-        {
-            visited ??= [];
-
-            if (visited.Contains(array))
-            {
-                return JsUndefined.Undefined;
-            }
-
-            visited.Add(array);
-            var filteredArray = new JsValue[array.Length];
-
-            for (var i = 0; i < array.Length; i++)
-            {
-                var item = array[i];
-                filteredArray[i] = item is JsArray nestedArray ? RemoveCircularReferences(nestedArray, engine, visited) : item;
-            }
-
-            return new JsArray(engine, filteredArray);
-        }
-
-        if (thisObject is JsArray thisArrayObject)
-        {
-            thisObject = RemoveCircularReferences(thisArrayObject, Engine);
-        }
-
         var separator = arguments.At(0);
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
         var len = o.GetLength();
@@ -1295,6 +1271,11 @@ public sealed class ArrayPrototype : ArrayInstance
 
         // as per the spec, this has to be called after ToString(separator)
         if (len == 0)
+        {
+            return JsString.Empty;
+        }
+
+        if (!_joinStack.TryEnter(thisObject))
         {
             return JsString.Empty;
         }
@@ -1309,6 +1290,7 @@ public sealed class ArrayPrototype : ArrayInstance
         var s = StringFromJsValue(o.Get(0));
         if (len == 1)
         {
+            _joinStack.Exit();
             return s;
         }
 
@@ -1322,6 +1304,7 @@ public sealed class ArrayPrototype : ArrayInstance
             }
             sb.Append(StringFromJsValue(o.Get(k)));
         }
+        _joinStack.Exit();
 
         return sb.ToString();
     }
@@ -1340,6 +1323,11 @@ public sealed class ArrayPrototype : ArrayInstance
             return JsString.Empty;
         }
 
+        if (!_joinStack.TryEnter(thisObject))
+        {
+            return JsString.Empty;
+        }
+
         using var r = new ValueStringBuilder();
         for (uint k = 0; k < len; k++)
         {
@@ -1353,6 +1341,7 @@ public sealed class ArrayPrototype : ArrayInstance
                 r.Append(s);
             }
         }
+        _joinStack.Exit();
 
         return r.ToString();
     }

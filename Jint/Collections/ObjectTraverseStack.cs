@@ -16,7 +16,7 @@ internal sealed class ObjectTraverseStack
         _engine = engine;
     }
 
-    public void Enter(JsValue value)
+    public bool TryEnter(JsValue value)
     {
         if (value is null)
         {
@@ -25,10 +25,20 @@ internal sealed class ObjectTraverseStack
 
         if (_stack.Contains(value))
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Cyclic reference detected.");
+            return false;
         }
 
         _stack.Push(value);
+
+        return true;
+    }
+
+    public void Enter(JsValue value)
+    {
+        if (!TryEnter(value))
+        {
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "Cyclic reference detected.");
+        }
     }
 
     public void Exit()

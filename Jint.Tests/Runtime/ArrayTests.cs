@@ -40,9 +40,17 @@ public class ArrayTests
     }
 
     [Fact]
-    public void ArrayPrototypeToStringWithCircularReference()
+    public void ArrayPrototypeJoinWithCircularReference()
     {
-        var result = _engine.Evaluate("Array.prototype.toString.call((c = [1, 2, 3, 4], b = [1, 2, 3, 4], b[1] = c, c[1] = b, c))").AsString();
+        var result = _engine.Evaluate("Array.prototype.join.call((c = [1, 2, 3, 4], b = [1, 2, 3, 4], b[1] = c, c[1] = b, c))").AsString();
+
+        Assert.Equal("1,1,,3,4,3,4", result);
+    }
+
+    [Fact]
+    public void ArrayPrototypeToLocaleStringWithCircularReference()
+    {
+        var result = _engine.Evaluate("Array.prototype.toLocaleString.call((c = [1, 2, 3, 4], b = [1, 2, 3, 4], b[1] = c, c[1] = b, c))").AsString();
 
         Assert.Equal("1,1,,3,4,3,4", result);
     }
