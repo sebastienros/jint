@@ -1,5 +1,5 @@
-﻿using System.Diagnostics;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Native;
@@ -1056,6 +1056,8 @@ public sealed partial class Engine : IDisposable
         var canInitializeParametersOnDeclaration = simpleParameterList && !configuration.HasDuplicates;
         var arguments = canInitializeParametersOnDeclaration ? argumentsList : null;
         env.InitializeParameters(parameterNames, hasDuplicates, arguments);
+
+        function.SetProperty(KnownKeys.Caller, new PropertyDescriptor(this.GetExecutionContext(1).Function ?? ScriptFunction.Undefined, PropertyFlag.Configurable));
 
         JsArguments? ao = null;
         if (configuration.ArgumentsObjectNeeded || _isDebugMode)
