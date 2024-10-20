@@ -371,6 +371,11 @@ public class Options
         /// All other values are ignored.
         /// </summary>
         public MemberTypes ObjectWrapperReportedMemberTypes { get; set; } = MemberTypes.Field | MemberTypes.Property | MemberTypes.Method;
+
+        /// <summary>
+        /// Reported member binding flags when reflecting, defaults to <see cref="BindingFlags.Instance" /> | <see cref="BindingFlags.Public" />.
+        /// </summary>
+        public BindingFlags ObjectWrapperReportedBindingFlags { get; set; } = BindingFlags.Instance | BindingFlags.Public;
     }
 
     public class ConstraintOptions

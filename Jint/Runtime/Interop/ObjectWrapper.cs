@@ -255,9 +255,8 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         {
             var interopOptions = _engine.Options.Interop;
 
-            // we take public properties, fields and methods
-            var bindingFlags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public;
-
+            // we take properties, fields and methods
+            var bindingFlags = interopOptions.ObjectWrapperReportedBindingFlags;
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Property) == MemberTypes.Property)
             {
                 foreach (var p in ClrType.GetProperties(bindingFlags))
