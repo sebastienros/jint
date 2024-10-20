@@ -1,4 +1,5 @@
 using System.Dynamic;
+using FluentAssertions;
 using Jint.Runtime.Interop;
 
 namespace Jint.Tests.PublicInterface;
@@ -102,31 +103,27 @@ public partial class InteropTests
 
         Assert.Equal(expected, value);
     }
-    
+
     [Fact]
     public void CanStringifyUsingSerializeToJson()
     {
         object testObject = new { Foo = "bar", FooBar = new { Foo = 123.45, Foobar = new DateTime(2022, 7, 16, 0, 0, 0, DateTimeKind.Utc) } };
-        
+
         // without interop
-        
-        var engineNoInterop = new Engine();
-        engineNoInterop.SetValue("TimeSpan", TypeReference.CreateTypeReference<TimeSpan>(engineNoInterop));
-        Assert.Throws<Jint.Runtime.JavaScriptException>(
-            () => engineNoInterop.Evaluate("JSON.stringify(TimeSpan.FromSeconds(3))"));
-        
-        engineNoInterop.SetValue("TestObject", testObject);
-        Assert.Equal(
-            "{\"Foo\":\"bar\",\"FooBar\":{\"Foo\":123.45,\"Foobar\":\"2022-07-16T00:00:00.000Z\"}}",
-            engineNoInterop.Evaluate("JSON.stringify(TestObject)"));
-        
+
+        var e = new Engine();
+        e.SetValue("TimeSpan", typeof(TimeSpan));
+#if NETFRAMEWORK
+        e.Evaluate("JSON.stringify(TimeSpan.FromSeconds(3))").AsString().Should().Be("""{"Ticks":30000000,"Days":0,"Hours":0,"Milliseconds":0,"Minutes":0,"Seconds":3,"TotalDays":0.00003472222222222222,"TotalHours":0.0008333333333333333,"TotalMilliseconds":3000,"TotalMinutes":0.05,"TotalSeconds":3}""");
+#else
+        e.Evaluate("JSON.stringify(TimeSpan.FromSeconds(3))").AsString().Should().Be("""{"Ticks":30000000,"Days":0,"Hours":0,"Milliseconds":0,"Microseconds":0,"Nanoseconds":0,"Minutes":0,"Seconds":3,"TotalDays":0.00003472222222222222,"TotalHours":0.0008333333333333334,"TotalMilliseconds":3000,"TotalMicroseconds":3000000,"TotalNanoseconds":3000000000,"TotalMinutes":0.05,"TotalSeconds":3}""");
+#endif
+
+        e.SetValue("TestObject", testObject);
+        e.Evaluate("JSON.stringify(TestObject)").AsString().Should().Be("""{"Foo":"bar","FooBar":{"Foo":123.45,"Foobar":"2022-07-16T00:00:00.000Z"}}""");
+
         // interop using Newtonsoft serializer, for example with snake case naming
-        
-        string Serialize(object o) =>
-            Newtonsoft.Json.JsonConvert.SerializeObject(o,
-                new Newtonsoft.Json.JsonSerializerSettings {
-                    ContractResolver = new Newtonsoft.Json.Serialization.DefaultContractResolver {
-                        NamingStrategy = new Newtonsoft.Json.Serialization.SnakeCaseNamingStrategy() } });
+
         var engine = new Engine(options =>
         {
             options.Interop.SerializeToJson = Serialize;
@@ -136,13 +133,26 @@ public partial class InteropTests
 
         var expected = Serialize(TimeSpan.FromSeconds(3));
         var actual = engine.Evaluate("JSON.stringify(TimeSpan.FromSeconds(3));");
-        Assert.Equal(expected, actual);
-        
+        actual.AsString().Should().Be(expected);
+
         expected = Serialize(testObject);
         actual = engine.Evaluate("JSON.stringify(TestObject)");
-        Assert.Equal(expected, actual);
+        actual.AsString().Should().Be(expected);
 
         actual = engine.Evaluate("JSON.stringify({ nestedValue: TestObject })");
-        Assert.Equal($@"{{""nestedValue"":{expected}}}", actual);
+        actual.AsString().Should().Be($$"""{"nestedValue":{{expected}}}""");
+        return;
+
+        string Serialize(object o)
+        {
+            var settings = new Newtonsoft.Json.JsonSerializerSettings
+            {
+                ContractResolver = new Newtonsoft.Json.Serialization.DefaultContractResolver
+                {
+                    NamingStrategy = new Newtonsoft.Json.Serialization.SnakeCaseNamingStrategy()
+                }
+            };
+            return Newtonsoft.Json.JsonConvert.SerializeObject(o, settings);
+        }
     }
 }

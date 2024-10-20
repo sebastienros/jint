@@ -55,7 +55,7 @@ public partial class InteropTests : IDisposable
     [Fact]
     public void ShouldStringifyNetObjects()
     {
-        _engine.SetValue("foo", new Foo());
+        _engine.SetValue("foo", typeof(Foo));
         var json = _engine.Evaluate("JSON.stringify(foo.GetBar())").AsString();
         Assert.Equal("{\"Test\":\"123\"}", json);
     }
@@ -2781,16 +2781,19 @@ public partial class InteropTests : IDisposable
             options.SetTypeResolver(customTypeResolver);
             options.AddExtensionMethods(typeof(CustomNamedExtensions));
         });
+
         engine.SetValue("o", new CustomNamed());
         Assert.Equal("StringField", engine.Evaluate("o.jsStringField").AsString());
         Assert.Equal("StringField", engine.Evaluate("o.jsStringField2").AsString());
-        Assert.Equal("StaticStringField", engine.Evaluate("o.jsStaticStringField").AsString());
         Assert.Equal("StringProperty", engine.Evaluate("o.jsStringProperty").AsString());
         Assert.Equal("Method", engine.Evaluate("o.jsMethod()").AsString());
-        Assert.Equal("StaticMethod", engine.Evaluate("o.jsStaticMethod()").AsString());
         Assert.Equal("InterfaceStringProperty", engine.Evaluate("o.jsInterfaceStringProperty").AsString());
         Assert.Equal("InterfaceMethod", engine.Evaluate("o.jsInterfaceMethod()").AsString());
         Assert.Equal("ExtensionMethod", engine.Evaluate("o.jsExtensionMethod()").AsString());
+
+        engine.SetValue("CustomNamed", typeof(CustomNamed));
+        Assert.Equal("StaticStringField", engine.Evaluate("CustomNamed.jsStaticStringField").AsString());
+        Assert.Equal("StaticMethod", engine.Evaluate("CustomNamed.jsStaticMethod()").AsString());
 
         engine.SetValue("XmlHttpRequest", typeof(CustomNamedEnum));
         engine.Evaluate("o.jsEnumProperty = XmlHttpRequest.HEADERS_RECEIVED;");

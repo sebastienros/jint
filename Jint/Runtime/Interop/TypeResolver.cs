@@ -116,11 +116,11 @@ public sealed class TypeResolver
         // we can always check indexer if there's one, and then fall back to properties if indexer returns null
         IndexerAccessor.TryFindIndexer(engine, type, memberName, out var indexerAccessor, out var indexer);
 
-        const BindingFlags BindingFlags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public;
+        var bindingFlags = engine.Options.Interop.ObjectWrapperReportedBindingFlags;
 
         // properties and fields cannot be numbers
         if (!isInteger
-            && TryFindMemberAccessor(engine, type, memberName, BindingFlags, indexer, out var temp)
+            && TryFindMemberAccessor(engine, type, memberName, bindingFlags, indexer, out var temp)
             && (!mustBeReadable || temp.Readable)
             && (!mustBeWritable || temp.Writable))
         {
