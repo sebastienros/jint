@@ -255,7 +255,7 @@ internal sealed class PromiseConstructor : Constructor
         if (!TryGetPromiseCapabilityAndIterator(thisObject, arguments, "Promise.all", out var capability, out var promiseResolve, out var iterator))
             return capability.PromiseInstance;
 
-        var (resultingPromise, resolve, reject, _, rejectObj) = capability;
+        var (resultingPromise, resolve, reject, rejectObj, _) = capability;
 
         var results = new List<JsValue>();
         bool doneIterating = false;
@@ -573,7 +573,7 @@ internal sealed class PromiseConstructor : Constructor
         if (!TryGetPromiseCapabilityAndIterator(thisObject, arguments, "Promise.race", out var capability, out var promiseResolve, out var iterator))
             return capability.PromiseInstance;
 
-        var (resultingPromise, resolve, reject, _, rejectObj) = capability;
+        var (resultingPromise, resolve, reject, rejectObj, _) = capability;
 
 
         // 7. Let result be PerformPromiseRace(iteratorRecord, C, promiseCapability, promiseResolve).
@@ -715,6 +715,11 @@ internal sealed class PromiseConstructor : Constructor
             ExceptionHelper.ThrowTypeError(engine.Realm, "reject is not a function");
         }
 
-        return new PromiseCapability(instance, resolve, reject, resolveArg, rejectArg);
+        return new PromiseCapability(
+            PromiseInstance: instance,
+            Resolve: resolve,
+            Reject: reject,
+            RejectObj: rejectArg,
+            ResolveObj: resolveArg);
     }
 }
