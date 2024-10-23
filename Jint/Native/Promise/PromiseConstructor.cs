@@ -13,9 +13,8 @@ internal sealed record PromiseCapability(
     JsValue PromiseInstance,
     ICallable Resolve,
     ICallable Reject,
-    JsValue RejectObj,
-    JsValue ResolveObj
-);
+    JsValue ResolveObj,
+    JsValue RejectObj);
 
 internal sealed class PromiseConstructor : Constructor
 {
@@ -139,11 +138,11 @@ internal sealed class PromiseConstructor : Constructor
             }
         }
 
-        var (instance, resolve, _, _, _) = NewPromiseCapability(_engine, thisObject);
+        var capability = NewPromiseCapability(_engine, thisObject);
 
-        resolve.Call(Undefined, new[] { x });
+        capability.Resolve.Call(Undefined, new[] { x });
 
-        return instance;
+        return capability.PromiseInstance;
     }
 
     /// <summary>
@@ -163,11 +162,11 @@ internal sealed class PromiseConstructor : Constructor
 
         var r = arguments.At(0);
 
-        var (instance, _, reject, _, _) = NewPromiseCapability(_engine, thisObject);
+        var capability = NewPromiseCapability(_engine, thisObject);
 
-        reject.Call(Undefined, new[] { r });
+        capability.Reject.Call(Undefined, new[] { r });
 
-        return instance;
+        return capability.PromiseInstance;
     }
 
     /// <summary>
@@ -255,8 +254,6 @@ internal sealed class PromiseConstructor : Constructor
         if (!TryGetPromiseCapabilityAndIterator(thisObject, arguments, "Promise.all", out var capability, out var promiseResolve, out var iterator))
             return capability.PromiseInstance;
 
-        var (resultingPromise, resolve, reject, rejectObj, _) = capability;
-
         var results = new List<JsValue>();
         bool doneIterating = false;
 
@@ -269,7 +266,7 @@ internal sealed class PromiseConstructor : Constructor
             if (results.TrueForAll(static x => x is not null) && doneIterating)
             {
                 var array = _realm.Intrinsics.Array.ConstructFast(results);
-                resolve.Call(Undefined, new JsValue[] { array });
+                capability.Resolve.Call(Undefined, new JsValue[] { array });
             }
         }
 
@@ -296,8 +293,8 @@ internal sealed class PromiseConstructor : Constructor
                 }
                 catch (JavaScriptException e)
                 {
-                    reject.Call(Undefined, new[] { e.Error });
-                    return resultingPromise;
+                    capability.Reject.Call(Undefined, new[] { e.Error });
+                    return capability.PromiseInstance;
                 }
 
                 // note that null here is important
@@ -325,7 +322,7 @@ internal sealed class PromiseConstructor : Constructor
                             return Undefined;
                         }, 1, PropertyFlag.Configurable);
 
-                    thenFunc.Call(item, new JsValue[] { onSuccess, rejectObj });
+                    thenFunc.Call(item, new JsValue[] { onSuccess, capability.RejectObj });
                 }
                 else
                 {
@@ -338,11 +335,11 @@ internal sealed class PromiseConstructor : Constructor
         catch (JavaScriptException e)
         {
             iterator.Close(CompletionType.Throw);
-            reject.Call(Undefined, new[] { e.Error });
-            return resultingPromise;
+            capability.Reject.Call(Undefined, new[] { e.Error });
+            return capability.PromiseInstance;
         }
 
-        return resultingPromise;
+        return capability.PromiseInstance;
     }
 
     // https://tc39.es/ecma262/#sec-promise.allsettled
@@ -350,8 +347,6 @@ internal sealed class PromiseConstructor : Constructor
     {
         if (!TryGetPromiseCapabilityAndIterator(thisObject, arguments, "Promise.allSettled", out var capability, out var promiseResolve, out var iterator))
             return capability.PromiseInstance;
-
-        var (resultingPromise, resolve, reject, _, rejectObj) = capability;
 
         var results = new List<JsValue>();
         bool doneIterating = false;
@@ -365,7 +360,7 @@ internal sealed class PromiseConstructor : Constructor
             if (results.TrueForAll(static x => x is not null) && doneIterating)
             {
                 var array = _realm.Intrinsics.Array.ConstructFast(results);
-                resolve.Call(Undefined, new JsValue[] { array });
+                capability.Resolve.Call(Undefined, new JsValue[] { array });
             }
         }
 
@@ -392,8 +387,8 @@ internal sealed class PromiseConstructor : Constructor
                 }
                 catch (JavaScriptException e)
                 {
-                    reject.Call(Undefined, new[] { e.Error });
-                    return resultingPromise;
+                    capability.Reject.Call(Undefined, new[] { e.Error });
+                    return capability.PromiseInstance;
                 }
 
                 // note that null here is important
@@ -456,11 +451,11 @@ internal sealed class PromiseConstructor : Constructor
         catch (JavaScriptException e)
         {
             iterator.Close(CompletionType.Throw);
-            reject.Call(Undefined, new[] { e.Error });
-            return resultingPromise;
+            capability.Reject.Call(Undefined, new[] { e.Error });
+            return capability.PromiseInstance;
         }
 
-        return resultingPromise;
+        return capability.PromiseInstance;
     }
 
     // https://tc39.es/ecma262/#sec-promise.any
@@ -470,8 +465,6 @@ internal sealed class PromiseConstructor : Constructor
         {
             return capability.PromiseInstance;
         }
-
-        var (resultingPromise, resolve, reject, resolveObj, _) = capability;
 
         var errors = new List<JsValue>();
         var doneIterating = false;
@@ -487,7 +480,7 @@ internal sealed class PromiseConstructor : Constructor
             {
                 var array = _realm.Intrinsics.Array.ConstructFast(errors);
 
-                reject.Call(Undefined, new JsValue[] { Construct(_realm.Intrinsics.AggregateError, new JsValue[] { array }) });
+                capability.Reject.Call(Undefined, new JsValue[] { Construct(_realm.Intrinsics.AggregateError, new JsValue[] { array }) });
             }
         }
 
@@ -547,7 +540,7 @@ internal sealed class PromiseConstructor : Constructor
                             return Undefined;
                         }, 1, PropertyFlag.Configurable);
 
-                    thenFunc.Call(item, new JsValue[] { resolveObj, onError });
+                    thenFunc.Call(item, new JsValue[] { capability.ResolveObj, onError });
                 }
                 else
                 {
@@ -560,11 +553,11 @@ internal sealed class PromiseConstructor : Constructor
         catch (JavaScriptException e)
         {
             iterator.Close(CompletionType.Throw);
-            reject.Call(Undefined, new[] { e.Error });
-            return resultingPromise;
+            capability.Reject.Call(Undefined, new[] { e.Error });
+            return capability.PromiseInstance;
         }
 
-        return resultingPromise;
+        return capability.PromiseInstance;
     }
 
     // https://tc39.es/ecma262/#sec-promise.race
@@ -572,9 +565,6 @@ internal sealed class PromiseConstructor : Constructor
     {
         if (!TryGetPromiseCapabilityAndIterator(thisObject, arguments, "Promise.race", out var capability, out var promiseResolve, out var iterator))
             return capability.PromiseInstance;
-
-        var (resultingPromise, resolve, reject, rejectObj, _) = capability;
-
 
         // 7. Let result be PerformPromiseRace(iteratorRecord, C, promiseCapability, promiseResolve).
         // https://tc39.es/ecma262/#sec-performpromiserace
@@ -594,8 +584,8 @@ internal sealed class PromiseConstructor : Constructor
                 }
                 catch (JavaScriptException e)
                 {
-                    reject.Call(Undefined, new[] { e.Error });
-                    return resultingPromise;
+                    capability.Reject.Call(Undefined, new[] { e.Error });
+                    return capability.PromiseInstance;
                 }
 
                 // h. Let nextPromise be ? Call(promiseResolve, constructor, « nextValue »).
@@ -603,7 +593,7 @@ internal sealed class PromiseConstructor : Constructor
 
                 // i. Perform ? Invoke(nextPromise, "then", « resultCapability.[[Resolve]], resultCapability.[[Reject]] »).
 
-                _engine.Invoke(nextPromise, "then", new[] { (JsValue) resolve, rejectObj });
+                _engine.Invoke(nextPromise, "then", new[] { (JsValue) capability.Resolve, capability.RejectObj });
             } while (true);
         }
         catch (JavaScriptException e)
@@ -612,13 +602,13 @@ internal sealed class PromiseConstructor : Constructor
             // a. If iteratorRecord.[[Done]] is false, set result to IteratorClose(iteratorRecord, result).
             //     b. IfAbruptRejectPromise(result, promiseCapability).
             iterator.Close(CompletionType.Throw);
-            reject.Call(Undefined, new[] { e.Error });
-            return resultingPromise;
+            capability.Reject.Call(Undefined, new[] { e.Error });
+            return capability.PromiseInstance;
         }
 
         // 9. Return Completion(result).
         // Note that PerformPromiseRace returns a Promise instance in success case
-        return resultingPromise;
+        return capability.PromiseInstance;
     }
 
 
