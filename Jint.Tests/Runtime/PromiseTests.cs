@@ -497,4 +497,56 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
 
         Assert.Equal("at <anonymous>:1:56", logMessage?.Trim());
     }
+
+    [Fact]
+    public void WithResolvers_calling_resolve_resolves_promise()
+    {
+        // Arrange
+        using var engine = new Engine();
+        List<string> logMessages = new();
+        engine.SetValue("log", logMessages.Add);
+
+        // Act
+        engine.Execute("""
+                       const p = Promise.withResolvers();
+                       const next = p.promise
+                           .then(() => log('resolved'))
+                           .catch(() => log('rejected'));
+                           
+                       log('start');
+                       p.resolve();
+                       log('end');
+                       """);
+        engine.RunAvailableContinuations();
+
+        // Assert
+        List<string> expected = new() { "start", "end", "resolved" };
+        Assert.Equal(expected, logMessages);
+    }
+
+    [Fact]
+    public void WithResolvers_calling_reject_rejects_promise()
+    {
+        // Arrange
+        using var engine = new Engine();
+        List<string> logMessages = new();
+        engine.SetValue("log", logMessages.Add);
+
+        // Act
+        engine.Execute("""
+                       const p = Promise.withResolvers();
+                       const next = p.promise
+                           .then(() => log('resolved'))
+                           .catch(() => log('rejected'));
+                           
+                       log('start');
+                       p.reject();
+                       log('end');
+                       """);
+        engine.RunAvailableContinuations();
+
+        // Assert
+        List<string> expected = new() { "start", "end", "rejected" };
+        Assert.Equal(expected, logMessages);
+    }
 }
