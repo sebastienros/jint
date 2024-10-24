@@ -6,11 +6,13 @@ namespace Jint.Extensions;
 internal static class Character
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsInRange(this char c, ushort min, ushort max)
-    {
-        Debug.Assert(min <= max);
-        return c - (uint) min <= max - (uint) min;
-    }
+    public static bool IsInRange(this char c, ushort min, ushort max) => (uint)(c - min) <= (uint)(max - min);
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#ASCII-word-characters
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsAsciiWordCharacter(this char c) => c == '_' || c.IsDecimalDigit() || c.IsInRange('a', 'z') || c.IsInRange('A', 'Z');
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsOctalDigit(this char c) => c.IsInRange('0', '7');

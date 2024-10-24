@@ -189,6 +189,18 @@ internal ref struct ValueStringBuilder
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void AppendHex(byte b)
+    {
+        const string Map = "0123456789ABCDEF";
+        Span<char> data = stackalloc char[]
+        {
+            Map[b / 16],
+            Map[b % 16],
+        };
+        Append(data);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Append(string? s)
     {
         if (s == null)
@@ -207,6 +219,33 @@ internal ref struct ValueStringBuilder
             AppendSlow(s);
         }
     }
+
+#if NET6_0_OR_GREATER
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Append<T>(T value) where T : ISpanFormattable
+    {
+        if (value.TryFormat(_chars.Slice(_pos), out var charsWritten, format: default, provider: null))
+        {
+            _pos += charsWritten;
+        }
+        else
+        {
+            Append(value.ToString());
+        }
+    }
+#else
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Append(int value)
+    {
+        Append(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Append(long value)
+    {
+        Append(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+#endif
 
     private void AppendSlow(string s)
     {

@@ -353,7 +353,7 @@ internal sealed class NumberPrototype : NumberInstance
 
         sb.Append('e');
         sb.Append(negativeExponent ? '-' : '+');
-        sb.Append(exponent.ToString(CultureInfo.InvariantCulture));
+        sb.Append(exponent);
 
         return sb.ToString();
     }
@@ -528,7 +528,7 @@ internal sealed class NumberPrototype : NumberInstance
                 exponent = -exponent;
             }
 
-            stringBuilder.Append(exponent.ToString(CultureInfo.InvariantCulture));
+            stringBuilder.Append(exponent);
         }
 
         return stringBuilder.ToString();

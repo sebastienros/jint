@@ -92,8 +92,6 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
 
     internal readonly record struct FromEncodingResult(byte[] Bytes, JavaScriptException? Error, int Read);
 
-    private static readonly SearchValues<char> Base64Alphabet = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
-
     internal static FromEncodingResult FromBase64(Engine engine, string input, string alphabet, string lastChunkHandling, uint maxLength = uint.MaxValue)
     {
         if (maxLength == 0)
@@ -202,7 +200,10 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
                 }
             }
 
-            if (!Base64Alphabet.Contains(currentChar))
+            if (!currentChar.IsDecimalDigit()
+                && !char.ToLowerInvariant(currentChar).IsInRange('a', 'z')
+                && currentChar != '+'
+                && currentChar != '/')
             {
                 return new FromEncodingResult(bytes.ToArray(), ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid base64 character."), read);
             }
@@ -308,8 +309,6 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
         return ta;
     }
 
-    private static readonly SearchValues<char> HexAlphabet = SearchValues.Create("0123456789abcdefABCDEF");
-
     internal static FromEncodingResult FromHex(Engine engine, string s, uint maxLength = int.MaxValue)
     {
         var length = s.Length;
@@ -325,7 +324,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
         while (read < length && byteIndex < maxLength)
         {
             var hexits = s.AsSpan(read, 2);
-            if (!HexAlphabet.Contains(hexits[0]) || !HexAlphabet.Contains(hexits[1]))
+            if (!hexits[0].IsHexDigit() || !hexits[1].IsHexDigit())
             {
                 return new FromEncodingResult(bytes.AsSpan(0, byteIndex).ToArray(), ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid hex value"), read);
             }
