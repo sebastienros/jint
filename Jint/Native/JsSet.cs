@@ -13,7 +13,7 @@ public sealed class JsSet : ObjectInstance
     {
     }
 
-    public JsSet(Engine engine, OrderedSet<JsValue> set) : base(engine)
+    internal JsSet(Engine engine, OrderedSet<JsValue> set) : base(engine)
     {
         _set = set;
         _prototype = _engine.Realm.Intrinsics.Set.PrototypeObject;
@@ -49,15 +49,13 @@ public sealed class JsSet : ObjectInstance
 
     public void Add(JsValue value) => _set.Add(value);
 
-    public void Remove(JsValue value) => _set.Remove(value);
-
     public void Clear() => _set.Clear();
 
     public bool Has(JsValue key) => _set.Contains(key);
 
     public bool SetDelete(JsValue key) => _set.Remove(key);
 
-    public void ForEach(ICallable callable, JsValue thisArg)
+    internal void ForEach(ICallable callable, JsValue thisArg)
     {
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = this;
@@ -73,7 +71,7 @@ public sealed class JsSet : ObjectInstance
         _engine._jsValueArrayPool.ReturnArray(args);
     }
 
-    public ObjectInstance Entries() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructEntryIterator(this);
+    internal ObjectInstance Entries() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructEntryIterator(this);
 
-    public ObjectInstance Values() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructValueIterator(this);
+    internal ObjectInstance Values() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructValueIterator(this);
 }

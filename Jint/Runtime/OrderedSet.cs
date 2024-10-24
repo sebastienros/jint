@@ -1,6 +1,6 @@
 namespace Jint.Runtime;
 
-public sealed class OrderedSet<T>
+internal sealed class OrderedSet<T>
 {
     internal List<T> _list;
     internal HashSet<T> _set;
