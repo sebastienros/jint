@@ -5,7 +5,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native;
 
-internal sealed class JsSet : ObjectInstance
+public sealed class JsSet : ObjectInstance
 {
     internal readonly OrderedSet<JsValue> _set;
 
@@ -47,17 +47,17 @@ internal sealed class JsSet : ObjectInstance
         return base.TryGetProperty(property, out descriptor);
     }
 
-    internal void Add(JsValue value) => _set.Add(value);
+    public void Add(JsValue value) => _set.Add(value);
 
-    internal void Remove(JsValue value) => _set.Remove(value);
+    public void Remove(JsValue value) => _set.Remove(value);
 
-    internal void Clear() => _set.Clear();
+    public void Clear() => _set.Clear();
 
-    internal bool Has(JsValue key) => _set.Contains(key);
+    public bool Has(JsValue key) => _set.Contains(key);
 
-    internal bool SetDelete(JsValue key) => _set.Remove(key);
+    public bool SetDelete(JsValue key) => _set.Remove(key);
 
-    internal void ForEach(ICallable callable, JsValue thisArg)
+    public void ForEach(ICallable callable, JsValue thisArg)
     {
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = this;
@@ -73,7 +73,7 @@ internal sealed class JsSet : ObjectInstance
         _engine._jsValueArrayPool.ReturnArray(args);
     }
 
-    internal ObjectInstance Entries() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructEntryIterator(this);
+    public ObjectInstance Entries() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructEntryIterator(this);
 
-    internal ObjectInstance Values() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructValueIterator(this);
+    public ObjectInstance Values() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructValueIterator(this);
 }
