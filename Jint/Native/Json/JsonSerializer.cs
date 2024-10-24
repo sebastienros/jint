@@ -184,7 +184,7 @@ public sealed class JsonSerializer
 
             if (value.IsInteger())
             {
-                json.Append(((long) doubleValue).ToString(CultureInfo.InvariantCulture));
+                json.Append((long) doubleValue);
                 return SerializeResult.NotUndefined;
             }
 
@@ -193,7 +193,7 @@ public sealed class JsonSerializer
             {
                 if (TypeConverter.CanBeStringifiedAsLong(doubleValue))
                 {
-                    json.Append(((long) doubleValue).ToString(CultureInfo.InvariantCulture));
+                    json.Append((long) doubleValue);
                     return SerializeResult.NotUndefined;
                 }
 

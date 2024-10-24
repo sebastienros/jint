@@ -201,7 +201,7 @@ public class DefaultTypeConverter : ITypeConverter
                     foreach (var constructor in constructors)
                     {
                         var parameterInfos = constructor.GetParameters();
-                        if (parameterInfos.All(static p => p.IsOptional) && constructor.IsPublic)
+                        if (Array.TrueForAll(parameterInfos, static p => p.IsOptional) && constructor.IsPublic)
                         {
                             constructorParameters = new object[parameterInfos.Length];
                             found = true;

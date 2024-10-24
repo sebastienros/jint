@@ -700,11 +700,7 @@ internal sealed class StringPrototype : StringInstance
 
         if (endOfLastMatch < thisString.Length)
         {
-#if NETFRAMEWORK
             result.Append(thisString.AsSpan(endOfLastMatch));
-#else
-                result.Append(thisString[endOfLastMatch..]);
-#endif
         }
 
         return result.ToString();

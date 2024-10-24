@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Linq;
 using System.Text;
 using Jint.Collections;
@@ -151,9 +150,9 @@ internal sealed class JintCallStack
             sb.Append(' ');
             sb.Append(loc.SourceFile);
             sb.Append(':');
-            sb.Append(loc.End.Line.ToString(CultureInfo.InvariantCulture));
+            sb.Append(loc.End.Line);
             sb.Append(':');
-            sb.Append((loc.Start.Column + 1).ToString(CultureInfo.InvariantCulture)); // report column number instead of index
+            sb.Append(loc.Start.Column + 1); // report column number instead of index
             sb.Append(System.Environment.NewLine);
         }
 
