@@ -5,7 +5,7 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native;
 
-internal sealed class JsSet : ObjectInstance
+public sealed class JsSet : ObjectInstance
 {
     internal readonly OrderedSet<JsValue> _set;
 
@@ -13,7 +13,7 @@ internal sealed class JsSet : ObjectInstance
     {
     }
 
-    public JsSet(Engine engine, OrderedSet<JsValue> set) : base(engine)
+    internal JsSet(Engine engine, OrderedSet<JsValue> set) : base(engine)
     {
         _set = set;
         _prototype = _engine.Realm.Intrinsics.Set.PrototypeObject;
@@ -47,15 +47,13 @@ internal sealed class JsSet : ObjectInstance
         return base.TryGetProperty(property, out descriptor);
     }
 
-    internal void Add(JsValue value) => _set.Add(value);
+    public void Add(JsValue value) => _set.Add(value);
 
-    internal void Remove(JsValue value) => _set.Remove(value);
+    public void Clear() => _set.Clear();
 
-    internal void Clear() => _set.Clear();
+    public bool Has(JsValue key) => _set.Contains(key);
 
-    internal bool Has(JsValue key) => _set.Contains(key);
-
-    internal bool SetDelete(JsValue key) => _set.Remove(key);
+    public bool SetDelete(JsValue key) => _set.Remove(key);
 
     internal void ForEach(ICallable callable, JsValue thisArg)
     {

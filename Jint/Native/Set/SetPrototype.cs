@@ -119,7 +119,7 @@ internal sealed class SetPrototype : Prototype
                     var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
                     if (inOther)
                     {
-                        resultSetData.Remove(e);
+                        resultSetData.SetDelete(e);
                         index--;
                     }
                 }
@@ -144,7 +144,7 @@ internal sealed class SetPrototype : Prototype
                 nextValue = JsNumber.PositiveZero;
             }
 
-            resultSetData.Remove(nextValue);
+            resultSetData.SetDelete(nextValue);
         }
 
         return resultSetData;
@@ -308,7 +308,7 @@ internal sealed class SetPrototype : Prototype
             {
                 if (inResult)
                 {
-                    resultSetData.Remove(nextValue);
+                    resultSetData.SetDelete(nextValue);
                 }
             }
             else
