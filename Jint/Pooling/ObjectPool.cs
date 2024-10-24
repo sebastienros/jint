@@ -57,6 +57,7 @@ internal sealed class ObjectPool<T> where T : class
     // expect to be able to satisfy most requests from it.
     private T _firstItem;
     private readonly Element[] _items;
+    private int _currentSlowPooledItems;
 
     // factory is stored for the lifetime of the pool. We will call this only when pool needs to
     // expand. compared to "new T()", Func gives more flexibility to implementers and faster
@@ -158,13 +159,16 @@ internal sealed class ObjectPool<T> where T : class
 
     private T AllocateSlow()
     {
-        var items = _items;
+        if (_currentSlowPooledItems <= 0)
+            return CreateInstance();
 
+        var items = _items;
         for (int i = 0; i < items.Length; i++)
         {
             T inst = items[i].Value;
             if (inst is not null)
             {
+                _currentSlowPooledItems--;
                 items[i].Value = null;
                 return inst;
             }
@@ -202,6 +206,9 @@ internal sealed class ObjectPool<T> where T : class
     private void FreeSlow(T obj)
     {
         var items = _items;
+        if (_currentSlowPooledItems >= items.Length)
+            return;
+
         for (int i = 0; i < items.Length; i++)
         {
             if (ReferenceEquals(items[i].Value, null))
@@ -209,6 +216,7 @@ internal sealed class ObjectPool<T> where T : class
                 // Intentionally not using interlocked here.
                 // In a worst case scenario two objects may be stored into same slot.
                 // It is very unlikely to happen and will only mean that one of the objects will get collected.
+                _currentSlowPooledItems++;
                 items[i].Value = obj;
                 break;
             }
