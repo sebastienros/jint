@@ -1,6 +1,5 @@
 using System.Buffers;
 using System.Globalization;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Jint.Extensions;
@@ -274,7 +273,7 @@ public sealed partial class GlobalObject : ObjectInstance
     }
 
     private const string UriReservedString = ";/?:@&=+$,";
-    private const string UriUnescapedString = "-_.!~*'()";
+    private const string UriUnescapedString = "-.!~*'()";
     private static readonly SearchValues<char> UriUnescaped = SearchValues.Create(UriUnescapedString);
     private static readonly SearchValues<char> UnescapedUriSet = SearchValues.Create(UriReservedString + UriUnescapedString + '#');
     private static readonly SearchValues<char> ReservedUriSet = SearchValues.Create(UriReservedString + '#');
@@ -303,20 +302,16 @@ public sealed partial class GlobalObject : ObjectInstance
 
     private JsValue Encode(string uriString, SearchValues<char> unescapedUriSet)
     {
-        const string HexaMap = "0123456789ABCDEF";
-
         var strLen = uriString.Length;
-
-        _stringBuilder.EnsureCapacity(uriString.Length);
-        _stringBuilder.Clear();
+        var builder = new ValueStringBuilder(uriString.Length);
         Span<byte> buffer = stackalloc byte[4];
 
         for (var k = 0; k < strLen; k++)
         {
             var c = uriString[k];
-            if (c is >= 'a' and <= 'z' || c is >= 'A' and <= 'Z' || c is >= '0' and <= '9' || unescapedUriSet.Contains(c))
+            if (c.IsAsciiWordCharacter() || unescapedUriSet.Contains(c))
             {
-                _stringBuilder.Append(c);
+                builder.Append(c);
             }
             else
             {
@@ -386,15 +381,13 @@ public sealed partial class GlobalObject : ObjectInstance
 
                 for (var i = 0; i < length; i++)
                 {
-                    var octet = buffer[i];
-                    var x1 = HexaMap[octet / 16];
-                    var x2 = HexaMap[octet % 16];
-                    _stringBuilder.Append('%').Append(x1).Append(x2);
+                    builder.Append('%');
+                    builder.AppendHex(buffer[i]);
                 }
             }
         }
 
-        return _stringBuilder.ToString();
+        return builder.ToString();
 
         uriError:
         _engine.SignalError(ExceptionHelper.CreateUriError(_realm, "URI malformed"));
@@ -583,10 +576,8 @@ public sealed partial class GlobalObject : ObjectInstance
         return tmp < radix;
     }
 
-    private static readonly SearchValues<char> EscapeAllowList = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_ + -./");
-
     /// <summary>
-    /// http://www.ecma-international.org/ecma-262/5.1/#sec-B.2.1
+    /// https://tc39.es/ecma262/#sec-escape-string
     /// </summary>
     private JsValue Escape(JsValue thisObject, JsValue[] arguments)
     {
@@ -600,7 +591,7 @@ public sealed partial class GlobalObject : ObjectInstance
         for (var k = 0; k < strLen; k++)
         {
             var c = uriString[k];
-            if (EscapeAllowList.Contains(c))
+            if (c.IsAsciiWordCharacter() || c == '@' || c == '*' || c == '+' || c == '-' || c == '.' || c == '/')
             {
                 _stringBuilder.Append(c);
             }
@@ -636,19 +627,14 @@ public sealed partial class GlobalObject : ObjectInstance
             {
                 if (k <= strLen - 6
                     && uriString[k + 1] == 'u'
-                    && uriString.Skip(k + 2).Take(4).All(IsValidHexaChar))
+                    && AreValidHexChars(uriString.AsSpan(k + 2, 4)))
                 {
-                    var joined = string.Join(string.Empty, uriString.Skip(k + 2).Take(4));
-                    c = (char) int.Parse(joined, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
-
+                    c = ParseHexString(uriString.AsSpan(k + 2, 4));
                     k += 5;
                 }
-                else if (k <= strLen - 3
-                         && uriString.Skip(k + 1).Take(2).All(IsValidHexaChar))
+                else if (k <= strLen - 3 && AreValidHexChars(uriString.AsSpan(k + 1, 2)))
                 {
-                    var joined = string.Join(string.Empty, uriString.Skip(k + 1).Take(2));
-                    c = (char) int.Parse(joined, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
-
+                    c = ParseHexString(uriString.AsSpan(k + 1, 2));
                     k += 2;
                 }
             }
@@ -656,6 +642,30 @@ public sealed partial class GlobalObject : ObjectInstance
         }
 
         return _stringBuilder.ToString();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static bool AreValidHexChars(ReadOnlySpan<char> input)
+        {
+            foreach (var c in input)
+            {
+                if (!IsValidHexaChar(c))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static char ParseHexString(ReadOnlySpan<char> input)
+        {
+#if NET6_0_OR_GREATER
+            return (char) int.Parse(input, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
+#else
+            return (char) int.Parse(input.ToString(), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
+#endif
+        }
     }
 
     // optimized versions with string parameter and without virtual dispatch for global environment usage
