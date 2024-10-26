@@ -1,6 +1,8 @@
+using System.Collections;
+
 namespace Jint.Runtime;
 
-internal sealed class OrderedSet<T>
+internal sealed class OrderedSet<T> : IEnumerable<T>
 {
     internal List<T> _list;
     internal HashSet<T> _set;
@@ -61,4 +63,8 @@ internal sealed class OrderedSet<T>
         _set.Remove(item);
         return _list.Remove(item);
     }
+
+    public IEnumerator<T> GetEnumerator() => _list.GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }

@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -5,11 +6,11 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Native;
 
-public sealed class JsSet : ObjectInstance
+public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
 {
     internal readonly OrderedSet<JsValue> _set;
 
-    public JsSet(Engine engine) : this(engine, new OrderedSet<JsValue>(SameValueZeroComparer.Instance))
+    internal JsSet(Engine engine) : this(engine, new OrderedSet<JsValue>(SameValueZeroComparer.Instance))
     {
     }
 
@@ -53,7 +54,7 @@ public sealed class JsSet : ObjectInstance
 
     public bool Has(JsValue key) => _set.Contains(key);
 
-    public bool SetDelete(JsValue key) => _set.Remove(key);
+    public bool Remove(JsValue key) => _set.Remove(key);
 
     internal void ForEach(ICallable callable, JsValue thisArg)
     {
@@ -74,4 +75,8 @@ public sealed class JsSet : ObjectInstance
     internal ObjectInstance Entries() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructEntryIterator(this);
 
     internal ObjectInstance Values() => _engine.Realm.Intrinsics.SetIteratorPrototype.ConstructValueIterator(this);
+
+    public IEnumerator<JsValue> GetEnumerator() => _set.GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }

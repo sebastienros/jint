@@ -198,7 +198,7 @@ public sealed partial class Intrinsics
     internal MapIteratorPrototype MapIteratorPrototype =>
         _mapIteratorPrototype ??= new MapIteratorPrototype(_engine, _realm, IteratorPrototype);
 
-    internal SetConstructor Set =>
+    public SetConstructor Set =>
         _set ??= new SetConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     internal SetIteratorPrototype SetIteratorPrototype =>

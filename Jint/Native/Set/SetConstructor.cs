@@ -8,7 +8,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Native.Set;
 
-internal sealed class SetConstructor : Constructor
+public sealed class SetConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Set");
 
@@ -37,25 +37,14 @@ internal sealed class SetConstructor : Constructor
         SetSymbols(symbols);
     }
 
-    private static JsValue Species(JsValue thisObject, JsValue[] arguments)
-    {
-        return thisObject;
-    }
+    public JsSet Construct() => ConstructSet(this);
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-set-iterable
     /// </summary>
     public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
-        if (newTarget.IsUndefined())
-        {
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
-        }
-
-        var set = OrdinaryCreateFromConstructor(
-            newTarget,
-            static intrinsics => intrinsics.Set.PrototypeObject,
-            static (Engine engine, Realm _, object? _) => new JsSet(engine));
+        var set = ConstructSet(newTarget);
 
         if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
         {
@@ -91,5 +80,24 @@ internal sealed class SetConstructor : Constructor
         }
 
         return set;
+    }
+
+    private JsSet ConstructSet(JsValue newTarget)
+    {
+        if (newTarget.IsUndefined())
+        {
+            ExceptionHelper.ThrowTypeError(_engine.Realm);
+        }
+
+        var set = OrdinaryCreateFromConstructor(
+            newTarget,
+            static intrinsics => intrinsics.Set.PrototypeObject,
+            static (Engine engine, Realm _, object? _) => new JsSet(engine));
+        return set;
+    }
+
+    private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+    {
+        return thisObject;
     }
 }

@@ -85,7 +85,7 @@ internal sealed class SetPrototype : Prototype
     private JsBoolean Delete(JsValue thisObject, JsValue[] arguments)
     {
         var set = AssertSetInstance(thisObject);
-        return set.SetDelete(arguments.At(0))
+        return set.Remove(arguments.At(0))
             ? JsBoolean.True
             : JsBoolean.False;
     }
@@ -119,7 +119,7 @@ internal sealed class SetPrototype : Prototype
                     var inOther = TypeConverter.ToBoolean(otherRec.Has.Call(otherRec.Set, args));
                     if (inOther)
                     {
-                        resultSetData.SetDelete(e);
+                        resultSetData.Remove(e);
                         index--;
                     }
                 }
@@ -144,7 +144,7 @@ internal sealed class SetPrototype : Prototype
                 nextValue = JsNumber.PositiveZero;
             }
 
-            resultSetData.SetDelete(nextValue);
+            resultSetData.Remove(nextValue);
         }
 
         return resultSetData;
@@ -308,7 +308,7 @@ internal sealed class SetPrototype : Prototype
             {
                 if (inResult)
                 {
-                    resultSetData.SetDelete(nextValue);
+                    resultSetData.Remove(nextValue);
                 }
             }
             else
