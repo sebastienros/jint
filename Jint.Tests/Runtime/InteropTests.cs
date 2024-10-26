@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.Number;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
@@ -3667,5 +3668,25 @@ try {
         engine.SetValue("zoo", new Zoo());
         var lionManeLength = engine.Evaluate("zoo.animals[0].maneLength");
         Assert.Equal(10, lionManeLength.AsNumber());
+    }
+
+    [Fact]
+    public void StaticFieldsShouldFollowJsSemantics()
+    {
+        _engine.Evaluate("Number.MAX_SAFE_INTEGER").AsNumber().Should().Be(NumberConstructor.MaxSafeInteger);
+        _engine.Evaluate("new Number().MAX_SAFE_INTEGER").Should().Be(JsValue.Undefined);
+
+        _engine.Execute("class MyJsClass { static MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER; }");
+        _engine.Evaluate("MyJsClass.MAX_SAFE_INTEGER").AsNumber().Should().Be(NumberConstructor.MaxSafeInteger);
+        _engine.Evaluate("new MyJsClass().MAX_SAFE_INTEGER").Should().Be(JsValue.Undefined);
+
+        _engine.SetValue("MyCsClass", typeof(MyClass));
+        _engine.Evaluate("MyCsClass.MAX_SAFE_INTEGER").AsNumber().Should().Be(NumberConstructor.MaxSafeInteger);
+        _engine.Evaluate("new MyCsClass().MAX_SAFE_INTEGER").Should().Be(JsValue.Undefined);
+    }
+
+    private class MyClass
+    {
+        public static JsNumber MAX_SAFE_INTEGER = new JsNumber(NumberConstructor.MaxSafeInteger);
     }
 }
