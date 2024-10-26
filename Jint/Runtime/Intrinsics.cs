@@ -192,7 +192,7 @@ public sealed partial class Intrinsics
     public Float64ArrayConstructor Float64Array =>
         _float64Array ??= new Float64ArrayConstructor(_engine, _realm, TypedArray, TypedArray.PrototypeObject);
 
-    internal MapConstructor Map =>
+    public MapConstructor Map =>
         _map ??= new MapConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     internal MapIteratorPrototype MapIteratorPrototype =>

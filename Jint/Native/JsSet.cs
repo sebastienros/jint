@@ -54,7 +54,7 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
 
     public bool Has(JsValue key) => _set.Contains(key);
 
-    public bool Remove(JsValue key) => _set.Remove(key);
+    public new bool Delete(JsValue key) => _set.Remove(key);
 
     internal void ForEach(ICallable callable, JsValue thisArg)
     {

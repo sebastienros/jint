@@ -63,7 +63,7 @@ internal sealed class MapPrototype : Prototype
     private JsValue Get(JsValue thisObject, JsValue[] arguments)
     {
         var map = AssertMapInstance(thisObject);
-        return map.MapGet(arguments.At(0));
+        return map.Get(arguments.At(0));
     }
 
     private JsValue Clear(JsValue thisObject, JsValue[] arguments)
@@ -76,7 +76,7 @@ internal sealed class MapPrototype : Prototype
     private JsValue Delete(JsValue thisObject, JsValue[] arguments)
     {
         var map = AssertMapInstance(thisObject);
-        return map.MapDelete(arguments.At(0))
+        return map.Remove(arguments.At(0))
             ? JsBoolean.True
             : JsBoolean.False;
     }
@@ -84,7 +84,7 @@ internal sealed class MapPrototype : Prototype
     private JsValue Set(JsValue thisObject, JsValue[] arguments)
     {
         var map = AssertMapInstance(thisObject);
-        map.MapSet(arguments.At(0), arguments.At(1));
+        map.Set(arguments.At(0), arguments.At(1));
         return thisObject;
     }
 
