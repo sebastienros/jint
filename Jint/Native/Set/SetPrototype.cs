@@ -85,7 +85,7 @@ internal sealed class SetPrototype : Prototype
     private JsBoolean Delete(JsValue thisObject, JsValue[] arguments)
     {
         var set = AssertSetInstance(thisObject);
-        return set.SetDelete(arguments.At(0))
+        return set.Remove(arguments.At(0))
             ? JsBoolean.True
             : JsBoolean.False;
     }
