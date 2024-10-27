@@ -375,7 +375,17 @@ public class Options
         /// <summary>
         /// Reported member binding flags when reflecting, defaults to <see cref="BindingFlags.Instance" /> | <see cref="BindingFlags.Public" />.
         /// </summary>
-        public BindingFlags ObjectWrapperReportedBindingFlags { get; set; } = BindingFlags.Instance | BindingFlags.Public;
+        public BindingFlags ObjectWrapperReportedFieldBindingFlags { get; set; } = BindingFlags.Instance | BindingFlags.Public;
+
+        /// <summary>
+        /// Reported member binding flags when reflecting, defaults to <see cref="BindingFlags.Instance" /> | <see cref="BindingFlags.Public" />.
+        /// </summary>
+        public BindingFlags ObjectWrapperReportedPropertyBindingFlags { get; set; } = BindingFlags.Instance | BindingFlags.Public;
+
+        /// <summary>
+        /// Reported member binding flags when reflecting, defaults to <see cref="BindingFlags.Instance" /> | <see cref="BindingFlags.Public" /> | <see cref="BindingFlags.Static" />.
+        /// </summary>
+        public BindingFlags ObjectWrapperReportedMethodBindingFlags { get; set; } = BindingFlags.Instance | BindingFlags.Public | BindingFlags.Static;
     }
 
     public class ConstraintOptions

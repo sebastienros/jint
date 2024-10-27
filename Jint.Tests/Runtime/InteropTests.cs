@@ -2792,6 +2792,9 @@ public partial class InteropTests : IDisposable
         Assert.Equal("InterfaceMethod", engine.Evaluate("o.jsInterfaceMethod()").AsString());
         Assert.Equal("ExtensionMethod", engine.Evaluate("o.jsExtensionMethod()").AsString());
 
+        // static methods are reported by default, unlike properties and fields
+        Assert.Equal("StaticMethod", engine.Evaluate("o.jsStaticMethod()").AsString());
+
         engine.SetValue("CustomNamed", typeof(CustomNamed));
         Assert.Equal("StaticStringField", engine.Evaluate("CustomNamed.jsStaticStringField").AsString());
         Assert.Equal("StaticMethod", engine.Evaluate("CustomNamed.jsStaticMethod()").AsString());
@@ -2801,7 +2804,7 @@ public partial class InteropTests : IDisposable
         Assert.Equal((int) CustomNamedEnum.HeadersReceived, engine.Evaluate("o.jsEnumProperty").AsNumber());
 
         // can get static members with different configuration
-        var engineWithStaticsReported = new Engine(options => options.Interop.ObjectWrapperReportedBindingFlags |= BindingFlags.Static);
+        var engineWithStaticsReported = new Engine(options => options.Interop.ObjectWrapperReportedFieldBindingFlags |= BindingFlags.Static);
         engineWithStaticsReported.SetValue("o", new CustomNamed());
         Assert.Equal("StaticMethod", engineWithStaticsReported.Evaluate("o.staticMethod()").AsString());
         Assert.Equal("StaticStringField", engineWithStaticsReported.Evaluate("o.staticStringField").AsString());
