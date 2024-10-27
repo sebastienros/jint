@@ -22,7 +22,7 @@ public sealed class JsSet : ObjectInstance, IEnumerable<JsValue>
 
     public int Size => _set.Count;
 
-    public JsValue? this[int index]
+    internal JsValue? this[int index]
     {
         get { return index < _set._list.Count ? _set._list[index] : null; }
     }
