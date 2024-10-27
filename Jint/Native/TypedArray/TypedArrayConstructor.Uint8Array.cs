@@ -22,7 +22,12 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
     protected override void Initialize()
     {
         const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(1, checkExistingKeys: false) { ["BYTES_PER_ELEMENT"] = new(new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.AllForbidden)), ["fromBase64"] = new(new ClrFunction(Engine, "fromBase64", FromBase64, 1, PropertyFlag.Configurable), PropertyFlags), ["fromHex"] = new(new ClrFunction(Engine, "fromHex", FromHex, 1, PropertyFlag.Configurable), PropertyFlags), };
+        var properties = new PropertyDictionary(3, checkExistingKeys: false)
+        {
+            ["BYTES_PER_ELEMENT"] = new(new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.AllForbidden)),
+            ["fromBase64"] = new(new ClrFunction(Engine, "fromBase64", FromBase64, 1, PropertyFlag.Configurable), PropertyFlags),
+            ["fromHex"] = new(new ClrFunction(Engine, "fromHex", FromHex, 1, PropertyFlag.Configurable), PropertyFlags),
+        };
         SetProperties(properties);
     }
 
@@ -91,6 +96,8 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
     }
 
     internal readonly record struct FromEncodingResult(byte[] Bytes, JavaScriptException? Error, int Read);
+
+    private static readonly SearchValues<char> Base64Alphabet = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
 
     internal static FromEncodingResult FromBase64(Engine engine, string input, string alphabet, string lastChunkHandling, uint maxLength = uint.MaxValue)
     {
@@ -200,10 +207,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
                 }
             }
 
-            if (!currentChar.IsDecimalDigit()
-                && !char.ToLowerInvariant(currentChar).IsInRange('a', 'z')
-                && currentChar != '+'
-                && currentChar != '/')
+            if (!Base64Alphabet.Contains(currentChar))
             {
                 return new FromEncodingResult(bytes.ToArray(), ExceptionHelper.CreateSyntaxError(engine.Realm, "Invalid base64 character."), read);
             }

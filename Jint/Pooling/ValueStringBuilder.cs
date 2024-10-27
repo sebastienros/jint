@@ -192,11 +192,11 @@ internal ref struct ValueStringBuilder
     public void AppendHex(byte b)
     {
         const string Map = "0123456789ABCDEF";
-        Span<char> data = stackalloc char[]
-        {
+        ReadOnlySpan<char> data =
+        [
             Map[b / 16],
-            Map[b % 16],
-        };
+            Map[b % 16]
+        ];
         Append(data);
     }
 
