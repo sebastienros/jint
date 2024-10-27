@@ -2799,6 +2799,12 @@ public partial class InteropTests : IDisposable
         engine.SetValue("XmlHttpRequest", typeof(CustomNamedEnum));
         engine.Evaluate("o.jsEnumProperty = XmlHttpRequest.HEADERS_RECEIVED;");
         Assert.Equal((int) CustomNamedEnum.HeadersReceived, engine.Evaluate("o.jsEnumProperty").AsNumber());
+
+        // can get static members with different configuration
+        var engineWithStaticsReported = new Engine(options => options.Interop.ObjectWrapperReportedBindingFlags |= BindingFlags.Static);
+        engineWithStaticsReported.SetValue("o", new CustomNamed());
+        Assert.Equal("StaticMethod", engineWithStaticsReported.Evaluate("o.staticMethod()").AsString());
+        Assert.Equal("StaticStringField", engineWithStaticsReported.Evaluate("o.staticStringField").AsString());
     }
 
     [Fact]
