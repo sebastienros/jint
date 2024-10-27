@@ -274,8 +274,8 @@ public sealed partial class GlobalObject : ObjectInstance
 
     private const string UriReservedString = ";/?:@&=+$,";
     private const string UriUnescapedString = "-.!~*'()";
-    private static readonly SearchValues<char> UriUnescaped = SearchValues.Create(UriUnescapedString);
-    private static readonly SearchValues<char> UnescapedUriSet = SearchValues.Create(UriReservedString + UriUnescapedString + '#');
+    private static readonly SearchValues<char> UriUnescaped = SearchValues.Create(Character.AsciiWordCharacters + UriUnescapedString);
+    private static readonly SearchValues<char> UnescapedUriSet = SearchValues.Create(Character.AsciiWordCharacters + UriReservedString + UriUnescapedString + '#');
     private static readonly SearchValues<char> ReservedUriSet = SearchValues.Create(UriReservedString + '#');
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -300,7 +300,7 @@ public sealed partial class GlobalObject : ObjectInstance
         return Encode(uriString, UriUnescaped);
     }
 
-    private JsValue Encode(string uriString, SearchValues<char> unescapedUriSet)
+    private JsValue Encode(string uriString, SearchValues<char> allowedCharacters)
     {
         var strLen = uriString.Length;
         var builder = new ValueStringBuilder(uriString.Length);
@@ -309,7 +309,7 @@ public sealed partial class GlobalObject : ObjectInstance
         for (var k = 0; k < strLen; k++)
         {
             var c = uriString[k];
-            if (c.IsAsciiWordCharacter() || unescapedUriSet.Contains(c))
+            if (allowedCharacters.Contains(c))
             {
                 builder.Append(c);
             }
@@ -416,7 +416,7 @@ public sealed partial class GlobalObject : ObjectInstance
         _stringBuilder.Clear();
 
 #if SUPPORTS_SPAN_PARSE
-            Span<byte> octets = stackalloc byte[4];
+        Span<byte> octets = stackalloc byte[4];
 #else
         var octets = new byte[4];
 #endif
@@ -576,6 +576,8 @@ public sealed partial class GlobalObject : ObjectInstance
         return tmp < radix;
     }
 
+    private static readonly SearchValues<char> EscapeAllowList = SearchValues.Create(Character.AsciiWordCharacters + "@*+-./");
+
     /// <summary>
     /// https://tc39.es/ecma262/#sec-escape-string
     /// </summary>
@@ -583,29 +585,27 @@ public sealed partial class GlobalObject : ObjectInstance
     {
         var uriString = TypeConverter.ToString(arguments.At(0));
 
-        var strLen = uriString.Length;
+        var builder = new ValueStringBuilder(uriString.Length);
 
-        _stringBuilder.EnsureCapacity(strLen);
-        _stringBuilder.Clear();
-
-        for (var k = 0; k < strLen; k++)
+        foreach (var c in uriString)
         {
-            var c = uriString[k];
-            if (c.IsAsciiWordCharacter() || c == '@' || c == '*' || c == '+' || c == '-' || c == '.' || c == '/')
+            if (EscapeAllowList.Contains(c))
             {
-                _stringBuilder.Append(c);
+                builder.Append(c);
             }
             else if (c < 256)
             {
-                _stringBuilder.Append('%').AppendFormat(CultureInfo.InvariantCulture, "{0:X2}", (int) c);
+                builder.Append('%');
+                builder.AppendHex((byte) c);
             }
             else
             {
-                _stringBuilder.Append("%u").AppendFormat(CultureInfo.InvariantCulture, "{0:X4}", (int) c);
+                builder.Append("%u");
+                builder.Append(((int) c).ToString("X4", CultureInfo.InvariantCulture));
             }
         }
 
-        return _stringBuilder.ToString();
+        return builder.ToString();
     }
 
     /// <summary>
