@@ -28,7 +28,7 @@ public partial class Engine
                     return string.Empty;
                 }
 
-                return _engine.CallStack.BuildCallStackString(lastSyntaxElement.Location);
+                return _engine.CallStack.BuildCallStackString(_engine, lastSyntaxElement.Location);
             }
         }
 
