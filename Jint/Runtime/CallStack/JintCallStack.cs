@@ -121,19 +121,10 @@ internal sealed class JintCallStack
             string shortDescription,
             in SourceLocation loc,
             in CallStackElement? element,
-            Engine engine)
+            Options.BuildCallStackDelegate? callStackBuilder)
         {
-            List<string>? arguments = null;
-
-            if (element?.Arguments is not null)
+            if (callStackBuilder != null && TryInvokeCustomCallStackHandler(callStackBuilder, element, shortDescription, loc, ref sb))
             {
-                arguments = element.Value.Arguments.Value.Select(GetPropertyKey).ToList();
-            }
-
-            var str = engine.Options.Interop.BuildCallStackHandler.Invoke(shortDescription, loc, arguments);
-            if (!string.IsNullOrEmpty(str))
-            {
-                sb.Append(str);
                 return;
             }
 
@@ -145,16 +136,19 @@ internal sealed class JintCallStack
                 sb.Append(shortDescription);
             }
 
-            if (arguments is not null)
+            if (element?.Arguments is not null)
             {
+                // it's a function
                 sb.Append(" (");
-                for (var index = 0; index < arguments.Count; index++)
+                var arguments = element.Value.Arguments.Value;
+                for (var i = 0; i < arguments.Count; i++)
                 {
-                    if (index != 0)
+                    if (i != 0)
                     {
                         sb.Append(", ");
                     }
-                    sb.Append(arguments[index]);
+
+                    sb.Append(GetPropertyKey(arguments[i]));
                 }
                 sb.Append(')');
             }
@@ -168,6 +162,7 @@ internal sealed class JintCallStack
             sb.Append(System.Environment.NewLine);
         }
 
+        var customCallStackBuilder = engine.Options.Interop.BuildCallStackHandler;
         var builder = new ValueStringBuilder();
 
         // stack is one frame behind function-wise when we start to process it from expression level
@@ -175,7 +170,7 @@ internal sealed class JintCallStack
         var element = index >= 0 ? _stack[index] : (CallStackElement?) null;
         var shortDescription = element?.ToString() ?? "";
 
-        AppendLocation(ref builder, shortDescription, location, element, engine);
+        AppendLocation(ref builder, shortDescription, location, element, customCallStackBuilder);
 
         location = element?.Location ?? default;
         index--;
@@ -183,9 +178,9 @@ internal sealed class JintCallStack
         while (index >= -1)
         {
             element = index >= 0 ? _stack[index] : null;
-            shortDescription = element?.ToString() ?? string.Empty;
+            shortDescription = element?.ToString() ?? "";
 
-            AppendLocation(ref builder, shortDescription, location, element, engine);
+            AppendLocation(ref builder, shortDescription, location, element, customCallStackBuilder);
 
             location = element?.Location ?? default;
             index--;
@@ -196,6 +191,34 @@ internal sealed class JintCallStack
         builder.Dispose();
 
         return result;
+    }
+
+    private static bool TryInvokeCustomCallStackHandler(
+        Options.BuildCallStackDelegate handler,
+        CallStackElement? element,
+        string shortDescription,
+        SourceLocation loc,
+        ref ValueStringBuilder sb)
+    {
+        string[]? arguments = null;
+        if (element?.Arguments is not null)
+        {
+            var args = element.Value.Arguments.Value;
+            arguments = args.Count > 0 ? new string[args.Count] : [];
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                arguments[i] = GetPropertyKey(args[i]);
+            }
+        }
+
+        var str = handler(shortDescription, loc, arguments);
+        if (!string.IsNullOrEmpty(str))
+        {
+            sb.Append(str);
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -215,8 +238,7 @@ internal sealed class JintCallStack
 
         if (expression is MemberExpression { Computed: false } staticMemberExpression)
         {
-            return GetPropertyKey(staticMemberExpression.Object) + "." +
-                   GetPropertyKey(staticMemberExpression.Property);
+            return $"{GetPropertyKey(staticMemberExpression.Object)}.{GetPropertyKey(staticMemberExpression.Property)}";
         }
 
         return "?";

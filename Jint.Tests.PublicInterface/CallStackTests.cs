@@ -55,7 +55,7 @@ Trace
     {
         var sourceMap = SourceMapParser.Parse("""{"version":3,"file":"custom.js","sourceRoot":"","sources":["custom.ts"],"names":[],"mappings":"AAEA,SAAS,CAAC,CAAC,CAAM;IAChB,MAAM,IAAI,KAAK,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC;AAED,IAAI,CAAC,GAAG,UAAU,CAAM;IACvB,OAAO,CAAC,CAAC,CAAC,CAAC,CAAC;AACb,CAAC,CAAA;AAED,CAAC,CAAC,CAAC,CAAC,CAAC"}""");
 
-        string BuildCallStackHandler(string description, SourceLocation location, List<string> arguments)
+        string BuildCallStackHandler(string description, SourceLocation location, string[] arguments)
         {
             if (location.SourceFile != sourceMap.File)
             {
