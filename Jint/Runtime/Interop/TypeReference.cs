@@ -27,11 +27,9 @@ public sealed class TypeReference : Constructor, IObjectWrapper
     {
         ReferenceType = type;
 
-        _prototype = engine.Realm.Intrinsics.Function.PrototypeObject;
+        _prototype = new TypeReferencePrototype(engine, this);
+        _prototypeDescriptor = new PropertyDescriptor(_prototype, PropertyFlag.AllForbidden);
         _length = PropertyDescriptor.AllForbiddenDescriptor.NumberZero;
-
-        var proto = new TypeReferencePrototype(engine, this);
-        _prototypeDescriptor = new PropertyDescriptor(proto, PropertyFlag.AllForbidden);
 
         PreventExtensions();
     }

@@ -255,12 +255,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         {
             var interopOptions = _engine.Options.Interop;
 
-            // we take public properties, fields and methods
-            var bindingFlags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public;
-
+            // we take properties, fields and methods
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Property) == MemberTypes.Property)
             {
-                foreach (var p in ClrType.GetProperties(bindingFlags))
+                foreach (var p in ClrType.GetProperties(interopOptions.ObjectWrapperReportedPropertyBindingFlags))
                 {
                     if (!interopOptions.TypeResolver.Filter(_engine, ClrType, p))
                     {
@@ -277,7 +275,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Field) == MemberTypes.Field)
             {
-                foreach (var f in ClrType.GetFields(bindingFlags))
+                foreach (var f in ClrType.GetFields(interopOptions.ObjectWrapperReportedFieldBindingFlags))
                 {
                     if (!interopOptions.TypeResolver.Filter(_engine, ClrType, f))
                     {
@@ -290,7 +288,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
             if ((interopOptions.ObjectWrapperReportedMemberTypes & MemberTypes.Method) == MemberTypes.Method)
             {
-                foreach (var m in ClrType.GetMethods(bindingFlags))
+                foreach (var m in ClrType.GetMethods(interopOptions.ObjectWrapperReportedMethodBindingFlags))
                 {
                     // we won't report anything from base object as it would usually not be something to expect from JS perspective
                     if (m.DeclaringType == typeof(object) || m.IsSpecialName || !interopOptions.TypeResolver.Filter(_engine, ClrType, m))

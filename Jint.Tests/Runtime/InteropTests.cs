@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.Number;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Converters;
@@ -55,7 +56,7 @@ public partial class InteropTests : IDisposable
     [Fact]
     public void ShouldStringifyNetObjects()
     {
-        _engine.SetValue("foo", new Foo());
+        _engine.SetValue("foo", typeof(Foo));
         var json = _engine.Evaluate("JSON.stringify(foo.GetBar())").AsString();
         Assert.Equal("{\"Test\":\"123\"}", json);
     }
@@ -2781,20 +2782,32 @@ public partial class InteropTests : IDisposable
             options.SetTypeResolver(customTypeResolver);
             options.AddExtensionMethods(typeof(CustomNamedExtensions));
         });
+
         engine.SetValue("o", new CustomNamed());
         Assert.Equal("StringField", engine.Evaluate("o.jsStringField").AsString());
         Assert.Equal("StringField", engine.Evaluate("o.jsStringField2").AsString());
-        Assert.Equal("StaticStringField", engine.Evaluate("o.jsStaticStringField").AsString());
         Assert.Equal("StringProperty", engine.Evaluate("o.jsStringProperty").AsString());
         Assert.Equal("Method", engine.Evaluate("o.jsMethod()").AsString());
-        Assert.Equal("StaticMethod", engine.Evaluate("o.jsStaticMethod()").AsString());
         Assert.Equal("InterfaceStringProperty", engine.Evaluate("o.jsInterfaceStringProperty").AsString());
         Assert.Equal("InterfaceMethod", engine.Evaluate("o.jsInterfaceMethod()").AsString());
         Assert.Equal("ExtensionMethod", engine.Evaluate("o.jsExtensionMethod()").AsString());
 
+        // static methods are reported by default, unlike properties and fields
+        Assert.Equal("StaticMethod", engine.Evaluate("o.jsStaticMethod()").AsString());
+
+        engine.SetValue("CustomNamed", typeof(CustomNamed));
+        Assert.Equal("StaticStringField", engine.Evaluate("CustomNamed.jsStaticStringField").AsString());
+        Assert.Equal("StaticMethod", engine.Evaluate("CustomNamed.jsStaticMethod()").AsString());
+
         engine.SetValue("XmlHttpRequest", typeof(CustomNamedEnum));
         engine.Evaluate("o.jsEnumProperty = XmlHttpRequest.HEADERS_RECEIVED;");
         Assert.Equal((int) CustomNamedEnum.HeadersReceived, engine.Evaluate("o.jsEnumProperty").AsNumber());
+
+        // can get static members with different configuration
+        var engineWithStaticsReported = new Engine(options => options.Interop.ObjectWrapperReportedFieldBindingFlags |= BindingFlags.Static);
+        engineWithStaticsReported.SetValue("o", new CustomNamed());
+        Assert.Equal("StaticMethod", engineWithStaticsReported.Evaluate("o.staticMethod()").AsString());
+        Assert.Equal("StaticStringField", engineWithStaticsReported.Evaluate("o.staticStringField").AsString());
     }
 
     [Fact]
@@ -3664,5 +3677,25 @@ try {
         engine.SetValue("zoo", new Zoo());
         var lionManeLength = engine.Evaluate("zoo.animals[0].maneLength");
         Assert.Equal(10, lionManeLength.AsNumber());
+    }
+
+    [Fact]
+    public void StaticFieldsShouldFollowJsSemantics()
+    {
+        _engine.Evaluate("Number.MAX_SAFE_INTEGER").AsNumber().Should().Be(NumberConstructor.MaxSafeInteger);
+        _engine.Evaluate("new Number().MAX_SAFE_INTEGER").Should().Be(JsValue.Undefined);
+
+        _engine.Execute("class MyJsClass { static MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER; }");
+        _engine.Evaluate("MyJsClass.MAX_SAFE_INTEGER").AsNumber().Should().Be(NumberConstructor.MaxSafeInteger);
+        _engine.Evaluate("new MyJsClass().MAX_SAFE_INTEGER").Should().Be(JsValue.Undefined);
+
+        _engine.SetValue("MyCsClass", typeof(MyClass));
+        _engine.Evaluate("MyCsClass.MAX_SAFE_INTEGER").AsNumber().Should().Be(NumberConstructor.MaxSafeInteger);
+        _engine.Evaluate("new MyCsClass().MAX_SAFE_INTEGER").Should().Be(JsValue.Undefined);
+    }
+
+    private class MyClass
+    {
+        public static JsNumber MAX_SAFE_INTEGER = new JsNumber(NumberConstructor.MaxSafeInteger);
     }
 }
