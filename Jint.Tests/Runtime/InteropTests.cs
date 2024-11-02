@@ -3698,4 +3698,24 @@ try {
     {
         public static JsNumber MAX_SAFE_INTEGER = new JsNumber(NumberConstructor.MaxSafeInteger);
     }
+
+    [Fact]
+    public void ShouldFindShortOverload()
+    {
+        _engine.SetValue("target", new ShortOverloadWithBoolean());
+        _engine.Evaluate("target.method(42)").AsString().Should().Be("short");
+    }
+
+    private class ShortOverloadWithBoolean
+    {
+        public string Method(short s, bool b = true)
+        {
+            return "short";
+        }
+
+        public string Method(bool b)
+        {
+            return "boolean";
+        }
+    }
 }
