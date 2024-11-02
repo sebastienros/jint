@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Jint.Extensions;
 using Jint.Native;
 
@@ -120,14 +121,59 @@ internal sealed class InteropHelper
             return 5;
         }
 
-        if (paramType == typeof(int) && parameterValue.IsInteger())
+        const int ScoreForDifferentTypeButFittingNumberRange = 2;
+        if (parameterValue.IsNumber())
         {
-            return 0;
-        }
+            var num = (JsNumber) parameterValue;
+            var numValue = num._value;
 
-        if (paramType == typeof(float) && objectValueType == typeof(double))
-        {
-            return parameterValue.IsInteger() ? 1 : 2;
+            if (paramType == typeof(double))
+            {
+                return 0;
+            }
+
+            if (paramType == typeof(float) && numValue is <= float.MaxValue and >= float.MinValue)
+            {
+                return ScoreForDifferentTypeButFittingNumberRange;
+            }
+
+            var isInteger = num.IsInteger() || TypeConverter.IsIntegralNumber(num._value);
+
+            // if value is integral number and within allowed range for the parameter type, we consider this perfect match
+            if (isInteger)
+            {
+                if (paramType == typeof(int))
+                {
+                    return 0;
+                }
+
+                if (paramType == typeof(long))
+                {
+                    return ScoreForDifferentTypeButFittingNumberRange;
+                }
+
+                // check if we can narrow without exception throwing versions (CanChangeType)
+                var integerValue = (int) num._value;
+                if (paramType == typeof(short) && integerValue is <= short.MaxValue and >= short.MinValue)
+                {
+                    return ScoreForDifferentTypeButFittingNumberRange;
+                }
+
+                if (paramType == typeof(ushort) && integerValue is <= ushort.MaxValue and >= ushort.MinValue)
+                {
+                    return ScoreForDifferentTypeButFittingNumberRange;
+                }
+
+                if (paramType == typeof(byte) && integerValue is <= byte.MaxValue and >= byte.MinValue)
+                {
+                    return ScoreForDifferentTypeButFittingNumberRange;
+                }
+
+                if (paramType == typeof(sbyte) && integerValue is <= sbyte.MaxValue and >= sbyte.MinValue)
+                {
+                    return ScoreForDifferentTypeButFittingNumberRange;
+                }
+            }
         }
 
         if (paramType.IsEnum &&
