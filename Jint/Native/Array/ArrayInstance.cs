@@ -951,9 +951,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         }
 
         // need to grow
-        var newArray = new JsValue[capacity];
-        System.Array.Copy(dense, newArray, dense.Length);
-        _dense = newArray;
+        System.Array.Resize(ref _dense, (int) capacity);
     }
 
     public JsValue[] ToArray()
