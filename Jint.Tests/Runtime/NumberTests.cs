@@ -137,11 +137,33 @@ public class NumberTests
     }
 
     [Theory]
-    // Does not add extra zeros of there is no cuture argument.
+    // Does not add extra zeros of there is no culture argument.
     [InlineData("123456")]
     public void ToLocaleStringNoArg(string parseNumber)
     {
         var value = _engine.Evaluate($"({parseNumber}).toLocaleString()").AsString();
         Assert.DoesNotContain(".0", value);
+    }
+
+    [Fact]
+    public void CoercingOverflowFromString()
+    {
+        var engine = new Engine();
+
+        Assert.Equal(double.PositiveInfinity, engine.Evaluate("Number(1e1000)").ToObject());
+        Assert.Equal(double.PositiveInfinity, engine.Evaluate("+1e1000").ToObject());
+        Assert.Equal("Infinity", engine.Evaluate("(+1e1000).toString()").ToObject());
+
+        Assert.Equal(double.PositiveInfinity, engine.Evaluate("Number('1e1000')").ToObject());
+        Assert.Equal(double.PositiveInfinity, engine.Evaluate("+'1e1000'").ToObject());
+        Assert.Equal("Infinity", engine.Evaluate("(+'1e1000').toString()").ToObject());
+
+        Assert.Equal(double.NegativeInfinity, engine.Evaluate("Number(-1e1000)").ToObject());
+        Assert.Equal(double.NegativeInfinity, engine.Evaluate("-1e1000").ToObject());
+        Assert.Equal("-Infinity", engine.Evaluate("(-1e1000).toString()").ToObject());
+
+        Assert.Equal(double.NegativeInfinity, engine.Evaluate("Number('-1e1000')").ToObject());
+        Assert.Equal(double.NegativeInfinity, engine.Evaluate("-'1e1000'").ToObject());
+        Assert.Equal("-Infinity", engine.Evaluate("(-'1e1000').toString()").ToObject());
     }
 }
