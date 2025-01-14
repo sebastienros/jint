@@ -8,10 +8,10 @@
     <PackageVersion Include="Acornima.Extras" Version="1.1.1" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
     <PackageVersion Include="BenchmarkDotNet.TestAdapter" Version="0.13.12" />
-    <PackageVersion Include="FluentAssertions" Version="7.0.0" />
+    <PackageVersion Include="FluentAssertions" Version="8.0.0" />
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
     <PackageVersion Include="Jurassic" Version="3.2.8" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.184" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.186" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
@@ -26,8 +26,8 @@
     <PackageVersion Include="Spectre.Console.Cli" Version="0.45.0" />
     <PackageVersion Include="System.Text.Json" Version="9.0.0" />
     <PackageVersion Include="Test262Harness" Version="1.0.1" />
-    <PackageVersion Include="xunit" Version="2.9.2" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.0.1" PrivateAssets="all" />
     <PackageVersion Include="YantraJS.Core" Version="1.2.246" />
   </ItemGroup>
   <ItemGroup>
