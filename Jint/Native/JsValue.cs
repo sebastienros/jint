@@ -302,6 +302,22 @@ public abstract partial class JsValue : IEquatable<JsValue>
         return target.OrdinaryHasInstance(this);
     }
 
+    internal static ICallable? GetMethod(Realm realm, JsValue v, JsValue p)
+    {
+        var jsValue = v.Get(p);
+        if (jsValue.IsNullOrUndefined())
+        {
+            return null;
+        }
+
+        var callable = jsValue as ICallable;
+        if (callable is null)
+        {
+            Throw.TypeError(realm, $"Value returned for property '{p}' of object is not a function");
+        }
+        return callable;
+    }
+
     public override string ToString()
     {
         return "None";
