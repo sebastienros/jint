@@ -130,14 +130,15 @@ and many more.
 
 #### ECMAScript Stage 3 (no version yet)
 
-- ✔ Float16Array (Requires NET 6 or higher)
+- ✔ `Error.isError`
+- ✔ `Float16Array` (Requires NET 6 or higher)
 - ✔ Import attributes
 - ✔ JSON modules
-- ✔ Math.sumPrecise
+- ✔ `Math.sumPrecise`
 - ✔ `Promise.try`
 - ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
-- ✔ ShadowRealm
-- ✔ Uint8Array to/from base64
+- ✔ `ShadowRealm`
+- ✔ `Uint8Array` to/from base64
 
 #### Other
 

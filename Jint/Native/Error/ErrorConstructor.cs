@@ -1,6 +1,8 @@
+using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
 
 namespace Jint.Native.Error;
 
@@ -25,6 +27,15 @@ public sealed class ErrorConstructor : Constructor
 
     internal ErrorPrototype PrototypeObject { get; }
 
+    protected override void Initialize()
+    {
+        var properties = new PropertyDictionary(3, checkExistingKeys: false)
+        {
+            ["isError"] = new PropertyDescriptor(new PropertyDescriptor(new ClrFunction(Engine, "isError", IsError, 1), PropertyFlag.NonEnumerable)),
+        };
+        SetProperties(properties);
+    }
+
     protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
     {
         return Construct(arguments, this);
@@ -32,7 +43,7 @@ public sealed class ErrorConstructor : Constructor
 
     public ObjectInstance Construct(string? message = null)
     {
-        return Construct(message != null ? new JsValue[]{ message } : System.Array.Empty<JsValue>(), this);
+        return Construct(message != null ? new JsValue[] { message } : System.Array.Empty<JsValue>(), this);
     }
 
     /// <summary>
@@ -82,5 +93,13 @@ public sealed class ErrorConstructor : Constructor
             // from script), exclude it from the stack trace, because the trace should begin at the throw point.
             return callStack.BuildCallStackString(_engine, lastSyntaxNode.Location, currentFunction == this ? 1 : 0);
         }
+    }
+
+    /// <summary>
+    /// https://tc39.es/proposal-is-error/
+    /// </summary>
+    private static JsValue IsError(JsValue? thisObj, JsValue[] arguments)
+    {
+        return arguments.At(0) is JsError;
     }
 }
