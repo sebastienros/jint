@@ -132,7 +132,8 @@ and many more.
 
 - ✔ 16-bit floating point numbers (float16), Requires NET 8 or higher, `Float16Array`, `Math.f16round()`
 - ✔ Import attributes
-- ❌ Iterator helper methods 
+- ✔ Iterator helper methods 
+- ✔ Iterator Sequencing
 - ✔ JSON modules
 - ✔ `Promise.try`
 - ❌ `RegExp.escape()`
