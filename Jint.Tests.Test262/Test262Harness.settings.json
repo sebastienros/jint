@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "b0f03cb22d8b9233347782d166e7793d4d4c757f",
+  "SuiteGitSha": "d8e2cb274167073d3a0979085eeec5c1258ab042",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -11,7 +11,6 @@
     "decorators",
     "explicit-resource-management",
     "import-defer",
-    "iterator-helpers",
     "iterator-sequencing",
     "json-parse-with-source",
     "regexp-lookbehind",
