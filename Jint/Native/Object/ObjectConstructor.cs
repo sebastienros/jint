@@ -109,7 +109,7 @@ public sealed class ObjectConstructor : Constructor
     private JsValue FromEntries(JsValue thisObject, JsValue[] arguments)
     {
         var iterable = arguments.At(0);
-        TypeConverter.CheckObjectCoercible(_engine, iterable);
+        TypeConverter.RequireObjectCoercible(_engine, iterable);
 
         var obj = _realm.Intrinsics.Object.Construct(0);
 
@@ -206,7 +206,7 @@ public sealed class ObjectConstructor : Constructor
     private JsValue SetPrototypeOf(JsValue thisObject, JsValue[] arguments)
     {
         var oArg = arguments.At(0);
-        TypeConverter.CheckObjectCoercible(_engine, oArg);
+        TypeConverter.RequireObjectCoercible(_engine, oArg);
 
         var prototype = arguments.At(1);
         if (!prototype.IsObject() && !prototype.IsNull())
@@ -214,7 +214,7 @@ public sealed class ObjectConstructor : Constructor
             ExceptionHelper.ThrowTypeError(_realm, $"Object prototype may only be an Object or null: {prototype}");
         }
 
-        if (!(oArg is ObjectInstance o))
+        if (oArg is not ObjectInstance o)
         {
             return oArg;
         }

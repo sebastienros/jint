@@ -100,7 +100,7 @@ internal sealed class StringPrototype : StringInstance
 
     private ObjectInstance Iterator(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(_engine, thisObject);
+        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var str = TypeConverter.ToString(thisObject);
         return _realm.Intrinsics.StringIteratorPrototype.Construct(str);
     }
@@ -195,7 +195,7 @@ internal sealed class StringPrototype : StringInstance
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private JsValue Trim(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
         if (s.Length == 0 || (!IsWhiteSpaceEx(s[0]) && !IsWhiteSpaceEx(s[s.Length - 1])))
         {
@@ -209,7 +209,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue TrimStart(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
         if (s.Length == 0 || !IsWhiteSpaceEx(s[0]))
         {
@@ -223,7 +223,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue TrimEnd(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
         if (s.Length == 0 || !IsWhiteSpaceEx(s[s.Length - 1]))
         {
@@ -234,7 +234,7 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue ToLocaleUpperCase(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(_engine, thisObject);
+        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
         var culture = CultureInfo.InvariantCulture;
         if (arguments.Length > 0 && arguments[0].IsString())
@@ -266,21 +266,21 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue ToUpperCase(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(_engine, thisObject);
+        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
         return new JsString(s.ToUpperInvariant());
     }
 
     private JsValue ToLocaleLowerCase(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(_engine, thisObject);
+        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
         return new JsString(s.ToLower(CultureInfo.InvariantCulture));
     }
 
     private JsValue ToLowerCase(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(_engine, thisObject);
+        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
         return s.ToLowerInvariant();
     }
@@ -308,7 +308,7 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue Substring(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var s = TypeConverter.ToString(thisObject);
         var start = TypeConverter.ToNumber(arguments.At(0));
@@ -377,7 +377,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue Split(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var separator = arguments.At(0);
         var limit = arguments.At(1);
@@ -470,7 +470,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue At(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(_engine, thisObject);
+        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var start = arguments.At(0);
 
         var o = thisObject.ToString();
@@ -498,7 +498,7 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue Slice(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var start = TypeConverter.ToNumber(arguments.At(0));
         if (double.IsNegativeInfinity(start))
@@ -539,7 +539,7 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue Search(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var regex = arguments.At(0);
 
         if (regex is ObjectInstance oi)
@@ -561,7 +561,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue Replace(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var searchValue = arguments.At(0);
         var replaceValue = arguments.At(1);
@@ -613,7 +613,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue ReplaceAll(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var searchValue = arguments.At(0);
         var replaceValue = arguments.At(1);
@@ -623,7 +623,7 @@ internal sealed class StringPrototype : StringInstance
             if (searchValue.IsRegExp())
             {
                 var flags = searchValue.Get(RegExpPrototype.PropertyFlags);
-                TypeConverter.CheckObjectCoercible(_engine, flags);
+                TypeConverter.RequireObjectCoercible(_engine, flags);
                 if (!TypeConverter.ToString(flags).Contains('g'))
                 {
                     ExceptionHelper.ThrowTypeError(_realm, "String.prototype.replaceAll called with a non-global RegExp argument");
@@ -708,7 +708,7 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue Match(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var regex = arguments.At(0);
         if (regex is ObjectInstance oi)
@@ -728,7 +728,7 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue MatchAll(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(_engine, thisObject);
+        TypeConverter.RequireObjectCoercible(_engine, thisObject);
 
         var regex = arguments.At(0);
         if (!regex.IsNullOrUndefined())
@@ -736,7 +736,7 @@ internal sealed class StringPrototype : StringInstance
             if (regex.IsRegExp())
             {
                 var flags = regex.Get(RegExpPrototype.PropertyFlags);
-                TypeConverter.CheckObjectCoercible(_engine, flags);
+                TypeConverter.RequireObjectCoercible(_engine, flags);
                 if (!TypeConverter.ToString(flags).Contains('g'))
                 {
                     ExceptionHelper.ThrowTypeError(_realm);
@@ -757,7 +757,7 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue LocaleCompare(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var s = TypeConverter.ToString(thisObject);
         var that = TypeConverter.ToString(arguments.At(0));
@@ -777,7 +777,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue LastIndexOf(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var jsString = TypeConverter.ToJsString(thisObject);
         var searchStr = TypeConverter.ToString(arguments.At(0));
@@ -833,7 +833,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue IndexOf(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var s = TypeConverter.ToJsString(thisObject);
         var searchStr = TypeConverter.ToString(arguments.At(0));
@@ -858,7 +858,7 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue Concat(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         if (thisObject is not JsString jsString)
         {
@@ -879,7 +879,7 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue CharCodeAt(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         JsValue pos = arguments.Length > 0 ? arguments[0] : 0;
         var s = TypeConverter.ToJsString(thisObject);
@@ -896,7 +896,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue CodePointAt(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         JsValue pos = arguments.Length > 0 ? arguments[0] : 0;
         var s = TypeConverter.ToString(thisObject);
@@ -941,7 +941,7 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue CharAt(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
         var position = TypeConverter.ToInteger(arguments.At(0));
         var size = s.Length;
@@ -989,7 +989,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue StringPad(JsValue thisObject, JsValue[] arguments, bool padStart)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
 
         var targetLength = TypeConverter.ToInt32(arguments.At(0));
@@ -1020,7 +1020,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue StartsWith(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var s = TypeConverter.ToJsString(thisObject);
 
@@ -1052,7 +1052,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue EndsWith(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var s = TypeConverter.ToJsString(thisObject);
 
@@ -1083,7 +1083,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue Includes(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
         var s = TypeConverter.ToJsString(thisObject);
         var searchString = arguments.At(0);
@@ -1115,7 +1115,7 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue Normalize(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var str = TypeConverter.ToString(thisObject);
 
         var param = arguments.At(0);
@@ -1156,7 +1156,7 @@ internal sealed class StringPrototype : StringInstance
     /// </summary>
     private JsValue Repeat(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(Engine, thisObject);
+        TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
         var count = arguments.At(0);
 
@@ -1188,7 +1188,7 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue IsWellFormed(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(_engine, thisObject);
+        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
 
         return IsStringWellFormedUnicode(s);
@@ -1196,7 +1196,7 @@ internal sealed class StringPrototype : StringInstance
 
     private JsValue ToWellFormed(JsValue thisObject, JsValue[] arguments)
     {
-        TypeConverter.CheckObjectCoercible(_engine, thisObject);
+        TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
 
         var strLen = s.Length;

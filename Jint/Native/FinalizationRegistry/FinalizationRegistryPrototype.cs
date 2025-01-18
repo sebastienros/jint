@@ -29,7 +29,9 @@ internal sealed class FinalizationRegistryPrototype : Prototype
         const PropertyFlag PropertyFlags = PropertyFlag.NonEnumerable;
         var properties = new PropertyDictionary(4, checkExistingKeys: false)
         {
-            [KnownKeys.Constructor] = new(_constructor, PropertyFlag.NonEnumerable), ["register"] = new(new ClrFunction(Engine, "register", Register, 2, PropertyFlag.Configurable), PropertyFlags), ["unregister"] = new(new ClrFunction(Engine, "unregister", Unregister, 1, PropertyFlag.Configurable), PropertyFlags), ["cleanupSome"] = new(new ClrFunction(Engine, "cleanupSome", CleanupSome, 0, PropertyFlag.Configurable), PropertyFlags),
+            [KnownKeys.Constructor] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
+            ["register"] = new PropertyDescriptor(new ClrFunction(Engine, "register", Register, 2, PropertyFlag.Configurable), PropertyFlags),
+            ["unregister"] = new PropertyDescriptor(new ClrFunction(Engine, "unregister", Unregister, 1, PropertyFlag.Configurable), PropertyFlags),
         };
         SetProperties(properties);
 
@@ -86,21 +88,6 @@ internal sealed class FinalizationRegistryPrototype : Prototype
         }
 
         return finalizationRegistry.Remove(unregisterToken);
-    }
-
-    private JsValue CleanupSome(JsValue thisObject, JsValue[] arguments)
-    {
-        var finalizationRegistry = AssertFinalizationRegistryInstance(thisObject);
-        var callback = arguments.At(0);
-
-        if (!callback.IsUndefined() && callback is not ICallable)
-        {
-            ExceptionHelper.ThrowTypeError(_realm, callback + " must be callable");
-        }
-
-        FinalizationRegistryInstance.CleanupFinalizationRegistry(callback as ICallable);
-
-        return Undefined;
     }
 
     private FinalizationRegistryInstance AssertFinalizationRegistryInstance(JsValue thisObject)

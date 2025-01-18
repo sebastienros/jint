@@ -210,7 +210,7 @@ internal sealed class JintUnaryExpression : JintExpression
                 {
                     if (r.IsSuperReference)
                     {
-                        ExceptionHelper.ThrowReferenceError(engine.Realm, r);
+                        ExceptionHelper.ThrowReferenceError(engine.Realm, "Unsupported reference to 'super'");
                     }
 
                     var o = TypeConverter.ToObject(engine.Realm, r.Base);

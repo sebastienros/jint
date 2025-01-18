@@ -1032,11 +1032,17 @@ public static class TypeConverter
             .SetJavaScriptCallstack(engine, sourceNode.Location, overwriteExisting: true);
     }
 
-    public static void CheckObjectCoercible(Engine engine, JsValue o)
+    [Obsolete("Use TypeConverter.RequireObjectCoercible")]
+    public static void CheckObjectCoercible(Engine engine, JsValue o) => RequireObjectCoercible(engine, o);
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-requireobjectcoercible
+    /// </summary>
+    public static void RequireObjectCoercible(Engine engine, JsValue o)
     {
         if (o._type < InternalTypes.Boolean)
         {
-            ExceptionHelper.ThrowTypeError(engine.Realm, "Cannot call method on " + o);
+            ExceptionHelper.ThrowTypeError(engine.Realm, $"Cannot call method on {o}");
         }
     }
 }

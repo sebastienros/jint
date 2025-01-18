@@ -8,7 +8,7 @@ namespace Jint.Tests.Test262;
 
 public abstract partial class Test262Test
 {
-    private Engine BuildTestExecutor(Test262File file)
+    private static Engine BuildTestExecutor(Test262File file)
     {
         var engine = new Engine(cfg =>
         {

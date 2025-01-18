@@ -38,7 +38,7 @@ public sealed class ObjectPrototype : Prototype
                 new ClrFunction(Engine, "get __proto__", (thisObject, _) => TypeConverter.ToObject(_realm, thisObject).GetPrototypeOf() ?? Null, 0, LengthFlags),
                 new ClrFunction(Engine, "set __proto__", (thisObject, arguments) =>
                 {
-                    TypeConverter.CheckObjectCoercible(_engine, thisObject);
+                    TypeConverter.RequireObjectCoercible(_engine, thisObject);
 
                     var proto = arguments.At(0);
                     if (!proto.IsObject() && !proto.IsNull() || thisObject is not ObjectInstance objectInstance)

@@ -704,7 +704,7 @@ public sealed partial class Engine : IDisposable
             var succeeded = baseObject.Set(reference.ReferencedName, value, reference.ThisValue);
             if (!succeeded && reference.Strict)
             {
-                ExceptionHelper.ThrowTypeError(Realm, "Cannot assign to read only property '" + property + "' of " + baseObject);
+                ExceptionHelper.ThrowTypeError(Realm, $"Cannot assign to read only property '{property}' of {baseObject}");
             }
         }
         else
@@ -906,18 +906,21 @@ public sealed partial class Engine : IDisposable
 
     private static Reference GetIdentifierReference(Environment? env, string name, bool strict)
     {
-        if (env is null)
+        Key key = name;
+        while (true)
         {
-            return new Reference(JsValue.Undefined, name, strict);
-        }
+            if (env is null)
+            {
+                return new Reference(JsValue.Undefined, name, strict);
+            }
 
-        var envRec = env;
-        if (envRec.HasBinding(name))
-        {
-            return new Reference(envRec, name, strict);
-        }
+            if (env.HasBinding(key))
+            {
+                return new Reference(env, name, strict);
+            }
 
-        return GetIdentifierReference(env._outerEnv, name, strict);
+            env = env._outerEnv;
+        }
     }
 
     /// <summary>
