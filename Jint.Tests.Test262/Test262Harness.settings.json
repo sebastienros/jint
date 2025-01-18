@@ -12,7 +12,6 @@
     "explicit-resource-management",
     "import-defer",
     "iterator-helpers",
-    "iterator-sequencing",
     "json-parse-with-source",
     "regexp-lookbehind",
     "regexp-modifiers",
