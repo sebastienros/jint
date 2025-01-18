@@ -9,7 +9,6 @@
     "async-iteration",
     "Atomics",
     "decorators",
-    "Error.isError",
     "explicit-resource-management",
     "import-defer",
     "iterator-helpers",
