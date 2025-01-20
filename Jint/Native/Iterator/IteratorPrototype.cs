@@ -38,19 +38,60 @@ internal class IteratorPrototype : Prototype
             ["drop"] = new(new ClrFunction(_engine, "drop", Drop, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
             ["flatMap"] = new(new ClrFunction(_engine, "flatMap", FlatMap, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
             ["reduce"] = new(new ClrFunction(_engine, "reduce", Reduce, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["toArray"] = new(new ClrFunction(_engine, "toArray", ToArray, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
+            ["toArray"] = new(new ClrFunction(_engine, "toArray", ToArray, 0, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
             ["forEach"] = new(new ClrFunction(_engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
             ["some"] = new(new ClrFunction(_engine, "some", Some, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
-            ["evey"] = new(new ClrFunction(_engine, "every", Every, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
+            ["every"] = new(new ClrFunction(_engine, "every", Every, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
             ["find"] = new(new ClrFunction(_engine, "find", Find, 1, PropertyFlag.Configurable), PropertyFlag.Writable | PropertyFlag.Configurable),
         };
 
         SetProperties(properties);
 
-        var symbols = new SymbolDictionary(1) { [GlobalSymbolRegistry.Iterator] = new(new ClrFunction(Engine, "[Symbol.iterator]", ToIterator, 0, PropertyFlag.Configurable), true, false, true), };
+        var symbols = new SymbolDictionary(1)
+        {
+            [GlobalSymbolRegistry.Iterator] = new(new ClrFunction(Engine, "[Symbol.iterator]", ToIterator, 0, PropertyFlag.Configurable), true, false, true),
+            [GlobalSymbolRegistry.ToStringTag] = new GetSetPropertyDescriptor(
+                get: new ClrFunction(_engine, "get [Symbol.toStringTag]", (_, _) => "Iterator", 0, PropertyFlag.Configurable),
+                set: new ClrFunction(_engine, "set [Symbol.toStringTag]", (thisObject, arguments) =>
+                {
+                    SetterThatIgnoresPrototypeProperties(thisObject, _engine.Intrinsics.IteratorPrototype, GlobalSymbolRegistry.ToStringTag, arguments.At(0));
+                    return Undefined;
+                }, 0, PropertyFlag.Configurable),
+                PropertyFlag.Configurable)
+        };
         SetSymbols(symbols);
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-SetterThatIgnoresPrototypeProperties
+    /// </summary>
+    private void SetterThatIgnoresPrototypeProperties(JsValue thisValue, ObjectInstance home, JsValue p, JsValue v)
+    {
+        if (thisValue is not ObjectInstance objectInstance)
+        {
+            ExceptionHelper.ThrowTypeError(_realm);
+            return;
+        }
+
+        if (SameValue(thisValue, home))
+        {
+            ExceptionHelper.ThrowTypeError(_realm);
+        }
+
+        var desc = objectInstance.GetOwnProperty(p);
+        if (desc == PropertyDescriptor.Undefined)
+        {
+            objectInstance.CreateDataPropertyOrThrow(p, v);
+        }
+        else
+        {
+            objectInstance.Set(p, v, throwOnError: true);
+        }
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-iterator.prototype.map
+    /// </summary>
     private JsValue Map(JsValue thisObject, JsValue[] arguments)
     {
         if (thisObject is not ObjectInstance o)
@@ -59,7 +100,7 @@ internal class IteratorPrototype : Prototype
             return Undefined;
         }
 
-        var callable = GetCallable(arguments.At(0));
+        var mapper = GetCallable(arguments.At(0));
         var iterated = GetIteratorDirect(o);
         //var iterator = new iterao
 
@@ -121,26 +162,172 @@ internal class IteratorPrototype : Prototype
 
     private JsValue ToArray(JsValue thisObject, JsValue[] arguments)
     {
-        return Undefined;
+        if (thisObject is not ObjectInstance o)
+        {
+            ExceptionHelper.ThrowTypeError(_realm, "object must be an Object");
+            return Undefined;
+        }
+
+        var iterated = GetIteratorDirect(o);
+        var items = new JsArray(_engine);
+        while (iterated.TryIteratorStep(out var iteratorResult))
+        {
+            try
+            {
+                var value = iteratorResult.Get(CommonProperties.Value);
+                items.Push(value);
+            }
+            catch
+            {
+                iterated.Close(CompletionType.Throw);
+                throw;
+            }
+        }
+
+        return items;
     }
 
     private JsValue ForEach(JsValue thisObject, JsValue[] arguments)
     {
+        if (thisObject is not ObjectInstance o)
+        {
+            ExceptionHelper.ThrowTypeError(_realm, "object must be an Object");
+            return Undefined;
+        }
+
+        var procedure = GetCallable(arguments.At(0));
+        var iterated = GetIteratorDirect(o);
+
+        var counter = 0;
+        while (iterated.TryIteratorStep(out var iteratorResult))
+        {
+            try
+            {
+                var value = iteratorResult.Get(CommonProperties.Value);
+                procedure.Call(Undefined, [value, counter]);
+                counter++;
+            }
+            catch
+            {
+                iterated.Close(CompletionType.Throw);
+                throw;
+            }
+        }
+
         return Undefined;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-iterator.prototype.some
+    /// </summary>
     private JsValue Some(JsValue thisObject, JsValue[] arguments)
     {
-        return Undefined;
+        if (thisObject is not ObjectInstance o)
+        {
+            ExceptionHelper.ThrowTypeError(_realm, "object must be an Object");
+            return Undefined;
+        }
+
+        var predicate = GetCallable(arguments.At(0));
+        var iterated = GetIteratorDirect(o);
+
+        var counter = 0;
+        while (iterated.TryIteratorStep(out var iteratorResult))
+        {
+            try
+            {
+                var value = iteratorResult.Get(CommonProperties.Value);
+                var result = predicate.Call(Undefined, [value, counter]);
+                if (TypeConverter.ToBoolean(result))
+                {
+                    iterated.Close(CompletionType.Normal);
+                    return JsBoolean.True;
+                }
+
+                counter++;
+            }
+            catch
+            {
+                iterated.Close(CompletionType.Throw);
+                throw;
+            }
+        }
+
+        return JsBoolean.False;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-iterator.prototype.every
+    /// </summary>
     private JsValue Every(JsValue thisObject, JsValue[] arguments)
     {
-        return Undefined;
+        if (thisObject is not ObjectInstance o)
+        {
+            ExceptionHelper.ThrowTypeError(_realm, "object must be an Object");
+            return Undefined;
+        }
+
+        var predicate = GetCallable(arguments.At(0));
+        var iterated = GetIteratorDirect(o);
+
+        var counter = 0;
+        while (iterated.TryIteratorStep(out var iteratorResult))
+        {
+            try
+            {
+                var value = iteratorResult.Get(CommonProperties.Value);
+                var result = predicate.Call(Undefined, [value, counter]);
+                if (!TypeConverter.ToBoolean(result))
+                {
+                    iterated.Close(CompletionType.Normal);
+                    return JsBoolean.False;
+                }
+
+                counter++;
+            }
+            catch
+            {
+                iterated.Close(CompletionType.Throw);
+                throw;
+            }
+        }
+
+        return JsBoolean.True;
     }
 
     private JsValue Find(JsValue thisObject, JsValue[] arguments)
     {
+        if (thisObject is not ObjectInstance o)
+        {
+            ExceptionHelper.ThrowTypeError(_realm, "object must be an Object");
+            return Undefined;
+        }
+
+        var predicate = GetCallable(arguments.At(0));
+        var iterated = GetIteratorDirect(o);
+
+        var counter = 0;
+        while (iterated.TryIteratorStep(out var iteratorResult))
+        {
+            try
+            {
+                var value = iteratorResult.Get(CommonProperties.Value);
+                var result = predicate.Call(Undefined, [value, counter]);
+                if (TypeConverter.ToBoolean(result))
+                {
+                    iterated.Close(CompletionType.Normal);
+                    return value;
+                }
+
+                counter++;
+            }
+            catch
+            {
+                iterated.Close(CompletionType.Throw);
+                throw;
+            }
+        }
+
         return Undefined;
     }
 
