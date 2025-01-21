@@ -18,7 +18,7 @@ public sealed class MaxStatementsConstraint : Constraint
 
     public override void Check()
     {
-        if (MaxStatements > 0 && _statementsCount++ > MaxStatements)
+        if (MaxStatements > 0 && ++_statementsCount > MaxStatements)
         {
             ExceptionHelper.ThrowStatementsCountOverflowException();
         }
