@@ -7,7 +7,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
 {
     private JintStatementList? _statementList;
     private JintStatement? _singleStatement;
-    private List<Declaration>? _lexicalDeclarations;
+    private DeclarationCache _lexicalDeclarations;
 
     public JintBlockStatement(NestedBlockStatement blockStatement) : base(blockStatement)
     {
@@ -15,7 +15,8 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
 
     protected override void Initialize(EvaluationContext context)
     {
-        _lexicalDeclarations = HoistingScope.GetLexicalDeclarations(_statement);
+        _lexicalDeclarations = DeclarationCacheBuilder.Build(_statement);
+
         if (_statement.Body.Count == 1)
         {
             _singleStatement = Build(_statement.Body[0]);
@@ -38,7 +39,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
 
         Environment? oldEnv = null;
         var engine = context.Engine;
-        if (_lexicalDeclarations != null)
+        if (_lexicalDeclarations.Declarations.Count > 0)
         {
             oldEnv = engine.ExecutionContext.LexicalEnvironment;
             var blockEnv = JintEnvironment.NewDeclarativeEnvironment(engine, engine.ExecutionContext.LexicalEnvironment);

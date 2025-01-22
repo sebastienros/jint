@@ -165,8 +165,7 @@ internal sealed class CachedHoistingScope
         VarNames = new List<Key>();
         GatherVarNames(Scope, VarNames);
 
-        LexNames = new List<CachedLexicalName>();
-        GatherLexNames(Scope, LexNames);
+        LexNames = DeclarationCacheBuilder.Build(Scope._lexicalDeclarations);
     }
 
     internal static void GatherVarNames(HoistingScope scope, List<Key> boundNames)
@@ -182,31 +181,9 @@ internal sealed class CachedHoistingScope
         }
     }
 
-    internal static void GatherLexNames(HoistingScope scope, List<CachedLexicalName> boundNames)
-    {
-        var lexDeclarations = scope._lexicalDeclarations;
-        if (lexDeclarations != null)
-        {
-            var temp = new List<Key>();
-            for (var i = 0; i < lexDeclarations.Count; i++)
-            {
-                var d = lexDeclarations[i];
-                temp.Clear();
-                d.GetBoundNames(temp);
-                for (var j = 0; j < temp.Count; j++)
-                {
-                    boundNames.Add(new CachedLexicalName(temp[j], d.IsConstantDeclaration()));
-                }
-            }
-        }
-    }
-
-    [StructLayout(LayoutKind.Auto)]
-    internal readonly record struct CachedLexicalName(Key Name, bool Constant);
-
     public HoistingScope Scope { get; }
     public List<Key> VarNames { get; }
-    public List<CachedLexicalName> LexNames { get; }
+    public DeclarationCache LexNames { get; }
 }
 
 internal static class AstPreparationExtensions
@@ -225,26 +202,25 @@ internal static class AstPreparationExtensions
         }
         else
         {
-            boundNames = new List<Key>();
+            boundNames = [];
             CachedHoistingScope.GatherVarNames(hoistingScope, boundNames);
         }
 
         return boundNames;
     }
 
-    internal static List<CachedHoistingScope.CachedLexicalName> GetLexNames(this Program program, HoistingScope hoistingScope)
+    internal static List<ScopedDeclaration> GetLexNames(this Program program, HoistingScope hoistingScope)
     {
-        List<CachedHoistingScope.CachedLexicalName> boundNames;
+        DeclarationCache cache;
         if (program.UserData is CachedHoistingScope cached)
         {
-            boundNames = cached.LexNames;
+            cache = cached.LexNames;
         }
         else
         {
-            boundNames = new List<CachedHoistingScope.CachedLexicalName>();
-            CachedHoistingScope.GatherLexNames(hoistingScope, boundNames);
+            cache = DeclarationCacheBuilder.Build(hoistingScope._lexicalDeclarations);
         }
 
-        return boundNames;
+        return cache.Declarations;
     }
 }

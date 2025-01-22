@@ -221,7 +221,7 @@ internal class SourceTextModule : CyclicModule
                 if (string.Equals(ie.ImportName, "*", StringComparison.Ordinal))
                 {
                     var ns = GetModuleNamespace(importedModule);
-                    env.CreateImmutableBinding(ie.LocalName, true);
+                    env.CreateImmutableBinding(ie.LocalName, strict: true);
                     env.InitializeBinding(ie.LocalName, ns);
                 }
                 else
@@ -235,7 +235,7 @@ internal class SourceTextModule : CyclicModule
                     if (string.Equals(resolution.BindingName, "*namespace*", StringComparison.Ordinal))
                     {
                         var ns = GetModuleNamespace(resolution.Module);
-                        env.CreateImmutableBinding(ie.LocalName, true);
+                        env.CreateImmutableBinding(ie.LocalName, strict: true);
                         env.InitializeBinding(ie.LocalName, ns);
                     }
                     else
@@ -275,26 +275,21 @@ internal class SourceTextModule : CyclicModule
             }
         }
 
-        var lexDeclarations = hoistingScope._lexicalDeclarations;
-
-        if (lexDeclarations != null)
+        if (hoistingScope._lexicalDeclarations != null)
         {
-            var boundNames = new List<Key>();
-            for (var i = 0; i < lexDeclarations.Count; i++)
+            var cache = DeclarationCacheBuilder.Build(hoistingScope._lexicalDeclarations);
+            for (var i = 0; i < cache.Declarations.Count; i++)
             {
-                var d = lexDeclarations[i];
-                boundNames.Clear();
-                d.GetBoundNames(boundNames);
-                for (var j = 0; j < boundNames.Count; j++)
+                var declaration = cache.Declarations[i];
+                foreach (var bn in declaration.BoundNames)
                 {
-                    var dn = boundNames[j];
-                    if (d.IsConstantDeclaration())
+                    if (declaration.IsConstantDeclaration)
                     {
-                        env.CreateImmutableBinding(dn);
+                        env.CreateImmutableBinding(bn);
                     }
                     else
                     {
-                        env.CreateMutableBinding(dn);
+                        env.CreateMutableBinding(bn);
                     }
                 }
             }

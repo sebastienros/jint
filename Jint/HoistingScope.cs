@@ -71,55 +71,6 @@ internal sealed class HoistingScope
             treeWalker._lexicalNames);
     }
 
-    public static List<Declaration>? GetLexicalDeclarations(BlockStatement statement)
-    {
-        List<Declaration>? lexicalDeclarations = null;
-        ref readonly var statementListItems = ref statement.Body;
-        for (var i = 0; i < statementListItems.Count; i++)
-        {
-            var node = statementListItems[i];
-            if (node.Type != NodeType.VariableDeclaration && node.Type != NodeType.FunctionDeclaration && node.Type != NodeType.ClassDeclaration)
-            {
-                continue;
-            }
-
-            if (node is VariableDeclaration { Kind: VariableDeclarationKind.Var })
-            {
-                continue;
-            }
-
-            lexicalDeclarations ??= new List<Declaration>();
-            lexicalDeclarations.Add((Declaration)node);
-        }
-
-        return lexicalDeclarations;
-    }
-
-    public static List<Declaration>? GetLexicalDeclarations(SwitchCase statement)
-    {
-        List<Declaration>? lexicalDeclarations = null;
-        ref readonly var statementListItems = ref statement.Consequent;
-        for (var i = 0; i < statementListItems.Count; i++)
-        {
-            var node = statementListItems[i];
-            if (node.Type != NodeType.VariableDeclaration)
-            {
-                continue;
-            }
-
-            var rootVariable = (VariableDeclaration)node;
-            if (rootVariable.Kind == VariableDeclarationKind.Var)
-            {
-                continue;
-            }
-
-            lexicalDeclarations ??= new List<Declaration>();
-            lexicalDeclarations.Add(rootVariable);
-        }
-
-        return lexicalDeclarations;
-    }
-
     public static void GetImportsAndExports(
         AstModule module,
         out HashSet<ModuleRequest> requestedModules,

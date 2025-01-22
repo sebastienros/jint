@@ -50,13 +50,13 @@ internal class DeclarativeEnvironment : Environment
     internal sealed override void CreateMutableBinding(Key name, bool canBeDeleted = false)
     {
         _dictionary ??= new HybridDictionary<Binding>();
-        _dictionary[name] = new Binding(null!, canBeDeleted, mutable: true, strict: false);
+        _dictionary.CreateMutableBinding(name, canBeDeleted);
     }
 
     internal sealed override void CreateImmutableBinding(Key name, bool strict = true)
     {
         _dictionary ??= new HybridDictionary<Binding>();
-        _dictionary[name] = new Binding(null!, canBeDeleted: false, mutable: false, strict);
+        _dictionary.CreateImmutableBinding(name, strict);
     }
 
     internal sealed override void InitializeBinding(Key name, JsValue value)
@@ -69,14 +69,17 @@ internal class DeclarativeEnvironment : Environment
 
     internal sealed override void SetMutableBinding(Key name, JsValue value, bool strict)
     {
-        if (_dictionary is null || !_dictionary.TryGetValue(name, out var binding))
+        _dictionary ??= new HybridDictionary<Binding>();
+
+        ref var binding = ref _dictionary.GetValueRefOrNullRef(name);
+        if (Unsafe.IsNullRef(ref binding))
         {
             if (strict)
             {
                 ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
             }
 
-            CreateMutableBindingAndInitialize(name, canBeDeleted: true, value);
+            _dictionary[name] = new Binding(value, canBeDeleted: true, mutable: true, strict: false);
             return;
         }
 
@@ -93,7 +96,7 @@ internal class DeclarativeEnvironment : Environment
 
         if (binding.Mutable)
         {
-            _dictionary[name] = binding.ChangeValue(value);
+            binding = binding.ChangeValue(value);
         }
         else
         {
@@ -116,7 +119,7 @@ internal class DeclarativeEnvironment : Environment
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private void ThrowUninitializedBindingError(string name)
+    private void ThrowUninitializedBindingError(Key name)
     {
         ExceptionHelper.ThrowReferenceError(_engine.Realm, $"Cannot access '{name}' before initialization");
     }
@@ -151,7 +154,7 @@ internal class DeclarativeEnvironment : Environment
     {
         if (_dictionary is null)
         {
-            return Array.Empty<string>();
+            return [];
         }
 
         var keys = new string[_dictionary.Count];
@@ -181,5 +184,20 @@ internal class DeclarativeEnvironment : Environment
             source.TryGetValue(bn, out var lastValue);
             target[bn] = new Binding(lastValue.Value, canBeDeleted: false, mutable: true, strict: false);
         }
+    }
+}
+
+internal static class DictionaryExtensions
+{
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void CreateMutableBinding<T>(this T dictionary, Key name, bool canBeDeleted = false) where T : IEngineDictionary<Key, Binding>
+    {
+        dictionary[name] = new Binding(null!, canBeDeleted, mutable: true, strict: false);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void CreateImmutableBinding<T>(this T dictionary, Key name, bool strict = true)  where T : IEngineDictionary<Key, Binding>
+    {
+        dictionary[name] = new Binding(null!, canBeDeleted: false, mutable: false, strict);
     }
 }
