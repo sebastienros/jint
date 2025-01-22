@@ -119,40 +119,39 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
         currentValue = updater(currentValue, state);
     }
 
-    private bool SwitchToDictionary(Key key, TValue value, bool tryAdd)
+    private bool SwitchToDictionary(Key key, TValue value, bool tryAdd, int capacity = InitialDictionarySize)
     {
-        var dictionary = new StringDictionarySlim<TValue>(InitialDictionarySize);
-        foreach (var pair in _list)
-        {
-            dictionary[pair.Key] = pair.Value;
-        }
+        SwitchToDictionary(capacity);
 
-        bool result;
         if (tryAdd)
         {
-            result = dictionary.TryAdd(key, value);
-        }
-        else
-        {
-            dictionary[key] = value;
-            result = true;
+            return _dictionary.TryAdd(key, value);
         }
 
-        _dictionary = dictionary;
-        _list = null;
-        return result;
+        _dictionary[key] = value;
+        return true;
     }
 
-    private ref TValue SwitchToDictionary(Key key)
+    private ref TValue SwitchToDictionary(Key key, int capacity = InitialDictionarySize)
     {
-        var dictionary = new StringDictionarySlim<TValue>(InitialDictionarySize);
-        foreach (var pair in _list)
+        SwitchToDictionary(capacity);
+        return ref _dictionary[key];
+    }
+
+    private void SwitchToDictionary(int capacity = InitialDictionarySize)
+    {
+        var dictionary = new StringDictionarySlim<TValue>(capacity);
+
+        if (_list is not null)
         {
-            dictionary[pair.Key] = pair.Value;
+            foreach (var pair in _list)
+            {
+                dictionary[pair.Key] = pair.Value;
+            }
         }
+
         _dictionary = dictionary;
         _list = null;
-        return ref dictionary[key];
     }
 
     public int Count
@@ -160,6 +159,21 @@ internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>,
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => _dictionary?.Count ?? _list?.Count ?? 0;
     }
+
+    public void EnsureCapacity(int capacity)
+    {
+        if (_dictionary is not null)
+        {
+            // not implemented yet
+            return;
+        }
+
+        if (capacity >= CutoverPoint)
+        {
+            SwitchToDictionary(capacity);
+        }
+    }
+
 
     public bool TryAdd(Key key, TValue value)
     {

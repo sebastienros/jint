@@ -318,6 +318,7 @@ public abstract partial class Function : ObjectInstance, ICallable
     /// <summary>
     /// https://tc39.es/ecma262/#sec-prepareforordinarycall
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ref readonly ExecutionContext PrepareForOrdinaryCall(JsValue newTarget)
     {
         var callerContext = _engine.ExecutionContext;
