@@ -18,7 +18,7 @@ namespace Jint.Collections;
 /// 3) It does not accept an equality comparer (assumes Object.GetHashCode() and Object.Equals() or overridden implementation are cheap and sufficient).
 /// </summary>
 [DebuggerDisplay("Count = {Count}")]
-internal class DictionarySlim<TKey, TValue> : IReadOnlyCollection<KeyValuePair<TKey, TValue>> where TKey : IEquatable<TKey>
+internal sealed class DictionarySlim<TKey, TValue> : IReadOnlyCollection<KeyValuePair<TKey, TValue>> where TKey : IEquatable<TKey>
 {
     // We want to initialize without allocating arrays. We also want to avoid null checks.
     // Array.Empty would give divide by zero in modulo operation. So we use static one element arrays.

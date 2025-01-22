@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 
 namespace Jint.Collections;
 
-internal class HybridDictionary<TValue> : IEnumerable<KeyValuePair<Key, TValue>>
+internal sealed class HybridDictionary<TValue> : IEngineDictionary<Key, TValue>, IEnumerable<KeyValuePair<Key, TValue>>
 {
     private const int CutoverPoint = 9;
     private const int InitialDictionarySize = 13;
@@ -28,40 +28,34 @@ internal class HybridDictionary<TValue> : IEnumerable<KeyValuePair<Key, TValue>>
         }
     }
 
-    protected HybridDictionary(StringDictionarySlim<TValue> dictionary)
+    public HybridDictionary(StringDictionarySlim<TValue> dictionary)
     {
         _checkExistingKeys = true;
         _dictionary = dictionary;
     }
 
-    public TValue this[Key key]
+    public ref TValue this[Key key]
     {
         get
         {
-            TryGetValue(key, out var value);
-            return value;
-        }
-        set
-        {
             if (_dictionary != null)
             {
-                _dictionary[key] = value;
+                return ref _dictionary[key];
             }
-            else if (_list != null)
+
+            if (_list != null)
             {
                 if (_list.Count >= CutoverPoint - 1)
                 {
-                    SwitchToDictionary(key, value, tryAdd: false);
+                    return ref SwitchToDictionary(key);
                 }
-                else
-                {
-                    _list[key] = value;
-                }
+
+                return ref _list[key];
             }
-            else
-            {
-                _list = new ListDictionary<TValue>(key, value, _checkExistingKeys);
-            }
+
+            var head = new ListDictionary<TValue>.DictionaryNode { Key = key, Value = default };
+            _list = new ListDictionary<TValue>(head, _checkExistingKeys);
+            return ref head.Value;
         }
     }
 
@@ -81,20 +75,48 @@ internal class HybridDictionary<TValue> : IEnumerable<KeyValuePair<Key, TValue>>
         return false;
     }
 
-    public void SetOrUpdateValue<TState>(Key key, Func<TValue, TState, TValue> updater, TState state)
+    public ref TValue GetValueRefOrNullRef(Key key)
     {
         if (_dictionary != null)
         {
-            _dictionary.SetOrUpdateValue(key, updater, state);
+            return ref _dictionary.GetValueRefOrNullRef(key);
         }
-        else if (_list != null)
+
+        if (_list != null)
         {
-            _list.SetOrUpdateValue(key, updater, state);
+            return ref _list.GetValueRefOrNullRef(key);
         }
-        else
+
+        return ref Unsafe.NullRef<TValue>();
+    }
+
+    public ref TValue GetValueRefOrAddDefault(Key key, out bool exists)
+    {
+        if (_dictionary != null)
         {
-            _list = new ListDictionary<TValue>(key, updater(default, state), _checkExistingKeys);
+            return ref _dictionary.GetValueRefOrAddDefault(key, out exists);
         }
+
+        if (_list != null)
+        {
+            return ref _list.GetValueRefOrAddDefault(key, out exists);
+        }
+
+        var head = new ListDictionary<TValue>.DictionaryNode
+        {
+            Key = key,
+        };
+
+        _list = new ListDictionary<TValue>(head, _checkExistingKeys);
+        exists = false;
+        return ref head.Value;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void SetOrUpdateValue<TState>(Key key, Func<TValue, TState, TValue> updater, TState state)
+    {
+        ref var currentValue = ref GetValueRefOrAddDefault(key, out _);
+        currentValue = updater(currentValue, state);
     }
 
     private bool SwitchToDictionary(Key key, TValue value, bool tryAdd)
@@ -115,9 +137,22 @@ internal class HybridDictionary<TValue> : IEnumerable<KeyValuePair<Key, TValue>>
             dictionary[key] = value;
             result = true;
         }
+
         _dictionary = dictionary;
         _list = null;
         return result;
+    }
+
+    private ref TValue SwitchToDictionary(Key key)
+    {
+        var dictionary = new StringDictionarySlim<TValue>(InitialDictionarySize);
+        foreach (var pair in _list)
+        {
+            dictionary[pair.Key] = pair.Value;
+        }
+        _dictionary = dictionary;
+        _list = null;
+        return ref dictionary[key];
     }
 
     public int Count
@@ -132,26 +167,25 @@ internal class HybridDictionary<TValue> : IEnumerable<KeyValuePair<Key, TValue>>
         {
             return _dictionary.TryAdd(key, value);
         }
-        else
-        {
-            _list ??= new ListDictionary<TValue>(key, value, _checkExistingKeys);
 
-            if (_list.Count + 1 >= CutoverPoint)
-            {
-                return SwitchToDictionary(key, value, tryAdd: true);
-            }
-            else
-            {
-                return _list.Add(key, value, tryAdd: true);
-            }
+        _list ??= new ListDictionary<TValue>(key, value, _checkExistingKeys);
+
+        if (_list.Count + 1 >= CutoverPoint)
+        {
+            return SwitchToDictionary(key, value, tryAdd: true);
         }
+
+        return _list.Add(key, value, tryAdd: true);
     }
 
-    public void Add(Key key, TValue value)
+    /// <summary>
+    /// Adds a new item and expects key to not exist.
+    /// </summary>
+    public void AddDangerous(Key key, TValue value)
     {
         if (_dictionary != null)
         {
-            _dictionary.GetOrAddValueRef(key) = value;
+            _dictionary.AddDangerous(key, value);
         }
         else
         {
@@ -163,11 +197,11 @@ internal class HybridDictionary<TValue> : IEnumerable<KeyValuePair<Key, TValue>>
             {
                 if (_list.Count + 1 >= CutoverPoint)
                 {
-                    SwitchToDictionary(key, value, tryAdd: false);
+                    SwitchToDictionary(key) = value;
                 }
                 else
                 {
-                    _list.Add(key, value);
+                    _list.AddDangerous(key, value);
                 }
             }
         }
@@ -181,17 +215,8 @@ internal class HybridDictionary<TValue> : IEnumerable<KeyValuePair<Key, TValue>>
 
     public bool ContainsKey(Key key)
     {
-        if (_dictionary != null)
-        {
-            return _dictionary.ContainsKey(key);
-        }
-
-        if (_list != null)
-        {
-            return _list.ContainsKey(key);
-        }
-
-        return false;
+        ref var valueRefOrNullRef = ref GetValueRefOrNullRef(key);
+        return !Unsafe.IsNullRef(ref valueRefOrNullRef);
     }
 
     IEnumerator<KeyValuePair<Key, TValue>> IEnumerable<KeyValuePair<Key, TValue>>.GetEnumerator()
@@ -207,7 +232,6 @@ internal class HybridDictionary<TValue> : IEnumerable<KeyValuePair<Key, TValue>>
         }
 
         return System.Linq.Enumerable.Empty<KeyValuePair<Key, TValue>>().GetEnumerator();
-
     }
 
     IEnumerator IEnumerable.GetEnumerator()

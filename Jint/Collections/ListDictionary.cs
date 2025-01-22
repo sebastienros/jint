@@ -6,7 +6,7 @@ using Jint.Runtime;
 
 namespace Jint.Collections;
 
-internal sealed class ListDictionary<TValue> : IEnumerable<KeyValuePair<Key, TValue>>
+internal sealed class ListDictionary<TValue> : DictionaryBase<TValue>, IEnumerable<KeyValuePair<Key, TValue>>
 {
     private DictionaryNode _head;
     private int _count;
@@ -23,77 +23,49 @@ internal sealed class ListDictionary<TValue> : IEnumerable<KeyValuePair<Key, TVa
         _count = 1;
     }
 
-    public TValue this[Key key]
+    public ListDictionary(DictionaryNode head, bool checkExistingKeys)
     {
-        get
-        {
-            TryGetValue(key, out var value);
-            return value;
-        }
-        set
-        {
-            DictionaryNode last = null;
-            DictionaryNode node;
-            var checkExistingKeys = _checkExistingKeys;
-            for (node = _head; node != null; node = node.Next)
-            {
-                var oldKey = node.Key;
-                if (checkExistingKeys && oldKey == key)
-                {
-                    break;
-                }
-
-                last = node;
-            }
-
-            if (node != null)
-            {
-                // Found it
-                node.Value = value;
-                return;
-            }
-
-            AddNode(key, value, last);
-        }
+        _checkExistingKeys = checkExistingKeys;
+        _head = head;
+        _count = 1;
     }
 
-    public bool TryGetValue(Key key, out TValue value)
+    public override ref TValue GetValueRefOrNullRef(Key key)
     {
-        var node = _head;
-        while (node != null)
-        {
-            if (node.Key == key)
-            {
-                value = node.Value;
-                return true;
-            }
-
-            node = node.Next;
-        }
-
-        value = default;
-        return false;
-    }
-
-    public void SetOrUpdateValue<TState>(Key key, Func<TValue, TState, TValue> updater, TState state)
-    {
-        DictionaryNode last = null;
         DictionaryNode node;
         for (node = _head; node != null; node = node.Next)
         {
             if (node.Key == key)
             {
-                node.Value = updater(node.Value, state);
-                return;
+                return ref node.Value;
+            }
+        }
+
+        return ref Unsafe.NullRef<TValue>();
+    }
+
+    public override ref TValue GetValueRefOrAddDefault(Key key, out bool exists)
+    {
+        DictionaryNode last = null;
+        DictionaryNode node;
+        var checkExistingKeys = _checkExistingKeys;
+        for (node = _head; node != null; node = node.Next)
+        {
+            var oldKey = node.Key;
+            if (checkExistingKeys && oldKey == key)
+            {
+                exists = true;
+                return ref node.Value;
             }
 
             last = node;
         }
 
-        AddNode(key, updater(default, state), last);
+        exists = false;
+        return ref AddNode(key, default, last).Value;
     }
 
-    public int Count
+    public override int Count
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => _count;
@@ -123,7 +95,24 @@ internal sealed class ListDictionary<TValue> : IEnumerable<KeyValuePair<Key, TVa
         return true;
     }
 
-    private void AddNode(Key key, TValue value, DictionaryNode last)
+    /// <summary>
+    /// Adds a new item and expects key to not exist.
+    /// </summary>
+    public void AddDangerous(Key key, TValue value)
+    {
+        DictionaryNode node;
+        for (node = _head; node != null; node = node.Next)
+        {
+            if (node.Next is null)
+            {
+                AddNode(key, value, node);
+                return;
+            }
+        }
+    }
+
+
+    private DictionaryNode AddNode(Key key, TValue value, DictionaryNode last)
     {
         var newNode = new DictionaryNode
         {
@@ -139,26 +128,13 @@ internal sealed class ListDictionary<TValue> : IEnumerable<KeyValuePair<Key, TVa
             last.Next = newNode;
         }
         _count++;
+        return newNode;
     }
 
     public void Clear()
     {
         _count = 0;
         _head = null;
-    }
-
-    public bool ContainsKey(Key key)
-    {
-        for (var node = _head; node != null; node = node.Next)
-        {
-            var oldKey = node.Key;
-            if (oldKey == key)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     internal bool CheckExistingKeys
