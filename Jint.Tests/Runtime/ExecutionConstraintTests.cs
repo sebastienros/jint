@@ -14,6 +14,20 @@ public class ExecutionConstraintTests
     }
 
     [Fact]
+    public void ShouldCountStatementsPrecisely()
+    {
+        var script = "var x = 0; x++; x + 5";
+
+        // Should not throw if MaxStatements is not exceeded.
+        new Engine(cfg => cfg.MaxStatements(3)).Execute(script);
+
+        // Should throw if MaxStatements is exceeded.
+        Assert.Throws<StatementsCountOverflowException>(
+            () => new Engine(cfg => cfg.MaxStatements(2)).Evaluate(script)
+        );
+    }
+
+    [Fact]
     public void ShouldThrowMemoryLimitExceeded()
     {
         Assert.Throws<MemoryLimitExceededException>(
