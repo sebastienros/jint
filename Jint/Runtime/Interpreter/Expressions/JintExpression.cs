@@ -405,66 +405,6 @@ internal abstract class JintExpression
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected static void BuildArguments(EvaluationContext context, JintExpression[] jintExpressions, JsValue[] targetArray)
-    {
-        for (uint i = 0; i < (uint) jintExpressions.Length; i++)
-        {
-            targetArray[i] = jintExpressions[i].GetValue(context).Clone();
-        }
-    }
-
-    protected static JsValue[] BuildArgumentsWithSpreads(EvaluationContext context, JintExpression[] jintExpressions)
-    {
-        var args = new List<JsValue>(jintExpressions.Length);
-        foreach (var jintExpression in jintExpressions)
-        {
-            if (jintExpression is JintSpreadExpression jse)
-            {
-                jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
-                // optimize for array unless someone has touched the iterator
-                if (objectInstance is JsArray { HasOriginalIterator: true } ai)
-                {
-                    var length = ai.GetLength();
-                    for (uint j = 0; j < length; ++j)
-                    {
-                        ai.TryGetValue(j, out var value);
-                        args.Add(value);
-                    }
-                }
-                else
-                {
-                    var protocol = new ArraySpreadProtocol(context.Engine, args, iterator!);
-                    protocol.Execute();
-                }
-            }
-            else
-            {
-                args.Add(jintExpression.GetValue(context).Clone());
-            }
-        }
-
-        return args.ToArray();
-    }
-
-    private sealed class ArraySpreadProtocol : IteratorProtocol
-    {
-        private readonly List<JsValue> _instance;
-
-        public ArraySpreadProtocol(
-            Engine engine,
-            List<JsValue> instance,
-            IteratorInstance iterator) : base(engine, iterator, 0)
-        {
-            _instance = instance;
-        }
-
-        protected override void ProcessItem(JsValue[] arguments, JsValue currentValue)
-        {
-            _instance.Add(currentValue);
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected static bool AreIntegerOperands(JsValue left, JsValue right)
     {
         return left._type == right._type && left._type == InternalTypes.Integer;
