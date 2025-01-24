@@ -1359,22 +1359,6 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         return GetMethod(_engine.Realm, this, property);
     }
 
-    internal static ICallable? GetMethod(Realm realm, JsValue v, JsValue p)
-    {
-        var jsValue = v.Get(p);
-        if (jsValue.IsNullOrUndefined())
-        {
-            return null;
-        }
-
-        var callable = jsValue as ICallable;
-        if (callable is null)
-        {
-            ExceptionHelper.ThrowTypeError(realm, "Value returned for property '" + p + "' of object is not a function");
-        }
-        return callable;
-    }
-
     internal void CopyDataProperties(
         ObjectInstance target,
         HashSet<JsValue>? excludedItems)
