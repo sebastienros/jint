@@ -31,7 +31,7 @@ public class DictionaryBenchmark
         var hybridDictionary = new HybridDictionary<object>();
         for (var i = 0; i < N; i++)
         {
-            hybridDictionary.Add(_keys[i], _keys);
+            hybridDictionary[_keys[i]] = _keys;
         }
 
         foreach (var key in _keys)
