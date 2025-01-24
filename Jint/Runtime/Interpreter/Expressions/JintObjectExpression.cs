@@ -11,8 +11,8 @@ namespace Jint.Runtime.Interpreter.Expressions;
 /// </summary>
 internal sealed class JintObjectExpression : JintExpression
 {
-    private JintExpression[] _valueExpressions = Array.Empty<JintExpression>();
-    private ObjectProperty?[] _properties = Array.Empty<ObjectProperty>();
+    private readonly ExpressionCache _valueExpressions = new();
+    private ObjectProperty?[] _properties = [];
 
     // check if we can do a shortcut when all are object properties
     // and don't require duplicate checking
@@ -63,13 +63,13 @@ internal sealed class JintObjectExpression : JintExpression
             : new JintObjectExpression(expression);
     }
 
-    private void Initialize()
+    private void Initialize(EvaluationContext context)
     {
         _canBuildFast = true;
         var expression = (ObjectExpression) _expression;
         ref readonly var properties = ref expression.Properties;
 
-        _valueExpressions = new JintExpression[properties.Count];
+        var valueExpressions = new Expression[properties.Count];
         _properties = new ObjectProperty[properties.Count];
 
         for (var i = 0; i < _properties.Length; i++)
@@ -94,7 +94,7 @@ internal sealed class JintObjectExpression : JintExpression
                 if (p.Kind is PropertyKind.Init)
                 {
                     var propertyValue = p.Value;
-                    _valueExpressions[i] = Build((Expression) propertyValue);
+                    valueExpressions[i] = (Expression) propertyValue;
                     _canBuildFast &= !propertyValue.IsFunctionDefinition();
                 }
                 else
@@ -106,7 +106,7 @@ internal sealed class JintObjectExpression : JintExpression
             {
                 _canBuildFast = false;
                 _properties[i] = null;
-                _valueExpressions[i] = Build(spreadElement.Argument);
+                valueExpressions[i] = spreadElement.Argument;
             }
             else
             {
@@ -115,13 +115,15 @@ internal sealed class JintObjectExpression : JintExpression
 
             _canBuildFast &= propName != null;
         }
+
+        _valueExpressions.Initialize(context, valueExpressions.AsSpan());
     }
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
         if (!_initialized)
         {
-            Initialize();
+            Initialize(context);
             _initialized = true;
         }
 
@@ -140,8 +142,7 @@ internal sealed class JintObjectExpression : JintExpression
         for (var i = 0; i < _properties.Length; i++)
         {
             var objectProperty = _properties[i];
-            var valueExpression = _valueExpressions[i];
-            var propValue = valueExpression.GetValue(context).Clone();
+            var propValue = _valueExpressions.GetValue(context, i);
             properties[objectProperty!._key!] = new PropertyDescriptor(propValue, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
@@ -164,9 +165,9 @@ internal sealed class JintObjectExpression : JintExpression
             if (objectProperty is null)
             {
                 // spread
-                if (_valueExpressions[i].GetValue(context) is ObjectInstance source)
+                if (_valueExpressions.GetValue(context, i) is ObjectInstance source)
                 {
-                    source.CopyDataProperties(obj, null);
+                    source.CopyDataProperties(obj, excludedItems: null);
                 }
 
                 continue;
@@ -194,14 +195,7 @@ internal sealed class JintObjectExpression : JintExpression
 
             if (property.Kind == PropertyKind.Init)
             {
-                var expr = _valueExpressions[i];
-                var completion = expr.GetValue(context);
-                if (context.IsAbrupt())
-                {
-                    return completion;
-                }
-
-                var propValue = completion.Clone();
+                var propValue = _valueExpressions.GetValue(context, i)!;
                 if (string.Equals(objectProperty._key, "__proto__", StringComparison.Ordinal) && !objectProperty._value.Computed && !objectProperty._value.Shorthand)
                 {
                     if (propValue.IsObject() || propValue.IsNull())
@@ -211,7 +205,7 @@ internal sealed class JintObjectExpression : JintExpression
                     continue;
                 }
 
-                if (expr._expression.IsAnonymousFunctionDefinition())
+                if (_valueExpressions.IsAnonymousFunctionDefinition(i))
                 {
                     var closure = (Function) propValue;
                     closure.SetFunctionName(propName);
