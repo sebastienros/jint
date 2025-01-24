@@ -65,6 +65,7 @@ public sealed partial class Intrinsics
     private ReflectInstance? _reflect;
     private EvalFunction? _eval;
     private DateConstructor? _date;
+    private IteratorConstructor? _iterator;
     private IteratorPrototype? _iteratorPrototype;
     private MathInstance? _math;
     private JsonInstance? _json;
@@ -216,7 +217,11 @@ public sealed partial class Intrinsics
     internal PromiseConstructor Promise =>
         _promise ??= new PromiseConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
-    internal IteratorPrototype IteratorPrototype =>
+
+    internal IteratorConstructor Iterator =>
+        _iterator ??= new IteratorConstructor(_engine, _realm, Object.PrototypeObject);
+
+    private IteratorPrototype IteratorPrototype =>
         _iteratorPrototype ??= new IteratorPrototype(_engine, _realm, Object.PrototypeObject);
 
     internal StringConstructor String =>
