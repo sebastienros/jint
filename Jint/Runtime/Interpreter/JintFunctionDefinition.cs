@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Generator;
@@ -43,10 +44,14 @@ internal sealed class JintFunctionDefinition
             _bodyExpression ??= JintExpression.Build((Expression) Function.Body);
             if (Function.Async)
             {
+                // local copies to prevent capturing closure created on top of method
+                var function = functionObject;
+                var jsValues = argumentsList;
+
                 var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
                 AsyncFunctionStart(context, promiseCapability, context =>
                 {
-                    context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+                    context.Engine.FunctionDeclarationInstantiation(function, jsValues);
                     context.RunBeforeExecuteStatementChecks(Function.Body);
                     var jsValue = _bodyExpression.GetValue(context).Clone();
                     return new Completion(CompletionType.Return, jsValue, _bodyExpression._expression);
@@ -69,11 +74,15 @@ internal sealed class JintFunctionDefinition
         {
             if (Function.Async)
             {
+                // local copies to prevent capturing closure created on top of method
+                var function = functionObject;
+                var arguments = argumentsList;
+
                 var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
                 _bodyStatementList ??= new JintStatementList(Function);
                 AsyncFunctionStart(context, promiseCapability, context =>
                 {
-                    context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
+                    context.Engine.FunctionDeclarationInstantiation(function, arguments);
                     return _bodyStatementList.Execute(context);
                 });
                 result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
