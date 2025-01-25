@@ -196,21 +196,14 @@ internal sealed class JintFunctionDefinition
         public List<Key>? VarNames;
         public LinkedList<FunctionDeclaration>? FunctionsToInitialize;
         public readonly HashSet<Key> FunctionNames = new();
-        public LexicalVariableDeclaration[] LexicalDeclarations = Array.Empty<LexicalVariableDeclaration>();
+        public List<LexicalVariableDeclaration> LexicalDeclarations = [];
         public HashSet<Key>? ParameterBindings;
         public List<VariableValuePair>? VarsToInitialize;
 
-        internal struct VariableValuePair
-        {
-            public Key Name;
-            public JsValue? InitialValue;
-        }
+        internal readonly record struct VariableValuePair(Key Name, JsValue? InitialValue);
 
-        internal struct LexicalVariableDeclaration
-        {
-            public bool IsConstantDeclaration;
-            public List<Key> BoundNames;
-        }
+        [StructLayout(LayoutKind.Auto)]
+        internal readonly record struct LexicalVariableDeclaration(Key BoundName, bool IsConstantDeclaration);
     }
 
     internal static State BuildState(IFunction function)
@@ -332,19 +325,19 @@ internal sealed class JintFunctionDefinition
 
         if (hoistingScope._lexicalDeclarations != null)
         {
-            var _lexicalDeclarations = hoistingScope._lexicalDeclarations;
-            var lexicalDeclarationsCount = _lexicalDeclarations.Count;
-            var declarations = new State.LexicalVariableDeclaration[lexicalDeclarationsCount];
+            var boundNames = new List<Key>();
+            var lexicalDeclarations = hoistingScope._lexicalDeclarations;
+            var lexicalDeclarationsCount = lexicalDeclarations.Count;
+            var declarations = new List<State.LexicalVariableDeclaration>(lexicalDeclarationsCount);
             for (var i = 0; i < lexicalDeclarationsCount; i++)
             {
-                var d = _lexicalDeclarations[i];
-                var boundNames = new List<Key>();
+                var d = lexicalDeclarations[i];
+                boundNames.Clear();
                 d.GetBoundNames(boundNames);
-                declarations[i] = new State.LexicalVariableDeclaration
+                for (var j = 0; j < boundNames.Count; j++)
                 {
-                    IsConstantDeclaration = d.IsConstantDeclaration(),
-                    BoundNames = boundNames
-                };
+                    declarations.Add(new State.LexicalVariableDeclaration(boundNames[j], d.IsConstantDeclaration()));
+                }
             }
             state.LexicalDeclarations = declarations;
         }

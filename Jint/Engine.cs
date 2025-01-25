@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Generator;
@@ -1096,7 +1097,7 @@ public sealed partial class Engine : IDisposable
         // Else,
         //     Perform ? IteratorBindingInitialization for formals with iteratorRecord and env as arguments.
 
-        Environment varEnv;
+        DeclarativeEnvironment varEnv;
         if (!hasParameterExpressions)
         {
             // NOTE: Only a single lexical environment is needed for the parameters and top-level vars.
@@ -1130,7 +1131,7 @@ public sealed partial class Engine : IDisposable
         // NOTE: Annex B.3.3.1 adds additional steps at this point.
         // A https://tc39.es/ecma262/#sec-web-compat-functiondeclarationinstantiation
 
-        Environment lexEnv;
+        DeclarativeEnvironment lexEnv;
         if (!strict)
         {
             lexEnv = JintEnvironment.NewDeclarativeEnvironment(this, varEnv);
@@ -1146,21 +1147,20 @@ public sealed partial class Engine : IDisposable
 
         UpdateLexicalEnvironment(lexEnv);
 
-        if (configuration.LexicalDeclarations.Length > 0)
+        if (configuration.LexicalDeclarations.Count > 0)
         {
-            foreach (var d in configuration.LexicalDeclarations)
+            var dictionary = lexEnv._dictionary ??= new HybridDictionary<Binding>(configuration.LexicalDeclarations.Count, checkExistingKeys: true);
+            dictionary.EnsureCapacity(dictionary.Count + configuration.LexicalDeclarations.Count);
+            for (var i = 0; i < configuration.LexicalDeclarations.Count; i++)
             {
-                for (var j = 0; j < d.BoundNames.Count; j++)
+                var d = configuration.LexicalDeclarations[i];
+                if (d.IsConstantDeclaration)
                 {
-                    var dn = d.BoundNames[j];
-                    if (d.IsConstantDeclaration)
-                    {
-                        lexEnv.CreateImmutableBinding(dn, strict: true);
-                    }
-                    else
-                    {
-                        lexEnv.CreateMutableBinding(dn, canBeDeleted: false);
-                    }
+                    dictionary[d.BoundName] = new Binding(null!, canBeDeleted: false, mutable: false, strict);
+                }
+                else
+                {
+                    dictionary[d.BoundName] = new Binding(null!, canBeDeleted: false, mutable: true, strict: false);
                 }
             }
         }
