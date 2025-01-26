@@ -18,15 +18,23 @@ public class EngineComparisonBenchmark
     {
         { "array-stress", null },
         { "evaluation", null },
+        { "evaluation-modern", null },
         { "linq-js", null },
         { "minimal", null },
         { "stopwatch", null },
+        { "stopwatch-modern", null },
         { "dromaeo-3d-cube", null },
+        { "dromaeo-3d-cube-modern", null },
         { "dromaeo-core-eval", null },
+        { "dromaeo-core-eval-modern", null },
         { "dromaeo-object-array", null },
+        { "dromaeo-object-array-modern", null },
         { "dromaeo-object-regexp", null },
+        { "dromaeo-object-regexp-modern", null },
         { "dromaeo-object-string", null },
+        { "dromaeo-object-string-modern", null },
         { "dromaeo-string-base64", null },
+        { "dromaeo-string-base64-modern", null },
     };
 
     private static readonly string _dromaeoHelpers = @"
