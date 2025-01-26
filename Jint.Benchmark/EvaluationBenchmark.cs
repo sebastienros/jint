@@ -5,5 +5,8 @@ namespace Jint.Benchmark;
 [MemoryDiagnoser]
 public class EvaluationBenchmark : SingleScriptBenchmark
 {
-    protected override string FileName => "evaluation.js";
+    [Params(false, true)]
+    public bool Modern { get; set; }
+
+    protected override string FileName => Modern ? "evaluation-modern.js" : "evaluation.js";
 }
