@@ -17,6 +17,12 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
+
+    - name: Setup NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0
+
     - name: Checkout source code
       uses: actions/checkout@v4
 
