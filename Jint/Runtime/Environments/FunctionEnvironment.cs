@@ -32,7 +32,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
     {
         _functionObject = functionObject;
         NewTarget = newTarget;
-        if (functionObject._functionDefinition?.Function is ArrowFunctionExpression)
+        if (functionObject._functionDefinition?.Function.Type is NodeType.ArrowFunctionExpression)
         {
             _thisBindingStatus = ThisBindingStatus.Lexical;
         }
@@ -107,21 +107,19 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
 
         var value = hasDuplicates ? Undefined : null;
         var directSet = !hasDuplicates && (_dictionary is null || _dictionary.Count == 0);
+        _dictionary ??= new HybridDictionary<Binding>(parameterNames.Length, checkExistingKeys: !directSet);
         for (uint i = 0; i < (uint) parameterNames.Length; i++)
         {
             var paramName = parameterNames[i];
-            if (directSet || _dictionary is null || !_dictionary.ContainsKey(paramName))
+            ref var binding = ref _dictionary.GetValueRefOrAddDefault(paramName, out var exists);
+            if (directSet || !exists)
             {
-                var parameterValue = value;
-                if (arguments != null)
-                {
-                    parameterValue = i < (uint) arguments.Length ? arguments[i] : Undefined;
-                }
-
-                _dictionary ??= new HybridDictionary<Binding>();
-                _dictionary[paramName] = new Binding(parameterValue!, canBeDeleted: false, mutable: true, strict: false);
+                var parameterValue = arguments?.At((int) i, Undefined) ?? value;
+                binding = new Binding(parameterValue!, canBeDeleted: false, mutable: true, strict: false);
             }
         }
+
+        _dictionary.CheckExistingKeys = true;
     }
 
     internal void AddFunctionParameters(EvaluationContext context, IFunction functionDeclaration, JsValue[] arguments)

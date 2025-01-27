@@ -8,7 +8,7 @@ namespace Jint.Runtime.Interpreter.Statements;
 internal sealed class JintSwitchBlock
 {
     private readonly NodeList<SwitchCase> _switchBlock;
-    private JintSwitchCase[] _jintSwitchBlock = Array.Empty<JintSwitchCase>();
+    private JintSwitchCase[] _jintSwitchBlock = [];
     private bool _initialized;
 
     public JintSwitchBlock(NodeList<SwitchCase> switchBlock)
@@ -48,7 +48,7 @@ internal sealed class JintSwitchBlock
         for (; i < temp.Length; i++)
         {
             var clause = temp[i];
-            if (clause.LexicalDeclarations is not null && oldEnv is null)
+            if (clause.LexicalDeclarations.Declarations.Count > 0 && oldEnv is null)
             {
                 oldEnv = context.Engine.ExecutionContext.LexicalEnvironment;
                 blockEnv ??= JintEnvironment.NewDeclarativeEnvironment(context.Engine, oldEnv);
@@ -120,12 +120,12 @@ internal sealed class JintSwitchBlock
     {
         internal readonly JintStatementList Consequent;
         internal readonly JintExpression? Test;
-        internal readonly List<Declaration>? LexicalDeclarations;
+        internal readonly DeclarationCache LexicalDeclarations;
 
         public JintSwitchCase(SwitchCase switchCase)
         {
             Consequent = new JintStatementList(statement: null, switchCase.Consequent);
-            LexicalDeclarations = HoistingScope.GetLexicalDeclarations(switchCase);
+            LexicalDeclarations = DeclarationCacheBuilder.Build(switchCase);
 
             if (switchCase.Test != null)
             {

@@ -1004,19 +1004,22 @@ public sealed partial class Engine : IDisposable
         var lexNames = script.GetLexNames(hoistingScope);
         for (var i = 0; i < lexNames.Count; i++)
         {
-            var (dn, constant) = lexNames[i];
-            if (env.HasLexicalDeclaration(dn) || env.HasRestrictedGlobalProperty(dn))
+            var declaration = lexNames[i];
+            foreach (var dn in declaration.BoundNames)
             {
-                ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{dn}' has already been declared");
-            }
+                if (env.HasLexicalDeclaration(dn) || env.HasRestrictedGlobalProperty(dn))
+                {
+                    ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{dn}' has already been declared");
+                }
 
-            if (constant)
-            {
-                env.CreateImmutableBinding(dn, strict: true);
-            }
-            else
-            {
-                env.CreateMutableBinding(dn, canBeDeleted: false);
+                if (declaration.IsConstantDeclaration)
+                {
+                    env.CreateImmutableBinding(dn, strict: true);
+                }
+                else
+                {
+                    env.CreateMutableBinding(dn, canBeDeleted: false);
+                }
             }
         }
 
@@ -1114,8 +1117,7 @@ public sealed partial class Engine : IDisposable
         {
             // NOTE: A separate Environment Record is needed to ensure that closures created by expressions
             // in the formal parameter list do not have visibility of declarations in the function body.
-            var varEnvRec = JintEnvironment.NewDeclarativeEnvironment(this, env);
-            varEnv = varEnvRec;
+            varEnv = JintEnvironment.NewDeclarativeEnvironment(this, env);
 
             UpdateVariableEnvironment(varEnv);
 
@@ -1124,7 +1126,7 @@ public sealed partial class Engine : IDisposable
             {
                 var pair = varsToInitialize[i];
                 var initialValue = pair.InitialValue ?? env.GetBindingValue(pair.Name, strict: false);
-                varEnvRec.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, initialValue);
+                varEnv.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, initialValue);
             }
         }
 
@@ -1147,20 +1149,24 @@ public sealed partial class Engine : IDisposable
 
         UpdateLexicalEnvironment(lexEnv);
 
-        if (configuration.LexicalDeclarations.Count > 0)
+        if (configuration.LexicalDeclarations?.Declarations.Count > 0)
         {
-            var dictionary = lexEnv._dictionary ??= new HybridDictionary<Binding>(configuration.LexicalDeclarations.Count, checkExistingKeys: true);
-            dictionary.EnsureCapacity(dictionary.Count + configuration.LexicalDeclarations.Count);
-            for (var i = 0; i < configuration.LexicalDeclarations.Count; i++)
+            var lexicalDeclarations = configuration.LexicalDeclarations.Value.Declarations;
+            var dictionary = lexEnv._dictionary ??= new HybridDictionary<Binding>(lexicalDeclarations.Count, checkExistingKeys: true);
+            dictionary.EnsureCapacity(dictionary.Count + lexicalDeclarations.Count);
+            for (var i = 0; i < lexicalDeclarations.Count; i++)
             {
-                var d = configuration.LexicalDeclarations[i];
-                if (d.IsConstantDeclaration)
+                var declaration = lexicalDeclarations[i];
+                foreach (var bn in declaration.BoundNames)
                 {
-                    dictionary[d.BoundName] = new Binding(null!, canBeDeleted: false, mutable: false, strict);
-                }
-                else
-                {
-                    dictionary[d.BoundName] = new Binding(null!, canBeDeleted: false, mutable: true, strict: false);
+                    if (declaration.IsConstantDeclaration)
+                    {
+                        dictionary.CreateImmutableBinding(bn, strict);
+                    }
+                    else
+                    {
+                        dictionary.CreateMutableBinding(bn, canBeDeleted: false);
+                    }
                 }
             }
         }

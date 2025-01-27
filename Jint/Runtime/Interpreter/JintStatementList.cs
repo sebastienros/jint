@@ -1,6 +1,8 @@
 ﻿using System.Runtime.CompilerServices;
+using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Error;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Statements;
 using Environment = Jint.Runtime.Environments.Environment;
 
@@ -181,29 +183,30 @@ internal sealed class JintStatementList
     /// <summary>
     /// https://tc39.es/ecma262/#sec-blockdeclarationinstantiation
     /// </summary>
-    internal static void BlockDeclarationInstantiation(Environment env, List<Declaration> declarations)
+    internal static void BlockDeclarationInstantiation(DeclarativeEnvironment env, DeclarationCache declarations)
     {
         var privateEnv = env._engine.ExecutionContext.PrivateEnvironment;
-        var boundNames = new List<Key>();
-        for (var i = 0; i < declarations.Count; i++)
+
+        var list = declarations.Declarations;
+        var dictionary = env._dictionary ??= new HybridDictionary<Binding>(list.Count, checkExistingKeys: !declarations.AllLexicalScoped);
+        dictionary.EnsureCapacity(list.Count);
+
+        for (var i = 0; i < list.Count; i++)
         {
-            var d = declarations[i];
-            boundNames.Clear();
-            d.GetBoundNames(boundNames);
-            for (var j = 0; j < boundNames.Count; j++)
+            var declaration = list[i];
+            foreach (var bn in declaration.BoundNames)
             {
-                var dn = boundNames[j];
-                if (d is VariableDeclaration { Kind: VariableDeclarationKind.Const })
+                if (declaration.IsConstantDeclaration)
                 {
-                    env.CreateImmutableBinding(dn, strict: true);
+                    dictionary.CreateImmutableBinding(bn, strict: true);
                 }
                 else
                 {
-                    env.CreateMutableBinding(dn, canBeDeleted: false);
+                    dictionary.CreateMutableBinding(bn, canBeDeleted: false);
                 }
             }
 
-            if (d is FunctionDeclaration functionDeclaration)
+            if (declaration.Declaration is FunctionDeclaration functionDeclaration)
             {
                 var definition = new JintFunctionDefinition(functionDeclaration);
                 var fn = definition.Name!;
@@ -211,6 +214,8 @@ internal sealed class JintStatementList
                 env.InitializeBinding(fn, fo);
             }
         }
+
+        dictionary.CheckExistingKeys = true;
     }
 
     public bool Completed => _index == _jintStatements?.Length;

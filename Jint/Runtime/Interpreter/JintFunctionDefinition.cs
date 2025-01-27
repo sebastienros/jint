@@ -196,14 +196,11 @@ internal sealed class JintFunctionDefinition
         public List<Key>? VarNames;
         public LinkedList<FunctionDeclaration>? FunctionsToInitialize;
         public readonly HashSet<Key> FunctionNames = new();
-        public List<LexicalVariableDeclaration> LexicalDeclarations = [];
+        public DeclarationCache? LexicalDeclarations;
         public HashSet<Key>? ParameterBindings;
         public List<VariableValuePair>? VarsToInitialize;
 
         internal readonly record struct VariableValuePair(Key Name, JsValue? InitialValue);
-
-        [StructLayout(LayoutKind.Auto)]
-        internal readonly record struct LexicalVariableDeclaration(Key BoundName, bool IsConstantDeclaration);
     }
 
     internal static State BuildState(IFunction function)
@@ -325,21 +322,7 @@ internal sealed class JintFunctionDefinition
 
         if (hoistingScope._lexicalDeclarations != null)
         {
-            var boundNames = new List<Key>();
-            var lexicalDeclarations = hoistingScope._lexicalDeclarations;
-            var lexicalDeclarationsCount = lexicalDeclarations.Count;
-            var declarations = new List<State.LexicalVariableDeclaration>(lexicalDeclarationsCount);
-            for (var i = 0; i < lexicalDeclarationsCount; i++)
-            {
-                var d = lexicalDeclarations[i];
-                boundNames.Clear();
-                d.GetBoundNames(boundNames);
-                for (var j = 0; j < boundNames.Count; j++)
-                {
-                    declarations.Add(new State.LexicalVariableDeclaration(boundNames[j], d.IsConstantDeclaration()));
-                }
-            }
-            state.LexicalDeclarations = declarations;
+            state.LexicalDeclarations = DeclarationCacheBuilder.Build(hoistingScope._lexicalDeclarations);
         }
 
         return state;
