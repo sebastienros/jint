@@ -368,7 +368,11 @@ public abstract partial class Function : ObjectInstance, ICallable
 
     public override string ToString()
     {
-        // TODO no way to extract SourceText from Esprima at the moment, just returning native code
+        if (_functionDefinition?.Function is Node node && _engine.Options.Host.FunctionToStringHandler(this, node) is { } s)
+        {
+            return s;
+        }
+
         var nameValue = _nameDescriptor != null ? UnwrapJsValue(_nameDescriptor) : JsString.Empty;
         var name = "";
         if (!nameValue.IsUndefined())
@@ -378,7 +382,7 @@ public abstract partial class Function : ObjectInstance, ICallable
 
         name = name.TrimStart(_functionNameTrimStartChars);
 
-        return "function " + name + "() { [native code] }";
+        return $"function {name}() {{ [native code] }}";
     }
 
     private sealed class ObjectInstanceWithConstructor : ObjectInstance

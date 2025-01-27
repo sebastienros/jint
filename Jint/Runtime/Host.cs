@@ -110,7 +110,7 @@ public class Host
     /// </summary>
     public virtual void EnsureCanCompileStrings(Realm callerRealm, Realm evalRealm)
     {
-        if (!Engine.Options.StringCompilationAllowed)
+        if (!Engine.Options.Host.StringCompilationAllowed)
         {
             ExceptionHelper.ThrowJavaScriptException(callerRealm.Intrinsics.TypeError, "String compilation has been disabled in engine options");
         }
