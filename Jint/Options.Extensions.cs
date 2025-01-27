@@ -106,7 +106,7 @@ public static class OptionsExtensions
     /// </summary>
     public static Options DisableStringCompilation(this Options options, bool disable = true)
     {
-        options.StringCompilationAllowed = !disable;
+        options.Host.StringCompilationAllowed = !disable;
         return options;
     }
 

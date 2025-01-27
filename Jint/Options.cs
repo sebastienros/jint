@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
@@ -47,7 +48,7 @@ public class Options
     /// <summary>
     /// Host options.
     /// </summary>
-    internal HostOptions Host { get; } = new();
+    public HostOptions Host { get; } = new();
 
     /// <summary>
     /// Module options
@@ -63,7 +64,6 @@ public class Options
     /// The culture the engine runs on, defaults to current culture.
     /// </summary>
     public CultureInfo Culture { get; set; } = _defaultCulture;
-
 
     /// <summary>
     /// Configures a time system to use. Defaults to DefaultTimeSystem using local time.
@@ -94,7 +94,12 @@ public class Options
     /// <remarks>
     /// https://tc39.es/ecma262/#sec-hostensurecancompilestrings
     /// </remarks>
-    public bool StringCompilationAllowed { get; set; } = true;
+    [Obsolete("Use Options.Host.StringCompilationAllowed")]
+    public bool StringCompilationAllowed
+    {
+        get => Host.StringCompilationAllowed;
+        set => Host.StringCompilationAllowed = value;
+    }
 
     /// <summary>
     /// Options for the built-in JSON (de)serializer which
@@ -436,6 +441,21 @@ public class Options
     public class HostOptions
     {
         internal Func<Engine, Host> Factory { get; set; } = _ => new Host();
+
+        /// <summary>
+        /// Whether calling 'eval' with custom code and function constructors taking function code as string is allowed.
+        /// Defaults to true.
+        /// </summary>
+        /// <remarks>
+        /// https://tc39.es/ecma262/#sec-hostensurecancompilestrings
+        /// </remarks>
+        public bool StringCompilationAllowed { get; set; } = true;
+
+        /// <summary>
+        /// Possibility to override Jint's default function() { [native code] } format for functions using AST Node.
+        /// If callback return null, Jint will use its own default logic.
+        /// </summary>
+        public Func<Function, Node, string?> FunctionToStringHandler { get; set; } = (_, _) => null;
     }
 
     /// <summary>
