@@ -15,7 +15,7 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
 
     protected override void Initialize(EvaluationContext context)
     {
-        _lexicalDeclarations = DeclarationCacheBuilder.Build(_statement);
+        _lexicalDeclarations = (DeclarationCache) (_statement.UserData ??= BuildState(_statement));
 
         if (_statement.Body.Count == 1)
         {
@@ -25,6 +25,11 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         {
             _statementList = new JintStatementList(_statement, _statement.Body);
         }
+    }
+
+    internal static DeclarationCache BuildState(BlockStatement blockStatement)
+    {
+        return DeclarationCacheBuilder.Build(blockStatement);
     }
 
     /// <summary>

@@ -100,8 +100,7 @@ public partial class Engine
                 case NodeType.ArrowFunctionExpression:
                 case NodeType.FunctionDeclaration:
                 case NodeType.FunctionExpression:
-                    var function = (IFunction) node;
-                    node.UserData = JintFunctionDefinition.BuildState(function);
+                    node.UserData = JintFunctionDefinition.BuildState((IFunction) node);
                     break;
 
                 case NodeType.Program:
@@ -150,6 +149,10 @@ public partial class Engine
                             node.UserData = new ConstantStatement(returnStatement, CompletionType.Return, returnValue);
                         }
                     }
+                    break;
+
+                case NodeType.BlockStatement:
+                    node.UserData = JintBlockStatement.BuildState((BlockStatement) node);
                     break;
             }
         }

@@ -2,7 +2,7 @@
 
 // Try to force real results
 let ret;
-const num = 80000;
+const num = 5000;
 
 // TESTS: String concatenation
 
