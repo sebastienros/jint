@@ -53,6 +53,7 @@ internal sealed class AtomicsInstance : ObjectInstance
                 ExceptionHelper.ThrowRangeError(_realm, "Invalid iteration count");
             }
 
+            n = System.Math.Min(n, _engine.Options.Constraints.MaxAtomicsPauseIterations);
             Thread.SpinWait((int) n);
         }
         else
