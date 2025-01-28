@@ -2,7 +2,7 @@
 
 // Try to force real results
 var ret;
-var num = 80000;
+var num = 5000;
 
 // TESTS: String concatenation
 

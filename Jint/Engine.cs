@@ -1149,11 +1149,14 @@ public sealed partial class Engine : IDisposable
 
         UpdateLexicalEnvironment(lexEnv);
 
-        if (configuration.LexicalDeclarations?.Declarations.Count > 0)
+        var declarations = configuration.LexicalDeclarations;
+        if (declarations?.Declarations.Count > 0)
         {
-            var lexicalDeclarations = configuration.LexicalDeclarations.Value.Declarations;
-            var dictionary = lexEnv._dictionary ??= new HybridDictionary<Binding>(lexicalDeclarations.Count, checkExistingKeys: true);
+            var lexicalDeclarations = declarations.Value.Declarations;
+            var checkExistingKeys = (lexEnv._dictionary is not null && lexEnv._dictionary.Count > 0) || !declarations.Value.AllLexicalScoped;
+            var dictionary = lexEnv._dictionary ??= new HybridDictionary<Binding>(lexicalDeclarations.Count, checkExistingKeys);
             dictionary.EnsureCapacity(dictionary.Count + lexicalDeclarations.Count);
+
             for (var i = 0; i < lexicalDeclarations.Count; i++)
             {
                 var declaration = lexicalDeclarations[i];
@@ -1169,6 +1172,8 @@ public sealed partial class Engine : IDisposable
                     }
                 }
             }
+
+            dictionary.CheckExistingKeys = true;
         }
 
         if (configuration.FunctionsToInitialize != null)
