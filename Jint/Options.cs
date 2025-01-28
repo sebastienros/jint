@@ -433,6 +433,11 @@ public class Options
         /// The maximum size for JavaScript array, defaults to <see cref="uint.MaxValue"/>.
         /// </summary>
         public uint MaxArraySize { get; set; } = uint.MaxValue;
+
+        /// <summary>
+        /// How many iterations is Atomics.pause allowed to instruct to wait using <see cref="System.Threading.Thread.SpinWait"/>, defaults to 10 000.
+        /// </summary>
+        public int MaxAtomicsPauseIterations { get; set; } = 10_000;
     }
 
     /// <summary>
