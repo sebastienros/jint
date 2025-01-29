@@ -27,4 +27,13 @@ internal sealed class JintExpressionStatement : JintStatement<ExpressionStatemen
 
         return new Completion(context.Completion, value, _statement);
     }
+
+    protected override async Task<Completion> ExecuteInternalAsync(EvaluationContext context)
+    {
+        var value = _identifierExpression is not null
+            ? await _identifierExpression.GetValueAsync(context).ConfigureAwait(false)
+            : await _expression.GetValueAsync(context).ConfigureAwait(false);
+
+        return new Completion(context.Completion, value, _statement);
+    }
 }

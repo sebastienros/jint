@@ -462,5 +462,45 @@ internal sealed class JintAssignmentExpression : JintExpression
 
             return null;
         }
+
+        internal static async Task<object?> AssignToIdentifierAsync(
+            EvaluationContext context,
+            JintIdentifierExpression left,
+            JintExpression right,
+            bool hasEvalOrArguments)
+        {
+            var engine = context.Engine;
+            var env = engine.ExecutionContext.LexicalEnvironment;
+            var strict = StrictModeScope.IsStrictModeCode;
+            var identifier = left.Identifier;
+            if (JintEnvironment.TryGetIdentifierEnvironmentWithBinding(
+                    env,
+                    identifier,
+                    out var environmentRecord))
+            {
+                if (strict && hasEvalOrArguments && identifier.Key != KnownKeys.Eval)
+                {
+                    ExceptionHelper.ThrowSyntaxError(engine.Realm, "Invalid assignment target");
+                }
+
+                var completion = await right.GetValueAsync(context).ConfigureAwait(false);
+                if (context.IsAbrupt())
+                {
+                    return completion;
+                }
+
+                var rval = completion.Clone();
+
+                if (right._expression.IsFunctionDefinition())
+                {
+                    ((Function) rval).SetFunctionName(identifier.Value);
+                }
+
+                environmentRecord.SetMutableBinding(identifier, rval, strict);
+                return rval;
+            }
+
+            return null;
+        }
     }
 }

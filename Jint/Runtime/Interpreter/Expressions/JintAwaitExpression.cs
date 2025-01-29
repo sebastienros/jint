@@ -42,4 +42,35 @@ internal sealed class JintAwaitExpression : JintExpression
             return null;
         }
     }
+
+    protected override async Task<object> EvaluateInternalAsync(EvaluationContext context)
+    {
+        if (!_initialized)
+        {
+            _awaitExpression = Build(((AwaitExpression) _expression).Argument);
+            _initialized = true;
+        }
+
+        var engine = context.Engine;
+        var asyncContext = engine.ExecutionContext;
+
+        try
+        {
+            var value = await _awaitExpression.GetValueAsync(context).ConfigureAwait(false);
+
+            if (value is not JsPromise)
+            {
+                var promiseInstance = new JsPromise(engine);
+                promiseInstance.Resolve(value);
+                value = promiseInstance;
+            }
+
+            return await value.UnwrapIfPromiseAsync().ConfigureAwait(false);
+        }
+        catch (PromiseRejectedException e)
+        {
+            ExceptionHelper.ThrowJavaScriptException(engine, e.RejectedValue, _expression.Location);
+            return null;
+        }
+    }
 }

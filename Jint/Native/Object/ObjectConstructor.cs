@@ -1,6 +1,5 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of constructor methods return JsValue
 
-using Jint.Collections;
 using Jint.Native.Iterator;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -139,7 +138,7 @@ public sealed class ObjectConstructor : Constructor
             return Construct(arguments);
         }
 
-        if(arguments[0].IsNullOrUndefined())
+        if (arguments[0].IsNullOrUndefined())
         {
             return Construct(arguments);
         }
@@ -187,7 +186,7 @@ public sealed class ObjectConstructor : Constructor
     internal ObjectInstance Construct(int propertyCount)
     {
         var obj = new JsObject(_engine);
-        obj.SetProperties(propertyCount > 0  ? new PropertyDictionary(propertyCount, checkExistingKeys: true) : null);
+        obj.SetProperties(propertyCount > 0 ? new PropertyDictionary(propertyCount, checkExistingKeys: true) : null);
         return obj;
     }
 
@@ -564,6 +563,11 @@ public sealed class ObjectConstructor : Constructor
             o.CreateDataPropertyOrThrow(propertyKey, value);
 
             return Undefined;
+        }
+
+        Task<JsValue> ICallable.CallAsync(JsValue thisObject, JsValue[] arguments)
+        {
+            return Task.FromResult(this.Call(thisObject, arguments));
         }
     }
 }

@@ -1,7 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Native;
-using Jint.Native.Iterator;
 using Jint.Native.Number;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -32,6 +31,23 @@ internal abstract class JintExpression
         return context.Engine.GetValue(reference, returnReferenceToPool: true);
     }
 
+    /// <summary>
+    /// Resolves the underlying value for this expression.
+    /// By default uses the Engine for resolving.
+    /// </summary>
+    /// <param name="context"></param>
+    /// <seealso cref="JintLiteralExpression"/>
+    public virtual async Task<JsValue> GetValueAsync(EvaluationContext context)
+    {
+        var result = await EvaluateAsync(context).ConfigureAwait(false);
+        if (result is not Reference reference)
+        {
+            return (JsValue) result;
+        }
+
+        return context.Engine.GetValue(reference, returnReferenceToPool: true);
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
     public object Evaluate(EvaluationContext context)
     {
@@ -45,6 +61,19 @@ internal abstract class JintExpression
         return result;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
+    public async Task<object> EvaluateAsync(EvaluationContext context)
+    {
+        var oldSyntaxElement = context.LastSyntaxElement;
+        context.PrepareFor(_expression);
+
+        var result = await EvaluateInternalAsync(context).ConfigureAwait(false);
+
+        context.LastSyntaxElement = oldSyntaxElement;
+
+        return result;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal object EvaluateWithoutNodeTracking(EvaluationContext context)
     {
@@ -52,6 +81,8 @@ internal abstract class JintExpression
     }
 
     protected abstract object EvaluateInternal(EvaluationContext context);
+
+    protected virtual Task<object> EvaluateInternalAsync(EvaluationContext context) => Task.FromResult(EvaluateInternal(context));
 
     /// <summary>
     /// If we'd get Esprima source, we would just refer to it, but this makes error messages easier to decipher.

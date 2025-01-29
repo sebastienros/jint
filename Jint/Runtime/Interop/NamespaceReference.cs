@@ -73,6 +73,11 @@ public class NamespaceReference : ObjectInstance, ICallable
         }
     }
 
+    Task<JsValue> ICallable.CallAsync(JsValue thisObject, JsValue[] arguments)
+    {
+        return Task.FromResult(this.Call(thisObject, arguments));
+    }
+
     public override JsValue Get(JsValue property, JsValue receiver)
     {
         var newPath = string.IsNullOrEmpty(_path)

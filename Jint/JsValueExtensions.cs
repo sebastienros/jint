@@ -649,10 +649,31 @@ public static class JsValueExtensions
     {
         if (value is JsPromise promise)
         {
+            return UnwrapIfPromiseAsync(value).GetAwaiter().GetResult();
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// If the value is a Promise
+    ///     1. If "Fulfilled" returns the value it was fulfilled with
+    ///     2. If "Rejected" throws "PromiseRejectedException" with the rejection reason
+    ///     3. If "Pending" throws "InvalidOperationException". Should be called only in "Settled" state
+    /// Else
+    ///     returns the value intact
+    /// </summary>
+    /// <param name="value">value to unwrap</param>
+    /// <returns>inner value if Promise the value itself otherwise</returns>
+    public static async Task<JsValue> UnwrapIfPromiseAsync(this JsValue value)
+    {
+        if (value is JsPromise promise)
+        {
             var engine = promise.Engine;
-            var completedEvent = promise.CompletedEvent;
+            var completedEventAsync = promise.CompletedEventAsync;
             engine.RunAvailableContinuations();
-            completedEvent.Wait();
+            await completedEventAsync.Task.ConfigureAwait(false);
+
             switch (promise.State)
             {
                 case PromiseState.Pending:

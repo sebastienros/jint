@@ -164,6 +164,144 @@ internal sealed class JintCallExpression : JintExpression
         return result;
     }
 
+    protected override async Task<object> EvaluateInternalAsync(EvaluationContext context)
+    {
+        if (!_initialized)
+        {
+            Initialize(context);
+            _initialized = true;
+        }
+
+        if (!context.Engine._stackGuard.TryEnterOnCurrentStack())
+        {
+            return StackGuard.RunOnEmptyStack(EvaluateInternal, context);
+        }
+
+        if (_calleeExpression._expression.Type == NodeType.Super)
+        {
+            return SuperCall(context);
+        }
+
+        // https://tc39.es/ecma262/#sec-function-calls
+
+        var reference = await _calleeExpression.EvaluateAsync(context).ConfigureAwait(false);
+
+        if (ReferenceEquals(reference, JsValue.Undefined))
+        {
+            return JsValue.Undefined;
+        }
+
+        var engine = context.Engine;
+        var func = engine.GetValue(reference, false);
+
+        if (func.IsNullOrUndefined() && _expression.IsOptional())
+        {
+            return JsValue.Undefined;
+        }
+
+        var referenceRecord = reference as Reference;
+        if (ReferenceEquals(func, engine.Realm.Intrinsics.Eval)
+            && referenceRecord != null
+            && !referenceRecord.IsPropertyReference
+            && CommonProperties.Eval.Equals(referenceRecord.ReferencedName))
+        {
+            return HandleEval(context, func, engine, referenceRecord);
+        }
+
+        var thisCall = (CallExpression) _expression;
+        var tailCall = IsInTailPosition(thisCall);
+
+        // https://tc39.es/ecma262/#sec-evaluatecall
+
+        JsValue thisObject;
+        if (referenceRecord is not null)
+        {
+            if (referenceRecord.IsPropertyReference)
+            {
+                thisObject = referenceRecord.ThisValue;
+            }
+            else
+            {
+                var baseValue = referenceRecord.Base;
+
+                // deviation from the spec to support null-propagation helper
+                if (baseValue.IsNullOrUndefined()
+                    && engine._referenceResolver.TryUnresolvableReference(engine, referenceRecord, out var value))
+                {
+                    thisObject = value;
+                }
+                else
+                {
+                    var refEnv = (Environment) baseValue;
+                    thisObject = refEnv.WithBaseObject();
+                }
+            }
+        }
+        else
+        {
+            thisObject = JsValue.Undefined;
+        }
+
+        var (arguments, rented) = await this._arguments.ArgumentListEvaluationAsync(context).ConfigureAwait(false);
+
+        if (!func.IsObject() && !engine._referenceResolver.TryGetCallable(engine, reference, out func))
+        {
+            ThrowMemberIsNotFunction(referenceRecord, reference, engine);
+        }
+
+        var callable = func as ICallable;
+        if (callable is null)
+        {
+            ThrowReferenceNotFunction(referenceRecord, reference, engine);
+        }
+
+        if (tailCall)
+        {
+            // TODO tail call
+            // PrepareForTailCall();
+        }
+
+        // ensure logic is in sync between Call, Construct and JintCallExpression!
+
+        JsValue result;
+        if (callable is Function functionInstance)
+        {
+            var callStack = engine.CallStack;
+            var recursionDepth = callStack.Push(functionInstance, _calleeExpression, engine.ExecutionContext);
+
+            if (recursionDepth > engine.Options.Constraints.MaxRecursionDepth)
+            {
+                // automatically pops the current element as it was never reached
+                ExceptionHelper.ThrowRecursionDepthOverflowException(callStack);
+            }
+
+            try
+            {
+                result = await functionInstance.CallAsync(thisObject, arguments).ConfigureAwait(false);
+            }
+            finally
+            {
+                // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
+                if (callStack.Count > 0)
+                {
+                    callStack.Pop();
+                }
+            }
+        }
+        else
+        {
+            result = await callable.CallAsync(thisObject, arguments).ConfigureAwait(false);
+        }
+
+        if (rented)
+        {
+            engine._jsValueArrayPool.ReturnArray(arguments);
+        }
+
+        engine._referencePool.Return(referenceRecord);
+        return result;
+    }
+
     [DoesNotReturn]
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ThrowReferenceNotFunction(Reference? referenceRecord1, object reference, Engine engine)

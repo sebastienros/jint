@@ -80,12 +80,44 @@ internal sealed class ExpressionCache
         return arguments;
     }
 
+    public async Task<(JsValue[], bool rented)> ArgumentListEvaluationAsync(EvaluationContext context)
+    {
+        var rented = false;
+        if (_fullyCached)
+        {
+            return (Unsafe.As<JsValue[]>(_expressions), rented);
+        }
+
+        if (HasSpreads)
+        {
+            var args = new List<JsValue>(_expressions.Length);
+            await BuildArgumentsWithSpreadsAsync(context, args).ConfigureAwait(false);
+            return (args.ToArray(), rented);
+        }
+
+        var arguments = context.Engine._jsValueArrayPool.RentArray(_expressions.Length);
+        rented = true;
+
+        await BuildArgumentsAsync(context, arguments).ConfigureAwait(false);
+
+        return (arguments, rented);
+    }
+
     internal void BuildArguments(EvaluationContext context, JsValue[] targetArray)
     {
         var expressions = _expressions;
         for (uint i = 0; i < (uint) expressions.Length; i++)
         {
             targetArray[i] = GetValue(context, expressions[i])!;
+        }
+    }
+
+    internal async Task BuildArgumentsAsync(EvaluationContext context, JsValue[] targetArray)
+    {
+        var expressions = _expressions;
+        for (uint i = 0; i < (uint) expressions.Length; i++)
+        {
+            targetArray[i] = await GetValueAsync(context, expressions[i])!.ConfigureAwait(false);
         }
     }
 
@@ -96,11 +128,27 @@ internal sealed class ExpressionCache
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task<JsValue> GetValueAsync(EvaluationContext context, int index)
+    {
+        return GetValueAsync(context, _expressions[index]);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static JsValue GetValue(EvaluationContext context, object? value)
     {
         return value switch
         {
             JintExpression expression => expression.GetValue(context).Clone(),
+            _ => (JsValue) value!,
+        };
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static async Task<JsValue> GetValueAsync(EvaluationContext context, object? value)
+    {
+        return value switch
+        {
+            JintExpression expression => (await expression.GetValueAsync(context).ConfigureAwait(false)).Clone(),
             _ => (JsValue) value!,
         };
     }
@@ -166,6 +214,36 @@ internal sealed class ExpressionCache
             else
             {
                 target.Add(GetValue(context, expression)!);
+            }
+        }
+    }
+
+    internal async Task BuildArgumentsWithSpreadsAsync(EvaluationContext context, List<JsValue> target)
+    {
+        foreach (var expression in _expressions)
+        {
+            if (expression is JintSpreadExpression jse)
+            {
+                jse.GetValueAndCheckIterator(context, out var objectInstance, out var iterator);
+                // optimize for array unless someone has touched the iterator
+                if (objectInstance is JsArray { HasOriginalIterator: true } ai)
+                {
+                    var length = ai.GetLength();
+                    for (uint j = 0; j < length; ++j)
+                    {
+                        ai.TryGetValue(j, out var value);
+                        target.Add(value);
+                    }
+                }
+                else
+                {
+                    var protocol = new ArraySpreadProtocol(context.Engine, target, iterator!);
+                    protocol.Execute();
+                }
+            }
+            else
+            {
+                target.Add(await GetValueAsync(context, expression)!.ConfigureAwait(false));
             }
         }
     }

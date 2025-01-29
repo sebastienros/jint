@@ -42,6 +42,26 @@ internal abstract class JintStatement
         return ExecuteInternal(context);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
+    public async Task<Completion> ExecuteAsync(EvaluationContext context)
+    {
+        if (_statement.Type != NodeType.BlockStatement)
+        {
+            context.PrepareFor(_statement);
+            context.RunBeforeExecuteStatementChecks(_statement);
+        }
+
+        if (!_initialized)
+        {
+            Initialize(context);
+            _initialized = true;
+        }
+
+        return await ExecuteInternalAsync(context).ConfigureAwait(false);
+    }
+
+    protected virtual Task<Completion> ExecuteInternalAsync(EvaluationContext context) => Task.FromResult(ExecuteInternal(context));
+
     protected abstract Completion ExecuteInternal(EvaluationContext context);
 
     public ref readonly SourceLocation Location => ref _statement.LocationRef;
