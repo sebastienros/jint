@@ -16,6 +16,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <NoWarn>$(NoWarn);1591</NoWarn>
+    <NoWarn>$(NoWarn);NU1507</NoWarn>
 
     <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
 
