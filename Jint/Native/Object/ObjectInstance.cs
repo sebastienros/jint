@@ -354,21 +354,22 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
     public override JsValue Get(JsValue property, JsValue receiver)
     {
-        if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && ReferenceEquals(this, receiver) && property is JsString jsString)
+        if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && ReferenceEquals(this, receiver) && property.IsString())
         {
             EnsureInitialized();
-            if (_properties?.TryGetValue(jsString.ToString(), out var ownDesc) == true)
+            if (_properties?.TryGetValue(property.ToString(), out var ownDesc) == true)
             {
                 return UnwrapJsValue(ownDesc, receiver);
             }
+
+            return Prototype?.Get(property, receiver) ?? Undefined;
         }
-        else
+
+        // slow path
+        var desc = GetOwnProperty(property);
+        if (desc != PropertyDescriptor.Undefined)
         {
-            var desc = GetOwnProperty(property);
-            if (desc != PropertyDescriptor.Undefined)
-            {
-                return UnwrapJsValue(desc, receiver);
-            }
+            return UnwrapJsValue(desc, receiver);
         }
 
         return Prototype?.Get(property, receiver) ?? Undefined;
@@ -506,15 +507,23 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// </summary>
     public override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
-        if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && ReferenceEquals(this, receiver) && property is JsString jsString)
+        if ((_type & InternalTypes.PlainObject) != InternalTypes.Empty && ReferenceEquals(this, receiver) && property.IsString())
         {
-            var key = (Key) jsString.ToString();
+            var key = (Key) property.ToString();
             if (_properties?.TryGetValue(key, out var ownDesc) == true)
             {
                 if ((ownDesc._flags & PropertyFlag.Writable) != PropertyFlag.None)
                 {
                     ownDesc._value = value;
                     return true;
+                }
+            }
+            else
+            {
+                var parent = GetPrototypeOf();
+                if (parent is not null)
+                {
+                    return parent.Set(property, value, receiver);
                 }
             }
         }
