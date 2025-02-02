@@ -6,8 +6,8 @@ namespace Jint.Native.Function;
 #pragma warning disable MA0049
 public abstract partial class Function
 {
-    protected internal virtual Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => Task.FromResult(Call(thisObject, arguments));
+    protected internal virtual ValueTask<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments) => new ValueTask<JsValue>(Call(thisObject, arguments));
 
-    Task<JsValue> ICallable.CallAsync(JsValue thisObject, JsValue[] arguments) => CallAsync(thisObject, arguments);
+    ValueTask<JsValue> ICallable.CallAsync(JsValue thisObject, JsValue[] arguments) => CallAsync(thisObject, arguments);
 
 }

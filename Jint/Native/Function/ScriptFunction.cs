@@ -58,59 +58,13 @@ public sealed class ScriptFunction : Function, IConstructor
     /// </summary>
     protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
     {
-        var strict = _functionDefinition!.Strict || _thisMode == FunctionThisMode.Strict;
-        using (new StrictModeScope(strict, true))
-        {
-            try
-            {
-                ref readonly var calleeContext = ref PrepareForOrdinaryCall(Undefined);
-
-                if (_isClassConstructor)
-                {
-                    ExceptionHelper.ThrowTypeError(calleeContext.Realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
-                }
-
-                OrdinaryCallBindThis(calleeContext, thisObject);
-
-                // actual call
-                var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
-
-                var result = _functionDefinition.EvaluateBody(context, this, arguments);
-
-                if (result.Type == CompletionType.Throw)
-                {
-                    ExceptionHelper.ThrowJavaScriptException(_engine, result.Value, result);
-                }
-
-                // The DebugHandler needs the current execution context before the return for stepping through the return point
-                if (context.DebugMode)
-                {
-                    // We don't have a statement, but we still need a Location for debuggers. DebugHandler will infer one from
-                    // the function body:
-                    _engine.Debugger.OnReturnPoint(
-                        _functionDefinition.Function.Body,
-                        result.Type == CompletionType.Normal ? Undefined : result.Value
-                    );
-                }
-
-                if (result.Type == CompletionType.Return)
-                {
-                    return result.Value;
-                }
-            }
-            finally
-            {
-                _engine.LeaveExecutionContext();
-            }
-
-            return Undefined;
-        }
+        return CallAsync(thisObject, arguments).Preserve().GetAwaiter().GetResult();
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
     /// </summary>
-    protected internal override async Task<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments)
+    protected internal override async ValueTask<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments)
     {
         var strict = _functionDefinition!.Strict || _thisMode == FunctionThisMode.Strict;
         using (new StrictModeScope(strict, true))

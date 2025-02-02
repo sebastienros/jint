@@ -58,72 +58,9 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
         }
     }
 
-    protected override Completion ExecuteInternal(EvaluationContext context)
-    {
-        var engine = context.Engine;
-        foreach (var declaration in _declarations)
-        {
-            if (_statement.Kind != VariableDeclarationKind.Var && declaration.Left != null)
-            {
-                var lhs = (Reference) declaration.Left.Evaluate(context);
-                var value = JsValue.Undefined;
-                if (declaration.Init != null)
-                {
-                    value = declaration.Init.GetValue(context).Clone();
-                    if (declaration.Init._expression.IsFunctionDefinition())
-                    {
-                        ((Function) value).SetFunctionName(lhs.ReferencedName);
-                    }
-                }
+    protected override Completion ExecuteInternal(EvaluationContext context) => ExecuteInternalAsync(context).Preserve().GetAwaiter().GetResult();
 
-                lhs.InitializeReferencedBinding(value);
-                engine._referencePool.Return(lhs);
-            }
-            else if (declaration.Init != null)
-            {
-                if (declaration.LeftPattern != null)
-                {
-                    var environment = _statement.Kind != VariableDeclarationKind.Var
-                        ? engine.ExecutionContext.LexicalEnvironment
-                        : null;
-
-                    var value = declaration.Init.GetValue(context);
-
-                    DestructuringPatternAssignmentExpression.ProcessPatterns(
-                        context,
-                        declaration.LeftPattern,
-                        value,
-                        environment,
-                        checkPatternPropertyReference: _statement.Kind != VariableDeclarationKind.Var);
-                }
-                else if (declaration.LeftIdentifierExpression == null
-                         || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
-                             context,
-                             declaration.LeftIdentifierExpression,
-                             declaration.Init,
-                             declaration.EvalOrArguments) is null)
-                {
-                    // slow path
-                    var lhs = (Reference) declaration.Left!.Evaluate(context);
-                    lhs.AssertValid(engine.Realm);
-
-                    var value = declaration.Init.GetValue(context).Clone();
-
-                    if (declaration.Init._expression.IsFunctionDefinition())
-                    {
-                        ((Function) value).SetFunctionName(lhs.ReferencedName);
-                    }
-
-                    engine.PutValue(lhs, value);
-                    engine._referencePool.Return(lhs);
-                }
-            }
-        }
-
-        return Completion.Empty();
-    }
-
-    protected override async Task<Completion> ExecuteInternalAsync(EvaluationContext context)
+    protected override async ValueTask<Completion> ExecuteInternalAsync(EvaluationContext context)
     {
         var engine = context.Engine;
         foreach (var declaration in _declarations)

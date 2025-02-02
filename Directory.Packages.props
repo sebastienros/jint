@@ -25,6 +25,7 @@
     <PackageVersion Include="SourceMaps" Version="0.3.0" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.45.0" />
     <PackageVersion Include="System.Text.Json" Version="9.0.1" />
+    <PackageVersion Include="System.Threading.Tasks.Extensions" Version="4.6.0" />
     <PackageVersion Include="System.ValueTuple" Version="4.5.0" />
     <PackageVersion Include="Test262Harness" Version="1.0.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />

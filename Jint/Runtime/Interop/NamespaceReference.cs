@@ -73,9 +73,9 @@ public class NamespaceReference : ObjectInstance, ICallable
         }
     }
 
-    Task<JsValue> ICallable.CallAsync(JsValue thisObject, JsValue[] arguments)
+    ValueTask<JsValue> ICallable.CallAsync(JsValue thisObject, JsValue[] arguments)
     {
-        return Task.FromResult(this.Call(thisObject, arguments));
+        return new ValueTask<JsValue>(this.Call(thisObject, arguments));
     }
 
     public override JsValue Get(JsValue property, JsValue receiver)

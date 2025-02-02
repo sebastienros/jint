@@ -1,5 +1,5 @@
-﻿using System.Diagnostics;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Jint.Collections;
@@ -759,50 +759,7 @@ public sealed partial class Engine : IDisposable
     /// <returns>The value returned by the function call.</returns>
     public JsValue Invoke(JsValue value, object? thisObj, object?[] arguments)
     {
-        var callable = value as ICallable;
-        if (callable is null)
-        {
-            ExceptionHelper.ThrowJavaScriptException(Realm.Intrinsics.TypeError, "Can only invoke functions");
-        }
-
-        JsValue DoInvoke()
-        {
-            var items = _jsValueArrayPool.RentArray(arguments.Length);
-            for (var i = 0; i < arguments.Length; ++i)
-            {
-                items[i] = JsValue.FromObject(this, arguments[i]);
-            }
-
-            // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
-            JsValue result;
-            var thisObject = JsValue.FromObject(this, thisObj);
-            if (callable is Function functionInstance)
-            {
-                var callStack = CallStack;
-                callStack.Push(functionInstance, expression: null, ExecutionContext);
-                try
-                {
-                    result = functionInstance.Call(thisObject, items);
-                }
-                finally
-                {
-                    // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-                    if (callStack.Count > 0)
-                    {
-                        callStack.Pop();
-                    }
-                }
-            }
-            else
-            {
-                result = callable.Call(thisObject, items);
-            }
-
-            _jsValueArrayPool.ReturnArray(items);
-            return result;
-        }
-
-        return ExecuteWithConstraints(Options.Strict, DoInvoke);
+        return InvokeAsync(value, thisObj, arguments).Preserve().GetAwaiter().GetResult();
     }
 
     internal T ExecuteWithConstraints<T>(bool strict, Func<T> callback)
@@ -1448,28 +1405,7 @@ public sealed partial class Engine : IDisposable
     /// <returns>The value returned by the call.</returns>
     public JsValue Call(JsValue callable, JsValue thisObject, JsValue[] arguments)
     {
-        JsValue Callback()
-        {
-            if (!callable.IsCallable)
-            {
-                ExceptionHelper.ThrowArgumentException(callable + " is not callable");
-            }
-
-            return Call((ICallable) callable, thisObject, arguments, null);
-        }
-
-        return ExecuteWithConstraints(Options.Strict, Callback);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal JsValue Call(ICallable callable, JsValue thisObject, JsValue[] arguments, JintExpression? expression)
-    {
-        if (callable is Function functionInstance)
-        {
-            return Call(functionInstance, thisObject, arguments, expression);
-        }
-
-        return callable.Call(thisObject, arguments);
+        return CallAsync(callable, thisObject, arguments).Preserve().GetAwaiter().GetResult();
     }
 
     /// <summary>
@@ -1528,31 +1464,7 @@ public sealed partial class Engine : IDisposable
         JsValue[] arguments,
         JintExpression? expression)
     {
-        // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
-
-        var recursionDepth = CallStack.Push(function, expression, ExecutionContext);
-
-        if (recursionDepth > Options.Constraints.MaxRecursionDepth)
-        {
-            // automatically pops the current element as it was never reached
-            ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack);
-        }
-
-        JsValue result;
-        try
-        {
-            result = function.Call(thisObject, arguments);
-        }
-        finally
-        {
-            // if call stack was reset due to recursive call to engine or similar, we might not have it anymore
-            if (CallStack.Count > 0)
-            {
-                CallStack.Pop();
-            }
-        }
-
-        return result;
+        return CallAsync(function, thisObject, arguments, expression).Preserve().GetAwaiter().GetResult();
     }
 
     private ObjectInstance Construct(

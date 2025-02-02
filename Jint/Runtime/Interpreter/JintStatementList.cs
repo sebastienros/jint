@@ -58,88 +58,10 @@ internal sealed class JintStatementList
 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
-    public Completion Execute(EvaluationContext context)
-    {
-        if (!_initialized)
-        {
-            Initialize(context);
-            _initialized = true;
-        }
-
-        if (_statement is not null)
-        {
-            context.LastSyntaxElement = _statement;
-            context.RunBeforeExecuteStatementChecks(_statement);
-        }
-
-        Completion c = Completion.Empty();
-        Completion sl = c;
-
-        // The value of a StatementList is the value of the last value-producing item in the StatementList
-        var lastValue = JsEmpty.Instance;
-        var i = _index;
-        var temp = _jintStatements!;
-        try
-        {
-            for (; i < (uint) temp.Length; i++)
-            {
-                ref readonly var pair = ref temp[i];
-
-                if (pair.Value is null)
-                {
-                    c = pair.Statement.Execute(context);
-                    if (context.Engine._error is not null)
-                    {
-                        c = HandleError(context.Engine, pair.Statement);
-                        break;
-                    }
-                }
-                else
-                {
-                    c = new Completion(CompletionType.Return, pair.Value, pair.Statement._statement);
-                }
-
-                if (_generator)
-                {
-                    if (context.Engine.ExecutionContext.Suspended)
-                    {
-                        _index = i + 1;
-                        c = new Completion(CompletionType.Return, c.Value, pair.Statement._statement);
-                        break;
-                    }
-                }
-
-                if (c.Type != CompletionType.Normal)
-                {
-                    return c.UpdateEmpty(sl.Value);
-                }
-
-                sl = c;
-                if (!c.Value.IsEmpty)
-                {
-                    lastValue = c.Value;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Reset();
-
-            if (ex is JintException)
-            {
-                c = HandleException(context, ex, temp[i].Statement);
-            }
-            else
-            {
-                throw;
-            }
-        }
-
-        return c.UpdateEmpty(lastValue).UpdateEmpty(JsValue.Undefined);
-    }
+    public Completion Execute(EvaluationContext context) => ExecuteAsync(context).Preserve().GetAwaiter().GetResult();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
-    public async Task<Completion> ExecuteAsync(EvaluationContext context)
+    public async ValueTask<Completion> ExecuteAsync(EvaluationContext context)
     {
         if (!_initialized)
         {

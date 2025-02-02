@@ -20,16 +20,7 @@ internal abstract class JintExpression
     /// </summary>
     /// <param name="context"></param>
     /// <seealso cref="JintLiteralExpression"/>
-    public virtual JsValue GetValue(EvaluationContext context)
-    {
-        var result = Evaluate(context);
-        if (result is not Reference reference)
-        {
-            return (JsValue) result;
-        }
-
-        return context.Engine.GetValue(reference, returnReferenceToPool: true);
-    }
+    public virtual JsValue GetValue(EvaluationContext context) => GetValueAsync(context).Preserve().GetAwaiter().GetResult();
 
     /// <summary>
     /// Resolves the underlying value for this expression.
@@ -37,7 +28,7 @@ internal abstract class JintExpression
     /// </summary>
     /// <param name="context"></param>
     /// <seealso cref="JintLiteralExpression"/>
-    public virtual async Task<JsValue> GetValueAsync(EvaluationContext context)
+    public virtual async ValueTask<JsValue> GetValueAsync(EvaluationContext context)
     {
         var result = await EvaluateAsync(context).ConfigureAwait(false);
         if (result is not Reference reference)
@@ -49,20 +40,10 @@ internal abstract class JintExpression
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
-    public object Evaluate(EvaluationContext context)
-    {
-        var oldSyntaxElement = context.LastSyntaxElement;
-        context.PrepareFor(_expression);
-
-        var result = EvaluateInternal(context);
-
-        context.LastSyntaxElement = oldSyntaxElement;
-
-        return result;
-    }
+    public object Evaluate(EvaluationContext context) => EvaluateAsync(context).Preserve().GetAwaiter().GetResult();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
-    public async Task<object> EvaluateAsync(EvaluationContext context)
+    public async ValueTask<object> EvaluateAsync(EvaluationContext context)
     {
         var oldSyntaxElement = context.LastSyntaxElement;
         context.PrepareFor(_expression);
@@ -82,7 +63,7 @@ internal abstract class JintExpression
 
     protected abstract object EvaluateInternal(EvaluationContext context);
 
-    protected virtual Task<object> EvaluateInternalAsync(EvaluationContext context) => Task.FromResult(EvaluateInternal(context));
+    protected virtual ValueTask<object> EvaluateInternalAsync(EvaluationContext context) => new ValueTask<object>(EvaluateInternal(context));
 
     /// <summary>
     /// If we'd get Esprima source, we would just refer to it, but this makes error messages easier to decipher.

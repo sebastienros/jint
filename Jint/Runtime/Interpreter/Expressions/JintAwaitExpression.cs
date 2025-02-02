@@ -14,36 +14,10 @@ internal sealed class JintAwaitExpression : JintExpression
 
     protected override object EvaluateInternal(EvaluationContext context)
     {
-        if (!_initialized)
-        {
-            _awaitExpression = Build(((AwaitExpression) _expression).Argument);
-            _initialized = true;
-        }
-
-        var engine = context.Engine;
-        var asyncContext = engine.ExecutionContext;
-
-        try
-        {
-            var value = _awaitExpression.GetValue(context);
-
-            if (value is not JsPromise)
-            {
-                var promiseInstance = new JsPromise(engine);
-                promiseInstance.Resolve(value);
-                value = promiseInstance;
-            }
-
-            return value.UnwrapIfPromise();
-        }
-        catch (PromiseRejectedException e)
-        {
-            ExceptionHelper.ThrowJavaScriptException(engine, e.RejectedValue, _expression.Location);
-            return null;
-        }
+        return EvaluateInternalAsync(context).Preserve().GetAwaiter().GetResult();
     }
 
-    protected override async Task<object> EvaluateInternalAsync(EvaluationContext context)
+    protected override async ValueTask<object> EvaluateInternalAsync(EvaluationContext context)
     {
         if (!_initialized)
         {

@@ -649,7 +649,7 @@ public static class JsValueExtensions
     {
         if (value is JsPromise promise)
         {
-            return UnwrapIfPromiseAsync(value).GetAwaiter().GetResult();
+            return UnwrapIfPromiseAsync(value).Preserve().GetAwaiter().GetResult();
         }
 
         return value;
@@ -665,32 +665,30 @@ public static class JsValueExtensions
     /// </summary>
     /// <param name="value">value to unwrap</param>
     /// <returns>inner value if Promise the value itself otherwise</returns>
-    public static async Task<JsValue> UnwrapIfPromiseAsync(this JsValue value)
+    public static async ValueTask<JsValue> UnwrapIfPromiseAsync(this JsValue value)
     {
-        if (value is JsPromise promise)
+        if (value is not JsPromise promise)
+            return value;
+
+        var engine = promise.Engine;
+        var completedEventAsync = promise.CompletedEventAsync;
+        engine.RunAvailableContinuations();
+        await completedEventAsync.Task.ConfigureAwait(false);
+
+        switch (promise.State)
         {
-            var engine = promise.Engine;
-            var completedEventAsync = promise.CompletedEventAsync;
-            engine.RunAvailableContinuations();
-            await completedEventAsync.Task.ConfigureAwait(false);
-
-            switch (promise.State)
-            {
-                case PromiseState.Pending:
-                    ExceptionHelper.ThrowInvalidOperationException("'UnwrapIfPromise' called before Promise was settled");
-                    return null;
-                case PromiseState.Fulfilled:
-                    return promise.Value;
-                case PromiseState.Rejected:
-                    ExceptionHelper.ThrowPromiseRejectedException(promise.Value);
-                    return null;
-                default:
-                    ExceptionHelper.ThrowArgumentOutOfRangeException();
-                    return null;
-            }
+            case PromiseState.Pending:
+                ExceptionHelper.ThrowInvalidOperationException("'UnwrapIfPromise' called before Promise was settled");
+                return null;
+            case PromiseState.Fulfilled:
+                return promise.Value;
+            case PromiseState.Rejected:
+                ExceptionHelper.ThrowPromiseRejectedException(promise.Value);
+                return null;
+            default:
+                ExceptionHelper.ThrowArgumentOutOfRangeException();
+                return null;
         }
-
-        return value;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

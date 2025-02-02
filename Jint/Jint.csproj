@@ -40,6 +40,7 @@
   <ItemGroup>
     <PackageReference Include="Acornima" />
     <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" />
     <PackageReference Include="System.ValueTuple" />
   </ItemGroup>
 

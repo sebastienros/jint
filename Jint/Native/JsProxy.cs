@@ -63,9 +63,9 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         return callable.Call(thisObject, arguments);
     }
 
-    Task<JsValue> ICallable.CallAsync(JsValue thisObject, JsValue[] arguments)
+    ValueTask<JsValue> ICallable.CallAsync(JsValue thisObject, JsValue[] arguments)
     {
-        return Task.FromResult(this.Call(thisObject, arguments));
+        return new ValueTask<JsValue>(this.Call(thisObject, arguments));
     }
 
     /// <summary>

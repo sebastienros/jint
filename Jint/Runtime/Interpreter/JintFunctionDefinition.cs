@@ -33,83 +33,13 @@ internal sealed class JintFunctionDefinition
     /// https://tc39.es/ecma262/#sec-ordinarycallevaluatebody
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
-    internal Completion EvaluateBody(EvaluationContext context, Function functionObject, JsValue[] argumentsList)
-    {
-        Completion result;
-        JsArguments? argumentsInstance = null;
-        if (Function.Expression)
-        {
-            // https://tc39.es/ecma262/#sec-runtime-semantics-evaluateconcisebody
-            _bodyExpression ??= JintExpression.Build((Expression) Function.Body);
-            if (Function.Async)
-            {
-                // local copies to prevent capturing closure created on top of method
-                var function = functionObject;
-                var jsValues = argumentsList;
-
-                var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
-                var t = AsyncFunctionStart(context, promiseCapability, context =>
-                {
-                    context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
-                    context.RunBeforeExecuteStatementChecks(Function.Body);
-                    var jsValue = _bodyExpression.GetValue(context).Clone();
-                    return Task.FromResult(new Completion(CompletionType.Return, jsValue, _bodyExpression._expression));
-                });
-
-                t.Wait();
-
-                result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
-            }
-            else
-            {
-                argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
-                context.RunBeforeExecuteStatementChecks(Function.Body);
-                var jsValue = _bodyExpression.GetValue(context).Clone();
-                result = new Completion(CompletionType.Return, jsValue, Function.Body);
-            }
-        }
-        else if (Function.Generator)
-        {
-            result = EvaluateGeneratorBody(context, functionObject, argumentsList);
-        }
-        else
-        {
-            if (Function.Async)
-            {
-                // local copies to prevent capturing closure created on top of method
-                var function = functionObject;
-                var arguments = argumentsList;
-
-                var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
-                _bodyStatementList ??= new JintStatementList(Function);
-                var t = AsyncFunctionStart(context, promiseCapability, context =>
-                {
-                    context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
-                    return Task.FromResult(_bodyStatementList.Execute(context));
-                });
-
-                t.Wait();
-
-                result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
-            }
-            else
-            {
-                // https://tc39.es/ecma262/#sec-runtime-semantics-evaluatefunctionbody
-                argumentsInstance = context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
-                _bodyStatementList ??= new JintStatementList(Function);
-                result = _bodyStatementList.Execute(context);
-            }
-        }
-
-        argumentsInstance?.FunctionWasCalled();
-        return result;
-    }
+    internal Completion EvaluateBody(EvaluationContext context, Function functionObject, JsValue[] argumentsList) => EvaluateBodyAsync(context, functionObject, argumentsList).Preserve().GetAwaiter().GetResult();
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-ordinarycallevaluatebody
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
-    internal async Task<Completion> EvaluateBodyAsync(EvaluationContext context, Function functionObject, JsValue[] argumentsList)
+    internal async ValueTask<Completion> EvaluateBodyAsync(EvaluationContext context, Function functionObject, JsValue[] argumentsList)
     {
         Completion result;
         JsArguments? argumentsInstance = null;
@@ -125,7 +55,7 @@ internal sealed class JintFunctionDefinition
                     context.Engine.FunctionDeclarationInstantiation(functionObject, argumentsList);
                     context.RunBeforeExecuteStatementChecks(Function.Body);
                     var jsValue = _bodyExpression.GetValue(context).Clone();
-                    return Task.FromResult(new Completion(CompletionType.Return, jsValue, _bodyExpression._expression));
+                    return new ValueTask<Completion>(new Completion(CompletionType.Return, jsValue, _bodyExpression._expression));
                 }).ConfigureAwait(false);
                 result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
             }
@@ -170,7 +100,7 @@ internal sealed class JintFunctionDefinition
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-functions-abstract-operations-async-function-start
     /// </summary>
-    private static async Task AsyncFunctionStart(EvaluationContext context, PromiseCapability promiseCapability, Func<EvaluationContext, Task<Completion>> asyncFunctionBody)
+    private static async ValueTask AsyncFunctionStart(EvaluationContext context, PromiseCapability promiseCapability, Func<EvaluationContext, ValueTask<Completion>> asyncFunctionBody)
     {
         var runningContext = context.Engine.ExecutionContext;
         var asyncContext = runningContext;
@@ -180,10 +110,10 @@ internal sealed class JintFunctionDefinition
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asyncblockstart
     /// </summary>
-    private static async Task AsyncBlockStart(
+    private static async ValueTask AsyncBlockStart(
         EvaluationContext context,
         PromiseCapability promiseCapability,
-        Func<EvaluationContext, Task<Completion>> asyncBody,
+        Func<EvaluationContext, ValueTask<Completion>> asyncBody,
         ExecutionContext asyncContext)
     {
         var runningContext = context.Engine.ExecutionContext;

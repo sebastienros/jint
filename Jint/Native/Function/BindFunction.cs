@@ -55,9 +55,9 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         return value;
     }
 
-    Task<JsValue> ICallable.CallAsync(JsValue thisObject, JsValue[] arguments)
+    ValueTask<JsValue> ICallable.CallAsync(JsValue thisObject, JsValue[] arguments)
     {
-        return Task.FromResult(this.Call(thisObject, arguments));
+        return new ValueTask<JsValue>(this.Call(thisObject, arguments));
     }
 
     ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
