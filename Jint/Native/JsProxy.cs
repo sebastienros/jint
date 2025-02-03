@@ -63,6 +63,11 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         return callable.Call(thisObject, arguments);
     }
 
+    ValueTask<JsValue> ICallable.CallAsync(JsValue thisObject, JsValue[] arguments)
+    {
+        return new ValueTask<JsValue>(this.Call(thisObject, arguments));
+    }
+
     /// <summary>
     /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-construct-argumentslist-newtarget
     /// </summary>

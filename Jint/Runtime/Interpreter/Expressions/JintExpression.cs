@@ -1,7 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Native;
-using Jint.Native.Iterator;
 using Jint.Native.Number;
 
 namespace Jint.Runtime.Interpreter.Expressions;
@@ -21,9 +20,17 @@ internal abstract class JintExpression
     /// </summary>
     /// <param name="context"></param>
     /// <seealso cref="JintLiteralExpression"/>
-    public virtual JsValue GetValue(EvaluationContext context)
+    public virtual JsValue GetValue(EvaluationContext context) => GetValueAsync(context).Preserve().GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Resolves the underlying value for this expression.
+    /// By default uses the Engine for resolving.
+    /// </summary>
+    /// <param name="context"></param>
+    /// <seealso cref="JintLiteralExpression"/>
+    public virtual async ValueTask<JsValue> GetValueAsync(EvaluationContext context)
     {
-        var result = Evaluate(context);
+        var result = await EvaluateAsync(context).ConfigureAwait(false);
         if (result is not Reference reference)
         {
             return (JsValue) result;
@@ -33,12 +40,15 @@ internal abstract class JintExpression
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
-    public object Evaluate(EvaluationContext context)
+    public object Evaluate(EvaluationContext context) => EvaluateAsync(context).Preserve().GetAwaiter().GetResult();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
+    public async ValueTask<object> EvaluateAsync(EvaluationContext context)
     {
         var oldSyntaxElement = context.LastSyntaxElement;
         context.PrepareFor(_expression);
 
-        var result = EvaluateInternal(context);
+        var result = await EvaluateInternalAsync(context).ConfigureAwait(false);
 
         context.LastSyntaxElement = oldSyntaxElement;
 
@@ -52,6 +62,8 @@ internal abstract class JintExpression
     }
 
     protected abstract object EvaluateInternal(EvaluationContext context);
+
+    protected virtual ValueTask<object> EvaluateInternalAsync(EvaluationContext context) => new ValueTask<object>(EvaluateInternal(context));
 
     /// <summary>
     /// If we'd get Esprima source, we would just refer to it, but this makes error messages easier to decipher.

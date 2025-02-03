@@ -21,9 +21,11 @@ internal sealed class JintReturnStatement : JintStatement<ReturnStatement>
             : null;
     }
 
-    protected override Completion ExecuteInternal(EvaluationContext context)
+    protected override Completion ExecuteInternal(EvaluationContext context) => ExecuteInternalAsync(context).Preserve().GetAwaiter().GetResult();
+
+    protected override async ValueTask<Completion> ExecuteInternalAsync(EvaluationContext context)
     {
-        var value = _argument is not null ? _argument.GetValue(context).Clone() : JsValue.Undefined;
+        var value = _argument is not null ? (await _argument.GetValueAsync(context).ConfigureAwait(false)).Clone() : JsValue.Undefined;
         return new Completion(CompletionType.Return, value, _statement);
     }
 }

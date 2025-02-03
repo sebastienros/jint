@@ -298,7 +298,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
             if (AreIntegerOperands(left, right))
             {
-                return JsNumber.Create((long)left.AsInteger() + right.AsInteger());
+                return JsNumber.Create((long) left.AsInteger() + right.AsInteger());
             }
 
             var lprim = TypeConverter.ToPrimitive(left);
@@ -308,7 +308,7 @@ internal abstract class JintBinaryExpression : JintExpression
             {
                 result = JsString.Create(TypeConverter.ToString(lprim) + TypeConverter.ToString(rprim));
             }
-            else if (AreNonBigIntOperands(left,right))
+            else if (AreNonBigIntOperands(left, right))
             {
                 result = JsNumber.Create(TypeConverter.ToNumber(lprim) + TypeConverter.ToNumber(rprim));
             }
@@ -347,7 +347,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
             if (AreIntegerOperands(left, right))
             {
-                number = JsNumber.Create((long)left.AsInteger() - right.AsInteger());
+                number = JsNumber.Create((long) left.AsInteger() - right.AsInteger());
             }
             else if (AreNonBigIntOperands(left, right))
             {
@@ -525,7 +525,7 @@ internal abstract class JintBinaryExpression : JintExpression
             var right = TypeConverter.ToNumeric(rightReference);
 
             JsValue result;
-            if (AreNonBigIntOperands(left,right))
+            if (AreNonBigIntOperands(left, right))
             {
                 // validation
                 var baseNumber = (JsNumber) left;

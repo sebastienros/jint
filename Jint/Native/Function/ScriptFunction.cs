@@ -58,6 +58,14 @@ public sealed class ScriptFunction : Function, IConstructor
     /// </summary>
     protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
     {
+        return CallAsync(thisObject, arguments).Preserve().GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
+    /// </summary>
+    protected internal override async ValueTask<JsValue> CallAsync(JsValue thisObject, JsValue[] arguments)
+    {
         var strict = _functionDefinition!.Strict || _thisMode == FunctionThisMode.Strict;
         using (new StrictModeScope(strict, true))
         {
@@ -75,7 +83,7 @@ public sealed class ScriptFunction : Function, IConstructor
                 // actual call
                 var context = _engine._activeEvaluationContext ?? new EvaluationContext(_engine);
 
-                var result = _functionDefinition.EvaluateBody(context, this, arguments);
+                var result = await _functionDefinition.EvaluateBodyAsync(context, this, arguments).ConfigureAwait(false);
 
                 if (result.Type == CompletionType.Throw)
                 {

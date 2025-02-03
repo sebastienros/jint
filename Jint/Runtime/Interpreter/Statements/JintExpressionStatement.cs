@@ -19,11 +19,13 @@ internal sealed class JintExpressionStatement : JintStatement<ExpressionStatemen
         _identifierExpression = _expression as JintIdentifierExpression;
     }
 
-    protected override Completion ExecuteInternal(EvaluationContext context)
+    protected override Completion ExecuteInternal(EvaluationContext context) => ExecuteInternalAsync(context).Preserve().GetAwaiter().GetResult();
+
+    protected override async ValueTask<Completion> ExecuteInternalAsync(EvaluationContext context)
     {
         var value = _identifierExpression is not null
-            ? _identifierExpression.GetValue(context)
-            : _expression.GetValue(context);
+            ? await _identifierExpression.GetValueAsync(context).ConfigureAwait(false)
+            : await _expression.GetValueAsync(context).ConfigureAwait(false);
 
         return new Completion(context.Completion, value, _statement);
     }

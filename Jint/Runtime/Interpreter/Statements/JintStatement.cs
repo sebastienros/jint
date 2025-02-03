@@ -25,7 +25,10 @@ internal abstract class JintStatement
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
-    public Completion Execute(EvaluationContext context)
+    public Completion Execute(EvaluationContext context) => ExecuteAsync(context).Preserve().GetAwaiter().GetResult();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
+    public async ValueTask<Completion> ExecuteAsync(EvaluationContext context)
     {
         if (_statement.Type != NodeType.BlockStatement)
         {
@@ -39,8 +42,10 @@ internal abstract class JintStatement
             _initialized = true;
         }
 
-        return ExecuteInternal(context);
+        return await ExecuteInternalAsync(context).ConfigureAwait(false);
     }
+
+    protected virtual ValueTask<Completion> ExecuteInternalAsync(EvaluationContext context) => new ValueTask<Completion>(ExecuteInternal(context));
 
     protected abstract Completion ExecuteInternal(EvaluationContext context);
 

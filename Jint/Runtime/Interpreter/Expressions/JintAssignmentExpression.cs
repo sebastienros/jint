@@ -427,6 +427,12 @@ internal sealed class JintAssignmentExpression : JintExpression
             EvaluationContext context,
             JintIdentifierExpression left,
             JintExpression right,
+            bool hasEvalOrArguments) => AssignToIdentifierAsync(context, left, right, hasEvalOrArguments).Preserve().GetAwaiter().GetResult();
+
+        internal static async ValueTask<object?> AssignToIdentifierAsync(
+            EvaluationContext context,
+            JintIdentifierExpression left,
+            JintExpression right,
             bool hasEvalOrArguments)
         {
             var engine = context.Engine;
@@ -443,7 +449,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                     ExceptionHelper.ThrowSyntaxError(engine.Realm, "Invalid assignment target");
                 }
 
-                var completion = right.GetValue(context);
+                var completion = await right.GetValueAsync(context).ConfigureAwait(false);
                 if (context.IsAbrupt())
                 {
                     return completion;

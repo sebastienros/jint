@@ -26,7 +26,9 @@ internal sealed class JintCallExpression : JintExpression
         _calleeExpression = Build(expression.Callee);
     }
 
-    protected override object EvaluateInternal(EvaluationContext context)
+    protected override object EvaluateInternal(EvaluationContext context) => EvaluateInternalAsync(context).Preserve().GetAwaiter().GetResult();
+
+    protected override async ValueTask<object> EvaluateInternalAsync(EvaluationContext context)
     {
         if (!_initialized)
         {
@@ -46,7 +48,7 @@ internal sealed class JintCallExpression : JintExpression
 
         // https://tc39.es/ecma262/#sec-function-calls
 
-        var reference = _calleeExpression.Evaluate(context);
+        var reference = await _calleeExpression.EvaluateAsync(context).ConfigureAwait(false);
 
         if (ReferenceEquals(reference, JsValue.Undefined))
         {
@@ -104,7 +106,7 @@ internal sealed class JintCallExpression : JintExpression
             thisObject = JsValue.Undefined;
         }
 
-        var arguments = this._arguments.ArgumentListEvaluation(context, out var rented);
+        var (arguments, rented) = await this._arguments.ArgumentListEvaluationAsync(context).ConfigureAwait(false);
 
         if (!func.IsObject() && !engine._referenceResolver.TryGetCallable(engine, reference, out func))
         {
@@ -139,7 +141,7 @@ internal sealed class JintCallExpression : JintExpression
 
             try
             {
-                result = functionInstance.Call(thisObject, arguments);
+                result = await callable.CallAsync(thisObject, arguments).ConfigureAwait(false);
             }
             finally
             {
@@ -152,7 +154,7 @@ internal sealed class JintCallExpression : JintExpression
         }
         else
         {
-            result = callable.Call(thisObject, arguments);
+            result = await callable.CallAsync(thisObject, arguments).ConfigureAwait(false);
         }
 
         if (rented)

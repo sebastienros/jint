@@ -4,7 +4,6 @@ using Jint.Native;
 using Jint.Native.Error;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Statements;
-using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter;
 
@@ -59,7 +58,10 @@ internal sealed class JintStatementList
 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
-    public Completion Execute(EvaluationContext context)
+    public Completion Execute(EvaluationContext context) => ExecuteAsync(context).Preserve().GetAwaiter().GetResult();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
+    public async ValueTask<Completion> ExecuteAsync(EvaluationContext context)
     {
         if (!_initialized)
         {
@@ -84,11 +86,11 @@ internal sealed class JintStatementList
         {
             for (; i < (uint) temp.Length; i++)
             {
-                ref readonly var pair = ref temp[i];
+                var pair = temp[i];
 
                 if (pair.Value is null)
                 {
-                    c = pair.Statement.Execute(context);
+                    c = await pair.Statement.ExecuteAsync(context).ConfigureAwait(false);
                     if (context.Engine._error is not null)
                     {
                         c = HandleError(context.Engine, pair.Statement);
@@ -138,6 +140,7 @@ internal sealed class JintStatementList
 
         return c.UpdateEmpty(lastValue).UpdateEmpty(JsValue.Undefined);
     }
+
 
     internal static Completion HandleException(EvaluationContext context, Exception exception, JintStatement? s)
     {

@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Generator;
@@ -34,7 +33,13 @@ internal sealed class JintFunctionDefinition
     /// https://tc39.es/ecma262/#sec-ordinarycallevaluatebody
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
-    internal Completion EvaluateBody(EvaluationContext context, Function functionObject, JsValue[] argumentsList)
+    internal Completion EvaluateBody(EvaluationContext context, Function functionObject, JsValue[] argumentsList) => EvaluateBodyAsync(context, functionObject, argumentsList).Preserve().GetAwaiter().GetResult();
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-ordinarycallevaluatebody
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
+    internal async ValueTask<Completion> EvaluateBodyAsync(EvaluationContext context, Function functionObject, JsValue[] argumentsList)
     {
         Completion result;
         JsArguments? argumentsInstance = null;
@@ -49,13 +54,13 @@ internal sealed class JintFunctionDefinition
                 var jsValues = argumentsList;
 
                 var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
-                AsyncFunctionStart(context, promiseCapability, context =>
+                await AsyncFunctionStart(context, promiseCapability, context =>
                 {
                     context.Engine.FunctionDeclarationInstantiation(function, jsValues);
                     context.RunBeforeExecuteStatementChecks(Function.Body);
                     var jsValue = _bodyExpression.GetValue(context).Clone();
-                    return new Completion(CompletionType.Return, jsValue, _bodyExpression._expression);
-                });
+                    return new ValueTask<Completion>(new Completion(CompletionType.Return, jsValue, _bodyExpression._expression));
+                }).ConfigureAwait(false);
                 result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
             }
             else
@@ -80,11 +85,11 @@ internal sealed class JintFunctionDefinition
 
                 var promiseCapability = PromiseConstructor.NewPromiseCapability(context.Engine, context.Engine.Realm.Intrinsics.Promise);
                 _bodyStatementList ??= new JintStatementList(Function);
-                AsyncFunctionStart(context, promiseCapability, context =>
+                await AsyncFunctionStart(context, promiseCapability, async context =>
                 {
                     context.Engine.FunctionDeclarationInstantiation(function, arguments);
-                    return _bodyStatementList.Execute(context);
-                });
+                    return await _bodyStatementList.ExecuteAsync(context).ConfigureAwait(false);
+                }).ConfigureAwait(false);
                 result = new Completion(CompletionType.Return, promiseCapability.PromiseInstance, Function.Body);
             }
             else
@@ -103,21 +108,21 @@ internal sealed class JintFunctionDefinition
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-functions-abstract-operations-async-function-start
     /// </summary>
-    private static void AsyncFunctionStart(EvaluationContext context, PromiseCapability promiseCapability, Func<EvaluationContext, Completion> asyncFunctionBody)
+    private static async ValueTask AsyncFunctionStart(EvaluationContext context, PromiseCapability promiseCapability, Func<EvaluationContext, ValueTask<Completion>> asyncFunctionBody)
     {
         var runningContext = context.Engine.ExecutionContext;
         var asyncContext = runningContext;
-        AsyncBlockStart(context, promiseCapability, asyncFunctionBody, asyncContext);
+        await AsyncBlockStart(context, promiseCapability, asyncFunctionBody, asyncContext).ConfigureAwait(false);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-asyncblockstart
     /// </summary>
-    private static void AsyncBlockStart(
+    private static async ValueTask AsyncBlockStart(
         EvaluationContext context,
         PromiseCapability promiseCapability,
-        Func<EvaluationContext, Completion> asyncBody,
-        in ExecutionContext asyncContext)
+        Func<EvaluationContext, ValueTask<Completion>> asyncBody,
+        ExecutionContext asyncContext)
     {
         var runningContext = context.Engine.ExecutionContext;
         // Set the code evaluation state of asyncContext such that when evaluation is resumed for that execution contxt the following steps will be performed:
@@ -125,7 +130,7 @@ internal sealed class JintFunctionDefinition
         Completion result;
         try
         {
-            result = asyncBody(context);
+            result = await asyncBody(context).ConfigureAwait(false);
         }
         catch (JavaScriptException e)
         {
@@ -168,7 +173,7 @@ internal sealed class JintFunctionDefinition
         var G = engine.Realm.Intrinsics.Function.OrdinaryCreateFromConstructor(
             functionObject,
             static intrinsics => intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject,
-            static (Engine engine , Realm _, object? _) => new GeneratorInstance(engine));
+            static (Engine engine, Realm _, object? _) => new GeneratorInstance(engine));
 
         _bodyStatementList ??= new JintStatementList(Function);
         _bodyStatementList.Reset();
@@ -416,7 +421,7 @@ internal sealed class JintFunctionDefinition
         out bool hasArguments)
     {
         hasArguments = false;
-        state.IsSimpleParameterList  = true;
+        state.IsSimpleParameterList = true;
 
         var countParameters = true;
         ref readonly var functionDeclarationParams = ref function.Params;

@@ -58,18 +58,20 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
         }
     }
 
-    protected override Completion ExecuteInternal(EvaluationContext context)
+    protected override Completion ExecuteInternal(EvaluationContext context) => ExecuteInternalAsync(context).Preserve().GetAwaiter().GetResult();
+
+    protected override async ValueTask<Completion> ExecuteInternalAsync(EvaluationContext context)
     {
         var engine = context.Engine;
         foreach (var declaration in _declarations)
         {
             if (_statement.Kind != VariableDeclarationKind.Var && declaration.Left != null)
             {
-                var lhs = (Reference) declaration.Left.Evaluate(context);
+                var lhs = (Reference) (await declaration.Left.EvaluateAsync(context).ConfigureAwait(false));
                 var value = JsValue.Undefined;
                 if (declaration.Init != null)
                 {
-                    value = declaration.Init.GetValue(context).Clone();
+                    value = (await declaration.Init.GetValueAsync(context).ConfigureAwait(false)).Clone();
                     if (declaration.Init._expression.IsFunctionDefinition())
                     {
                         ((Function) value).SetFunctionName(lhs.ReferencedName);
@@ -87,7 +89,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                         ? engine.ExecutionContext.LexicalEnvironment
                         : null;
 
-                    var value = declaration.Init.GetValue(context);
+                    var value = await declaration.Init.GetValueAsync(context).ConfigureAwait(false);
 
                     DestructuringPatternAssignmentExpression.ProcessPatterns(
                         context,
@@ -97,17 +99,17 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                         checkPatternPropertyReference: _statement.Kind != VariableDeclarationKind.Var);
                 }
                 else if (declaration.LeftIdentifierExpression == null
-                         || JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifier(
+                         || (await JintAssignmentExpression.SimpleAssignmentExpression.AssignToIdentifierAsync(
                              context,
                              declaration.LeftIdentifierExpression,
                              declaration.Init,
-                             declaration.EvalOrArguments) is null)
+                             declaration.EvalOrArguments).ConfigureAwait(false)) is null)
                 {
                     // slow path
-                    var lhs = (Reference) declaration.Left!.Evaluate(context);
+                    var lhs = (Reference) (await declaration.Left!.EvaluateAsync(context).ConfigureAwait(false));
                     lhs.AssertValid(engine.Realm);
 
-                    var value = declaration.Init.GetValue(context).Clone();
+                    var value = (await declaration.Init.GetValueAsync(context).ConfigureAwait(false)).Clone();
 
                     if (declaration.Init._expression.IsFunctionDefinition())
                     {
