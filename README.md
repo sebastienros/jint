@@ -133,6 +133,7 @@ and many more.
 - ✔ `Error.isError`
 - ✔ `Float16Array` (Requires NET 6 or higher)
 - ✔ Import attributes
+- ✔ Iterator Helpers
 - ✔ JSON modules
 - ✔ `Math.sumPrecise`
 - ✔ `Promise.try`
