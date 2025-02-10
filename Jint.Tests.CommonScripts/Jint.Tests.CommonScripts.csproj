@@ -4,6 +4,8 @@
     <TargetFrameworks>net9.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net472</TargetFrameworks>
     <IsPackable>false</IsPackable>
+    <EnableNUnitRunner>true</EnableNUnitRunner>
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>

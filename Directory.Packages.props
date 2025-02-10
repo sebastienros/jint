@@ -14,13 +14,13 @@
     <PackageVersion Include="Meziantou.Analyzer" Version="2.0.186" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.1" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.1.0" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
     <PackageVersion Include="MongoDB.Bson.signed" Version="2.19.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="NiL.JS" Version="2.5.1684" />
     <PackageVersion Include="NodaTime" Version="3.2.1" />
     <PackageVersion Include="NUnit" Version="4.3.2" />
-    <PackageVersion Include="NUnit3TestAdapter" Version="4.6.0" />
+    <PackageVersion Include="NUnit3TestAdapter" Version="5.0.0" />
     <PackageVersion Include="SharpZipLib" Version="1.4.2" />
     <PackageVersion Include="SourceMaps" Version="0.3.0" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.45.0" />

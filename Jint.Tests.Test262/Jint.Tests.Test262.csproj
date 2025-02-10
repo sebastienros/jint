@@ -7,6 +7,8 @@
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);CS8002</NoWarn>
     <GeneratedTestSuiteDir>Generated</GeneratedTestSuiteDir>
+    <EnableNUnitRunner>true</EnableNUnitRunner>
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
