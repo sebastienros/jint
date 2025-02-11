@@ -76,7 +76,7 @@ internal sealed class MathInstance : ObjectInstance
         SetSymbols(symbols);
     }
 
-    private static JsValue Abs(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Abs(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -96,7 +96,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Abs(x);
     }
 
-    private static JsValue Acos(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Acos(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -112,7 +112,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Acos(x);
     }
 
-    private static JsValue Acosh(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Acosh(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -124,7 +124,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Log(x + System.Math.Sqrt(x * x - 1.0));
     }
 
-    private static JsValue Asin(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Asin(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -140,7 +140,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Asin(x);
     }
 
-    private static JsValue Asinh(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Asinh(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
         if (double.IsInfinity(x) || NumberInstance.IsPositiveZero(x) || NumberInstance.IsNegativeZero(x))
@@ -151,7 +151,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Log(x + System.Math.Sqrt(x * x + 1.0));
     }
 
-    private static JsValue Atan(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Atan(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -174,7 +174,7 @@ internal sealed class MathInstance : ObjectInstance
 
         return System.Math.Atan(x);
     }
-    private static JsValue Atanh(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Atanh(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -191,7 +191,7 @@ internal sealed class MathInstance : ObjectInstance
         return 0.5 * System.Math.Log((1.0 + x) / (1.0 - x));
     }
 
-    private static JsValue Atan2(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Atan2(JsValue thisObject, JsCallArguments arguments)
     {
         var y = TypeConverter.ToNumber(arguments.At(0));
         var x = TypeConverter.ToNumber(arguments.At(1));
@@ -339,7 +339,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Atan2(y, x);
     }
 
-    private static JsValue Ceil(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Ceil(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -374,7 +374,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Ceiling(x);
     }
 
-    private static JsValue Cos(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Cos(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -398,7 +398,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Cos(x);
     }
 
-    private static JsValue Cosh(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Cosh(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -422,7 +422,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Cosh(x);
     }
 
-    private static JsValue Exp(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Exp(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -446,7 +446,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Exp(x);
     }
 
-    private static JsValue Expm1(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Expm1(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -462,7 +462,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Exp(x) - 1.0;
     }
 
-    private static JsValue Floor(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Floor(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -490,7 +490,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Floor(x);
     }
 
-    private static JsValue Log(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Log(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -518,7 +518,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Log(x);
     }
 
-    private static JsValue Log1p(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Log1p(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -545,7 +545,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Log(1 + x);
     }
 
-    private static JsValue Log2(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Log2(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -573,7 +573,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Log(x, 2);
     }
 
-    private static JsValue Log10(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Log10(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -604,7 +604,7 @@ internal sealed class MathInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-math.max
     /// </summary>
-    private static JsValue Max(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Max(JsValue thisObject, JsCallArguments arguments)
     {
         if (arguments.Length == 0)
         {
@@ -636,7 +636,7 @@ internal sealed class MathInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-math.min
     /// </summary>
-    private static JsValue Min(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Min(JsValue thisObject, JsCallArguments arguments)
     {
         if (arguments.Length == 0)
         {
@@ -665,7 +665,7 @@ internal sealed class MathInstance : ObjectInstance
         return lowest;
     }
 
-    private static JsValue Pow(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Pow(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
         var y = TypeConverter.ToNumber(arguments.At(1));
@@ -819,7 +819,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Pow(x, y);
     }
 
-    private JsValue Random(JsValue thisObject, JsValue[] arguments)
+    private JsValue Random(JsValue thisObject, JsCallArguments arguments)
     {
         if(_random == null)
         {
@@ -829,7 +829,7 @@ internal sealed class MathInstance : ObjectInstance
         return _random.NextDouble();
     }
 
-    private static JsValue Round(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Round(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
         var round = System.Math.Round(x);
@@ -841,7 +841,7 @@ internal sealed class MathInstance : ObjectInstance
         return round;
     }
 
-    private static JsValue Fround(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Fround(JsValue thisObject, JsCallArguments arguments)
     {
         var x = arguments.At(0);
         var n = TypeConverter.ToNumber(x);
@@ -851,7 +851,7 @@ internal sealed class MathInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/proposal-float16array/#sec-math.f16round
     /// </summary>
-    private static JsValue F16Round(JsValue thisObject, JsValue[] arguments)
+    private static JsValue F16Round(JsValue thisObject, JsCallArguments arguments)
     {
 #if SUPPORTS_HALF
             var x = arguments.At(0);
@@ -874,7 +874,7 @@ internal sealed class MathInstance : ObjectInstance
 #endif
     }
 
-    private static JsValue Sin(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Sin(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -898,7 +898,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Sin(x);
     }
 
-    private static JsValue Sinh(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Sinh(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -926,25 +926,25 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Sinh(x);
     }
 
-    private static JsValue Sqrt(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Sqrt(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
         return System.Math.Sqrt(x);
     }
 
-    private static JsValue Tan(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Tan(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
         return System.Math.Tan(x);
     }
 
-    private static JsValue Tanh(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Tanh(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
         return System.Math.Tanh(x);
     }
 
-    private static JsValue Truncate(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Truncate(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -971,7 +971,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Truncate(x);
     }
 
-    private static JsValue Sign(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Sign(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -998,7 +998,7 @@ internal sealed class MathInstance : ObjectInstance
         return System.Math.Sign(x);
     }
 
-    private static JsValue Cbrt(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Cbrt(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToNumber(arguments.At(0));
 
@@ -1030,7 +1030,7 @@ internal sealed class MathInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-math.hypot
     /// </summary>
-    private static JsValue Hypot(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Hypot(JsValue thisObject, JsCallArguments arguments)
     {
         var coerced = Coerced(arguments);
 
@@ -1070,7 +1070,7 @@ internal sealed class MathInstance : ObjectInstance
     /// <summary>
     /// https://github.com/tc39/proposal-math-sum
     /// </summary>
-    private JsValue SumPrecise(JsValue thisObject, JsValue[] arguments)
+    private JsValue SumPrecise(JsValue thisObject, JsCallArguments arguments)
     {
         var items = arguments.At(0);
         if (items.IsNullOrUndefined())
@@ -1157,7 +1157,7 @@ internal sealed class MathInstance : ObjectInstance
         return Math.SumPrecise.Sum(sum);
     }
 
-    private static double[] Coerced(JsValue[] arguments)
+    private static double[] Coerced(JsCallArguments arguments)
     {
         // TODO stackalloc
         var coerced = new double[arguments.Length];
@@ -1170,7 +1170,7 @@ internal sealed class MathInstance : ObjectInstance
         return coerced;
     }
 
-    private static JsValue Imul(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Imul(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToInt32(arguments.At(0));
         var y = TypeConverter.ToInt32(arguments.At(1));
@@ -1178,7 +1178,7 @@ internal sealed class MathInstance : ObjectInstance
         return x * y;
     }
 
-    private static JsValue Clz32(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Clz32(JsValue thisObject, JsCallArguments arguments)
     {
         var x = TypeConverter.ToInt32(arguments.At(0));
         if (x < 0)

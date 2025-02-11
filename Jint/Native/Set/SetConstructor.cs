@@ -42,7 +42,7 @@ public sealed class SetConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-set-iterable
     /// </summary>
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         var set = ConstructSet(newTarget);
 
@@ -96,7 +96,7 @@ public sealed class SetConstructor : Constructor
         return set;
     }
 
-    private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Species(JsValue thisObject, JsCallArguments arguments)
     {
         return thisObject;
     }

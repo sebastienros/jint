@@ -45,7 +45,7 @@ public sealed class MapConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-map-iterable
     /// </summary>
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         var map = ConstructMap(newTarget);
 
@@ -79,7 +79,7 @@ public sealed class MapConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-array-grouping/#sec-map.groupby
     /// </summary>
-    private JsValue GroupBy(JsValue thisObject, JsValue[] arguments)
+    private JsValue GroupBy(JsValue thisObject, JsCallArguments arguments)
     {
         var items = arguments.At(0);
         var callbackfn = arguments.At(1);
@@ -93,7 +93,7 @@ public sealed class MapConstructor : Constructor
         return map;
     }
 
-    private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Species(JsValue thisObject, JsCallArguments arguments)
     {
         return thisObject;
     }

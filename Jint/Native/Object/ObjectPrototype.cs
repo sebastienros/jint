@@ -92,7 +92,7 @@ public sealed class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.__defineGetter__
     /// </summary>
-    private JsValue DefineGetter(JsValue thisObject, JsValue[] arguments)
+    private JsValue DefineGetter(JsValue thisObject, JsCallArguments arguments)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
         var p = arguments.At(0);
@@ -113,7 +113,7 @@ public sealed class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.__defineSetter__
     /// </summary>
-    private JsValue DefineSetter(JsValue thisObject, JsValue[] arguments)
+    private JsValue DefineSetter(JsValue thisObject, JsCallArguments arguments)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
         var p = arguments.At(0);
@@ -134,7 +134,7 @@ public sealed class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.__lookupGetter__
     /// </summary>
-    private JsValue LookupGetter(JsValue thisObject, JsValue[] arguments)
+    private JsValue LookupGetter(JsValue thisObject, JsCallArguments arguments)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
         var key = TypeConverter.ToPropertyKey(arguments.At(0));
@@ -162,7 +162,7 @@ public sealed class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.__lookupSetter__
     /// </summary>
-    private JsValue LookupSetter(JsValue thisObject, JsValue[] arguments)
+    private JsValue LookupSetter(JsValue thisObject, JsCallArguments arguments)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
         var key = TypeConverter.ToPropertyKey(arguments.At(0));
@@ -187,7 +187,7 @@ public sealed class ObjectPrototype : Prototype
         }
     }
 
-    private JsValue PropertyIsEnumerable(JsValue thisObject, JsValue[] arguments)
+    private JsValue PropertyIsEnumerable(JsValue thisObject, JsCallArguments arguments)
     {
         var p = TypeConverter.ToPropertyKey(arguments[0]);
         var o = TypeConverter.ToObject(_realm, thisObject);
@@ -199,13 +199,13 @@ public sealed class ObjectPrototype : Prototype
         return desc.Enumerable;
     }
 
-    private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
+    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
     {
         var o = TypeConverter.ToObject(_realm, thisObject);
         return o;
     }
 
-    private JsValue IsPrototypeOf(JsValue thisObject, JsValue[] arguments)
+    private JsValue IsPrototypeOf(JsValue thisObject, JsCallArguments arguments)
     {
         var arg = arguments[0];
         if (!arg.IsObject())
@@ -235,15 +235,15 @@ public sealed class ObjectPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.tolocalestring
     /// </summary>
-    private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
-        return Invoke(thisObject, "toString", System.Array.Empty<JsValue>());
+        return Invoke(thisObject, "toString", []);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object.prototype.tostring
     /// </summary>
-    internal JsValue ToObjectString(JsValue thisObject, JsValue[] arguments)
+    internal JsValue ToObjectString(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject.IsUndefined())
         {
@@ -281,7 +281,7 @@ public sealed class ObjectPrototype : Prototype
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.2.4.5
     /// </summary>
-    private JsValue HasOwnProperty(JsValue thisObject, JsValue[] arguments)
+    private JsValue HasOwnProperty(JsValue thisObject, JsCallArguments arguments)
     {
         var p = TypeConverter.ToPropertyKey(arguments[0]);
         var o = TypeConverter.ToObject(_realm, thisObject);

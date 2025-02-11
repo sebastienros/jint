@@ -41,7 +41,7 @@ internal sealed class WeakRefPrototype : Prototype
         SetSymbols(symbols);
     }
 
-    private JsValue Deref(JsValue thisObject, JsValue[] arguments)
+    private JsValue Deref(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is JsWeakRef weakRef)
         {

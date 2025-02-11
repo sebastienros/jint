@@ -5,7 +5,7 @@ namespace Jint.Runtime;
 
 public static class Arguments
 {
-    public static readonly JsValue[] Empty = Array.Empty<JsValue>();
+    public static JsCallArguments Empty => [];
 
     public static JsValue[] From(params JsValue[] o)
     {
@@ -32,16 +32,16 @@ public static class Arguments
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static JsValue[] Skip(this JsValue[] args, int count)
+    public static JsCallArguments Skip(this JsValue[] args, int count)
     {
         var newLength = args.Length - count;
         if (newLength <= 0)
         {
-            return Array.Empty<JsValue>();
+            return [];
         }
 
         var array = new JsValue[newLength];
-        Array.Copy(args, count, array, 0, newLength);
+        args.AsSpan().CopyTo(array);
         return array;
     }
 }

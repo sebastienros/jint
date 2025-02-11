@@ -87,7 +87,7 @@ internal static class CachedPowers
     // \{GRISU_UINT64_C\((\w+), (\w+)\), (\-?\d+), (\-?\d+)\}
 
     private static readonly CachedPower[] CACHED_POWERS =
-    {
+    [
         new CachedPower(0xFA8FD5A0081C0288, -1220, -348),
         new CachedPower(0xBAAEE17FA23EBF76, -1193, -340),
         new CachedPower(0x8B16FB203055AC76, -1166, -332),
@@ -175,7 +175,7 @@ internal static class CachedPowers
         new CachedPower(0x9E19DB92B4E31BA9, 1013, 324),
         new CachedPower(0xEB96BF6EBADF77D9, 1039, 332),
         new CachedPower(0xAF87023B9BF0EE6B, 1066, 340)
-    };
+    ];
 
     const int kCachedPowersOffset = 348;  // -1 * the first decimal_exponent.
     const int kDecimalExponentDistance = 8;

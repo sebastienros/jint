@@ -81,13 +81,13 @@ internal sealed class JsonInstance : ObjectInstance
             }
         }
 
-        return reviver.Call(holder, new[] { name, temp });
+        return reviver.Call(holder, name, temp);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-json.parse
     /// </summary>
-    private JsValue Parse(JsValue thisObject, JsValue[] arguments)
+    private JsValue Parse(JsValue thisObject, JsCallArguments arguments)
     {
         var jsonString = TypeConverter.ToString(arguments.At(0));
         var reviver = arguments.At(1);
@@ -108,7 +108,7 @@ internal sealed class JsonInstance : ObjectInstance
         }
     }
 
-    private JsValue Stringify(JsValue thisObject, JsValue[] arguments)
+    private JsValue Stringify(JsValue thisObject, JsCallArguments arguments)
     {
         var value = arguments.At(0);
         var replacer = arguments.At(1);

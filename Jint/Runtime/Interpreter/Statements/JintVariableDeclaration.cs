@@ -6,7 +6,7 @@ namespace Jint.Runtime.Interpreter.Statements;
 
 internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaration>
 {
-    private ResolvedDeclaration[] _declarations = Array.Empty<ResolvedDeclaration>();
+    private ResolvedDeclaration[] _declarations = [];
 
     private sealed class ResolvedDeclaration
     {

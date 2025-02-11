@@ -115,9 +115,9 @@ internal static class DateUtils
     private const string NumericCharacters = "0123456789";
     private const string TimeCharacters = "0123456789:";
 
-    private static readonly string[] Months = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+    private static readonly string[] Months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-    private static readonly string[] WeekDays = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+    private static readonly string[] WeekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     private static readonly Dictionary<string, int> timezones;
     private static readonly DateTokenFlags[] datetok;

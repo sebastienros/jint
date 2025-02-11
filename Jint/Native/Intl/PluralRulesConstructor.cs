@@ -26,7 +26,7 @@ internal sealed class PluralRulesConstructor : Constructor
 
     public PluralRulesPrototype PrototypeObject { get; }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         var locales = arguments.At(0);
         var options = arguments.At(1);

@@ -26,7 +26,7 @@ internal sealed class LocaleConstructor : Constructor
 
     public LocalePrototype PrototypeObject { get; }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         throw new NotImplementedException();
     }

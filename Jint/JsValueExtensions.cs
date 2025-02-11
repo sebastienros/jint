@@ -607,7 +607,7 @@ public static class JsValueExtensions
     }
 
     [Pure]
-    public static JsValue Call(this JsValue value, params JsValue[] arguments)
+    public static JsValue Call(this JsValue value, params JsCallArguments arguments)
     {
         if (value is ObjectInstance objectInstance)
         {
@@ -618,7 +618,7 @@ public static class JsValueExtensions
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static JsValue Call(this JsValue value, JsValue thisObj, JsValue[] arguments)
+    public static JsValue Call(this JsValue value, JsValue thisObj, JsCallArguments arguments)
     {
         if (value is ObjectInstance objectInstance)
         {

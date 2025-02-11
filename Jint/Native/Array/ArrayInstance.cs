@@ -27,7 +27,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     private protected ArrayInstance(Engine engine, InternalTypes type) : base(engine, type: type)
     {
-        _dense = System.Array.Empty<JsValue?>();
+        _dense = [];
     }
 
     private protected ArrayInstance(Engine engine, uint capacity = 0, uint length = 0) : base(engine, type: InternalTypes.Object | InternalTypes.Array)
@@ -36,7 +36,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
         if (capacity < MaxDenseArrayLength)
         {
-            _dense = capacity > 0 ? new JsValue?[capacity] : System.Array.Empty<JsValue?>();
+            _dense = capacity > 0 ? new JsValue?[capacity] : [];
         }
         else
         {
@@ -1151,7 +1151,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         }
     }
 
-    internal JsArray Map(JsValue[] arguments)
+    internal JsArray Map(JsCallArguments arguments)
     {
         var callbackfn = arguments.At(0);
         var thisArg = arguments.At(1);
@@ -1186,7 +1186,7 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
 
     /// <inheritdoc />
     internal sealed override bool FindWithCallback(
-        JsValue[] arguments,
+        JsCallArguments arguments,
         out ulong index,
         out JsValue value,
         bool visitUnassigned,

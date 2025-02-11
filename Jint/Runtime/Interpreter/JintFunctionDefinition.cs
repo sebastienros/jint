@@ -34,7 +34,7 @@ internal sealed class JintFunctionDefinition
     /// https://tc39.es/ecma262/#sec-ordinarycallevaluatebody
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining | (MethodImplOptions) 512)]
-    internal Completion EvaluateBody(EvaluationContext context, Function functionObject, JsValue[] argumentsList)
+    internal Completion EvaluateBody(EvaluationContext context, Function functionObject, JsCallArguments argumentsList)
     {
         Completion result;
         JsArguments? argumentsInstance = null;
@@ -129,21 +129,21 @@ internal sealed class JintFunctionDefinition
         }
         catch (JavaScriptException e)
         {
-            promiseCapability.Reject.Call(JsValue.Undefined, new[] { e.Error });
+            promiseCapability.Reject.Call(JsValue.Undefined, e.Error);
             return;
         }
 
         if (result.Type == CompletionType.Normal)
         {
-            promiseCapability.Resolve.Call(JsValue.Undefined, new[] { JsValue.Undefined });
+            promiseCapability.Resolve.Call(JsValue.Undefined, JsValue.Undefined);
         }
         else if (result.Type == CompletionType.Return)
         {
-            promiseCapability.Resolve.Call(JsValue.Undefined, new[] { result.Value });
+            promiseCapability.Resolve.Call(JsValue.Undefined, result.Value);
         }
         else
         {
-            promiseCapability.Reject.Call(JsValue.Undefined, new[] { result.Value });
+            promiseCapability.Reject.Call(JsValue.Undefined, result.Value);
         }
 
         /*
@@ -161,7 +161,7 @@ internal sealed class JintFunctionDefinition
     private Completion EvaluateGeneratorBody(
         EvaluationContext context,
         Function functionObject,
-        JsValue[] argumentsList)
+        JsCallArguments argumentsList)
     {
         var engine = context.Engine;
         engine.FunctionDeclarationInstantiation(functionObject, argumentsList);

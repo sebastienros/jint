@@ -27,7 +27,7 @@ internal sealed class DataViewConstructor : Constructor
 
     private DataViewPrototype PrototypeObject { get; }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
         {

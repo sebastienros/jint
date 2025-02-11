@@ -15,7 +15,7 @@ internal sealed class OrderedSet<T> : IEnumerable<T>
 
     public OrderedSet(IEqualityComparer<T> comparer)
     {
-        _list = new List<T>();
+        _list = [];
         _set = new HashSet<T>(comparer);
     }
 
@@ -36,7 +36,7 @@ internal sealed class OrderedSet<T> : IEnumerable<T>
         return new OrderedSet<T>(EqualityComparer<T>.Default)
         {
             _set = new HashSet<T>(this._set, this._set.Comparer),
-            _list = new List<T>(this._list)
+            _list = [..this._list]
         };
     }
 

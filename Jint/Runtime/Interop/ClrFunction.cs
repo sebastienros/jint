@@ -6,18 +6,20 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Interop;
 
+public delegate JsValue ClrFunctionDelegate(JsValue thisObject, JsCallArguments arguments);
+
 /// <summary>
 /// Wraps a CLR method into a JS function.
 /// </summary>
 public sealed class ClrFunction : Function, IEquatable<ClrFunction>
 {
-    internal readonly Func<JsValue, JsValue[], JsValue> _func;
+    internal readonly ClrFunctionDelegate _func;
     private readonly bool _bubbleExceptions;
 
     public ClrFunction(
         Engine engine,
         string name,
-        Func<JsValue, JsValue[], JsValue> func,
+        ClrFunctionDelegate func,
         int length = 0,
         PropertyFlag lengthFlags = PropertyFlag.AllForbidden)
         : base(engine, engine.Realm, JsString.CachedCreate(name))
@@ -33,10 +35,10 @@ public sealed class ClrFunction : Function, IEquatable<ClrFunction>
         _bubbleExceptions = _engine.Options.Interop.ExceptionHandler == Options.InteropOptions._defaultExceptionHandler;
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments) => _bubbleExceptions ? _func(thisObject, arguments) : CallSlow(thisObject, arguments);
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments) => _bubbleExceptions ? _func(thisObject, arguments) : CallSlow(thisObject, arguments);
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private JsValue CallSlow(JsValue thisObject, JsValue[] arguments)
+    private JsValue CallSlow(JsValue thisObject, JsCallArguments arguments)
     {
         try
         {

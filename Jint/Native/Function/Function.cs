@@ -75,12 +75,12 @@ public abstract partial class Function : ObjectInstance, ICallable
 
     internal override bool IsCallable => true;
 
-    JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments) => Call(thisObject, arguments);
+    JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments) => Call(thisObject, arguments);
 
     /// <summary>
     /// Executed when a function object is used as a function
     /// </summary>
-    protected internal abstract JsValue Call(JsValue thisObject, JsValue[] arguments);
+    protected internal abstract JsValue Call(JsValue thisObject, JsCallArguments arguments);
 
     public bool Strict => _thisMode == FunctionThisMode.Strict;
 
@@ -364,7 +364,7 @@ public abstract partial class Function : ObjectInstance, ICallable
     }
 
     // native syntax doesn't expect to have private identifier indicator
-    private static readonly char[] _functionNameTrimStartChars = { '#' };
+    private static readonly char[] _functionNameTrimStartChars = ['#'];
 
     public override string ToString()
     {

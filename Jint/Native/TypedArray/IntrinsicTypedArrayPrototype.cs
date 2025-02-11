@@ -90,7 +90,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-%typedarray%.prototype.buffer
     /// </summary>
-    private JsValue Buffer(JsValue thisObject, JsValue[] arguments)
+    private JsValue Buffer(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsTypedArray;
         if (o is null)
@@ -104,7 +104,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-%typedarray%.prototype.bytelength
     /// </summary>
-    private JsValue ByteLength(JsValue thisObject, JsValue[] arguments)
+    private JsValue ByteLength(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsTypedArray;
         if (o is null)
@@ -119,7 +119,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-%typedarray%.prototype.byteoffset
     /// </summary>
-    private JsValue ByteOffset(JsValue thisObject, JsValue[] arguments)
+    private JsValue ByteOffset(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsTypedArray;
         if (o is null)
@@ -139,7 +139,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-%typedarray%.prototype.length
     /// </summary>
-    private JsValue GetLength(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetLength(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsTypedArray;
         if (o is null)
@@ -272,7 +272,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.copywithin
     /// </summary>
-    private JsValue CopyWithin(JsValue thisObject, JsValue[] arguments)
+    private JsValue CopyWithin(JsValue thisObject, JsCallArguments arguments)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
@@ -388,7 +388,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.entries
     /// </summary>
-    private JsValue Entries(JsValue thisObject, JsValue[] arguments)
+    private JsValue Entries(JsValue thisObject, JsCallArguments arguments)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
@@ -398,7 +398,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.every
     /// </summary>
-    private JsValue Every(JsValue thisObject, JsValue[] arguments)
+    private JsValue Every(JsValue thisObject, JsCallArguments arguments)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
@@ -432,7 +432,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.fill
     /// </summary>
-    private JsValue Fill(JsValue thisObject, JsValue[] arguments)
+    private JsValue Fill(JsValue thisObject, JsCallArguments arguments)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
@@ -504,7 +504,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.filter
     /// </summary>
-    private JsValue Filter(JsValue thisObject, JsValue[] arguments)
+    private JsValue Filter(JsValue thisObject, JsCallArguments arguments)
     {
         var callbackfn = GetCallable(arguments.At(0));
         var thisArg = arguments.At(1);
@@ -533,7 +533,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
 
         _engine._jsValueArrayPool.ReturnArray(args);
 
-        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, new JsValue[] { captured });
+        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, [captured]);
         for (var n = 0; n < captured; ++n)
         {
             a[n] = kept[n];
@@ -545,7 +545,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.find
     /// </summary>
-    private JsValue Find(JsValue thisObject, JsValue[] arguments)
+    private JsValue Find(JsValue thisObject, JsCallArguments arguments)
     {
         return DoFind(thisObject, arguments).Value;
     }
@@ -553,22 +553,22 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.findindex
     /// </summary>
-    private JsValue FindIndex(JsValue thisObject, JsValue[] arguments)
+    private JsValue FindIndex(JsValue thisObject, JsCallArguments arguments)
     {
         return DoFind(thisObject, arguments).Key;
     }
 
-    private JsValue FindLast(JsValue thisObject, JsValue[] arguments)
+    private JsValue FindLast(JsValue thisObject, JsCallArguments arguments)
     {
         return DoFind(thisObject, arguments, fromEnd: true).Value;
     }
 
-    private JsValue FindLastIndex(JsValue thisObject, JsValue[] arguments)
+    private JsValue FindLastIndex(JsValue thisObject, JsCallArguments arguments)
     {
         return DoFind(thisObject, arguments, fromEnd: true).Key;
     }
 
-    private KeyValuePair<JsValue, JsValue> DoFind(JsValue thisObject, JsValue[] arguments, bool fromEnd = false)
+    private KeyValuePair<JsValue, JsValue> DoFind(JsValue thisObject, JsCallArguments arguments, bool fromEnd = false)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
@@ -619,7 +619,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.foreach
     /// </summary>
-    private JsValue ForEach(JsValue thisObject, JsValue[] arguments)
+    private JsValue ForEach(JsValue thisObject, JsCallArguments arguments)
     {
         var callbackfn = GetCallable(arguments.At(0));
         var thisArg = arguments.At(1);
@@ -646,7 +646,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.includes
     /// </summary>
-    private JsValue Includes(JsValue thisObject, JsValue[] arguments)
+    private JsValue Includes(JsValue thisObject, JsCallArguments arguments)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
@@ -701,7 +701,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.indexof
     /// </summary>
-    private JsValue IndexOf(JsValue thisObject, JsValue[] arguments)
+    private JsValue IndexOf(JsValue thisObject, JsCallArguments arguments)
     {
         var searchElement = arguments.At(0);
         var fromIndex = arguments.At(1);
@@ -758,7 +758,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.join
     /// </summary>
-    private JsValue Join(JsValue thisObject, JsValue[] arguments)
+    private JsValue Join(JsValue thisObject, JsCallArguments arguments)
     {
         var separator = arguments.At(0);
 
@@ -800,7 +800,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.keys
     /// </summary>
-    private JsValue Keys(JsValue thisObject, JsValue[] arguments)
+    private JsValue Keys(JsValue thisObject, JsCallArguments arguments)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
@@ -810,7 +810,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.lastindexof
     /// </summary>
-    private JsValue LastIndexOf(JsValue thisObject, JsValue[] arguments)
+    private JsValue LastIndexOf(JsValue thisObject, JsCallArguments arguments)
     {
         var searchElement = arguments.At(0);
 
@@ -860,7 +860,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.map
     /// </summary>
-    private ObjectInstance Map(JsValue thisObject, JsValue[] arguments)
+    private ObjectInstance Map(JsValue thisObject, JsCallArguments arguments)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
@@ -869,7 +869,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var thisArg = arguments.At(1);
         var callable = GetCallable(arguments.At(0));
 
-        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, new JsValue[] { len });
+        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, [len]);
         var args = _engine._jsValueArrayPool.RentArray(3);
         args[2] = o;
         for (var k = 0; k < len; k++)
@@ -887,7 +887,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.reduce
     /// </summary>
-    private JsValue Reduce(JsValue thisObject, JsValue[] arguments)
+    private JsValue Reduce(JsValue thisObject, JsCallArguments arguments)
     {
         var callbackfn = GetCallable(arguments.At(0));
         var initialValue = arguments.At(1);
@@ -933,7 +933,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.reduceright
     /// </summary>
-    private JsValue ReduceRight(JsValue thisObject, JsValue[] arguments)
+    private JsValue ReduceRight(JsValue thisObject, JsCallArguments arguments)
     {
         var callbackfn = GetCallable(arguments.At(0));
         var initialValue = arguments.At(1);
@@ -976,7 +976,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.reverse
     /// </summary>
-    private ObjectInstance Reverse(JsValue thisObject, JsValue[] arguments)
+    private ObjectInstance Reverse(JsValue thisObject, JsCallArguments arguments)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
@@ -1003,7 +1003,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.set
     /// </summary>
-    private JsValue Set(JsValue thisObject, JsValue[] arguments)
+    private JsValue Set(JsValue thisObject, JsCallArguments arguments)
     {
         var target = thisObject as JsTypedArray;
         if (target is null)
@@ -1157,7 +1157,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-relative-indexing-method/#sec-%typedarray.prototype%-additions
     /// </summary>
-    private JsValue At(JsValue thisObject, JsValue[] arguments)
+    private JsValue At(JsValue thisObject, JsCallArguments arguments)
     {
         var start = arguments.At(0);
 
@@ -1188,7 +1188,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.slice
     /// </summary>
-    private JsValue Slice(JsValue thisObject, JsValue[] arguments)
+    private JsValue Slice(JsValue thisObject, JsCallArguments arguments)
     {
         var start = arguments.At(0);
         var end = arguments.At(1);
@@ -1231,7 +1231,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         }
 
         var countBytes = System.Math.Max(endIndex - startIndex, 0);
-        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, new JsValue[] { countBytes });
+        var a = _realm.Intrinsics.TypedArray.TypedArraySpeciesCreate(o, [countBytes]);
 
         if (countBytes > 0)
         {
@@ -1281,7 +1281,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.some
     /// </summary>
-    private JsValue Some(JsValue thisObject, JsValue[] arguments)
+    private JsValue Some(JsValue thisObject, JsCallArguments arguments)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
@@ -1309,7 +1309,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.sort
     /// </summary>
-    private JsValue Sort(JsValue thisObject, JsValue[] arguments)
+    private JsValue Sort(JsValue thisObject, JsCallArguments arguments)
     {
         /*
          * %TypedArray%.prototype.sort is a distinct function that, except as described below,
@@ -1344,7 +1344,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.subarray
     /// </summary>
-    private JsValue Subarray(JsValue thisObject, JsValue[] arguments)
+    private JsValue Subarray(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsTypedArray;
         if (o is null)
@@ -1384,7 +1384,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         var srcByteOffset = o._byteOffset;
         var beginByteOffset = srcByteOffset + startIndex * elementSize;
 
-        JsValue[] argumentsList;
+        JsCallArguments argumentsList;
         if (o._arrayLength == JsTypedArray.LengthAuto && end.IsUndefined())
         {
             argumentsList = [buffer, beginByteOffset];
@@ -1425,7 +1425,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.tolocalestring
     /// </summary>
-    private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         /*
          * %TypedArray%.prototype.toLocaleString is a distinct function that implements the same algorithm as Array.prototype.toLocaleString
@@ -1466,7 +1466,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.prototype.values
     /// </summary>
-    private JsValue Values(JsValue thisObject, JsValue[] arguments)
+    private JsValue Values(JsValue thisObject, JsCallArguments arguments)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
@@ -1476,7 +1476,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-%typedarray%.prototype-@@tostringtag
     /// </summary>
-    private static JsValue ToStringTag(JsValue thisObject, JsValue[] arguments)
+    private static JsValue ToStringTag(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is not JsTypedArray o)
         {
@@ -1486,13 +1486,13 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         return o._arrayElementType.GetTypedArrayName();
     }
 
-    private JsValue ToReversed(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToReversed(JsValue thisObject, JsCallArguments arguments)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
         var len = taRecord.TypedArrayLength;
 
-        var a = TypedArrayCreateSameType(o, new [] { JsNumber.Create(len) });
+        var a = TypedArrayCreateSameType(o, [JsNumber.Create(len)]);
         uint k = 0;
         while (k < len)
         {
@@ -1503,7 +1503,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         return a;
     }
 
-    private JsValue ToSorted(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToSorted(JsValue thisObject, JsCallArguments arguments)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
@@ -1513,7 +1513,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
 
         var buffer = o._viewedArrayBuffer;
 
-        var a = TypedArrayCreateSameType(o, new [] { JsNumber.Create(len) });
+        var a = TypedArrayCreateSameType(o, [JsNumber.Create(len)]);
 
         var array = SortArray(buffer, compareFn, o);
         for (var i = 0; (uint) i < (uint) array.Length; ++i)
@@ -1524,7 +1524,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
         return a;
     }
 
-    private ObjectInstance With(JsValue thisObject, JsValue[] arguments)
+    private ObjectInstance With(JsValue thisObject, JsCallArguments arguments)
     {
         var taRecord = thisObject.ValidateTypedArray(_realm, ArrayBufferOrder.SeqCst);
         var o = taRecord.Object;
@@ -1553,7 +1553,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             ExceptionHelper.ThrowRangeError(_realm, "Invalid start index");
         }
 
-        var a = TypedArrayCreateSameType(o, new [] { JsNumber.Create(len) });
+        var a = TypedArrayCreateSameType(o, [JsNumber.Create(len)]);
 
         var k = 0;
         while (k < len)

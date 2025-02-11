@@ -27,7 +27,7 @@ internal sealed class WeakRefConstructor : Constructor
 
     private WeakRefPrototype PrototypeObject { get; }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
         {

@@ -17,7 +17,7 @@ internal sealed class SetterFunction : Function
         _setter = setter;
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         _setter(thisObject, arguments[0]);
 

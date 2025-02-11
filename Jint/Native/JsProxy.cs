@@ -41,7 +41,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// <summary>
     /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-call-thisargument-argumentslist
     /// </summary>
-    JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments)
+    JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments)
     {
         if (_target is not ICallable)
         {
@@ -66,7 +66,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// <summary>
     /// https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-construct-argumentslist-newtarget
     /// </summary>
-    ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+    ObjectInstance IConstructor.Construct(JsCallArguments arguments, JsValue newTarget)
     {
         if (_target is not ICallable)
         {
@@ -75,7 +75,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
         var argArray = _engine.Realm.Intrinsics.Array.Construct(arguments, _engine.Realm.Intrinsics.Array);
 
-        if (!TryCallHandler(TrapConstruct, new[] { _target, argArray, newTarget }, out var result))
+        if (!TryCallHandler(TrapConstruct, [_target, argArray, newTarget], out var result))
         {
             var constructor = _target as IConstructor;
             if (constructor is null)
@@ -128,7 +128,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
         AssertTargetNotRevoked(property);
         var target = _target;
 
-        if (KeyFunctionRevoke.Equals(property) || !TryCallHandler(TrapGet, new[] { target, TypeConverter.ToPropertyKey(property), receiver }, out var result))
+        if (KeyFunctionRevoke.Equals(property) || !TryCallHandler(TrapGet, [target, TypeConverter.ToPropertyKey(property), receiver], out var result))
         {
             return target.Get(property, receiver);
         }
@@ -162,7 +162,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
     {
-        if (!TryCallHandler(TrapOwnKeys, new[] { _target }, out var result))
+        if (!TryCallHandler(TrapOwnKeys, [_target], out var result))
         {
             return _target.GetOwnPropertyKeys(types);
         }
@@ -229,7 +229,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
-        if (!TryCallHandler(TrapGetOwnPropertyDescriptor, new[] { _target, TypeConverter.ToPropertyKey(property) }, out var trapResultObj))
+        if (!TryCallHandler(TrapGetOwnPropertyDescriptor, [_target, TypeConverter.ToPropertyKey(property)], out var trapResultObj))
         {
             return _target.GetOwnProperty(property);
         }
@@ -320,7 +320,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
-        if (!TryCallHandler(TrapSet, new[] { _target, TypeConverter.ToPropertyKey(property), value, receiver }, out var trapResult))
+        if (!TryCallHandler(TrapSet, [_target, TypeConverter.ToPropertyKey(property), value, receiver], out var trapResult))
         {
             return _target.Set(property, value, receiver);
         }
@@ -416,7 +416,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool HasProperty(JsValue property)
     {
-        if (!TryCallHandler(TrapHas, new[] { _target, TypeConverter.ToPropertyKey(property) }, out var jsValue))
+        if (!TryCallHandler(TrapHas, [_target, TypeConverter.ToPropertyKey(property)], out var jsValue))
         {
             return _target.HasProperty(property);
         }
@@ -448,7 +448,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool Delete(JsValue property)
     {
-        if (!TryCallHandler(TrapDeleteProperty, new[] { _target, TypeConverter.ToPropertyKey(property) }, out var result))
+        if (!TryCallHandler(TrapDeleteProperty, [_target, TypeConverter.ToPropertyKey(property)], out var result))
         {
             return _target.Delete(property);
         }
@@ -485,7 +485,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public override bool PreventExtensions()
     {
-        if (!TryCallHandler(TrapPreventExtensions, new[] { _target }, out var result))
+        if (!TryCallHandler(TrapPreventExtensions, [_target], out var result))
         {
             return _target.PreventExtensions();
         }
@@ -507,7 +507,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     {
         get
         {
-            if (!TryCallHandler(TrapIsExtensible, new[] { _target }, out var result))
+            if (!TryCallHandler(TrapIsExtensible, [_target], out var result))
             {
                 return _target.Extensible;
             }
@@ -527,7 +527,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     protected internal override ObjectInstance? GetPrototypeOf()
     {
-        if (!TryCallHandler(TrapGetProtoTypeOf, new[] { _target }, out var handlerProto))
+        if (!TryCallHandler(TrapGetProtoTypeOf, [_target], out var handlerProto))
         {
             return _target.Prototype;
         }
@@ -555,7 +555,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
     /// </summary>
     internal override bool SetPrototypeOf(JsValue value)
     {
-        if (!TryCallHandler(TrapSetProtoTypeOf, new[] { _target, value }, out var result))
+        if (!TryCallHandler(TrapSetProtoTypeOf, [_target, value], out var result))
         {
             return _target.SetPrototypeOf(value);
         }

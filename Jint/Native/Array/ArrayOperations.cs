@@ -438,7 +438,7 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         public ArrayReadOperations(JsArray target)
         {
             _target = target;
-            _data = target._dense ?? System.Array.Empty<JsValue>();
+            _data = target._dense ?? [];
             _length = target.Length;
         }
 

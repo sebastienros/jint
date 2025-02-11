@@ -61,7 +61,7 @@ internal sealed class SymbolConstructor : Constructor
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/6.0/index.html#sec-symbol-description
     /// </summary>
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         var description = arguments.At(0);
         var descString = description.IsUndefined()
@@ -75,7 +75,7 @@ internal sealed class SymbolConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-symbol.for
     /// </summary>
-    private JsValue For(JsValue thisObject, JsValue[] arguments)
+    private JsValue For(JsValue thisObject, JsCallArguments arguments)
     {
         var stringKey = TypeConverter.ToJsString(arguments.At(0));
 
@@ -93,7 +93,7 @@ internal sealed class SymbolConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-symbol.keyfor
     /// </summary>
-    private JsValue KeyFor(JsValue thisObject, JsValue[] arguments)
+    private JsValue KeyFor(JsValue thisObject, JsCallArguments arguments)
     {
         var symbol = arguments.At(0) as JsSymbol;
         if (symbol is null)
@@ -109,7 +109,7 @@ internal sealed class SymbolConstructor : Constructor
         return Undefined;
     }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         ExceptionHelper.ThrowTypeError(_realm, "Symbol is not a constructor");
         return null;

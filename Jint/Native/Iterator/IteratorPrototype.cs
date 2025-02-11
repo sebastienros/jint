@@ -28,12 +28,12 @@ internal class IteratorPrototype : Prototype
         SetSymbols(symbols);
     }
 
-    private static JsValue ToIterator(JsValue thisObject, JsValue[] arguments)
+    private static JsValue ToIterator(JsValue thisObject, JsCallArguments arguments)
     {
         return thisObject;
     }
 
-    internal JsValue Next(JsValue thisObject, JsValue[] arguments)
+    internal JsValue Next(JsValue thisObject, JsCallArguments arguments)
     {
         var iterator = thisObject as IteratorInstance;
         if (iterator is null)

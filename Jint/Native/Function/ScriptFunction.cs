@@ -56,7 +56,7 @@ public sealed class ScriptFunction : Function, IConstructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-call-thisargument-argumentslist
     /// </summary>
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         var strict = _functionDefinition!.Strict || _thisMode == FunctionThisMode.Strict;
         using (new StrictModeScope(strict, true))
@@ -127,7 +127,7 @@ public sealed class ScriptFunction : Function, IConstructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-ecmascript-function-objects-construct-argumentslist-newtarget
     /// </summary>
-    ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+    ObjectInstance IConstructor.Construct(JsCallArguments arguments, JsValue newTarget)
     {
         var callerContext = _engine.ExecutionContext;
         var kind = _constructorKind;

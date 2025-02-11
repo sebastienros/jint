@@ -37,12 +37,12 @@ internal static class PromiseOperations
             {
                 try
                 {
-                    var result = handler.Call(JsValue.Undefined, new[] {value});
-                    promiseCapability.Resolve.Call(JsValue.Undefined, new[] {result});
+                    var result = handler.Call(JsValue.Undefined, value);
+                    promiseCapability.Resolve.Call(JsValue.Undefined, result);
                 }
                 catch (JavaScriptException e)
                 {
-                    promiseCapability.Reject.Call(JsValue.Undefined, new[] {e.Error});
+                    promiseCapability.Reject.Call(JsValue.Undefined, e.Error);
                 }
             }
             else
@@ -50,11 +50,11 @@ internal static class PromiseOperations
                 switch (reaction.Type)
                 {
                     case ReactionType.Fulfill:
-                        promiseCapability.Resolve.Call(JsValue.Undefined, new[] {value});
+                        promiseCapability.Resolve.Call(JsValue.Undefined, value);
                         break;
 
                     case ReactionType.Reject:
-                        promiseCapability.Reject.Call(JsValue.Undefined, new[] {value});
+                        promiseCapability.Reject.Call(JsValue.Undefined, value);
                         break;
 
                     default:
@@ -86,11 +86,11 @@ internal static class PromiseOperations
 
             try
             {
-                thenMethod.Call(thenable, new[] { resolve as JsValue, reject });
+                thenMethod.Call(thenable, resolve as JsValue, reject);
             }
             catch (JavaScriptException e)
             {
-                reject.Call(JsValue.Undefined, new[] { e.Error });
+                reject.Call(JsValue.Undefined, [e.Error]);
             }
         };
     }

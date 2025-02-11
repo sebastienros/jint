@@ -215,7 +215,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
     {
-        return new List<JsValue>(EnumerateOwnPropertyKeys(types));
+        return [..EnumerateOwnPropertyKeys(types)];
     }
 
     public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
@@ -414,7 +414,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return type;
     }
 
-    private static JsValue Iterator(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Iterator(JsValue thisObject, JsCallArguments arguments)
     {
         var wrapper = (ObjectWrapper) thisObject;
 
@@ -423,7 +423,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             : new EnumerableIterator(wrapper._engine, (IEnumerable) wrapper.Target);
     }
 
-    private static JsNumber GetLength(JsValue thisObject, JsValue[] arguments)
+    private static JsNumber GetLength(JsValue thisObject, JsCallArguments arguments)
     {
         var wrapper = (ObjectWrapper) thisObject;
         return JsNumber.Create((int) (wrapper._typeDescriptor.LengthProperty?.GetValue(wrapper.Target) ?? 0));

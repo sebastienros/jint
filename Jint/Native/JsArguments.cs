@@ -161,7 +161,7 @@ public sealed class JsArguments : ObjectInstance
             {
                 return false;
             }
-            setter.Call(receiver, new[] {value});
+            setter.Call(receiver, value);
         }
         else
         {

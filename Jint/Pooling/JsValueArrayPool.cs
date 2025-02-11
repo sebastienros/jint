@@ -40,7 +40,7 @@ internal sealed class JsValueArrayPool
     {
         if (size == 0)
         {
-            return System.Array.Empty<JsValue>();
+            return [];
         }
         if (size == 1)
         {

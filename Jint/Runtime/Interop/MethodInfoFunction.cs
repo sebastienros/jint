@@ -4,6 +4,7 @@ using System.Reflection;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Runtime;
 
 #pragma warning disable IL2067
 #pragma warning disable IL2072
@@ -143,29 +144,29 @@ internal sealed class MethodInfoFunction : Function
         return genericMethodInfo;
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         JsValue[] ArgumentProvider(MethodDescriptor method)
         {
             if (method.IsExtensionMethod)
             {
-                var jsArgumentsTemp = new JsValue[1 + jsArguments.Length];
+                var jsArgumentsTemp = new JsValue[1 + arguments.Length];
                 jsArgumentsTemp[0] = thisObject;
-                Array.Copy(jsArguments, 0, jsArgumentsTemp, 1, jsArguments.Length);
+                Array.Copy(arguments, 0, jsArgumentsTemp, 1, arguments.Length);
                 return method.HasParams
                     ? ProcessParamsArrays(jsArgumentsTemp, method)
                     : jsArgumentsTemp;
             }
 
             return method.HasParams
-                ? ProcessParamsArrays(jsArguments, method)
-                : jsArguments;
+                ? ProcessParamsArrays(arguments, method)
+                : arguments;
         }
 
         var converter = Engine.TypeConverter;
         var thisObj = thisObject.ToObject() ?? _target;
         object?[]? parameters = null;
-        foreach (var (method, arguments, _) in InteropHelper.FindBestMatch(_engine, _methods, ArgumentProvider))
+        foreach (var (method, args, _) in InteropHelper.FindBestMatch(_engine, _methods, ArgumentProvider))
         {
             var methodParameters = method.Parameters;
             if (parameters == null || parameters.Length != methodParameters.Length)
@@ -174,14 +175,14 @@ internal sealed class MethodInfoFunction : Function
             }
 
             var argumentsMatch = true;
-            var resolvedMethod = ResolveMethod(method.Method, methodParameters, arguments);
+            var resolvedMethod = ResolveMethod(method.Method, methodParameters, args);
             // TPC: if we're concerned about cost of MethodInfo.GetParameters() - we could only invoke it if this ends up being a generic method (i.e. they will be different in that scenario)
             methodParameters = resolvedMethod.GetParameters();
             for (var i = 0; i < parameters.Length; i++)
             {
                 var methodParameter = methodParameters[i];
                 var parameterType = methodParameter.ParameterType;
-                var argument = arguments.Length > i ? arguments[i] : null;
+                var argument = args.Length > i ? args[i] : null;
 
                 if (typeof(JsValue).IsAssignableFrom(parameterType))
                 {
@@ -249,7 +250,7 @@ internal sealed class MethodInfoFunction : Function
 
         if (_fallbackClrFunctionInstance is not null)
         {
-            return _fallbackClrFunctionInstance.Call(thisObject, jsArguments);
+            return _fallbackClrFunctionInstance.Call(thisObject, arguments);
         }
 
         ExceptionHelper.ThrowTypeError(_engine.Realm, "No public methods with the specified arguments were found.");
@@ -259,28 +260,28 @@ internal sealed class MethodInfoFunction : Function
     /// <summary>
     /// Reduces a flat list of parameters to a params array, if needed
     /// </summary>
-    private JsValue[] ProcessParamsArrays(JsValue[] jsArguments, MethodDescriptor methodInfo)
+    private JsValue[] ProcessParamsArrays(JsCallArguments arguments, MethodDescriptor methodInfo)
     {
         var parameters = methodInfo.Parameters;
 
         var nonParamsArgumentsCount = parameters.Length - 1;
-        if (jsArguments.Length < nonParamsArgumentsCount)
+        if (arguments.Length < nonParamsArgumentsCount)
         {
-            return jsArguments;
+            return arguments;
         }
 
-        var argsToTransform = jsArguments.Skip(nonParamsArgumentsCount);
+        var argsToTransform = arguments.Skip(nonParamsArgumentsCount);
 
         if (argsToTransform.Length == 1 && argsToTransform[0].IsArray())
         {
-            return jsArguments;
+            return arguments;
         }
 
         var jsArray = new JsArray(_engine, argsToTransform);
         var newArgumentsCollection = new JsValue[nonParamsArgumentsCount + 1];
         for (var j = 0; j < nonParamsArgumentsCount; ++j)
         {
-            newArgumentsCollection[j] = jsArguments[j];
+            newArgumentsCollection[j] = arguments[j];
         }
 
         newArgumentsCollection[nonParamsArgumentsCount] = jsArray;

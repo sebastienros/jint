@@ -47,7 +47,7 @@ internal sealed class GeneratorPrototype : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-generator.prototype.next
     /// </summary>
-    private ObjectInstance Next(JsValue thisObject, JsValue[] arguments)
+    private ObjectInstance Next(JsValue thisObject, JsCallArguments arguments)
     {
         var g = AssertGeneratorInstance(thisObject);
         var value = arguments.At(0, null!);
@@ -57,7 +57,7 @@ internal sealed class GeneratorPrototype : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-generator.prototype.return
     /// </summary>
-    private JsValue Return(JsValue thisObject, JsValue[] arguments)
+    private JsValue Return(JsValue thisObject, JsCallArguments arguments)
     {
         var g = AssertGeneratorInstance(thisObject);
         var value = arguments.At(0);
@@ -68,7 +68,7 @@ internal sealed class GeneratorPrototype : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-generator.prototype.throw
     /// </summary>
-    private JsValue Throw(JsValue thisObject, JsValue[] arguments)
+    private JsValue Throw(JsValue thisObject, JsCallArguments arguments)
     {
         var g = AssertGeneratorInstance(thisObject);
         var exception = arguments.At(0);

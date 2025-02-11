@@ -34,7 +34,7 @@ internal sealed class ProxyConstructor : Constructor
         SetProperties(properties);
     }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
         {
@@ -60,18 +60,18 @@ internal sealed class ProxyConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-proxy.revocable
     /// </summary>
-    private JsValue Revocable(JsValue thisObject, JsValue[] arguments)
+    private JsValue Revocable(JsValue thisObject, JsCallArguments arguments)
     {
         var p = ProxyCreate(arguments.At(0), arguments.At(1));
 
-        JsValue Revoke(JsValue thisObject, JsValue[] arguments)
+        JsValue Revoke(JsValue thisObject, JsCallArguments arguments)
         {
             p._handler = null;
             p._target = null!;
             return Undefined;
         }
 
-        var result = _realm.Intrinsics.Object.Construct(System.Array.Empty<JsValue>());
+        var result = _realm.Intrinsics.Object.Construct([]);
         result.DefineOwnProperty(PropertyRevoke, new PropertyDescriptor(new ClrFunction(_engine, name: "", Revoke, 0, PropertyFlag.Configurable), PropertyFlag.ConfigurableEnumerableWritable));
         result.DefineOwnProperty(PropertyProxy, new PropertyDescriptor(p, PropertyFlag.ConfigurableEnumerableWritable));
         return result;

@@ -362,7 +362,7 @@ public static class AstExtensions
     {
         if (importAttributes.Count == 0)
         {
-            return Array.Empty<ModuleImportAttribute>();
+            return [];
         }
 
         var attributes = new ModuleImportAttribute[importAttributes.Count];

@@ -90,7 +90,7 @@ internal sealed class JintYieldExpression : JintExpression
                 var throwMethod = iterator.GetMethod("throw");
                 if (throwMethod is not null)
                 {
-                    var innerResult = throwMethod.Call(iterator, new[]{ received.Value });
+                    var innerResult = throwMethod.Call(iterator, received.Value);
                     if (generatorKind == GeneratorKind.Async)
                     {
                         innerResult = Await(innerResult);
@@ -148,7 +148,7 @@ internal sealed class JintYieldExpression : JintExpression
                     return temp;
                 }
 
-                var innerReturnResult = returnMethod.Call(iterator, new[] { received.Value });
+                var innerReturnResult = returnMethod.Call(iterator, received.Value);
                 if (generatorKind == GeneratorKind.Async)
                 {
                     innerReturnResult = Await(innerReturnResult);

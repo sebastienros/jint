@@ -41,7 +41,7 @@ internal sealed class NumberFormatConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.numberformat
     /// </summary>
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         var locales = arguments.At(0);
         var options = arguments.At(1);
@@ -72,7 +72,7 @@ internal sealed class NumberFormatConstructor : Constructor
         var matcher = GetOption(options, "localeMatcher", OptionType.String, new JsValue[] { "lookup", "best fit" }, "best fit");
         opt["localeMatcher"] = matcher;
 
-        var numberingSystem = GetOption(options, "numberingSystem", OptionType.String, System.Array.Empty<JsValue>(), Undefined);
+        var numberingSystem = GetOption(options, "numberingSystem", OptionType.String, [], Undefined);
         if (!numberingSystem.IsUndefined())
         {
             // If numberingSystem does not match the Unicode Locale Identifier type nonterminal, throw a RangeError exception.
@@ -154,7 +154,7 @@ internal sealed class NumberFormatConstructor : Constructor
     {
         var style = GetOption(options, "style", OptionType.String, new JsValue[] { "decimal", "percent", "currency", "unit" }, "decimal");
         intlObj["Style"] = style;
-        var currency = GetOption(options, "currency", OptionType.String, System.Array.Empty<JsValue>(), Undefined);
+        var currency = GetOption(options, "currency", OptionType.String, [], Undefined);
         if (currency.IsUndefined())
         {
             if (style == "currency")
@@ -169,7 +169,7 @@ internal sealed class NumberFormatConstructor : Constructor
 
         var currencyDisplay = GetOption(options, "currencyDisplay", OptionType.String, new JsValue[] { "code", "symbol", "narrowSymbol", "name" }, "symbol");
         var currencySign = GetOption(options, "currencySign", OptionType.String, new JsValue[] { "standard", "accounting" }, "standard");
-        var unit = GetOption(options, "unit", OptionType.String, System.Array.Empty<JsValue>(), Undefined);
+        var unit = GetOption(options, "unit", OptionType.String, [], Undefined);
 
         if (unit.IsUndefined())
         {

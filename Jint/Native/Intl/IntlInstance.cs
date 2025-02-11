@@ -50,7 +50,7 @@ internal sealed class IntlInstance : ObjectInstance
         SetSymbols(symbols);
     }
 
-    private JsValue GetCanonicalLocales(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetCanonicalLocales(JsValue thisObject, JsCallArguments arguments)
     {
         return new JsArray(_engine);
     }

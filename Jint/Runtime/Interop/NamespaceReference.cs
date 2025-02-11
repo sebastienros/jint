@@ -35,7 +35,7 @@ public class NamespaceReference : ObjectInstance, ICallable
         return false;
     }
 
-    JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments)
+    JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments)
     {
         // direct calls on a NamespaceReference constructor object is creating a generic type
         var genericTypes = new Type[arguments.Length];

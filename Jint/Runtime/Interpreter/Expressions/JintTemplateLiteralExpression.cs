@@ -6,7 +6,7 @@ namespace Jint.Runtime.Interpreter.Expressions;
 internal sealed class JintTemplateLiteralExpression : JintExpression
 {
     internal readonly TemplateLiteral _templateLiteralExpression;
-    internal JintExpression[] _expressions = Array.Empty<JintExpression>();
+    internal JintExpression[] _expressions = [];
     private bool _initialized;
 
     public JintTemplateLiteralExpression(TemplateLiteral expression) : base(expression)

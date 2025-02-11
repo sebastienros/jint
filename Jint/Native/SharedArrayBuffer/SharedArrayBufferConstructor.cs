@@ -49,7 +49,7 @@ internal sealed class SharedArrayBufferConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-arraybuffer.isview
     /// </summary>
-    private static JsValue IsView(JsValue thisObject, JsValue[] arguments)
+    private static JsValue IsView(JsValue thisObject, JsCallArguments arguments)
     {
         var arg = arguments.At(0);
         return arg is JsDataView or JsTypedArray;
@@ -58,18 +58,18 @@ internal sealed class SharedArrayBufferConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-arraybuffer-@@species
     /// </summary>
-    private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Species(JsValue thisObject, JsCallArguments arguments)
     {
         return thisObject;
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         ExceptionHelper.ThrowTypeError(_realm, "Constructor SharedArrayBuffer requires 'new'");
         return Undefined;
     }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
         {

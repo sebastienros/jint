@@ -6,6 +6,7 @@ using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
+using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -51,7 +52,7 @@ public sealed class ArrayConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-array.from
     /// </summary>
-    private JsValue From(JsValue thisObject, JsValue[] arguments)
+    private JsValue From(JsValue thisObject, JsCallArguments arguments)
     {
         var items = arguments.At(0);
         var mapFunction = arguments.At(1);
@@ -69,7 +70,7 @@ public sealed class ArrayConstructor : Constructor
             ObjectInstance instance;
             if (!ReferenceEquals(this, thisObject) && thisObject is IConstructor constructor)
             {
-                instance = constructor.Construct(System.Array.Empty<JsValue>(), thisObject);
+                instance = constructor.Construct([], thisObject);
             }
             else
             {
@@ -185,13 +186,13 @@ public sealed class ArrayConstructor : Constructor
         }
     }
 
-    private JsValue Of(JsValue thisObject, JsValue[] arguments)
+    private JsValue Of(JsValue thisObject, JsCallArguments arguments)
     {
         var len = arguments.Length;
         ObjectInstance a;
         if (thisObject.IsConstructor)
         {
-            a = ((IConstructor) thisObject).Construct(new JsValue[] { len }, thisObject);
+            a = ((IConstructor) thisObject).Construct([len], thisObject);
         }
         else
         {
@@ -203,7 +204,7 @@ public sealed class ArrayConstructor : Constructor
             // faster for real arrays
             for (uint k = 0; k < arguments.Length; k++)
             {
-                var kValue = arguments[k];
+                var kValue = arguments[(int)k];
                 ai.SetIndexValue(k, kValue, updateLength: k == arguments.Length - 1);
             }
         }
@@ -212,7 +213,7 @@ public sealed class ArrayConstructor : Constructor
             // slower version
             for (uint k = 0; k < arguments.Length; k++)
             {
-                var kValue = arguments[k];
+                var kValue = arguments[(int)k];
                 var key = JsString.Create(k);
                 a.CreateDataPropertyOrThrow(key, kValue);
             }
@@ -223,12 +224,12 @@ public sealed class ArrayConstructor : Constructor
         return a;
     }
 
-    private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Species(JsValue thisObject, JsCallArguments arguments)
     {
         return thisObject;
     }
 
-    private static JsValue IsArray(JsValue thisObject, JsValue[] arguments)
+    private static JsValue IsArray(JsValue thisObject, JsCallArguments arguments)
     {
         var o = arguments.At(0);
 
@@ -245,17 +246,17 @@ public sealed class ArrayConstructor : Constructor
         return oi.IsArray();
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         return Construct(arguments, thisObject);
     }
 
-    public JsArray Construct(JsValue[] arguments)
+    public JsArray Construct(JsCallArguments arguments)
     {
         return (JsArray) Construct(arguments, this);
     }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
         {
@@ -279,20 +280,20 @@ public sealed class ArrayConstructor : Constructor
 
     public JsArray Construct(int capacity)
     {
-        return Construct(System.Array.Empty<JsValue>(), (uint) capacity);
+        return Construct([], (uint) capacity);
     }
 
     public JsArray Construct(uint capacity)
     {
-        return Construct(System.Array.Empty<JsValue>(), capacity);
+        return Construct([], capacity);
     }
 
-    public JsArray Construct(JsValue[] arguments, uint capacity)
+    public JsArray Construct(JsCallArguments arguments, uint capacity)
     {
         return Construct(arguments, capacity, PrototypeObject);
     }
 
-    private JsArray Construct(JsValue[] arguments, ulong capacity, ObjectInstance prototypeObject)
+    private JsArray Construct(JsCallArguments arguments, ulong capacity, ObjectInstance prototypeObject)
     {
         JsArray instance;
         if (arguments.Length == 1)
@@ -365,24 +366,20 @@ public sealed class ArrayConstructor : Constructor
         return jsArray;
     }
 
-    public JsArray ConstructFast(JsValue[] contents)
+    public JsArray ConstructFast(JsValue[] contents) => ConstructFast(contents.AsSpan());
+
+    public JsArray ConstructFast(ReadOnlySpan<JsValue> contents)
     {
-        var instance = ArrayCreate((ulong) contents.Length);
-        for (var i = 0; i < contents.Length; i++)
-        {
-            instance.SetIndexValue((uint) i, contents[i], updateLength: false);
-        }
-        return instance;
+        var array = new JsValue[contents.Length];
+        contents.CopyTo(array);
+        return new JsArray(_engine, array);
     }
 
     internal JsArray ConstructFast(List<JsValue> contents)
     {
-        var instance = ArrayCreate((ulong) contents.Count);
-        for (var i = 0; i < contents.Count; i++)
-        {
-            instance.SetIndexValue((uint) i, contents[i], updateLength: false);
-        }
-        return instance;
+        var array = new JsValue[contents.Count];
+        contents.CopyTo(array);
+        return new JsArray(_engine, array);
     }
 
     /// <summary>
@@ -430,7 +427,7 @@ public sealed class ArrayConstructor : Constructor
             ExceptionHelper.ThrowTypeError(_realm, $"{c} is not a constructor");
         }
 
-        return ((IConstructor) c).Construct(new JsValue[] { JsNumber.Create(length) }, c);
+        return ((IConstructor) c).Construct([JsNumber.Create(length)], c);
     }
 
     internal JsArray CreateArrayFromList<T>(List<T> values) where T : JsValue

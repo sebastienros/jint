@@ -98,7 +98,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
     internal void InitializeParameters(
         Key[] parameterNames,
         bool hasDuplicates,
-        JsValue[]? arguments)
+        JsCallArguments? arguments)
     {
         if (parameterNames.Length == 0)
         {
@@ -122,7 +122,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
         _dictionary.CheckExistingKeys = true;
     }
 
-    internal void AddFunctionParameters(EvaluationContext context, IFunction functionDeclaration, JsValue[] arguments)
+    internal void AddFunctionParameters(EvaluationContext context, IFunction functionDeclaration, JsCallArguments arguments)
     {
         var empty = _dictionary is null || _dictionary.Count == 0;
         ref readonly var parameters = ref functionDeclaration.Params;
@@ -137,7 +137,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
     private void SetFunctionParameter(
         EvaluationContext context,
         Node? parameter,
-        JsValue[] arguments,
+        JsCallArguments arguments,
         int index,
         bool initiallyEmpty)
     {
@@ -155,7 +155,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
     private void SetFunctionParameterUnlikely(
         EvaluationContext context,
         Node? parameter,
-        JsValue[] arguments,
+        JsCallArguments arguments,
         int index,
         bool initiallyEmpty)
     {
@@ -277,7 +277,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
     private void HandleRestElementArray(
         EvaluationContext context,
         RestElement restElement,
-        JsValue[] arguments,
+        JsCallArguments arguments,
         int index,
         bool initiallyEmpty)
     {
@@ -346,10 +346,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             }
         }
 
-        SetFunctionParameter(context, left, new[]
-        {
-            argument
-        }, 0, initiallyEmpty);
+        SetFunctionParameter(context, left, [argument], 0, initiallyEmpty);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

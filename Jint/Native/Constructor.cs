@@ -13,11 +13,11 @@ public abstract class Constructor : Function.Function, IConstructor
     {
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         ExceptionHelper.ThrowTypeError(_realm, $"Constructor {_nameDescriptor?.Value} requires 'new'");
         return null;
     }
 
-    public abstract ObjectInstance Construct(JsValue[] arguments, JsValue newTarget);
+    public abstract ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget);
 }

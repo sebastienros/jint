@@ -48,7 +48,7 @@ internal sealed class BigIntPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma402/#sup-bigint.prototype.tolocalestring
     /// </summary>
-    private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         var locales = arguments.At(0);
         var options = arguments.At(1);
@@ -62,7 +62,7 @@ internal sealed class BigIntPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.prototype.valueof
     /// </summary>
-    private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
+    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is BigIntInstance ni)
         {
@@ -81,7 +81,7 @@ internal sealed class BigIntPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-bigint.prototype.tostring
     /// </summary>
-    private JsValue ToBigIntString(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToBigIntString(JsValue thisObject, JsCallArguments arguments)
     {
         var x = ThisBigIntValue(thisObject);
 

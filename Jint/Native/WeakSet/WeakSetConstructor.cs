@@ -24,7 +24,7 @@ internal sealed class WeakSetConstructor : Constructor
 
     private WeakSetPrototype PrototypeObject { get; }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
         {

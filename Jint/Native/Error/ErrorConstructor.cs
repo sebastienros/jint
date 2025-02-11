@@ -36,20 +36,20 @@ public sealed class ErrorConstructor : Constructor
         SetProperties(properties);
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         return Construct(arguments, this);
     }
 
     public ObjectInstance Construct(string? message = null)
     {
-        return Construct(message != null ? new JsValue[] { message } : System.Array.Empty<JsValue>(), this);
+        return Construct(message != null ? [message] : [], this);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-nativeerror
     /// </summary>
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         var o = OrdinaryCreateFromConstructor(
             newTarget,
@@ -98,7 +98,7 @@ public sealed class ErrorConstructor : Constructor
     /// <summary>
     /// https://tc39.es/proposal-is-error/
     /// </summary>
-    private static JsValue IsError(JsValue? thisObj, JsValue[] arguments)
+    private static JsValue IsError(JsValue? thisObj, JsCallArguments arguments)
     {
         return arguments.At(0) is JsError;
     }

@@ -97,12 +97,22 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// <summary>
     /// https://tc39.es/ecma262/#sec-construct
     /// </summary>
-    internal static ObjectInstance Construct(IConstructor f, JsValue[]? argumentsList = null, IConstructor? newTarget = null)
+    internal static ObjectInstance Construct(IConstructor f, IConstructor? newTarget, JsCallArguments argumentsList)
     {
         newTarget ??= f;
-        argumentsList ??= System.Array.Empty<JsValue>();
         return f.Construct(argumentsList, (JsValue) newTarget);
     }
+
+    internal static ObjectInstance Construct(IConstructor f, JsCallArguments argumentsList)
+    {
+        return f.Construct(argumentsList, (JsValue) f);
+    }
+
+    internal static ObjectInstance Construct(IConstructor f)
+    {
+        return f.Construct([], (JsValue) f);
+    }
+
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-speciesconstructor
@@ -317,7 +327,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         return keys;
     }
 
-    internal virtual IEnumerable<JsValue> GetInitialOwnStringPropertyKeys() => System.Linq.Enumerable.Empty<JsValue>();
+    internal virtual IEnumerable<JsValue> GetInitialOwnStringPropertyKeys() => [];
 
     protected virtual bool TryGetProperty(JsValue property, [NotNullWhen(true)] out PropertyDescriptor? descriptor)
     {
@@ -586,10 +596,9 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return false;
         }
 
-        _engine.Call(setter, receiver, new[]
-        {
+        _engine.Call(setter, receiver, [
             value
-        }, expression: null);
+        ], expression: null);
 
         return true;
     }
@@ -981,7 +990,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             case ObjectClass.Boolean:
                 if (this is BooleanInstance booleanInstance)
                 {
-                    converted = ((JsBoolean) booleanInstance.BooleanData)._value
+                    converted = booleanInstance.BooleanData._value
                         ? JsBoolean.BoxedTrue
                         : JsBoolean.BoxedFalse;
                 }
@@ -990,7 +999,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             case ObjectClass.Function:
                 if (this is ICallable function)
                 {
-                    converted = (Func<JsValue, JsValue[], JsValue>) function.Call;
+                    converted = (ClrFunctionDelegate) function.Call;
                 }
 
                 break;
@@ -1113,7 +1122,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// Handles the generic find of (callback[, thisArg])
     /// </summary>
     internal virtual bool FindWithCallback(
-        JsValue[] arguments,
+        JsCallArguments arguments,
         out ulong index,
         out JsValue value,
         bool visitUnassigned,
@@ -1563,7 +1572,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     /// <summary>
     /// https://tc39.es/ecma262/#sec-invoke
     /// </summary>
-    internal JsValue Invoke(JsValue v, JsValue p, JsValue[] arguments)
+    internal JsValue Invoke(JsValue v, JsValue p, JsCallArguments arguments)
     {
         var func = v.GetV(_engine.Realm, p);
         if (func is not ICallable callable)

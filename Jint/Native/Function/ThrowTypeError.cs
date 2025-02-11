@@ -14,7 +14,7 @@ internal sealed class ThrowTypeError : Function
         PreventExtensions();
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         ExceptionHelper.ThrowTypeError(_realm);
         return null;

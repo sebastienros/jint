@@ -25,7 +25,7 @@ public sealed class EvalFunction : Function
         _length = new PropertyDescriptor(JsNumber.PositiveOne, PropertyFlag.Configurable);
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         var callerRealm = _engine.ExecutionContext.Realm;
         var x = arguments.At(0);
