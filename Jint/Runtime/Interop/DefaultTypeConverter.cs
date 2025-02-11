@@ -34,7 +34,8 @@ public class DefaultTypeConverter : ITypeConverter
     private static readonly Type engineType = typeof(Engine);
     private static readonly Type typeType = typeof(Type);
 
-    private static readonly MethodInfo convertChangeType = typeof(Convert).GetMethod("ChangeType", new[] { objectType, typeType, typeof(IFormatProvider) })!;
+    private static readonly MethodInfo changeTypeIfConvertible = typeof(DefaultTypeConverter).GetMethod(
+        "ChangeTypeOnlyIfConvertible", BindingFlags.NonPublic | BindingFlags.Static)!;
     private static readonly MethodInfo jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject))!;
     private static readonly MethodInfo jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject))!;
 
@@ -323,7 +324,7 @@ public class DefaultTypeConverter : ITypeConverter
                 Expression.Convert(
                     Expression.Call(
                         null,
-                        convertChangeType,
+                        changeTypeIfConvertible,
                         Expression.Call(callExpression, jsValueToObject),
                         Expression.Constant(method.ReturnType),
                         Expression.Constant(System.Globalization.CultureInfo.InvariantCulture, typeof(IFormatProvider))
@@ -337,6 +338,15 @@ public class DefaultTypeConverter : ITypeConverter
             type,
             callExpression,
             new ReadOnlyCollection<ParameterExpression>(parameters)).Compile();
+    }
+
+    [return: NotNullIfNotNull(nameof(value))]
+    private static object? ChangeTypeOnlyIfConvertible(object? value, Type conversionType, IFormatProvider? provider)
+    {
+        if (value == null || value is IConvertible)
+            return System.Convert.ChangeType(value, conversionType, provider);
+
+        return value;
     }
 
     private static bool TryCastWithOperators(object value, Type type, Type valueType, [NotNullWhen(true)] out object? converted)

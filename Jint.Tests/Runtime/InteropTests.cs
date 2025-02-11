@@ -263,6 +263,70 @@ public partial class InteropTests : IDisposable
             ");
     }
 
+    class Example()
+    {
+        public T ExchangeGenericViaFunc<T>(Func<T> objViaFunc)
+        {
+            return objViaFunc();
+        }
+
+        public object ExchangeObjectViaFunc(Func<object> objViaFunc)
+        {
+            return objViaFunc();
+        }
+
+        public int ExchangeValueViaFunc(Func<int> objViaFunc)
+        {
+            return objViaFunc();
+        }
+    }
+
+    [Fact]
+    public void ExchangeGenericViaFunc()
+    {
+        _engine.SetValue("Example", new Example());
+
+        RunTest(@"
+            const result = Example.ExchangeGenericViaFunc(() => {
+                return {
+                    value: 42
+                };
+            });
+
+            assert(result.value === 42);
+        ");
+    }
+
+    [Fact]
+    public void ExchangeObjectViaFunc()
+    {
+        _engine.SetValue("Example", new Example());
+
+        RunTest(@"
+            const result = Example.ExchangeObjectViaFunc(() => {
+                return {
+                    value: 42
+                };
+            });
+
+            assert(result.value === 42);
+        ");
+    }
+
+    [Fact]
+    public void ExchangeValueViaFunc()
+    {
+        _engine.SetValue("Example", new Example());
+
+        RunTest(@"
+            const result = Example.ExchangeValueViaFunc(() => {
+                return 42;
+            });
+
+            assert(result === 42);
+        ");
+    }
+
     private delegate string callParams(params object[] values);
 
     private delegate string callArgumentAndParams(string firstParam, params object[] values);
@@ -2925,7 +2989,7 @@ public partial class InteropTests : IDisposable
     {
         var engine = new Jint.Engine();
         var list = new List<string> { "A", "B", "C" };
- 
+
         engine.SetValue("list", list);
 
         Assert.Equal(1, engine.Evaluate("list.findIndex((x) => x === 'B')"));
