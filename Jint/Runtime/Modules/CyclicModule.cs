@@ -133,7 +133,7 @@ public abstract class CyclicModule : Module
             }
 
             _abnormalCompletionLocation = result.Location;
-            capability.Reject.Call(Undefined, new[] { result.Value });
+            capability.Reject.Call(Undefined, result.Value);
         }
         else
         {
@@ -431,7 +431,7 @@ public abstract class CyclicModule : Module
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-module-execution-fulfilled
     /// </summary>
-    private static JsValue AsyncModuleExecutionFulfilled(JsValue thisObject, JsValue[] arguments)
+    private static JsValue AsyncModuleExecutionFulfilled(JsValue thisObject, JsCallArguments arguments)
     {
         var module = (CyclicModule) arguments.At(0);
         if (module.Status == ModuleStatus.Evaluated)
@@ -481,7 +481,7 @@ public abstract class CyclicModule : Module
                 var result = m.ExecuteModule();
                 if (result.Type != CompletionType.Normal)
                 {
-                    AsyncModuleExecutionRejected(Undefined, new[] { m, result.Value });
+                    AsyncModuleExecutionRejected(Undefined, [m, result.Value]);
                 }
                 else
                 {
@@ -505,7 +505,7 @@ public abstract class CyclicModule : Module
     /// <summary>
     /// https://tc39.es/ecma262/#sec-async-module-execution-rejected
     /// </summary>
-    private static JsValue AsyncModuleExecutionRejected(JsValue thisObject, JsValue[] arguments)
+    private static JsValue AsyncModuleExecutionRejected(JsValue thisObject, JsCallArguments arguments)
     {
         var module = (SourceTextModule) arguments.At(0);
         var error = arguments.At(1);
@@ -534,7 +534,7 @@ public abstract class CyclicModule : Module
         for (var i = 0; i < asyncParentModules.Count; i++)
         {
             var m = asyncParentModules[i];
-            AsyncModuleExecutionRejected(thisObject, new[] { m, error });
+            AsyncModuleExecutionRejected(thisObject, [m, error]);
         }
 
         if (module._topLevelCapability is not null)
@@ -544,7 +544,7 @@ public abstract class CyclicModule : Module
                 ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
-            module._topLevelCapability.Reject.Call(Undefined, new[] { error });
+            module._topLevelCapability.Reject.Call(Undefined, error);
         }
 
         return Undefined;

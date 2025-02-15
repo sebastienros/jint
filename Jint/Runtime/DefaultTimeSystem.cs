@@ -6,10 +6,10 @@ namespace Jint.Runtime;
 
 public class DefaultTimeSystem : ITimeSystem
 {
-    private static readonly string[] _defaultFormats = { "yyyy-MM-dd", "yyyy-MM", "yyyy" };
+    private static readonly string[] _defaultFormats = ["yyyy-MM-dd", "yyyy-MM", "yyyy"];
 
     private static readonly string[] _secondaryFormats =
-    {
+    [
         "yyyy-MM-ddTHH:mm:ss.FFF",
         "yyyy-MM-ddTHH:mm:ss",
         "yyyy-MM-ddTHH:mm",
@@ -41,7 +41,7 @@ public class DefaultTimeSystem : ITimeSystem
         "THH:mm:ssK",
         "THH:mmK",
         "THHK"
-    };
+    ];
 
     private readonly CultureInfo _parsingCulture;
 

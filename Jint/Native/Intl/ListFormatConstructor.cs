@@ -26,7 +26,7 @@ internal sealed class ListFormatConstructor : Constructor
 
     public ListFormatPrototype PrototypeObject { get; }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         throw new NotImplementedException();
     }

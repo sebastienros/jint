@@ -254,7 +254,7 @@ public sealed class JsonSerializer
             {
                 if (toJson.AsObject() is ICallable callableToJson)
                 {
-                    value = callableToJson.Call(value, Arguments.From(TypeConverter.ToPropertyKey(key)));
+                    value = callableToJson.Call(value, TypeConverter.ToPropertyKey(key));
                 }
             }
         }
@@ -262,7 +262,7 @@ public sealed class JsonSerializer
         if (!_replacerFunction.IsUndefined())
         {
             var replacerFunctionCallable = (ICallable) _replacerFunction.AsObject();
-            value = replacerFunctionCallable.Call(holder, Arguments.From(TypeConverter.ToPropertyKey(key), value));
+            value = replacerFunctionCallable.Call(holder, TypeConverter.ToPropertyKey(key), value);
         }
 
         if (value.IsObject())

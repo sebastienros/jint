@@ -41,7 +41,7 @@ internal sealed class ErrorPrototype : ErrorInstance
         SetProperties(properties);
     }
 
-    public JsValue ToString(JsValue thisObject, JsValue[] arguments)
+    public JsValue ToString(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject.TryCast<ObjectInstance>();
         if (o is null)

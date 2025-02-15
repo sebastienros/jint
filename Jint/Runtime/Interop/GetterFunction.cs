@@ -17,7 +17,7 @@ internal sealed class GetterFunction: Function
         _getter = getter;
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         return _getter(thisObject);
     }

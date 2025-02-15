@@ -53,7 +53,7 @@ internal sealed class NumberConstructor : Constructor
         SetProperties(properties);
     }
 
-    private static JsValue IsFinite(JsValue thisObject, JsValue[] arguments)
+    private static JsValue IsFinite(JsValue thisObject, JsCallArguments arguments)
     {
         if (!(arguments.At(0) is JsNumber num))
         {
@@ -63,7 +63,7 @@ internal sealed class NumberConstructor : Constructor
         return double.IsInfinity(num._value) || double.IsNaN(num._value) ? JsBoolean.False : JsBoolean.True;
     }
 
-    private static JsValue IsInteger(JsValue thisObject, JsValue[] arguments)
+    private static JsValue IsInteger(JsValue thisObject, JsCallArguments arguments)
     {
         if (!(arguments.At(0) is JsNumber num))
         {
@@ -80,7 +80,7 @@ internal sealed class NumberConstructor : Constructor
         return integer == num._value;
     }
 
-    private static JsValue IsNaN(JsValue thisObject, JsValue[] arguments)
+    private static JsValue IsNaN(JsValue thisObject, JsCallArguments arguments)
     {
         if (!(arguments.At(0) is JsNumber num))
         {
@@ -90,7 +90,7 @@ internal sealed class NumberConstructor : Constructor
         return double.IsNaN(num._value);
     }
 
-    private static JsValue IsSafeInteger(JsValue thisObject, JsValue[] arguments)
+    private static JsValue IsSafeInteger(JsValue thisObject, JsCallArguments arguments)
     {
         if (!(arguments.At(0) is JsNumber num))
         {
@@ -112,7 +112,7 @@ internal sealed class NumberConstructor : Constructor
         return System.Math.Abs(integer) <= MaxSafeInteger;
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         var n = ProcessFirstParameter(arguments);
         return n;
@@ -121,7 +121,7 @@ internal sealed class NumberConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-number-constructor-number-value
     /// </summary>
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         var n = ProcessFirstParameter(arguments);
 
@@ -137,7 +137,7 @@ internal sealed class NumberConstructor : Constructor
         return o;
     }
 
-    private static JsNumber ProcessFirstParameter(JsValue[] arguments)
+    private static JsNumber ProcessFirstParameter(JsCallArguments arguments)
     {
         var n = JsNumber.PositiveZero;
         if (arguments.Length > 0)

@@ -101,7 +101,7 @@ internal sealed class MethodInfoFunction : Function
         }
     }
 
-    private static MethodBase ResolveMethod(MethodBase method, ParameterInfo[] methodParameters, JsValue[] arguments)
+    private static MethodBase ResolveMethod(MethodBase method, ParameterInfo[] methodParameters, JsCallArguments arguments)
     {
         if (!method.IsGenericMethod)
         {
@@ -143,7 +143,7 @@ internal sealed class MethodInfoFunction : Function
         return genericMethodInfo;
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] jsArguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments jsArguments)
     {
         JsValue[] ArgumentProvider(MethodDescriptor method)
         {
@@ -259,28 +259,28 @@ internal sealed class MethodInfoFunction : Function
     /// <summary>
     /// Reduces a flat list of parameters to a params array, if needed
     /// </summary>
-    private JsValue[] ProcessParamsArrays(JsValue[] jsArguments, MethodDescriptor methodInfo)
+    private JsValue[] ProcessParamsArrays(JsCallArguments arguments, MethodDescriptor methodInfo)
     {
         var parameters = methodInfo.Parameters;
 
         var nonParamsArgumentsCount = parameters.Length - 1;
-        if (jsArguments.Length < nonParamsArgumentsCount)
+        if (arguments.Length < nonParamsArgumentsCount)
         {
-            return jsArguments;
+            return arguments;
         }
 
-        var argsToTransform = jsArguments.Skip(nonParamsArgumentsCount);
+        var argsToTransform = arguments.Skip(nonParamsArgumentsCount);
 
         if (argsToTransform.Length == 1 && argsToTransform[0].IsArray())
         {
-            return jsArguments;
+            return arguments;
         }
 
         var jsArray = new JsArray(_engine, argsToTransform);
         var newArgumentsCollection = new JsValue[nonParamsArgumentsCount + 1];
         for (var j = 0; j < nonParamsArgumentsCount; ++j)
         {
-            newArgumentsCollection[j] = jsArguments[j];
+            newArgumentsCollection[j] = arguments[j];
         }
 
         newArgumentsCollection[nonParamsArgumentsCount] = jsArray;

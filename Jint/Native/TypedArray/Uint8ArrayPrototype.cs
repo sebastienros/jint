@@ -38,7 +38,7 @@ internal sealed class Uint8ArrayPrototype : Prototype
         SetProperties(properties);
     }
 
-    private JsObject SetFromBase64(JsValue thisObject, JsValue[] arguments)
+    private JsObject SetFromBase64(JsValue thisObject, JsCallArguments arguments)
     {
         var into = ValidateUint8Array(thisObject);
         var s = arguments.At(0);
@@ -87,7 +87,7 @@ internal sealed class Uint8ArrayPrototype : Prototype
         }
     }
 
-    private JsObject SetFromHex(JsValue thisObject, JsValue[] arguments)
+    private JsObject SetFromHex(JsValue thisObject, JsCallArguments arguments)
     {
         var into = ValidateUint8Array(thisObject);
         var s = arguments.At(0);
@@ -118,7 +118,7 @@ internal sealed class Uint8ArrayPrototype : Prototype
         return resultObject;
     }
 
-    private JsValue ToBase64(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToBase64(JsValue thisObject, JsCallArguments arguments)
     {
        var o = ValidateUint8Array(thisObject);
 
@@ -149,7 +149,7 @@ internal sealed class Uint8ArrayPrototype : Prototype
         return outAscii;
     }
 
-    private JsValue ToHex(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToHex(JsValue thisObject, JsCallArguments arguments)
     {
         var o = ValidateUint8Array(thisObject);
         var toEncode = GetUint8ArrayBytes(o);

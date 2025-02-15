@@ -311,7 +311,7 @@ public sealed class ShadowRealm : ObjectInstance
             SetFunctionLength(JsNumber.PositiveOne);
         }
 
-        protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
         {
             var exports = (ModuleNamespace) arguments.At(0);
             var f = this;
@@ -360,7 +360,7 @@ public sealed class ShadowRealm : ObjectInstance
         /// <summary>
         /// https://tc39.es/proposal-shadowrealm/#sec-wrapped-function-exotic-objects-call-thisargument-argumentslist
         /// </summary>
-        protected internal override JsValue Call(JsValue thisArgument, JsValue[] arguments)
+        protected internal override JsValue Call(JsValue thisArgument, JsCallArguments arguments)
         {
             var target = _wrappedTargetFunction;
             var targetRealm = GetFunctionRealm(target);

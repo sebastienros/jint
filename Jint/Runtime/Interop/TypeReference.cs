@@ -51,13 +51,13 @@ public sealed class TypeReference : Constructor, IObjectWrapper
         return reference;
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         // direct calls on a TypeReference constructor object is equivalent to the new operator
         return Construct(arguments, Undefined);
     }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         static ObjectInstance ObjectCreator(Engine engine, Realm realm, ObjectCreateState state)
         {
@@ -208,7 +208,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
         return thisArgument;
     }
 
-    private readonly record struct ObjectCreateState(TypeReference TypeReference, JsValue[] Arguments);
+    private readonly record struct ObjectCreateState(TypeReference TypeReference, JsCallArguments Arguments);
 
     public override bool Equals(JsValue? other)
     {
@@ -340,7 +340,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
 
     public object Target => ReferenceType;
 
-    private static JsBoolean HasInstance(JsValue thisObject, JsValue[] arguments)
+    private static JsBoolean HasInstance(JsValue thisObject, JsCallArguments arguments)
     {
         var typeReference = thisObject as TypeReference;
         var other = arguments.At(0);

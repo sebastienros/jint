@@ -122,7 +122,7 @@ public partial class ObjectInstance
                 ExceptionHelper.ThrowTypeError(_engine.Realm, $"'#{property}' was defined without a setter");
             }
 
-            _engine.Call(setter, this, new[] { value });
+            _engine.Call(setter, this, [value]);
         }
     }
 

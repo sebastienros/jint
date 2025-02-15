@@ -49,20 +49,20 @@ internal sealed class WeakSetPrototype : Prototype
         SetSymbols(symbols);
     }
 
-    private JsValue Add(JsValue thisObject, JsValue[] arguments)
+    private JsValue Add(JsValue thisObject, JsCallArguments arguments)
     {
         var set = AssertWeakSetInstance(thisObject);
         set.WeakSetAdd(arguments.At(0));
         return thisObject;
     }
 
-    private JsValue Delete(JsValue thisObject, JsValue[] arguments)
+    private JsValue Delete(JsValue thisObject, JsCallArguments arguments)
     {
         var set = AssertWeakSetInstance(thisObject);
         return set.WeakSetDelete(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;
     }
 
-    private JsValue Has(JsValue thisObject, JsValue[] arguments)
+    private JsValue Has(JsValue thisObject, JsCallArguments arguments)
     {
         var set = AssertWeakSetInstance(thisObject);
         return set.WeakSetHas(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;

@@ -46,7 +46,7 @@ internal sealed class ArrayBufferPrototype : Prototype
         SetSymbols(symbols);
     }
 
-    private JsValue Detached(JsValue thisObject, JsValue[] arguments)
+    private JsValue Detached(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
@@ -60,7 +60,7 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.maxbytelength
     /// </summary>
-    private JsValue MaxByteLength(JsValue thisObject, JsValue[] arguments)
+    private JsValue MaxByteLength(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
@@ -83,7 +83,7 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.resizable
     /// </summary>
-    private JsValue Resizable(JsValue thisObject, JsValue[] arguments)
+    private JsValue Resizable(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
@@ -97,7 +97,7 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-arraybuffer.prototype.resize
     /// </summary>
-    private JsValue Resize(JsValue thisObject, JsValue[] arguments)
+    private JsValue Resize(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
@@ -118,7 +118,7 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.bytelength
     /// </summary>
-    private JsValue ByteLength(JsValue thisObject, JsValue[] arguments)
+    private JsValue ByteLength(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
@@ -137,7 +137,7 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-arraybuffer.prototype.slice
     /// </summary>
-    private JsValue Slice(JsValue thisObject, JsValue[] arguments)
+    private JsValue Slice(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
@@ -178,7 +178,7 @@ internal sealed class ArrayBufferPrototype : Prototype
 
         var newLen = System.Math.Max(final - first, 0);
         var ctor = SpeciesConstructor(o, _realm.Intrinsics.ArrayBuffer);
-        var bufferInstance = Construct(ctor, new JsValue[] { JsNumber.Create(newLen) }) as JsArrayBuffer;
+        var bufferInstance = Construct(ctor, [JsNumber.Create(newLen)]) as JsArrayBuffer;
 
         if (bufferInstance is null)
         {
@@ -221,7 +221,7 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-arraybuffer-transfer/#sec-arraybuffer.prototype.transfer
     /// </summary>
-    private JsValue Transfer(JsValue thisObject, JsValue[] arguments)
+    private JsValue Transfer(JsValue thisObject, JsCallArguments arguments)
     {
         return ArrayBufferCopyAndDetach(thisObject, arguments.At(0), PreserveResizability.PreserveResizability);
     }
@@ -229,7 +229,7 @@ internal sealed class ArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-arraybuffer-transfer/#sec-arraybuffer.prototype.transfertofixedlength
     /// </summary>
-    private JsValue TransferToFixedLength(JsValue thisObject, JsValue[] arguments)
+    private JsValue TransferToFixedLength(JsValue thisObject, JsCallArguments arguments)
     {
         return ArrayBufferCopyAndDetach(thisObject, arguments.At(0), PreserveResizability.FixedLength);
     }

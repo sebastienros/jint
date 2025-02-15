@@ -20,7 +20,7 @@ public partial class Function
         ObjectInstance constructor,
         JsValue newTarget,
         FunctionKind kind,
-        JsValue[] arguments)
+        JsCallArguments arguments)
     {
         // TODO var callerContext = _engine.GetExecutionContext(1);
         var callerContext = _engine.ExecutionContext;

@@ -26,7 +26,7 @@ internal sealed class IteratorResult : ObjectInstance
     public static IteratorResult CreateKeyValueIteratorPosition(Engine engine, JsValue? key = null, JsValue? value = null)
     {
         var done = key is null && value is null;
-        var array = done ? Undefined : new JsArray(engine, new[] { key!, value! });
+        var array = done ? Undefined : new JsArray(engine, [key!, value!]);
 
         return new IteratorResult(engine, array, JsBoolean.Create(done));
     }

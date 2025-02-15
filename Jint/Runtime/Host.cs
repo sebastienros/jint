@@ -156,11 +156,11 @@ public class Host
             try
             {
                 var ns = Module.GetModuleNamespace(moduleRecord);
-                payload.Resolve.Call(JsValue.Undefined, new JsValue[] { ns });
+                payload.Resolve.Call(JsValue.Undefined, ns);
             }
             catch (JavaScriptException ex)
             {
-                payload.Reject.Call(JsValue.Undefined, new [] { ex.Error });
+                payload.Reject.Call(JsValue.Undefined, ex.Error);
             }
             return JsValue.Undefined;
         }, 0, PropertyFlag.Configurable);
@@ -168,7 +168,7 @@ public class Host
         var onRejected = new ClrFunction(Engine, "", (thisObj, args) =>
         {
             var error = args.At(0);
-            payload.Reject.Call(JsValue.Undefined, new [] { error });
+            payload.Reject.Call(JsValue.Undefined, error);
             return JsValue.Undefined;
         }, 0, PropertyFlag.Configurable);
 

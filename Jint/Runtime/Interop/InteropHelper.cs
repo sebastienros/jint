@@ -237,7 +237,7 @@ internal sealed class InteropHelper
     /// Method's match score tells how far away it's from ideal candidate. 0 = ideal, bigger the the number,
     /// the farther away the candidate is from ideal match. Negative signals impossible match.
     /// </summary>
-    private static int CalculateMethodScore(Engine engine, MethodDescriptor method, JsValue[] arguments)
+    private static int CalculateMethodScore(Engine engine, MethodDescriptor method, JsCallArguments arguments)
     {
         if (method.Parameters.Length == 0 && arguments.Length == 0)
         {
@@ -292,7 +292,7 @@ internal sealed class InteropHelper
     }
 
 
-    internal readonly record struct MethodMatch(MethodDescriptor Method, JsValue[] Arguments, int Score = 0) : IComparable<MethodMatch>
+    internal readonly record struct MethodMatch(MethodDescriptor Method, JsCallArguments Arguments, int Score = 0) : IComparable<MethodMatch>
     {
         public int CompareTo(MethodMatch other) => Score.CompareTo(other.Score);
     }

@@ -47,26 +47,26 @@ internal sealed class WeakMapPrototype : Prototype
         SetSymbols(symbols);
     }
 
-    private JsValue Get(JsValue thisObject, JsValue[] arguments)
+    private JsValue Get(JsValue thisObject, JsCallArguments arguments)
     {
         var map = AssertWeakMapInstance(thisObject);
         return map.WeakMapGet(arguments.At(0));
     }
 
-    private JsValue Delete(JsValue thisObject, JsValue[] arguments)
+    private JsValue Delete(JsValue thisObject, JsCallArguments arguments)
     {
         var map = AssertWeakMapInstance(thisObject);
         return arguments.Length > 0 && map.WeakMapDelete(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;
     }
 
-    private JsValue Set(JsValue thisObject, JsValue[] arguments)
+    private JsValue Set(JsValue thisObject, JsCallArguments arguments)
     {
         var map = AssertWeakMapInstance(thisObject);
         map.WeakMapSet(arguments.At(0), arguments.At(1));
         return thisObject;
     }
 
-    private JsValue Has(JsValue thisObject, JsValue[] arguments)
+    private JsValue Has(JsValue thisObject, JsCallArguments arguments)
     {
         var map = AssertWeakMapInstance(thisObject);
         return map.WeakMapHas(arguments.At(0)) ? JsBoolean.True : JsBoolean.False;

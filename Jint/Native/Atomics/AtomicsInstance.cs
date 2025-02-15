@@ -32,7 +32,7 @@ internal sealed class AtomicsInstance : ObjectInstance
         SetProperties(properties);
     }
 
-    private JsValue Pause(JsValue thisObject, JsValue[] arguments)
+    private JsValue Pause(JsValue thisObject, JsCallArguments arguments)
     {
         var iterationNumber = arguments.At(0);
         if (!iterationNumber.IsUndefined())

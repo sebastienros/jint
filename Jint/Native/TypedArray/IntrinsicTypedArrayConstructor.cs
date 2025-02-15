@@ -48,7 +48,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.from
     /// </summary>
-    private JsValue From(JsValue thisObject, JsValue[] arguments)
+    private JsValue From(JsValue thisObject, JsCallArguments arguments)
     {
         var c = thisObject;
         if (!c.IsConstructor)
@@ -74,12 +74,12 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
         {
             var values = TypedArrayConstructor.IterableToList(_realm, source, usingIterator);
             var iteratorLen = values.Count;
-            var iteratorTarget = TypedArrayCreate(_realm, (IConstructor) c, new JsValue[] { iteratorLen });
+            var iteratorTarget = TypedArrayCreate(_realm, (IConstructor) c, [iteratorLen]);
             for (var k = 0; k < iteratorLen; ++k)
             {
                 var kValue = values[k];
                 var mappedValue = mapping
-                    ? ((ICallable) mapFunction).Call(thisArg, new[] { kValue, k })
+                    ? ((ICallable) mapFunction).Call(thisArg, kValue, k)
                     : kValue;
                 iteratorTarget[k] = mappedValue;
             }
@@ -124,21 +124,21 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-%typedarray%.of
     /// </summary>
-    private JsValue Of(JsValue thisObject, JsValue[] items)
+    private JsValue Of(JsValue thisObject, JsCallArguments arguments)
     {
-        var len = items.Length;
+        var len = arguments.Length;
 
         if (!thisObject.IsConstructor)
         {
             ExceptionHelper.ThrowTypeError(_realm);
         }
 
-        var newObj = TypedArrayCreate(_realm, (IConstructor) thisObject, new JsValue[] { len });
+        var newObj = TypedArrayCreate(_realm, (IConstructor) thisObject, [len]);
 
         var k = 0;
         while (k < len)
         {
-            var kValue = items[k];
+            var kValue = arguments[k];
             newObj[k] = kValue;
             k++;
         }
@@ -149,7 +149,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#typedarray-species-create
     /// </summary>
-    internal JsTypedArray TypedArraySpeciesCreate(JsTypedArray exemplar, JsValue[] argumentList)
+    internal JsTypedArray TypedArraySpeciesCreate(JsTypedArray exemplar, JsCallArguments argumentList)
     {
         var defaultConstructor = exemplar._arrayElementType.GetConstructor(_realm.Intrinsics)!;
         var constructor = SpeciesConstructor(exemplar, defaultConstructor);
@@ -165,12 +165,12 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#typedarray-create
     /// </summary>
-    internal static JsTypedArray TypedArrayCreate(Realm realm, IConstructor constructor, JsValue[] argumentList)
+    internal static JsTypedArray TypedArrayCreate(Realm realm, IConstructor constructor, JsCallArguments arguments)
     {
-        var newTypedArray = Construct(constructor, argumentList);
+        var newTypedArray = Construct(constructor, arguments);
         var taRecord = newTypedArray.ValidateTypedArray(realm);
 
-        if (argumentList.Length == 1 && argumentList[0] is JsNumber number)
+        if (arguments.Length == 1 && arguments[0] is JsNumber number)
         {
             if (taRecord.IsTypedArrayOutOfBounds)
             {
@@ -185,18 +185,18 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
         return taRecord.Object;
     }
 
-    private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Species(JsValue thisObject, JsCallArguments arguments)
     {
         return thisObject;
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         ExceptionHelper.ThrowTypeError(_realm, "Abstract class TypedArray not directly callable");
         return Undefined;
     }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         ExceptionHelper.ThrowTypeError(_realm, "Abstract class TypedArray not directly constructable");
         return null;

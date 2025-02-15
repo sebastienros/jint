@@ -28,12 +28,12 @@ public sealed class FunctionConstructor : Constructor
 
     internal FunctionPrototype PrototypeObject { get; }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         return Construct(arguments, thisObject);
     }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         var function = CreateDynamicFunction(
             this,

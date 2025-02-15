@@ -38,7 +38,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
         return array;
     }
 
-    private JsTypedArray FromBase64(JsValue thisObject, JsValue[] arguments)
+    private JsTypedArray FromBase64(JsValue thisObject, JsCallArguments arguments)
     {
         var s = arguments.At(0);
 
@@ -293,7 +293,7 @@ public sealed class Uint8ArrayConstructor : TypedArrayConstructor
         into.AddRange(bytes);
     }
 
-    private JsTypedArray FromHex(JsValue thisObject, JsValue[] arguments)
+    private JsTypedArray FromHex(JsValue thisObject, JsCallArguments arguments)
     {
         var s = arguments.At(0);
 

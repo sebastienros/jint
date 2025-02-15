@@ -44,7 +44,7 @@ internal sealed class SharedArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-sharedarraybuffer.prototype.bytelength
     /// </summary>
-    private JsNumber ByteLength(JsValue thisObj, JsValue[] arguments)
+    private JsNumber ByteLength(JsValue thisObj, JsCallArguments arguments)
     {
         var o = thisObj as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
@@ -58,7 +58,7 @@ internal sealed class SharedArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-sharedarraybuffer.prototype.slice
     /// </summary>
-    private JsSharedArrayBuffer Slice(JsValue thisObj, JsValue[] arguments)
+    private JsSharedArrayBuffer Slice(JsValue thisObj, JsCallArguments arguments)
     {
         var o = thisObj as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
@@ -99,7 +99,7 @@ internal sealed class SharedArrayBufferPrototype : Prototype
 
         var newLen = System.Math.Max(final - first, 0);
         var ctor = SpeciesConstructor(o, _realm.Intrinsics.SharedArrayBuffer);
-        var bufferInstance = Construct(ctor, new JsValue[] { JsNumber.Create(newLen) }) as JsSharedArrayBuffer;
+        var bufferInstance = Construct(ctor, [JsNumber.Create(newLen)]) as JsSharedArrayBuffer;
 
         if (bufferInstance is null)
         {
@@ -142,7 +142,7 @@ internal sealed class SharedArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-sharedarraybuffer.prototype.growable
     /// </summary>
-    private JsValue Growable(JsValue thisObject, JsValue[] arguments)
+    private JsValue Growable(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
@@ -156,7 +156,7 @@ internal sealed class SharedArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-sharedarraybuffer.prototype.grow
     /// </summary>
-    private JsValue Grow(JsValue thisObject, JsValue[] arguments)
+    private JsValue Grow(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)
@@ -177,7 +177,7 @@ internal sealed class SharedArrayBufferPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-sharedarraybuffer.prototype.maxbytelength
     /// </summary>
-    private JsValue MaxByteLength(JsValue thisObject, JsValue[] arguments)
+    private JsValue MaxByteLength(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsSharedArrayBuffer;
         if (o is null || !o.IsSharedArrayBuffer)

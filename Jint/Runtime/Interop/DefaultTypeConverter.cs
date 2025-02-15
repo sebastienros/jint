@@ -382,7 +382,7 @@ public class DefaultTypeConverter : ITypeConverter
         {
             try
             {
-                converted = castOperator.Invoke(null, new[] { value });
+                converted = castOperator.Invoke(null, [value]);
                 return converted is not null;
             }
             catch

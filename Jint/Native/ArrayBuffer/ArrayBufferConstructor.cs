@@ -62,7 +62,7 @@ public sealed class ArrayBufferConstructor : Constructor
         return AllocateArrayBuffer(this, byteLength, maxByteLength);
     }
 
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         if (newTarget.IsUndefined())
         {
@@ -80,7 +80,7 @@ public sealed class ArrayBufferConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-arraybuffer-@@species
     /// </summary>
-    private static JsValue Species(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Species(JsValue thisObject, JsCallArguments arguments)
     {
         return thisObject;
     }
@@ -88,7 +88,7 @@ public sealed class ArrayBufferConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-arraybuffer.isview
     /// </summary>
-    private static JsValue IsView(JsValue thisObject, JsValue[] arguments)
+    private static JsValue IsView(JsValue thisObject, JsCallArguments arguments)
     {
         var arg = arguments.At(0);
         return arg is JsDataView or JsTypedArray;

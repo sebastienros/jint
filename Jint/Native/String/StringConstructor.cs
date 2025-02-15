@@ -48,7 +48,7 @@ internal sealed class StringConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.fromcharcode
     /// </summary>
-    private static JsValue FromCharCode(JsValue? thisObj, JsValue[] arguments)
+    private static JsValue FromCharCode(JsValue? thisObj, JsCallArguments arguments)
     {
         var length = arguments.Length;
 
@@ -79,7 +79,7 @@ internal sealed class StringConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.fromcodepoint
     /// </summary>
-    private JsValue FromCodePoint(JsValue thisObject, JsValue[] arguments)
+    private JsValue FromCodePoint(JsValue thisObject, JsCallArguments arguments)
     {
         JsNumber codePoint;
         using var result = new ValueStringBuilder(stackalloc char[128]);
@@ -131,7 +131,7 @@ internal sealed class StringConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.raw
     /// </summary>
-    private JsValue Raw(JsValue thisObject, JsValue[] arguments)
+    private JsValue Raw(JsValue thisObject, JsCallArguments arguments)
     {
         var cooked = TypeConverter.ToObject(_realm, arguments.At(0));
         var raw = cooked.Get(JintTaggedTemplateExpression.PropertyRaw);
@@ -160,7 +160,7 @@ internal sealed class StringConstructor : Constructor
         return result.ToString();
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         if (arguments.Length == 0)
         {
@@ -178,7 +178,7 @@ internal sealed class StringConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string-constructor-string-value
     /// </summary>
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         JsString s;
         if (arguments.Length == 0)

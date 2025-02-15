@@ -37,12 +37,12 @@ public sealed class RegExpConstructor : Constructor
         SetSymbols(symbols);
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         return Construct(arguments, thisObject);
     }
 
-    public ObjectInstance Construct(JsValue[] arguments)
+    public ObjectInstance Construct(JsCallArguments arguments)
     {
         return Construct(arguments, this);
     }
@@ -50,7 +50,7 @@ public sealed class RegExpConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-regexp-pattern-flags
     /// </summary>
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         var pattern = arguments.At(0);
         var flags = arguments.At(1);

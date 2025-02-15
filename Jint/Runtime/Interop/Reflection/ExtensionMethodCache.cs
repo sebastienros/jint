@@ -53,7 +53,7 @@ internal sealed class ExtensionMethodCache
     {
         if (_allExtensionMethods.Count == 0)
         {
-            methods = Array.Empty<MethodInfo>();
+            methods = [];
             return false;
         }
 

@@ -40,7 +40,7 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public JsValue[] BoundArguments { get; }
 
-    JsValue ICallable.Call(JsValue thisObject, JsValue[] arguments)
+    JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments)
     {
         var f = BoundTargetFunction as Function;
         if (f is null)
@@ -55,7 +55,7 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         return value;
     }
 
-    ObjectInstance IConstructor.Construct(JsValue[] arguments, JsValue newTarget)
+    ObjectInstance IConstructor.Construct(JsCallArguments arguments, JsValue newTarget)
     {
         var target = BoundTargetFunction as IConstructor;
         if (target is null)
@@ -87,7 +87,7 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         return f.OrdinaryHasInstance(v);
     }
 
-    private JsValue[] CreateArguments(JsValue[] arguments)
+    private JsValue[] CreateArguments(JsCallArguments arguments)
     {
         var combined = _engine._jsValueArrayPool.RentArray(BoundArguments.Length + arguments.Length);
         System.Array.Copy(BoundArguments, combined, BoundArguments.Length);

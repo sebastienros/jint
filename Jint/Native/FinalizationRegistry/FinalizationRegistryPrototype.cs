@@ -42,7 +42,7 @@ internal sealed class FinalizationRegistryPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-finalization-registry.prototype.register
     /// </summary>
-    private JsValue Register(JsValue thisObject, JsValue[] arguments)
+    private JsValue Register(JsValue thisObject, JsCallArguments arguments)
     {
         var finalizationRegistry = AssertFinalizationRegistryInstance(thisObject);
 
@@ -76,7 +76,7 @@ internal sealed class FinalizationRegistryPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-finalization-registry.prototype.unregister
     /// </summary>
-    private JsValue Unregister(JsValue thisObject, JsValue[] arguments)
+    private JsValue Unregister(JsValue thisObject, JsCallArguments arguments)
     {
         var finalizationRegistry = AssertFinalizationRegistryInstance(thisObject);
 

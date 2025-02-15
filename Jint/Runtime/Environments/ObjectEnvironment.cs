@@ -177,7 +177,7 @@ internal sealed class ObjectEnvironment : Environment
             return names.ToArray();
         }
 
-        return Array.Empty<string>();
+        return [];
     }
 
     public override bool Equals(JsValue? other)

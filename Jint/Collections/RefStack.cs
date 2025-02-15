@@ -106,7 +106,7 @@ internal sealed class RefStack<T> : IEnumerable<T> where T : struct
             }
             else
             {
-                _array = Array.Empty<T>();
+                _array = [];
             }
         }
     }

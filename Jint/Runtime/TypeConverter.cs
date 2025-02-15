@@ -56,7 +56,7 @@ public static class TypeConverter
                 _ => JsString.DefaultString
             };
 
-            var str = exoticToPrim.Call(oi, new JsValue[] { hint });
+            var str = exoticToPrim.Call(oi, hint);
             if (str.IsPrimitive())
             {
                 return str;

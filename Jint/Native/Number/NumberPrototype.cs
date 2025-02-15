@@ -51,7 +51,7 @@ internal sealed class NumberPrototype : NumberInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-number.prototype.tolocalestring
     /// </summary>
-    private JsValue ToLocaleString(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToLocaleString(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsNumber() && thisObject is not NumberInstance)
         {
@@ -106,7 +106,7 @@ internal sealed class NumberPrototype : NumberInstance
         return m.ToString("n", numberFormat);
     }
 
-    private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
+    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is NumberInstance ni)
         {
@@ -124,7 +124,7 @@ internal sealed class NumberPrototype : NumberInstance
 
     private const double Ten21 = 1e21;
 
-    private JsValue ToFixed(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToFixed(JsValue thisObject, JsCallArguments arguments)
     {
         var f = (int) TypeConverter.ToInteger(arguments.At(0, 0));
         if (f < 0 || f > 100)
@@ -162,7 +162,7 @@ internal sealed class NumberPrototype : NumberInstance
     /// <summary>
     /// https://www.ecma-international.org/ecma-262/6.0/#sec-number.prototype.toexponential
     /// </summary>
-    private JsValue ToExponential(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToExponential(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
         {
@@ -238,7 +238,7 @@ internal sealed class NumberPrototype : NumberInstance
         return result;
     }
 
-    private JsValue ToPrecision(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToPrecision(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
         {
@@ -358,7 +358,7 @@ internal sealed class NumberPrototype : NumberInstance
         return sb.ToString();
     }
 
-    private JsValue ToNumberString(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToNumberString(JsValue thisObject, JsCallArguments arguments)
     {
         if (!thisObject.IsNumber() && (ReferenceEquals(thisObject.TryCast<NumberInstance>(), null)))
         {

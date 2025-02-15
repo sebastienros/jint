@@ -39,7 +39,7 @@ internal sealed class DelegateWrapper : Function
         }
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         var parameterInfos = _d.Method.GetParameters();
 

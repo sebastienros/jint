@@ -22,7 +22,7 @@ public sealed partial class GlobalObject : ObjectInstance
         _realm = realm;
     }
 
-    private JsValue ToStringString(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToStringString(JsValue thisObject, JsCallArguments arguments)
     {
         return _realm.Intrinsics.Object.PrototypeObject.ToObjectString(thisObject, Arguments.Empty);
     }
@@ -30,7 +30,7 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-parseint-string-radix
     /// </summary>
-    internal static JsValue ParseInt(JsValue thisObject, JsValue[] arguments)
+    internal static JsValue ParseInt(JsValue thisObject, JsCallArguments arguments)
     {
         var inputString = TypeConverter.ToString(arguments.At(0));
         var trimmed = StringPrototype.TrimEx(inputString);
@@ -119,7 +119,7 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-parsefloat-string
     /// </summary>
-    internal static JsValue ParseFloat(JsValue thisObject, JsValue[] arguments)
+    internal static JsValue ParseFloat(JsValue thisObject, JsCallArguments arguments)
     {
         var inputString = TypeConverter.ToString(arguments.At(0));
         var trimmedString = StringPrototype.TrimStartEx(inputString);
@@ -240,7 +240,7 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.4
     /// </summary>
-    private static JsValue IsNaN(JsValue thisObject, JsValue[] arguments)
+    private static JsValue IsNaN(JsValue thisObject, JsCallArguments arguments)
     {
         var value = arguments.At(0);
 
@@ -256,7 +256,7 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-15.1.2.5
     /// </summary>
-    private static JsValue IsFinite(JsValue thisObject, JsValue[] arguments)
+    private static JsValue IsFinite(JsValue thisObject, JsCallArguments arguments)
     {
         if (arguments.Length != 1)
         {
@@ -284,7 +284,7 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-encodeuri-uri
     /// </summary>
-    private JsValue EncodeUri(JsValue thisObject, JsValue[] arguments)
+    private JsValue EncodeUri(JsValue thisObject, JsCallArguments arguments)
     {
         var uriString = TypeConverter.ToString(arguments.At(0));
         return Encode(uriString, UnescapedUriSet);
@@ -293,7 +293,7 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-encodeuricomponent-uricomponent
     /// </summary>
-    private JsValue EncodeUriComponent(JsValue thisObject, JsValue[] arguments)
+    private JsValue EncodeUriComponent(JsValue thisObject, JsCallArguments arguments)
     {
         var uriString = TypeConverter.ToString(arguments.At(0));
 
@@ -394,14 +394,14 @@ public sealed partial class GlobalObject : ObjectInstance
         return JsEmpty.Instance;
     }
 
-    private JsValue DecodeUri(JsValue thisObject, JsValue[] arguments)
+    private JsValue DecodeUri(JsValue thisObject, JsCallArguments arguments)
     {
         var uriString = TypeConverter.ToString(arguments.At(0));
 
         return Decode(uriString, ReservedUriSet);
     }
 
-    private JsValue DecodeUriComponent(JsValue thisObject, JsValue[] arguments)
+    private JsValue DecodeUriComponent(JsValue thisObject, JsCallArguments arguments)
     {
         var componentString = TypeConverter.ToString(arguments.At(0));
 
@@ -581,7 +581,7 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-escape-string
     /// </summary>
-    private JsValue Escape(JsValue thisObject, JsValue[] arguments)
+    private JsValue Escape(JsValue thisObject, JsCallArguments arguments)
     {
         var uriString = TypeConverter.ToString(arguments.At(0));
 
@@ -611,7 +611,7 @@ public sealed partial class GlobalObject : ObjectInstance
     /// <summary>
     /// http://www.ecma-international.org/ecma-262/5.1/#sec-B.2.2
     /// </summary>
-    private JsValue Unescape(JsValue thisObject, JsValue[] arguments)
+    private JsValue Unescape(JsValue thisObject, JsCallArguments arguments)
     {
         var uriString = TypeConverter.ToString(arguments.At(0));
 
@@ -738,7 +738,7 @@ public sealed partial class GlobalObject : ObjectInstance
             return false;
         }
 
-        setter.Call(this, new[] {value});
+        setter.Call(this, value);
 
         return true;
     }

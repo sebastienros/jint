@@ -98,14 +98,14 @@ internal sealed class StringPrototype : StringInstance
 
     internal override bool HasOriginalIterator => ReferenceEquals(Get(GlobalSymbolRegistry.Iterator), _originalIteratorFunction);
 
-    private ObjectInstance Iterator(JsValue thisObject, JsValue[] arguments)
+    private ObjectInstance Iterator(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var str = TypeConverter.ToString(thisObject);
         return _realm.Intrinsics.StringIteratorPrototype.Construct(str);
     }
 
-    private JsValue ToStringString(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToStringString(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject.IsString())
         {
@@ -193,7 +193,7 @@ internal sealed class StringPrototype : StringInstance
     /// https://tc39.es/ecma262/#sec-string.prototype.trim
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private JsValue Trim(JsValue thisObject, JsValue[] arguments)
+    private JsValue Trim(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
@@ -207,7 +207,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.trimstart
     /// </summary>
-    private JsValue TrimStart(JsValue thisObject, JsValue[] arguments)
+    private JsValue TrimStart(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
@@ -221,7 +221,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.trimend
     /// </summary>
-    private JsValue TrimEnd(JsValue thisObject, JsValue[] arguments)
+    private JsValue TrimEnd(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
@@ -232,7 +232,7 @@ internal sealed class StringPrototype : StringInstance
         return TrimEndEx(s.ToString());
     }
 
-    private JsValue ToLocaleUpperCase(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToLocaleUpperCase(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
@@ -264,21 +264,21 @@ internal sealed class StringPrototype : StringInstance
         return new JsString(s.ToUpper(culture));
     }
 
-    private JsValue ToUpperCase(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToUpperCase(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
         return new JsString(s.ToUpperInvariant());
     }
 
-    private JsValue ToLocaleLowerCase(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToLocaleLowerCase(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
         return new JsString(s.ToLower(CultureInfo.InvariantCulture));
     }
 
-    private JsValue ToLowerCase(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToLowerCase(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
@@ -306,7 +306,7 @@ internal sealed class StringPrototype : StringInstance
         return intVal;
     }
 
-    private JsValue Substring(JsValue thisObject, JsValue[] arguments)
+    private JsValue Substring(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -348,7 +348,7 @@ internal sealed class StringPrototype : StringInstance
         return new JsString(s.Substring(from, length));
     }
 
-    private static JsValue Substr(JsValue thisObject, JsValue[] arguments)
+    private static JsValue Substr(JsValue thisObject, JsCallArguments arguments)
     {
         var s = TypeConverter.ToString(thisObject);
         var start = TypeConverter.ToInteger(arguments.At(0));
@@ -375,7 +375,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.split
     /// </summary>
-    private JsValue Split(JsValue thisObject, JsValue[] arguments)
+    private JsValue Split(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -393,7 +393,7 @@ internal sealed class StringPrototype : StringInstance
             var splitter = GetMethod(_realm, oi, GlobalSymbolRegistry.Split);
             if (splitter != null)
             {
-                return splitter.Call(separator, new[] { thisObject, limit });
+                return splitter.Call(separator, thisObject, limit);
             }
         }
 
@@ -468,7 +468,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/proposal-relative-indexing-method/#sec-string-prototype-additions
     /// </summary>
-    private JsValue At(JsValue thisObject, JsValue[] arguments)
+    private JsValue At(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var start = arguments.At(0);
@@ -496,7 +496,7 @@ internal sealed class StringPrototype : StringInstance
         return o[k];
     }
 
-    private JsValue Slice(JsValue thisObject, JsValue[] arguments)
+    private JsValue Slice(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -537,7 +537,7 @@ internal sealed class StringPrototype : StringInstance
         return s.Substring(from, span);
     }
 
-    private JsValue Search(JsValue thisObject, JsValue[] arguments)
+    private JsValue Search(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var regex = arguments.At(0);
@@ -547,19 +547,19 @@ internal sealed class StringPrototype : StringInstance
             var searcher = GetMethod(_realm, oi, GlobalSymbolRegistry.Search);
             if (searcher != null)
             {
-                return searcher.Call(regex, new[] { thisObject });
+                return searcher.Call(regex, thisObject);
             }
         }
 
         var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct(new[] {regex});
         var s = TypeConverter.ToJsString(thisObject);
-        return _engine.Invoke(rx, GlobalSymbolRegistry.Search, new JsValue[] { s });
+        return _engine.Invoke(rx, GlobalSymbolRegistry.Search, [s]);
     }
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.replace
     /// </summary>
-    private JsValue Replace(JsValue thisObject, JsValue[] arguments)
+    private JsValue Replace(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -611,7 +611,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.replaceall
     /// </summary>
-    private JsValue ReplaceAll(JsValue thisObject, JsValue[] arguments)
+    private JsValue ReplaceAll(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -706,7 +706,7 @@ internal sealed class StringPrototype : StringInstance
         return result.ToString();
     }
 
-    private JsValue Match(JsValue thisObject, JsValue[] arguments)
+    private JsValue Match(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -716,17 +716,17 @@ internal sealed class StringPrototype : StringInstance
             var matcher = GetMethod(_realm, oi, GlobalSymbolRegistry.Match);
             if (matcher != null)
             {
-                return matcher.Call(regex, new[] { thisObject });
+                return matcher.Call(regex, thisObject);
             }
         }
 
         var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct(new[] {regex});
 
         var s = TypeConverter.ToJsString(thisObject);
-        return _engine.Invoke(rx, GlobalSymbolRegistry.Match, new JsValue[] { s });
+        return _engine.Invoke(rx, GlobalSymbolRegistry.Match, [s]);
     }
 
-    private JsValue MatchAll(JsValue thisObject, JsValue[] arguments)
+    private JsValue MatchAll(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
 
@@ -745,17 +745,17 @@ internal sealed class StringPrototype : StringInstance
             var matcher = GetMethod(_realm, (ObjectInstance) regex, GlobalSymbolRegistry.MatchAll);
             if (matcher != null)
             {
-                return matcher.Call(regex, new[] { thisObject });
+                return matcher.Call(regex, thisObject);
             }
         }
 
         var s = TypeConverter.ToJsString(thisObject);
         var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct(new[] { regex, "g" });
 
-        return _engine.Invoke(rx, GlobalSymbolRegistry.MatchAll, new JsValue[] { s });
+        return _engine.Invoke(rx, GlobalSymbolRegistry.MatchAll, [s]);
     }
 
-    private JsValue LocaleCompare(JsValue thisObject, JsValue[] arguments)
+    private JsValue LocaleCompare(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -775,7 +775,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.lastindexof
     /// </summary>
-    private JsValue LastIndexOf(JsValue thisObject, JsValue[] arguments)
+    private JsValue LastIndexOf(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -831,7 +831,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.indexof
     /// </summary>
-    private JsValue IndexOf(JsValue thisObject, JsValue[] arguments)
+    private JsValue IndexOf(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -856,7 +856,7 @@ internal sealed class StringPrototype : StringInstance
         return s.IndexOf(searchStr, (int) pos);
     }
 
-    private JsValue Concat(JsValue thisObject, JsValue[] arguments)
+    private JsValue Concat(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -877,7 +877,7 @@ internal sealed class StringPrototype : StringInstance
         return jsString;
     }
 
-    private JsValue CharCodeAt(JsValue thisObject, JsValue[] arguments)
+    private JsValue CharCodeAt(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -894,7 +894,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.codepointat
     /// </summary>
-    private JsValue CodePointAt(JsValue thisObject, JsValue[] arguments)
+    private JsValue CodePointAt(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -939,7 +939,7 @@ internal sealed class StringPrototype : StringInstance
         return new CodePointResult(char.ConvertToUtf32(first, second), 2, false);
     }
 
-    private JsValue CharAt(JsValue thisObject, JsValue[] arguments)
+    private JsValue CharAt(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
@@ -952,7 +952,7 @@ internal sealed class StringPrototype : StringInstance
         return JsString.Create(s[(int) position]);
     }
 
-    private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
+    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject is StringInstance si)
         {
@@ -971,7 +971,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.padstart
     /// </summary>
-    private JsValue PadStart(JsValue thisObject, JsValue[] arguments)
+    private JsValue PadStart(JsValue thisObject, JsCallArguments arguments)
     {
         return StringPad(thisObject, arguments, true);
     }
@@ -979,7 +979,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.padend
     /// </summary>
-    private JsValue PadEnd(JsValue thisObject, JsValue[] arguments)
+    private JsValue PadEnd(JsValue thisObject, JsCallArguments arguments)
     {
         return StringPad(thisObject, arguments, false);
     }
@@ -987,7 +987,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-stringpad
     /// </summary>
-    private JsValue StringPad(JsValue thisObject, JsValue[] arguments, bool padStart)
+    private JsValue StringPad(JsValue thisObject, JsCallArguments arguments, bool padStart)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToJsString(thisObject);
@@ -1018,7 +1018,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.startswith
     /// </summary>
-    private JsValue StartsWith(JsValue thisObject, JsValue[] arguments)
+    private JsValue StartsWith(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -1050,7 +1050,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.endswith
     /// </summary>
-    private JsValue EndsWith(JsValue thisObject, JsValue[] arguments)
+    private JsValue EndsWith(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -1081,7 +1081,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.includes
     /// </summary>
-    private JsValue Includes(JsValue thisObject, JsValue[] arguments)
+    private JsValue Includes(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
 
@@ -1113,7 +1113,7 @@ internal sealed class StringPrototype : StringInstance
         return s.IndexOf(searchStr, (int) pos) > -1;
     }
 
-    private JsValue Normalize(JsValue thisObject, JsValue[] arguments)
+    private JsValue Normalize(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var str = TypeConverter.ToString(thisObject);
@@ -1154,7 +1154,7 @@ internal sealed class StringPrototype : StringInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.repeat
     /// </summary>
-    private JsValue Repeat(JsValue thisObject, JsValue[] arguments)
+    private JsValue Repeat(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(Engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
@@ -1186,7 +1186,7 @@ internal sealed class StringPrototype : StringInstance
         return sb.ToString();
     }
 
-    private JsValue IsWellFormed(JsValue thisObject, JsValue[] arguments)
+    private JsValue IsWellFormed(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);
@@ -1194,7 +1194,7 @@ internal sealed class StringPrototype : StringInstance
         return IsStringWellFormedUnicode(s);
     }
 
-    private JsValue ToWellFormed(JsValue thisObject, JsValue[] arguments)
+    private JsValue ToWellFormed(JsValue thisObject, JsCallArguments arguments)
     {
         TypeConverter.RequireObjectCoercible(_engine, thisObject);
         var s = TypeConverter.ToString(thisObject);

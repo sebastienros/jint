@@ -340,7 +340,7 @@ public class JsArrayBuffer : ObjectInstance
             ExceptionHelper.ThrowRangeError(_engine.Realm);
         }
 
-        var oldBlock = _arrayBufferData ?? System.Array.Empty<byte>();
+        var oldBlock = _arrayBufferData ?? [];
         var newBlock = CreateByteDataBlock(_engine.Realm, newByteLength);
         var copyLength = System.Math.Min(newByteLength, ArrayBufferByteLength);
 

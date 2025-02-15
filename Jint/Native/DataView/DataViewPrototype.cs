@@ -69,7 +69,7 @@ internal sealed class DataViewPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-dataview.prototype.buffer
     /// </summary>
-    private JsValue Buffer(JsValue thisObject, JsValue[] arguments)
+    private JsValue Buffer(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsDataView;
         if (o is null)
@@ -83,7 +83,7 @@ internal sealed class DataViewPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-dataview.prototype.bytelength
     /// </summary>
-    private JsValue ByteLength(JsValue thisObject, JsValue[] arguments)
+    private JsValue ByteLength(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsDataView;
         if (o is null)
@@ -106,7 +106,7 @@ internal sealed class DataViewPrototype : Prototype
     /// <summary>
     /// https://tc39.es/ecma262/#sec-get-dataview.prototype.byteoffset
     /// </summary>
-    private JsValue ByteOffset(JsValue thisObject, JsValue[] arguments)
+    private JsValue ByteOffset(JsValue thisObject, JsCallArguments arguments)
     {
         var o = thisObject as JsDataView;
         if (o is null)
@@ -126,112 +126,112 @@ internal sealed class DataViewPrototype : Prototype
         return JsNumber.Create(o._byteOffset);
     }
 
-    private JsValue GetBigInt64(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetBigInt64(JsValue thisObject, JsCallArguments arguments)
     {
         return GetViewValue(thisObject, arguments.At(0), arguments.At(1), TypedArrayElementType.BigInt64);
     }
 
-    private JsValue GetBigUint64(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetBigUint64(JsValue thisObject, JsCallArguments arguments)
     {
         return GetViewValue(thisObject, arguments.At(0), arguments.At(1), TypedArrayElementType.BigUint64);
     }
 
-    private JsValue GetFloat16(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetFloat16(JsValue thisObject, JsCallArguments arguments)
     {
         return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Float16);
     }
 
-    private JsValue GetFloat32(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetFloat32(JsValue thisObject, JsCallArguments arguments)
     {
         return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Float32);
     }
 
-    private JsValue GetFloat64(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetFloat64(JsValue thisObject, JsCallArguments arguments)
     {
         return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Float64);
     }
 
-    private JsValue GetInt8(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetInt8(JsValue thisObject, JsCallArguments arguments)
     {
         return GetViewValue(thisObject, arguments.At(0), JsBoolean.True, TypedArrayElementType.Int8);
     }
 
-    private JsValue GetInt16(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetInt16(JsValue thisObject, JsCallArguments arguments)
     {
         return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Int16);
     }
 
-    private JsValue GetInt32(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetInt32(JsValue thisObject, JsCallArguments arguments)
     {
         return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Int32);
     }
 
-    private JsValue GetUint8(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetUint8(JsValue thisObject, JsCallArguments arguments)
     {
         return GetViewValue(thisObject, arguments.At(0), JsBoolean.True, TypedArrayElementType.Uint8);
     }
 
-    private JsValue GetUint16(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetUint16(JsValue thisObject, JsCallArguments arguments)
     {
         return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Uint16);
     }
 
-    private JsValue GetUint32(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetUint32(JsValue thisObject, JsCallArguments arguments)
     {
         return GetViewValue(thisObject, arguments.At(0), arguments.At(1, JsBoolean.False), TypedArrayElementType.Uint32);
     }
 
-    private JsValue SetBigInt64(JsValue thisObject, JsValue[] arguments)
+    private JsValue SetBigInt64(JsValue thisObject, JsCallArguments arguments)
     {
         return SetViewValue(thisObject, arguments.At(0), arguments.At(2), TypedArrayElementType.BigInt64, arguments.At(1));
     }
 
-    private JsValue SetBigUint64(JsValue thisObject, JsValue[] arguments)
+    private JsValue SetBigUint64(JsValue thisObject, JsCallArguments arguments)
     {
         return SetViewValue(thisObject, arguments.At(0), arguments.At(2), TypedArrayElementType.BigUint64, arguments.At(1));
     }
 
-    private JsValue SetFloat16(JsValue thisObject, JsValue[] arguments)
+    private JsValue SetFloat16(JsValue thisObject, JsCallArguments arguments)
     {
         return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Float16, arguments.At(1));
     }
 
-    private JsValue SetFloat32(JsValue thisObject, JsValue[] arguments)
+    private JsValue SetFloat32(JsValue thisObject, JsCallArguments arguments)
     {
         return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Float32, arguments.At(1));
     }
 
-    private JsValue SetFloat64(JsValue thisObject, JsValue[] arguments)
+    private JsValue SetFloat64(JsValue thisObject, JsCallArguments arguments)
     {
         return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Float64, arguments.At(1));
     }
 
-    private JsValue SetInt8(JsValue thisObject, JsValue[] arguments)
+    private JsValue SetInt8(JsValue thisObject, JsCallArguments arguments)
     {
         return SetViewValue(thisObject, arguments.At(0), JsBoolean.True, TypedArrayElementType.Int8, arguments.At(1));
     }
 
-    private JsValue SetInt16(JsValue thisObject, JsValue[] arguments)
+    private JsValue SetInt16(JsValue thisObject, JsCallArguments arguments)
     {
         return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Int16, arguments.At(1));
     }
 
-    private JsValue SetInt32(JsValue thisObject, JsValue[] arguments)
+    private JsValue SetInt32(JsValue thisObject, JsCallArguments arguments)
     {
         return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Int32, arguments.At(1));
     }
 
-    private JsValue SetUint8(JsValue thisObject, JsValue[] arguments)
+    private JsValue SetUint8(JsValue thisObject, JsCallArguments arguments)
     {
         return SetViewValue(thisObject, arguments.At(0), JsBoolean.True, TypedArrayElementType.Uint8, arguments.At(1));
     }
 
-    private JsValue SetUint16(JsValue thisObject, JsValue[] arguments)
+    private JsValue SetUint16(JsValue thisObject, JsCallArguments arguments)
     {
         return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Uint16, arguments.At(1));
     }
 
-    private JsValue SetUint32(JsValue thisObject, JsValue[] arguments)
+    private JsValue SetUint32(JsValue thisObject, JsCallArguments arguments)
     {
         return SetViewValue(thisObject, arguments.At(0), arguments.At(2, JsBoolean.False), TypedArrayElementType.Uint32, arguments.At(1));
     }

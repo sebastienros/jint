@@ -212,7 +212,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
             ExceptionHelper.ThrowInvalidOperationException("Indexer has no public setter.");
         }
 
-        object?[] parameters = { _key, value };
+        object?[] parameters = [_key, value];
         _setter.Invoke(target, parameters);
     }
 

@@ -36,7 +36,7 @@ internal sealed class BooleanPrototype : BooleanInstance
         SetProperties(properties);
     }
 
-    private JsValue ValueOf(JsValue thisObject, JsValue[] arguments)
+    private JsValue ValueOf(JsValue thisObject, JsCallArguments arguments)
     {
         if (thisObject._type == InternalTypes.Boolean)
         {
@@ -52,7 +52,7 @@ internal sealed class BooleanPrototype : BooleanInstance
         return Undefined;
     }
 
-    private JsString ToBooleanString(JsValue thisObject, JsValue[] arguments)
+    private JsString ToBooleanString(JsValue thisObject, JsCallArguments arguments)
     {
         var b = ValueOf(thisObject, Arguments.Empty);
         return ((JsBoolean) b)._value ? JsString.TrueString : JsString.FalseString;

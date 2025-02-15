@@ -494,7 +494,7 @@ public sealed partial class Engine : IDisposable
 
         Action<JsValue> SettleWith(Function settle) => value =>
         {
-            settle.Call(JsValue.Undefined, new[] { value });
+            settle.Call(JsValue.Undefined, [value]);
             RunAvailableContinuations();
         };
 
@@ -833,7 +833,7 @@ public sealed partial class Engine : IDisposable
     /// <summary>
     /// https://tc39.es/ecma262/#sec-invoke
     /// </summary>
-    internal JsValue Invoke(JsValue v, JsValue p, JsValue[] arguments)
+    internal JsValue Invoke(JsValue v, JsValue p, JsCallArguments arguments)
     {
         var ownsContext = _activeEvaluationContext is null;
         _activeEvaluationContext ??= new EvaluationContext(this);
@@ -1046,7 +1046,7 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal JsArguments? FunctionDeclarationInstantiation(
         Function function,
-        JsValue[] argumentsList)
+        JsCallArguments argumentsList)
     {
         var calleeContext = ExecutionContext;
         var func = function._functionDefinition;
@@ -1195,14 +1195,14 @@ public sealed partial class Engine : IDisposable
     private JsArguments CreateMappedArgumentsObject(
         Function func,
         Key[] formals,
-        JsValue[] argumentsList,
+        JsCallArguments argumentsList,
         DeclarativeEnvironment envRec,
         bool hasRestParameter)
     {
         return _argumentsInstancePool.Rent(func, formals, argumentsList, envRec, hasRestParameter);
     }
 
-    private JsArguments CreateUnmappedArgumentsObject(JsValue[] argumentsList)
+    private JsArguments CreateUnmappedArgumentsObject(JsCallArguments argumentsList)
     {
         return _argumentsInstancePool.Rent(argumentsList);
     }
@@ -1424,7 +1424,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="callableName">The name of the callable.</param>
     /// <param name="arguments">The arguments of the call.</param>
     /// <returns>The value returned by the call.</returns>
-    public JsValue Call(string callableName, params JsValue[] arguments)
+    public JsValue Call(string callableName, params JsCallArguments arguments)
     {
         var callable = Evaluate(callableName);
         return Call(callable, arguments);
@@ -1436,7 +1436,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="callable">The callable.</param>
     /// <param name="arguments">The arguments of the call.</param>
     /// <returns>The value returned by the call.</returns>
-    public JsValue Call(JsValue callable, params JsValue[] arguments)
+    public JsValue Call(JsValue callable, params JsCallArguments arguments)
         => Call(callable, thisObject: JsValue.Undefined, arguments);
 
     /// <summary>
@@ -1446,7 +1446,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="thisObject">Value bound as this.</param>
     /// <param name="arguments">The arguments of the call.</param>
     /// <returns>The value returned by the call.</returns>
-    public JsValue Call(JsValue callable, JsValue thisObject, JsValue[] arguments)
+    public JsValue Call(JsValue callable, JsValue thisObject, JsCallArguments arguments)
     {
         JsValue Callback()
         {
@@ -1462,7 +1462,7 @@ public sealed partial class Engine : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal JsValue Call(ICallable callable, JsValue thisObject, JsValue[] arguments, JintExpression? expression)
+    internal JsValue Call(ICallable callable, JsValue thisObject, JsCallArguments arguments, JintExpression? expression)
     {
         if (callable is Function functionInstance)
         {
@@ -1478,7 +1478,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="constructorName">The name of the constructor to call.</param>
     /// <param name="arguments">The arguments of the constructor call.</param>
     /// <returns>The value returned by the constructor call.</returns>
-    public ObjectInstance Construct(string constructorName, params JsValue[] arguments)
+    public ObjectInstance Construct(string constructorName, params JsCallArguments arguments)
     {
         var constructor = Evaluate(constructorName);
         return Construct(constructor, arguments);
@@ -1490,7 +1490,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="constructor">The name of the constructor to call.</param>
     /// <param name="arguments">The arguments of the constructor call.</param>
     /// <returns>The value returned by the constructor call.</returns>
-    public ObjectInstance Construct(JsValue constructor, params JsValue[] arguments)
+    public ObjectInstance Construct(JsValue constructor, params JsCallArguments arguments)
     {
         ObjectInstance Callback()
         {
@@ -1507,7 +1507,7 @@ public sealed partial class Engine : IDisposable
 
     internal ObjectInstance Construct(
         JsValue constructor,
-        JsValue[] arguments,
+        JsCallArguments arguments,
         JsValue newTarget,
         JintExpression? expression)
     {
@@ -1525,7 +1525,7 @@ public sealed partial class Engine : IDisposable
     internal JsValue Call(
         Function function,
         JsValue thisObject,
-        JsValue[] arguments,
+        JsCallArguments arguments,
         JintExpression? expression)
     {
         // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
@@ -1557,7 +1557,7 @@ public sealed partial class Engine : IDisposable
 
     private ObjectInstance Construct(
         Function function,
-        JsValue[] arguments,
+        JsCallArguments arguments,
         JsValue newTarget,
         JintExpression? expression)
     {
@@ -1612,7 +1612,7 @@ public sealed partial class Engine : IDisposable
 #else
         // we can expect that reflection is OK as we've been generating object wrappers already
         var clearMethod = _objectWrapperCache.GetType().GetMethod("Clear", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        clearMethod?.Invoke(_objectWrapperCache, Array.Empty<object>());
+        clearMethod?.Invoke(_objectWrapperCache, []);
 #endif
     }
 

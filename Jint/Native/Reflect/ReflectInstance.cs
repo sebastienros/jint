@@ -53,7 +53,7 @@ internal sealed class ReflectInstance : ObjectInstance
         SetSymbols(symbols);
     }
 
-    private JsValue Apply(JsValue thisObject, JsValue[] arguments)
+    private JsValue Apply(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0);
         var thisArgument = arguments.At(1);
@@ -74,7 +74,7 @@ internal sealed class ReflectInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-reflect.construct
     /// </summary>
-    private JsValue Construct(JsValue thisObject, JsValue[] arguments)
+    private JsValue Construct(JsValue thisObject, JsCallArguments arguments)
     {
         var target = AssertConstructor(_engine, arguments.At(0));
 
@@ -89,7 +89,7 @@ internal sealed class ReflectInstance : ObjectInstance
     /// <summary>
     /// https://tc39.es/ecma262/#sec-reflect.defineproperty
     /// </summary>
-    private JsValue DefineProperty(JsValue thisObject, JsValue[] arguments)
+    private JsValue DefineProperty(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0) as ObjectInstance;
         if (target is null)
@@ -106,7 +106,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return target.DefineOwnProperty(key, desc);
     }
 
-    private JsValue DeleteProperty(JsValue thisObject, JsValue[] arguments)
+    private JsValue DeleteProperty(JsValue thisObject, JsCallArguments arguments)
     {
         var o = arguments.At(0) as ObjectInstance;
         if (o is null)
@@ -118,7 +118,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.Delete(property) ? JsBoolean.True : JsBoolean.False;
     }
 
-    private JsValue Has(JsValue thisObject, JsValue[] arguments)
+    private JsValue Has(JsValue thisObject, JsCallArguments arguments)
     {
         var o = arguments.At(0) as ObjectInstance;
         if (o is null)
@@ -130,7 +130,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.HasProperty(property) ? JsBoolean.True : JsBoolean.False;
     }
 
-    private JsValue Set(JsValue thisObject, JsValue[] arguments)
+    private JsValue Set(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0);
         var property = TypeConverter.ToPropertyKey(arguments.At(1));
@@ -146,7 +146,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.Set(property, value, receiver);
     }
 
-    private JsValue Get(JsValue thisObject, JsValue[] arguments)
+    private JsValue Get(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0);
         var o = target as ObjectInstance;
@@ -160,7 +160,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.Get(property, receiver);
     }
 
-    private JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetOwnPropertyDescriptor(JsValue thisObject, JsCallArguments arguments)
     {
         if (!arguments.At(0).IsObject())
         {
@@ -169,7 +169,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return _realm.Intrinsics.Object.GetOwnPropertyDescriptor(Undefined, arguments);
     }
 
-    private JsValue OwnKeys(JsValue thisObject, JsValue[] arguments)
+    private JsValue OwnKeys(JsValue thisObject, JsCallArguments arguments)
     {
         var o = arguments.At(0) as ObjectInstance;
         if (o is null)
@@ -181,7 +181,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return _realm.Intrinsics.Array.CreateArrayFromList(keys);
     }
 
-    private JsValue IsExtensible(JsValue thisObject, JsValue[] arguments)
+    private JsValue IsExtensible(JsValue thisObject, JsCallArguments arguments)
     {
         var o = arguments.At(0) as ObjectInstance;
         if (o is null)
@@ -192,7 +192,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.Extensible;
     }
 
-    private JsValue PreventExtensions(JsValue thisObject, JsValue[] arguments)
+    private JsValue PreventExtensions(JsValue thisObject, JsCallArguments arguments)
     {
         var o = arguments.At(0) as ObjectInstance;
         if (o is null)
@@ -203,7 +203,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return o.PreventExtensions();
     }
 
-    private JsValue GetPrototypeOf(JsValue thisObject, JsValue[] arguments)
+    private JsValue GetPrototypeOf(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0);
 
@@ -215,7 +215,7 @@ internal sealed class ReflectInstance : ObjectInstance
         return _realm.Intrinsics.Object.GetPrototypeOf(Undefined, arguments);
     }
 
-    private JsValue SetPrototypeOf(JsValue thisObject, JsValue[] arguments)
+    private JsValue SetPrototypeOf(JsValue thisObject, JsCallArguments arguments)
     {
         var target = arguments.At(0);
 

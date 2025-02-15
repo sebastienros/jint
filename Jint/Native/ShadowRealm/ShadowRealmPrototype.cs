@@ -43,7 +43,7 @@ internal sealed class ShadowRealmPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-shadowrealm.prototype.evaluate
     /// </summary>
-    private JsValue Evaluate(JsValue thisObject, JsValue[] arguments)
+    private JsValue Evaluate(JsValue thisObject, JsCallArguments arguments)
     {
         var shadowRealm = ValidateShadowRealmObject(thisObject);
         var sourceText = arguments.At(0);
@@ -66,7 +66,7 @@ internal sealed class ShadowRealmPrototype : Prototype
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-shadowrealm.prototype.importvalue
     /// </summary>
-    private JsValue ImportValue(JsValue thisObject, JsValue[] arguments)
+    private JsValue ImportValue(JsValue thisObject, JsCallArguments arguments)
     {
         var specifier = arguments.At(0);
         var exportName = arguments.At(1);

@@ -24,7 +24,7 @@ internal sealed class BooleanConstructor : Constructor
 
     public BooleanPrototype PrototypeObject { get; }
 
-    protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         if (arguments.Length == 0)
         {
@@ -37,7 +37,7 @@ internal sealed class BooleanConstructor : Constructor
     /// <summary>
     /// https://tc39.es/ecma262/#sec-boolean-constructor-boolean-value
     /// </summary>
-    public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
+    public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         var b = TypeConverter.ToBoolean(arguments.At(0))
             ? JsBoolean.True
