@@ -833,7 +833,7 @@ public sealed partial class Engine : IDisposable
     /// <summary>
     /// https://tc39.es/ecma262/#sec-invoke
     /// </summary>
-    internal JsValue Invoke(JsValue v, JsValue p, JsValue[] arguments)
+    internal JsValue Invoke(JsValue v, JsValue p, JsCallArguments arguments)
     {
         var ownsContext = _activeEvaluationContext is null;
         _activeEvaluationContext ??= new EvaluationContext(this);
@@ -1478,7 +1478,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="constructorName">The name of the constructor to call.</param>
     /// <param name="arguments">The arguments of the constructor call.</param>
     /// <returns>The value returned by the constructor call.</returns>
-    public ObjectInstance Construct(string constructorName, params JsValue[] arguments)
+    public ObjectInstance Construct(string constructorName, params JsCallArguments arguments)
     {
         var constructor = Evaluate(constructorName);
         return Construct(constructor, arguments);
@@ -1490,7 +1490,7 @@ public sealed partial class Engine : IDisposable
     /// <param name="constructor">The name of the constructor to call.</param>
     /// <param name="arguments">The arguments of the constructor call.</param>
     /// <returns>The value returned by the constructor call.</returns>
-    public ObjectInstance Construct(JsValue constructor, params JsValue[] arguments)
+    public ObjectInstance Construct(JsValue constructor, params JsCallArguments arguments)
     {
         ObjectInstance Callback()
         {
@@ -1507,7 +1507,7 @@ public sealed partial class Engine : IDisposable
 
     internal ObjectInstance Construct(
         JsValue constructor,
-        JsValue[] arguments,
+        JsCallArguments arguments,
         JsValue newTarget,
         JintExpression? expression)
     {
@@ -1525,7 +1525,7 @@ public sealed partial class Engine : IDisposable
     internal JsValue Call(
         Function function,
         JsValue thisObject,
-        JsValue[] arguments,
+        JsCallArguments arguments,
         JintExpression? expression)
     {
         // ensure logic is in sync between Call, Construct, engine.Invoke and JintCallExpression!
@@ -1557,7 +1557,7 @@ public sealed partial class Engine : IDisposable
 
     private ObjectInstance Construct(
         Function function,
-        JsValue[] arguments,
+        JsCallArguments arguments,
         JsValue newTarget,
         JintExpression? expression)
     {

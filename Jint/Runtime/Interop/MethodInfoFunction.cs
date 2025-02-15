@@ -101,7 +101,7 @@ internal sealed class MethodInfoFunction : Function
         }
     }
 
-    private static MethodBase ResolveMethod(MethodBase method, ParameterInfo[] methodParameters, JsValue[] arguments)
+    private static MethodBase ResolveMethod(MethodBase method, ParameterInfo[] methodParameters, JsCallArguments arguments)
     {
         if (!method.IsGenericMethod)
         {

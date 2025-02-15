@@ -103,7 +103,7 @@ internal sealed class MethodDescriptor
         return descriptors;
     }
 
-    public JsValue Call(Engine engine, object? instance, JsValue[] arguments)
+    public JsValue Call(Engine engine, object? instance, JsCallArguments arguments)
     {
         var parameters = new object?[arguments.Length];
         var methodParameters = Parameters;

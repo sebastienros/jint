@@ -42,7 +42,7 @@ public sealed class RegExpConstructor : Constructor
         return Construct(arguments, thisObject);
     }
 
-    public ObjectInstance Construct(JsValue[] arguments)
+    public ObjectInstance Construct(JsCallArguments arguments)
     {
         return Construct(arguments, this);
     }

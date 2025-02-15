@@ -582,7 +582,7 @@ internal sealed class JsProxy : ObjectInstance, IConstructor, ICallable
 
     internal override bool IsCallable { get; }
 
-    private bool TryCallHandler(JsValue propertyName, JsValue[] arguments, out JsValue result)
+    private bool TryCallHandler(JsValue propertyName, JsCallArguments arguments, out JsValue result)
     {
         AssertNotRevoked(propertyName);
 
