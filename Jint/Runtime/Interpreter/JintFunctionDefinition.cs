@@ -332,16 +332,17 @@ internal sealed class JintFunctionDefinition
         Node? parameter,
         List<Key> target,
         bool checkDuplicates,
-        ref bool _hasRestParameter,
-        ref bool _hasParameterExpressions,
-        ref bool _hasDuplicates,
+        ref bool hasRestParameter,
+        ref bool hasParameterExpressions,
+        ref bool hasDuplicates,
         ref bool hasArguments)
     {
         if (parameter is Identifier identifier)
         {
-            _hasDuplicates |= checkDuplicates && target.Contains(identifier.Name);
-            target.Add(identifier.Name);
-            hasArguments |= string.Equals(identifier.Name, "arguments", StringComparison.Ordinal);
+            var key = (Key) identifier.Name;
+            target.Add(key);
+            hasDuplicates |= checkDuplicates && target.Contains(key);
+            hasArguments |= key == KnownKeys.Arguments;
             return;
         }
 
@@ -349,51 +350,47 @@ internal sealed class JintFunctionDefinition
         {
             if (parameter is RestElement restElement)
             {
-                _hasRestParameter = true;
-                _hasParameterExpressions = true;
+                hasRestParameter = true;
+                hasParameterExpressions = true;
                 parameter = restElement.Argument;
                 continue;
             }
 
             if (parameter is ArrayPattern arrayPattern)
             {
-                _hasParameterExpressions = true;
-                ref readonly var arrayPatternElements = ref arrayPattern.Elements;
-                for (var i = 0; i < arrayPatternElements.Count; i++)
+                hasParameterExpressions = true;
+                foreach (var expression in arrayPattern.Elements.AsSpan())
                 {
-                    var expression = arrayPatternElements[i];
                     GetBoundNames(
                         expression,
                         target,
                         checkDuplicates,
-                        ref _hasRestParameter,
-                        ref _hasParameterExpressions,
-                        ref _hasDuplicates,
+                        ref hasRestParameter,
+                        ref hasParameterExpressions,
+                        ref hasDuplicates,
                         ref hasArguments);
                 }
             }
             else if (parameter is ObjectPattern objectPattern)
             {
-                _hasParameterExpressions = true;
-                ref readonly var objectPatternProperties = ref objectPattern.Properties;
-                for (var i = 0; i < objectPatternProperties.Count; i++)
+                hasParameterExpressions = true;
+                foreach (var property in objectPattern.Properties.AsSpan())
                 {
-                    var property = objectPatternProperties[i];
                     if (property is AssignmentProperty p)
                     {
                         GetBoundNames(
                             p.Value,
                             target,
                             checkDuplicates,
-                            ref _hasRestParameter,
-                            ref _hasParameterExpressions,
-                            ref _hasDuplicates,
+                            ref hasRestParameter,
+                            ref hasParameterExpressions,
+                            ref hasDuplicates,
                             ref hasArguments);
                     }
                     else
                     {
-                        _hasRestParameter = true;
-                        _hasParameterExpressions = true;
+                        hasRestParameter = true;
+                        hasParameterExpressions = true;
                         parameter = ((RestElement) property).Argument;
                         continue;
                     }
@@ -401,7 +398,7 @@ internal sealed class JintFunctionDefinition
             }
             else if (parameter is AssignmentPattern assignmentPattern)
             {
-                _hasParameterExpressions = true;
+                hasParameterExpressions = true;
                 parameter = assignmentPattern.Left;
                 continue;
             }
@@ -416,15 +413,14 @@ internal sealed class JintFunctionDefinition
         out bool hasArguments)
     {
         hasArguments = false;
-        state.IsSimpleParameterList  = true;
+        state.IsSimpleParameterList = true;
 
         var countParameters = true;
         ref readonly var functionDeclarationParams = ref function.Params;
         var count = functionDeclarationParams.Count;
         var parameterNames = new List<Key>(count);
-        for (var i = 0; i < count; i++)
+        foreach (var parameter in function.Params.AsSpan())
         {
-            var parameter = functionDeclarationParams[i];
             var type = parameter.Type;
 
             if (type == NodeType.Identifier)
