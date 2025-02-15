@@ -372,7 +372,6 @@ internal sealed class JintFunctionDefinition
             }
             else if (parameter is ObjectPattern objectPattern)
             {
-                hasParameterExpressions = true;
                 foreach (var property in objectPattern.Properties.AsSpan())
                 {
                     if (property is AssignmentProperty p)
