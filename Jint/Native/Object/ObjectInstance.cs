@@ -999,7 +999,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             case ObjectClass.Function:
                 if (this is ICallable function)
                 {
-                    converted = (ClrFunctionDelegate) function.Call;
+                    converted = (JsCallDelegate) function.Call;
                 }
 
                 break;

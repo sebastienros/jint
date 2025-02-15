@@ -199,7 +199,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
         }
 
         // TODO should inject prototype that reflects TypeReference's target's layout
-        var thisArgument = OrdinaryCreateFromConstructor<ObjectInstance, ObjectCreateState>(
+        var thisArgument = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.Object.PrototypeObject,
             ObjectCreator,

@@ -6,20 +6,18 @@ using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Interop;
 
-public delegate JsValue ClrFunctionDelegate(JsValue thisObject, JsCallArguments arguments);
-
 /// <summary>
 /// Wraps a CLR method into a JS function.
 /// </summary>
 public sealed class ClrFunction : Function, IEquatable<ClrFunction>
 {
-    internal readonly ClrFunctionDelegate _func;
+    internal readonly JsCallDelegate _func;
     private readonly bool _bubbleExceptions;
 
     public ClrFunction(
         Engine engine,
         string name,
-        ClrFunctionDelegate func,
+        JsCallDelegate func,
         int length = 0,
         PropertyFlag lengthFlags = PropertyFlag.AllForbidden)
         : base(engine, engine.Realm, JsString.CachedCreate(name))

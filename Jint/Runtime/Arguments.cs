@@ -41,7 +41,7 @@ public static class Arguments
         }
 
         var array = new JsValue[newLength];
-        args.AsSpan().CopyTo(array);
+        Array.Copy(args, count, array, 0, newLength);
         return array;
     }
 }

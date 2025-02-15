@@ -6,7 +6,6 @@ using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
-using Jint.Pooling;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
@@ -366,12 +365,10 @@ public sealed class ArrayConstructor : Constructor
         return jsArray;
     }
 
-    public JsArray ConstructFast(JsValue[] contents) => ConstructFast(contents.AsSpan());
-
-    public JsArray ConstructFast(ReadOnlySpan<JsValue> contents)
+    public JsArray ConstructFast(JsValue[] contents)
     {
         var array = new JsValue[contents.Length];
-        contents.CopyTo(array);
+        System.Array.Copy(contents, array, contents.Length);
         return new JsArray(_engine, array);
     }
 

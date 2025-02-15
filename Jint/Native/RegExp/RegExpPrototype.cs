@@ -31,7 +31,7 @@ internal sealed class RegExpPrototype : Prototype
     private static readonly JsString PropertyUnicodeSets = new("unicodeSets");
 
     private readonly RegExpConstructor _constructor;
-    private readonly ClrFunctionDelegate _defaultExec;
+    private readonly JsCallDelegate _defaultExec;
 
     internal RegExpPrototype(
         Engine engine,

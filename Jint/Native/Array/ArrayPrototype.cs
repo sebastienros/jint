@@ -1404,7 +1404,7 @@ public sealed class ArrayPrototype : ArrayInstance
     {
         var array = TypeConverter.ToObject(_realm, thisObject);
 
-        ClrFunctionDelegate func;
+        JsCallDelegate func;
         if (array.Get("join") is ICallable joinFunc)
         {
             func = joinFunc.Call;

@@ -4,7 +4,6 @@ using System.Reflection;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
-using Jint.Runtime;
 
 #pragma warning disable IL2067
 #pragma warning disable IL2072
@@ -144,29 +143,29 @@ internal sealed class MethodInfoFunction : Function
         return genericMethodInfo;
     }
 
-    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments jsArguments)
     {
         JsValue[] ArgumentProvider(MethodDescriptor method)
         {
             if (method.IsExtensionMethod)
             {
-                var jsArgumentsTemp = new JsValue[1 + arguments.Length];
+                var jsArgumentsTemp = new JsValue[1 + jsArguments.Length];
                 jsArgumentsTemp[0] = thisObject;
-                Array.Copy(arguments, 0, jsArgumentsTemp, 1, arguments.Length);
+                Array.Copy(jsArguments, 0, jsArgumentsTemp, 1, jsArguments.Length);
                 return method.HasParams
                     ? ProcessParamsArrays(jsArgumentsTemp, method)
                     : jsArgumentsTemp;
             }
 
             return method.HasParams
-                ? ProcessParamsArrays(arguments, method)
-                : arguments;
+                ? ProcessParamsArrays(jsArguments, method)
+                : jsArguments;
         }
 
         var converter = Engine.TypeConverter;
         var thisObj = thisObject.ToObject() ?? _target;
         object?[]? parameters = null;
-        foreach (var (method, args, _) in InteropHelper.FindBestMatch(_engine, _methods, ArgumentProvider))
+        foreach (var (method, arguments, _) in InteropHelper.FindBestMatch(_engine, _methods, ArgumentProvider))
         {
             var methodParameters = method.Parameters;
             if (parameters == null || parameters.Length != methodParameters.Length)
@@ -175,14 +174,14 @@ internal sealed class MethodInfoFunction : Function
             }
 
             var argumentsMatch = true;
-            var resolvedMethod = ResolveMethod(method.Method, methodParameters, args);
+            var resolvedMethod = ResolveMethod(method.Method, methodParameters, arguments);
             // TPC: if we're concerned about cost of MethodInfo.GetParameters() - we could only invoke it if this ends up being a generic method (i.e. they will be different in that scenario)
             methodParameters = resolvedMethod.GetParameters();
             for (var i = 0; i < parameters.Length; i++)
             {
                 var methodParameter = methodParameters[i];
                 var parameterType = methodParameter.ParameterType;
-                var argument = args.Length > i ? args[i] : null;
+                var argument = arguments.Length > i ? arguments[i] : null;
 
                 if (typeof(JsValue).IsAssignableFrom(parameterType))
                 {
@@ -250,7 +249,7 @@ internal sealed class MethodInfoFunction : Function
 
         if (_fallbackClrFunctionInstance is not null)
         {
-            return _fallbackClrFunctionInstance.Call(thisObject, arguments);
+            return _fallbackClrFunctionInstance.Call(thisObject, jsArguments);
         }
 
         ExceptionHelper.ThrowTypeError(_engine.Realm, "No public methods with the specified arguments were found.");
