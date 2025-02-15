@@ -358,7 +358,6 @@ internal sealed class JintFunctionDefinition
 
             if (parameter is ArrayPattern arrayPattern)
             {
-                hasParameterExpressions = true;
                 foreach (var expression in arrayPattern.Elements.AsSpan())
                 {
                     GetBoundNames(
