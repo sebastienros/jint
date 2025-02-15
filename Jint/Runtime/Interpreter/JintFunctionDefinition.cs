@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Generator;
@@ -168,7 +167,7 @@ internal sealed class JintFunctionDefinition
         var G = engine.Realm.Intrinsics.Function.OrdinaryCreateFromConstructor(
             functionObject,
             static intrinsics => intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject,
-            static (Engine engine , Realm _, object? _) => new GeneratorInstance(engine));
+            static (Engine engine, Realm _, object? _) => new GeneratorInstance(engine));
 
         _bodyStatementList ??= new JintStatementList(Function);
         _bodyStatementList.Reset();
@@ -199,6 +198,7 @@ internal sealed class JintFunctionDefinition
         public DeclarationCache? LexicalDeclarations;
         public HashSet<Key>? ParameterBindings;
         public List<VariableValuePair>? VarsToInitialize;
+        public bool NeedsEvalContext;
 
         internal readonly record struct VariableValuePair(Key Name, JsValue? InitialValue);
     }
@@ -233,8 +233,6 @@ internal sealed class JintFunctionDefinition
 
         state.FunctionsToInitialize = functionsToInitialize;
 
-        const string ParameterNameArguments = "arguments";
-
         state.ArgumentsObjectNeeded = true;
         var thisMode = strict ? FunctionThisMode.Strict : FunctionThisMode.Global;
         if (function.Type == NodeType.ArrowFunctionExpression)
@@ -242,18 +240,13 @@ internal sealed class JintFunctionDefinition
             thisMode = FunctionThisMode.Lexical;
         }
 
-        if (thisMode == FunctionThisMode.Lexical)
-        {
-            state.ArgumentsObjectNeeded = false;
-        }
-        else if (hasArguments)
+        if (thisMode == FunctionThisMode.Lexical || hasArguments)
         {
             state.ArgumentsObjectNeeded = false;
         }
         else if (!state.HasParameterExpressions)
         {
-            if (state.FunctionNames.Contains(ParameterNameArguments)
-                || lexicalNames?.Contains(ParameterNameArguments) == true)
+            if (state.FunctionNames.Contains(KnownKeys.Arguments) || lexicalNames?.Contains(KnownKeys.Arguments.Name) == true)
             {
                 state.ArgumentsObjectNeeded = false;
             }
@@ -263,6 +256,13 @@ internal sealed class JintFunctionDefinition
         {
             // just one extra check...
             state.ArgumentsObjectNeeded = ArgumentsUsageAstVisitor.HasArgumentsReference(function);
+        }
+
+        state.NeedsEvalContext = !strict;
+        if (state.NeedsEvalContext)
+        {
+            // yet another extra check
+            state.NeedsEvalContext = EvalContextAstVisitor.HasEvalOrDebugger(function);
         }
 
         var parameterBindings = new HashSet<Key>(state.ParameterNames);
@@ -493,6 +493,48 @@ internal sealed class JintFunctionDefinition
                 else if (childType != NodeType.FunctionDeclaration && !childNode.ChildNodes.IsEmpty())
                 {
                     if (HasArgumentsReference(childNode))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+    }
+
+    private static class EvalContextAstVisitor
+    {
+        public static bool HasEvalOrDebugger(IFunction function)
+        {
+            if (HasEvalOrDebugger(function.Body))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool HasEvalOrDebugger(Node node)
+        {
+            foreach (var childNode in node.ChildNodes)
+            {
+                var childType = childNode.Type;
+                if (childType == NodeType.DebuggerStatement)
+                {
+                    return true;
+                }
+
+                if (childType == NodeType.CallExpression)
+                {
+                    if (((CallExpression) childNode).Callee is Identifier identifier && identifier.Name.Equals("eval", StringComparison.Ordinal))
+                    {
+                        return true;
+                    }
+                }
+                else if (childType != NodeType.FunctionDeclaration && !childNode.ChildNodes.IsEmpty())
+                {
+                    if (HasEvalOrDebugger(childNode))
                     {
                         return true;
                     }
