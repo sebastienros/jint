@@ -352,7 +352,6 @@ Start:
             if (parameter.Type == NodeType.RestElement)
             {
                 hasRestParameter = true;
-                hasParameterExpressions = true;
                 parameter = ((RestElement) parameter).Argument;
                 continue;
             }
@@ -387,23 +386,21 @@ Start:
             {
                 foreach (var property in ((ObjectPattern) parameter).Properties.AsSpan())
                 {
-                    if (property is AssignmentProperty p)
-                    {
-                        GetBoundNames(
-                            p.Value,
-                            target,
-                            checkDuplicates,
-                            ref hasRestParameter,
-                            ref hasParameterExpressions,
-                            ref hasDuplicates,
-                            ref hasArguments);
-                    }
-                    else
+                    if (property.Type == NodeType.RestElement)
                     {
                         hasRestParameter = true;
                         parameter = ((RestElement) property).Argument;
                         goto Start;
                     }
+
+                    GetBoundNames(
+                        ((AssignmentProperty) property).Value,
+                        target,
+                        checkDuplicates,
+                        ref hasRestParameter,
+                        ref hasParameterExpressions,
+                        ref hasDuplicates,
+                        ref hasArguments);
                 }
             }
             else if (parameter is AssignmentPattern assignmentPattern)
