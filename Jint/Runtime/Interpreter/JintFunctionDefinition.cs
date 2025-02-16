@@ -329,7 +329,7 @@ internal sealed class JintFunctionDefinition
     }
 
     private static void GetBoundNames(
-        Node? parameter,
+        Node parameter,
         List<Key> target,
         bool checkDuplicates,
         ref bool hasRestParameter,
@@ -337,9 +337,10 @@ internal sealed class JintFunctionDefinition
         ref bool hasDuplicates,
         ref bool hasArguments)
     {
-        if (parameter is Identifier identifier)
+Start:
+        if (parameter.Type == NodeType.Identifier)
         {
-            var key = (Key) identifier.Name;
+            var key = (Key) ((Identifier) parameter).Name;
             target.Add(key);
             hasDuplicates |= checkDuplicates && target.Contains(key);
             hasArguments |= key == KnownKeys.Arguments;
@@ -348,20 +349,32 @@ internal sealed class JintFunctionDefinition
 
         while (true)
         {
-            if (parameter is RestElement restElement)
+            if (parameter.Type == NodeType.RestElement)
             {
                 hasRestParameter = true;
                 hasParameterExpressions = true;
-                parameter = restElement.Argument;
+                parameter = ((RestElement) parameter).Argument;
                 continue;
             }
 
-            if (parameter is ArrayPattern arrayPattern)
+            if (parameter.Type == NodeType.ArrayPattern)
             {
-                foreach (var expression in arrayPattern.Elements.AsSpan())
+                foreach (var element in ((ArrayPattern) parameter).Elements.AsSpan())
                 {
+                    if (element is null)
+                    {
+                        continue;
+                    }
+
+                    if (element.Type == NodeType.RestElement)
+                    {
+                        hasRestParameter = true;
+                        parameter = ((RestElement) element).Argument;
+                        goto Start;
+                    }
+
                     GetBoundNames(
-                        expression,
+                        element,
                         target,
                         checkDuplicates,
                         ref hasRestParameter,
@@ -370,9 +383,9 @@ internal sealed class JintFunctionDefinition
                         ref hasArguments);
                 }
             }
-            else if (parameter is ObjectPattern objectPattern)
+            else if (parameter.Type == NodeType.ObjectPattern)
             {
-                foreach (var property in objectPattern.Properties.AsSpan())
+                foreach (var property in ((ObjectPattern) parameter).Properties.AsSpan())
                 {
                     if (property is AssignmentProperty p)
                     {
@@ -388,9 +401,8 @@ internal sealed class JintFunctionDefinition
                     else
                     {
                         hasRestParameter = true;
-                        hasParameterExpressions = true;
                         parameter = ((RestElement) property).Argument;
-                        continue;
+                        goto Start;
                     }
                 }
             }
@@ -423,10 +435,10 @@ internal sealed class JintFunctionDefinition
 
             if (type == NodeType.Identifier)
             {
-                var id = (Identifier) parameter;
-                state.HasDuplicates |= parameterNames.Contains(id.Name);
-                hasArguments = string.Equals(id.Name, "arguments", StringComparison.Ordinal);
-                parameterNames.Add(id.Name);
+                var key = (Key) ((Identifier) parameter).Name;
+                state.HasDuplicates |= parameterNames.Contains(key);
+                hasArguments = key == KnownKeys.Arguments;
+                parameterNames.Add(key);
             }
             else if (type != NodeType.Literal)
             {
