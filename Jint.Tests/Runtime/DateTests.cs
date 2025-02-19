@@ -1,3 +1,5 @@
+using Jint.Native;
+
 namespace Jint.Tests.Runtime;
 
 public class DateTests
@@ -139,5 +141,29 @@ public class DateTests
     public void CanParseEmptyDate()
     {
         Assert.True(double.IsNaN(_engine.Evaluate("Date.parse('')").AsNumber()));
+    }
+
+    [Fact]
+    public void DateTimeMinValueFlag()
+    {
+        var date = DateTime.MinValue;
+        var jsDate = new JsDate(_engine, date);
+        Assert.Equal(DateFlags.DateTimeMinValue, jsDate._dateValue.Flags);
+
+        date = date.AddMilliseconds(1);
+        jsDate = new JsDate(_engine, date);
+        Assert.Equal(DateFlags.None, jsDate._dateValue.Flags);
+    }
+    
+    [Fact]
+    public void DateTimeMaxValueFlag()
+    {
+        var date = DateTime.MaxValue;
+        var jsDate = new JsDate(_engine, date);
+        Assert.Equal(DateFlags.DateTimeMaxValue, jsDate._dateValue.Flags);
+
+        date = date.AddMilliseconds(-1);
+        jsDate = new JsDate(_engine, date);
+        Assert.Equal(DateFlags.None, jsDate._dateValue.Flags);
     }
 }
