@@ -20,14 +20,6 @@ public sealed class JsDate : ObjectInstance
 
     public JsDate(Engine engine, DateTime value) : this(engine, engine.Realm.Intrinsics.Date.FromDateTime(value))
     {
-        if (value == DateTime.MinValue)
-        {
-            _dateValue = _dateValue with { Flags = DateFlags.DateTimeMinValue };
-        }
-        else if (value == DateTime.MinValue)
-        {
-            _dateValue = _dateValue with { Flags = DateFlags.DateTimeMaxValue };
-        }
     }
 
     public JsDate(Engine engine, long dateValue) : this(engine, new DatePresentation(dateValue, DateFlags.None))
