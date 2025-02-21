@@ -1134,7 +1134,7 @@ public sealed partial class Engine : IDisposable
         // A https://tc39.es/ecma262/#sec-web-compat-functiondeclarationinstantiation
 
         DeclarativeEnvironment lexEnv;
-        if (!strict)
+        if (configuration.NeedsEvalContext || _isDebugMode)
         {
             lexEnv = JintEnvironment.NewDeclarativeEnvironment(this, varEnv);
             // NOTE: Non-strict functions use a separate lexical Environment Record for top-level lexical declarations
