@@ -403,9 +403,22 @@ Start:
                         ref hasArguments);
                 }
             }
-            else if (parameter is AssignmentPattern assignmentPattern)
+            else if (parameter.Type == NodeType.AssignmentPattern)
             {
-                hasParameterExpressions = true;
+                var assignmentPattern = (AssignmentPattern) parameter;
+                if (assignmentPattern.Right is ObjectExpression objectExpression)
+                {
+                    foreach (var property in objectExpression.Properties.AsSpan())
+                    {
+                        hasParameterExpressions = true;
+                    }
+
+                }
+                else
+                {
+                    hasParameterExpressions = true;
+                }
+                
                 parameter = assignmentPattern.Left;
                 continue;
             }
@@ -469,10 +482,9 @@ Start:
                 return true;
             }
 
-            ref readonly var parameters = ref function.Params;
-            for (var i = 0; i < parameters.Count; ++i)
+            foreach (var parameter in function.Params.AsSpan())
             {
-                if (HasArgumentsReference(parameters[i]))
+                if (HasArgumentsReference(parameter))
                 {
                     return true;
                 }
