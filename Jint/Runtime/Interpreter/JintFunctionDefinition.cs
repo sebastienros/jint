@@ -329,79 +329,96 @@ internal sealed class JintFunctionDefinition
     }
 
     private static void GetBoundNames(
-        Node? parameter,
+        Node parameter,
         List<Key> target,
         bool checkDuplicates,
-        ref bool _hasRestParameter,
-        ref bool _hasParameterExpressions,
-        ref bool _hasDuplicates,
+        ref bool hasRestParameter,
+        ref bool hasParameterExpressions,
+        ref bool hasDuplicates,
         ref bool hasArguments)
     {
-        if (parameter is Identifier identifier)
+Start:
+        if (parameter.Type == NodeType.Identifier)
         {
-            _hasDuplicates |= checkDuplicates && target.Contains(identifier.Name);
-            target.Add(identifier.Name);
-            hasArguments |= string.Equals(identifier.Name, "arguments", StringComparison.Ordinal);
+            var key = (Key) ((Identifier) parameter).Name;
+            target.Add(key);
+            hasDuplicates |= checkDuplicates && target.Contains(key);
+            hasArguments |= key == KnownKeys.Arguments;
             return;
         }
 
         while (true)
         {
-            if (parameter is RestElement restElement)
+            if (parameter.Type == NodeType.RestElement)
             {
-                _hasRestParameter = true;
-                _hasParameterExpressions = true;
-                parameter = restElement.Argument;
+                hasRestParameter = true;
+                parameter = ((RestElement) parameter).Argument;
                 continue;
             }
 
-            if (parameter is ArrayPattern arrayPattern)
+            if (parameter.Type == NodeType.ArrayPattern)
             {
-                _hasParameterExpressions = true;
-                ref readonly var arrayPatternElements = ref arrayPattern.Elements;
-                for (var i = 0; i < arrayPatternElements.Count; i++)
+                foreach (var element in ((ArrayPattern) parameter).Elements.AsSpan())
                 {
-                    var expression = arrayPatternElements[i];
+                    if (element is null)
+                    {
+                        continue;
+                    }
+
+                    if (element.Type == NodeType.RestElement)
+                    {
+                        hasRestParameter = true;
+                        parameter = ((RestElement) element).Argument;
+                        goto Start;
+                    }
+
                     GetBoundNames(
-                        expression,
+                        element,
                         target,
                         checkDuplicates,
-                        ref _hasRestParameter,
-                        ref _hasParameterExpressions,
-                        ref _hasDuplicates,
+                        ref hasRestParameter,
+                        ref hasParameterExpressions,
+                        ref hasDuplicates,
                         ref hasArguments);
                 }
             }
-            else if (parameter is ObjectPattern objectPattern)
+            else if (parameter.Type == NodeType.ObjectPattern)
             {
-                _hasParameterExpressions = true;
-                ref readonly var objectPatternProperties = ref objectPattern.Properties;
-                for (var i = 0; i < objectPatternProperties.Count; i++)
+                foreach (var property in ((ObjectPattern) parameter).Properties.AsSpan())
                 {
-                    var property = objectPatternProperties[i];
-                    if (property is AssignmentProperty p)
+                    if (property.Type == NodeType.RestElement)
                     {
-                        GetBoundNames(
-                            p.Value,
-                            target,
-                            checkDuplicates,
-                            ref _hasRestParameter,
-                            ref _hasParameterExpressions,
-                            ref _hasDuplicates,
-                            ref hasArguments);
-                    }
-                    else
-                    {
-                        _hasRestParameter = true;
-                        _hasParameterExpressions = true;
+                        hasRestParameter = true;
                         parameter = ((RestElement) property).Argument;
-                        continue;
+                        goto Start;
                     }
+
+                    GetBoundNames(
+                        ((AssignmentProperty) property).Value,
+                        target,
+                        checkDuplicates,
+                        ref hasRestParameter,
+                        ref hasParameterExpressions,
+                        ref hasDuplicates,
+                        ref hasArguments);
                 }
             }
-            else if (parameter is AssignmentPattern assignmentPattern)
+            else if (parameter.Type == NodeType.AssignmentPattern)
             {
-                _hasParameterExpressions = true;
+                var assignmentPattern = (AssignmentPattern) parameter;
+                if (assignmentPattern.Right is ObjectExpression objectExpression)
+                {
+                    foreach (var property in objectExpression.Properties.AsSpan())
+                    {
+                        hasParameterExpressions = true;
+                    }
+
+                }
+                else
+                {
+                    hasParameterExpressions = true;
+                }
+                
                 parameter = assignmentPattern.Left;
                 continue;
             }
@@ -416,23 +433,22 @@ internal sealed class JintFunctionDefinition
         out bool hasArguments)
     {
         hasArguments = false;
-        state.IsSimpleParameterList  = true;
+        state.IsSimpleParameterList = true;
 
         var countParameters = true;
         ref readonly var functionDeclarationParams = ref function.Params;
         var count = functionDeclarationParams.Count;
         var parameterNames = new List<Key>(count);
-        for (var i = 0; i < count; i++)
+        foreach (var parameter in function.Params.AsSpan())
         {
-            var parameter = functionDeclarationParams[i];
             var type = parameter.Type;
 
             if (type == NodeType.Identifier)
             {
-                var id = (Identifier) parameter;
-                state.HasDuplicates |= parameterNames.Contains(id.Name);
-                hasArguments = string.Equals(id.Name, "arguments", StringComparison.Ordinal);
-                parameterNames.Add(id.Name);
+                var key = (Key) ((Identifier) parameter).Name;
+                state.HasDuplicates |= parameterNames.Contains(key);
+                hasArguments = key == KnownKeys.Arguments;
+                parameterNames.Add(key);
             }
             else if (type != NodeType.Literal)
             {
@@ -466,10 +482,9 @@ internal sealed class JintFunctionDefinition
                 return true;
             }
 
-            ref readonly var parameters = ref function.Params;
-            for (var i = 0; i < parameters.Count; ++i)
+            foreach (var parameter in function.Params.AsSpan())
             {
-                if (HasArgumentsReference(parameters[i]))
+                if (HasArgumentsReference(parameter))
                 {
                     return true;
                 }
