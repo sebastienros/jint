@@ -285,10 +285,7 @@ internal sealed class JintFunctionDefinition
                 var n = state.VarNames[i];
                 if (instantiatedVarNames.Add(n))
                 {
-                    varsToInitialize.Add(new State.VariableValuePair
-                    {
-                        Name = n
-                    });
+                    varsToInitialize.Add(new State.VariableValuePair(Name: n, InitialValue: null));
                 }
             }
         }
@@ -309,11 +306,7 @@ internal sealed class JintFunctionDefinition
                         initialValue = JsValue.Undefined;
                     }
 
-                    varsToInitialize.Add(new State.VariableValuePair
-                    {
-                        Name = n,
-                        InitialValue = initialValue
-                    });
+                    varsToInitialize.Add(new State.VariableValuePair(Name: n, InitialValue: initialValue));
                 }
             }
         }
@@ -337,7 +330,7 @@ internal sealed class JintFunctionDefinition
         ref bool hasDuplicates,
         ref bool hasArguments)
     {
-Start:
+        Start:
         if (parameter.Type == NodeType.Identifier)
         {
             var key = (Key) ((Identifier) parameter).Name;
@@ -406,20 +399,9 @@ Start:
             else if (parameter.Type == NodeType.AssignmentPattern)
             {
                 var assignmentPattern = (AssignmentPattern) parameter;
-                if (assignmentPattern.Right is ObjectExpression objectExpression)
-                {
-                    foreach (var property in objectExpression.Properties.AsSpan())
-                    {
-                        hasParameterExpressions = true;
-                    }
-
-                }
-                else
-                {
-                    hasParameterExpressions = true;
-                }
-                
+                hasParameterExpressions |= ExpressionAstVisitor.HasExpression(assignmentPattern.ChildNodes);
                 parameter = assignmentPattern.Left;
+
                 continue;
             }
 
@@ -447,7 +429,7 @@ Start:
             {
                 var key = (Key) ((Identifier) parameter).Name;
                 state.HasDuplicates |= parameterNames.Contains(key);
-                hasArguments = key == KnownKeys.Arguments;
+                hasArguments |= key == KnownKeys.Arguments;
                 parameterNames.Add(key);
             }
             else if (type != NodeType.Literal)
@@ -553,6 +535,39 @@ Start:
                     {
                         return true;
                     }
+                }
+            }
+
+            return false;
+        }
+    }
+
+    private static class ExpressionAstVisitor
+    {
+        internal static bool HasExpression(ChildNodes nodes)
+        {
+            foreach (var childNode in nodes)
+            {
+                switch (childNode.Type)
+                {
+                    case NodeType.ArrowFunctionExpression:
+                    case NodeType.FunctionExpression:
+                    case NodeType.CallExpression:
+                    case NodeType.AssignmentExpression:
+                        return true;
+                    case NodeType.Identifier:
+                    case NodeType.Literal:
+                        continue;
+                    default:
+                        if (!childNode.ChildNodes.IsEmpty())
+                        {
+                            if (HasExpression(childNode.ChildNodes))
+                            {
+                                return true;
+                            }
+                        }
+
+                        break;
                 }
             }
 
