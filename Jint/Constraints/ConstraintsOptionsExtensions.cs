@@ -27,7 +27,7 @@ public static class ConstraintsOptionsExtensions
     {
         options.WithoutConstraint(x => x is MemoryLimitConstraint);
 
-        if (memoryLimit > 0 && memoryLimit < int.MaxValue)
+        if (memoryLimit > 0 && memoryLimit < long.MaxValue)
         {
             options.Constraint(new MemoryLimitConstraint(memoryLimit));
         }
