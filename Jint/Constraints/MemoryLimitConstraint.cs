@@ -4,9 +4,11 @@ namespace Jint.Constraints;
 
 public sealed class MemoryLimitConstraint : Constraint
 {
-    private static readonly Func<long>? GetAllocatedBytesForCurrentThread;
     private readonly long _memoryLimit;
     private long _initialMemoryUsage;
+
+#if !NET8_0_OR_GREATER
+    private static readonly Func<long>? _getAllocatedBytesForCurrentThread;
 
     static MemoryLimitConstraint()
     {
@@ -14,9 +16,10 @@ public sealed class MemoryLimitConstraint : Constraint
 
         if (methodInfo != null)
         {
-            GetAllocatedBytesForCurrentThread = (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), null, methodInfo);
+            _getAllocatedBytesForCurrentThread = (Func<long>) Delegate.CreateDelegate(typeof(Func<long>), null, methodInfo);
         }
     }
+#endif
 
     internal MemoryLimitConstraint(long memoryLimit)
     {
@@ -25,28 +28,33 @@ public sealed class MemoryLimitConstraint : Constraint
 
     public override void Check()
     {
-        if (_memoryLimit > 0)
+        if (_memoryLimit <= 0)
         {
-            if (GetAllocatedBytesForCurrentThread != null)
-            {
-                var memoryUsage = GetAllocatedBytesForCurrentThread() - _initialMemoryUsage;
-                if (memoryUsage > _memoryLimit)
-                {
-                    ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {memoryUsage} but is limited to {_memoryLimit}");
-                }
-            }
-            else
-            {
-                ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
-            }
+            return;
+        }
+
+#if NET8_0_OR_GREATER
+        var usage = GC.GetAllocatedBytesForCurrentThread();
+#else
+        if (_getAllocatedBytesForCurrentThread == null)
+        {
+            ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
+        }
+
+        var usage = _getAllocatedBytesForCurrentThread();
+#endif
+        if (usage - _initialMemoryUsage > _memoryLimit)
+        {
+            ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {usage - _initialMemoryUsage} but is limited to {_memoryLimit}");
         }
     }
 
     public override void Reset()
     {
-        if (GetAllocatedBytesForCurrentThread != null)
-        {
-            _initialMemoryUsage = GetAllocatedBytesForCurrentThread();
-        }
+#if NET8_0_OR_GREATER
+        _initialMemoryUsage = GC.GetAllocatedBytesForCurrentThread();
+#else
+        _initialMemoryUsage = _getAllocatedBytesForCurrentThread?.Invoke() ?? 0;
+#endif
     }
 }
