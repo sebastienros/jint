@@ -7,9 +7,9 @@ assignees: ''
 
 ---
 
-**Version used**
+**Version/platform/runtime used**
 
-With which version did you encounter this behavior. Please check against 3.x beta if you haven't yet, it might have the fix already.
+With which version did you encounter this behavior, which OS and NET runtime.
 
 **Describe the bug**
 
