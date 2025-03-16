@@ -164,7 +164,7 @@ internal sealed class CachedHoistingScope
     {
         Scope = HoistingScope.GetProgramLevelDeclarations(program);
 
-        VarNames = new List<Key>();
+        VarNames = [];
         GatherVarNames(Scope, VarNames);
 
         LexNames = DeclarationCacheBuilder.Build(Scope._lexicalDeclarations);

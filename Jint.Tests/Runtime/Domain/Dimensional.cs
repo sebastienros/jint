@@ -2,7 +2,7 @@
 
 public class Dimensional : IComparable<Dimensional>, IEquatable<Dimensional>
 {
-    private readonly MeasureUnit[] PossibleMeasureUnits = new MeasureUnit[] { new MeasureUnit("Mass", "kg", 1.0), new MeasureUnit("Mass", "gr", 0.001), new MeasureUnit("Count", "piece", 1.0) };
+    private readonly MeasureUnit[] PossibleMeasureUnits = [new MeasureUnit("Mass", "kg", 1.0), new MeasureUnit("Mass", "gr", 0.001), new MeasureUnit("Count", "piece", 1.0)];
 
     public MeasureUnit MeasureUnit { get; private set; }
 

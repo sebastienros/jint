@@ -77,7 +77,7 @@ internal sealed class PromisePrototype : Prototype
     // 1. Let promise be the this value.
     // 2. Return ? Invoke(promise, "then", « undefined, onRejected »).
     private JsValue Catch(JsValue thisValue, JsCallArguments arguments) =>
-        _engine.Invoke(thisValue, "then", new[] {Undefined, arguments.At(0)});
+        _engine.Invoke(thisValue, "then", [Undefined, arguments.At(0)]);
 
     // https://tc39.es/ecma262/#sec-promise.prototype.finally
     private JsValue Finally(JsValue thisValue, JsCallArguments arguments)

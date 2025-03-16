@@ -503,7 +503,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
     {
         // Arrange
         using var engine = new Engine();
-        List<string> logMessages = new();
+        List<string> logMessages = [];
         engine.SetValue("log", logMessages.Add);
 
         // Act
@@ -520,7 +520,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         engine.RunAvailableContinuations();
 
         // Assert
-        List<string> expected = new() { "start", "end", "resolved" };
+        List<string> expected = ["start", "end", "resolved"];
         Assert.Equal(expected, logMessages);
     }
 
@@ -529,7 +529,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
     {
         // Arrange
         using var engine = new Engine();
-        List<string> logMessages = new();
+        List<string> logMessages = [];
         engine.SetValue("log", logMessages.Add);
 
         // Act
@@ -546,7 +546,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         engine.RunAvailableContinuations();
 
         // Assert
-        List<string> expected = new() { "start", "end", "rejected" };
+        List<string> expected = ["start", "end", "rejected"];
         Assert.Equal(expected, logMessages);
     }
 }

@@ -6,7 +6,7 @@ public class IntegerIndexer
 
     public IntegerIndexer()
     {
-        data = new[] {123, 0, 0, 0, 0};
+        data = [123, 0, 0, 0, 0];
     }
 
     public int this[int i]

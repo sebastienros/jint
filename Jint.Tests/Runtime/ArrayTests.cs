@@ -346,7 +346,7 @@ return get + '' === ""length,0,1,2,3"";";
     public void ShouldBeAbleToInitFromArray()
     {
         var engine = new Engine();
-        var propertyDescriptors = new JsArray(engine, new JsValue[] { 1 }).GetOwnProperties().ToArray();
+        var propertyDescriptors = new JsArray(engine, [1]).GetOwnProperties().ToArray();
         Assert.Equal(2, propertyDescriptors.Length);
         Assert.Equal("0", propertyDescriptors[0].Key);
         Assert.Equal(1, propertyDescriptors[0].Value.Value);

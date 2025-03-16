@@ -103,6 +103,6 @@ function output(d) {
         engine = new Engine(InitializeEngine);
         engine.Execute(script);
         engine.Execute(targetObject);
-        targetJsObject = new[] { engine.GetValue("d") };
+        targetJsObject = [engine.GetValue("d")];
     }
 }

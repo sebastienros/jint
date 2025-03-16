@@ -125,7 +125,7 @@ public class RegExpTests
 
         var match = engine.Evaluate("'abc'.match(/(?<$group>b)/)").AsArray();
         var groups = match.Get("groups").AsObject();
-        Assert.Equal(new[] { "$group" }, groups.GetOwnPropertyKeys().Select(k => k.AsString()));
+        Assert.Equal(["$group"], groups.GetOwnPropertyKeys().Select(k => k.AsString()));
         Assert.Equal("b", groups["$group"]);
 
         var result = engine.Evaluate("'abc'.replace(/(?<$group>b)/g, '-$<$group>-')").AsString();
