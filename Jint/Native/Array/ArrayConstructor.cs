@@ -42,7 +42,7 @@ public sealed class ArrayConstructor : Constructor
 
         var symbols = new SymbolDictionary(1)
         {
-            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined,PropertyFlag.Configurable),
+            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get [Symbol.species]", Species, 0, PropertyFlag.Configurable), set: Undefined, PropertyFlag.Configurable),
         };
         SetSymbols(symbols);
     }
@@ -202,7 +202,7 @@ public sealed class ArrayConstructor : Constructor
             // faster for real arrays
             for (uint k = 0; k < arguments.Length; k++)
             {
-                var kValue = arguments[(int)k];
+                var kValue = arguments[(int) k];
                 ai.SetIndexValue(k, kValue, updateLength: k == arguments.Length - 1);
             }
         }
@@ -211,7 +211,7 @@ public sealed class ArrayConstructor : Constructor
             // slower version
             for (uint k = 0; k < arguments.Length; k++)
             {
-                var kValue = arguments[(int)k];
+                var kValue = arguments[(int) k];
                 var key = JsString.Create(k);
                 a.CreateDataPropertyOrThrow(key, kValue);
             }

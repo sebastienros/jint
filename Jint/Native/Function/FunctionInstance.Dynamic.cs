@@ -199,6 +199,10 @@ public partial class Function
             function,
             scope,
             thisMode,
-            functionPrototype) { _privateEnvironment = privateScope, _realm = _realm };
+            functionPrototype)
+        {
+            _privateEnvironment = privateScope,
+            _realm = _realm,
+        };
     }
 }

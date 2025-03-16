@@ -602,7 +602,7 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override void EnsureCapacity(ulong capacity)
         {
-            _target.EnsureCapacity((int)capacity);
+            _target.EnsureCapacity((int) capacity);
         }
 
         public override JsValue Get(ulong index) => index < (ulong) _target.Length ? ReadValue((int) index) : JsValue.Undefined;
@@ -631,7 +631,7 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
         {
-            _target.SetAt((int)index, value);
+            _target.SetAt((int) index, value);
         }
 
         public override void DeletePropertyOrThrow(ulong index)

@@ -9,7 +9,7 @@ internal static class NumberExtensions
     {
         return (long) ((ulong) l >> shift);
     }
-        
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ulong UnsignedShift(this ulong l, int shift)
     {

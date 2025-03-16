@@ -113,7 +113,7 @@ public sealed partial class GlobalObject : ObjectInstance
             pow *= radix;
         }
 
-        return hasResult ? JsNumber.Create(sign  * result) : JsNumber.DoubleNaN;
+        return hasResult ? JsNumber.Create(sign * result) : JsNumber.DoubleNaN;
     }
 
     /// <summary>
@@ -223,7 +223,7 @@ public sealed partial class GlobalObject : ObjectInstance
         // we should now have proper input part
 
 #if SUPPORTS_SPAN_PARSE
-            var substring = trimmedString.AsSpan(0, i);
+        var substring = trimmedString.AsSpan(0, i);
 #else
         var substring = trimmedString.Substring(0, i);
 #endif
@@ -389,7 +389,7 @@ public sealed partial class GlobalObject : ObjectInstance
 
         return builder.ToString();
 
-        uriError:
+uriError:
         _engine.SignalError(ExceptionHelper.CreateUriError(_realm, "URI malformed"));
         return JsEmpty.Instance;
     }
@@ -448,7 +448,7 @@ public sealed partial class GlobalObject : ObjectInstance
                 k += 2;
                 if ((B & 0x80) == 0)
                 {
-                    C = (char)B;
+                    C = (char) B;
 #pragma warning disable CA2249
                     if (reservedSet == null || !reservedSet.Contains(C))
 #pragma warning restore CA2249
@@ -508,7 +508,7 @@ public sealed partial class GlobalObject : ObjectInstance
                     }
 
 #if SUPPORTS_SPAN_PARSE
-                        _stringBuilder.Append(Encoding.UTF8.GetString(octets.Slice(0, n)));
+                    _stringBuilder.Append(Encoding.UTF8.GetString(octets.Slice(0, n)));
 #else
                     _stringBuilder.Append(Encoding.UTF8.GetString(octets, 0, n));
 #endif
@@ -518,7 +518,7 @@ public sealed partial class GlobalObject : ObjectInstance
 
         return _stringBuilder.ToString();
 
-        uriError:
+uriError:
         _engine.SignalError(ExceptionHelper.CreateUriError(_realm, "URI malformed"));
         return JsEmpty.Instance;
     }
@@ -555,15 +555,15 @@ public sealed partial class GlobalObject : ObjectInstance
     private static bool IsDigit(char c, int radix, out int result)
     {
         int tmp;
-        if ((uint)(c - '0') <= 9)
+        if ((uint) (c - '0') <= 9)
         {
             result = tmp = c - '0';
         }
-        else if ((uint)(c - 'A') <= 'Z' - 'A')
+        else if ((uint) (c - 'A') <= 'Z' - 'A')
         {
             result = tmp = c - 'A' + 10;
         }
-        else if ((uint)(c - 'a') <= 'z' - 'a')
+        else if ((uint) (c - 'a') <= 'z' - 'a')
         {
             result = tmp = c - 'a' + 10;
         }

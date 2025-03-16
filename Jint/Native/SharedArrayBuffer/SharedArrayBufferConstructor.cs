@@ -40,7 +40,7 @@ internal sealed class SharedArrayBufferConstructor : Constructor
 
         var symbols = new SymbolDictionary(1)
         {
-            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get [Symbol.species]", Species, 0, lengthFlags), set: Undefined,PropertyFlag.Configurable),
+            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get [Symbol.species]", Species, 0, lengthFlags), set: Undefined, PropertyFlag.Configurable),
         };
         SetSymbols(symbols);
     }
@@ -84,7 +84,7 @@ internal sealed class SharedArrayBufferConstructor : Constructor
         return AllocateSharedArrayBuffer(newTarget, byteLength, requestedMaxByteLength);
     }
 
-    private JsSharedArrayBuffer AllocateSharedArrayBuffer(JsValue constructor, uint byteLength, uint? maxByteLength  = null)
+    private JsSharedArrayBuffer AllocateSharedArrayBuffer(JsValue constructor, uint byteLength, uint? maxByteLength = null)
     {
         var allocatingGrowableBuffer = maxByteLength != null;
 

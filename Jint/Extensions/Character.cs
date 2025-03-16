@@ -10,7 +10,7 @@ internal static class Character
     public const string AsciiWordCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool IsInRange(this char c, ushort min, ushort max) => (uint)(c - min) <= (uint)(max - min);
+    public static bool IsInRange(this char c, ushort min, ushort max) => (uint) (c - min) <= (uint) (max - min);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsOctalDigit(this char c) => c.IsInRange('0', '7');

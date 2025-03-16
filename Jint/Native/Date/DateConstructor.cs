@@ -87,7 +87,7 @@ internal sealed class DateConstructor : Constructor
         var yInteger = TypeConverter.ToInteger(y);
         if (!double.IsNaN(y) && 0 <= yInteger && yInteger <= 99)
         {
-            y  = yInteger + 1900;
+            y = yInteger + 1900;
         }
 
         var finalDate = DatePrototype.MakeDate(

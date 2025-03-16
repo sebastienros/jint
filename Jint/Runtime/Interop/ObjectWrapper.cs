@@ -215,7 +215,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.Empty | Types.String | Types.Symbol)
     {
-        return [..EnumerateOwnPropertyKeys(types)];
+        return [.. EnumerateOwnPropertyKeys(types)];
     }
 
     public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
@@ -225,7 +225,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             yield return new KeyValuePair<JsValue, PropertyDescriptor>(key, GetOwnProperty(key));
         }
     }
-    
+
     private IEnumerable<JsValue> EnumerateOwnPropertyKeys(Types types)
     {
         // prefer object order, add possible other properties after

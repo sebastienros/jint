@@ -69,7 +69,7 @@ public sealed class ArrayPrototype : ArrayInstance
             ["reduce"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "reduce", prototype.Reduce, 1, PropertyFlag.Configurable), PropertyFlags),
             ["reduceRight"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "reduceRight", prototype.ReduceRight, 1, PropertyFlag.Configurable), PropertyFlags),
             ["reverse"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "reverse", prototype.Reverse, 0, PropertyFlag.Configurable), PropertyFlags),
-            ["shift"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "shift",prototype. Shift, 0, PropertyFlag.Configurable), PropertyFlags),
+            ["shift"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "shift", prototype.Shift, 0, PropertyFlag.Configurable), PropertyFlags),
             ["slice"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "slice", prototype.Slice, 2, PropertyFlag.Configurable), PropertyFlags),
             ["some"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "some", prototype.Some, 1, PropertyFlag.Configurable), PropertyFlags),
             ["sort"] = new LazyPropertyDescriptor<ArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "sort", prototype.Sort, 1, PropertyFlag.Configurable), PropertyFlags),
@@ -1093,11 +1093,13 @@ public sealed class ArrayPrototype : ArrayInstance
                 ordered = items.OrderBy(x => x, comparer);
             }
 #else
-    #if NET8_0_OR_GREATER
-                ordered = items.Order(comparer);
-    #else
-                ordered = items.OrderBy(x => x, comparer);
-    #endif
+
+#if NET8_0_OR_GREATER
+            ordered = items.Order(comparer);
+#else
+            ordered = items.OrderBy(x => x, comparer);
+#endif
+
 #endif
             uint j = 0;
             foreach (var item in ordered)

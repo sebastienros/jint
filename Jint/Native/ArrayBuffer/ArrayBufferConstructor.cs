@@ -40,7 +40,7 @@ public sealed class ArrayBufferConstructor : Constructor
 
         var symbols = new SymbolDictionary(1)
         {
-            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get [Symbol.species]", Species, 0, lengthFlags), set: Undefined,PropertyFlag.Configurable),
+            [GlobalSymbolRegistry.Species] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get [Symbol.species]", Species, 0, lengthFlags), set: Undefined, PropertyFlag.Configurable),
         };
         SetSymbols(symbols);
     }

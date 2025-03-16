@@ -81,20 +81,20 @@ internal static class DefaultObjectConverter
                 }
 
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
-                    if (value is ValueTask valueTask)
-                    {
-                        result = JsValue.ConvertAwaitableToPromise(engine, valueTask);
-                        return result is not null;
-                    }
+                if (value is ValueTask valueTask)
+                {
+                    result = JsValue.ConvertAwaitableToPromise(engine, valueTask);
+                    return result is not null;
+                }
 #endif
             }
 
 #if NET8_0_OR_GREATER
-                if (value is System.Text.Json.Nodes.JsonValue jsonValue)
-                {
-                    result = ConvertSystemTextJsonValue(engine, jsonValue);
-                    return result is not null;
-                }
+            if (value is System.Text.Json.Nodes.JsonValue jsonValue)
+            {
+                result = ConvertSystemTextJsonValue(engine, jsonValue);
+                return result is not null;
+            }
 #endif
 
             var t = value.GetType();
@@ -160,23 +160,23 @@ internal static class DefaultObjectConverter
     }
 
 #if NET8_0_OR_GREATER
-        private static JsValue? ConvertSystemTextJsonValue(Engine engine, System.Text.Json.Nodes.JsonValue value)
+    private static JsValue? ConvertSystemTextJsonValue(Engine engine, System.Text.Json.Nodes.JsonValue value)
+    {
+        return value.GetValueKind() switch
         {
-            return value.GetValueKind() switch
-            {
-                System.Text.Json.JsonValueKind.Object => JsValue.FromObject(engine, value),
-                System.Text.Json.JsonValueKind.Array => JsValue.FromObject(engine, value),
-                System.Text.Json.JsonValueKind.String => JsString.Create(value.ToString()),
+            System.Text.Json.JsonValueKind.Object => JsValue.FromObject(engine, value),
+            System.Text.Json.JsonValueKind.Array => JsValue.FromObject(engine, value),
+            System.Text.Json.JsonValueKind.String => JsString.Create(value.ToString()),
 #pragma warning disable IL2026, IL3050
-                System.Text.Json.JsonValueKind.Number => value.TryGetValue<int>(out var intValue) ? JsNumber.Create(intValue) : System.Text.Json.JsonSerializer.Deserialize<double>(value),
+            System.Text.Json.JsonValueKind.Number => value.TryGetValue<int>(out var intValue) ? JsNumber.Create(intValue) : System.Text.Json.JsonSerializer.Deserialize<double>(value),
 #pragma warning restore IL2026, IL3050
-                System.Text.Json.JsonValueKind.True => JsBoolean.True,
-                System.Text.Json.JsonValueKind.False => JsBoolean.False,
-                System.Text.Json.JsonValueKind.Undefined => JsValue.Undefined,
-                System.Text.Json.JsonValueKind.Null => JsValue.Null,
-                _ => null
-            };
-        }
+            System.Text.Json.JsonValueKind.True => JsBoolean.True,
+            System.Text.Json.JsonValueKind.False => JsBoolean.False,
+            System.Text.Json.JsonValueKind.Undefined => JsValue.Undefined,
+            System.Text.Json.JsonValueKind.Null => JsValue.Null,
+            _ => null
+        };
+    }
 #endif
 
     private static bool TryConvertConvertible(Engine engine, IConvertible convertible, [NotNullWhen(true)] out JsValue? result)

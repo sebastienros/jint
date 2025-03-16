@@ -6,7 +6,7 @@ namespace Jint.Runtime.Interop;
 /// <summary>
 /// Represents a FunctionInstance wrapping a CLR getter.
 /// </summary>
-internal sealed class GetterFunction: Function
+internal sealed class GetterFunction : Function
 {
     private static readonly JsString _name = new JsString("get");
     private readonly Func<JsValue, JsValue> _getter;

@@ -190,7 +190,7 @@ internal sealed class FunctionEnvironment : DeclarativeEnvironment
             ExceptionHelper.ThrowTypeError(_functionObject._realm, "Destructed parameter is null or undefined");
         }
 
-        var argumentObject = TypeConverter.ToObject(_engine.Realm , argument);
+        var argumentObject = TypeConverter.ToObject(_engine.Realm, argument);
 
         ref readonly var properties = ref objectPattern.Properties;
         var processedProperties = properties.Count > 0 && properties[properties.Count - 1] is RestElement

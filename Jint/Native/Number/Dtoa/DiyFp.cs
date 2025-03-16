@@ -79,10 +79,10 @@ internal readonly struct DiyFp
         ulong b1 = a.F & kM32;
         ulong c = b.F >> 32;
         ulong d = b.F & kM32;
-        ulong ac = a1*c;
-        ulong bc = b1*c;
-        ulong ad = a1*d;
-        ulong bd = b1*d;
+        ulong ac = a1 * c;
+        ulong bc = b1 * c;
+        ulong ad = a1 * d;
+        ulong bd = b1 * d;
         ulong tmp = (bd >> 32) + (ad & kM32) + (bc & kM32);
         // By adding 1U << 31 to tmp we round the final result.
         // Halfway cases will be round up.

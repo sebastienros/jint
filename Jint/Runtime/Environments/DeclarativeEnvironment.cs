@@ -196,7 +196,7 @@ internal static class DictionaryExtensions
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void CreateImmutableBinding<T>(this T dictionary, Key name, bool strict = true)  where T : IEngineDictionary<Key, Binding>
+    internal static void CreateImmutableBinding<T>(this T dictionary, Key name, bool strict = true) where T : IEngineDictionary<Key, Binding>
     {
         dictionary[name] = new Binding(null!, canBeDeleted: false, mutable: false, strict);
     }

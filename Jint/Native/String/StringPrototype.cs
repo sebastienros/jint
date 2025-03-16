@@ -598,7 +598,7 @@ internal sealed class StringPrototype : StringInstance
         else
         {
             var captures = System.Array.Empty<string>();
-            replStr =  RegExpPrototype.GetSubstitution(searchString, thisString.ToString(), position, captures, Undefined, TypeConverter.ToString(replaceValue));
+            replStr = RegExpPrototype.GetSubstitution(searchString, thisString.ToString(), position, captures, Undefined, TypeConverter.ToString(replaceValue));
         }
 
         var tailPos = position + searchString.Length;
@@ -686,7 +686,7 @@ internal sealed class StringPrototype : StringInstance
             else
             {
                 var captures = System.Array.Empty<string>();
-                replacement =  RegExpPrototype.GetSubstitution(searchString, thisString, position, captures, Undefined, TypeConverter.ToString(replaceValue));
+                replacement = RegExpPrototype.GetSubstitution(searchString, thisString, position, captures, Undefined, TypeConverter.ToString(replaceValue));
             }
 
             result.Append(preserved);
@@ -789,7 +789,7 @@ internal sealed class StringPrototype : StringInstance
         var pos = double.IsNaN(numPos) ? double.PositiveInfinity : TypeConverter.ToInteger(numPos);
 
         var len = jsString.Length;
-        var start = (int)System.Math.Min(System.Math.Max(pos, 0), len);
+        var start = (int) System.Math.Min(System.Math.Max(pos, 0), len);
         var searchLen = searchStr.Length;
 
         if (searchLen > len)
@@ -899,7 +899,7 @@ internal sealed class StringPrototype : StringInstance
 
         JsValue pos = arguments.Length > 0 ? arguments[0] : 0;
         var s = TypeConverter.ToString(thisObject);
-        var position = (int)TypeConverter.ToInteger(pos);
+        var position = (int) TypeConverter.ToInteger(pos);
         if (position < 0 || position >= s.Length)
         {
             return Undefined;

@@ -11,7 +11,7 @@ internal static class BignumDtoa
         double v,
         DtoaMode mode,
         int requested_digits,
-        ref  DtoaBuilder builder,
+        ref DtoaBuilder builder,
         out int decimal_point)
     {
         var bits = (ulong) BitConverter.DoubleToInt64Bits(v);
@@ -117,7 +117,7 @@ internal static class BignumDtoa
         Bignum delta_minus,
         Bignum delta_plus,
         bool is_even,
-        ref  DtoaBuilder buffer)
+        ref DtoaBuilder buffer)
     {
         // Small optimization: if delta_minus and delta_plus are the same just reuse
         // one of the two bignums.
@@ -239,7 +239,7 @@ internal static class BignumDtoa
         ref int decimal_point,
         Bignum numerator,
         Bignum denominator,
-        ref  DtoaBuilder buffer)
+        ref DtoaBuilder buffer)
     {
         Debug.Assert(count >= 0);
         for (int i = 0; i < count - 1; ++i)
@@ -286,7 +286,7 @@ internal static class BignumDtoa
         ref int decimal_point,
         Bignum numerator,
         Bignum denominator,
-        ref  DtoaBuilder buffer)
+        ref DtoaBuilder buffer)
     {
         // Note that we have to look at more than just the requested_digits, since
         // a number could be rounded up. Example: v=0.5 with requested_digits=0.

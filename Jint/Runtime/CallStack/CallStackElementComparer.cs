@@ -1,6 +1,6 @@
 namespace Jint.Runtime.CallStack;
 
-internal sealed class CallStackElementComparer: IEqualityComparer<CallStackElement>
+internal sealed class CallStackElementComparer : IEqualityComparer<CallStackElement>
 {
     public static readonly CallStackElementComparer Instance = new();
 

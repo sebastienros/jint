@@ -127,17 +127,17 @@ public abstract partial class JsValue : IEquatable<JsValue>
         }
 
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
-            if (obj is ValueTask valueTask)
-            {
-                return ConvertTaskToPromise(engine, valueTask.AsTask());
-            }
+        if (obj is ValueTask valueTask)
+        {
+            return ConvertTaskToPromise(engine, valueTask.AsTask());
+        }
 
-            // ValueTask<T>
-            var asTask = obj.GetType().GetMethod(nameof(ValueTask<object>.AsTask));
-            if (asTask is not null)
-            {
-                return ConvertTaskToPromise(engine, (Task) asTask.Invoke(obj, parameters: null)!);
-            }
+        // ValueTask<T>
+        var asTask = obj.GetType().GetMethod(nameof(ValueTask<object>.AsTask));
+        if (asTask is not null)
+        {
+            return ConvertTaskToPromise(engine, (Task) asTask.Invoke(obj, parameters: null)!);
+        }
 #endif
 
         return FromObject(engine, JsValue.Undefined);

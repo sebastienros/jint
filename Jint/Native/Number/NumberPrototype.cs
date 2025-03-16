@@ -233,7 +233,7 @@ internal sealed class NumberPrototype : NumberInstance
         Debug.Assert(dtoaBuilder.Length <= f + 1);
 
         int exponent = decimalPoint - 1;
-        var result = CreateExponentialRepresentation(ref dtoaBuilder, exponent, negative, f+1);
+        var result = CreateExponentialRepresentation(ref dtoaBuilder, exponent, negative, f + 1);
         return result;
     }
 
@@ -324,7 +324,7 @@ internal sealed class NumberPrototype : NumberInstance
     }
 
     private static string CreateExponentialRepresentation(
-        ref  DtoaBuilder buffer,
+        ref DtoaBuilder buffer,
         int exponent,
         bool negative,
         int significantDigits)
@@ -401,7 +401,7 @@ internal sealed class NumberPrototype : NumberInstance
         }
 
         var integer = (long) x;
-        var fraction = x -  integer;
+        var fraction = x - integer;
 
         string result = NumberPrototype.ToBase(integer, radix);
         if (fraction != 0)
@@ -445,7 +445,7 @@ internal sealed class NumberPrototype : NumberInstance
         var result = new ValueStringBuilder(stackalloc char[64]);
         while (n > 0 && result.Length < 50) // arbitrary limit
         {
-            var c = n*radix;
+            var c = n * radix;
             var d = (int) c;
             n = c - d;
 

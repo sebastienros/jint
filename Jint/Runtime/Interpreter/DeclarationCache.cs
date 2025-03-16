@@ -67,7 +67,7 @@ internal static class DeclarationCacheBuilder
                 continue;
             }
 
-            var rootVariable = (VariableDeclaration)node;
+            var rootVariable = (VariableDeclaration) node;
             if (rootVariable.Kind == VariableDeclarationKind.Var)
             {
                 continue;

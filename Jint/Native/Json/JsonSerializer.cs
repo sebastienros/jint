@@ -318,37 +318,37 @@ public sealed class JsonSerializer
         json.Append('"');
 
 #if NETCOREAPP1_0_OR_GREATER
-            fixed (char* ptr = value)
+        fixed (char* ptr = value)
+        {
+            int remainingLength = value.Length;
+            int offset = 0;
+            while (true)
             {
-                int remainingLength = value.Length;
-                int offset = 0;
-                while (true)
+                int index = System.Text.Encodings.Web.JavaScriptEncoder.Default.FindFirstCharacterToEncode(ptr + offset, remainingLength);
+                if (index < 0)
                 {
-                    int index = System.Text.Encodings.Web.JavaScriptEncoder.Default.FindFirstCharacterToEncode(ptr + offset, remainingLength);
-                    if (index < 0)
-                    {
-                        // append the remaining text which doesn't need any encoding.
-                        json.Append(value.AsSpan(offset));
-                        break;
-                    }
+                    // append the remaining text which doesn't need any encoding.
+                    json.Append(value.AsSpan(offset));
+                    break;
+                }
 
-                    index += offset;
-                    if (index - offset > 0)
-                    {
-                        // append everything which does not need any encoding until the found index.
-                        json.Append(value.AsSpan(offset, index - offset));
-                    }
+                index += offset;
+                if (index - offset > 0)
+                {
+                    // append everything which does not need any encoding until the found index.
+                    json.Append(value.AsSpan(offset, index - offset));
+                }
 
-                    AppendJsonStringCharacter(value, ref index, ref json);
+                AppendJsonStringCharacter(value, ref index, ref json);
 
-                    offset = index + 1;
-                    remainingLength = value.Length - offset;
-                    if (remainingLength == 0)
-                    {
-                        break;
-                    }
+                offset = index + 1;
+                remainingLength = value.Length - offset;
+                if (remainingLength == 0)
+                {
+                    break;
                 }
             }
+        }
 #else
         for (var i = 0; i < value.Length; i++)
         {
@@ -389,8 +389,8 @@ public sealed class JsonSerializer
                 if (char.IsSurrogatePair(value, index))
                 {
 #if NETCOREAPP1_0_OR_GREATER
-                        json.Append(value.AsSpan(index, 2));
-                        index++;
+                    json.Append(value.AsSpan(index, 2));
+                    index++;
 #else
                     json.Append(c);
                     index++;

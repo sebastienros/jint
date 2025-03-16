@@ -47,7 +47,7 @@ internal static class CachedPowers
 
         internal CachedPower(ulong significand, short binaryExponent, short decimalExponent)
         {
-            Significand =  significand;
+            Significand = significand;
             BinaryExponent = binaryExponent;
             DecimalExponent = decimalExponent;
         }

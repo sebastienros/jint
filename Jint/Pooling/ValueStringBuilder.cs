@@ -48,7 +48,7 @@ internal ref struct ValueStringBuilder
         Debug.Assert(capacity >= 0);
 
         // If the caller has a bug and calls this with negative capacity, make sure to call Grow to throw an exception.
-        if ((uint)capacity > (uint)_chars.Length)
+        if ((uint) capacity > (uint) _chars.Length)
             Grow(capacity - _pos);
     }
 
@@ -177,7 +177,7 @@ internal ref struct ValueStringBuilder
     {
         int pos = _pos;
         Span<char> chars = _chars;
-        if ((uint)pos < (uint)chars.Length)
+        if ((uint) pos < (uint) chars.Length)
         {
             chars[pos] = c;
             _pos = pos + 1;
@@ -209,7 +209,7 @@ internal ref struct ValueStringBuilder
         }
 
         int pos = _pos;
-        if (s.Length == 1 && (uint)pos < (uint)_chars.Length) // very common case, e.g. appending strings from NumberFormatInfo like separators, percent symbols, etc.
+        if (s.Length == 1 && (uint) pos < (uint) _chars.Length) // very common case, e.g. appending strings from NumberFormatInfo like separators, percent symbols, etc.
         {
             _chars[pos] = s[0];
             _pos = pos + 1;
@@ -344,9 +344,9 @@ internal ref struct ValueStringBuilder
 
         // Increase to at least the required size (_pos + additionalCapacityBeyondPos), but try
         // to double the size if possible, bounding the doubling to not go beyond the max array length.
-        int newCapacity = (int)Math.Max(
-            (uint)(_pos + additionalCapacityBeyondPos),
-            Math.Min((uint)_chars.Length * 2, ArrayMaxLength));
+        int newCapacity = (int) Math.Max(
+            (uint) (_pos + additionalCapacityBeyondPos),
+            Math.Min((uint) _chars.Length * 2, ArrayMaxLength));
 
         // Make sure to let Rent throw an exception if the caller has a bug and the desired capacity is negative.
         // This could also go negative if the actual required length wraps around.
