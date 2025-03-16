@@ -1,6 +1,5 @@
 #nullable disable
 
-using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;

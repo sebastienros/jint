@@ -2,7 +2,6 @@
 
 using System.Linq;
 using System.Text;
-using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.ArrayBuffer;
 using Jint.Native.Iterator;

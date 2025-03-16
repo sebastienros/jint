@@ -1,4 +1,3 @@
-using Jint.Collections;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.Native.TypedArray;

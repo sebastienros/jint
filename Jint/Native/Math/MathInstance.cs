@@ -1,4 +1,3 @@
-using Jint.Collections;
 using Jint.Native.Number;
 using Jint.Native.Object;
 using Jint.Native.Symbol;

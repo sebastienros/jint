@@ -1,5 +1,4 @@
 using System.Text;
-using Jint.Collections;
 using Jint.Extensions;
 using Jint.Native.ArrayBuffer;
 using Jint.Runtime;

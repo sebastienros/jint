@@ -1,6 +1,4 @@
 using Jint.Native;
-using Jint.Native.Symbol;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Jint.Tests.Runtime.Domain;
 using Microsoft.Extensions.DependencyInjection;

@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using Jint.Collections;
 using Jint.Native.Json;
 using Jint.Native.Object;
 using Jint.Native.RegExp;

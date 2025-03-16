@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Object;
 

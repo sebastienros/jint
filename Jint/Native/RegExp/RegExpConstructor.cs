@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Native.Symbol;

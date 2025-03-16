@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Interpreter;

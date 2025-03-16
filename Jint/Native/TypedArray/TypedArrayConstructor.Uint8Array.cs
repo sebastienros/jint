@@ -1,6 +1,5 @@
 using System.Buffers;
 using System.Globalization;
-using Jint.Collections;
 using Jint.Extensions;
 using Jint.Native.Object;
 using Jint.Runtime;

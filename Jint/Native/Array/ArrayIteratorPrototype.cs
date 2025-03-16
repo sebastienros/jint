@@ -1,4 +1,3 @@
-using Jint.Collections;
 using Jint.Native.ArrayBuffer;
 using Jint.Native.Iterator;
 using Jint.Native.Object;
