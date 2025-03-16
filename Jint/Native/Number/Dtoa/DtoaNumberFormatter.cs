@@ -8,7 +8,7 @@ namespace Jint.Native.Number.Dtoa;
 internal static class DtoaNumberFormatter
 {
     public static void DoubleToAscii(
-        ref  DtoaBuilder buffer,
+        ref DtoaBuilder buffer,
         double v,
         DtoaMode mode,
         int requested_digits,
@@ -42,7 +42,8 @@ internal static class DtoaNumberFormatter
         }
 
         bool fast_worked = false;
-        switch (mode) {
+        switch (mode)
+        {
             case DtoaMode.Shortest:
                 fast_worked = FastDtoa.NumberToString(v, DtoaMode.Shortest, 0, out point, ref buffer);
                 break;

@@ -64,7 +64,7 @@ internal sealed class FastDtoa
     //    representable number to the input.
     //  Modifies the generated digits in the buffer to approach (round towards) w.
     private static bool RoundWeed(
-        ref  DtoaBuilder buffer,
+        ref DtoaBuilder buffer,
         ulong distanceTooHighW,
         ulong unsafeInterval,
         ulong rest,
@@ -167,7 +167,7 @@ internal sealed class FastDtoa
         //   Since too_low = too_high - unsafe_interval this is equivalent to
         //      [too_high - unsafe_interval + 4 ulp; too_high - 2 ulp]
         //   Conceptually we have: rest ~= too_high - buffer
-        return (2*unit <= rest) && (rest <= unsafeInterval - 4*unit);
+        return (2 * unit <= rest) && (rest <= unsafeInterval - 4 * unit);
     }
 
     // Rounds the buffer upwards if the result is closer to v by possibly adding
@@ -183,7 +183,7 @@ internal sealed class FastDtoa
     //
     // Precondition: rest < ten_kappa.
     static bool RoundWeedCounted(
-        ref  DtoaBuilder buffer,
+        ref DtoaBuilder buffer,
         ulong rest,
         ulong ten_kappa,
         ulong unit,
@@ -413,7 +413,7 @@ internal sealed class FastDtoa
         in DiyFp low,
         in DiyFp w,
         in DiyFp high,
-        ref  DtoaBuilder buffer,
+        ref DtoaBuilder buffer,
         int mk,
         out int kappa)
     {
@@ -459,7 +459,7 @@ internal sealed class FastDtoa
         // that is smaller than integrals.
         while (kappa > 0)
         {
-            int digit = (int) (integrals/divider);
+            int digit = (int) (integrals / divider);
             buffer.Append((char) ('0' + digit));
             integrals %= divider;
             kappa--;
@@ -501,7 +501,7 @@ internal sealed class FastDtoa
         {
             fractionals *= 5;
             unit *= 5;
-            unsafeInterval = new DiyFp(unsafeInterval.F*5, unsafeInterval.E + 1); // Will be optimized out.
+            unsafeInterval = new DiyFp(unsafeInterval.F * 5, unsafeInterval.E + 1); // Will be optimized out.
             one = new DiyFp(one.F.UnsignedShift(1), one.E + 1);
             // Integer division by one.
             var digit = (int) ((fractionals.UnsignedShift(-one.E)) & 0xffffffffL);
@@ -512,7 +512,7 @@ internal sealed class FastDtoa
             {
                 return RoundWeed(
                     ref buffer,
-                    DiyFp.Minus(tooHigh, w).F*unit,
+                    DiyFp.Minus(tooHigh, w).F * unit,
                     unsafeInterval.F,
                     fractionals,
                     one.F,
@@ -552,7 +552,7 @@ internal sealed class FastDtoa
     static bool DigitGenCounted(
         in DiyFp w,
         int requested_digits,
-        ref  DtoaBuilder buffer,
+        ref DtoaBuilder buffer,
         out int kappa)
     {
         Debug.Assert(MinimalTargetExponent <= w.E && w.E <= MaximalTargetExponent);
@@ -592,7 +592,7 @@ internal sealed class FastDtoa
         if (requested_digits == 0)
         {
             ulong rest = (((ulong) integrals) << -one.E) + fractionals;
-            return RoundWeedCounted(ref buffer, rest,(ulong) divisor << -one.E, w_error, ref kappa);
+            return RoundWeedCounted(ref buffer, rest, (ulong) divisor << -one.E, w_error, ref kappa);
         }
 
         // The integrals have been generated. We are at the point of the decimal
@@ -604,7 +604,8 @@ internal sealed class FastDtoa
         Debug.Assert(one.E >= -60);
         Debug.Assert(fractionals < one.F);
 
-        while (requested_digits > 0 && fractionals > w_error) {
+        while (requested_digits > 0 && fractionals > w_error)
+        {
             fractionals *= 10;
             w_error *= 10;
             // Integer division by one.
@@ -629,7 +630,7 @@ internal sealed class FastDtoa
     // The last digit will be closest to the actual v. That is, even if several
     // digits might correctly yield 'v' when read again, the closest will be
     // computed.
-    private static bool Grisu3(double v, ref  DtoaBuilder buffer, out int decimal_exponent)
+    private static bool Grisu3(double v, ref DtoaBuilder buffer, out int decimal_exponent)
     {
         ulong bits = (ulong) BitConverter.DoubleToInt64Bits(v);
         DiyFp w = DoubleHelper.AsNormalizedDiyFp(bits);
@@ -695,7 +696,7 @@ internal sealed class FastDtoa
     static bool Grisu3Counted(
         double v,
         int requested_digits,
-        ref  DtoaBuilder buffer,
+        ref DtoaBuilder buffer,
         out int decimal_exponent)
     {
         ulong bits = (ulong) BitConverter.DoubleToInt64Bits(v);
@@ -735,7 +736,7 @@ internal sealed class FastDtoa
         DtoaMode mode,
         int requested_digits,
         out int decimal_point,
-        ref  DtoaBuilder buffer)
+        ref DtoaBuilder buffer)
     {
         Debug.Assert(v > 0);
         Debug.Assert(!double.IsNaN(v));

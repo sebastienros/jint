@@ -47,7 +47,7 @@ internal sealed class PromiseConstructor : Constructor
             ["reject"] = new(new PropertyDescriptor(new ClrFunction(Engine, "reject", Reject, 1, LengthFlags), PropertyFlags)),
             ["resolve"] = new(new PropertyDescriptor(new ClrFunction(Engine, "resolve", Resolve, 1, LengthFlags), PropertyFlags)),
             ["try"] = new(new PropertyDescriptor(new ClrFunction(Engine, "try", Try, 1, LengthFlags), PropertyFlags)),
-            ["withResolvers"] = new(new PropertyDescriptor(new ClrFunction(Engine, "withResolvers", WithResolvers , 0, LengthFlags), PropertyFlags)),
+            ["withResolvers"] = new(new PropertyDescriptor(new ClrFunction(Engine, "withResolvers", WithResolvers, 0, LengthFlags), PropertyFlags)),
         };
         SetProperties(properties);
 

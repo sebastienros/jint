@@ -119,7 +119,7 @@ internal sealed class Uint8ArrayPrototype : Prototype
 
     private JsValue ToBase64(JsValue thisObject, JsCallArguments arguments)
     {
-       var o = ValidateUint8Array(thisObject);
+        var o = ValidateUint8Array(thisObject);
 
         var opts = Uint8ArrayConstructor.GetOptionsObject(_engine, arguments.At(0));
         var alphabet = Uint8ArrayConstructor.GetAndValidateAlphabetOption(_engine, opts);
@@ -156,11 +156,11 @@ internal sealed class Uint8ArrayPrototype : Prototype
         using var outString = new ValueStringBuilder();
         foreach (var b in toEncode)
         {
-            var b1 = (byte)(b >> 4);
-            outString.Append((char)(b1 > 9 ? b1 - 10 + 'a' : b1 + '0'));
+            var b1 = (byte) (b >> 4);
+            outString.Append((char) (b1 > 9 ? b1 - 10 + 'a' : b1 + '0'));
 
-            var b2 = (byte)(b & 0x0F);
-            outString.Append((char)(b2 > 9 ? b2 - 10 + 'a' : b2 + '0'));
+            var b2 = (byte) (b & 0x0F);
+            outString.Append((char) (b2 > 9 ? b2 - 10 + 'a' : b2 + '0'));
         }
 
         return outString.ToString();

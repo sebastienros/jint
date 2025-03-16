@@ -297,7 +297,7 @@ public abstract class TypedArrayConstructor : Constructor
         return obj;
     }
 
-    internal static void FillTypedArrayInstance<T>(JsTypedArray target, ReadOnlySpan<T>values)
+    internal static void FillTypedArrayInstance<T>(JsTypedArray target, ReadOnlySpan<T> values)
     {
         for (var i = 0; i < values.Length; ++i)
         {

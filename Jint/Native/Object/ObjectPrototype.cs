@@ -56,7 +56,7 @@ public sealed class ObjectPrototype : Prototype
             ["toString"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toString", prototype.ToObjectString, 0, LengthFlags), PropertyFlags),
             ["toLocaleString"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "toLocaleString", prototype.ToLocaleString, 0, LengthFlags), PropertyFlags),
             ["valueOf"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "valueOf", prototype.ValueOf, 0, LengthFlags), PropertyFlags),
-            ["hasOwnProperty"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "hasOwnProperty",prototype. HasOwnProperty, 1, LengthFlags), PropertyFlags),
+            ["hasOwnProperty"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "hasOwnProperty", prototype.HasOwnProperty, 1, LengthFlags), PropertyFlags),
             ["isPrototypeOf"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "isPrototypeOf", prototype.IsPrototypeOf, 1, LengthFlags), PropertyFlags),
             ["propertyIsEnumerable"] = new LazyPropertyDescriptor<ObjectPrototype>(this, static prototype => new ClrFunction(prototype._engine, "propertyIsEnumerable", prototype.PropertyIsEnumerable, 1, LengthFlags), PropertyFlags)
         };

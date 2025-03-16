@@ -44,7 +44,7 @@ internal sealed class JintSwitchBlock
 
         DeclarativeEnvironment? blockEnv = null;
 
-        start:
+start:
         for (; i < temp.Length; i++)
         {
             var clause = temp[i];

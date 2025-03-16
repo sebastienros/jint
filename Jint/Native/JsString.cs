@@ -37,7 +37,7 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     internal string _value;
 
-    private static ConcurrentDictionary<string, JsString> _stringCache;
+    private static readonly ConcurrentDictionary<string, JsString> _stringCache;
 
     static JsString()
     {

@@ -136,16 +136,16 @@ internal static class WebEncoders
 #if NETCOREAPP
         return Base64UrlEncode(input.AsSpan(offset, count), omitPadding);
 #else
-            // Special-case empty input
-            if (count == 0)
-            {
-                return string.Empty;
-            }
+        // Special-case empty input
+        if (count == 0)
+        {
+            return string.Empty;
+        }
 
-            var buffer = new char[GetArraySizeRequiredToEncode(count)];
-            var numBase64Chars = Base64UrlEncode(input, offset, buffer, outputOffset: 0, count: count, omitPadding);
+        var buffer = new char[GetArraySizeRequiredToEncode(count)];
+        var numBase64Chars = Base64UrlEncode(input, offset, buffer, outputOffset: 0, count: count, omitPadding);
 
-            return new string(buffer, startIndex: 0, length: numBase64Chars);
+        return new string(buffer, startIndex: 0, length: numBase64Chars);
 #endif
     }
 
@@ -193,37 +193,37 @@ internal static class WebEncoders
 #if NETCOREAPP
         return Base64UrlEncode(input.AsSpan(offset, count), output.AsSpan(outputOffset), omitPadding);
 #else
-            // Special-case empty input.
-            if (count == 0)
+        // Special-case empty input.
+        if (count == 0)
+        {
+            return 0;
+        }
+
+        // Use base64url encoding with no padding characters. See RFC 4648, Sec. 5.
+
+        // Start with default Base64 encoding.
+        var numBase64Chars = Convert.ToBase64CharArray(input, offset, count, output, outputOffset);
+
+        // Fix up '+' -> '-' and '/' -> '_'. Drop padding characters.
+        for (var i = outputOffset; i - outputOffset < numBase64Chars; i++)
+        {
+            var ch = output[i];
+            if (ch == '+')
             {
-                return 0;
+                output[i] = '-';
             }
-
-            // Use base64url encoding with no padding characters. See RFC 4648, Sec. 5.
-
-            // Start with default Base64 encoding.
-            var numBase64Chars = Convert.ToBase64CharArray(input, offset, count, output, outputOffset);
-
-            // Fix up '+' -> '-' and '/' -> '_'. Drop padding characters.
-            for (var i = outputOffset; i - outputOffset < numBase64Chars; i++)
+            else if (ch == '/')
             {
-                var ch = output[i];
-                if (ch == '+')
-                {
-                    output[i] = '-';
-                }
-                else if (ch == '/')
-                {
-                    output[i] = '_';
-                }
-                else if (omitPadding && ch == '=')
-                {
-                    // We've reached a padding character; truncate the remainder.
-                    return i - outputOffset;
-                }
+                output[i] = '_';
             }
+            else if (omitPadding && ch == '=')
+            {
+                // We've reached a padding character; truncate the remainder.
+                return i - outputOffset;
+            }
+        }
 
-            return numBase64Chars;
+        return numBase64Chars;
 #endif
     }
 

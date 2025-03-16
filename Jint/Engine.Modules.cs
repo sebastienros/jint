@@ -148,7 +148,7 @@ public partial class Engine
         private JsValue EvaluateModule(string specifier, Module module)
         {
             var ownsContext = _engine._activeEvaluationContext is null;
-            _engine. _activeEvaluationContext ??= new EvaluationContext(_engine);
+            _engine._activeEvaluationContext ??= new EvaluationContext(_engine);
             JsValue evaluationResult;
             try
             {

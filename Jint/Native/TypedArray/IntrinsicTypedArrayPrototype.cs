@@ -49,7 +49,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
             ["fill"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "fill", prototype.Fill, 1, PropertyFlag.Configurable), PropertyFlags),
             ["filter"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "filter", prototype.Filter, 1, PropertyFlag.Configurable), PropertyFlags),
             ["find"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "find", prototype.Find, 1, PropertyFlag.Configurable), PropertyFlags),
-            ["findIndex"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "findIndex",prototype. FindIndex, 1, PropertyFlag.Configurable), PropertyFlags),
+            ["findIndex"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "findIndex", prototype.FindIndex, 1, PropertyFlag.Configurable), PropertyFlags),
             ["findLast"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "findLast", prototype.FindLast, 1, PropertyFlag.Configurable), PropertyFlags),
             ["findLastIndex"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "findLastIndex", prototype.FindLastIndex, 1, PropertyFlag.Configurable), PropertyFlags),
             ["forEach"] = new LazyPropertyDescriptor<IntrinsicTypedArrayPrototype>(this, static prototype => new ClrFunction(prototype._engine, "forEach", prototype.ForEach, 1, PropertyFlag.Configurable), PropertyFlags),
@@ -205,7 +205,7 @@ internal sealed class IntrinsicTypedArrayPrototype : Prototype
                     return o._arrayLength;
                 }
 
-                var byteOffset  = o._byteOffset;
+                var byteOffset = o._byteOffset;
                 var elementSize = o._arrayElementType.GetElementSize();
                 var byteLength = (double) CachedBufferByteLength;
                 var floor = System.Math.Floor((byteLength - byteOffset) / elementSize);

@@ -62,11 +62,11 @@ internal sealed class StringConstructor : Constructor
         }
 
 #if SUPPORTS_SPAN_PARSE
-            var elements = length < 512 ? stackalloc char[length] : new char[length];
+        var elements = length < 512 ? stackalloc char[length] : new char[length];
 #else
         var elements = new char[length];
 #endif
-        for (var i = 0; i < elements.Length; i++ )
+        for (var i = 0; i < elements.Length; i++)
         {
             var nextCu = TypeConverter.ToUint16(arguments[i]);
             elements[i] = (char) nextCu;
@@ -122,7 +122,7 @@ internal sealed class StringConstructor : Constructor
 
         return JsString.Create(result.ToString());
 
-        rangeError:
+rangeError:
         _engine.SignalError(ExceptionHelper.CreateRangeError(_realm, "Invalid code point " + codePoint));
         return JsEmpty.Instance;
     }

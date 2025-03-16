@@ -128,7 +128,7 @@ public sealed class JsNumber : JsValue, IEquatable<JsNumber>
             return DoubleNegativeInfinity;
         }
 
-        if (double.IsPositiveInfinity(value ))
+        if (double.IsPositiveInfinity(value))
         {
             return DoublePositiveInfinity;
         }

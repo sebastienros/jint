@@ -308,7 +308,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
             var memberNameComparer = typeResolver.MemberNameComparer;
             var typeResolverMemberNameCreator = typeResolver.MemberNameCreator;
 #if NET7_0_OR_GREATER
-                var enumValues = type.GetEnumValuesAsUnderlyingType();
+            var enumValues = type.GetEnumValuesAsUnderlyingType();
 #else
             var enumValues = Enum.GetValues(type);
 #endif

@@ -88,7 +88,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
                 indexerAccessor = ComposeIndexerFactory(engine, targetType, candidate, paramType, propertyName, integerKey, paramTypeArray);
                 if (indexerAccessor != null)
                 {
-                    if (paramType != typeof(string) ||  integerKey is null)
+                    if (paramType != typeof(string) || integerKey is null)
                     {
                         // exact match, we don't need to check for integer key
                         indexer = candidate;

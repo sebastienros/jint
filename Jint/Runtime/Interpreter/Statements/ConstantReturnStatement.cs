@@ -5,7 +5,7 @@ namespace Jint.Runtime.Interpreter.Statements;
 internal sealed class ConstantStatement : JintStatement
 {
     private readonly JsValue _value;
-    private CompletionType _completionType;
+    private readonly CompletionType _completionType;
 
     public ConstantStatement(Statement statement, CompletionType completionType, JsValue value) : base(statement)
     {

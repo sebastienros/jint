@@ -287,7 +287,7 @@ public static class TypeConverter
                 return -0.0;
             }
 
-            return firstChar == '-' ? - 1 * n : n;
+            return firstChar == '-' ? -1 * n : n;
         }
         catch (Exception e) when (e is OverflowException)
         {
@@ -670,7 +670,7 @@ public static class TypeConverter
             {
                 // we get better precision if we don't hit floating point parsing that is performed by Esprima
 #if SUPPORTS_SPAN_PARSE
-                    var source = str.AsSpan(2);
+                var source = str.AsSpan(2);
 #else
                 var source = str.Substring(2);
 #endif

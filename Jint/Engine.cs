@@ -52,7 +52,7 @@ public sealed partial class Engine : IDisposable
     internal readonly bool _isDebugMode;
     internal readonly bool _isStrict;
 
-    private bool _customResolver;
+    private readonly bool _customResolver;
     internal readonly IReferenceResolver _referenceResolver;
 
     internal readonly ReferencePool _referencePool;
@@ -1608,7 +1608,7 @@ public sealed partial class Engine : IDisposable
         }
 
 #if SUPPORTS_WEAK_TABLE_CLEAR
-            _objectWrapperCache.Clear();
+        _objectWrapperCache.Clear();
 #else
         // we can expect that reflection is OK as we've been generating object wrappers already
         var clearMethod = _objectWrapperCache.GetType().GetMethod("Clear", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);

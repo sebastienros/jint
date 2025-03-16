@@ -222,7 +222,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     }
                     else
                     {
-                        AssignToReference(engine, reference!,  array, environment);
+                        AssignToReference(engine, reference!, array, environment);
                     }
                 }
                 else if (left is AssignmentPattern assignmentPattern)

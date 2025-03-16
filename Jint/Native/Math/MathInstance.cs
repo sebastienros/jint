@@ -203,7 +203,7 @@ internal sealed class MathInstance : ObjectInstance
 
         if (y > 0 && x.Equals(0))
         {
-            return System.Math.PI/2;
+            return System.Math.PI / 2;
         }
 
         if (NumberInstance.IsPositiveZero(y))
@@ -264,7 +264,7 @@ internal sealed class MathInstance : ObjectInstance
         // If y<0 and x is −0, the result is an implementation-dependent approximation to −π/2.
         if (y < 0 && x.Equals(0))
         {
-            return -System.Math.PI/2;
+            return -System.Math.PI / 2;
         }
 
         // If y>0 and y is finite and x is +∞, the result is +0.
@@ -302,7 +302,7 @@ internal sealed class MathInstance : ObjectInstance
         // If y is +∞ and x is finite, the result is an implementation-dependent approximation to +π/2.
         if (double.IsPositiveInfinity(y) && !double.IsInfinity(x))
         {
-            return System.Math.PI/2;
+            return System.Math.PI / 2;
         }
 
         // If y is −∞ and x is finite, the result is an implementation-dependent approximation to −π/2.
@@ -314,7 +314,7 @@ internal sealed class MathInstance : ObjectInstance
         // If y is +∞ and x is +∞, the result is an implementation-dependent approximation to +π/4.
         if (double.IsPositiveInfinity(y) && double.IsPositiveInfinity(x))
         {
-            return System.Math.PI/4;
+            return System.Math.PI / 4;
         }
 
         // If y is +∞ and x is −∞, the result is an implementation-dependent approximation to +3π/4.
@@ -332,7 +332,7 @@ internal sealed class MathInstance : ObjectInstance
         // If y is −∞ and x is −∞, the result is an implementation-dependent approximation to −3π/4.
         if (double.IsNegativeInfinity(y) && double.IsNegativeInfinity(x))
         {
-            return - 3 * System.Math.PI / 4;
+            return -3 * System.Math.PI / 4;
         }
 
         return System.Math.Atan2(y, x);
@@ -820,7 +820,7 @@ internal sealed class MathInstance : ObjectInstance
 
     private JsValue Random(JsValue thisObject, JsCallArguments arguments)
     {
-        if(_random == null)
+        if (_random == null)
         {
             _random = new Random();
         }
@@ -853,20 +853,20 @@ internal sealed class MathInstance : ObjectInstance
     private static JsValue F16Round(JsValue thisObject, JsCallArguments arguments)
     {
 #if SUPPORTS_HALF
-            var x = arguments.At(0);
-            var n = TypeConverter.ToNumber(x);
+        var x = arguments.At(0);
+        var n = TypeConverter.ToNumber(x);
 
-            if (double.IsNaN(n))
-            {
-                return JsNumber.DoubleNaN;
-            }
+        if (double.IsNaN(n))
+        {
+            return JsNumber.DoubleNaN;
+        }
 
-            if (double.IsInfinity(n) || NumberInstance.IsPositiveZero(n) || NumberInstance.IsNegativeZero(n))
-            {
-                return x;
-            }
+        if (double.IsInfinity(n) || NumberInstance.IsPositiveZero(n) || NumberInstance.IsNegativeZero(n))
+        {
+            return x;
+        }
 
-            return (double) (Half) n;
+        return (double) (Half) n;
 #else
         ExceptionHelper.ThrowNotImplementedException("Float16/Half type is not supported in this build");
         return default;
@@ -1020,7 +1020,7 @@ internal sealed class MathInstance : ObjectInstance
 
         if (System.Math.Sign(x) >= 0)
         {
-            return System.Math.Pow(x, 1.0/3.0);
+            return System.Math.Pow(x, 1.0 / 3.0);
         }
 
         return -1 * System.Math.Pow(System.Math.Abs(x), 1.0 / 3.0);
@@ -1128,7 +1128,7 @@ internal sealed class MathInstance : ObjectInstance
                             state = double.NegativeInfinity;
                         }
                     }
-                    else if (!NumberInstance.IsNegativeZero(n) && (NumberInstance.IsNegativeZero(state)  || state == Finite))
+                    else if (!NumberInstance.IsNegativeZero(n) && (NumberInstance.IsNegativeZero(state) || state == Finite))
                     {
                         state = Finite;
                         sum.Add(n);

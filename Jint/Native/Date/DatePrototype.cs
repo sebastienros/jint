@@ -36,7 +36,7 @@ internal sealed class DatePrototype : Prototype
         _timeSystem = engine.Options.TimeSystem;
     }
 
-    protected override  void Initialize()
+    protected override void Initialize()
     {
         const PropertyFlag lengthFlags = PropertyFlag.Configurable;
         const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
@@ -122,7 +122,7 @@ internal sealed class DatePrototype : Prototype
         {
             tryFirst = Types.String;
         }
-        else  if (string.Equals(hintString, "number", StringComparison.Ordinal))
+        else if (string.Equals(hintString, "number", StringComparison.Ordinal))
         {
             tryFirst = Types.Number;
         }
@@ -447,7 +447,7 @@ internal sealed class DatePrototype : Prototype
         {
             return JsNumber.DoubleNaN;
         }
-        return (int) ((double) t.Value - LocalTime(t).Value)/MsPerMinute;
+        return (int) ((double) t.Value - LocalTime(t).Value) / MsPerMinute;
     }
 
     /// <summary>
@@ -873,22 +873,22 @@ internal sealed class DatePrototype : Prototype
     /// </summary>
     private static int DaysInYear(double y)
     {
-        if (y%4 != 0)
+        if (y % 4 != 0)
         {
             return 365;
         }
 
-        if (y%4 == 0 && y%100 != 0)
+        if (y % 4 == 0 && y % 100 != 0)
         {
             return 366;
         }
 
-        if (y%100 == 0 && y%400 != 0)
+        if (y % 100 == 0 && y % 400 != 0)
         {
             return 365;
         }
 
-        if (y%400 == 0)
+        if (y % 400 == 0)
         {
             return 366;
         }
@@ -901,10 +901,10 @@ internal sealed class DatePrototype : Prototype
     /// </summary>
     private static int DayFromYear(DatePresentation y)
     {
-        return (int) (365*(y.Value - 1970)
-                      + System.Math.Floor((y.Value - 1969)/4d)
-                      - System.Math.Floor((y.Value - 1901)/100d)
-                      + System.Math.Floor((y.Value - 1601)/400d));
+        return (int) (365 * (y.Value - 1970)
+                      + System.Math.Floor((y.Value - 1969) / 4d)
+                      - System.Math.Floor((y.Value - 1901) / 100d)
+                      + System.Math.Floor((y.Value - 1601) / 400d));
     }
 
     /// <summary>
@@ -912,7 +912,7 @@ internal sealed class DatePrototype : Prototype
     /// </summary>
     private static long TimeFromYear(DatePresentation y)
     {
-        return MsPerDay*DayFromYear(y);
+        return MsPerDay * DayFromYear(y);
     }
 
     /// <summary>
@@ -1032,7 +1032,7 @@ internal sealed class DatePrototype : Prototype
             return dayWithinYear + 1;
         }
 
-        if (monthFromTime== 1)
+        if (monthFromTime == 1)
         {
             return dayWithinYear - 30;
         }
@@ -1185,7 +1185,7 @@ internal sealed class DatePrototype : Prototype
         var m = TypeConverter.ToInteger(min);
         var s = TypeConverter.ToInteger(sec);
         var milli = TypeConverter.ToInteger(ms);
-        var t = h*MsPerHour + m*MsPerMinute + s*MsPerSecond + milli;
+        var t = h * MsPerHour + m * MsPerMinute + s * MsPerSecond + milli;
 
         return t;
     }
@@ -1262,7 +1262,7 @@ internal sealed class DatePrototype : Prototype
         => IsFinite(value1) && IsFinite(value2) && IsFinite(value3);
 
     private static bool AreFinite(double value1, double value2, double value3, double value4)
-        => IsFinite(value1) && IsFinite(value2) &&  IsFinite(value3) && IsFinite(value4);
+        => IsFinite(value1) && IsFinite(value2) && IsFinite(value3) && IsFinite(value4);
 
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct Date(int Year, int Month, int Day);

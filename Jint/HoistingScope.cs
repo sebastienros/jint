@@ -174,7 +174,7 @@ internal sealed class HoistingScope
                 var childType = childNode.Type;
                 if (childType == NodeType.VariableDeclaration)
                 {
-                    var variableDeclaration = (VariableDeclaration)childNode;
+                    var variableDeclaration = (VariableDeclaration) childNode;
                     if (variableDeclaration.Kind == VariableDeclarationKind.Var)
                     {
                         _variableDeclarations ??= [];
@@ -217,7 +217,7 @@ internal sealed class HoistingScope
                     if (parent is null || (node.Type != NodeType.BlockStatement && node.Type != NodeType.SwitchCase))
                     {
                         _functions ??= [];
-                        _functions.Add((FunctionDeclaration)childNode);
+                        _functions.Add((FunctionDeclaration) childNode);
                     }
                 }
                 else if (childType == NodeType.ClassDeclaration && parent is null or AstModule)

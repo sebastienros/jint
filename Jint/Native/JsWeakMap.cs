@@ -31,7 +31,7 @@ internal sealed class JsWeakMap : ObjectInstance
         }
 
 #if SUPPORTS_WEAK_TABLE_ADD_OR_UPDATE
-         _table.AddOrUpdate(key, value);
+        _table.AddOrUpdate(key, value);
 #else
         _table.Remove(key);
         _table.Add(key, value);

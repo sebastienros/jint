@@ -268,7 +268,7 @@ public class JsArrayBuffer : ObjectInstance
         else
         {
             // inlined conversion for faster speed instead of getting the method in spec
-            var doubleValue  = value.DoubleValue;
+            var doubleValue = value.DoubleValue;
             var intValue = double.IsNaN(doubleValue) || doubleValue == 0 || double.IsInfinity(doubleValue)
                 ? 0
                 : (long) doubleValue;
@@ -289,28 +289,28 @@ public class JsArrayBuffer : ObjectInstance
 #if !NETSTANDARD2_1
                     rawBytes = BitConverter.GetBytes((short) intValue);
 #else
-                        BitConverter.TryWriteBytes(rawBytes, (short) intValue);
+                    BitConverter.TryWriteBytes(rawBytes, (short) intValue);
 #endif
                     break;
                 case TypedArrayElementType.Uint16:
 #if !NETSTANDARD2_1
                     rawBytes = BitConverter.GetBytes((ushort) intValue);
 #else
-                        BitConverter.TryWriteBytes(rawBytes, (ushort) intValue);
+                    BitConverter.TryWriteBytes(rawBytes, (ushort) intValue);
 #endif
                     break;
                 case TypedArrayElementType.Int32:
 #if !NETSTANDARD2_1
                     rawBytes = BitConverter.GetBytes((uint) intValue);
 #else
-                        BitConverter.TryWriteBytes(rawBytes, (uint) intValue);
+                    BitConverter.TryWriteBytes(rawBytes, (uint) intValue);
 #endif
                     break;
                 case TypedArrayElementType.Uint32:
 #if !NETSTANDARD2_1
                     rawBytes = BitConverter.GetBytes((uint) intValue);
 #else
-                        BitConverter.TryWriteBytes(rawBytes, (uint) intValue);
+                    BitConverter.TryWriteBytes(rawBytes, (uint) intValue);
 #endif
                     break;
                 default:

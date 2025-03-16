@@ -330,7 +330,7 @@ internal sealed class JintFunctionDefinition
         ref bool hasDuplicates,
         ref bool hasArguments)
     {
-        Start:
+Start:
         if (parameter.Type == NodeType.Identifier)
         {
             var key = (Key) ((Identifier) parameter).Name;

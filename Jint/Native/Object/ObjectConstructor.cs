@@ -138,7 +138,7 @@ public sealed class ObjectConstructor : Constructor
             return Construct(arguments);
         }
 
-        if(arguments[0].IsNullOrUndefined())
+        if (arguments[0].IsNullOrUndefined())
         {
             return Construct(arguments);
         }
@@ -186,7 +186,7 @@ public sealed class ObjectConstructor : Constructor
     internal ObjectInstance Construct(int propertyCount)
     {
         var obj = new JsObject(_engine);
-        obj.SetProperties(propertyCount > 0  ? new PropertyDictionary(propertyCount, checkExistingKeys: true) : null);
+        obj.SetProperties(propertyCount > 0 ? new PropertyDictionary(propertyCount, checkExistingKeys: true) : null);
         return obj;
     }
 

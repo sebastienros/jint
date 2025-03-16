@@ -47,7 +47,7 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
         }
 
         IteratorInstance instance = array is JsArray jsArray
-            ? new ArrayIterator(Engine, jsArray, kind)  { _prototype = this }
+            ? new ArrayIterator(Engine, jsArray, kind) { _prototype = this }
             : new ArrayLikeIterator(Engine, array, kind) { _prototype = this };
 
         return instance;

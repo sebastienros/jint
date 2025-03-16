@@ -15,7 +15,7 @@ internal static class Hash
     /// The offset bias value used in the FNV-1a algorithm
     /// See http://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
     /// </summary>
-    private const int FnvOffsetBias = unchecked((int)2166136261);
+    private const int FnvOffsetBias = unchecked((int) 2166136261);
 
     /// <summary>
     /// The generative factor used in the FNV-1a algorithm
@@ -53,10 +53,10 @@ internal static class Hash
         int hashCode = FnvOffsetBias;
 
 #if NETCOREAPP3_1_OR_GREATER
-            foreach (var chunk in text.GetChunks())
-            {
-                hashCode = CombineFNVHash(hashCode, chunk.Span);
-            }
+        foreach (var chunk in text.GetChunks())
+        {
+            hashCode = CombineFNVHash(hashCode, chunk.Span);
+        }
 #else
         // StringBuilder.GetChunks is not available in this target framework. Since there is no other direct access
         // to the underlying storage spans of StringBuilder, we fall back to using slower per-character operations.

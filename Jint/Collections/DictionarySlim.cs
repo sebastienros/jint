@@ -75,8 +75,8 @@ internal sealed class DictionarySlim<TKey, TValue> : IReadOnlyCollection<KeyValu
     public bool ContainsKey(TKey key)
     {
         Entry[] entries = _entries;
-        for (int i = _buckets[key.GetHashCode() & (_buckets.Length-1)] - 1;
-             (uint)i < (uint)entries.Length; i = entries[i].next)
+        for (int i = _buckets[key.GetHashCode() & (_buckets.Length - 1)] - 1;
+             (uint) i < (uint) entries.Length; i = entries[i].next)
         {
             if (key.Equals(entries[i].key))
                 return true;
@@ -89,7 +89,7 @@ internal sealed class DictionarySlim<TKey, TValue> : IReadOnlyCollection<KeyValu
     {
         Entry[] entries = _entries;
         for (int i = _buckets[key.GetHashCode() & (_buckets.Length - 1)] - 1;
-             (uint)i < (uint)entries.Length; i = entries[i].next)
+             (uint) i < (uint) entries.Length; i = entries[i].next)
         {
             if (key.Equals(entries[i].key))
             {
@@ -152,7 +152,7 @@ internal sealed class DictionarySlim<TKey, TValue> : IReadOnlyCollection<KeyValu
         Entry[] entries = _entries;
         int bucketIndex = key.GetHashCode() & (_buckets.Length - 1);
         for (int i = _buckets[bucketIndex] - 1;
-             (uint)i < (uint)entries.Length; i = entries[i].next)
+             (uint) i < (uint) entries.Length; i = entries[i].next)
         {
             if (key.Equals(entries[i].key))
                 return ref entries[i].value;
@@ -200,7 +200,7 @@ internal sealed class DictionarySlim<TKey, TValue> : IReadOnlyCollection<KeyValu
         Debug.Assert(_entries.Length == _count || _entries.Length == 1); // We only copy _count, so if it's longer we will miss some
         int count = _count;
         int newSize = _entries.Length * 2;
-        if ((uint)newSize > (uint)int.MaxValue) // uint cast handles overflow
+        if ((uint) newSize > int.MaxValue) // uint cast handles overflow
             throw new InvalidOperationException("Capacity Overflow");
 
         var entries = new Entry[newSize];

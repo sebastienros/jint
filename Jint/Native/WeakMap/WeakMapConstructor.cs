@@ -34,7 +34,7 @@ internal sealed class WeakMapConstructor : Constructor
 
         var map = OrdinaryCreateFromConstructor(
             newTarget,
-            static intrinsics =>  intrinsics.WeakMap.PrototypeObject,
+            static intrinsics => intrinsics.WeakMap.PrototypeObject,
             static (Engine engine, Realm _, object? _) => new JsWeakMap(engine));
         if (arguments.Length > 0 && !arguments[0].IsNullOrUndefined())
         {

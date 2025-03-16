@@ -31,7 +31,7 @@ internal sealed class JintSequenceExpression : JintExpression
             Initialize();
             _initialized = true;
         }
-            
+
         var result = JsValue.Undefined;
         foreach (var expression in _expressions)
         {

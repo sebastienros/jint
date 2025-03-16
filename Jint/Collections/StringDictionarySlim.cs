@@ -127,7 +127,7 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
         Entry[] entries = _entries;
         int bucketIndex = key.HashCode & (_buckets.Length - 1);
         for (int i = _buckets[bucketIndex] - 1;
-             (uint)i < (uint)entries.Length; i = entries[i].next)
+             (uint) i < (uint) entries.Length; i = entries[i].next)
         {
             if (key.Name == entries[i].key.Name)
             {
@@ -154,7 +154,7 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
         Entry[] entries = _entries;
         int bucketIndex = key.HashCode & (_buckets.Length - 1);
         for (int i = _buckets[bucketIndex] - 1;
-             (uint)i < (uint)entries.Length; i = entries[i].next)
+             (uint) i < (uint) entries.Length; i = entries[i].next)
         {
             if (key.Name == entries[i].key.Name)
             {
@@ -172,7 +172,7 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
         Entry[] entries = _entries;
         int bucketIndex = key.HashCode & (_buckets.Length - 1);
         for (int i = _buckets[bucketIndex] - 1;
-             (uint)i < (uint)entries.Length; i = entries[i].next)
+             (uint) i < (uint) entries.Length; i = entries[i].next)
         {
             if (key.Name == entries[i].key.Name)
             {
@@ -226,7 +226,7 @@ internal sealed class StringDictionarySlim<TValue> : DictionaryBase<TValue>, IRe
         Debug.Assert(_entries.Length == _count || _entries.Length == 1); // We only copy _count, so if it's longer we will miss some
         int count = _count;
         int newSize = _entries.Length * 2;
-        if ((uint)newSize > (uint)int.MaxValue) // uint cast handles overflow
+        if ((uint) newSize > int.MaxValue) // uint cast handles overflow
             throw new InvalidOperationException("Capacity Overflow");
 
         var entries = new Entry[newSize];
