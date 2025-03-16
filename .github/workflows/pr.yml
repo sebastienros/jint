@@ -1,18 +1,33 @@
-name: PR Check
+name: PR
 
 on:
 
   pull_request:
-    branches: [ main, release/2.x, 3.x ]
+    branches: [ main, 3.x ]
 
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
+concurrency:
+  group: ${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
 
-  windows:
-    runs-on: windows-latest
+  test:
+
+    name: ${{ matrix.os.name }}
+
+    strategy:
+      matrix:
+        os:
+          - { name: 'linux', image: 'ubuntu-latest' }
+          - { name: 'linux - ARM', image: 'ubuntu-24.04-arm' }
+          - { name: 'windows', image: 'windows-latest' }
+          - { name: 'macos', image: 'macos-latest' }
+
+    runs-on: ${{ matrix.os.image }}
 
     steps:
 
@@ -27,34 +42,3 @@ jobs:
     - name: Test
       run: dotnet test --configuration Release --logger GitHubActions
 
-  linux:
-    runs-on: ubuntu-latest
-
-    steps:
-
-    - name: Setup NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 9.0
-
-    - name: Checkout source code
-      uses: actions/checkout@v4
-
-    - name: Test
-      run: dotnet test --configuration Release --logger GitHubActions
-
-  macos:
-    runs-on: macos-latest
-
-    steps:
-
-    - name: Setup NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 9.0
-
-    - name: Checkout source code
-      uses: actions/checkout@v4
-
-    - name: Test
-      run: dotnet test --configuration Release --logger GitHubActions
