@@ -22,13 +22,13 @@ public static class CustomStringExtensions
 
     public static string[] Split(this string value, string split, StringSplitOptions options)
     {
-        return Array.Empty<string>();
+        return [];
     }
 
     public static string[] Split(this string value, int position)
     {
         var first = value.Substring(0, position);
         var second = value.Substring(position);
-        return new string[] { first, second };
+        return [first, second];
     }
 }

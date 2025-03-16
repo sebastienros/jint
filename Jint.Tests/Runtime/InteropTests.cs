@@ -2813,7 +2813,7 @@ public partial class InteropTests : IDisposable
         var result = engine.GetValue("f");
         Assert.True(result.IsCallable);
 
-        Assert.True(result.Call(Array.Empty<JsValue>()).AsBoolean());
+        Assert.True(result.Call([]).AsBoolean());
         Assert.True(result.Call().AsBoolean());
     }
 
@@ -3422,7 +3422,7 @@ try {
 
     public class Utils
     {
-        public IStringCollection GetStrings() => new Strings(new[] { "a", "b", "c" });
+        public IStringCollection GetStrings() => new Strings(["a", "b", "c"]);
     }
 
     [Fact]
@@ -3722,7 +3722,7 @@ try {
     public class Zoo
     {
         public Animal king { get => (new Animal[] { new Lion() })[0]; }
-        public Animal[] animals { get => new Animal[] { new Lion(), new Elephant() }; }
+        public Animal[] animals { get => [new Lion(), new Elephant()]; }
     }
 
     [Fact]

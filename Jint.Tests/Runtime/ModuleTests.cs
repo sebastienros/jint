@@ -229,20 +229,18 @@ import * as fns from 'imported-module';
 export const result = [fns.act_noargs(), fns.act_args('ok'), fns.fn_noargs(), fns.fn_args('ok')];");
         var ns =  _engine.Modules.Import("my-module");
 
-        Assert.Equal(new[]
-        {
+        Assert.Equal([
             "act_noargs",
             "act_args:ok",
             "fn_noargs",
             "fn_args:ok"
-        }, received.ToArray());
-        Assert.Equal(new[]
-        {
+        ], received.ToArray());
+        Assert.Equal([
             "undefined",
             "undefined",
             "ret",
             "ret"
-        }, ns.Get("result").AsArray().Select(x => x.ToString()).ToArray());
+        ], ns.Get("result").AsArray().Select(x => x.ToString()).ToArray());
     }
 
     private class ImportedClass
@@ -398,7 +396,7 @@ export const count = globals.counter;
     log(value);
 })();
 ";
-        List<string> logStatements = new List<string>();
+        List<string> logStatements = [];
         engine.SetValue("log", logStatements.Add);
 
         engine.Execute(code, source: "file:///folder/main.js");
@@ -423,7 +421,7 @@ export const count = globals.counter;
     log(value);
 })();
 ";
-        List<string> logStatements = new List<string>();
+        List<string> logStatements = [];
         engine.SetValue("log", logStatements.Add);
 
         var script = Engine.PrepareScript(code, source: "file:///folder/main.js");
@@ -449,7 +447,7 @@ export const count = globals.counter;
     log(value);
 })();
 ";
-        List<string> logStatements = new List<string>();
+        List<string> logStatements = [];
         engine.SetValue("log", logStatements.Add);
 
         engine.Evaluate(code, source: "file:///folder/main.js");
@@ -474,7 +472,7 @@ export const count = globals.counter;
     log(value);
 })();
 ";
-        List<string> logStatements = new List<string>();
+        List<string> logStatements = [];
         engine.SetValue("log", logStatements.Add);
 
         var script = Engine.PrepareScript(code, source: "file:///folder/main.js");

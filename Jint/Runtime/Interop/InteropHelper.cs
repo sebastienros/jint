@@ -323,7 +323,7 @@ internal sealed class InteropHelper
                     continue;
                 }
 
-                matchingByParameterCount ??= new List<MethodMatch>();
+                matchingByParameterCount ??= [];
                 matchingByParameterCount.Add(new MethodMatch(method, arguments, score));
             }
         }

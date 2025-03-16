@@ -84,7 +84,7 @@ assertEqual(booleanCount, 1);
         engine
             .SetValue("testFunction", new ClrFunction(engine, "testFunction", (thisValue, args) =>
             {
-                return engine.Invoke(thisValue, "then", new[] { JsValue.Undefined, args.At(0) });
+                return engine.Invoke(thisValue, "then", [JsValue.Undefined, args.At(0)]);
             }))
             .SetValue("assertEqual", new Action<object, object>((a, b) => Assert.Equal(b, a)))
             .Execute(Script);
@@ -142,10 +142,10 @@ assertEqual(booleanCount, 1);
 
         Assert.Equal(5, engine.Evaluate("a"));
 
-        ev(null, new JsValue[0]);
+        ev(null, []);
         Assert.Equal(10, engine.Evaluate("a"));
 
-        ev(null, new JsValue[] { 20 });
+        ev(null, [20]);
         Assert.Equal(30, engine.Evaluate("a"));
     }
 
@@ -174,10 +174,10 @@ assertEqual(booleanCount, 1);
 
         Assert.Equal(5, engine.Evaluate("a"));
 
-        ev(null, new JsValue[0]);
+        ev(null, []);
         Assert.Equal(10, engine.Evaluate("a"));
 
-        ev(null, new JsValue[] { 20 });
+        ev(null, [20]);
         Assert.Equal(30, engine.Evaluate("a"));
     }
 
@@ -196,11 +196,11 @@ assertEqual(booleanCount, 1);
 
         engine.Execute(@"addListener(Boolean)");
 
-        Assert.Equal(true, ev(JsValue.Undefined, new JsValue[] { "test" }));
-        Assert.Equal(true, ev(JsValue.Undefined, new JsValue[] { 5 }));
-        Assert.Equal(false, ev(JsValue.Undefined, new JsValue[] { false }));
-        Assert.Equal(false, ev(JsValue.Undefined, new JsValue[] { 0}));
-        Assert.Equal(false, ev(JsValue.Undefined, new JsValue[] { JsValue.Undefined }));
+        Assert.Equal(true, ev(JsValue.Undefined, ["test"]));
+        Assert.Equal(true, ev(JsValue.Undefined, [5]));
+        Assert.Equal(false, ev(JsValue.Undefined, [false]));
+        Assert.Equal(false, ev(JsValue.Undefined, [0]));
+        Assert.Equal(false, ev(JsValue.Undefined, [JsValue.Undefined]));
     }
 
     [Fact]

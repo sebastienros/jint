@@ -59,7 +59,7 @@ public class JsonSerializerTests
         JsObject instance = new JsObject(engine);
         instance["a"] = "b";
         instance["b"] = 2;
-        instance["c"] = new JsArray(engine, new JsValue[] { new JsNumber(4), new JsNumber(5), new JsNumber(6) });
+        instance["c"] = new JsArray(engine, [new JsNumber(4), new JsNumber(5), new JsNumber(6)]);
         instance["d"] = true;
 
         string actual = serializer.Serialize(instance, JsValue.Undefined, new JsNumber(2)).ToString();
@@ -75,7 +75,7 @@ public class JsonSerializerTests
         JsObject instance = new JsObject(engine);
         instance["a"] = "b";
         instance["b"] = 2;
-        instance["c"] = new JsArray(engine, new JsValue[] { new JsNumber(4), new JsNumber(5), new JsNumber(6) });
+        instance["c"] = new JsArray(engine, [new JsNumber(4), new JsNumber(5), new JsNumber(6)]);
         instance["d"] = true;
 
         string actual = serializer.Serialize(instance, JsValue.Undefined, JsValue.Undefined).ToString();
@@ -88,7 +88,7 @@ public class JsonSerializerTests
         using var engine = new Engine();
         var serializer = new JsonSerializer(engine);
 
-        JsArray array = new JsArray(engine, new JsValue[] { JsValue.Undefined, new JsNumber(42) });
+        JsArray array = new JsArray(engine, [JsValue.Undefined, new JsNumber(42)]);
         string actual = serializer.Serialize(array, JsValue.Undefined, JsValue.Undefined).ToString();
         Assert.Equal("[null,42]", actual);
     }
@@ -125,7 +125,7 @@ public class JsonSerializerTests
     {
         using var engine = new Engine();
         var serializer = new JsonSerializer(engine);
-        JsArray array = new JsArray(engine, new JsValue[] { JsNumber.DoubleNegativeInfinity, JsNumber.DoublePositiveInfinity, JsNumber.DoubleNaN });
+        JsArray array = new JsArray(engine, [JsNumber.DoubleNegativeInfinity, JsNumber.DoublePositiveInfinity, JsNumber.DoubleNaN]);
         string actual = serializer.Serialize(array, JsValue.Undefined, JsValue.Undefined).ToString();
         Assert.Equal("[null,null,null]", actual);
     }
@@ -139,7 +139,7 @@ public class JsonSerializerTests
         JsObject instance = new JsObject(engine);
         instance["a"] = 21;
         instance["b"] = 42;
-        JsValue replacer = new JsArray(engine, new JsValue[] { new JsString("b"), new JsString("z") });
+        JsValue replacer = new JsArray(engine, [new JsString("b"), new JsString("z")]);
         string actual = serializer.Serialize(instance, replacer, JsValue.Undefined).ToString();
         Assert.Equal("{\"b\":42}", actual);
     }

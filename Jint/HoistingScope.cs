@@ -100,9 +100,9 @@ internal sealed class HoistingScope
         }
 
         var exportEntries = treeWalker._exportEntries;
-        localExportEntries = new();
-        indirectExportEntries = new();
-        starExportEntries = new();
+        localExportEntries = [];
+        indirectExportEntries = [];
+        starExportEntries = [];
 
         if (exportEntries != null)
         {
@@ -177,11 +177,11 @@ internal sealed class HoistingScope
                     var variableDeclaration = (VariableDeclaration)childNode;
                     if (variableDeclaration.Kind == VariableDeclarationKind.Var)
                     {
-                        _variableDeclarations ??= new List<VariableDeclaration>();
+                        _variableDeclarations ??= [];
                         _variableDeclarations.Add(variableDeclaration);
                         if (_collectVarNames)
                         {
-                            _varNames ??= new List<Key>();
+                            _varNames ??= [];
                             ref readonly var nodeList = ref variableDeclaration.Declarations;
                             foreach (var declaration in nodeList)
                             {
@@ -195,11 +195,11 @@ internal sealed class HoistingScope
 
                     if (parent is null or AstModule && variableDeclaration.Kind != VariableDeclarationKind.Var)
                     {
-                        _lexicalDeclarations ??= new List<Declaration>();
+                        _lexicalDeclarations ??= [];
                         _lexicalDeclarations.Add(variableDeclaration);
                         if (_collectLexicalNames)
                         {
-                            _lexicalNames ??= new List<string>();
+                            _lexicalNames ??= [];
                             ref readonly var nodeList = ref variableDeclaration.Declarations;
                             foreach (var declaration in nodeList)
                             {
@@ -216,13 +216,13 @@ internal sealed class HoistingScope
                     // function declarations are not hoisted if they are under block or case clauses
                     if (parent is null || (node.Type != NodeType.BlockStatement && node.Type != NodeType.SwitchCase))
                     {
-                        _functions ??= new List<FunctionDeclaration>();
+                        _functions ??= [];
                         _functions.Add((FunctionDeclaration)childNode);
                     }
                 }
                 else if (childType == NodeType.ClassDeclaration && parent is null or AstModule)
                 {
-                    _lexicalDeclarations ??= new List<Declaration>();
+                    _lexicalDeclarations ??= [];
                     _lexicalDeclarations.Add((Declaration) childNode);
                 }
 

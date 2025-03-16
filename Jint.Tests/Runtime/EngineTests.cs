@@ -1187,12 +1187,12 @@ public partial class EngineTests : IDisposable
     {
         get
         {
-            yield return new object[] { new DateTime(2000, 1, 1) };
-            yield return new object[] { new DateTime(2000, 1, 1, 0, 15, 15, 15) };
-            yield return new object[] { new DateTime(2000, 6, 1, 0, 15, 15, 15) };
-            yield return new object[] { new DateTime(1900, 1, 1) };
-            yield return new object[] { new DateTime(1900, 1, 1, 0, 15, 15, 15) };
-            yield return new object[] { new DateTime(1900, 6, 1, 0, 15, 15, 15) };
+            yield return [new DateTime(2000, 1, 1)];
+            yield return [new DateTime(2000, 1, 1, 0, 15, 15, 15)];
+            yield return [new DateTime(2000, 6, 1, 0, 15, 15, 15)];
+            yield return [new DateTime(1900, 1, 1)];
+            yield return [new DateTime(1900, 1, 1, 0, 15, 15, 15)];
+            yield return [new DateTime(1900, 6, 1, 0, 15, 15, 15)];
         }
     }
 

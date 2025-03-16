@@ -550,7 +550,7 @@ internal sealed class StringPrototype : StringInstance
             }
         }
 
-        var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct(new[] {regex});
+        var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct([regex]);
         var s = TypeConverter.ToJsString(thisObject);
         return _engine.Invoke(rx, GlobalSymbolRegistry.Search, [s]);
     }
@@ -719,7 +719,7 @@ internal sealed class StringPrototype : StringInstance
             }
         }
 
-        var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct(new[] {regex});
+        var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct([regex]);
 
         var s = TypeConverter.ToJsString(thisObject);
         return _engine.Invoke(rx, GlobalSymbolRegistry.Match, [s]);
@@ -741,7 +741,7 @@ internal sealed class StringPrototype : StringInstance
                     ExceptionHelper.ThrowTypeError(_realm);
                 }
             }
-            var matcher = GetMethod(_realm, (ObjectInstance) regex, GlobalSymbolRegistry.MatchAll);
+            var matcher = GetMethod(_realm, regex, GlobalSymbolRegistry.MatchAll);
             if (matcher != null)
             {
                 return matcher.Call(regex, thisObject);
@@ -749,7 +749,7 @@ internal sealed class StringPrototype : StringInstance
         }
 
         var s = TypeConverter.ToJsString(thisObject);
-        var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct(new[] { regex, "g" });
+        var rx = (JsRegExp) _realm.Intrinsics.RegExp.Construct([regex, "g"]);
 
         return _engine.Invoke(rx, GlobalSymbolRegistry.MatchAll, [s]);
     }
