@@ -4,7 +4,6 @@ using Jint.Native;
 using Jint.Native.Error;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter.Statements;
-using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Interpreter;
 

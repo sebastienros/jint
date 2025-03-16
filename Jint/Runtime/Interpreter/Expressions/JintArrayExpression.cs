@@ -1,5 +1,4 @@
 using Jint.Native;
-using Jint.Native.Iterator;
 
 namespace Jint.Runtime.Interpreter.Expressions;
 

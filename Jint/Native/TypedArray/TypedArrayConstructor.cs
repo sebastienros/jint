@@ -1,5 +1,4 @@
 using System.Globalization;
-using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.ArrayBuffer;
 using Jint.Native.Object;

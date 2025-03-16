@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Jint.Extensions;
 using Jint.Native;
 

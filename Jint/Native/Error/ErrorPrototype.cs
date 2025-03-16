@@ -1,4 +1,3 @@
-using Jint.Collections;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;

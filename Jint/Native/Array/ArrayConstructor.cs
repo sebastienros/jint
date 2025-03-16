@@ -1,7 +1,6 @@
 #pragma warning disable CA1859 // Use concrete types when possible for improved performance -- most of constructor methods return JsValue
 
 using System.Collections;
-using Jint.Collections;
 using Jint.Native.Function;
 using Jint.Native.Iterator;
 using Jint.Native.Object;

@@ -1,7 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Jint.Native;
-using Jint.Native.Iterator;
 using Jint.Native.Number;
 
 namespace Jint.Runtime.Interpreter.Expressions;

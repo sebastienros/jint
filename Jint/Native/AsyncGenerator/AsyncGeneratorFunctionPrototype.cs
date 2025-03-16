@@ -1,5 +1,4 @@
-﻿using Jint.Collections;
-using Jint.Native.AsyncFunction;
+﻿using Jint.Native.AsyncFunction;
 using Jint.Native.Iterator;
 using Jint.Native.Symbol;
 using Jint.Runtime;

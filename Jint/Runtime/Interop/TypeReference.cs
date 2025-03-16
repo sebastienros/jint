@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using Jint.Collections;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
