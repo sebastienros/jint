@@ -11,14 +11,14 @@
     <PackageVersion Include="FluentAssertions" Version="[7.2.0]" />
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
     <PackageVersion Include="Jurassic" Version="3.2.9" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.188" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.189" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.3" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.3.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
     <PackageVersion Include="MongoDB.Bson.signed" Version="2.19.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="NiL.JS" Version="2.5.1684" />
-    <PackageVersion Include="NodaTime" Version="3.2.1" />
+    <PackageVersion Include="NodaTime" Version="3.2.2" />
     <PackageVersion Include="NUnit" Version="4.3.2" />
     <PackageVersion Include="NUnit3TestAdapter" Version="5.0.0" />
     <PackageVersion Include="SharpZipLib" Version="1.4.2" />
