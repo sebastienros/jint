@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
@@ -74,48 +75,56 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return new ObjectWrapper(engine, target, type);
     }
 
+    private static readonly ConcurrentDictionary<Type, Type?> _arrayLikeWrapperResolution = new();
+
     private static bool TryBuildArrayLikeWrapper(
         Engine engine,
         object target,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type,
         [NotNullWhen(true)] out ArrayLikeWrapper? result)
     {
-#pragma warning disable IL2055
-#pragma warning disable IL3050
-
         result = null;
 
-        // check for generic interfaces
-        foreach (var i in type.GetInterfaces())
+        var arrayWrapperType = _arrayLikeWrapperResolution.GetOrAdd(type, static t =>
         {
-            if (!i.IsGenericType)
+#pragma warning disable IL2055
+#pragma warning disable IL2070
+#pragma warning disable IL3050
+
+            // check for generic interfaces
+            foreach (var i in t.GetInterfaces())
             {
-                continue;
+                if (!i.IsGenericType)
+                {
+                    continue;
+                }
+
+                var arrayItemType = i.GenericTypeArguments[0];
+
+                if (i.GetGenericTypeDefinition() == typeof(IList<>))
+                {
+                    return typeof(GenericListWrapper<>).MakeGenericType(arrayItemType);
+                }
+
+                if (i.GetGenericTypeDefinition() == typeof(IReadOnlyList<>))
+                {
+                    return typeof(ReadOnlyListWrapper<>).MakeGenericType(arrayItemType);
+                }
             }
-
-            var arrayItemType = i.GenericTypeArguments[0];
-
-            if (i.GetGenericTypeDefinition() == typeof(IList<>))
-            {
-                var arrayWrapperType = typeof(GenericListWrapper<>).MakeGenericType(arrayItemType);
-                result = (ArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
-                break;
-            }
-
-            if (i.GetGenericTypeDefinition() == typeof(IReadOnlyList<>))
-            {
-                var arrayWrapperType = typeof(ReadOnlyListWrapper<>).MakeGenericType(arrayItemType);
-                result = (ArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
-                break;
-            }
-        }
-
 #pragma warning restore IL3050
+#pragma warning restore IL2070
 #pragma warning restore IL2055
 
-        // least specific
-        if (result is null && target is IList list)
+            return null;
+        });
+
+        if (arrayWrapperType is not null)
         {
+            result = (ArrayLikeWrapper) Activator.CreateInstance(arrayWrapperType, engine, target, type)!;
+        }
+        else if (target is IList list)
+        {
+            // least specific
             result = new ListWrapper(engine, list, type);
         }
 
@@ -197,13 +206,28 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     public override JsValue Get(JsValue property, JsValue receiver)
     {
-        if (!_typeDescriptor.IsDictionary
-            && Target is ICollection c
-            && CommonProperties.Length.Equals(property))
+        // check fast path before producing properties
+        if (ReferenceEquals(receiver, this) && property.IsString())
         {
-            return JsNumber.Create(c.Count);
+            // try some fast paths
+            if (!_typeDescriptor.IsDictionary)
+            {
+                if (Target is ICollection c && CommonProperties.Length.Equals(property))
+                {
+                    return JsNumber.Create(c.Count);
+                }
+            }
+            else
+            {
+                if (_typeDescriptor.IsStringKeyedGenericDictionary
+                    && _typeDescriptor.TryGetValue(Target, property.ToString(), out var value))
+                {
+                    return FromObject(_engine, value);
+                }
+            }
         }
 
+        // slow path requires us to create a property descriptor that might get cached or not
         var desc = GetOwnProperty(property, mustBeReadable: true, mustBeWritable: false);
         if (desc != PropertyDescriptor.Undefined)
         {

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
@@ -47,10 +48,18 @@ internal static class ReflectionExtensions
             .Where(static m => m.IsExtensionMethod());
     }
 
-    internal static IEnumerable<MethodInfo> GetOperatorOverloadMethods([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] this Type type)
+    private static readonly ConcurrentDictionary<Type, List<MethodInfo>> _operatorOverloadMethodCache = new();
+
+    internal static List<MethodInfo> GetOperatorOverloadMethods([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] this Type type)
     {
-        return type.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
-            .Where(static m => m.IsSpecialName);
+        return _operatorOverloadMethodCache.GetOrAdd(type, static t =>
+        {
+#pragma warning disable IL2070
+            return t.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
+                .Where(static m => m.IsSpecialName)
+                .ToList();
+#pragma warning restore IL2070
+        });
     }
 
     private static bool IsExtensionMethod(this MethodBase methodInfo)

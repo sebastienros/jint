@@ -57,9 +57,8 @@ public abstract partial class Function : ObjectInstance, ICallable
         Engine engine,
         Realm realm,
         JsString? name,
-        FunctionThisMode thisMode = FunctionThisMode.Global,
-        ObjectClass objectClass = ObjectClass.Function)
-        : base(engine, objectClass)
+        FunctionThisMode thisMode = FunctionThisMode.Global)
+        : base(engine, ObjectClass.Function)
     {
         if (name is not null)
         {
@@ -365,6 +364,11 @@ public abstract partial class Function : ObjectInstance, ICallable
 
     // native syntax doesn't expect to have private identifier indicator
     private static readonly char[] _functionNameTrimStartChars = ['#'];
+
+    public sealed override object ToObject()
+    {
+        return (JsCallDelegate) Call;
+    }
 
     public override string ToString()
     {

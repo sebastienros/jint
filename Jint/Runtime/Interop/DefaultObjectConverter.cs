@@ -160,7 +160,7 @@ internal static class DefaultObjectConverter
     }
 
 #if NET8_0_OR_GREATER
-    private static JsValue? ConvertSystemTextJsonValue(Engine engine, System.Text.Json.Nodes.JsonValue value)
+    private static JsValue? ConvertSystemTextJsonValue(Engine engine, System.Text.Json.Nodes.JsonNode value)
     {
         return value.GetValueKind() switch
         {
@@ -168,13 +168,15 @@ internal static class DefaultObjectConverter
             System.Text.Json.JsonValueKind.Array => JsValue.FromObject(engine, value),
             System.Text.Json.JsonValueKind.String => JsString.Create(value.ToString()),
 #pragma warning disable IL2026, IL3050
-            System.Text.Json.JsonValueKind.Number => value.TryGetValue<int>(out var intValue) ? JsNumber.Create(intValue) : System.Text.Json.JsonSerializer.Deserialize<double>(value),
+            System.Text.Json.JsonValueKind.Number => ((System.Text.Json.Nodes.JsonValue) value).TryGetValue<int>(out var intValue)
+                ? JsNumber.Create(intValue)
+                : System.Text.Json.JsonSerializer.Deserialize<double>(value),
 #pragma warning restore IL2026, IL3050
             System.Text.Json.JsonValueKind.True => JsBoolean.True,
             System.Text.Json.JsonValueKind.False => JsBoolean.False,
             System.Text.Json.JsonValueKind.Undefined => JsValue.Undefined,
             System.Text.Json.JsonValueKind.Null => JsValue.Null,
-            _ => null
+            _ => null,
         };
     }
 #endif

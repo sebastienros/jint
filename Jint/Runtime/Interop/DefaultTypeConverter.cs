@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
@@ -28,11 +29,10 @@ public class DefaultTypeConverter : ITypeConverter
     private static readonly ConcurrentDictionary<TypeConversionKey, MethodInfo?> _knownCastOperators = new();
 
     private static readonly Type intType = typeof(int);
-    private static readonly Type iCallableType = typeof(Func<JsValue, JsValue[], JsValue>);
+    private static readonly Type iCallableType = typeof(JsCallDelegate);
     private static readonly Type jsValueType = typeof(JsValue);
     private static readonly Type objectType = typeof(object);
     private static readonly Type engineType = typeof(Engine);
-    private static readonly Type typeType = typeof(Type);
 
     private static readonly MethodInfo changeTypeIfConvertible = typeof(DefaultTypeConverter).GetMethod(
         "ChangeTypeOnlyIfConvertible", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -65,6 +65,8 @@ public class DefaultTypeConverter : ITypeConverter
     {
         return TryConvert(value, type, formatProvider, propagateException: false, out converted, out _);
     }
+
+    private static readonly ConditionalWeakTable<IFunction, Delegate> _delegateCache = new();
 
     private bool TryConvert(
         object? value,
@@ -129,19 +131,11 @@ public class DefaultTypeConverter : ITypeConverter
         {
             if (typeof(Delegate).IsAssignableFrom(type) && !type.IsAbstract)
             {
-                // use target function instance as cache holder, this way delegate and target hold same lifetime
-                var delegatePropertyKey = "__jint_delegate_" + type.GUID;
-
-                var func = (Func<JsValue, JsValue[], JsValue>) value;
-                var functionInstance = func.Target as Function;
-
-                var d = functionInstance?.GetHiddenClrObjectProperty(delegatePropertyKey) as Delegate;
-
-                if (d is null)
-                {
-                    d = BuildDelegate(type, func);
-                    functionInstance?.SetHiddenClrObjectProperty(delegatePropertyKey, d);
-                }
+                var func = (JsCallDelegate) value;
+                var astFunction = (func.Target as Function)?._functionDefinition?.Function;
+                var d = astFunction is not null
+                    ? _delegateCache.GetValue(astFunction, _ => BuildDelegate(type, func))
+                    : BuildDelegate(type, func);
 
                 converted = d;
                 return true;
@@ -150,8 +144,7 @@ public class DefaultTypeConverter : ITypeConverter
 
         if (type.IsArray)
         {
-            var source = value as object[];
-            if (source == null)
+            if (value is not object[] source)
             {
                 problemMessage = $"Value of object[] type is expected, but actual type is {value.GetType()}";
                 return false;
@@ -268,7 +261,7 @@ public class DefaultTypeConverter : ITypeConverter
 
     private Delegate BuildDelegate(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type type,
-        Func<JsValue, JsValue[], JsValue> function)
+        JsCallDelegate function)
     {
         var method = type.GetMethod("Invoke");
         var arguments = method!.GetParameters();
@@ -396,17 +389,4 @@ public class DefaultTypeConverter : ITypeConverter
         return false;
     }
 
-}
-
-internal static class ObjectExtensions
-{
-    public static object? GetHiddenClrObjectProperty(this ObjectInstance obj, string name)
-    {
-        return (obj.Get(name) as IObjectWrapper)?.Target;
-    }
-
-    public static void SetHiddenClrObjectProperty(this ObjectInstance obj, string name, object value)
-    {
-        obj.SetOwnProperty(name, new PropertyDescriptor(ObjectWrapper.Create(obj.Engine, value), PropertyFlag.AllForbidden));
-    }
 }
