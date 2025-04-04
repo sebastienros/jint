@@ -133,19 +133,9 @@ public class DefaultTypeConverter : ITypeConverter
             {
                 var func = (JsCallDelegate) value;
                 var astFunction = (func.Target as Function)?._functionDefinition?.Function;
-                Delegate d;
-                if (astFunction is not null)
-                {
-                    if (!_delegateCache.TryGetValue(astFunction, out d!))
-                    {
-                        d = BuildDelegate(type, func);
-                        _delegateCache.Add(astFunction, d);
-                    }
-                }
-                else
-                {
-                    d = BuildDelegate(type, func);
-                }
+                var d = astFunction is not null
+                    ? _delegateCache.GetValue(astFunction, _ => BuildDelegate(type, func))
+                    : BuildDelegate(type, func);
 
                 converted = d;
                 return true;
