@@ -9,7 +9,7 @@ public class ObjectAccessBenchmark
 
     public ObjectAccessBenchmark()
     {
-        const string Script = @"const summary = { res: 0; }; for (var i =0; i < 1_000_000; ++i){ summary.res = summary.res + 1; }";
+        const string Script = @"const summary = { res: 0 }; for (var i =0; i < 1_000_000; ++i){ summary.res = summary.res + 1; }";
         _script = Engine.PrepareScript(Script);
     }
 
