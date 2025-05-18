@@ -8,14 +8,14 @@ internal class AsyncTestClass
 
     public async Task AddToStringDelayedAsync(string appendWith)
     {
-        await Task.Delay(1000).ConfigureAwait(false);
+        await Task.Delay(100).ConfigureAwait(false);
 
         StringToAppend += appendWith;
     }
 
     public async Task<string> ReturnDelayedTaskAsync()
     {
-        await Task.Delay(1000).ConfigureAwait(false);
+        await Task.Delay(100).ConfigureAwait(false);
 
         return TestString;
     }
