@@ -645,14 +645,32 @@ public static class JsValueExtensions
     /// </summary>
     /// <param name="value">value to unwrap</param>
     /// <returns>inner value if Promise the value itself otherwise</returns>
-    public static JsValue UnwrapIfPromise(this JsValue value)
+    public static JsValue UnwrapIfPromise(this JsValue value) => UnwrapIfPromise(value, TimeSpan.FromSeconds(10));
+
+    /// <summary>
+    /// If the value is a Promise
+    ///     1. If "Fulfilled" returns the value it was fulfilled with
+    ///     2. If "Rejected" throws "PromiseRejectedException" with the rejection reason
+    ///     3. If "Pending" throws "InvalidOperationException". Should be called only in "Settled" state
+    /// Else
+    ///     returns the value intact
+    /// </summary>
+    /// <param name="value">value to unwrap</param>
+    /// <param name="timeout">timeout to wait</param>
+    /// <returns>inner value if Promise the value itself otherwise</returns>
+    public static JsValue UnwrapIfPromise(this JsValue value, TimeSpan timeout)
     {
         if (value is JsPromise promise)
         {
             var engine = promise.Engine;
             var completedEvent = promise.CompletedEvent;
+
             engine.RunAvailableContinuations();
-            completedEvent.Wait();
+            if (!completedEvent.Wait(timeout))
+            {
+                ExceptionHelper.ThrowPromiseRejectedException($"Timeout of {timeout} reached");
+            }
+
             switch (promise.State)
             {
                 case PromiseState.Pending:
