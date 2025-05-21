@@ -271,4 +271,53 @@ assertEqual(booleanCount, 1);
         const string Script = @"var f = (function() { return z => arguments[0]; }(5)); equal(5, f(6));";
         _engine.Execute(Script);
     }
+
+    [Fact]
+    public void MultipleCallsShouldNotCacheFunctionEnvironment()
+    {
+        var engine = new Engine();
+        engine.Evaluate(
+            """
+            function findInArray(arr, predicate) {
+                for (let i = 0; i<arr.length; i++) {
+                    if (predicate(arr[i]) === true) {
+                        return arr[i];
+                    }
+                }
+            }
+            function findIt(array, kind) {           
+                let found = findInArray(array, function sub(x) {
+                    return x.kind == kind;
+                });
+                return found;
+            };
+            """);
+        var findIt = (ScriptFunction) engine.GetValue("findIt");
+        var interop = (Func<JsValue, JsValue[], JsValue>) findIt.ToObject()!;
+
+        var values = new List<object>
+        {
+            new { kind = 'a' },
+            new { kind = 'b' }
+        };
+
+        var found1 = interop(
+            JsValue.Undefined,
+            [
+                JsValue.FromObject(engine, values),
+                JsValue.FromObject(engine, "a")
+            ])
+            .ToObject();
+
+        var found2 = interop(
+            JsValue.Undefined,
+            [
+                JsValue.FromObject(engine, values),
+                JsValue.FromObject(engine, "b")
+            ])
+            .ToObject();
+
+        Assert.Equal(values[0], found1);
+        Assert.Equal(values[1], found2);
+    }
 }

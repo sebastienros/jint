@@ -3782,4 +3782,46 @@ try {
             return "boolean";
         }
     }
+
+    [Fact]
+    public void MultipleInteropCallsShouldNotCacheFunctionEnvironment()
+    {
+        var engine = new Engine();
+        engine.Evaluate(
+            """
+            function findIt(array, kind) {           
+                let found = array.find(function sub(x) {
+                    return x.kind == kind;
+                });
+                return found;
+            };
+            """);
+        var findIt = (ScriptFunction) engine.GetValue("findIt");
+        var interop = (Func<JsValue, JsValue[], JsValue>) findIt.ToObject()!;
+
+        var values = new List<object>
+        {
+            new { kind = 'a' },
+            new { kind = 'b' }
+        };
+
+        var found1 = interop(
+            JsValue.Undefined,
+            [
+                JsValue.FromObject(engine, values),
+                JsValue.FromObject(engine, "a")
+            ])
+            .ToObject();
+
+        var found2 = interop(
+            JsValue.Undefined,
+            [
+                JsValue.FromObject(engine, values),
+                JsValue.FromObject(engine, "b")
+            ])
+            .ToObject();
+
+        Assert.Equal(values[0], found1);
+        Assert.Equal(values[1], found2);
+    }
 }
