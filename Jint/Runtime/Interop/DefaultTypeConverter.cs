@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
@@ -5,10 +6,12 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Acornima.Ast;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Pooling;
 using Jint.Runtime.Descriptors;
 using Expression = System.Linq.Expressions.Expression;
 
@@ -35,7 +38,7 @@ public class DefaultTypeConverter : ITypeConverter
     private static readonly Type engineType = typeof(Engine);
 
     private static readonly MethodInfo changeTypeIfConvertible = typeof(DefaultTypeConverter).GetMethod(
-        "ChangeTypeOnlyIfConvertible", BindingFlags.NonPublic | BindingFlags.Static)!;
+        nameof(ChangeTypeOnlyIfConvertible), BindingFlags.NonPublic | BindingFlags.Static)!;
     private static readonly MethodInfo jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject))!;
     private static readonly MethodInfo jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject))!;
 
@@ -66,7 +69,8 @@ public class DefaultTypeConverter : ITypeConverter
         return TryConvert(value, type, formatProvider, propagateException: false, out converted, out _);
     }
 
-    private static readonly ConditionalWeakTable<IFunction, Delegate> _delegateCache = new();
+    private static readonly ConditionalWeakTable<IFunction, Func<object, Delegate>> _targetBinderDelegateCache = new();
+    private static readonly ConditionalWeakTable<object, Delegate> _boundTargetDelegateCache = new();
 
     private bool TryConvert(
         object? value,
@@ -132,10 +136,23 @@ public class DefaultTypeConverter : ITypeConverter
             if (typeof(Delegate).IsAssignableFrom(type) && !type.IsAbstract)
             {
                 var func = (JsCallDelegate) value;
-                var astFunction = (func.Target as Function)?._functionDefinition?.Function;
-                var d = astFunction is not null
-                    ? _delegateCache.GetValue(astFunction, _ => BuildDelegate(type, func))
-                    : BuildDelegate(type, func);
+                var functionInstance = func.Target;
+
+                // caching of .NET delegates per function instance is required to be able to support
+                // unregistering event handlers (see ShouldExecuteActionCallbackOnEventChanged)
+                var d = functionInstance is not null ?
+                    _boundTargetDelegateCache.GetValue(functionInstance!, target =>
+                    {
+                        var astFunction = (functionInstance as Function)?._functionDefinition?.Function;
+
+                        // use a single builder per unique function AST
+                        var targetBinder = astFunction is not null
+                            ? _targetBinderDelegateCache.GetValue(astFunction, _ => BuildTargetBinderDelegate(type, func))
+                            : BuildTargetBinderDelegate(type, func);
+
+                        return targetBinder(target)!;
+                    }) :
+                    BuildDelegate(type, func, Expression.Constant(functionInstance, functionInstance!.GetType())).Compile();
 
                 converted = d;
                 return true;
@@ -259,9 +276,33 @@ public class DefaultTypeConverter : ITypeConverter
         }
     }
 
-    private Delegate BuildDelegate(
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type type,
+    private Func<object, Delegate> BuildTargetBinderDelegate(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type delegateType,
         JsCallDelegate function)
+    {
+        var targetMethod = function.Target!.GetType().GetMethod("Call", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        // Parameter for the target object
+        var targetParam = Expression.Parameter(typeof(object), "target");
+
+        var castedTarget = Expression.Convert(targetParam, targetMethod.DeclaringType!);
+
+        var innerDelegate = BuildDelegate(delegateType, function, castedTarget);
+
+        // Create the outer delegate: Func<object, Delegate>
+        var outerDelegateType = typeof(Func<object, Delegate>);
+        var curried = Expression.Lambda(
+            outerDelegateType,
+            innerDelegate,
+            targetParam);
+
+        return (Func<object, Delegate>) curried.Compile();
+    }
+
+    private LambdaExpression BuildDelegate(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type type,
+        JsCallDelegate function,
+        Expression targetExpression)
     {
         var method = type.GetMethod("Invoke");
         var arguments = method!.GetParameters();
@@ -305,7 +346,7 @@ public class DefaultTypeConverter : ITypeConverter
         var vars = Expression.NewArrayInit(jsValueType, initializers);
 
         var callExpression = Expression.Call(
-            Expression.Constant(function.Target),
+            targetExpression,
             function.Method,
             Expression.Constant(JsValue.Undefined, jsValueType),
             vars);
@@ -324,13 +365,13 @@ public class DefaultTypeConverter : ITypeConverter
                     ),
                     method.ReturnType
                 ),
-                new ReadOnlyCollection<ParameterExpression>(parameters)).Compile();
+                new ReadOnlyCollection<ParameterExpression>(parameters));
         }
 
         return Expression.Lambda(
             type,
             callExpression,
-            new ReadOnlyCollection<ParameterExpression>(parameters)).Compile();
+            new ReadOnlyCollection<ParameterExpression>(parameters));
     }
 
     [return: NotNullIfNotNull(nameof(value))]
