@@ -6,7 +6,7 @@
   <ItemGroup>
     <PackageVersion Include="Acornima" Version="1.1.1" />
     <PackageVersion Include="Acornima.Extras" Version="1.1.1" />
-    <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.0" />
     <PackageVersion Include="BenchmarkDotNet.TestAdapter" Version="0.13.12" />
     <PackageVersion Include="FluentAssertions" Version="[7.2.0]" />
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
@@ -14,7 +14,7 @@
     <PackageVersion Include="Meziantou.Analyzer" Version="2.0.201" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.5" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.5.0" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.0" />
     <PackageVersion Include="MongoDB.Bson.signed" Version="2.19.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="NiL.JS" Version="2.5.1684" />
