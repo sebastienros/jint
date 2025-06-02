@@ -66,7 +66,17 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
             var value = ((JsNumber) property)._value;
             if (TypeConverter.IsIntegralNumber(value))
             {
-                DoSetAt((int) value, default);
+                var defaultValue = default(object);
+                if (typeof(JsValue).IsAssignableFrom(ItemType))
+                {
+                    defaultValue = JsValue.Undefined;
+                }
+                else if (ItemType.IsValueType)
+                {
+                    defaultValue = Activator.CreateInstance(ItemType);
+                }
+
+                DoSetAt((int) value, defaultValue);
                 return true;
             }
         }

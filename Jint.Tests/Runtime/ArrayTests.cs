@@ -373,4 +373,18 @@ return get + '' === ""length,0,1,2,3"";";
         enumerableResult[0].Key.Should().Be(item2.Key);
         enumerableResult[1].Key.Should().Be(item1.Key);
     }
+
+    [Fact]
+    public void PopWrappedGenericList()
+    {
+        var engine = new Engine();
+        var list = new List<int> { 1, 2, 3 };
+        engine.SetValue("list", list);
+        var result = engine.Evaluate("list.pop()").AsNumber();
+
+        Assert.Equal(3, result);
+        Assert.Equal(2, list.Count);
+        Assert.Equal(1, list[0]);
+        Assert.Equal(2, list[1]);
+    }
 }
