@@ -1,0 +1,20 @@
+{
+  "name": "com.sebastienros.jint",
+  "version": "4.2.2",
+  "displayName": "Jint (UPM)",
+  "description": "A Unity-compatible package for the Jint JavaScript interpreter (https://github.com/sebastienros/jint).",
+  "keywords": [
+    "javascript",
+    "interpreter",
+    "jint",
+    "scripting",
+    "engine"
+  ],
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Sebastien Ros (wrapped by Your Name)",
+    "url": "https://github.com/sebastienros/jint"
+  },
+  "unity": "2020.3",
+  "type": "library"
+}
