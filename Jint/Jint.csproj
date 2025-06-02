@@ -19,7 +19,7 @@
 
     <NoWarn>$(NoWarn);1591</NoWarn>
 
-    <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
+    <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">true</IsAotCompatible>
 
     <PolySharpExcludeGeneratedTypes>System.Runtime.CompilerServices.RequiresLocationAttribute</PolySharpExcludeGeneratedTypes>
     <PolySharpIncludeRuntimeSupportedAttributes>true</PolySharpIncludeRuntimeSupportedAttributes>
@@ -30,7 +30,7 @@
     <DefineConstants>$(DefineConstants);SUPPORTS_SPAN_PARSE;SUPPORTS_WEAK_TABLE_ADD_OR_UPDATE;SUPPORTS_WEAK_TABLE_CLEAR</DefineConstants>
   </PropertyGroup>
 
-  <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">
+  <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">
     <DefineConstants>$(DefineConstants);SUPPORTS_HALF</DefineConstants>
   </PropertyGroup>
 
