@@ -280,12 +280,10 @@ public class DefaultTypeConverter : ITypeConverter
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type delegateType,
         JsCallDelegate function)
     {
-        var targetMethod = function.Target!.GetType().GetMethod("Call", BindingFlags.Instance | BindingFlags.NonPublic)!;
-
         // Parameter for the target object
         var targetParam = Expression.Parameter(typeof(object), "target");
 
-        var castedTarget = Expression.Convert(targetParam, targetMethod.DeclaringType!);
+        var castedTarget = Expression.Convert(targetParam, function.Target!.GetType());
 
         var innerDelegate = BuildDelegate(delegateType, function, castedTarget);
 
