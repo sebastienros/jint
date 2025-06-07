@@ -3824,4 +3824,48 @@ try {
         Assert.Equal(values[0], found1);
         Assert.Equal(values[1], found2);
     }
+
+    [Fact]
+    public void CanCallBoundJavascriptFunctionFromDotnet()
+    {
+        var ticker = new Ticker();
+        _engine.SetValue("ticker", ticker);
+
+        var counter = (double) _engine.Evaluate("""
+            function tickHandler() {
+                counter++;
+            }
+
+            let counter = 0;
+            const dummyThisObject = {};
+
+            // bind javascript function to new this-object
+            const tickerHandlerBinding = tickHandler.bind(dummyThisObject);
+            
+            // register it with .NET
+            ticker.add_Ticked(tickerHandlerBinding);
+            ticker.Tick();
+
+            // unregister it
+            ticker.remove_Ticked(tickerHandlerBinding);
+            ticker.Tick();
+
+            // return counter as result
+            counter;
+            """).ToObject();
+
+        ticker.Tick();
+        counter.Should().Be(1);
+    }
+
+    internal class Ticker
+    {
+        public event EventHandler Ticked;
+
+        public void Tick()
+        {
+            Ticked?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
 }
