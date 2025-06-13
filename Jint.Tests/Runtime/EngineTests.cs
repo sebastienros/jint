@@ -1901,7 +1901,50 @@ var prep = function (fn) { fn(); };
             ");
 
     }
+    
+    [Theory]
+    [InlineData(1)]
+    [InlineData(10)]
+    [InlineData(50)]
+    [InlineData(100)]
+    [InlineData(200)]
+    public void ShouldThrowErrorWhenMaxRecursionDepthLimitExceeded(int maxRecursionDepth)
+    {
+        Assert.Throws<RecursionDepthOverflowException>(() => new Engine(options => options.Constraints.MaxRecursionDepth = maxRecursionDepth)
+            .Evaluate(@"
+                    function recurse() {
+                        recurse();
+                        return null; // ensure no tail recursion
+                    }
 
+                    recurse();
+            "));
+    }
+    
+    [Fact]
+    public void ShouldNotThrowErrorWhenMaxRecursionDepthLimitIsNotSetButRecursiveIsLimitedInScript()
+    {
+        new Engine(options => options.Constraints.MaxRecursionDepth = -1)
+            .SetValue("assert", new Action<bool>(Assert.False))
+            .Evaluate(@"
+                    var count = 0;
+                    function recurse() {
+                        count++;
+                        if (count > 501) {
+                            return;
+                        }
+                        recurse();
+                        return null; // ensure no tail recursion
+                    }
+                    try {
+                        count = 0; 
+                        recurse();
+                        assert(false);
+                    } catch(err) {
+                        assert(count >= 500);
+                    }
+            ");
+    }
 
     [Fact]
     public void LocaleNumberShouldUseLocalCulture()
