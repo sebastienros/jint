@@ -70,7 +70,7 @@ internal sealed class DelegateWrapper : Function
             var value = arguments[i];
             object? converted;
 
-            if (parameterType == typeof(JsValue))
+            if (typeof(JsValue).IsAssignableFrom(parameterType))
             {
                 converted = value;
             }
