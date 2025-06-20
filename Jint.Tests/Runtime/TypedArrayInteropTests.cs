@@ -1,3 +1,5 @@
+using Jint.Native;
+
 namespace Jint.Tests.Runtime;
 
 public class TypedArrayInteropTests
@@ -133,6 +135,9 @@ public class TypedArrayInteropTests
             var fromEngine = engine.GetValue("testSubject");
             Assert.True(fromEngine.IsFloat16Array());
             Assert.Equal(source, fromEngine.AsFloat16Array());
+
+            engine.SetValue("testFunc", new Func<JsTypedArray, JsTypedArray>(v => v));
+            Assert.Equal(source, engine.Evaluate("testFunc(testSubject)").AsFloat16Array());
         }
 #endif
 

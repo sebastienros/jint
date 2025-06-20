@@ -1048,6 +1048,9 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                         TypedArrayElementType.Int16 => typedArrayInstance.ToNativeArray<short>(),
                         TypedArrayElementType.Int32 => typedArrayInstance.ToNativeArray<int>(),
                         TypedArrayElementType.BigInt64 => typedArrayInstance.ToNativeArray<long>(),
+#if SUPPORTS_HALF
+                        TypedArrayElementType.Float16 => typedArrayInstance.ToNativeArray<Half>(),
+#endif
                         TypedArrayElementType.Float32 => typedArrayInstance.ToNativeArray<float>(),
                         TypedArrayElementType.Float64 => typedArrayInstance.ToNativeArray<double>(),
                         TypedArrayElementType.Uint8 => typedArrayInstance.ToNativeArray<byte>(),
