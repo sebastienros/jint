@@ -598,6 +598,19 @@ public partial class EngineTests : IDisposable
     }
 
     [Fact]
+    public void EvalFunctionWithTargetNewParse()
+    {
+        RunTest(@"
+                const code = `function MyClass() {
+                   if (!new.target) throw new Error('Use MyClass as constructor!');
+                }`;
+
+                eval(code);
+                const x = new MyClass();
+            ");
+    }
+
+    [Fact]
     public void ForInStatement()
     {
         var engine = new Engine();

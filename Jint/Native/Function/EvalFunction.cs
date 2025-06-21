@@ -217,5 +217,23 @@ public sealed class EvalFunction : Function
             _containsSuperCall |= callExpression.Callee.Type == NodeType.Super;
             return base.VisitCallExpression(callExpression);
         }
+
+        protected override object? VisitFunctionDeclaration(FunctionDeclaration node)
+        {
+            // copy of base implementation without visiting the body
+            if (node.Id is not null)
+            {
+                Visit(node.Id);
+            }
+
+            ref readonly var @params = ref node.Params;
+            for (var i = 0; i < @params.Count; i++)
+            {
+                Visit(@params[i]);
+            }
+
+            return node;
+        }
+
     }
 }
