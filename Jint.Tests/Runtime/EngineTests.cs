@@ -604,9 +604,11 @@ public partial class EngineTests : IDisposable
                 const code = `function MyClass() {
                    if (!new.target) throw new Error('Use MyClass as constructor!');
                 }`;
-
                 eval(code);
-                const x = new MyClass();
+                const code2 = `var x = function () {
+                   if (!new.target) throw new Error('Use as constructor!');
+                }`;
+                eval(code2);
             ");
     }
 
