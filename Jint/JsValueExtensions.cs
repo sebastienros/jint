@@ -27,7 +27,6 @@ public static class JsValueExtensions
         return value._type == InternalTypes.Undefined;
     }
 
-
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsArray(this JsValue value)
@@ -737,5 +736,31 @@ public static class JsValueExtensions
         }
 
         return TypeConverter.ToIndex(oi.Engine.Realm, maxByteLength);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-canonicalize-keyed-collection-key
+    /// </summary>
+    internal static JsValue CanonicalizeKeyedCollectionKey(this JsValue key)
+    {
+        return key is JsNumber number && number.IsNegativeZero() ? JsNumber.PositiveZero : key;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-canbeheldweakly
+    /// </summary>
+    internal static bool CanBeHeldWeakly(this JsValue v, Engine engine)
+    {
+        if (v.IsObject())
+        {
+            return true;
+        }
+
+        if (v is JsSymbol symbol && engine.GlobalSymbolRegistry.KeyForSymbol(symbol).IsUndefined())
+        {
+            return true;
+        }
+
+        return false;
     }
 }

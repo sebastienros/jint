@@ -56,6 +56,30 @@ public sealed class JsMap : ObjectInstance, IEnumerable<KeyValuePair<JsValue, Js
         return value;
     }
 
+    internal JsValue GetOrInsert(JsValue key, JsValue value)
+    {
+        if (_map.TryGetValue(key, out var temp))
+        {
+            return temp;
+        }
+
+        _map[key] = value;
+        return value;
+    }
+
+    internal JsValue GetOrInsertComputed(JsValue key, ICallable callbackfn)
+    {
+        if (_map.TryGetValue(key, out var temp))
+        {
+            return temp;
+        }
+
+        var value = callbackfn.Call(Undefined, key);
+
+        _map[key] = value;
+        return value;
+    }
+
     public new void Set(JsValue key, JsValue value)
     {
         if (key is JsNumber number && number.IsNegativeZero())
