@@ -53,6 +53,19 @@
     "built-ins/RegExp/quantifier-integer-limit.js",
     "language/literals/regexp/named-groups/forward-reference.js",
 
+    "built-ins/RegExp/CharacterClassEscapes/character-class-digit-class-escape-negative-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-digit-class-escape-positive-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-non-digit-class-escape-negative-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-non-digit-class-escape-positive-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-non-whitespace-class-escape-negative-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-non-whitespace-class-escape-positive-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-non-word-class-escape-negative-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-non-word-class-escape-positive-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-whitespace-class-escape-negative-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-whitespace-class-escape-positive-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-word-class-escape-negative-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-word-class-escape-positive-cases.js",
+
     // RegExp handling problems
     "built-ins/RegExp/nullable-quantifier.js",
     "built-ins/RegExp/prototype/exec/S15.10.6.2_A1_T6.js",
