@@ -75,9 +75,9 @@ var b = function(v) {
         Assert.Equal("custom.js", e.Location.SourceFile);
 
         var stack = e.JavaScriptStackTrace;
-        EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:3:16
-   at b (v) custom.js:7:10
-   at main.js:1:9", stack);
+        EqualIgnoringNewLineDifferences(@"    at a (custom.js:3:16)
+    at b (custom.js:7:10)
+    at main.js:1:9", stack);
     }
 
     [Fact]
@@ -102,9 +102,9 @@ var b = function(v) {
         Assert.Equal("custom.js", e.Location.SourceFile);
 
         var stack = e.JavaScriptStackTrace;
-        EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:3:9
-   at b (v) custom.js:7:10
-   at main.js:1:9", stack);
+        EqualIgnoringNewLineDifferences(@"    at a (custom.js:3:9)
+    at b (custom.js:7:10)
+    at main.js:1:9", stack);
     }
 
     [Fact]
@@ -125,9 +125,9 @@ var b = function(v) {
         var e = engine.Evaluate(@"b(7)", "main.js").AsString();
 
         var stack = e;
-        EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:3:10
-   at b (v) custom.js:7:10
-   at main.js:1:1", stack);
+        EqualIgnoringNewLineDifferences(@"    at a (custom.js:3:10)
+    at b (custom.js:7:10)
+    at main.js:1:1", stack);
     }
 
     [Fact]
@@ -152,9 +152,9 @@ var b = function(v) {
         var e = engine.Evaluate(@"b(7)", "main.js").AsString();
 
         var stack = e;
-        EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:4:11
-   at b (v) custom.js:11:10
-   at main.js:1:1", stack);
+        EqualIgnoringNewLineDifferences(@"    at a (custom.js:4:11)
+    at b (custom.js:11:10)
+    at main.js:1:1", stack);
     }
 
 
@@ -180,9 +180,9 @@ var b = function(v) {
         var e = engine.Evaluate(@"b(7)", "main.js").AsString();
 
         var stack = e;
-        EqualIgnoringNewLineDifferences(@"   at a (v) custom.js:4:13
-   at b (v) custom.js:11:10
-   at main.js:1:1", stack);
+        EqualIgnoringNewLineDifferences(@"    at a (custom.js:4:13)
+    at b (custom.js:11:10)
+    at main.js:1:1", stack);
     }
 
     [Fact]
@@ -237,11 +237,11 @@ var b = function(v) {
             ));
 
         Assert.Equal("Cannot read property 'Name' of null", javaScriptException.Message);
-        EqualIgnoringNewLineDifferences(@"   at recursive (folderInstance) <anonymous>:6:44
-   at recursive (folderInstance) <anonymous>:8:32
-   at recursive (folderInstance) <anonymous>:8:32
-   at recursive (folderInstance) <anonymous>:8:32
-   at <anonymous>:12:17", javaScriptException.JavaScriptStackTrace);
+        EqualIgnoringNewLineDifferences(@"    at recursive (<anonymous>:6:44)
+    at recursive (<anonymous>:8:32)
+    at recursive (<anonymous>:8:32)
+    at recursive (<anonymous>:8:32)
+    at <anonymous>:12:17", javaScriptException.JavaScriptStackTrace);
 
         var expected = new List<string>
         {
@@ -267,9 +267,9 @@ var x = b(7);";
         var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
 
         const string expected = @"Error: Cannot read property 'yyy' of undefined
-   at a (v) <anonymous>:2:18
-   at b (v) <anonymous>:6:12
-   at <anonymous>:9:9";
+    at a (<anonymous>:2:18)
+    at b (<anonymous>:6:12)
+    at <anonymous>:9:9";
 
         EqualIgnoringNewLineDifferences(expected, ex.GetJavaScriptErrorString());
         Assert.Equal(2, ex.Location.Start.Line);
@@ -302,9 +302,9 @@ var x = b(7);";
         var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(script, "get-item.js", parsingOptions));
 
         const string expected = @"Error: Cannot read property '5' of null
-   at getItem (items, itemIndex) get-item.js:2:22
-   at (anonymous) (getItem) get-item.js:9:16
-   at get-item.js:13:2";
+    at getItem (get-item.js:2:22)
+    at (anonymous) (get-item.js:9:16)
+    at get-item.js:13:2";
 
         EqualIgnoringNewLineDifferences(expected, ex.GetJavaScriptErrorString());
 
@@ -335,8 +335,8 @@ try {
 }
 ";
         var stack = engine.Evaluate(Script).AsString();
-        EqualIgnoringNewLineDifferences(@"   at throwIt (message) <anonymous>:3:11
-   at <anonymous>:11:5", stack);
+        EqualIgnoringNewLineDifferences(@"    at throwIt (<anonymous>:3:11)
+    at <anonymous>:11:5", stack);
 
         static void Handler(Action callback)
         {
@@ -418,9 +418,9 @@ executeFile(""first-file.js"");",
 
         Assert.Equal("nuм is not defined", e.Message);
 
-        const string Expected = @"   at delegate second-file.js:2:1
-   at delegate first-file.js:2:1
-   at main-file.js:2:1";
+        const string Expected = @"    at delegate (second-file.js:2:1)
+    at delegate (first-file.js:2:1)
+    at main-file.js:2:1";
         EqualIgnoringNewLineDifferences(Expected, e.JavaScriptStackTrace);
     }
 
@@ -439,7 +439,7 @@ $variable1 + -variable2 - variable3;");
 
         Assert.Equal(5, e.Location.Start.Line);
         Assert.Equal(14, e.Location.Start.Column);
-        Assert.Equal("   at <anonymous>:5:15", e.JavaScriptStackTrace);
+        Assert.Equal("    at <anonymous>:5:15", e.JavaScriptStackTrace);
     }
 
     [Fact]

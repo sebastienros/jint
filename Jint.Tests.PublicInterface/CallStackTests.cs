@@ -17,10 +17,10 @@ public class CallStackTests
 
         const string Expected = """
 Trace
-   at trace <anonymous>:1:16
-   at x () <anonymous>:1:16
-   at y () <anonymous>:1:51
-   at <anonymous>:1:58
+    at trace (<anonymous>:1:16)
+    at x (<anonymous>:1:16)
+    at y (<anonymous>:1:51)
+    at <anonymous>:1:58
 
 """;
 
@@ -69,14 +69,16 @@ Trace
                 return null;
             }
 
-            var str = $"   at{
-                (!string.IsNullOrWhiteSpace(description) ? $" {description}" : "")
-            } {
+            var str = $"    at {
+                (!string.IsNullOrWhiteSpace(description) ? $"{description} (" : "")
+            }{
                 originalPosition.Value.OriginalFileName
             }:{
                 originalPosition.Value.OriginalLineNumber + 1
             }:{
                 originalPosition.Value.OriginalColumnNumber
+            }{
+                (!string.IsNullOrWhiteSpace(description) ? ")" : "")
             }{
                 Environment.NewLine
             }";
@@ -100,9 +102,9 @@ b(7);
         var ex = Assert.Throws<JavaScriptException>(() => engine.Execute(Script, "custom.js"));
 
         var stack = ex.JavaScriptStackTrace!;
-        Assert.Equal(@"   at a custom.ts:4:7
-   at b custom.ts:8:9
-   at custom.ts:11:1".Replace("\r\n", "\n"), stack.Replace("\r\n", "\n"));
+        Assert.Equal(@"    at a (custom.ts:4:7)
+    at b (custom.ts:8:9)
+    at custom.ts:11:1".Replace("\r\n", "\n"), stack.Replace("\r\n", "\n"));
     }
 
 }

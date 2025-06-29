@@ -128,37 +128,27 @@ internal sealed class JintCallStack
                 return;
             }
 
-            sb.Append("   at");
+            var hasShortDescription = !string.IsNullOrWhiteSpace(shortDescription);
 
-            if (!string.IsNullOrWhiteSpace(shortDescription))
+            sb.Append("    at ");
+
+            if (hasShortDescription)
             {
-                sb.Append(' ');
                 sb.Append(shortDescription);
-            }
-
-            if (element?.Arguments is not null)
-            {
-                // it's a function
                 sb.Append(" (");
-                var arguments = element.Value.Arguments.Value;
-                for (var i = 0; i < arguments.Count; i++)
-                {
-                    if (i != 0)
-                    {
-                        sb.Append(", ");
-                    }
-
-                    sb.Append(GetPropertyKey(arguments[i]));
-                }
-                sb.Append(')');
             }
 
-            sb.Append(' ');
             sb.Append(loc.SourceFile);
             sb.Append(':');
             sb.Append(loc.End.Line);
             sb.Append(':');
             sb.Append(loc.Start.Column + 1); // report column number instead of index
+
+            if (hasShortDescription)
+            {
+                sb.Append(')');
+            }
+
             sb.Append(System.Environment.NewLine);
         }
 
