@@ -77,29 +77,20 @@ internal abstract class IteratorInstance : ObjectInstance
 
         public override void Close(CompletionType completion)
         {
-            if (!_target.TryGetValue(CommonProperties.Return, out var func)
-                || func.IsNullOrUndefined())
+            var callable = _target.GetMethod(CommonProperties.Return);
+            if (callable is null)
             {
                 return;
             }
 
-            var callable = func as ICallable;
-            if (callable is null)
-            {
-                ExceptionHelper.ThrowTypeError(_target.Engine.Realm, func + " is not a function");
-            }
-
-            var innerResult = Undefined;
+            JsValue innerResult;
             try
             {
                 innerResult = callable.Call(_target, Arguments.Empty);
             }
-            catch
+            catch (JavaScriptException) when (completion == CompletionType.Throw)
             {
-                if (completion != CompletionType.Throw)
-                {
-                    throw;
-                }
+                return;
             }
 
             if (completion != CompletionType.Throw && !innerResult.IsObject())
