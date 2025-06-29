@@ -48,4 +48,27 @@ internal sealed class JsWeakMap : ObjectInstance
         return value;
     }
 
+    internal JsValue GetOrInsert(JsValue key, JsValue value)
+    {
+        if (_table.TryGetValue(key, out var temp))
+        {
+            return temp;
+        }
+
+        _table.Add(key, value);
+        return value;
+    }
+
+    internal JsValue GetOrInsertComputed(JsValue key, ICallable callbackfn)
+    {
+        if (_table.TryGetValue(key, out var temp))
+        {
+            return temp;
+        }
+
+        var value = callbackfn.Call(Undefined, key);
+
+        _table.Add(key, value);
+        return value;
+    }
 }

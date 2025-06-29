@@ -333,7 +333,14 @@ internal sealed class PromiseConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            iterator.Close(CompletionType.Throw);
+            try
+            {
+                iterator.Close(CompletionType.Throw);
+            }
+            catch (JavaScriptException)
+            {
+                // ignore any errors from closing the iterator
+            }
             capability.Reject.Call(Undefined, e.Error);
             return capability.PromiseInstance;
         }
@@ -449,7 +456,14 @@ internal sealed class PromiseConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            iterator.Close(CompletionType.Throw);
+            try
+            {
+                iterator.Close(CompletionType.Throw);
+            }
+            catch (JavaScriptException)
+            {
+                // ignore any errors from closing the iterator
+            }
             capability.Reject.Call(Undefined, e.Error);
             return capability.PromiseInstance;
         }
@@ -551,7 +565,14 @@ internal sealed class PromiseConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            iterator.Close(CompletionType.Throw);
+            try
+            {
+                iterator.Close(CompletionType.Throw);
+            }
+            catch (JavaScriptException)
+            {
+                // ignore any errors from closing the iterator
+            }
             capability.Reject.Call(Undefined, e.Error);
             return capability.PromiseInstance;
         }
@@ -597,10 +618,14 @@ internal sealed class PromiseConstructor : Constructor
         }
         catch (JavaScriptException e)
         {
-            // 8. If result is an abrupt completion, then
-            // a. If iteratorRecord.[[Done]] is false, set result to IteratorClose(iteratorRecord, result).
-            //     b. IfAbruptRejectPromise(result, promiseCapability).
-            iterator.Close(CompletionType.Throw);
+            try
+            {
+                iterator.Close(CompletionType.Throw);
+            }
+            catch (JavaScriptException)
+            {
+                // ignore any errors from closing the iterator
+            }
             capability.Reject.Call(Undefined, e.Error);
             return capability.PromiseInstance;
         }

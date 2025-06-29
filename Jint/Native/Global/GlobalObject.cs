@@ -300,6 +300,7 @@ public sealed partial class GlobalObject : ObjectInstance
         return Encode(uriString, UriUnescaped);
     }
 
+    [MethodImpl(512)]
     private JsValue Encode(string uriString, SearchValues<char> allowedCharacters)
     {
         var strLen = uriString.Length;
@@ -408,6 +409,7 @@ uriError:
         return Decode(componentString, null);
     }
 
+    [MethodImpl(512)]
     private JsValue Decode(string uriString, SearchValues<char>? reservedSet)
     {
         var strLen = uriString.Length;
@@ -505,6 +507,54 @@ uriError:
                         k += 2;
 
                         octets[j] = B;
+                    }
+
+                    switch (n)
+                    {
+                        case 2:
+                            {
+                                // Overlong encoding check for 2-byte sequences
+                                var x = octets[0] & 0x1F; // 0x00
+                                var y = octets[1] & 0x3F; // 0x2F
+                                var codepoint = (x << 6) | y; // 0x2F
+
+                                if (codepoint < 0x80) // 2-byte should be ≥ 0x80
+                                {
+                                    goto uriError;
+                                }
+
+                                break;
+                            }
+                        case 3:
+                            {
+                                // Reserved surrogate pair (U+D800-DFFF)
+                                var x = octets[0] & 0x0F;
+                                var y = octets[1] & 0x3F;
+                                var z = octets[2] & 0x3F;
+                                var codepoint = (x << 12) | (y << 6) | z;
+
+                                if (codepoint is >= 0xD800 and <= 0xDFFF)
+                                {
+                                    goto uriError;
+                                }
+
+                                break;
+                            }
+                        case 4:
+                            {
+                                var x = octets[0] & 0x07;
+                                var y = octets[1] & 0x3F;
+                                var z = octets[2] & 0x3F;
+                                var w = octets[3] & 0x3F;
+                                var codepoint = (x << 18) | (y << 12) | (z << 6) | w;
+
+                                if (codepoint > 0x10FFFF)
+                                {
+                                    goto uriError;
+                                }
+
+                                break;
+                            }
                     }
 
 #if SUPPORTS_SPAN_PARSE

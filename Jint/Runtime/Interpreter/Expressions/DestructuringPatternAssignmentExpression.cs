@@ -240,12 +240,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
                     if (value.IsUndefined())
                     {
                         var jintExpression = Build(assignmentPattern.Right);
-                        var completion = jintExpression.GetValue(context);
-                        if (context.IsAbrupt())
-                        {
-                            return completion;
-                        }
-                        value = completion;
+                        value = jintExpression.GetValue(context);
                     }
 
                     if (assignmentPattern.Left is Identifier leftIdentifier)
@@ -278,9 +273,9 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         }
         finally
         {
-            if (close && !done)
+            if (close && !done && iterator is not null)
             {
-                iterator?.Close(completionType);
+                iterator.Close(completionType);
             }
         }
 

@@ -140,12 +140,13 @@ and many more.
 - ❌ Duplicate named capture groups
 - ✔ Set methods (`intersection`, `union`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`)
 
-#### ECMAScript Stage 3 (no version yet)
+#### ECMAScript Stage 3 or earlier (no version yet)
 
 - ✔ `Error.isError`
 - ✔ `Math.sumPrecise`
 - ✔ `ShadowRealm`
 - ✔ `Uint8Array` to/from base64
+- ✔ `Upsert`
 
 #### Other
 
