@@ -1391,7 +1391,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         var callable = jsValue as ICallable;
         if (callable is null)
         {
-            ExceptionHelper.ThrowTypeError(realm, "Value returned for property '" + p + "' of object is not a function");
+            ExceptionHelper.ThrowTypeError(realm, $"Value returned for property '{p}' of object is not a function");
         }
         return callable;
     }

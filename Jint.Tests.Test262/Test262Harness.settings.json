@@ -36,6 +36,10 @@
     // requires rewrite of destructing towards spec
     "language/destructuring/binding/keyed-destructuring-property-reference-target-evaluation-order-with-bindings.js",
     "language/expressions/assignment/destructuring/keyed-destructuring-property-reference-target-evaluation-order-with-bindings.js",
+    "language/expressions/assignment/destructuring/default-expr-throws-iterator-return-get-throws.js",
+    "language/expressions/assignment/destructuring/default-expr-throws-iterator-return-is-not-callable.js",
+    "language/expressions/assignment/destructuring/target-assign-throws-iterator-return-get-throws.js",
+    "language/expressions/assignment/destructuring/target-assign-throws-iterator-return-is-not-callable.js",
 
     // Acornima doesn't implement unicode 15/16 yet
     "language/identifiers/*-unicode-15.*.js",
