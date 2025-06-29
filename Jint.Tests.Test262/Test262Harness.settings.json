@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "b0f03cb22d8b9233347782d166e7793d4d4c757f",
+  "SuiteGitSha": "a073f479f80b336256b7fc4e04700c827293e2fe",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -22,7 +22,8 @@
     "source-phase-imports",
     "tail-call-optimization",
     "Temporal",
-    "u180e"
+    "u180e",
+    "upsert"
   ],
   "ExcludedFlags": [
   ],
