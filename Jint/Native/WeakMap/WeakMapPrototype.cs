@@ -72,7 +72,7 @@ internal sealed class WeakMapPrototype : Prototype
 
     private JsValue AssertCanBeHeldWeakly(JsValue key)
     {
-        if (!key.CanBeHeldWeakly(_engine))
+        if (!key.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
             ExceptionHelper.ThrowTypeError(_realm);
         }

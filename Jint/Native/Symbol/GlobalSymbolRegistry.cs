@@ -39,24 +39,14 @@ public sealed class GlobalSymbolRegistry
         return new JsSymbol(description);
     }
 
-    internal bool ContainsCustom(JsValue value)
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-keyforsymbol
+    /// </summary>
+    internal JsValue KeyForSymbol(JsValue value)
     {
-        return value is JsSymbol symbol && _customSymbolLookup?.ContainsKey(symbol._value) == true;
-    }
-
-    internal JsValue KeyForSymbol(JsSymbol symbol)
-    {
-        if (_customSymbolLookup == null)
+        if (value is JsSymbol symbol && _customSymbolLookup?.TryGetValue(symbol._value, out var s) == true)
         {
-            return JsValue.Undefined;
-        }
-
-        foreach (var pair in _customSymbolLookup)
-        {
-            if (pair.Value == symbol)
-            {
-                return pair.Key;
-            }
+            return s._value;
         }
 
         return JsValue.Undefined;
