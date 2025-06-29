@@ -22,8 +22,7 @@
     "source-phase-imports",
     "tail-call-optimization",
     "Temporal",
-    "u180e",
-    "upsert"
+    "u180e"
   ],
   "ExcludedFlags": [
   ],

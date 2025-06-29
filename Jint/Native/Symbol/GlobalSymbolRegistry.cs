@@ -43,4 +43,22 @@ public sealed class GlobalSymbolRegistry
     {
         return value is JsSymbol symbol && _customSymbolLookup?.ContainsKey(symbol._value) == true;
     }
+
+    internal JsValue KeyForSymbol(JsSymbol symbol)
+    {
+        if (_customSymbolLookup == null)
+        {
+            return JsValue.Undefined;
+        }
+
+        foreach (var pair in _customSymbolLookup)
+        {
+            if (pair.Value == symbol)
+            {
+                return pair.Key;
+            }
+        }
+
+        return JsValue.Undefined;
+    }
 }
