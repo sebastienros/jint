@@ -11,7 +11,7 @@
     <PackageVersion Include="FluentAssertions" Version="[7.2.0]" />
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
     <PackageVersion Include="Jurassic" Version="3.2.9" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.202" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.203" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.6" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.6.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
