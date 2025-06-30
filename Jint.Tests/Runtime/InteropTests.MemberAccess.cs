@@ -301,4 +301,23 @@ public partial class InteropTests
         engine.Evaluate("obj.x").AsBoolean().Should().BeTrue();
         engine.Evaluate("obj.y").AsNumber().Should().Be(3);
     }
+
+    [Fact]
+    public void ShouldSkipEnumIndexerWhenNoMatch()
+    {
+        var engine = new Engine();
+        engine.SetValue("obj", new ObjectWithEnumIndexer());
+        engine.Evaluate("obj.Foo()").AsString().Should().Be("Foo called");
+    }
+
+    private class ObjectWithEnumIndexer
+    {
+        public string this[TestEnumInt32 key]
+        {
+            get => "";
+            set { }
+        }
+
+        public string Foo() => "Foo called";
+    }
 }

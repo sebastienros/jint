@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
@@ -6,13 +5,9 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Acornima.Ast;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
-using Jint.Native.Object;
-using Jint.Pooling;
-using Jint.Runtime.Descriptors;
 using Expression = System.Linq.Expressions.Expression;
 
 #pragma warning disable IL2026
@@ -118,14 +113,10 @@ public class DefaultTypeConverter : ITypeConverter
 
         if (type.IsEnum)
         {
-            var integer = System.Convert.ChangeType(value, intType, formatProvider);
-            if (integer == null)
+            if (EnumTryParse(type, value.ToString(), out converted))
             {
-                ExceptionHelper.ThrowArgumentOutOfRangeException();
+                return true;
             }
-
-            converted = Enum.ToObject(type, integer);
-            return true;
         }
 
         var valueType = value.GetType();
@@ -274,6 +265,30 @@ public class DefaultTypeConverter : ITypeConverter
             problemMessage = e.Message;
             return false;
         }
+    }
+
+    private static bool EnumTryParse(Type enumType, string? value, [NotNullWhen(true)] out object? result)
+    {
+        if (value is null)
+        {
+            result = null;
+            return false;
+        }
+
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP
+        return Enum.TryParse(enumType, value, ignoreCase: false, out result!);
+#else
+        try
+        {
+            result = Enum.Parse(enumType, value, ignoreCase: false);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            result = null!;
+            return false;
+        }
+#endif
     }
 
     private Func<object, Delegate> BuildTargetBinderDelegate(
