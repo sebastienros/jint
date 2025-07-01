@@ -27,7 +27,6 @@ public static class JsValueExtensions
         return value._type == InternalTypes.Undefined;
     }
 
-
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsArray(this JsValue value)
@@ -134,11 +133,14 @@ public static class JsValueExtensions
         return value._type == InternalTypes.Symbol;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-canbeheldweakly
+    /// </summary>
     [Pure]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool CanBeHeldWeakly(this JsValue value, GlobalSymbolRegistry symbolRegistry)
     {
-        return value.IsObject() || (value.IsSymbol() && !symbolRegistry.ContainsCustom(value));
+        return value.IsObject() || (value.IsSymbol() && symbolRegistry.KeyForSymbol(value).IsUndefined());
     }
 
     [Pure]
@@ -737,5 +739,13 @@ public static class JsValueExtensions
         }
 
         return TypeConverter.ToIndex(oi.Engine.Realm, maxByteLength);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-canonicalize-keyed-collection-key
+    /// </summary>
+    internal static JsValue CanonicalizeKeyedCollectionKey(this JsValue key)
+    {
+        return key is JsNumber number && number.IsNegativeZero() ? JsNumber.PositiveZero : key;
     }
 }

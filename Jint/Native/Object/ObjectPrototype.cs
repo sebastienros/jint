@@ -63,6 +63,11 @@ public sealed class ObjectPrototype : Prototype
         SetProperties(properties);
     }
 
+    internal override bool SetPrototypeOf(JsValue value)
+    {
+        return SameValue(value, _prototype ?? Null);
+    }
+
     public override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
     {
         TrackChanges(property);

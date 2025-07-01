@@ -27,27 +27,29 @@ internal sealed class MapPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(12, checkExistingKeys: false)
+        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+        var properties = new PropertyDictionary(14, checkExistingKeys: false)
         {
             ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
             ["constructor"] = new PropertyDescriptor(_mapConstructor, PropertyFlag.NonEnumerable),
-            ["clear"] = new PropertyDescriptor(new ClrFunction(Engine, "clear", Clear, 0, PropertyFlag.Configurable), propertyFlags),
-            ["delete"] = new PropertyDescriptor(new ClrFunction(Engine, "delete", Delete, 1, PropertyFlag.Configurable), propertyFlags),
-            ["entries"] = new PropertyDescriptor(new ClrFunction(Engine, "entries", Entries, 0, PropertyFlag.Configurable), propertyFlags),
-            ["forEach"] = new PropertyDescriptor(new ClrFunction(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), propertyFlags),
-            ["get"] = new PropertyDescriptor(new ClrFunction(Engine, "get", Get, 1, PropertyFlag.Configurable), propertyFlags),
-            ["has"] = new PropertyDescriptor(new ClrFunction(Engine, "has", Has, 1, PropertyFlag.Configurable), propertyFlags),
-            ["keys"] = new PropertyDescriptor(new ClrFunction(Engine, "keys", Keys, 0, PropertyFlag.Configurable), propertyFlags),
-            ["set"] = new PropertyDescriptor(new ClrFunction(Engine, "set", Set, 2, PropertyFlag.Configurable), propertyFlags),
-            ["values"] = new PropertyDescriptor(new ClrFunction(Engine, "values", Values, 0, PropertyFlag.Configurable), propertyFlags),
+            ["clear"] = new PropertyDescriptor(new ClrFunction(Engine, "clear", Clear, 0, PropertyFlag.Configurable), PropertyFlags),
+            ["delete"] = new PropertyDescriptor(new ClrFunction(Engine, "delete", Delete, 1, PropertyFlag.Configurable), PropertyFlags),
+            ["entries"] = new PropertyDescriptor(new ClrFunction(Engine, "entries", Entries, 0, PropertyFlag.Configurable), PropertyFlags),
+            ["forEach"] = new PropertyDescriptor(new ClrFunction(Engine, "forEach", ForEach, 1, PropertyFlag.Configurable), PropertyFlags),
+            ["get"] = new PropertyDescriptor(new ClrFunction(Engine, "get", Get, 1, PropertyFlag.Configurable), PropertyFlags),
+            ["getOrInsert"] = new PropertyDescriptor(new ClrFunction(Engine, "getOrInsert", GetOrInsert, 2, PropertyFlag.Configurable), PropertyFlags),
+            ["getOrInsertComputed"] = new PropertyDescriptor(new ClrFunction(Engine, "getOrInsertComputed", GetOrInsertComputed, 2, PropertyFlag.Configurable), PropertyFlags),
+            ["has"] = new PropertyDescriptor(new ClrFunction(Engine, "has", Has, 1, PropertyFlag.Configurable), PropertyFlags),
+            ["keys"] = new PropertyDescriptor(new ClrFunction(Engine, "keys", Keys, 0, PropertyFlag.Configurable), PropertyFlags),
+            ["set"] = new PropertyDescriptor(new ClrFunction(Engine, "set", Set, 2, PropertyFlag.Configurable), PropertyFlags),
+            ["values"] = new PropertyDescriptor(new ClrFunction(Engine, "values", Values, 0, PropertyFlag.Configurable), PropertyFlags),
             ["size"] = new GetSetPropertyDescriptor(get: new ClrFunction(Engine, "get size", Size, 0, PropertyFlag.Configurable), set: null, PropertyFlag.Configurable)
         };
         SetProperties(properties);
 
         var symbols = new SymbolDictionary(2)
         {
-            [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunction(Engine, "iterator", Entries, 1, PropertyFlag.Configurable), propertyFlags),
+            [GlobalSymbolRegistry.Iterator] = new PropertyDescriptor(new ClrFunction(Engine, "iterator", Entries, 1, PropertyFlag.Configurable), PropertyFlags),
             [GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor("Map", false, false, true),
         };
         SetSymbols(symbols);
@@ -63,6 +65,22 @@ internal sealed class MapPrototype : Prototype
     {
         var map = AssertMapInstance(thisObject);
         return map.Get(arguments.At(0));
+    }
+
+    private JsValue GetOrInsert(JsValue thisObject, JsCallArguments arguments)
+    {
+        var map = AssertMapInstance(thisObject);
+        var key = arguments.At(0).CanonicalizeKeyedCollectionKey();
+        var value = arguments.At(1);
+        return map.GetOrInsert(key, value);
+    }
+
+    private JsValue GetOrInsertComputed(JsValue thisObject, JsCallArguments arguments)
+    {
+        var map = AssertMapInstance(thisObject);
+        var key = arguments.At(0).CanonicalizeKeyedCollectionKey();
+        var callbackfn = arguments.At(1).GetCallable(_realm);
+        return map.GetOrInsertComputed(key, callbackfn);
     }
 
     private JsValue Clear(JsValue thisObject, JsCallArguments arguments)

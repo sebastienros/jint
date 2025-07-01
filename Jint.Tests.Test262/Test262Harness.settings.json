@@ -1,5 +1,5 @@
 {
-  "SuiteGitSha": "b0f03cb22d8b9233347782d166e7793d4d4c757f",
+  "SuiteGitSha": "a073f479f80b336256b7fc4e04700c827293e2fe",
   //"SuiteDirectory": "//mnt/c/work/test262",
   "TargetPath": "./Generated",
   "Namespace": "Jint.Tests.Test262",
@@ -35,6 +35,10 @@
     // requires rewrite of destructing towards spec
     "language/destructuring/binding/keyed-destructuring-property-reference-target-evaluation-order-with-bindings.js",
     "language/expressions/assignment/destructuring/keyed-destructuring-property-reference-target-evaluation-order-with-bindings.js",
+    "language/expressions/assignment/destructuring/default-expr-throws-iterator-return-get-throws.js",
+    "language/expressions/assignment/destructuring/default-expr-throws-iterator-return-is-not-callable.js",
+    "language/expressions/assignment/destructuring/target-assign-throws-iterator-return-get-throws.js",
+    "language/expressions/assignment/destructuring/target-assign-throws-iterator-return-is-not-callable.js",
 
     // Acornima doesn't implement unicode 15/16 yet
     "language/identifiers/*-unicode-15.*.js",
@@ -51,6 +55,19 @@
     "built-ins/RegExp/named-groups/unicode-references.js",
     "built-ins/RegExp/quantifier-integer-limit.js",
     "language/literals/regexp/named-groups/forward-reference.js",
+
+    "built-ins/RegExp/CharacterClassEscapes/character-class-digit-class-escape-negative-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-digit-class-escape-positive-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-non-digit-class-escape-negative-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-non-digit-class-escape-positive-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-non-whitespace-class-escape-negative-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-non-whitespace-class-escape-positive-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-non-word-class-escape-negative-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-non-word-class-escape-positive-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-whitespace-class-escape-negative-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-whitespace-class-escape-positive-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-word-class-escape-negative-cases.js",
+    "built-ins/RegExp/CharacterClassEscapes/character-class-word-class-escape-positive-cases.js",
 
     // RegExp handling problems
     "built-ins/RegExp/nullable-quantifier.js",

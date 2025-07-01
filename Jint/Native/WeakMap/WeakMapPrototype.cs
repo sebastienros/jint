@@ -27,15 +27,17 @@ internal sealed class WeakMapPrototype : Prototype
 
     protected override void Initialize()
     {
-        const PropertyFlag propertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
-        var properties = new PropertyDictionary(6, checkExistingKeys: false)
+        const PropertyFlag PropertyFlags = PropertyFlag.Configurable | PropertyFlag.Writable;
+        var properties = new PropertyDictionary(8, checkExistingKeys: false)
         {
             ["length"] = new PropertyDescriptor(0, PropertyFlag.Configurable),
             ["constructor"] = new PropertyDescriptor(_constructor, PropertyFlag.NonEnumerable),
-            ["delete"] = new PropertyDescriptor(new ClrFunction(Engine, "delete", Delete, 1, PropertyFlag.Configurable), propertyFlags),
-            ["get"] = new PropertyDescriptor(new ClrFunction(Engine, "get", Get, 1, PropertyFlag.Configurable), propertyFlags),
-            ["has"] = new PropertyDescriptor(new ClrFunction(Engine, "has", Has, 1, PropertyFlag.Configurable), propertyFlags),
-            ["set"] = new PropertyDescriptor(new ClrFunction(Engine, "set", Set, 2, PropertyFlag.Configurable), propertyFlags),
+            ["delete"] = new PropertyDescriptor(new ClrFunction(Engine, "delete", Delete, 1, PropertyFlag.Configurable), PropertyFlags),
+            ["get"] = new PropertyDescriptor(new ClrFunction(Engine, "get", Get, 1, PropertyFlag.Configurable), PropertyFlags),
+            ["getOrInsert"] = new PropertyDescriptor(new ClrFunction(Engine, "getOrInsert", GetOrInsert, 2, PropertyFlag.Configurable), PropertyFlags),
+            ["getOrInsertComputed"] = new PropertyDescriptor(new ClrFunction(Engine, "getOrInsertComputed", GetOrInsertComputed, 2, PropertyFlag.Configurable), PropertyFlags),
+            ["has"] = new PropertyDescriptor(new ClrFunction(Engine, "has", Has, 1, PropertyFlag.Configurable), PropertyFlags),
+            ["set"] = new PropertyDescriptor(new ClrFunction(Engine, "set", Set, 2, PropertyFlag.Configurable), PropertyFlags),
         };
         SetProperties(properties);
 
@@ -50,6 +52,32 @@ internal sealed class WeakMapPrototype : Prototype
     {
         var map = AssertWeakMapInstance(thisObject);
         return map.WeakMapGet(arguments.At(0));
+    }
+
+    private JsValue GetOrInsert(JsValue thisObject, JsCallArguments arguments)
+    {
+        var map = AssertWeakMapInstance(thisObject);
+        var key = AssertCanBeHeldWeakly(arguments.At(0));
+        var value = arguments.At(1);
+        return map.GetOrInsert(key, value);
+    }
+
+    private JsValue GetOrInsertComputed(JsValue thisObject, JsCallArguments arguments)
+    {
+        var map = AssertWeakMapInstance(thisObject);
+        var key = AssertCanBeHeldWeakly(arguments.At(0));
+        var callbackfn = arguments.At(1).GetCallable(_realm);
+        return map.GetOrInsertComputed(key, callbackfn);
+    }
+
+    private JsValue AssertCanBeHeldWeakly(JsValue key)
+    {
+        if (!key.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
+        {
+            ExceptionHelper.ThrowTypeError(_realm);
+        }
+
+        return key;
     }
 
     private JsValue Delete(JsValue thisObject, JsCallArguments arguments)
