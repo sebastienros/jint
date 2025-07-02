@@ -296,16 +296,17 @@ internal sealed class InteropHelper
         public int CompareTo(MethodMatch other) => Score.CompareTo(other.Score);
     }
 
-    internal static IEnumerable<MethodMatch> FindBestMatch(
+    internal static IEnumerable<MethodMatch> FindBestMatch<TState>(
         Engine engine,
         MethodDescriptor[] methods,
-        Func<MethodDescriptor, JsValue[]> argumentProvider)
+        Func<MethodDescriptor, TState, JsValue[]> argumentProvider,
+        TState state)
     {
         List<MethodMatch>? matchingByParameterCount = null;
         foreach (var method in methods)
         {
             var parameterInfos = method.Parameters;
-            var arguments = argumentProvider(method);
+            var arguments = argumentProvider(method, state);
             if (arguments.Length <= parameterInfos.Length
                 && arguments.Length >= parameterInfos.Length - method.ParameterDefaultValuesCount)
             {
