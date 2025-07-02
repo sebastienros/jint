@@ -3868,4 +3868,25 @@ try {
         }
     }
 
+    [Fact]
+    public void ShouldBeAbleToWriteLengthOfListLike()
+    {
+        var list = new List<string> { "a", "b", "c" };
+        _engine.SetValue("list", list);
+
+        _engine.Evaluate("list.length = 2;");
+        list.Should().HaveCount(2);
+        list[0].Should().Be("a");
+        list[1].Should().Be("b");
+
+        _engine.Evaluate("list.length = 0;");
+        list.Should().BeEmpty();
+
+        var act = () => _engine.Evaluate("list.length = -1;");
+        act.Should().Throw<JavaScriptException>().WithMessage("Invalid array length");
+
+        _engine.Evaluate("list.length = 1;");
+        list.Should().HaveCount(1);
+        list[0].Should().Be(null);
+    }
 }
