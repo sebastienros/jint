@@ -143,29 +143,32 @@ internal sealed class MethodInfoFunction : Function
         return genericMethodInfo;
     }
 
+    private readonly record struct MethodResolverState(Engine Engine, JsValue This, JsCallArguments Arguments);
+
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments jsArguments)
     {
-        JsValue[] ArgumentProvider(MethodDescriptor method)
+        static JsCallArguments ArgumentProvider(MethodDescriptor method, MethodResolverState state)
         {
             if (method.IsExtensionMethod)
             {
-                var jsArgumentsTemp = new JsValue[1 + jsArguments.Length];
-                jsArgumentsTemp[0] = thisObject;
-                Array.Copy(jsArguments, 0, jsArgumentsTemp, 1, jsArguments.Length);
+                var jsArgumentsTemp = new JsValue[1 + state.Arguments.Length];
+                jsArgumentsTemp[0] = state.This;
+                Array.Copy(state.Arguments, 0, jsArgumentsTemp, 1, state.Arguments.Length);
                 return method.HasParams
-                    ? ProcessParamsArrays(jsArgumentsTemp, method)
+                    ? ProcessParamsArrays(state.Engine, method, jsArgumentsTemp)
                     : jsArgumentsTemp;
             }
 
             return method.HasParams
-                ? ProcessParamsArrays(jsArguments, method)
-                : jsArguments;
+                ? ProcessParamsArrays(state.Engine, method, state.Arguments)
+                : state.Arguments;
         }
 
         var converter = Engine.TypeConverter;
         var thisObj = thisObject.ToObject() ?? _target;
         object?[]? parameters = null;
-        foreach (var (method, arguments, _) in InteropHelper.FindBestMatch(_engine, _methods, ArgumentProvider))
+        var state = new MethodResolverState(_engine, thisObject, jsArguments);
+        foreach (var (method, arguments, _) in InteropHelper.FindBestMatch(_engine, _methods, ArgumentProvider, state))
         {
             var methodParameters = method.Parameters;
             if (parameters == null || parameters.Length != methodParameters.Length)
@@ -259,7 +262,7 @@ internal sealed class MethodInfoFunction : Function
     /// <summary>
     /// Reduces a flat list of parameters to a params array, if needed
     /// </summary>
-    private JsValue[] ProcessParamsArrays(JsCallArguments arguments, MethodDescriptor methodInfo)
+    private static JsCallArguments ProcessParamsArrays(Engine engine, MethodDescriptor methodInfo, JsCallArguments arguments)
     {
         var parameters = methodInfo.Parameters;
 
@@ -276,15 +279,15 @@ internal sealed class MethodInfoFunction : Function
             return arguments;
         }
 
-        var jsArray = new JsArray(_engine, argsToTransform);
-        var newArgumentsCollection = new JsValue[nonParamsArgumentsCount + 1];
+        var array = new JsArray(engine, argsToTransform);
+        var newArguments = new JsValue[nonParamsArgumentsCount + 1];
         for (var j = 0; j < nonParamsArgumentsCount; ++j)
         {
-            newArgumentsCollection[j] = arguments[j];
+            newArguments[j] = arguments[j];
         }
 
-        newArgumentsCollection[nonParamsArgumentsCount] = jsArray;
-        return newArgumentsCollection;
+        newArguments[nonParamsArgumentsCount] = array;
+        return newArguments;
     }
 
     public override string ToString()
