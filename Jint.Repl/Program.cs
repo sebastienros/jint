@@ -4,6 +4,8 @@ using Jint.Native;
 using Jint.Native.Json;
 using Jint.Runtime;
 
+// ReSharper disable LocalizableElement
+
 #pragma warning disable IL2026
 #pragma warning disable IL2111
 
@@ -13,6 +15,7 @@ var engine = new Engine(cfg => cfg
 
 engine
     .SetValue("print", new Action<object>(Console.WriteLine))
+    .SetValue("console", new JsConsole())
     .SetValue("load", new Func<string, object>(
         path => engine.Evaluate(File.ReadAllText(path)))
     );
@@ -22,7 +25,7 @@ if (!string.IsNullOrEmpty(filename))
 {
     if (!File.Exists(filename))
     {
-        Console.WriteLine("Could not find file: {0}", filename);
+        Console.WriteLine($"Could not find file: {filename}");
     }
 
     var script = File.ReadAllText(filename);
@@ -33,10 +36,8 @@ if (!string.IsNullOrEmpty(filename))
 var assembly = Assembly.GetExecutingAssembly();
 var version = assembly.GetName().Version?.ToString();
 
-Console.WriteLine("Welcome to Jint ({0})", version);
-Console.WriteLine("Type 'exit' to leave, " +
-                  "'print()' to write on the console, " +
-                  "'load()' to load scripts.");
+Console.WriteLine($"Welcome to Jint ({version})");
+Console.WriteLine("Type 'exit' to leave, 'print()' to write on the console, 'load()' to load scripts.");
 Console.WriteLine();
 
 var defaultColor = Console.ForegroundColor;
@@ -84,5 +85,20 @@ while (true)
     {
         Console.ForegroundColor = ConsoleColor.Red;
         Console.WriteLine(e.Message);
+    }
+}
+
+file sealed class JsConsole
+{
+    public void Log(object value)
+    {
+        Console.WriteLine(value?.ToString() ?? "null");
+    }
+
+    public void Error(object value)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine(value?.ToString() ?? "null");
+        Console.ResetColor();
     }
 }
