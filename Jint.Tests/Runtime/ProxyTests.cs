@@ -522,4 +522,89 @@ public class ProxyTests
 
         Assert.Equal([1, 2, 3, 3], res.AsArray());
     }
+
+    [Fact]
+    public void ProxyClrObjectMethod()
+    {
+        var res = _engine
+            .SetValue("T", new TestClass())
+            .Evaluate("""
+                 const handler = {
+                     get(target, property, receiver) {
+
+                         if (property == "Add") {
+                             return function(...args) { return 42};
+                         }
+
+                         return Reflect.get(...arguments);
+                     }
+                 };
+
+                 const p = new Proxy(T, handler);
+                 p.Add(5,3); // throws 'get' on proxy: property 'Add' is a read-only and non-configurable data property
+                             // on the proxy target but the proxy did not return its actual value
+                             // (expected 'function Jint.Tests.Runtime.ProxyTests+TestClass.Add() { [native code] }' but got 'function () { [native code] }')
+             """);
+
+        Assert.Equal(42, res.AsInteger());
+    }
+
+    [Fact]
+    public void ProxyClrObjectMethodWithDelegate()
+    {
+        var res = _engine
+            .SetValue("T", new TestClass())
+            .Evaluate("""
+                 const handler = {
+                     get(target, property, receiver) {
+
+                         if (property == "Add") {
+                             return (...args) => 42;
+                         }
+
+                         return Reflect.get(...arguments);
+                     }
+                 };
+
+                 const p = new Proxy(T, handler);
+                 p.Add(5,3); // throws 'get' on proxy: property 'Add' is a read-only and non-configurable data property
+                             // on the proxy target but the proxy did not return its actual value
+                             // (expected 'function Jint.Tests.Runtime.ProxyTests+TestClass.Add() { [native code] }' but got 'function () { [native code] }')
+             """);
+
+        Assert.Equal(42, res.AsInteger());
+    }
+
+    [Fact]
+    public void ProxyClrObjectWithTmpObjectMethod()
+    {
+        var res = _engine
+            .SetValue("T", new TestClass())
+            .Evaluate("""
+                 const handler = {
+                     get(target, property, receiver) {
+
+                         if (property == "Add") {
+                             return (...args) => target.target[property](...args) + 34;
+                         }
+
+                         if (typeof target.target[property] === "function")
+                            return (...args) => target.target[property](...args);
+
+                        return Reflect.get(target.target, property, receiver)
+                     }
+                 };
+
+                 const tmpObj = { target: T };
+                 const p = new Proxy(tmpObj, handler);
+
+                 const name = p.Name;
+                 p.SayHello();
+                 const res = p.Add(5,3); // works now
+
+                 name + " " + res
+             """);
+
+        Assert.Equal("My Name is Test 42", res.AsString());
+    }
 }
