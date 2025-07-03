@@ -9,7 +9,6 @@
     "async-iteration",
     "Atomics",
     "decorators",
-    "explicit-resource-management",
     "import-defer",
     "iterator-helpers",
     "iterator-sequencing",

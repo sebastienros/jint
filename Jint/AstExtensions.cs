@@ -498,6 +498,16 @@ public static class AstExtensions
         validator.Visit(script);
     }
 
+    internal static DisposeHint GetDisposeHint(this VariableDeclarationKind statement)
+    {
+        return statement switch
+        {
+            VariableDeclarationKind.AwaitUsing => DisposeHint.Async,
+            VariableDeclarationKind.Using => DisposeHint.Sync,
+            _ => DisposeHint.Normal,
+        };
+    }
+
     private sealed class MinimalSyntaxElement : Node
     {
         public MinimalSyntaxElement(in SourceLocation location) : base(NodeType.Unknown)

@@ -8,6 +8,7 @@ using Jint.Native.BigInt;
 using Jint.Native.Boolean;
 using Jint.Native.DataView;
 using Jint.Native.Date;
+using Jint.Native.Disposable;
 using Jint.Native.Error;
 using Jint.Native.FinalizationRegistry;
 using Jint.Native.Function;
@@ -26,6 +27,7 @@ using Jint.Native.Set;
 using Jint.Native.ShadowRealm;
 using Jint.Native.SharedArrayBuffer;
 using Jint.Native.String;
+using Jint.Native.SuppressedError;
 using Jint.Native.Symbol;
 using Jint.Native.TypedArray;
 using Jint.Native.WeakMap;
@@ -50,6 +52,7 @@ public sealed partial class Intrinsics
     // lazy properties
     private ThrowTypeError? _throwTypeError;
     private AggregateErrorConstructor? _aggregateError;
+    private SuppressedErrorConstructor? _suppressedError;
     private ErrorConstructor? _error;
     private ErrorConstructor? _evalError;
     private ErrorConstructor? _rangeError;
@@ -107,6 +110,9 @@ public sealed partial class Intrinsics
 
     private ShadowRealmConstructor? _shadowRealm;
 
+    private AsyncDisposableStackConstructor? _asyncDisposableStack;
+    private DisposableStackConstructor? _disposableStack;
+
     internal Intrinsics(Engine engine, Realm realm)
     {
         _engine = engine;
@@ -140,6 +146,9 @@ public sealed partial class Intrinsics
 
     internal AggregateErrorConstructor AggregateError =>
         _aggregateError ??= new AggregateErrorConstructor(_engine, _realm, Error);
+
+    internal SuppressedErrorConstructor SuppressedError =>
+        _suppressedError ??= new SuppressedErrorConstructor(_engine, _realm, Error);
 
     internal ArrayIteratorPrototype ArrayIteratorPrototype =>
         _arrayIteratorPrototype ??= new ArrayIteratorPrototype(_engine, _realm, this.IteratorPrototype);
@@ -293,4 +302,10 @@ public sealed partial class Intrinsics
 
     internal ThrowTypeError ThrowTypeError =>
         _throwTypeError ??= new ThrowTypeError(_engine, _engine.Realm) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject };
+
+    internal AsyncDisposableStackConstructor AsyncDisposableStack =>
+        _asyncDisposableStack ??= new AsyncDisposableStackConstructor(_engine, _engine.Realm) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject };
+
+    internal DisposableStackConstructor DisposableStack =>
+        _disposableStack ??= new DisposableStackConstructor(_engine, _engine.Realm) { _prototype = _engine.Realm.Intrinsics.Function.PrototypeObject };
 }

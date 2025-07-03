@@ -222,7 +222,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         var reference = (Reference) lhsRef;
                         if (lhsKind == LhsKind.LexicalBinding || _leftNode.Type == NodeType.Identifier && !reference.IsUnresolvableReference)
                         {
-                            reference.InitializeReferencedBinding(nextValue);
+                            reference.InitializeReferencedBinding(nextValue, DisposeHint.Normal);
                         }
                         else
                         {

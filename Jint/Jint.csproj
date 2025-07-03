@@ -39,7 +39,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Acornima" />
     <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
   </ItemGroup>
 
@@ -47,6 +46,10 @@
     <Using Remove="System.Linq" />
     <Using Remove="System.Net.Http" />
     <Using Remove="System.Threading" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\acornima\src\Acornima\Acornima.csproj" />
   </ItemGroup>
 
 </Project>

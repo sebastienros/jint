@@ -104,7 +104,7 @@ public sealed class Reference
         }
     }
 
-    internal void InitializeReferencedBinding(JsValue value)
+    internal void InitializeReferencedBinding(JsValue value, DisposeHint hint)
     {
         ((Environment) _base).InitializeBinding(TypeConverter.ToString(_referencedName), value);
     }
@@ -116,4 +116,11 @@ public sealed class Reference
             _referencedName = Runtime.TypeConverter.ToPropertyKey(_referencedName);
         }
     }
+}
+
+internal enum DisposeHint
+{
+    Normal,
+    Sync,
+    Async,
 }
