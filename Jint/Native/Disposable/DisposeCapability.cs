@@ -2,13 +2,6 @@ using Jint.Runtime;
 
 namespace Jint.Native.Disposable;
 
-internal enum DisposeHint
-{
-    Normal,
-    Sync,
-    Async,
-}
-
 internal sealed class DisposeCapability
 {
     private readonly Engine _engine;

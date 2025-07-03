@@ -143,6 +143,7 @@ and many more.
 #### ECMAScript Stage 3 or earlier (no version yet)
 
 - ✔ `Error.isError`
+- ✔ Explicit Resource Management (`using` and `await using`)
 - ✔ `Math.sumPrecise`
 - ✔ `ShadowRealm`
 - ✔ `Uint8Array` to/from base64

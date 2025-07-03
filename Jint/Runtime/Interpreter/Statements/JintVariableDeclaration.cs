@@ -76,7 +76,7 @@ internal sealed class JintVariableDeclaration : JintStatement<VariableDeclaratio
                     }
                 }
 
-                lhs.InitializeReferencedBinding(value);
+                lhs.InitializeReferencedBinding(value, _statement.Kind.GetDisposeHint());
                 engine._referencePool.Return(lhs);
             }
             else if (declaration.Init != null)

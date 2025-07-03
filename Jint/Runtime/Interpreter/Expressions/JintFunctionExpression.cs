@@ -80,7 +80,7 @@ internal sealed class JintFunctionExpression : JintExpression
         }
         closure.MakeConstructor();
 
-        funcEnv?.InitializeBinding(name!, closure);
+        funcEnv?.InitializeBinding(name!, closure, DisposeHint.Normal);
 
         return closure;
     }
@@ -116,7 +116,7 @@ internal sealed class JintFunctionExpression : JintExpression
 
         closure.SetFunctionName(name ?? "");
 
-        funcEnv?.InitializeBinding(name!, closure);
+        funcEnv?.InitializeBinding(name!, closure, DisposeHint.Normal);
 
         return closure;
     }
@@ -158,7 +158,7 @@ internal sealed class JintFunctionExpression : JintExpression
         var prototype = ObjectInstance.OrdinaryObjectCreate(engine, intrinsics.GeneratorFunction.PrototypeObject.PrototypeObject);
         closure.DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, PropertyFlag.Writable));
 
-        funcEnv?.InitializeBinding(name!, closure);
+        funcEnv?.InitializeBinding(name!, closure, DisposeHint.Normal);
 
         return closure;
     }
@@ -200,7 +200,7 @@ internal sealed class JintFunctionExpression : JintExpression
         var prototype = ObjectInstance.OrdinaryObjectCreate(engine, intrinsics.AsyncGeneratorFunction.PrototypeObject.PrototypeObject);
         closure.DefinePropertyOrThrow(CommonProperties.Prototype, new PropertyDescriptor(prototype, PropertyFlag.Writable));
 
-        funcEnv?.InitializeBinding(name!, closure);
+        funcEnv?.InitializeBinding(name!, closure, DisposeHint.Normal);
 
         return closure;
     }
