@@ -31,6 +31,9 @@
   ],
   "ExcludedFiles": [
 
+    // needs async-iteration
+    "built-ins/AsyncIteratorPrototype/Symbol.asyncDispose/*.js",
+
     // requires rewrite of destructing towards spec
     "language/destructuring/binding/keyed-destructuring-property-reference-target-evaluation-order-with-bindings.js",
     "language/expressions/assignment/destructuring/keyed-destructuring-property-reference-target-evaluation-order-with-bindings.js",

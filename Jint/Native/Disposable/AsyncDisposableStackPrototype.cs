@@ -48,31 +48,21 @@ internal sealed class AsyncDisposableStackPrototype : Prototype
 
     private JsValue Adopt(JsValue thisObject, JsCallArguments arguments)
     {
-        AssertDisposableStack(thisObject);
-        return Undefined;
+        var stack = AssertDisposableStack(thisObject);
+        return stack.Adopt(arguments.At(0), arguments.At(1));
     }
 
     private JsValue Defer(JsValue thisObject, JsCallArguments arguments)
     {
-        AssertDisposableStack(thisObject);
+        var stack = AssertDisposableStack(thisObject);
+        stack.Defer(arguments.At(0));
         return Undefined;
     }
 
     private JsValue Dispose(JsValue thisObject, JsCallArguments arguments)
     {
         var stack = AssertDisposableStack(thisObject);
-        if (stack.State == DisposableState.Disposed)
-        {
-            return Undefined;
-        }
-
-        stack.State = DisposableState.Disposed;
-        return DisposeResources(stack);
-    }
-
-    private static JsValue DisposeResources(DisposableStackInstance stack)
-    {
-        return Undefined;
+        return stack.Dispose();
     }
 
     private JsValue Disposed(JsValue thisObject, JsCallArguments arguments)
@@ -83,21 +73,26 @@ internal sealed class AsyncDisposableStackPrototype : Prototype
 
     private JsValue Move(JsValue thisObject, JsCallArguments arguments)
     {
-        AssertDisposableStack(thisObject);
-        return Undefined;
+        var stack = AssertDisposableStack(thisObject);
+        var newDisposableStack = _engine.Intrinsics.Function.OrdinaryCreateFromConstructor(
+            _engine.Intrinsics.AsyncDisposableStack,
+            static intrinsics => intrinsics.AsyncDisposableStack.PrototypeObject,
+            static (Engine engine, Realm _, object? _) => new DisposableStack(engine, DisposeHint.Async));
+
+        return stack.Move(newDisposableStack);
     }
 
     private JsValue Use(JsValue thisObject, JsCallArguments arguments)
     {
-        AssertDisposableStack(thisObject);
-        return Undefined;
+        var stack = AssertDisposableStack(thisObject);
+        return stack.Use(arguments.At(0));
     }
 
-    private DisposableStackInstance AssertDisposableStack(JsValue thisObject)
+    private DisposableStack AssertDisposableStack(JsValue thisObject)
     {
-        if (thisObject is not DisposableStackInstance stack)
+        if (thisObject is not DisposableStack { _hint: DisposeHint.Async } stack)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "This is not a DisposableStack instance.");
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "This is not a AsyncDisposableStack instance.");
             return null!;
         }
 

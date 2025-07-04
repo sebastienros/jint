@@ -23,7 +23,7 @@ internal sealed record DisposeCapability
                 return;
             }
 
-            resource = CreateDisposableResource(JsValue.Undefined, hint);
+            resource = CreateDisposableResource(v, hint);
         }
         else
         {

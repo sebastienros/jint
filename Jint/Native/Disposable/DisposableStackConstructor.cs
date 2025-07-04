@@ -15,7 +15,7 @@ internal sealed class DisposableStackConstructor : Constructor
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
     }
 
-    private DisposableStackPrototype PrototypeObject { get; }
+    internal DisposableStackPrototype PrototypeObject { get; }
 
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
@@ -27,7 +27,7 @@ internal sealed class DisposableStackConstructor : Constructor
         var stack = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.DisposableStack.PrototypeObject,
-            static (Engine engine, Realm _, object? _) => new DisposableStackInstance(engine));
+            static (Engine engine, Realm _, object? _) => new DisposableStack(engine, DisposeHint.Sync));
 
         return stack;
     }
