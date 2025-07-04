@@ -32,18 +32,21 @@ internal sealed class DisposableStack : ObjectInstance
         }
 
         State = DisposableState.Disposed;
-        return _disposeCapability.DisposeResources(new Completion(CompletionType.Normal, Undefined, new Identifier(""))).Value;
+        var completion = _disposeCapability.DisposeResources(new Completion(CompletionType.Normal, Undefined, _engine.GetLastSyntaxElement()));
+        if (completion.Type == CompletionType.Throw)
+        {
+            ExceptionHelper.ThrowJavaScriptException(_engine, completion.Value, completion);
+        }
+        return completion.Value;
     }
 
     public void Defer(JsValue onDispose)
     {
-        AssertNotDisposed();
         AddDisposableResource(Undefined, _hint, onDispose.GetCallable(_engine.Realm));
     }
 
     public JsValue Use(JsValue value)
     {
-        AssertNotDisposed();
         AddDisposableResource(value, _hint);
         return value;
     }

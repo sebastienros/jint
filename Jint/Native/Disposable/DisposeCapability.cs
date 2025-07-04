@@ -103,8 +103,15 @@ internal sealed record DisposeCapability
 
                 if (exception is not null)
                 {
-                    var error = _engine.Intrinsics.SuppressedError.Construct(_engine.Intrinsics.SuppressedError, "", result, c.Value);
-                    return new Completion(CompletionType.Throw, error, c._source);
+                    if (c.Type == CompletionType.Throw)
+                    {
+                        var error = _engine.Intrinsics.SuppressedError.Construct(_engine.Intrinsics.SuppressedError, "", exception.Error, c.Value);
+                        c = new Completion(CompletionType.Throw, error, c._source);
+                    }
+                    else
+                    {
+                        c = new Completion(CompletionType.Throw, exception.Error, c._source);
+                    }
                 }
             }
             else
@@ -122,5 +129,4 @@ internal sealed record DisposeCapability
         DisposableResourceStack.Clear();
         return c;
     }
-
 }
