@@ -70,7 +70,7 @@ internal sealed class AsyncDisposableStackPrototype : Prototype
         return DisposeResources(stack);
     }
 
-    private static JsValue DisposeResources(AsyncDisposableStackInstance stack)
+    private static JsValue DisposeResources(DisposableStackInstance stack)
     {
         return Undefined;
     }
@@ -93,9 +93,9 @@ internal sealed class AsyncDisposableStackPrototype : Prototype
         return Undefined;
     }
 
-    private AsyncDisposableStackInstance AssertDisposableStack(JsValue thisObject)
+    private DisposableStackInstance AssertDisposableStack(JsValue thisObject)
     {
-        if (thisObject is not AsyncDisposableStackInstance stack)
+        if (thisObject is not DisposableStackInstance stack)
         {
             ExceptionHelper.ThrowTypeError(_engine.Realm, "This is not a DisposableStack instance.");
             return null!;

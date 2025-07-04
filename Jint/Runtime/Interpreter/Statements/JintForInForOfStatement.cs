@@ -163,7 +163,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             while (true)
             {
-                Environment? iterationEnv = null;
+                DeclarativeEnvironment? iterationEnv = null;
                 if (!iteratorRecord.TryIteratorStep(out var nextResult))
                 {
                     close = true;
@@ -276,6 +276,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 }
 
                 var result = stmt.Execute(context);
+                result = iterationEnv?._disposeCapability?.DisposeResources(result) ?? result;
                 engine.UpdateLexicalEnvironment(oldEnv);
 
                 if (!result.Value.IsEmpty)

@@ -1397,7 +1397,7 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         return callable;
     }
 
-    internal ICallable? GetDisposeMethod(Realm realm, DisposeHint hint)
+    internal ICallable? GetDisposeMethod(DisposeHint hint)
     {
         if (hint == DisposeHint.Async)
         {
@@ -1410,7 +1410,15 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
                     JsCallDelegate closure = (_, _) =>
                     {
                         var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Intrinsics.Promise);
-                        var jsValue = method.Call(this);
+                        try
+                        {
+                            method.Call(this);
+                            promiseCapability.Resolve.Call(Undefined, Undefined);
+                        }
+                        catch
+                        {
+                            promiseCapability.Reject.Call(Undefined, Undefined);
+                        }
                         return promiseCapability.PromiseInstance;
                     };
 

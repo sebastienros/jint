@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using Jint.Collections;
 using Jint.Native;
+using Jint.Native.Disposable;
 
 namespace Jint.Runtime.Environments;
 
@@ -12,6 +13,7 @@ namespace Jint.Runtime.Environments;
 internal class DeclarativeEnvironment : Environment
 {
     internal HybridDictionary<Binding>? _dictionary;
+    internal DisposeCapability? _disposeCapability;
     internal readonly bool _catchEnvironment;
 
     public DeclarativeEnvironment(Engine engine, bool catchEnvironment = false) : base(engine)
@@ -59,10 +61,14 @@ internal class DeclarativeEnvironment : Environment
         _dictionary.CreateImmutableBinding(name, strict);
     }
 
-    internal sealed override void InitializeBinding(Key name, JsValue value)
+    internal sealed override void InitializeBinding(Key name, JsValue value, DisposeHint hint)
     {
         _dictionary ??= new HybridDictionary<Binding>();
         _dictionary.SetOrUpdateValue(name, static (current, value) => current.ChangeValue(value), value);
+        if (hint != DisposeHint.Normal)
+        {
+            HandleDisposal(value, hint);
+        }
     }
 
     internal sealed override void SetMutableBinding(BindingName name, JsValue value, bool strict) => SetMutableBinding(name.Key, value, strict);
@@ -184,6 +190,13 @@ internal class DeclarativeEnvironment : Environment
             source.TryGetValue(bn, out var lastValue);
             target[bn] = new Binding(lastValue.Value, canBeDeleted: false, mutable: true, strict: false);
         }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void HandleDisposal(JsValue value, DisposeHint hint)
+    {
+        _disposeCapability ??= new DisposeCapability(_engine);
+        _disposeCapability.AddDisposableResource(value, hint);
     }
 }
 

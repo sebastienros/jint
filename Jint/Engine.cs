@@ -1367,7 +1367,7 @@ public sealed partial class Engine : IDisposable
                 if (!bindingExists)
                 {
                     varEnvRec.CreateMutableBinding(fn, canBeDeleted: true);
-                    varEnvRec.InitializeBinding(fn, fo);
+                    varEnvRec.InitializeBinding(fn, fo, DisposeHint.Normal);
                 }
                 else
                 {
@@ -1388,7 +1388,7 @@ public sealed partial class Engine : IDisposable
                 if (!bindingExists)
                 {
                     varEnvRec.CreateMutableBinding(vn, canBeDeleted: true);
-                    varEnvRec.InitializeBinding(vn, JsValue.Undefined);
+                    varEnvRec.InitializeBinding(vn, JsValue.Undefined, DisposeHint.Normal);
                 }
             }
         }

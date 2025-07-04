@@ -26,7 +26,7 @@ internal sealed class JintClassDeclarationStatement : JintStatement<ClassDeclara
         var classBinding = _classDefinition._className;
         if (classBinding != null)
         {
-            env.InitializeBinding(classBinding, value);
+            env.InitializeBinding(classBinding, value, DisposeHint.Normal);
         }
 
         return new Completion(CompletionType.Normal, JsEmpty.Instance, _statement);

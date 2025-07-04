@@ -28,7 +28,7 @@ internal sealed class AsyncDisposableStackConstructor : Constructor
         var stack = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.AsyncDisposableStack.PrototypeObject,
-            static (Engine engine, Realm _, object? _) => new AsyncDisposableStackInstance(engine));
+            static (Engine engine, Realm _, object? _) => new DisposableStackInstance(engine));
 
         return stack;
     }

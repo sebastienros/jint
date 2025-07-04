@@ -203,7 +203,7 @@ internal sealed class ClassDefinition
 
             if (_className is not null)
             {
-                classEnv.InitializeBinding(_className, F);
+                classEnv.InitializeBinding(_className, F, DisposeHint.Normal);
             }
 
             F._privateMethods = instancePrivateMethods;

@@ -1,6 +1,5 @@
 using Jint.Native.Error;
 using Jint.Native.Object;
-using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -38,6 +37,11 @@ internal sealed class SuppressedErrorConstructor : Constructor
         var suppressed = arguments.At(1);
         var message = arguments.At(2);
 
+        return Construct(newTarget, message, error, suppressed);
+    }
+
+    internal JsError Construct(JsValue newTarget, JsValue message, JsValue error, JsValue suppressed)
+    {
         var o = OrdinaryCreateFromConstructor(
             newTarget,
             static intrinsics => intrinsics.SuppressedError.PrototypeObject,
