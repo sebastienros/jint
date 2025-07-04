@@ -40,6 +40,8 @@ internal abstract class JintBinaryExpression : JintExpression
         _initialized = true;
     }
 
+    private readonly record struct MethodResolverState(JsCallArguments Arguments);
+
     internal static bool TryOperatorOverloading(
         EvaluationContext context,
         JsValue leftValue,
@@ -65,7 +67,7 @@ internal abstract class JintBinaryExpression : JintExpression
                 var methods = leftMethods.Concat(rightMethods).Where(x => string.Equals(x.Name, clrName, StringComparison.Ordinal) && x.GetParameters().Length == 2);
                 var methodDescriptors = MethodDescriptor.Build(methods.ToArray());
 
-                return InteropHelper.FindBestMatch(context.Engine, methodDescriptors, _ => arguments).FirstOrDefault().Method;
+                return InteropHelper.FindBestMatch(context.Engine, methodDescriptors, static (_, state) => state.Arguments, new MethodResolverState(arguments)).FirstOrDefault().Method;
             });
 
             if (method != null)

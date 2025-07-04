@@ -26,7 +26,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
     public abstract int Length { get; }
 
-    public override JsValue Get(JsValue property, JsValue receiver)
+    public sealed override JsValue Get(JsValue property, JsValue receiver)
     {
         if (property.IsInteger())
         {
@@ -36,7 +36,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
         return base.Get(property, receiver);
     }
 
-    public override bool HasProperty(JsValue property)
+    public sealed override bool HasProperty(JsValue property)
     {
         if (property.IsNumber())
         {
@@ -54,7 +54,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
         return base.HasProperty(property);
     }
 
-    public override bool Delete(JsValue property)
+    public sealed override bool Delete(JsValue property)
     {
         if (!_engine.Options.Interop.AllowWrite)
         {
@@ -84,8 +84,52 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
         return base.Delete(property);
     }
 
-
     public abstract object? GetAt(int index);
+
+    public sealed override bool Set(JsValue property, JsValue value, JsValue receiver)
+    {
+        if (ReferenceEquals(receiver, this) && CommonProperties.Length.Equals(property))
+        {
+            if (!CanWrite)
+            {
+                return false;
+            }
+
+            if (value.IsInteger())
+            {
+                var length = value.AsInteger();
+                if (length < 0)
+                {
+                    ExceptionHelper.ThrowRangeError(_engine.Realm, "Invalid array length");
+                }
+
+                if (length == Length)
+                {
+                    return true;
+                }
+
+                if (length > Length)
+                {
+                    EnsureCapacity(length);
+                }
+                else
+                {
+                    // decrease the length, remove items
+                    for (var i = Length - 1; i >= length; i--)
+                    {
+                        RemoveAt(i);
+                    }
+                }
+                return true;
+            }
+
+            ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid array length");
+        }
+
+        return base.Set(property, value, receiver);
+    }
+
+    protected virtual bool CanWrite => _engine.Options.Interop.AllowWrite;
 
     public void SetAt(int index, JsValue value)
     {
@@ -133,7 +177,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     }
 }
 
-internal class ListWrapper : ArrayLikeWrapper
+internal sealed class ListWrapper : ArrayLikeWrapper
 {
     private readonly IList? _list;
 
@@ -225,6 +269,8 @@ internal sealed class ReadOnlyListWrapper<[DynamicallyAccessedMembers(Dynamicall
 
         return null;
     }
+
+    protected override bool CanWrite => false;
 
     public override void AddDefault() => ExceptionHelper.ThrowNotSupportedException();
 

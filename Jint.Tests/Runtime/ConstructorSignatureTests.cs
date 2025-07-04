@@ -3,7 +3,7 @@ using Jint.Runtime.Interop;
 
 namespace Jint.Tests.Runtime;
 
-public class ConstructorSignature
+public class ConstructorSignatureTests
 {
     [Fact]
     public void OptionalConstructorParametersShouldBeSupported()
@@ -54,6 +54,17 @@ public class ConstructorSignature
         Assert.Equal(LengthUnit.Pixel, (LengthUnit) engine.Evaluate("new Length(12.3, 42).UnitValue").AsInteger());
     }
 
+    [Fact]
+    public void ShouldBeAbleToIgnoreDefaultParameters()
+    {
+        var engine = new Engine();
+        engine.SetValue("C", TypeReference.CreateTypeReference(engine, typeof(C)));
+
+        // Should not throw an error
+        engine.Evaluate("new C(1, 2)");
+        engine.Evaluate("new C(1, 2, 'context')");
+    }
+
     private class A
     {
         public A(int param1, int param2 = 5) => Result = (param1 + param2).ToString();
@@ -96,5 +107,12 @@ public class ConstructorSignature
 
         public float Value { get; }
         public LengthUnit UnitValue { get; }
+    }
+
+    private class C
+    {
+        public C(int tileCoordsX, int tileCoordsY, string context = null)
+        {
+        }
     }
 }

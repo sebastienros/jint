@@ -56,6 +56,8 @@ public sealed class TypeReference : Constructor, IObjectWrapper
         return Construct(arguments, Undefined);
     }
 
+    private readonly record struct MethodResolverState(Engine Engine, JsCallArguments Arguments);
+
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
         static ObjectInstance ObjectCreator(Engine engine, Realm realm, ObjectCreateState state)
@@ -80,8 +82,10 @@ public sealed class TypeReference : Constructor, IObjectWrapper
                     referenceType,
                     t => MethodDescriptor.Build(t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)));
 
-                var argumentProvider = new Func<MethodDescriptor, JsValue[]>(method =>
+                Func<MethodDescriptor, MethodResolverState, JsCallArguments> argumentProvider = static (method, state) =>
                 {
+                    var engine = state.Engine;
+                    var arguments = state.Arguments;
                     var parameters = method.Parameters;
 
                     if (parameters.Length == 0)
@@ -141,8 +145,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
                     if (parameters.Length > arguments.Length)
                     {
                         // all missing ones must be optional
-                        int start = parameters.Length - arguments.Length;
-                        for (var i = start; i < parameters.Length; i++)
+                        for (var i = arguments.Length; i < parameters.Length; i++)
                         {
                             if (!parameters[i].IsOptional)
                             {
@@ -175,9 +178,10 @@ public sealed class TypeReference : Constructor, IObjectWrapper
                     }
 
                     return arguments;
-                });
+                };
 
-                foreach (var (method, methodArguments, _) in InteropHelper.FindBestMatch(engine, constructors, argumentProvider))
+                var resolverState = new MethodResolverState(engine, arguments);
+                foreach (var (method, methodArguments, _) in InteropHelper.FindBestMatch(engine, constructors, argumentProvider, resolverState))
                 {
                     var retVal = method.Call(engine, null, methodArguments);
                     result = TypeConverter.ToObject(realm, retVal);
