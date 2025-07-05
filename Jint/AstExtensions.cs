@@ -299,7 +299,7 @@ public static class AstExtensions
         if (expression is Identifier identifier)
         {
             var catchEnvRecord = (DeclarativeEnvironment) env;
-            catchEnvRecord.CreateMutableBindingAndInitialize(identifier.Name, canBeDeleted: false, value);
+            catchEnvRecord.CreateMutableBindingAndInitialize(identifier.Name, canBeDeleted: false, value, DisposeHint.Normal);
         }
         else if (expression is DestructuringPattern pattern)
         {

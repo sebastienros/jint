@@ -31,7 +31,7 @@ internal sealed class ModuleEnvironment : DeclarativeEnvironment
     public void CreateImportBinding(string importName, Module module, string name)
     {
         _importBindings[importName] = new IndirectBinding(module, name);
-        CreateImmutableBindingAndInitialize(importName, true, JsValue.Undefined);
+        CreateImmutableBindingAndInitialize(importName, true, Undefined, DisposeHint.Normal);
     }
 
     /// <summary>

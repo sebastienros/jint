@@ -37,16 +37,24 @@ internal class DeclarativeEnvironment : Environment
         return false;
     }
 
-    internal void CreateMutableBindingAndInitialize(Key name, bool canBeDeleted, JsValue value)
+    internal void CreateMutableBindingAndInitialize(Key name, bool canBeDeleted, JsValue value, DisposeHint hint)
     {
         _dictionary ??= new HybridDictionary<Binding>();
         _dictionary[name] = new Binding(value, canBeDeleted, mutable: true, strict: false);
+        if (hint != DisposeHint.Normal)
+        {
+            HandleDisposal(value, hint);
+        }
     }
 
-    internal void CreateImmutableBindingAndInitialize(Key name, bool strict, JsValue value)
+    internal void CreateImmutableBindingAndInitialize(Key name, bool strict, JsValue value, DisposeHint hint)
     {
         _dictionary ??= new HybridDictionary<Binding>();
         _dictionary[name] = new Binding(value, canBeDeleted: false, mutable: false, strict);
+        if (hint != DisposeHint.Normal)
+        {
+            HandleDisposal(value, hint);
+        }
     }
 
     internal sealed override void CreateMutableBinding(Key name, bool canBeDeleted = false)
