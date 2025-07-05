@@ -113,7 +113,7 @@ internal sealed class ObjectEnvironment : Environment
     /// <summary>
     /// https://tc39.es/ecma262/#sec-object-environment-records-initializebinding-n-v
     /// </summary>
-    internal override void InitializeBinding(Key name, JsValue value) => SetMutableBinding(name, value, strict: false);
+    internal override void InitializeBinding(Key name, JsValue value, DisposeHint hint) => SetMutableBinding(name, value, strict: false);
 
     internal override void SetMutableBinding(Key name, JsValue value, bool strict)
     {

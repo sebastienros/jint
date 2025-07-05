@@ -49,7 +49,8 @@ internal abstract class Environment : JsValue
     /// </summary>
     /// <param name="name">The text of the bound name</param>
     /// <param name="value">The value for the binding.</param>
-    internal abstract void InitializeBinding(Key name, JsValue value);
+    /// <param name="hint">Disposal type hint</param>
+    internal abstract void InitializeBinding(Key name, JsValue value, DisposeHint hint);
 
     /// <summary>
     /// Sets the value of an already existing mutable binding in an environment record.

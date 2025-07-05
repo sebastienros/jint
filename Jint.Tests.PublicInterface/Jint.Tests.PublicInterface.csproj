@@ -10,11 +10,11 @@
 
 
   <ItemGroup>
+    <ProjectReference Include="..\..\acornima\src\Acornima.Extras\Acornima.Extras.csproj" />
     <ProjectReference Include="..\Jint\Jint.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Acornima.Extras" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Flurl.Http.Signed" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />

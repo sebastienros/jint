@@ -20,9 +20,10 @@ internal class IteratorPrototype : Prototype
 
     protected override void Initialize()
     {
-        var symbols = new SymbolDictionary(1)
+        var symbols = new SymbolDictionary(2)
         {
-            [GlobalSymbolRegistry.Iterator] = new(new ClrFunction(Engine, "[Symbol.iterator]", ToIterator, 0, PropertyFlag.Configurable), true, false, true),
+            [GlobalSymbolRegistry.Iterator] = new(new ClrFunction(Engine, "[Symbol.iterator]", ToIterator, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
+            [GlobalSymbolRegistry.Dispose] = new(new ClrFunction(Engine, "[Symbol.dispose]", Dispose, 0, PropertyFlag.Configurable), PropertyFlag.NonEnumerable),
         };
         SetSymbols(symbols);
     }
@@ -30,6 +31,17 @@ internal class IteratorPrototype : Prototype
     private static JsValue ToIterator(JsValue thisObject, JsCallArguments arguments)
     {
         return thisObject;
+    }
+
+    private static JsValue Dispose(JsValue thisObject, JsCallArguments arguments)
+    {
+        var method = thisObject.AsObject().GetMethod(CommonProperties.Return);
+        if (method is not null)
+        {
+            method.Call(thisObject, arguments);
+        }
+
+        return Undefined;
     }
 
     internal JsValue Next(JsValue thisObject, JsCallArguments arguments)

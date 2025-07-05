@@ -163,7 +163,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
         {
             while (true)
             {
-                Environment? iterationEnv = null;
+                DeclarativeEnvironment? iterationEnv = null;
                 if (!iteratorRecord.TryIteratorStep(out var nextResult))
                 {
                     close = true;
@@ -222,7 +222,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                         var reference = (Reference) lhsRef;
                         if (lhsKind == LhsKind.LexicalBinding || _leftNode.Type == NodeType.Identifier && !reference.IsUnresolvableReference)
                         {
-                            reference.InitializeReferencedBinding(nextValue);
+                            reference.InitializeReferencedBinding(nextValue, DisposeHint.Normal);
                         }
                         else
                         {
@@ -276,6 +276,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 }
 
                 var result = stmt.Execute(context);
+                result = iterationEnv?._disposeCapability?.DisposeResources(result) ?? result;
                 engine.UpdateLexicalEnvironment(oldEnv);
 
                 if (!result.Value.IsEmpty)

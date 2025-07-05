@@ -36,7 +36,7 @@ internal sealed class SymbolConstructor : Constructor
         const PropertyFlag lengthFlags = PropertyFlag.Configurable;
         const PropertyFlag propertyFlags = PropertyFlag.AllForbidden;
 
-        var properties = new PropertyDictionary(15, checkExistingKeys: false)
+        var properties = new PropertyDictionary(17, checkExistingKeys: false)
         {
             ["for"] = new PropertyDescriptor(new ClrFunction(Engine, "for", For, 1, lengthFlags), PropertyFlag.Writable | PropertyFlag.Configurable),
             ["keyFor"] = new PropertyDescriptor(new ClrFunction(Engine, "keyFor", KeyFor, 1, lengthFlags), PropertyFlag.Writable | PropertyFlag.Configurable),
@@ -52,7 +52,9 @@ internal sealed class SymbolConstructor : Constructor
             ["toPrimitive"] = new PropertyDescriptor(GlobalSymbolRegistry.ToPrimitive, propertyFlags),
             ["toStringTag"] = new PropertyDescriptor(GlobalSymbolRegistry.ToStringTag, propertyFlags),
             ["unscopables"] = new PropertyDescriptor(GlobalSymbolRegistry.Unscopables, propertyFlags),
-            ["asyncIterator"] = new PropertyDescriptor(GlobalSymbolRegistry.AsyncIterator, propertyFlags)
+            ["asyncIterator"] = new PropertyDescriptor(GlobalSymbolRegistry.AsyncIterator, propertyFlags),
+            ["dispose"] = new PropertyDescriptor(GlobalSymbolRegistry.Dispose, propertyFlags),
+            ["asyncDispose"] = new PropertyDescriptor(GlobalSymbolRegistry.AsyncDispose, propertyFlags),
         };
         SetProperties(properties);
     }

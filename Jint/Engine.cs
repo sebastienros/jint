@@ -1080,11 +1080,11 @@ public sealed partial class Engine : IDisposable
 
             if (strict)
             {
-                env.CreateImmutableBindingAndInitialize(KnownKeys.Arguments, strict: false, ao);
+                env.CreateImmutableBindingAndInitialize(KnownKeys.Arguments, strict: false, ao, DisposeHint.Normal);
             }
             else
             {
-                env.CreateMutableBindingAndInitialize(KnownKeys.Arguments, canBeDeleted: false, ao);
+                env.CreateMutableBindingAndInitialize(KnownKeys.Arguments, canBeDeleted: false, ao, DisposeHint.Normal);
             }
         }
 
@@ -1108,7 +1108,7 @@ public sealed partial class Engine : IDisposable
             for (var i = 0; i < varsToInitialize.Count; i++)
             {
                 var pair = varsToInitialize[i];
-                env.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined);
+                env.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, JsValue.Undefined, DisposeHint.Normal);
             }
 
             varEnv = env;
@@ -1126,7 +1126,7 @@ public sealed partial class Engine : IDisposable
             {
                 var pair = varsToInitialize[i];
                 var initialValue = pair.InitialValue ?? env.GetBindingValue(pair.Name, strict: false);
-                varEnv.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, initialValue);
+                varEnv.CreateMutableBindingAndInitialize(pair.Name, canBeDeleted: false, initialValue, DisposeHint.Normal);
             }
         }
 
@@ -1367,7 +1367,7 @@ public sealed partial class Engine : IDisposable
                 if (!bindingExists)
                 {
                     varEnvRec.CreateMutableBinding(fn, canBeDeleted: true);
-                    varEnvRec.InitializeBinding(fn, fo);
+                    varEnvRec.InitializeBinding(fn, fo, DisposeHint.Normal);
                 }
                 else
                 {
@@ -1388,7 +1388,7 @@ public sealed partial class Engine : IDisposable
                 if (!bindingExists)
                 {
                     varEnvRec.CreateMutableBinding(vn, canBeDeleted: true);
-                    varEnvRec.InitializeBinding(vn, JsValue.Undefined);
+                    varEnvRec.InitializeBinding(vn, JsValue.Undefined, DisposeHint.Normal);
                 }
             }
         }

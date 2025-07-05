@@ -299,7 +299,7 @@ public static class AstExtensions
         if (expression is Identifier identifier)
         {
             var catchEnvRecord = (DeclarativeEnvironment) env;
-            catchEnvRecord.CreateMutableBindingAndInitialize(identifier.Name, canBeDeleted: false, value);
+            catchEnvRecord.CreateMutableBindingAndInitialize(identifier.Name, canBeDeleted: false, value, DisposeHint.Normal);
         }
         else if (expression is DestructuringPattern pattern)
         {
@@ -496,6 +496,16 @@ public static class AstExtensions
     {
         var validator = new PrivateIdentifierValidator(realm, privateIdentifiers);
         validator.Visit(script);
+    }
+
+    internal static DisposeHint GetDisposeHint(this VariableDeclarationKind statement)
+    {
+        return statement switch
+        {
+            VariableDeclarationKind.AwaitUsing => DisposeHint.Async,
+            VariableDeclarationKind.Using => DisposeHint.Sync,
+            _ => DisposeHint.Normal,
+        };
     }
 
     private sealed class MinimalSyntaxElement : Node

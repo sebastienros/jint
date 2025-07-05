@@ -46,6 +46,30 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 _prototype = engine.Intrinsics.Array.PrototypeObject;
             }
         }
+
+        if (_typeDescriptor.IsDisposable)
+        {
+            SetProperty(GlobalSymbolRegistry.Dispose, new PropertyDescriptor(new ClrFunction(engine, "dispose", static (thisObject, _) =>
+            {
+                ((thisObject as ObjectWrapper)?.Target as IDisposable)?.Dispose();
+                return Undefined;
+            }), PropertyFlag.NonEnumerable));
+        }
+
+#if SUPPORTS_ASYNC_DISPOSE
+        if (_typeDescriptor.IsAsyncDisposable)
+        {
+            SetProperty(GlobalSymbolRegistry.AsyncDispose, new PropertyDescriptor(new ClrFunction(engine, "asyncDispose", (thisObject, _) =>
+            {
+                var target = ((thisObject as ObjectWrapper)?.Target as IAsyncDisposable)?.DisposeAsync();
+                if (target is not null)
+                {
+                    return ConvertAwaitableToPromise(engine, target);
+                }
+                return Undefined;
+            }), PropertyFlag.NonEnumerable));
+        }
+#endif
     }
 
     /// <summary>
