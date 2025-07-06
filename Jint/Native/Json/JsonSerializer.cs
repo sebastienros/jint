@@ -221,7 +221,7 @@ public sealed class JsonSerializer
             if (objectInstance is IObjectWrapper wrapper
                 && _engine.Options.Interop.SerializeToJson is { } serialize)
             {
-                json.Append(serialize(wrapper.Target));
+                json.Append(serialize(wrapper.Target, _gap, _indent));
                 return SerializeResult.NotUndefined;
             }
 
@@ -558,7 +558,7 @@ public sealed class JsonSerializer
     private enum SerializeResult
     {
         NotUndefined,
-        Undefined
+        Undefined,
     }
 
     private readonly struct PropertyEnumeration

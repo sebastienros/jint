@@ -30,6 +30,8 @@ public class Options
 
     public delegate string? BuildCallStackDelegate(string shortDescription, SourceLocation location, string[]? arguments);
 
+    public delegate string SerializeToJsonDelegate(object? target, string space, string? currentIndent);
+
     /// <summary>
     /// Execution constraints for the engine.
     /// </summary>
@@ -347,13 +349,13 @@ public class Options
         /// <summary>
         /// Strategy to create a CLR object to hold converted <see cref="ObjectInstance"/>.
         /// </summary>
-        public Func<ObjectInstance, IDictionary<string, object?>>? CreateClrObject = _ => new ExpandoObject();
+        public Func<ObjectInstance, IDictionary<string, object?>>? CreateClrObject { get; set; } = _ => new ExpandoObject();
 
         /// <summary>
         /// Strategy to create a CLR object from TypeReference.
         /// Defaults to retuning null which makes TypeReference attempt to find suitable constructor.
         /// </summary>
-        public Func<Engine, Type, JsValue[], object?> CreateTypeReferenceObject = (_, _, _) => null;
+        public Func<Engine, Type, JsValue[], object?> CreateTypeReferenceObject { get; set; } = (_, _, _) => null;
 
         internal static readonly ExceptionHandlerDelegate _defaultExceptionHandler = static exception => false;
 
@@ -361,7 +363,7 @@ public class Options
         /// When not null, is used to serialize any CLR object in an
         /// <see cref="IObjectWrapper"/> passing through 'JSON.stringify'.
         /// </summary>
-        public Func<object, string>? SerializeToJson { get; set; }
+        public SerializeToJsonDelegate? SerializeToJson { get; set; }
 
         /// <summary>
         /// What kind of date time should be produced when JavaScript date is converted to DateTime. If Local, uses <see cref="Options.TimeZone"/>.

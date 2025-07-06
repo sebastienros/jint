@@ -1,4 +1,5 @@
 using System.Dynamic;
+using System.Text;
 using FluentAssertions;
 using Jint.Runtime.Interop;
 
@@ -131,19 +132,18 @@ public partial class InteropTests
         engine.SetValue("TimeSpan", TypeReference.CreateTypeReference<TimeSpan>(engine));
         engine.SetValue("TestObject", testObject);
 
-        var expected = Serialize(TimeSpan.FromSeconds(3));
+        var expected = Serialize(TimeSpan.FromSeconds(3), string.Empty);
         var actual = engine.Evaluate("JSON.stringify(TimeSpan.FromSeconds(3));");
         actual.AsString().Should().Be(expected);
 
-        expected = Serialize(testObject);
+        expected = Serialize(testObject, string.Empty);
         actual = engine.Evaluate("JSON.stringify(TestObject)");
         actual.AsString().Should().Be(expected);
 
         actual = engine.Evaluate("JSON.stringify({ nestedValue: TestObject })");
         actual.AsString().Should().Be($$"""{"nestedValue":{{expected}}}""");
-        return;
 
-        string Serialize(object o)
+        static string Serialize(object o, string space, string currentIndent = null)
         {
             var settings = new Newtonsoft.Json.JsonSerializerSettings
             {
@@ -155,4 +155,86 @@ public partial class InteropTests
             return Newtonsoft.Json.JsonConvert.SerializeObject(o, settings);
         }
     }
+
+    [Fact]
+    public void CanStringifyUsingSerializeToJsonWithIndentation()
+    {
+        object testObject = new { Foo = "bar", FooBar = new { Foo = 123.45, Array = Array.Empty<int>() } };
+        var e = new Engine(o => o.Interop.SerializeToJson = SerializeIndentation);
+        e.SetValue("TestObject", testObject);
+        e.Evaluate("JSON.stringify(TestObject, null, 4)").AsString().Should().Be(
+            """
+            {
+                "foo": "bar",
+                "foo_bar": {
+                    "foo": 123.45,
+                    "array": []
+                }
+            }
+            """
+        );
+
+        e.Evaluate("JSON.stringify({ nestedValue: TestObject }, null, 4)").AsString().Should().Be(
+            """
+            {
+                "nestedValue": {
+                    "foo": "bar",
+                    "foo_bar": {
+                        "foo": 123.45,
+                        "array": []
+                    }
+                }
+            }
+            """.Replace("\r\n", "\n")
+        );
+
+        static string SerializeIndentation(object o, string space, string currentIndent)
+        {
+            var jsonSerializer = Newtonsoft.Json.JsonSerializer.Create(new Newtonsoft.Json.JsonSerializerSettings
+            {
+                ContractResolver = new Newtonsoft.Json.Serialization.DefaultContractResolver
+                {
+                    NamingStrategy = new Newtonsoft.Json.Serialization.SnakeCaseNamingStrategy()
+                }
+            });
+
+            var sb = new StringBuilder(256);
+            var sw = new StringWriter(sb);
+            using var jsonWriter = string.IsNullOrEmpty(space)
+                ? new Newtonsoft.Json.JsonTextWriter(sw)
+                : new(sw)
+                {
+                    Formatting = Newtonsoft.Json.Formatting.Indented,
+                    Indentation = space.Length,
+                    IndentChar = space[0] // assuming `space` only contains one kind of character
+                };
+
+            jsonSerializer.Serialize(jsonWriter, o);
+
+            if (string.IsNullOrEmpty(currentIndent))
+            {
+                return sw.ToString();
+            }
+            else
+            {
+                var lines = sw.ToString().Split('\n');
+                var stringBuilder = new StringBuilder();
+
+                for (var i = 0; i < lines.Length; i++)
+                {
+                    if (i == 0)
+                    {
+                        stringBuilder.AppendLine(lines[i]);
+                    }
+                    else
+                    {
+                        stringBuilder.AppendLine(currentIndent + lines[i]);
+                    }
+                }
+
+                return stringBuilder.ToString().Replace("\r", string.Empty).TrimEnd('\n');
+            }
+        }
+    }
+
 }
