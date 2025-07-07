@@ -11,7 +11,7 @@
     <PackageVersion Include="FluentAssertions" Version="[7.2.0]" />
     <PackageVersion Include="Flurl.Http.Signed" Version="4.0.2" />
     <PackageVersion Include="Jurassic" Version="3.2.9" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.202" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.205" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.6" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.6.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
@@ -28,7 +28,7 @@
     <PackageVersion Include="Test262Harness" Version="1.0.2" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.1" PrivateAssets="all" />
-    <PackageVersion Include="YantraJS.Core" Version="1.2.282" />
+    <PackageVersion Include="YantraJS.Core" Version="1.2.286" />
   </ItemGroup>
   <ItemGroup>
     <GlobalPackageReference Include="GitHubActionsTestLogger" Version="2.4.1" />
