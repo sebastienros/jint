@@ -5,8 +5,10 @@ using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;
+using Jint.Native.Disposable;
 using Jint.Native.Json;
 using Jint.Native.Number;
+using Jint.Native.Promise;
 using Jint.Native.String;
 using Jint.Native.Symbol;
 using Jint.Native.TypedArray;
@@ -1395,6 +1397,42 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         }
         return callable;
     }
+
+    internal ICallable? GetDisposeMethod(DisposeHint hint)
+    {
+        if (hint == DisposeHint.Async)
+        {
+            var method = GetMethod(GlobalSymbolRegistry.AsyncDispose);
+            if (method is null)
+            {
+                method = GetMethod(GlobalSymbolRegistry.Dispose);
+                if (method is not null)
+                {
+                    JsCallDelegate closure = (_, _) =>
+                    {
+                        var promiseCapability = PromiseConstructor.NewPromiseCapability(_engine, _engine.Intrinsics.Promise);
+                        try
+                        {
+                            method.Call(this);
+                            promiseCapability.Resolve.Call(Undefined, Undefined);
+                        }
+                        catch
+                        {
+                            promiseCapability.Reject.Call(Undefined, Undefined);
+                        }
+                        return promiseCapability.PromiseInstance;
+                    };
+
+                    return new ClrFunction(_engine, string.Empty, closure);
+                }
+            }
+
+            return method;
+        }
+
+        return GetMethod(GlobalSymbolRegistry.Dispose);
+    }
+
 
     internal void CopyDataProperties(
         ObjectInstance target,
