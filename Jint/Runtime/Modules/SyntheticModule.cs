@@ -67,7 +67,7 @@ internal sealed class SyntheticModule : Module
         foreach (var exportName in _exportNames)
         {
             _environment.CreateMutableBinding(exportName, canBeDeleted: false);
-            _environment.InitializeBinding(exportName, Undefined);
+            _environment.InitializeBinding(exportName, Undefined, DisposeHint.Normal);
         }
         return index;
     }

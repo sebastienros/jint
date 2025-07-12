@@ -146,11 +146,11 @@ internal sealed class GlobalEnvironment : Environment
         ExceptionHelper.ThrowTypeError(_engine.Realm, $"{name} has already been declared");
     }
 
-    internal override void InitializeBinding(Key name, JsValue value)
+    internal override void InitializeBinding(Key name, JsValue value, DisposeHint hint)
     {
         if (_declarativeRecord.HasBinding(name))
         {
-            _declarativeRecord.InitializeBinding(name, value);
+            _declarativeRecord.InitializeBinding(name, value, hint);
         }
         else
         {

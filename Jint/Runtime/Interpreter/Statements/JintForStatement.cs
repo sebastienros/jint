@@ -27,7 +27,6 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
 
     protected override void Initialize(EvaluationContext context)
     {
-        var engine = context.Engine;
         _body = new ProbablyBlockStatement(_statement.Body);
 
         if (_statement.Init != null)
@@ -63,7 +62,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
     protected override Completion ExecuteInternal(EvaluationContext context)
     {
         Environment? oldEnv = null;
-        Environment? loopEnv = null;
+        DeclarativeEnvironment? loopEnv = null;
         var engine = context.Engine;
         if (_boundNames != null)
         {
@@ -87,6 +86,7 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
             engine.UpdateLexicalEnvironment(loopEnv);
         }
 
+        var completion = Completion.Empty();
         try
         {
             if (_initExpression != null)
@@ -98,12 +98,14 @@ internal sealed class JintForStatement : JintStatement<ForStatement>
                 _initStatement?.Execute(context);
             }
 
-            return ForBodyEvaluation(context);
+            completion = ForBodyEvaluation(context);
+            return completion;
         }
         finally
         {
             if (oldEnv is not null)
             {
+                loopEnv!.DisposeResources(completion);
                 engine.UpdateLexicalEnvironment(oldEnv);
             }
         }

@@ -42,12 +42,13 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
             Initialize(context);
         }
 
+        DeclarativeEnvironment? blockEnv = null;
         Environment? oldEnv = null;
         var engine = context.Engine;
         if (_lexicalDeclarations.Declarations.Count > 0)
         {
             oldEnv = engine.ExecutionContext.LexicalEnvironment;
-            var blockEnv = JintEnvironment.NewDeclarativeEnvironment(engine, engine.ExecutionContext.LexicalEnvironment);
+            blockEnv = JintEnvironment.NewDeclarativeEnvironment(engine, engine.ExecutionContext.LexicalEnvironment);
             JintStatementList.BlockDeclarationInstantiation(blockEnv, _lexicalDeclarations);
             engine.UpdateLexicalEnvironment(blockEnv);
         }
@@ -60,6 +61,11 @@ internal sealed class JintBlockStatement : JintStatement<NestedBlockStatement>
         else
         {
             blockValue = _statementList!.Execute(context);
+        }
+
+        if (blockEnv != null)
+        {
+            blockValue = blockEnv.DisposeResources(blockValue);
         }
 
         if (oldEnv is not null)

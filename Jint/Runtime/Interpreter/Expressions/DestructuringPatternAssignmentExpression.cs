@@ -407,7 +407,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         }
         else
         {
-            lhs.InitializeReferencedBinding(v);
+            lhs.InitializeReferencedBinding(v, DisposeHint.Normal);
         }
         engine._referencePool.Return(lhs);
     }
@@ -434,7 +434,7 @@ internal sealed class DestructuringPatternAssignmentExpression : JintExpression
         var lhs = engine.ResolveBinding(name, environment);
         if (environment is not null)
         {
-            lhs.InitializeReferencedBinding(rval);
+            lhs.InitializeReferencedBinding(rval, DisposeHint.Normal);
         }
         else
         {

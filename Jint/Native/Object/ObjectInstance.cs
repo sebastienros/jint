@@ -5,7 +5,6 @@ using Jint.Collections;
 using Jint.Native.Array;
 using Jint.Native.BigInt;
 using Jint.Native.Boolean;
-using Jint.Native.Disposable;
 using Jint.Native.Json;
 using Jint.Native.Number;
 using Jint.Native.Promise;

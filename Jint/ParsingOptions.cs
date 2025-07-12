@@ -30,11 +30,12 @@ public interface IParsingOptions
     bool Tolerant { get; init; }
 }
 
-public sealed record class ScriptParsingOptions : IParsingOptions
+public sealed record ScriptParsingOptions : IParsingOptions
 {
     private static readonly ParserOptions _defaultParserOptions = Engine.BaseParserOptions with
     {
         AllowReturnOutsideFunction = true,
+        AllowTopLevelUsing = true,
         RegExpParseMode = RegExpParseMode.AdaptToInterpreted,
     };
 
