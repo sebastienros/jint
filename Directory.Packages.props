@@ -4,8 +4,8 @@
     <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Acornima" Version="1.1.1" />
-    <PackageVersion Include="Acornima.Extras" Version="1.1.1" />
+    <PackageVersion Include="Acornima" Version="1.2.0" />
+    <PackageVersion Include="Acornima.Extras" Version="1.2.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.2" />
     <PackageVersion Include="BenchmarkDotNet.TestAdapter" Version="0.13.12" />
     <PackageVersion Include="FluentAssertions" Version="[7.2.0]" />
