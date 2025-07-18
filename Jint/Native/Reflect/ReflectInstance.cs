@@ -60,7 +60,7 @@ internal sealed class ReflectInstance : ObjectInstance
 
         if (!target.IsCallable)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var args = FunctionPrototype.CreateListFromArrayLike(_realm, argumentsList);
@@ -93,7 +93,7 @@ internal sealed class ReflectInstance : ObjectInstance
         var target = arguments.At(0) as ObjectInstance;
         if (target is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Reflect.defineProperty called on non-object");
+            Throw.TypeError(_realm, "Reflect.defineProperty called on non-object");
         }
 
         var propertyKey = arguments.At(1);
@@ -110,7 +110,7 @@ internal sealed class ReflectInstance : ObjectInstance
         var o = arguments.At(0) as ObjectInstance;
         if (o is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Reflect.deleteProperty called on non-object");
+            Throw.TypeError(_realm, "Reflect.deleteProperty called on non-object");
         }
 
         var property = TypeConverter.ToPropertyKey(arguments.At(1));
@@ -122,7 +122,7 @@ internal sealed class ReflectInstance : ObjectInstance
         var o = arguments.At(0) as ObjectInstance;
         if (o is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Reflect.has called on non-object");
+            Throw.TypeError(_realm, "Reflect.has called on non-object");
         }
 
         var property = TypeConverter.ToPropertyKey(arguments.At(1));
@@ -139,7 +139,7 @@ internal sealed class ReflectInstance : ObjectInstance
         var o = target as ObjectInstance;
         if (o is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Reflect.set called on non-object");
+            Throw.TypeError(_realm, "Reflect.set called on non-object");
         }
 
         return o.Set(property, value, receiver);
@@ -151,7 +151,7 @@ internal sealed class ReflectInstance : ObjectInstance
         var o = target as ObjectInstance;
         if (o is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Reflect.get called on non-object");
+            Throw.TypeError(_realm, "Reflect.get called on non-object");
         }
 
         var receiver = arguments.At(2, target);
@@ -163,7 +163,7 @@ internal sealed class ReflectInstance : ObjectInstance
     {
         if (!arguments.At(0).IsObject())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Reflect.getOwnPropertyDescriptor called on non-object");
+            Throw.TypeError(_realm, "Reflect.getOwnPropertyDescriptor called on non-object");
         }
         return _realm.Intrinsics.Object.GetOwnPropertyDescriptor(Undefined, arguments);
     }
@@ -173,7 +173,7 @@ internal sealed class ReflectInstance : ObjectInstance
         var o = arguments.At(0) as ObjectInstance;
         if (o is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Reflect.get called on non-object");
+            Throw.TypeError(_realm, "Reflect.get called on non-object");
         }
 
         var keys = o.GetOwnPropertyKeys();
@@ -185,7 +185,7 @@ internal sealed class ReflectInstance : ObjectInstance
         var o = arguments.At(0) as ObjectInstance;
         if (o is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Reflect.isExtensible called on non-object");
+            Throw.TypeError(_realm, "Reflect.isExtensible called on non-object");
         }
 
         return o.Extensible;
@@ -196,7 +196,7 @@ internal sealed class ReflectInstance : ObjectInstance
         var o = arguments.At(0) as ObjectInstance;
         if (o is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Reflect.preventExtensions called on non-object");
+            Throw.TypeError(_realm, "Reflect.preventExtensions called on non-object");
         }
 
         return o.PreventExtensions();
@@ -208,7 +208,7 @@ internal sealed class ReflectInstance : ObjectInstance
 
         if (!target.IsObject())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Reflect.getPrototypeOf called on non-object");
+            Throw.TypeError(_realm, "Reflect.getPrototypeOf called on non-object");
         }
 
         return _realm.Intrinsics.Object.GetPrototypeOf(Undefined, arguments);
@@ -221,13 +221,13 @@ internal sealed class ReflectInstance : ObjectInstance
         var o = target as ObjectInstance;
         if (o is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Reflect.setPrototypeOf called on non-object");
+            Throw.TypeError(_realm, "Reflect.setPrototypeOf called on non-object");
         }
 
         var prototype = arguments.At(1);
         if (!prototype.IsObject() && !prototype.IsNull())
         {
-            ExceptionHelper.ThrowTypeError(_realm, $"Object prototype may only be an Object or null: {prototype}");
+            Throw.TypeError(_realm, $"Object prototype may only be an Object or null: {prototype}");
         }
 
         return o.SetPrototypeOf(prototype);

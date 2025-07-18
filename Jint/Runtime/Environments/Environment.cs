@@ -93,13 +93,13 @@ internal abstract class Environment : JsValue
 
     public override object ToObject()
     {
-        ExceptionHelper.ThrowNotSupportedException();
+        Throw.NotSupportedException();
         return null;
     }
 
     public override bool Equals(JsValue? other)
     {
-        ExceptionHelper.ThrowNotSupportedException();
+        Throw.NotSupportedException();
         return false;
     }
 

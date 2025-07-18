@@ -79,7 +79,7 @@ internal abstract class JintBinaryExpression : JintExpression
                 }
                 catch (Exception e)
                 {
-                    ExceptionHelper.ThrowMeaningfulException(context.Engine, new TargetInvocationException(e.InnerException));
+                    Throw.MeaningfulException(context.Engine, new TargetInvocationException(e.InnerException));
                     result = null;
                     return false;
                 }
@@ -152,7 +152,7 @@ internal abstract class JintBinaryExpression : JintExpression
                 result = new InBinaryExpression(expression);
                 break;
             default:
-                ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(expression.Operator), "cannot handle operator");
+                Throw.ArgumentOutOfRangeException(nameof(expression.Operator), "cannot handle operator");
                 break;
         }
 
@@ -192,7 +192,7 @@ internal abstract class JintBinaryExpression : JintExpression
     {
         if (left.Type != right.Type)
         {
-            ExceptionHelper.ThrowTypeErrorNoEngine("Cannot mix BigInt and other types, use explicit conversions");
+            Throw.TypeErrorNoEngine("Cannot mix BigInt and other types, use explicit conversions");
         }
     }
 
@@ -623,12 +623,12 @@ internal abstract class JintBinaryExpression : JintExpression
                 var exponent = right.AsBigInt();
                 if (exponent < 0)
                 {
-                    ExceptionHelper.ThrowRangeError(context.Engine.Realm, "Exponent must be positive");
+                    Throw.RangeError(context.Engine.Realm, "Exponent must be positive");
                 }
 
                 if (exponent > int.MaxValue || exponent < int.MinValue)
                 {
-                    ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Exponent does not fit 32bit range");
+                    Throw.TypeError(context.Engine.Realm, "Exponent does not fit 32bit range");
                 }
                 result = JsBigInt.Create(BigInteger.Pow(left.AsBigInt(), (int) exponent));
             }
@@ -653,7 +653,7 @@ internal abstract class JintBinaryExpression : JintExpression
             var oi = right as ObjectInstance;
             if (oi is null)
             {
-                ExceptionHelper.ThrowTypeError(context.Engine.Realm, "in can only be used with an object");
+                Throw.TypeError(context.Engine.Realm, "in can only be used with an object");
             }
 
             if (left.IsPrivateName())
@@ -747,7 +747,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
                 if (d == 0)
                 {
-                    ExceptionHelper.ThrowRangeError(context.Engine.Realm, "Division by zero");
+                    Throw.RangeError(context.Engine.Realm, "Division by zero");
                 }
                 else if (n == 0)
                 {
@@ -807,7 +807,7 @@ internal abstract class JintBinaryExpression : JintExpression
 
             if (lnum.Type != rnum.Type)
             {
-                ExceptionHelper.ThrowTypeErrorNoEngine("Cannot mix BigInt and other types, use explicit conversions", _left._expression);
+                Throw.TypeErrorNoEngine("Cannot mix BigInt and other types, use explicit conversions", _left._expression);
             }
 
             if (AreIntegerOperands(lnum, rnum))
@@ -837,7 +837,7 @@ internal abstract class JintBinaryExpression : JintExpression
                         result = JsNumber.Create((uint) leftValue >> (int) ((uint) rightValue & 0x1F));
                         break;
                     default:
-                        ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(_operator), "unknown shift operator");
+                        Throw.ArgumentOutOfRangeException(nameof(_operator), "unknown shift operator");
                         break;
                 }
 
@@ -903,13 +903,13 @@ internal abstract class JintBinaryExpression : JintExpression
                         {
                             return JsNumber.Create((uint) TypeConverter.ToInt32(left) >> (int) (TypeConverter.ToUint32(right) & 0x1F));
                         }
-                        ExceptionHelper.ThrowTypeErrorNoEngine("Cannot mix BigInt and other types, use explicit conversions", _left._expression);
+                        Throw.TypeErrorNoEngine("Cannot mix BigInt and other types, use explicit conversions", _left._expression);
                         return null;
                     }
 
                 default:
                     {
-                        ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(_operator), "unknown shift operator");
+                        Throw.ArgumentOutOfRangeException(nameof(_operator), "unknown shift operator");
                         return null;
                     }
             }

@@ -391,7 +391,7 @@ public sealed partial class GlobalObject : ObjectInstance
         return builder.ToString();
 
 uriError:
-        _engine.SignalError(ExceptionHelper.CreateUriError(_realm, "URI malformed"));
+        _engine.SignalError(Throw.CreateUriError(_realm, "URI malformed"));
         return JsEmpty.Instance;
     }
 
@@ -569,7 +569,7 @@ uriError:
         return _stringBuilder.ToString();
 
 uriError:
-        _engine.SignalError(ExceptionHelper.CreateUriError(_realm, "URI malformed"));
+        _engine.SignalError(Throw.CreateUriError(_realm, "URI malformed"));
         return JsEmpty.Instance;
     }
 
@@ -759,7 +759,7 @@ uriError:
         {
             if (strict)
             {
-                ExceptionHelper.ThrowReferenceNameError(_realm, property.Name);
+                Throw.ReferenceNameError(_realm, property.Name);
             }
             _properties[property] = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.MutableBinding);
             return true;

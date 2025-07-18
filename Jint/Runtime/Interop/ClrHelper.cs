@@ -42,7 +42,7 @@ internal sealed class ClrHelper
     {
         if (!type.ReferenceType.IsInstanceOfType(obj.Target))
         {
-            ExceptionHelper.ThrowTypeError(type.Engine.Realm, "Argument obj must be an instance of type");
+            Throw.TypeError(type.Engine.Realm, "Argument obj must be an instance of type");
         }
         return ObjectWrapper.Create(obj.Engine, obj.Target, type.ReferenceType);
     }
@@ -77,7 +77,7 @@ internal sealed class ClrHelper
             return TypeReference.CreateTypeReference(obj.Engine, t);
         }
 
-        ExceptionHelper.ThrowArgumentException("Must be an ObjectWrapper of Type", nameof(obj));
+        Throw.ArgumentException("Must be an ObjectWrapper of Type", nameof(obj));
         return JsValue.Undefined;
     }
 
@@ -85,7 +85,7 @@ internal sealed class ClrHelper
     {
         if (!_interopOptions.AllowGetType)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Invalid when Engine.Options.Interop.AllowGetType == false");
+            Throw.InvalidOperationException("Invalid when Engine.Options.Interop.AllowGetType == false");
         }
     }
 }

@@ -149,7 +149,7 @@ public static class JsValueExtensions
     {
         if (!value.IsDate())
         {
-            ExceptionHelper.ThrowArgumentException("The value is not a date");
+            Throw.ArgumentException("The value is not a date");
         }
 
         return (JsDate) value;
@@ -160,7 +160,7 @@ public static class JsValueExtensions
     {
         if (!value.IsRegExp())
         {
-            ExceptionHelper.ThrowArgumentException("The value is not a regex");
+            Throw.ArgumentException("The value is not a regex");
         }
 
         return (JsRegExp) value;
@@ -172,7 +172,7 @@ public static class JsValueExtensions
     {
         if (!value.IsObject())
         {
-            ExceptionHelper.ThrowArgumentException("The value is not an object");
+            Throw.ArgumentException("The value is not an object");
         }
 
         return (ObjectInstance) value;
@@ -184,7 +184,7 @@ public static class JsValueExtensions
     {
         if (!value.IsObject())
         {
-            ExceptionHelper.ThrowArgumentException("The value is not an object");
+            Throw.ArgumentException("The value is not an object");
         }
 
         return (value as TInstance)!;
@@ -196,7 +196,7 @@ public static class JsValueExtensions
     {
         if (!value.IsArray())
         {
-            ExceptionHelper.ThrowArgumentException("The value is not an array");
+            Throw.ArgumentException("The value is not an array");
         }
 
         return (JsArray) value;
@@ -633,7 +633,7 @@ public static class JsValueExtensions
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static JsValue ThrowNotObject(JsValue value)
     {
-        ExceptionHelper.ThrowArgumentException(value + " is not object");
+        Throw.ArgumentException(value + " is not object");
         return null;
     }
 
@@ -670,21 +670,21 @@ public static class JsValueExtensions
             engine.RunAvailableContinuations();
             if (!completedEvent.Wait(timeout))
             {
-                ExceptionHelper.ThrowPromiseRejectedException($"Timeout of {timeout} reached");
+                Throw.PromiseRejectedException($"Timeout of {timeout} reached");
             }
 
             switch (promise.State)
             {
                 case PromiseState.Pending:
-                    ExceptionHelper.ThrowInvalidOperationException("'UnwrapIfPromise' called before Promise was settled");
+                    Throw.InvalidOperationException("'UnwrapIfPromise' called before Promise was settled");
                     return null;
                 case PromiseState.Fulfilled:
                     return promise.Value;
                 case PromiseState.Rejected:
-                    ExceptionHelper.ThrowPromiseRejectedException(promise.Value);
+                    Throw.PromiseRejectedException(promise.Value);
                     return null;
                 default:
-                    ExceptionHelper.ThrowArgumentOutOfRangeException();
+                    Throw.ArgumentOutOfRangeException();
                     return null;
             }
         }
@@ -695,7 +695,7 @@ public static class JsValueExtensions
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void ThrowWrongTypeException(JsValue value, string expectedType)
     {
-        ExceptionHelper.ThrowArgumentException($"Expected {expectedType} but got {value._type}");
+        Throw.ArgumentException($"Expected {expectedType} but got {value._type}");
     }
 
     internal static BigInteger ToBigInteger(this JsValue value, Engine engine)
@@ -706,7 +706,7 @@ public static class JsValueExtensions
         }
         catch (ParseErrorException ex)
         {
-            ExceptionHelper.ThrowSyntaxError(engine.Realm, ex.Message);
+            Throw.SyntaxError(engine.Realm, ex.Message);
             return default;
         }
     }
@@ -718,7 +718,7 @@ public static class JsValueExtensions
             return callable;
         }
 
-        ExceptionHelper.ThrowTypeError(realm, "Argument must be callable");
+        Throw.TypeError(realm, "Argument must be callable");
         return null;
     }
 

@@ -29,7 +29,7 @@ internal sealed class WeakMapConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var map = OrdinaryCreateFromConstructor(

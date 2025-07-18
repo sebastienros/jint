@@ -27,7 +27,7 @@ internal sealed class JsWeakMap : ObjectInstance
     {
         if (!key.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakMap key must be an object, got " + key);
+            Throw.TypeError(_engine.Realm, "WeakMap key must be an object, got " + key);
         }
 
 #if SUPPORTS_WEAK_TABLE_ADD_OR_UPDATE

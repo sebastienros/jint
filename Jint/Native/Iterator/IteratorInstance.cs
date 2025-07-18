@@ -15,7 +15,7 @@ internal abstract class IteratorInstance : ObjectInstance
 
     public override object ToObject()
     {
-        ExceptionHelper.ThrowNotImplementedException();
+        Throw.NotImplementedException();
         return null;
     }
 
@@ -43,7 +43,7 @@ internal abstract class IteratorInstance : ObjectInstance
             _target = target;
             if (target.Get(CommonProperties.Next) is not ICallable callable)
             {
-                ExceptionHelper.ThrowTypeError(target.Engine.Realm);
+                Throw.TypeError(target.Engine.Realm);
                 return;
             }
 
@@ -69,7 +69,7 @@ internal abstract class IteratorInstance : ObjectInstance
             var instance = jsValue as ObjectInstance;
             if (instance is null)
             {
-                ExceptionHelper.ThrowTypeError(_target.Engine.Realm, $"Iterator result {jsValue} is not an object");
+                Throw.TypeError(_target.Engine.Realm, $"Iterator result {jsValue} is not an object");
             }
 
             return instance;
@@ -95,7 +95,7 @@ internal abstract class IteratorInstance : ObjectInstance
 
             if (completion != CompletionType.Throw && !innerResult.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(_target.Engine.Realm, "Iterator returned non-object");
+                Throw.TypeError(_target.Engine.Realm, "Iterator returned non-object");
             }
         }
     }
@@ -136,7 +136,7 @@ internal abstract class IteratorInstance : ObjectInstance
             var r = iteratingRegExp as JsRegExp;
             if (r is null)
             {
-                ExceptionHelper.ThrowTypeError(engine.Realm);
+                Throw.TypeError(engine.Realm);
             }
 
             _iteratingRegExp = r;

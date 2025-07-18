@@ -151,7 +151,7 @@ internal sealed class MapPrototype : Prototype
             return map;
         }
 
-        ExceptionHelper.ThrowTypeError(_realm, "object must be a Map");
+        Throw.TypeError(_realm, "object must be a Map");
         return default;
     }
 }

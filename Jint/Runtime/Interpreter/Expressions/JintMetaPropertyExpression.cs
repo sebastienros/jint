@@ -39,7 +39,7 @@ internal sealed class JintMetaPropertyExpression : JintExpression
             return importMeta;
         }
 
-        ExceptionHelper.ThrowNotImplementedException();
+        Throw.NotImplementedException();
         return default;
     }
 }

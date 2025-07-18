@@ -37,7 +37,7 @@ internal sealed class ProxyConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         return Construct(arguments.At(0), arguments.At(1));
@@ -83,13 +83,13 @@ internal sealed class ProxyConstructor : Constructor
     {
         if (target is not ObjectInstance targetObject)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Cannot create proxy with a non-object as target");
+            Throw.TypeError(_realm, "Cannot create proxy with a non-object as target");
             return null;
         }
 
         if (handler is not ObjectInstance targetHandler)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Cannot create proxy with a non-object as handler");
+            Throw.TypeError(_realm, "Cannot create proxy with a non-object as handler");
             return null;
         }
 

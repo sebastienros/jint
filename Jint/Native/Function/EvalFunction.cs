@@ -99,7 +99,7 @@ public sealed class EvalFunction : Function
             // if body Contains NewTarget, throw a SyntaxError exception.
             if (analyzer._containsNewTarget)
             {
-                ExceptionHelper.ThrowSyntaxError(evalRealm, "new.target expression is not allowed here");
+                Throw.SyntaxError(evalRealm, "new.target expression is not allowed here");
             }
         }
 
@@ -108,7 +108,7 @@ public sealed class EvalFunction : Function
             // if body Contains SuperProperty, throw a SyntaxError exception.
             if (analyzer._containsSuperProperty)
             {
-                ExceptionHelper.ThrowSyntaxError(evalRealm, "'super' keyword unexpected here");
+                Throw.SyntaxError(evalRealm, "'super' keyword unexpected here");
             }
         }
 
@@ -117,7 +117,7 @@ public sealed class EvalFunction : Function
             // if body Contains SuperCall, throw a SyntaxError exception.
             if (analyzer._containsSuperCall)
             {
-                ExceptionHelper.ThrowSyntaxError(evalRealm, "'super' keyword unexpected here");
+                Throw.SyntaxError(evalRealm, "'super' keyword unexpected here");
             }
         }
 
@@ -126,7 +126,7 @@ public sealed class EvalFunction : Function
             // if ContainsArguments of body is true, throw a SyntaxError exception.
             if (analyzer._containsArguments)
             {
-                ExceptionHelper.ThrowSyntaxError(evalRealm, "'arguments' is not allowed in class field initializer or static initialization block");
+                Throw.SyntaxError(evalRealm, "'arguments' is not allowed in class field initializer or static initialization block");
             }
         }
 
@@ -172,7 +172,7 @@ public sealed class EvalFunction : Function
 
                 if (result.Type == CompletionType.Throw)
                 {
-                    ExceptionHelper.ThrowJavaScriptException(_engine, value, result);
+                    Throw.JavaScriptException(_engine, value, result);
                     return null!;
                 }
                 else

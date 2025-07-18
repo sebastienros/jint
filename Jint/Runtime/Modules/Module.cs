@@ -76,7 +76,7 @@ public abstract class Module : JsValue, IScriptOrModule
 
     public override object ToObject()
     {
-        ExceptionHelper.ThrowNotSupportedException();
+        Throw.NotSupportedException();
         return null;
     }
 

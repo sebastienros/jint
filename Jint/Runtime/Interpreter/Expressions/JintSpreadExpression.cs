@@ -35,7 +35,7 @@ internal sealed class JintSpreadExpression : JintExpression
         if (instance is null || !instance.TryGetIterator(context.Engine.Realm, out iterator))
         {
             iterator = null;
-            ExceptionHelper.ThrowTypeError(context.Engine.Realm, _argumentName + " is not iterable");
+            Throw.TypeError(context.Engine.Realm, _argumentName + " is not iterable");
         }
     }
 }

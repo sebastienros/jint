@@ -67,7 +67,7 @@ public sealed class ScriptFunction : Function, IConstructor
 
                 if (_isClassConstructor)
                 {
-                    ExceptionHelper.ThrowTypeError(calleeContext.Realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
+                    Throw.TypeError(calleeContext.Realm, $"Class constructor {_functionDefinition.Name} cannot be invoked without 'new'");
                 }
 
                 OrdinaryCallBindThis(calleeContext, thisObject);
@@ -80,7 +80,7 @@ public sealed class ScriptFunction : Function, IConstructor
 
                 if (result.Type == CompletionType.Throw)
                 {
-                    ExceptionHelper.ThrowJavaScriptException(_engine, result.Value, result);
+                    Throw.JavaScriptException(_engine, result.Value, result);
                 }
 
                 // The DebugHandler needs the current execution context before the return for stepping through the return point
@@ -191,12 +191,12 @@ public sealed class ScriptFunction : Function, IConstructor
 
                     if (!result.Value.IsUndefined())
                     {
-                        ExceptionHelper.ThrowTypeError(callerContext.Realm);
+                        Throw.TypeError(callerContext.Realm);
                     }
                 }
                 else if (result.Type == CompletionType.Throw)
                 {
-                    ExceptionHelper.ThrowJavaScriptException(_engine, result.Value, result);
+                    Throw.JavaScriptException(_engine, result.Value, result);
                 }
             }
             finally

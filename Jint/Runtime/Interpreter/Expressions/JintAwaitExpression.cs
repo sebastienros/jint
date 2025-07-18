@@ -38,7 +38,7 @@ internal sealed class JintAwaitExpression : JintExpression
         }
         catch (PromiseRejectedException e)
         {
-            ExceptionHelper.ThrowJavaScriptException(engine, e.RejectedValue, _expression.Location);
+            Throw.JavaScriptException(engine, e.RejectedValue, _expression.Location);
             return null;
         }
     }

@@ -123,7 +123,7 @@ internal sealed class StringConstructor : Constructor
         return JsString.Create(result.ToString());
 
 rangeError:
-        _engine.SignalError(ExceptionHelper.CreateRangeError(_realm, "Invalid code point " + codePoint));
+        _engine.SignalError(Throw.CreateRangeError(_realm, "Invalid code point " + codePoint));
         return JsEmpty.Instance;
     }
 

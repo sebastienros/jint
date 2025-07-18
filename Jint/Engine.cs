@@ -404,7 +404,7 @@ public sealed partial class Engine : IDisposable
     {
         if (!preparedScript.IsValid)
         {
-            ExceptionHelper.ThrowInvalidPreparedScriptArgumentException(nameof(preparedScript));
+            Throw.InvalidPreparedScriptArgumentException(nameof(preparedScript));
         }
 
         var script = preparedScript.Program;
@@ -578,7 +578,7 @@ public sealed partial class Engine : IDisposable
                 }
             }
 
-            ExceptionHelper.ThrowReferenceError(Realm, reference);
+            Throw.ReferenceError(Realm, reference);
         }
 
         if ((baseValue._type & InternalTypes.ObjectEnvironmentRecord) == InternalTypes.Empty && _customResolver)
@@ -687,7 +687,7 @@ public sealed partial class Engine : IDisposable
         {
             if (reference.Strict && property != CommonProperties.Arguments)
             {
-                ExceptionHelper.ThrowReferenceError(Realm, reference);
+                Throw.ReferenceError(Realm, reference);
             }
 
             Realm.GlobalObject.Set(property, value, throwOnError: false);
@@ -705,7 +705,7 @@ public sealed partial class Engine : IDisposable
             var succeeded = baseObject.Set(reference.ReferencedName, value, reference.ThisValue);
             if (!succeeded && reference.Strict)
             {
-                ExceptionHelper.ThrowTypeError(Realm, $"Cannot assign to read only property '{property}' of {baseObject}");
+                Throw.TypeError(Realm, $"Cannot assign to read only property '{property}' of {baseObject}");
             }
         }
         else
@@ -762,7 +762,7 @@ public sealed partial class Engine : IDisposable
         var callable = value as ICallable;
         if (callable is null)
         {
-            ExceptionHelper.ThrowJavaScriptException(Realm.Intrinsics.TypeError, "Can only invoke functions");
+            Throw.JavaScriptException(Realm.Intrinsics.TypeError, "Can only invoke functions");
         }
 
         JsValue DoInvoke()
@@ -843,7 +843,7 @@ public sealed partial class Engine : IDisposable
             var callable = func as ICallable;
             if (callable is null)
             {
-                ExceptionHelper.ThrowTypeErrorNoEngine("Can only invoke functions");
+                Throw.TypeErrorNoEngine("Can only invoke functions");
             }
 
             return callable.Call(v, arguments);
@@ -970,7 +970,7 @@ public sealed partial class Engine : IDisposable
                     var fnDefinable = env.CanDeclareGlobalFunction(fn);
                     if (!fnDefinable)
                     {
-                        ExceptionHelper.ThrowTypeError(realm, "Cannot declare global function " + fn);
+                        Throw.TypeError(realm, "Cannot declare global function " + fn);
                     }
 
                     declaredFunctionNames.Add(fn);
@@ -985,7 +985,7 @@ public sealed partial class Engine : IDisposable
             var vn = varNames[j];
             if (env.HasLexicalDeclaration(vn))
             {
-                ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{vn}' has already been declared");
+                Throw.SyntaxError(realm, $"Identifier '{vn}' has already been declared");
             }
 
             if (!declaredFunctionNames.Contains(vn))
@@ -993,7 +993,7 @@ public sealed partial class Engine : IDisposable
                 var vnDefinable = env.CanDeclareGlobalVar(vn);
                 if (!vnDefinable)
                 {
-                    ExceptionHelper.ThrowTypeError(realm);
+                    Throw.TypeError(realm);
                 }
 
                 declaredVarNames.Add(vn);
@@ -1009,7 +1009,7 @@ public sealed partial class Engine : IDisposable
             {
                 if (env.HasLexicalDeclaration(dn) || env.HasRestrictedGlobalProperty(dn))
                 {
-                    ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{dn}' has already been declared");
+                    Throw.SyntaxError(realm, $"Identifier '{dn}' has already been declared");
                 }
 
                 if (declaration.IsConstantDeclaration)
@@ -1031,7 +1031,7 @@ public sealed partial class Engine : IDisposable
 
             if (env.HasLexicalDeclaration(fn))
             {
-                ExceptionHelper.ThrowSyntaxError(realm, $"Identifier '{fn}' has already been declared");
+                Throw.SyntaxError(realm, $"Identifier '{fn}' has already been declared");
             }
 
             var fo = realm.Intrinsics.Function.InstantiateFunctionObject(f, env, privateEnv);
@@ -1235,7 +1235,7 @@ public sealed partial class Engine : IDisposable
                     var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
                     if (globalEnvironmentRecord.HasLexicalDeclaration(identifier.Name))
                     {
-                        ExceptionHelper.ThrowSyntaxError(realm, "Identifier '" + identifier.Name + "' has already been declared");
+                        Throw.SyntaxError(realm, "Identifier '" + identifier.Name + "' has already been declared");
                     }
                 }
             }
@@ -1253,7 +1253,7 @@ public sealed partial class Engine : IDisposable
                         var identifier = (Identifier) variablesDeclaration.Declarations[0].Id;
                         if (thisEnvRec!.HasBinding(identifier.Name))
                         {
-                            ExceptionHelper.ThrowSyntaxError(realm);
+                            Throw.SyntaxError(realm);
                         }
                     }
                 }
@@ -1294,7 +1294,7 @@ public sealed partial class Engine : IDisposable
                         var fnDefinable = ger.CanDeclareGlobalFunction(fn);
                         if (!fnDefinable)
                         {
-                            ExceptionHelper.ThrowTypeError(realm);
+                            Throw.TypeError(realm);
                         }
                     }
 
@@ -1323,7 +1323,7 @@ public sealed partial class Engine : IDisposable
                         var vnDefinable = ger.CanDeclareGlobalFunction(vn);
                         if (!vnDefinable)
                         {
-                            ExceptionHelper.ThrowTypeError(realm);
+                            Throw.TypeError(realm);
                         }
                     }
 
@@ -1452,7 +1452,7 @@ public sealed partial class Engine : IDisposable
         {
             if (!callable.IsCallable)
             {
-                ExceptionHelper.ThrowArgumentException(callable + " is not callable");
+                Throw.ArgumentException(callable + " is not callable");
             }
 
             return Call((ICallable) callable, thisObject, arguments, null);
@@ -1496,7 +1496,7 @@ public sealed partial class Engine : IDisposable
         {
             if (!constructor.IsConstructor)
             {
-                ExceptionHelper.ThrowArgumentException(constructor + " is not a constructor");
+                Throw.ArgumentException(constructor + " is not a constructor");
             }
 
             return Construct(constructor, arguments, constructor, null);
@@ -1535,7 +1535,7 @@ public sealed partial class Engine : IDisposable
         if (recursionDepth > Options.Constraints.MaxRecursionDepth)
         {
             // automatically pops the current element as it was never reached
-            ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack);
+            Throw.RecursionDepthOverflowException(CallStack);
         }
 
         JsValue result;
@@ -1568,7 +1568,7 @@ public sealed partial class Engine : IDisposable
         if (recursionDepth > Options.Constraints.MaxRecursionDepth)
         {
             // automatically pops the current element as it was never reached
-            ExceptionHelper.ThrowRecursionDepthOverflowException(CallStack);
+            Throw.RecursionDepthOverflowException(CallStack);
         }
 
         ObjectInstance result;

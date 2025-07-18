@@ -198,7 +198,7 @@ internal sealed class TypeDescriptor
     {
         if (!IsStringKeyedGenericDictionary)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Not a string-keyed dictionary");
+            Throw.InvalidOperationException("Not a string-keyed dictionary");
         }
 
         // we could throw when indexing with an invalid key

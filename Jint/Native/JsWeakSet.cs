@@ -27,7 +27,7 @@ internal sealed class JsWeakSet : ObjectInstance
     {
         if (!value.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "WeakSet value must be an object or symbol, got " + value);
+            Throw.TypeError(_engine.Realm, "WeakSet value must be an object or symbol, got " + value);
         }
 
 #if SUPPORTS_WEAK_TABLE_ADD_OR_UPDATE

@@ -43,7 +43,7 @@ public partial class ObjectInstance
         var entry = PrivateElementFind(method.Key);
         if (entry is not null)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Already present");
+            Throw.TypeError(_engine.Realm, "Already present");
         }
 
         _privateElements ??= new Dictionary<PrivateName, PrivateElement>();
@@ -61,7 +61,7 @@ public partial class ObjectInstance
         var entry = PrivateElementFind(property);
         if (entry is not null)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Already present");
+            Throw.TypeError(_engine.Realm, "Already present");
         }
 
         _privateElements ??= new Dictionary<PrivateName, PrivateElement>();
@@ -76,7 +76,7 @@ public partial class ObjectInstance
         var entry = PrivateElementFind(property);
         if (entry is null)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, $"Cannot read private member #{property} from an object whose class did not declare it");
+            Throw.TypeError(_engine.Realm, $"Cannot read private member #{property} from an object whose class did not declare it");
         }
 
         if (entry.Kind is PrivateElementKind.Field or PrivateElementKind.Method)
@@ -87,7 +87,7 @@ public partial class ObjectInstance
         var getter = entry.Get;
         if (getter is null)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, $"'#{property}' was defined without a getter");
+            Throw.TypeError(_engine.Realm, $"'#{property}' was defined without a getter");
         }
 
         var functionInstance = (Function.Function) getter;
@@ -103,7 +103,7 @@ public partial class ObjectInstance
         var entry = PrivateElementFind(property);
         if (entry is null)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Not found");
+            Throw.TypeError(_engine.Realm, "Not found");
         }
 
         if (entry.Kind == PrivateElementKind.Field)
@@ -112,14 +112,14 @@ public partial class ObjectInstance
         }
         else if (entry.Kind == PrivateElementKind.Method)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Cannot set method");
+            Throw.TypeError(_engine.Realm, "Cannot set method");
         }
         else
         {
             var setter = entry.Set;
             if (setter is null)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, $"'#{property}' was defined without a setter");
+                Throw.TypeError(_engine.Realm, $"'#{property}' was defined without a setter");
             }
 
             _engine.Call(setter, this, [value]);

@@ -49,7 +49,7 @@ public abstract class CyclicModule : Module
     {
         if (Status is ModuleStatus.Linking or ModuleStatus.Evaluating)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module is already either linking or evaluating");
+            Throw.InvalidOperationException("Error while linking module: Module is already either linking or evaluating");
         }
 
         var stack = new Stack<CyclicModule>();
@@ -66,7 +66,7 @@ public abstract class CyclicModule : Module
 
                 if (m.Status != ModuleStatus.Linking)
                 {
-                    ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module should be linking after abrupt completion");
+                    Throw.InvalidOperationException("Error while linking module: Module should be linking after abrupt completion");
                 }
 
                 m.Status = ModuleStatus.Unlinked;
@@ -76,7 +76,7 @@ public abstract class CyclicModule : Module
 
             if (Status != ModuleStatus.Unlinked)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while processing abrupt completion of module link: Module should be unlinked after cleanup");
+                Throw.InvalidOperationException("Error while processing abrupt completion of module link: Module should be unlinked after cleanup");
             }
 
             throw;
@@ -84,12 +84,12 @@ public abstract class CyclicModule : Module
 
         if (Status is not (ModuleStatus.Linked or ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated))
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Module is neither linked, evaluating-async or evaluated");
+            Throw.InvalidOperationException("Error while linking module: Module is neither linked, evaluating-async or evaluated");
         }
 
         if (stack.Count > 0)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while linking module: One or more modules were not linked");
+            Throw.InvalidOperationException("Error while linking module: One or more modules were not linked");
         }
     }
 
@@ -104,7 +104,7 @@ public abstract class CyclicModule : Module
             module.Status != ModuleStatus.EvaluatingAsync &&
             module.Status != ModuleStatus.Evaluated)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+            Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
 
         if (module.Status is ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated)
@@ -139,19 +139,19 @@ public abstract class CyclicModule : Module
         {
             if (module.Status != ModuleStatus.EvaluatingAsync && module.Status != ModuleStatus.Evaluated)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
             if (module._evalError is not null)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
             if (!module._asyncEvaluation)
             {
                 if (module.Status != ModuleStatus.Evaluated)
                 {
-                    ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                    Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
                 }
 
                 capability.Resolve.Call(Undefined, Array.Empty<JsValue>());
@@ -159,7 +159,7 @@ public abstract class CyclicModule : Module
 
             if (stack.Count > 0)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
         }
 
@@ -182,7 +182,7 @@ public abstract class CyclicModule : Module
 
         if (Status != ModuleStatus.Unlinked)
         {
-            ExceptionHelper.ThrowInvalidOperationException($"Error while linking module: Module in an invalid state: {Status}");
+            Throw.InvalidOperationException($"Error while linking module: Module in an invalid state: {Status}");
         }
 
         Status = ModuleStatus.Linking;
@@ -208,12 +208,12 @@ public abstract class CyclicModule : Module
                 ModuleStatus.EvaluatingAsync or
                 ModuleStatus.Evaluated))
             {
-                ExceptionHelper.ThrowInvalidOperationException($"Error while linking module: Required module is in an invalid state: {requiredCyclicModule.Status}");
+                Throw.InvalidOperationException($"Error while linking module: Required module is in an invalid state: {requiredCyclicModule.Status}");
             }
 
             if ((requiredCyclicModule.Status == ModuleStatus.Linking) == !stack.Contains(requiredCyclicModule))
             {
-                ExceptionHelper.ThrowInvalidOperationException($"Error while linking module: Required module is in an invalid state: {requiredCyclicModule.Status}");
+                Throw.InvalidOperationException($"Error while linking module: Required module is in an invalid state: {requiredCyclicModule.Status}");
             }
 
             if (requiredCyclicModule.Status == ModuleStatus.Linking)
@@ -226,12 +226,12 @@ public abstract class CyclicModule : Module
 
         if (StackReferenceCount(stack) != 1)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Recursive dependency detected");
+            Throw.InvalidOperationException("Error while linking module: Recursive dependency detected");
         }
 
         if (_dfsAncestorIndex > _dfsIndex)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while linking module: Recursive dependency detected");
+            Throw.InvalidOperationException("Error while linking module: Recursive dependency detected");
         }
 
         if (_dfsIndex == _dfsAncestorIndex)
@@ -272,7 +272,7 @@ public abstract class CyclicModule : Module
 
         if (Status != ModuleStatus.Linked)
         {
-            ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module is in an invalid state: {Status}");
+            Throw.InvalidOperationException($"Error while evaluating module: Module is in an invalid state: {Status}");
         }
 
         Status = ModuleStatus.Evaluating;
@@ -300,12 +300,12 @@ public abstract class CyclicModule : Module
                     requiredCyclicModule.Status != ModuleStatus.EvaluatingAsync &&
                     requiredCyclicModule.Status != ModuleStatus.Evaluated)
                 {
-                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module is in an invalid state: {requiredCyclicModule.Status}");
+                    Throw.InvalidOperationException($"Error while evaluating module: Module is in an invalid state: {requiredCyclicModule.Status}");
                 }
 
                 if (requiredCyclicModule.Status == ModuleStatus.Evaluating && !stack.Contains(requiredCyclicModule))
                 {
-                    ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module is in an invalid state: {requiredCyclicModule.Status}");
+                    Throw.InvalidOperationException($"Error while evaluating module: Module is in an invalid state: {requiredCyclicModule.Status}");
                 }
 
                 if (requiredCyclicModule.Status == ModuleStatus.Evaluating)
@@ -317,7 +317,7 @@ public abstract class CyclicModule : Module
                     requiredCyclicModule = requiredCyclicModule._cycleRoot;
                     if (requiredCyclicModule.Status is not (ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated))
                     {
-                        ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                        Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
                     }
 
                     if (requiredCyclicModule._evalError != null)
@@ -340,7 +340,7 @@ public abstract class CyclicModule : Module
         {
             if (_asyncEvaluation)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state (async evaluation is true)");
+                Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state (async evaluation is true)");
             }
 
             _asyncEvaluation = true;
@@ -362,12 +362,12 @@ public abstract class CyclicModule : Module
 
         if (StackReferenceCount(stack) != 1)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state (not found exactly once in stack)");
+            Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state (not found exactly once in stack)");
         }
 
         if (_dfsAncestorIndex > _dfsIndex)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state (mismatch DFS ancestor index)");
+            Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state (mismatch DFS ancestor index)");
         }
 
         if (_dfsIndex == _dfsAncestorIndex)
@@ -414,7 +414,7 @@ public abstract class CyclicModule : Module
     {
         if (Status != ModuleStatus.Evaluating && Status != ModuleStatus.EvaluatingAsync || !_hasTLA)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+            Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
 
         var capability = PromiseConstructor.NewPromiseCapability(_engine, _realm.Intrinsics.Promise);
@@ -438,7 +438,7 @@ public abstract class CyclicModule : Module
         {
             if (module._evalError is not null)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
             return Undefined;
@@ -448,14 +448,14 @@ public abstract class CyclicModule : Module
             !module._asyncEvaluation ||
             module._evalError is not null)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+            Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
 
         if (module._topLevelCapability is not null)
         {
             if (module._cycleRoot is null)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
             module._topLevelCapability.Resolve.Call(Undefined, Array.Empty<JsValue>());
@@ -470,7 +470,7 @@ public abstract class CyclicModule : Module
             var m = execList[i];
             if (m.Status == ModuleStatus.Evaluated && m._evalError is null)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
             else if (m._hasTLA)
             {
@@ -490,7 +490,7 @@ public abstract class CyclicModule : Module
                     {
                         if (m._cycleRoot is null)
                         {
-                            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                            Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
                         }
 
                         m._topLevelCapability.Resolve.Call(Undefined, Array.Empty<JsValue>());
@@ -514,7 +514,7 @@ public abstract class CyclicModule : Module
         {
             if (module._evalError is null)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
             return Undefined;
@@ -524,7 +524,7 @@ public abstract class CyclicModule : Module
             !module._asyncEvaluation ||
             module._evalError is not null)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+            Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
         }
 
         module._evalError = new Completion(CompletionType.Throw, error, default);
@@ -541,7 +541,7 @@ public abstract class CyclicModule : Module
         {
             if (module._cycleRoot is null)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
             }
 
             module._topLevelCapability.Reject.Call(Undefined, error);
@@ -564,7 +564,7 @@ public abstract class CyclicModule : Module
                     !m._asyncEvaluation ||
                     m._pendingAsyncDependencies <= 0)
                 {
-                    ExceptionHelper.ThrowInvalidOperationException("Error while evaluating module: Module is in an invalid state");
+                    Throw.InvalidOperationException("Error while evaluating module: Module is in an invalid state");
                 }
 
                 if (--m._pendingAsyncDependencies == 0)

@@ -60,7 +60,7 @@ internal sealed class RegExpPrototype : Prototype
                     var r = thisObj as JsRegExp;
                     if (r is null)
                     {
-                        ExceptionHelper.ThrowTypeError(_realm);
+                        Throw.TypeError(_realm);
                     }
 
                     return valueExtractor(r);
@@ -113,7 +113,7 @@ internal sealed class RegExpPrototype : Prototype
         var r = thisObject as JsRegExp;
         if (r is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         if (string.IsNullOrEmpty(r.Source))
@@ -825,7 +825,7 @@ internal sealed class RegExpPrototype : Prototype
             var result = callable.Call(r, s);
             if (!result.IsNull() && !result.IsObject())
             {
-                ExceptionHelper.ThrowTypeError(r.Engine.Realm);
+                Throw.TypeError(r.Engine.Realm);
             }
 
             return result;
@@ -833,7 +833,7 @@ internal sealed class RegExpPrototype : Prototype
 
         if (ri is null)
         {
-            ExceptionHelper.ThrowTypeError(r.Engine.Realm);
+            Throw.TypeError(r.Engine.Realm);
         }
 
         return RegExpBuiltinExec(ri, s);
@@ -1074,7 +1074,7 @@ internal sealed class RegExpPrototype : Prototype
         var r = thisObject as JsRegExp;
         if (r is null)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm);
         }
 
         var s = TypeConverter.ToString(arguments.At(0));

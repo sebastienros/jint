@@ -9,7 +9,7 @@ public class DefaultModuleLoader : ModuleLoader
     {
         if (string.IsNullOrWhiteSpace(basePath))
         {
-            ExceptionHelper.ThrowArgumentException("Value cannot be null or whitespace.", nameof(basePath));
+            Throw.ArgumentException("Value cannot be null or whitespace.", nameof(basePath));
         }
 
         _restrictToBasePath = restrictToBasePath;
@@ -18,7 +18,7 @@ public class DefaultModuleLoader : ModuleLoader
         {
             if (!Path.IsPathRooted(basePath))
             {
-                ExceptionHelper.ThrowArgumentException("Path must be rooted", nameof(basePath));
+                Throw.ArgumentException("Path must be rooted", nameof(basePath));
             }
 
             basePath = Path.GetFullPath(basePath);
@@ -42,7 +42,7 @@ public class DefaultModuleLoader : ModuleLoader
         var specifier = moduleRequest.Specifier;
         if (string.IsNullOrEmpty(specifier))
         {
-            ExceptionHelper.ThrowModuleResolutionException("Invalid Module Specifier", specifier, referencingModuleLocation);
+            Throw.ModuleResolutionException("Invalid Module Specifier", specifier, referencingModuleLocation);
             return default;
         }
 
@@ -60,7 +60,7 @@ public class DefaultModuleLoader : ModuleLoader
         }
         else if (specifier[0] == '#')
         {
-            ExceptionHelper.ThrowNotSupportedException($"PACKAGE_IMPORTS_RESOLVE is not supported: '{specifier}'");
+            Throw.NotSupportedException($"PACKAGE_IMPORTS_RESOLVE is not supported: '{specifier}'");
             return default;
         }
         else
@@ -77,20 +77,20 @@ public class DefaultModuleLoader : ModuleLoader
         {
             if (resolved.UserEscaped)
             {
-                ExceptionHelper.ThrowModuleResolutionException("Invalid Module Specifier", specifier, referencingModuleLocation);
+                Throw.ModuleResolutionException("Invalid Module Specifier", specifier, referencingModuleLocation);
                 return default;
             }
 
             if (!Path.HasExtension(resolved.LocalPath))
             {
-                ExceptionHelper.ThrowModuleResolutionException("Unsupported Directory Import", specifier, referencingModuleLocation);
+                Throw.ModuleResolutionException("Unsupported Directory Import", specifier, referencingModuleLocation);
                 return default;
             }
         }
 
         if (_restrictToBasePath && !_basePath.IsBaseOf(resolved))
         {
-            ExceptionHelper.ThrowModuleResolutionException($"Unauthorized Module Path", specifier, referencingModuleLocation);
+            Throw.ModuleResolutionException($"Unauthorized Module Path", specifier, referencingModuleLocation);
             return default;
         }
 
@@ -126,18 +126,18 @@ public class DefaultModuleLoader : ModuleLoader
         var specifier = resolved.ModuleRequest.Specifier;
         if (resolved.Type != SpecifierType.RelativeOrAbsolute)
         {
-            ExceptionHelper.ThrowNotSupportedException($"The default module loader can only resolve files. You can define modules directly to allow imports using {nameof(Engine)}.{nameof(Engine.Modules.Add)}(). Attempted to resolve: '{specifier}'.");
+            Throw.NotSupportedException($"The default module loader can only resolve files. You can define modules directly to allow imports using {nameof(Engine)}.{nameof(Engine.Modules.Add)}(). Attempted to resolve: '{specifier}'.");
         }
 
         if (resolved.Uri == null)
         {
-            ExceptionHelper.ThrowInvalidOperationException($"Module '{specifier}' of type '{resolved.Type}' has no resolved URI.");
+            Throw.InvalidOperationException($"Module '{specifier}' of type '{resolved.Type}' has no resolved URI.");
         }
 
         var fileName = Uri.UnescapeDataString(resolved.Uri.AbsolutePath);
         if (!File.Exists(fileName))
         {
-            ExceptionHelper.ThrowModuleResolutionException("Module Not Found", specifier, parent: null, fileName);
+            Throw.ModuleResolutionException("Module Not Found", specifier, parent: null, fileName);
         }
 
         return File.ReadAllText(fileName);

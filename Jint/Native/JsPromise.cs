@@ -120,7 +120,7 @@ internal sealed class JsPromise : ObjectInstance
     {
         if (State != PromiseState.Pending)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Promise should be in Pending state");
+            Throw.InvalidOperationException("Promise should be in Pending state");
         }
 
         Settle(PromiseState.Rejected, reason);
@@ -141,7 +141,7 @@ internal sealed class JsPromise : ObjectInstance
     {
         if (State != PromiseState.Pending)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Promise should be in Pending state");
+            Throw.InvalidOperationException("Promise should be in Pending state");
         }
 
         Settle(PromiseState.Fulfilled, result);

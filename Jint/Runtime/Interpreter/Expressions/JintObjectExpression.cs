@@ -43,7 +43,7 @@ internal sealed class JintObjectExpression : JintExpression
             var function = _value.Value as IFunction;
             if (function is null)
             {
-                ExceptionHelper.ThrowSyntaxError(engine.Realm);
+                Throw.SyntaxError(engine.Realm);
             }
 
             _functionDefinition = new JintFunctionDefinition(function);
@@ -109,7 +109,7 @@ internal sealed class JintObjectExpression : JintExpression
             }
             else
             {
-                ExceptionHelper.ThrowArgumentOutOfRangeException("property", "cannot handle property " + property);
+                Throw.ArgumentOutOfRangeException("property", "cannot handle property " + property);
             }
 
             _canBuildFast &= propName != null;

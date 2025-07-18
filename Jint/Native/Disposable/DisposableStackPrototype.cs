@@ -93,7 +93,7 @@ internal sealed class DisposableStackPrototype : Prototype
     {
         if (thisObject is not DisposableStack { _hint: DisposeHint.Sync } stack)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "This is not a DisposableStack instance.");
+            Throw.TypeError(_engine.Realm, "This is not a DisposableStack instance.");
             return null!;
         }
 

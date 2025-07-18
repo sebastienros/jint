@@ -16,7 +16,7 @@ public abstract class ModuleLoader : IModuleLoader
         }
         catch (Exception)
         {
-            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", AstExtensions.DefaultLocation);
+            Throw.JavaScriptException(engine, $"Could not load module {resolved.ModuleRequest.Specifier}", AstExtensions.DefaultLocation);
             return default!;
         }
 

@@ -55,7 +55,7 @@ public abstract class TypedArrayConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var numberOfArgs = arguments.Length;
@@ -130,7 +130,7 @@ public abstract class TypedArrayConstructor : Constructor
         var srcRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(srcArray, ArrayBufferOrder.SeqCst);
         if (srcRecord.IsTypedArrayOutOfBounds)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var elementLength = srcRecord.TypedArrayLength;
@@ -149,7 +149,7 @@ public abstract class TypedArrayConstructor : Constructor
             srcData.AssertNotDetached();
             if (srcArray._contentType != o._contentType)
             {
-                ExceptionHelper.ThrowTypeError(_realm, "Content types differ");
+                Throw.TypeError(_realm, "Content types differ");
             }
 
             var srcByteIndex = srcByteOffset;
@@ -184,7 +184,7 @@ public abstract class TypedArrayConstructor : Constructor
         var offset = byteOffset ?? 0;
         if (offset % elementSize != 0)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Invalid offset");
+            Throw.RangeError(_realm, "Invalid offset");
         }
 
         int newByteLength;
@@ -199,7 +199,7 @@ public abstract class TypedArrayConstructor : Constructor
         {
             if (offset > bufferByteLength)
             {
-                ExceptionHelper.ThrowRangeError(_realm, "Invalid offset");
+                Throw.RangeError(_realm, "Invalid offset");
             }
 
             o._arrayLength = JsTypedArray.LengthAuto;
@@ -211,13 +211,13 @@ public abstract class TypedArrayConstructor : Constructor
             {
                 if (bufferByteLength % elementSize != 0)
                 {
-                    ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
+                    Throw.RangeError(_realm, "Invalid buffer byte length");
                 }
 
                 newByteLength = bufferByteLength - offset;
                 if (newByteLength < 0)
                 {
-                    ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
+                    Throw.RangeError(_realm, "Invalid buffer byte length");
                 }
             }
             else
@@ -225,7 +225,7 @@ public abstract class TypedArrayConstructor : Constructor
                 newByteLength = newLength * elementSize;
                 if (offset + newByteLength > bufferByteLength)
                 {
-                    ExceptionHelper.ThrowRangeError(_realm, "Invalid buffer byte length");
+                    Throw.RangeError(_realm, "Invalid buffer byte length");
                 }
             }
 

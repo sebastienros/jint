@@ -62,7 +62,7 @@ internal sealed class JintAssignmentExpression : JintExpression
             lref = (_left.Evaluate(context) as Reference)!;
             if (lref is null)
             {
-                ExceptionHelper.ThrowReferenceError(context.Engine.Realm, "not a valid reference");
+                Throw.ReferenceError(context.Engine.Realm, "not a valid reference");
             }
             originalLeftValue = context.Engine.GetValue(lref, returnReferenceToPool: false);
         }
@@ -272,7 +272,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                             var exponent = TypeConverter.ToBigInt(rval);
                             if (exponent > int.MaxValue || exponent < int.MinValue)
                             {
-                                ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Cannot do exponentiation with exponent not fitting int32");
+                                Throw.TypeError(context.Engine.Realm, "Cannot do exponentiation with exponent not fitting int32");
                             }
                             newLeftValue = JsBigInt.Create(BigInteger.Pow(TypeConverter.ToBigInt(originalLeftValue), (int) exponent));
                         }
@@ -281,7 +281,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                     }
 
                 default:
-                    ExceptionHelper.ThrowNotImplementedException();
+                    Throw.NotImplementedException();
                     return default;
             }
         }
@@ -411,7 +411,7 @@ internal sealed class JintAssignmentExpression : JintExpression
             var lref = _left.Evaluate(context) as Reference;
             if (lref is null)
             {
-                ExceptionHelper.ThrowReferenceError(engine.Realm, "not a valid reference");
+                Throw.ReferenceError(engine.Realm, "not a valid reference");
             }
 
             lref.AssertValid(engine.Realm);
@@ -440,7 +440,7 @@ internal sealed class JintAssignmentExpression : JintExpression
             {
                 if (strict && hasEvalOrArguments && identifier.Key != KnownKeys.Eval)
                 {
-                    ExceptionHelper.ThrowSyntaxError(engine.Realm, "Invalid assignment target");
+                    Throw.SyntaxError(engine.Realm, "Invalid assignment target");
                 }
 
                 var completion = right.GetValue(context);

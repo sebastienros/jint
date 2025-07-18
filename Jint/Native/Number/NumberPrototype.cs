@@ -54,7 +54,7 @@ internal sealed class NumberPrototype : NumberInstance
     {
         if (!thisObject.IsNumber() && thisObject is not NumberInstance)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var m = TypeConverter.ToNumber(thisObject);
@@ -99,7 +99,7 @@ internal sealed class NumberPrototype : NumberInstance
         }
         catch (CultureNotFoundException)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Incorrect locale information provided");
+            Throw.RangeError(_realm, "Incorrect locale information provided");
         }
 
         return m.ToString("n", numberFormat);
@@ -117,7 +117,7 @@ internal sealed class NumberPrototype : NumberInstance
             return thisObject;
         }
 
-        ExceptionHelper.ThrowTypeError(_realm);
+        Throw.TypeError(_realm);
         return null;
     }
 
@@ -128,13 +128,13 @@ internal sealed class NumberPrototype : NumberInstance
         var f = (int) TypeConverter.ToInteger(arguments.At(0, 0));
         if (f < 0 || f > 100)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "fractionDigits argument must be between 0 and 100");
+            Throw.RangeError(_realm, "fractionDigits argument must be between 0 and 100");
         }
 
         // limitation with .NET, max is 99
         if (f == 100)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "100 fraction digits is not supported due to .NET format specifier limitation");
+            Throw.RangeError(_realm, "100 fraction digits is not supported due to .NET format specifier limitation");
         }
 
         var x = TypeConverter.ToNumber(thisObject);
@@ -165,7 +165,7 @@ internal sealed class NumberPrototype : NumberInstance
     {
         if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var x = TypeConverter.ToNumber(thisObject);
@@ -189,7 +189,7 @@ internal sealed class NumberPrototype : NumberInstance
 
         if (f < 0 || f > 100)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "fractionDigits argument must be between 0 and 100");
+            Throw.RangeError(_realm, "fractionDigits argument must be between 0 and 100");
         }
 
         if (arguments.At(0).IsUndefined())
@@ -241,7 +241,7 @@ internal sealed class NumberPrototype : NumberInstance
     {
         if (!thisObject.IsNumber() && ReferenceEquals(thisObject.TryCast<NumberInstance>(), null))
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var x = TypeConverter.ToNumber(thisObject);
@@ -266,7 +266,7 @@ internal sealed class NumberPrototype : NumberInstance
 
         if (p < 1 || p > 100)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "precision must be between 1 and 100");
+            Throw.RangeError(_realm, "precision must be between 1 and 100");
         }
 
         var dtoaBuilder = new DtoaBuilder(stackalloc char[LargeDtoaLength]);
@@ -361,7 +361,7 @@ internal sealed class NumberPrototype : NumberInstance
     {
         if (!thisObject.IsNumber() && (ReferenceEquals(thisObject.TryCast<NumberInstance>(), null)))
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var radix = arguments.At(0).IsUndefined()
@@ -370,7 +370,7 @@ internal sealed class NumberPrototype : NumberInstance
 
         if (radix < 2 || radix > 36)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "radix must be between 2 and 36");
+            Throw.RangeError(_realm, "radix must be between 2 and 36");
         }
 
         var x = TypeConverter.ToNumber(thisObject);

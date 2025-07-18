@@ -50,7 +50,7 @@ internal sealed class ArrayBufferPrototype : Prototype
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.detached called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method ArrayBuffer.prototype.detached called on incompatible receiver " + thisObject);
         }
 
         return o.IsDetachedBuffer;
@@ -64,7 +64,7 @@ internal sealed class ArrayBufferPrototype : Prototype
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.maxByteLength called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method ArrayBuffer.prototype.maxByteLength called on incompatible receiver " + thisObject);
         }
 
         if (o.IsDetachedBuffer)
@@ -87,7 +87,7 @@ internal sealed class ArrayBufferPrototype : Prototype
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.resizable called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method ArrayBuffer.prototype.resizable called on incompatible receiver " + thisObject);
         }
 
         return !o.IsFixedLengthArrayBuffer;
@@ -101,7 +101,7 @@ internal sealed class ArrayBufferPrototype : Prototype
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.resize called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method ArrayBuffer.prototype.resize called on incompatible receiver " + thisObject);
         }
 
         var newLength = arguments.At(0);
@@ -122,7 +122,7 @@ internal sealed class ArrayBufferPrototype : Prototype
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.byteLength called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method ArrayBuffer.prototype.byteLength called on incompatible receiver " + thisObject);
         }
 
         if (o.IsDetachedBuffer)
@@ -141,7 +141,7 @@ internal sealed class ArrayBufferPrototype : Prototype
         var o = thisObject as JsArrayBuffer;
         if (o is null || o.IsSharedArrayBuffer)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.slice called on incompatible receiver " + thisObject);
+            Throw.TypeError(_realm, "Method ArrayBuffer.prototype.slice called on incompatible receiver " + thisObject);
         }
 
         o.AssertNotDetached();
@@ -181,34 +181,34 @@ internal sealed class ArrayBufferPrototype : Prototype
 
         if (bufferInstance is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         if (bufferInstance.IsSharedArrayBuffer)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         if (bufferInstance.IsDetachedBuffer)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         if (ReferenceEquals(bufferInstance, o))
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         if (bufferInstance.ArrayBufferByteLength < newLen)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         // NOTE: Side-effects of the above steps may have detached O.
 
         if (bufferInstance.IsDetachedBuffer)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var fromBuf = o.ArrayBufferData;
@@ -237,7 +237,7 @@ internal sealed class ArrayBufferPrototype : Prototype
     {
         if (o is not JsArrayBuffer arrayBuffer || arrayBuffer.IsSharedArrayBuffer)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Method ArrayBuffer.prototype.ArrayBufferCopyAndDetach called on incompatible receiver " + o);
+            Throw.TypeError(_realm, "Method ArrayBuffer.prototype.ArrayBufferCopyAndDetach called on incompatible receiver " + o);
             return Undefined;
         }
 
@@ -261,7 +261,7 @@ internal sealed class ArrayBufferPrototype : Prototype
 
         if (!arrayBuffer._arrayBufferDetachKey.IsUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var newBuffer = _engine.Realm.Intrinsics.ArrayBuffer.AllocateArrayBuffer(_engine.Realm.Intrinsics.ArrayBuffer, newByteLength, newMaxByteLength);

@@ -63,7 +63,7 @@ internal sealed class FunctionPrototype : Function
     {
         if (thisObject is not (ICallable and ObjectInstance oi))
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Bind must be called on a function");
+            Throw.TypeError(_realm, "Bind must be called on a function");
             return default;
         }
 
@@ -136,7 +136,7 @@ internal sealed class FunctionPrototype : Function
             return thisObject.ToString();
         }
 
-        ExceptionHelper.ThrowTypeError(_realm, "Function.prototype.toString requires that 'this' be a Function");
+        Throw.TypeError(_realm, "Function.prototype.toString requires that 'this' be a Function");
         return null;
     }
 
@@ -148,7 +148,7 @@ internal sealed class FunctionPrototype : Function
         var func = thisObject as ICallable;
         if (func is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
         var thisArg = arguments.At(0);
         var argArray = arguments.At(1);
@@ -173,7 +173,7 @@ internal sealed class FunctionPrototype : Function
         var argArrayObj = argArray as ObjectInstance;
         if (argArrayObj is null)
         {
-            ExceptionHelper.ThrowTypeError(realm);
+            Throw.TypeError(realm);
         }
         var operations = ArrayOperations.For(argArrayObj, forWrite: false);
         var argList = elementTypes is null ? operations.GetAll() : operations.GetAll(elementTypes.Value);
@@ -188,7 +188,7 @@ internal sealed class FunctionPrototype : Function
         var func = thisObject as ICallable;
         if (func is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
         JsValue[] values = [];
         if (arguments.Length > 1)

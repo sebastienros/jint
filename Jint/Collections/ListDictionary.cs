@@ -85,7 +85,7 @@ internal sealed class ListDictionary<TValue> : DictionaryBase<TValue>, IEnumerab
                 {
                     return false;
                 }
-                ExceptionHelper.ThrowArgumentException();
+                Throw.ArgumentException();
             }
 
             last = node;

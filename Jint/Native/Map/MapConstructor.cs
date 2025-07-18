@@ -63,7 +63,7 @@ public sealed class MapConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var map = OrdinaryCreateFromConstructor(

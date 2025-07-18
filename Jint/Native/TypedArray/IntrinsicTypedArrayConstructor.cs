@@ -52,7 +52,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
         var c = thisObject;
         if (!c.IsConstructor)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var source = arguments.At(0);
@@ -64,7 +64,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
         {
             if (!mapFunction.IsCallable)
             {
-                ExceptionHelper.ThrowTypeError(_realm);
+                Throw.TypeError(_realm);
             }
         }
 
@@ -88,7 +88,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
 
         if (source.IsNullOrUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Cannot convert undefined or null to object");
+            Throw.TypeError(_realm, "Cannot convert undefined or null to object");
         }
 
         var arrayLike = TypeConverter.ToObject(_realm, source);
@@ -129,7 +129,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
 
         if (!thisObject.IsConstructor)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var newObj = TypedArrayCreate(_realm, (IConstructor) thisObject, [len]);
@@ -155,7 +155,7 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
         var result = TypedArrayCreate(_realm, constructor, argumentList);
         if (result._contentType != exemplar._contentType)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         return result;
@@ -173,11 +173,11 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
         {
             if (taRecord.IsTypedArrayOutOfBounds)
             {
-                ExceptionHelper.ThrowTypeError(realm, "TypedArray is out of bounds");
+                Throw.TypeError(realm, "TypedArray is out of bounds");
             }
             if (newTypedArray.GetLength() < number._value)
             {
-                ExceptionHelper.ThrowTypeError(realm);
+                Throw.TypeError(realm);
             }
         }
 
@@ -191,13 +191,13 @@ internal sealed class IntrinsicTypedArrayConstructor : Constructor
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        ExceptionHelper.ThrowTypeError(_realm, "Abstract class TypedArray not directly callable");
+        Throw.TypeError(_realm, "Abstract class TypedArray not directly callable");
         return Undefined;
     }
 
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
-        ExceptionHelper.ThrowTypeError(_realm, "Abstract class TypedArray not directly constructable");
+        Throw.TypeError(_realm, "Abstract class TypedArray not directly constructable");
         return null;
     }
 }

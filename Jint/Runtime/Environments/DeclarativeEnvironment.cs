@@ -90,7 +90,7 @@ internal class DeclarativeEnvironment : Environment
         {
             if (strict)
             {
-                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+                Throw.ReferenceNameError(_engine.Realm, name);
             }
 
             _dictionary[name] = new Binding(value, canBeDeleted: true, mutable: true, strict: false);
@@ -116,7 +116,7 @@ internal class DeclarativeEnvironment : Environment
         {
             if (strict)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Assignment to constant variable.");
+                Throw.TypeError(_engine.Realm, "Assignment to constant variable.");
             }
         }
     }
@@ -135,7 +135,7 @@ internal class DeclarativeEnvironment : Environment
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ThrowUninitializedBindingError(Key name)
     {
-        ExceptionHelper.ThrowReferenceError(_engine.Realm, $"Cannot access '{name}' before initialization");
+        Throw.ReferenceError(_engine.Realm, $"Cannot access '{name}' before initialization");
     }
 
     internal sealed override bool DeleteBinding(Key name)

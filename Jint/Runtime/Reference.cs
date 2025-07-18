@@ -100,7 +100,7 @@ public sealed class Reference
             && (_base._type & InternalTypes.ObjectEnvironmentRecord) != InternalTypes.Empty
             && (CommonProperties.Eval.Equals(_referencedName) || CommonProperties.Arguments.Equals(_referencedName)))
         {
-            ExceptionHelper.ThrowSyntaxError(realm);
+            Throw.SyntaxError(realm);
         }
     }
 

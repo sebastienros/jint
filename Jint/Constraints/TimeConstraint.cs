@@ -19,7 +19,7 @@ internal sealed class TimeConstraint : Constraint
     {
         if (_cts?.IsCancellationRequested == true)
         {
-            ExceptionHelper.ThrowTimeoutException();
+            Throw.TimeoutException();
         }
     }
 

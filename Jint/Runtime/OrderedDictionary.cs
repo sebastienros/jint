@@ -103,7 +103,7 @@ internal sealed class OrderedDictionary<TKey, TValue>
     {
         if (index < 0 || index > dictionary.Count)
         {
-            ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(index), IndexOutOfRange);
+            Throw.ArgumentOutOfRangeException(nameof(index), IndexOutOfRange);
         }
         dictionary.Add(key, value);
         keys.Insert(index, key);
@@ -301,7 +301,7 @@ internal sealed class OrderedDictionary<TKey, TValue>
     {
         if (index < 0 || index > dictionary.Count)
         {
-            ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(index), IndexOutOfRange);
+            Throw.ArgumentOutOfRangeException(nameof(index), IndexOutOfRange);
         }
         dictionary.Add(item.Key, item.Value);
         keys.Insert(index, item.Key);
@@ -354,16 +354,16 @@ internal sealed class OrderedDictionary<TKey, TValue>
     {
         if (array == null)
         {
-            ExceptionHelper.ThrowArgumentNullException(nameof(array));
+            Throw.ArgumentNullException(nameof(array));
             return;
         }
         if (arrayIndex < 0)
         {
-            ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(arrayIndex), string.Format(CultureInfo.CurrentCulture, TooSmall, 0));
+            Throw.ArgumentOutOfRangeException(nameof(arrayIndex), string.Format(CultureInfo.CurrentCulture, TooSmall, 0));
         }
         if (dictionary.Count > array.Length - arrayIndex)
         {
-            ExceptionHelper.ThrowArgumentException(ArrayTooSmall, nameof(array));
+            Throw.ArgumentException(ArrayTooSmall, nameof(array));
         }
         foreach (TKey key in keys)
         {
@@ -460,13 +460,13 @@ internal sealed class OrderedDictionary<TKey, TValue>
         [EditorBrowsable(EditorBrowsableState.Never)]
         void ICollection<TKey>.Add(TKey item)
         {
-            ExceptionHelper.ThrowNotSupportedException(EditReadOnlyList);
+            Throw.NotSupportedException(EditReadOnlyList);
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
         void ICollection<TKey>.Clear()
         {
-            ExceptionHelper.ThrowNotSupportedException(EditReadOnlyList);
+            Throw.NotSupportedException(EditReadOnlyList);
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
@@ -478,7 +478,7 @@ internal sealed class OrderedDictionary<TKey, TValue>
         [EditorBrowsable(EditorBrowsableState.Never)]
         bool ICollection<TKey>.Remove(TKey item)
         {
-            ExceptionHelper.ThrowNotSupportedException(EditReadOnlyList);
+            Throw.NotSupportedException(EditReadOnlyList);
             return false;
         }
 
@@ -517,11 +517,11 @@ internal sealed class OrderedDictionary<TKey, TValue>
         {
             if (arrayIndex < 0)
             {
-                ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(arrayIndex), string.Format(CultureInfo.InvariantCulture, TooSmall, 0));
+                Throw.ArgumentOutOfRangeException(nameof(arrayIndex), string.Format(CultureInfo.InvariantCulture, TooSmall, 0));
             }
             if (parent.dictionary.Count > array.Length - arrayIndex)
             {
-                ExceptionHelper.ThrowArgumentException(ArrayTooSmall, nameof(array));
+                Throw.ArgumentException(ArrayTooSmall, nameof(array));
             }
             foreach (TKey key in parent.keys)
             {
@@ -558,13 +558,13 @@ internal sealed class OrderedDictionary<TKey, TValue>
         [EditorBrowsable(EditorBrowsableState.Never)]
         void ICollection<TValue>.Add(TValue item)
         {
-            ExceptionHelper.ThrowNotSupportedException(EditReadOnlyList);
+            Throw.NotSupportedException(EditReadOnlyList);
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
         void ICollection<TValue>.Clear()
         {
-            ExceptionHelper.ThrowNotSupportedException(EditReadOnlyList);
+            Throw.NotSupportedException(EditReadOnlyList);
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
@@ -573,7 +573,7 @@ internal sealed class OrderedDictionary<TKey, TValue>
         [EditorBrowsable(EditorBrowsableState.Never)]
         bool ICollection<TValue>.Remove(TValue item)
         {
-            ExceptionHelper.ThrowNotSupportedException(EditReadOnlyList);
+            Throw.NotSupportedException(EditReadOnlyList);
             return false;
         }
 

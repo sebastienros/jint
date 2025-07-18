@@ -114,7 +114,7 @@ internal sealed class StringPrototype : StringInstance
         var s = TypeConverter.ToObject(_realm, thisObject) as StringInstance;
         if (s is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         return s.StringData;
@@ -245,7 +245,7 @@ internal sealed class StringPrototype : StringInstance
             }
             catch (CultureNotFoundException)
             {
-                ExceptionHelper.ThrowRangeError(_realm, "Incorrect culture information provided");
+                Throw.RangeError(_realm, "Incorrect culture information provided");
             }
         }
         if (string.Equals("lt", culture.Name, StringComparison.OrdinalIgnoreCase))
@@ -625,7 +625,7 @@ internal sealed class StringPrototype : StringInstance
                 TypeConverter.RequireObjectCoercible(_engine, flags);
                 if (!TypeConverter.ToString(flags).Contains('g'))
                 {
-                    ExceptionHelper.ThrowTypeError(_realm, "String.prototype.replaceAll called with a non-global RegExp argument");
+                    Throw.TypeError(_realm, "String.prototype.replaceAll called with a non-global RegExp argument");
                 }
             }
 
@@ -738,7 +738,7 @@ internal sealed class StringPrototype : StringInstance
                 TypeConverter.RequireObjectCoercible(_engine, flags);
                 if (!TypeConverter.ToString(flags).Contains('g'))
                 {
-                    ExceptionHelper.ThrowTypeError(_realm);
+                    Throw.TypeError(_realm);
                 }
             }
             var matcher = GetMethod(_realm, regex, GlobalSymbolRegistry.MatchAll);
@@ -963,7 +963,7 @@ internal sealed class StringPrototype : StringInstance
             return thisObject;
         }
 
-        ExceptionHelper.ThrowTypeError(_realm);
+        Throw.TypeError(_realm);
         return Undefined;
     }
 
@@ -1032,7 +1032,7 @@ internal sealed class StringPrototype : StringInstance
         {
             if (searchString.IsRegExp())
             {
-                ExceptionHelper.ThrowTypeError(_realm);
+                Throw.TypeError(_realm);
             }
         }
 
@@ -1064,7 +1064,7 @@ internal sealed class StringPrototype : StringInstance
         {
             if (searchString.IsRegExp())
             {
-                ExceptionHelper.ThrowTypeError(_realm);
+                Throw.TypeError(_realm);
             }
         }
 
@@ -1089,7 +1089,7 @@ internal sealed class StringPrototype : StringInstance
 
         if (searchString.IsRegExp())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "First argument to String.prototype.includes must not be a regular expression");
+            Throw.TypeError(_realm, "First argument to String.prototype.includes must not be a regular expression");
         }
 
         var searchStr = TypeConverter.ToString(searchString);
@@ -1141,7 +1141,7 @@ internal sealed class StringPrototype : StringInstance
                 nf = NormalizationForm.FormKD;
                 break;
             default:
-                ExceptionHelper.ThrowRangeError(
+                Throw.RangeError(
                     _realm,
                     "The normalization form should be one of NFC, NFD, NFKC, NFKD.");
                 break;
@@ -1163,7 +1163,7 @@ internal sealed class StringPrototype : StringInstance
 
         if (n < 0 || double.IsPositiveInfinity(n))
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Invalid count value");
+            Throw.RangeError(_realm, "Invalid count value");
         }
 
         if (n == 0 || s.Length == 0)

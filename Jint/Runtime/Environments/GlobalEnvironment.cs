@@ -143,7 +143,7 @@ internal sealed class GlobalEnvironment : Environment
     [MethodImpl(MethodImplOptions.NoInlining)]
     private void ThrowAlreadyDeclaredException(Key name)
     {
-        ExceptionHelper.ThrowTypeError(_engine.Realm, $"{name} has already been declared");
+        Throw.TypeError(_engine.Realm, $"{name} has already been declared");
     }
 
     internal override void InitializeBinding(Key name, JsValue value, DisposeHint hint)
@@ -171,7 +171,7 @@ internal sealed class GlobalEnvironment : Environment
                 // fast inlined path as we know we target global
                 if (!_globalObject.SetFromMutableBinding(name, value, strict) && strict)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm);
+                    Throw.TypeError(_engine.Realm);
                 }
             }
             else
@@ -194,7 +194,7 @@ internal sealed class GlobalEnvironment : Environment
                 // fast inlined path as we know we target global
                 if (!_globalObject.SetFromMutableBinding(name.Key, value, strict) && strict)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm);
+                    Throw.TypeError(_engine.Realm);
                 }
             }
             else
@@ -210,7 +210,7 @@ internal sealed class GlobalEnvironment : Environment
         var jsString = new JsString(name.Name);
         if (strict && !_global.HasProperty(jsString))
         {
-            ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+            Throw.ReferenceNameError(_engine.Realm, name);
         }
 
         _global.Set(jsString, value);
@@ -239,7 +239,7 @@ internal sealed class GlobalEnvironment : Environment
 
         if (strict && desc == PropertyDescriptor.Undefined)
         {
-            ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+            Throw.ReferenceNameError(_engine.Realm, name);
         }
 
         return ObjectInstance.UnwrapJsValue(desc, _global);

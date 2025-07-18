@@ -29,7 +29,7 @@ internal sealed class Test262ModuleLoader : ModuleLoader
             var fileName = Path.Combine(_basePath, resolved.Key).Replace('\\', '/');
             if (!_fileSystem.FileExists(fileName))
             {
-                ExceptionHelper.ThrowModuleResolutionException("Module Not Found", resolved.ModuleRequest.Specifier, parent: null, fileName);
+                Throw.ModuleResolutionException("Module Not Found", resolved.ModuleRequest.Specifier, parent: null, fileName);
             }
             using var stream = new StreamReader(_fileSystem.OpenFile(fileName, FileMode.Open, FileAccess.Read));
             return stream.ReadToEnd();

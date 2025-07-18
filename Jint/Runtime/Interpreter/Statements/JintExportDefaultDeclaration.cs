@@ -94,7 +94,7 @@ internal sealed class JintExportDefaultDeclaration : JintStatement<ExportDefault
         }
         else
         {
-            ExceptionHelper.ThrowNotImplementedException();
+            Throw.NotImplementedException();
         }
     }
 }

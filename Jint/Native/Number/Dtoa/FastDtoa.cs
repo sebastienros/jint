@@ -753,7 +753,7 @@ internal sealed class FastDtoa
                 result = Grisu3Counted(v, requested_digits, ref buffer, out decimal_exponent);
                 break;
             default:
-                ExceptionHelper.ThrowArgumentOutOfRangeException();
+                Throw.ArgumentOutOfRangeException();
                 break;
         }
 

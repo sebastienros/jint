@@ -17,7 +17,7 @@ internal sealed class JsSharedArrayBuffer : JsArrayBuffer
     {
         if (arrayBufferByteLengthData > int.MaxValue)
         {
-            ExceptionHelper.ThrowRangeError(engine.Realm, "arrayBufferByteLengthData cannot be larger than int32.MaxValue");
+            Throw.RangeError(engine.Realm, "arrayBufferByteLengthData cannot be larger than int32.MaxValue");
         }
         this._arrayBufferByteLengthData = (int) arrayBufferByteLengthData;
     }
@@ -31,7 +31,7 @@ internal sealed class JsSharedArrayBuffer : JsArrayBuffer
     {
         if (byteLength > int.MaxValue)
         {
-            ExceptionHelper.ThrowRangeError(realm, "Array buffer allocation failed");
+            Throw.RangeError(realm, "Array buffer allocation failed");
         }
 
         return new byte[byteLength];

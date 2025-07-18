@@ -358,7 +358,7 @@ public sealed class JsTypedArray : ObjectInstance
             }
             catch (ParseErrorException ex)
             {
-                ExceptionHelper.ThrowSyntaxError(_engine.Realm, ex.Message);
+                Throw.SyntaxError(_engine.Realm, ex.Message);
             }
         }
     }
