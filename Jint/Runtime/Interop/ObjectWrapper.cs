@@ -79,7 +79,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     {
         if (target == null)
         {
-            ExceptionHelper.ThrowArgumentNullException(nameof(target));
+            Throw.ArgumentNullException(nameof(target));
         }
 
         // STJ integration

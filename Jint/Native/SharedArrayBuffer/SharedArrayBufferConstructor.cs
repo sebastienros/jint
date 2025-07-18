@@ -64,7 +64,7 @@ internal sealed class SharedArrayBufferConstructor : Constructor
 
     protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
-        ExceptionHelper.ThrowTypeError(_realm, "Constructor SharedArrayBuffer requires 'new'");
+        Throw.TypeError(_realm, "Constructor SharedArrayBuffer requires 'new'");
         return Undefined;
     }
 
@@ -72,7 +72,7 @@ internal sealed class SharedArrayBufferConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var length = arguments.At(0);
@@ -90,7 +90,7 @@ internal sealed class SharedArrayBufferConstructor : Constructor
 
         if (allocatingGrowableBuffer && byteLength > maxByteLength)
         {
-            ExceptionHelper.ThrowRangeError(_realm);
+            Throw.RangeError(_realm);
         }
 
         var allocLength = maxByteLength.GetValueOrDefault(byteLength);

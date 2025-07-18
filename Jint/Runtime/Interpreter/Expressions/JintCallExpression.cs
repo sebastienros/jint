@@ -134,7 +134,7 @@ internal sealed class JintCallExpression : JintExpression
             if (recursionDepth > engine.Options.Constraints.MaxRecursionDepth)
             {
                 // automatically pops the current element as it was never reached
-                ExceptionHelper.ThrowRecursionDepthOverflowException(callStack);
+                Throw.RecursionDepthOverflowException(callStack);
             }
 
             try
@@ -169,7 +169,7 @@ internal sealed class JintCallExpression : JintExpression
     private static void ThrowReferenceNotFunction(Reference? referenceRecord1, object reference, Engine engine)
     {
         var message = $"{referenceRecord1?.ReferencedName ?? reference} is not a function";
-        ExceptionHelper.ThrowTypeError(engine.Realm, message);
+        Throw.TypeError(engine.Realm, message);
     }
 
     [DoesNotReturn]
@@ -179,7 +179,7 @@ internal sealed class JintCallExpression : JintExpression
         var message = referenceRecord1 == null
             ? reference + " is not a function"
             : $"Property '{referenceRecord1.ReferencedName}' of object is not a function";
-        ExceptionHelper.ThrowTypeError(engine.Realm, message);
+        Throw.TypeError(engine.Realm, message);
     }
 
     private JsValue HandleEval(EvaluationContext context, JsValue func, Engine engine, Reference referenceRecord)
@@ -215,7 +215,7 @@ internal sealed class JintCallExpression : JintExpression
         var func = GetSuperConstructor(thisEnvironment);
         if (func is null || !func.IsConstructor)
         {
-            ExceptionHelper.ThrowTypeError(engine.Realm, "Not a constructor");
+            Throw.TypeError(engine.Realm, "Not a constructor");
         }
 
         var rented = false;

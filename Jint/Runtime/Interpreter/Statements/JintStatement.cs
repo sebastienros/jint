@@ -93,7 +93,7 @@ internal abstract class JintStatement
 
         if (result is null)
         {
-            ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(statement.Type), $"unsupported statement type '{statement.Type}'");
+            Throw.ArgumentOutOfRangeException(nameof(statement.Type), $"unsupported statement type '{statement.Type}'");
         }
 
         return result;

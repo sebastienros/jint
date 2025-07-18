@@ -55,7 +55,7 @@ public sealed class JsDate : ObjectInstance
             return dateTime;
         }
 
-        ExceptionHelper.ThrowRangeError(_engine.Realm);
+        Throw.RangeError(_engine.Realm);
         return DateTime.MinValue;
     }
 

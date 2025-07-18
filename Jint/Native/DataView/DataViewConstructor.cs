@@ -31,7 +31,7 @@ internal sealed class DataViewConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var buffer = arguments.At(0) as JsArrayBuffer;
@@ -40,20 +40,20 @@ internal sealed class DataViewConstructor : Constructor
 
         if (buffer is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "First argument to DataView constructor must be an ArrayBuffer");
+            Throw.TypeError(_realm, "First argument to DataView constructor must be an ArrayBuffer");
         }
 
         var offset = TypeConverter.ToIndex(_realm, byteOffset);
 
         if (buffer.IsDetachedBuffer)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var bufferByteLength = (uint) buffer.ArrayBufferByteLength;
         if (offset > bufferByteLength)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Start offset " + offset + " is outside the bounds of the buffer");
+            Throw.RangeError(_realm, "Start offset " + offset + " is outside the bounds of the buffer");
         }
 
         var bufferIsFixedLength = buffer.IsFixedLengthArrayBuffer;
@@ -74,7 +74,7 @@ internal sealed class DataViewConstructor : Constructor
             viewByteLength = TypeConverter.ToIndex(_realm, byteLength);
             if (offset + viewByteLength > bufferByteLength)
             {
-                ExceptionHelper.ThrowRangeError(_realm, "Invalid DataView length");
+                Throw.RangeError(_realm, "Invalid DataView length");
             }
         }
 
@@ -85,20 +85,20 @@ internal sealed class DataViewConstructor : Constructor
 
         if (buffer.IsDetachedBuffer)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         bufferByteLength = (uint) buffer.ArrayBufferByteLength;
         if (offset > bufferByteLength)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Invalid DataView offset");
+            Throw.RangeError(_realm, "Invalid DataView offset");
         }
 
         if (!byteLength.IsUndefined())
         {
             if (offset + viewByteLength > bufferByteLength)
             {
-                ExceptionHelper.ThrowRangeError(_realm, "Invalid DataView length");
+                Throw.RangeError(_realm, "Invalid DataView length");
             }
         }
 

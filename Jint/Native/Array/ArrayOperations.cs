@@ -90,7 +90,7 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
             var jsValue = skipHoles && !HasProperty(i) ? JsValue.Undefined : Get(i);
             if ((jsValue.Type & elementTypes) == Types.Empty)
             {
-                ExceptionHelper.ThrowTypeErrorNoEngine("invalid type");
+                Throw.TypeErrorNoEngine("invalid type");
             }
 
             jsValues[writeIndex++] = jsValue;
@@ -289,7 +289,7 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
                 if ((value.Type & elementTypes) == Types.Empty)
                 {
-                    ExceptionHelper.ThrowTypeErrorNoEngine("invalid type");
+                    Throw.TypeErrorNoEngine("invalid type");
                 }
 
                 jsValues[writeIndex++] = (JsValue?) value ?? JsValue.Undefined;

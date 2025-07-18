@@ -181,7 +181,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     {
         if (_getter is null)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Indexer has no public getter.");
+            Throw.InvalidOperationException("Indexer has no public getter.");
             return null;
         }
 
@@ -209,7 +209,7 @@ internal sealed class IndexerAccessor : ReflectionAccessor
     {
         if (_setter is null)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Indexer has no public setter.");
+            Throw.InvalidOperationException("Indexer has no public setter.");
         }
 
         object?[] parameters = [_key, value];

@@ -46,7 +46,7 @@ public class NamespaceReference : ObjectInstance, ICallable
                 || !genericTypeReference.IsObject()
                 || genericTypeReference.AsObject() is not TypeReference tr)
             {
-                ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?");
+                Throw.TypeError(_engine.Realm, "Invalid generic type parameter on " + _path + ", if this is not a generic type / method, are you missing a lookup assembly?");
                 return default;
             }
 
@@ -68,7 +68,7 @@ public class NamespaceReference : ObjectInstance, ICallable
         }
         catch (Exception e)
         {
-            ExceptionHelper.ThrowInvalidOperationException($"Invalid generic type parameter on {_path}, if this is not a generic type / method, are you missing a lookup assembly?", e);
+            Throw.InvalidOperationException($"Invalid generic type parameter on {_path}, if this is not a generic type / method, are you missing a lookup assembly?", e);
             return null;
         }
     }

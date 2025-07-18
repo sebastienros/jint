@@ -74,7 +74,7 @@ internal sealed class WeakSetPrototype : Prototype
             return set;
         }
 
-        ExceptionHelper.ThrowTypeError(_realm, "object must be a WeakSet");
+        Throw.TypeError(_realm, "object must be a WeakSet");
         return default;
     }
 }

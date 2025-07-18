@@ -18,7 +18,7 @@ internal sealed class BuilderModule : SourceTextModule
     {
         if (_environment is not null)
         {
-            ExceptionHelper.ThrowInvalidOperationException("Cannot bind exported values after the environment has been initialized");
+            Throw.InvalidOperationException("Cannot bind exported values after the environment has been initialized");
         }
 
         _exportBuilderDeclarations ??= new();

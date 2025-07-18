@@ -45,13 +45,13 @@ internal sealed class DisposeCapability
             {
                 if (!v.IsObject())
                 {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm, "Expected an object for disposable resource.");
+                    Throw.TypeError(_engine.Realm, "Expected an object for disposable resource.");
                     return default;
                 }
                 method = v.AsObject().GetDisposeMethod(hint);
                 if (method is null)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm, "No dispose method found for the resource.");
+                    Throw.TypeError(_engine.Realm, "No dispose method found for the resource.");
                     return default;
                 }
             }

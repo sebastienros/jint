@@ -12,7 +12,7 @@ internal static class AcornimaExtensions
         }
         catch (ParseErrorException e)
         {
-            ExceptionHelper.ThrowSyntaxError(realm, e.Message, ToLocation(e, source));
+            Throw.SyntaxError(realm, e.Message, ToLocation(e, source));
             return default;
         }
     }
@@ -25,12 +25,12 @@ internal static class AcornimaExtensions
         }
         catch (ParseErrorException ex)
         {
-            ExceptionHelper.ThrowSyntaxError(engine.Realm, $"Error while loading module: error in module '{source}': {ex.Error}", ToLocation(ex, source));
+            Throw.SyntaxError(engine.Realm, $"Error while loading module: error in module '{source}': {ex.Error}", ToLocation(ex, source));
             return default;
         }
         catch (Exception)
         {
-            ExceptionHelper.ThrowJavaScriptException(engine, $"Could not load module {source}", AstExtensions.DefaultLocation);
+            Throw.JavaScriptException(engine, $"Could not load module {source}", AstExtensions.DefaultLocation);
             return default;
         }
     }

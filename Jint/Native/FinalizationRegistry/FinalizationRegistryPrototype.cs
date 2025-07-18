@@ -51,19 +51,19 @@ internal sealed class FinalizationRegistryPrototype : Prototype
 
         if (!target.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
-            ExceptionHelper.ThrowTypeError(_realm, "target must be an object or symbol");
+            Throw.TypeError(_realm, "target must be an object or symbol");
         }
 
         if (SameValue(target, heldValue))
         {
-            ExceptionHelper.ThrowTypeError(_realm, "target and holdings must not be same");
+            Throw.TypeError(_realm, "target and holdings must not be same");
         }
 
         if (!unregisterToken.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
             if (!unregisterToken.IsUndefined())
             {
-                ExceptionHelper.ThrowTypeError(_realm, unregisterToken + " must be an object");
+                Throw.TypeError(_realm, unregisterToken + " must be an object");
             }
         }
 
@@ -83,7 +83,7 @@ internal sealed class FinalizationRegistryPrototype : Prototype
 
         if (!unregisterToken.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
-            ExceptionHelper.ThrowTypeError(_realm, unregisterToken + " must be an object or symbol");
+            Throw.TypeError(_realm, unregisterToken + " must be an object or symbol");
         }
 
         return finalizationRegistry.Remove(unregisterToken);
@@ -96,7 +96,7 @@ internal sealed class FinalizationRegistryPrototype : Prototype
             return finalizationRegistryInstance;
         }
 
-        ExceptionHelper.ThrowTypeError(_realm, "object must be a FinalizationRegistry");
+        Throw.TypeError(_realm, "object must be a FinalizationRegistry");
         return default;
     }
 }

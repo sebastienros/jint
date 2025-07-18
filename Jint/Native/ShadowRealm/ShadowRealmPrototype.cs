@@ -49,7 +49,7 @@ internal sealed class ShadowRealmPrototype : Prototype
 
         if (!sourceText.IsString())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Invalid source text " + sourceText);
+            Throw.TypeError(_realm, "Invalid source text " + sourceText);
         }
 
         var parserOptions = _engine.GetActiveParserOptions();
@@ -74,12 +74,12 @@ internal sealed class ShadowRealmPrototype : Prototype
         var specifierString = TypeConverter.ToJsString(specifier);
         if (!specifier.IsString())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Invalid specifier");
+            Throw.TypeError(_realm, "Invalid specifier");
         }
 
         if (!exportName.IsString())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Invalid exportName");
+            Throw.TypeError(_realm, "Invalid exportName");
         }
 
         var callerRealm = _realm;
@@ -93,7 +93,7 @@ internal sealed class ShadowRealmPrototype : Prototype
             return shadowRealm;
         }
 
-        ExceptionHelper.ThrowTypeError(_realm, "object must be a ShadowRealm");
+        Throw.TypeError(_realm, "object must be a ShadowRealm");
         return default;
     }
 }

@@ -40,7 +40,7 @@ public sealed class ShadowRealm : ObjectInstance
     {
         if (!preparedScript.IsValid)
         {
-            ExceptionHelper.ThrowInvalidPreparedScriptArgumentException(nameof(preparedScript));
+            Throw.InvalidPreparedScriptArgumentException(nameof(preparedScript));
         }
 
         var callerRealm = _engine.Realm;
@@ -116,11 +116,11 @@ public sealed class ShadowRealm : ObjectInstance
         {
             if (string.Equals(e.Error.Code, "InvalidLhsInAssignment", StringComparison.Ordinal))
             {
-                ExceptionHelper.ThrowReferenceError(callerRealm, e.Description);
+                Throw.ReferenceError(callerRealm, e.Description);
             }
             else
             {
-                ExceptionHelper.ThrowSyntaxError(callerRealm, e.Message);
+                Throw.SyntaxError(callerRealm, e.Message);
             }
 
             return default;
@@ -319,7 +319,7 @@ public sealed class ShadowRealm : ObjectInstance
             var hasOwn = exports.HasOwnProperty(s);
             if (!hasOwn)
             {
-                ExceptionHelper.ThrowTypeError(_realm, $"export name {s} missing");
+                Throw.TypeError(_realm, $"export name {s} missing");
             }
 
             var value = exports.Get(s);
@@ -333,7 +333,7 @@ public sealed class ShadowRealm : ObjectInstance
         var instance = thisObj as ShadowRealm;
         if (instance is null)
         {
-            ExceptionHelper.ThrowTypeError(callerRealm, "object must be a ShadowRealm");
+            Throw.TypeError(callerRealm, "object must be a ShadowRealm");
         }
 
         return instance;
@@ -341,7 +341,7 @@ public sealed class ShadowRealm : ObjectInstance
 
     private static void ThrowCrossRealmError(Realm callerRealm, string message)
     {
-        ExceptionHelper.ThrowTypeError(callerRealm, "Cross-Realm Error: " + message);
+        Throw.TypeError(callerRealm, "Cross-Realm Error: " + message);
     }
 
     private sealed class WrappedFunction : Function.Function
@@ -405,7 +405,7 @@ public sealed class ShadowRealm : ObjectInstance
 
         protected override object? VisitSuper(Super super)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Shadow realm code cannot contain super");
+            Throw.TypeError(_realm, "Shadow realm code cannot contain super");
             return null;
         }
     }

@@ -56,7 +56,7 @@ internal sealed class PromisePrototype : Prototype
         var promise = thisValue as JsPromise;
         if (promise is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Method Promise.prototype.then called on incompatible receiver");
+            Throw.TypeError(_realm, "Method Promise.prototype.then called on incompatible receiver");
         }
 
         // 3. Let C be ? SpeciesConstructor(promise, %Promise%).
@@ -87,7 +87,7 @@ internal sealed class PromisePrototype : Prototype
         var promise = thisValue as ObjectInstance;
         if (promise is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "this passed to Promise.prototype.finally is not an object");
+            Throw.TypeError(_realm, "this passed to Promise.prototype.finally is not an object");
         }
 
         // 3. Let C be ? SpeciesConstructor(promise, %Promise%).

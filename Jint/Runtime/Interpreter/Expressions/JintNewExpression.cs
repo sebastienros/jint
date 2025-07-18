@@ -38,7 +38,7 @@ internal sealed class JintNewExpression : JintExpression
 
         if (!jsValue.IsConstructor)
         {
-            ExceptionHelper.ThrowTypeError(engine.Realm, $"{_calleeExpression.SourceText} is not a constructor");
+            Throw.TypeError(engine.Realm, $"{_calleeExpression.SourceText} is not a constructor");
         }
 
         // construct the new instance using the Function's constructor method

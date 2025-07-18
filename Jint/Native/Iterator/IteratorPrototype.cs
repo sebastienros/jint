@@ -49,7 +49,7 @@ internal class IteratorPrototype : Prototype
         var iterator = thisObject as IteratorInstance;
         if (iterator is null)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm);
         }
 
         iterator.TryIteratorStep(out var result);

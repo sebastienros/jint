@@ -45,7 +45,7 @@ internal sealed class ErrorPrototype : ErrorInstance
         var o = thisObject.TryCast<ObjectInstance>();
         if (o is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         var nameProp = o.Get("name", this);

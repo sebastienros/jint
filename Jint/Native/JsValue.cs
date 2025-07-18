@@ -48,7 +48,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
     {
         if (!TryGetIterator(realm, out var iterator, hint, method))
         {
-            ExceptionHelper.ThrowTypeError(realm, "The value is not iterable");
+            Throw.TypeError(realm, "The value is not iterable");
             return null!;
         }
 
@@ -61,7 +61,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
         var iterator = method.Call(this);
         if (iterator is not ObjectInstance objectInstance)
         {
-            ExceptionHelper.ThrowTypeError(realm);
+            Throw.TypeError(realm);
             return null!;
         }
         return new IteratorInstance.ObjectIterator(objectInstance);
@@ -86,7 +86,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
                     var syncMethod = obj.GetMethod(GlobalSymbolRegistry.Iterator);
                     var syncIteratorRecord = obj.GetIterator(realm, GeneratorKind.Sync, syncMethod);
                     // TODO async CreateAsyncFromSyncIterator(syncIteratorRecord);
-                    ExceptionHelper.ThrowNotImplementedException("async");
+                    Throw.NotImplementedException("async");
                 }
             }
             else
@@ -104,7 +104,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
         var iteratorResult = method.Call(obj, Arguments.Empty) as ObjectInstance;
         if (iteratorResult is null)
         {
-            ExceptionHelper.ThrowTypeError(realm, "Result of the Symbol.iterator method is not an object");
+            Throw.TypeError(realm, "Result of the Symbol.iterator method is not an object");
         }
 
         if (iteratorResult is IteratorInstance i)
@@ -273,7 +273,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
     /// </summary>
     public virtual bool Set(JsValue property, JsValue value, JsValue receiver)
     {
-        ExceptionHelper.ThrowNotSupportedException();
+        Throw.NotSupportedException();
         return false;
     }
 
@@ -284,7 +284,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
     {
         if (target is not ObjectInstance oi)
         {
-            ExceptionHelper.ThrowTypeErrorNoEngine("Right-hand side of 'instanceof' is not an object");
+            Throw.TypeErrorNoEngine("Right-hand side of 'instanceof' is not an object");
             return false;
         }
 
@@ -296,7 +296,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
 
         if (!target.IsCallable)
         {
-            ExceptionHelper.ThrowTypeErrorNoEngine("Right-hand side of 'instanceof' is not callable");
+            Throw.TypeErrorNoEngine("Right-hand side of 'instanceof' is not callable");
         }
 
         return target.OrdinaryHasInstance(this);
@@ -464,7 +464,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
         var p = Get(CommonProperties.Prototype);
         if (p is not ObjectInstance)
         {
-            ExceptionHelper.ThrowTypeError(o.Engine.Realm, $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");
+            Throw.TypeError(o.Engine.Realm, $"Function has non-object prototype '{TypeConverter.ToString(p)}' in instanceof check");
         }
 
         while (true)
@@ -546,7 +546,7 @@ public abstract partial class JsValue : IEquatable<JsValue>
     {
         if (!c.IsConstructor)
         {
-            ExceptionHelper.ThrowTypeError(engine.Realm, c + " is not a constructor");
+            Throw.TypeError(engine.Realm, c + " is not a constructor");
         }
 
         return (IConstructor) c;

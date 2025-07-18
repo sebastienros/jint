@@ -68,7 +68,7 @@ public sealed class ShadowRealmConstructor : Constructor
     {
         if (newTarget.IsUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         return Construct(newTarget);

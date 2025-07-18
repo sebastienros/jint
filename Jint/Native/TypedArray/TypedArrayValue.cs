@@ -71,19 +71,19 @@ internal readonly record struct TypedArrayValue(Types Type, double DoubleValue, 
 
     public TypeCode GetTypeCode()
     {
-        ExceptionHelper.ThrowNotImplementedException();
+        Throw.NotImplementedException();
         return default;
     }
 
     public bool ToBoolean(IFormatProvider? provider)
     {
-        ExceptionHelper.ThrowNotImplementedException();
+        Throw.NotImplementedException();
         return default;
     }
 
     public char ToChar(IFormatProvider? provider)
     {
-        ExceptionHelper.ThrowNotImplementedException();
+        Throw.NotImplementedException();
         return default;
     }
 
@@ -144,13 +144,13 @@ internal readonly record struct TypedArrayValue(Types Type, double DoubleValue, 
 
     public DateTime ToDateTime(IFormatProvider? provider)
     {
-        ExceptionHelper.ThrowNotImplementedException();
+        Throw.NotImplementedException();
         return default;
     }
 
     public string ToString(IFormatProvider? provider)
     {
-        ExceptionHelper.ThrowNotImplementedException();
+        Throw.NotImplementedException();
         return default;
     }
 
@@ -168,7 +168,7 @@ internal readonly record struct TypedArrayValue(Types Type, double DoubleValue, 
         }
 #endif
 
-        ExceptionHelper.ThrowNotImplementedException();
+        Throw.NotImplementedException();
         return default;
     }
 }

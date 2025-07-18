@@ -99,7 +99,7 @@ internal sealed class SymbolConstructor : Constructor
         var symbol = arguments.At(0) as JsSymbol;
         if (symbol is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         if (_engine.GlobalSymbolRegistry.TryGetSymbol(symbol._value, out var e))
@@ -112,7 +112,7 @@ internal sealed class SymbolConstructor : Constructor
 
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
-        ExceptionHelper.ThrowTypeError(_realm, "Symbol is not a constructor");
+        Throw.TypeError(_realm, "Symbol is not a constructor");
         return null;
     }
 

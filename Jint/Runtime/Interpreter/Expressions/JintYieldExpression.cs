@@ -15,7 +15,7 @@ internal sealed class JintYieldExpression : JintExpression
     {
         if ((context.Engine.Options.ExperimentalFeatures & ExperimentalFeature.Generators) == ExperimentalFeature.None)
         {
-            ExceptionHelper.ThrowJavaScriptException(
+            Throw.JavaScriptException(
                 context.Engine.Intrinsics.Error,
                 "Yield expressions are not supported in the engine, you can enable the experimental feature 'Generators' in engine options to use them.");
         }
@@ -66,7 +66,7 @@ internal sealed class JintYieldExpression : JintExpression
 
                 if (innerResult is not IteratorResult oi)
                 {
-                    ExceptionHelper.ThrowTypeError(engine.Realm);
+                    Throw.TypeError(engine.Realm);
                 }
 
                 var done = IteratorComplete(innerResult);
@@ -99,7 +99,7 @@ internal sealed class JintYieldExpression : JintExpression
                     // Normal completions from an inner throw method are processed similarly to an inner next.
                     if (innerResult is not ObjectInstance oi)
                     {
-                        ExceptionHelper.ThrowTypeError(engine.Realm);
+                        Throw.TypeError(engine.Realm);
                     }
 
                     var done = IteratorComplete(innerResult);
@@ -131,7 +131,7 @@ internal sealed class JintYieldExpression : JintExpression
                         iteratorRecord.Close(CompletionType.Normal);
                     }
 
-                    ExceptionHelper.ThrowTypeError(engine.Realm, "Iterator does not have close method");
+                    Throw.TypeError(engine.Realm, "Iterator does not have close method");
                 }
             }
             else
@@ -156,7 +156,7 @@ internal sealed class JintYieldExpression : JintExpression
 
                 if (innerReturnResult is not ObjectInstance oi)
                 {
-                    ExceptionHelper.ThrowTypeError(engine.Realm);
+                    Throw.TypeError(engine.Realm);
                 }
 
                 var done = IteratorComplete(innerReturnResult);
@@ -195,7 +195,7 @@ internal sealed class JintYieldExpression : JintExpression
 
     private static void AsyncIteratorClose(object iteratorRecord, CompletionType closeCompletion)
     {
-        ExceptionHelper.ThrowNotImplementedException("async");
+        Throw.NotImplementedException("async");
     }
 
     /// <summary>
@@ -203,7 +203,7 @@ internal sealed class JintYieldExpression : JintExpression
     /// </summary>
     private static Completion AsyncGeneratorYield(object iteratorValue)
     {
-        ExceptionHelper.ThrowNotImplementedException("async");
+        Throw.NotImplementedException("async");
         return default;
     }
 
@@ -212,7 +212,7 @@ internal sealed class JintYieldExpression : JintExpression
     /// </summary>
     private static ObjectInstance Await(JsValue innerResult)
     {
-        ExceptionHelper.ThrowNotImplementedException("await");
+        Throw.NotImplementedException("await");
         return null;
     }
 
@@ -226,7 +226,7 @@ internal sealed class JintYieldExpression : JintExpression
         if (generatorKind == GeneratorKind.Async)
         {
             // TODO return ? AsyncGeneratorYield(undefined);
-            ExceptionHelper.ThrowNotImplementedException("async not implemented");
+            Throw.NotImplementedException("async not implemented");
         }
 
         // https://tc39.es/ecma262/#sec-generatoryield

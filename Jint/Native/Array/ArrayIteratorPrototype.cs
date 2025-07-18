@@ -123,7 +123,7 @@ internal sealed class ArrayIteratorPrototype : IteratorPrototype
                 var taRecord = IntrinsicTypedArrayPrototype.MakeTypedArrayWithBufferWitnessRecord(_typedArray, ArrayBufferOrder.SeqCst);
                 if (!_closed && taRecord.IsTypedArrayOutOfBounds)
                 {
-                    ExceptionHelper.ThrowTypeError(_typedArray.Engine.Realm, "TypedArray is out of bounds");
+                    Throw.TypeError(_typedArray.Engine.Realm, "TypedArray is out of bounds");
                 }
                 len = taRecord.TypedArrayLength;
             }

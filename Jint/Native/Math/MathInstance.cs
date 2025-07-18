@@ -868,7 +868,7 @@ internal sealed class MathInstance : ObjectInstance
 
         return (double) (Half) n;
 #else
-        ExceptionHelper.ThrowNotImplementedException("Float16/Half type is not supported in this build");
+        Throw.NotImplementedException("Float16/Half type is not supported in this build");
         return default;
 #endif
     }
@@ -1074,7 +1074,7 @@ internal sealed class MathInstance : ObjectInstance
         var items = arguments.At(0);
         if (items.IsNullOrUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm);
         }
 
         var iteratorRecord = items.GetIterator(_engine.Realm);
@@ -1090,12 +1090,12 @@ internal sealed class MathInstance : ObjectInstance
                 count++;
                 if (count > 9007199254740992)
                 {
-                    ExceptionHelper.ThrowRangeError(_engine.Realm);
+                    Throw.RangeError(_engine.Realm);
                 }
 
                 if (value is not JsNumber jsNumber)
                 {
-                    ExceptionHelper.ThrowTypeError(_engine.Realm, "Input is not a number: " + next);
+                    Throw.TypeError(_engine.Realm, "Input is not a number: " + next);
                     return default;
                 }
 

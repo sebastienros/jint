@@ -204,7 +204,7 @@ internal class SourceTextModule : CyclicModule
             var resolution = ResolveExport(e.ExportName);
             if (resolution is null || resolution == ResolvedBinding.Ambiguous)
             {
-                ExceptionHelper.ThrowSyntaxError(_realm, "Ambiguous import statement for identifier: " + e.ExportName);
+                Throw.SyntaxError(_realm, "Ambiguous import statement for identifier: " + e.ExportName);
             }
         }
 
@@ -229,7 +229,7 @@ internal class SourceTextModule : CyclicModule
                     var resolution = importedModule.ResolveExport(ie.ImportName);
                     if (resolution is null || resolution == ResolvedBinding.Ambiguous)
                     {
-                        ExceptionHelper.ThrowSyntaxError(_realm, "Ambiguous import statement for identifier " + ie.ImportName);
+                        Throw.SyntaxError(_realm, "Ambiguous import statement for identifier " + ie.ImportName);
                     }
 
                     if (string.Equals(resolution.BindingName, "*namespace*", StringComparison.Ordinal))
@@ -349,7 +349,7 @@ internal class SourceTextModule : CyclicModule
         }
         else
         {
-            ExceptionHelper.ThrowNotImplementedException("async modules not implemented");
+            Throw.NotImplementedException("async modules not implemented");
             return default;
         }
     }

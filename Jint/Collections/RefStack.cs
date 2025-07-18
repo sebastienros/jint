@@ -54,7 +54,7 @@ internal sealed class RefStack<T> : IEnumerable<T> where T : struct
     {
         if (_size == 0)
         {
-            ExceptionHelper.ThrowInvalidOperationException("stack is empty");
+            Throw.InvalidOperationException("stack is empty");
         }
 
         _size--;

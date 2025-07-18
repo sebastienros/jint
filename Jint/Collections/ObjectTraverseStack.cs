@@ -20,7 +20,7 @@ internal sealed class ObjectTraverseStack
     {
         if (value is null)
         {
-            ExceptionHelper.ThrowArgumentNullException(nameof(value));
+            Throw.ArgumentNullException(nameof(value));
         }
 
         if (_stack.Contains(value))
@@ -37,7 +37,7 @@ internal sealed class ObjectTraverseStack
     {
         if (!TryEnter(value))
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Cyclic reference detected.");
+            Throw.TypeError(_engine.Realm, "Cyclic reference detected.");
         }
     }
 

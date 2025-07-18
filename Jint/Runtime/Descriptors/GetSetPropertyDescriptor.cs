@@ -64,7 +64,7 @@ public sealed class GetSetPropertyDescriptor : PropertyDescriptor
 
         protected internal override JsValue? CustomValue
         {
-            set => ExceptionHelper.ThrowInvalidOperationException("making changes to throw type error property's descriptor is not allowed");
+            set => Throw.InvalidOperationException("making changes to throw type error property's descriptor is not allowed");
         }
     }
 }

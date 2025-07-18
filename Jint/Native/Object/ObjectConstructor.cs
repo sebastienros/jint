@@ -210,7 +210,7 @@ public sealed class ObjectConstructor : Constructor
         var prototype = arguments.At(1);
         if (!prototype.IsObject() && !prototype.IsNull())
         {
-            ExceptionHelper.ThrowTypeError(_realm, $"Object prototype may only be an Object or null: {prototype}");
+            Throw.TypeError(_realm, $"Object prototype may only be an Object or null: {prototype}");
         }
 
         if (oArg is not ObjectInstance o)
@@ -220,7 +220,7 @@ public sealed class ObjectConstructor : Constructor
 
         if (!o.SetPrototypeOf(prototype))
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
         return o;
     }
@@ -297,7 +297,7 @@ public sealed class ObjectConstructor : Constructor
         var prototype = arguments.At(0);
         if (!prototype.IsObject() && !prototype.IsNull())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Object prototype may only be an Object or null: " + prototype);
+            Throw.TypeError(_realm, "Object prototype may only be an Object or null: " + prototype);
         }
 
         var obj = Engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
@@ -319,7 +319,7 @@ public sealed class ObjectConstructor : Constructor
     {
         if (arguments.At(0) is not ObjectInstance o)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Object.defineProperty called on non-object");
+            Throw.TypeError(_realm, "Object.defineProperty called on non-object");
             return null;
         }
 
@@ -342,7 +342,7 @@ public sealed class ObjectConstructor : Constructor
         var o = arguments.At(0) as ObjectInstance;
         if (o is null)
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Object.defineProperty called on non-object");
+            Throw.TypeError(_realm, "Object.defineProperty called on non-object");
         }
 
         var properties = arguments.At(1);
@@ -393,7 +393,7 @@ public sealed class ObjectConstructor : Constructor
 
         if (!status)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         return o;
@@ -413,7 +413,7 @@ public sealed class ObjectConstructor : Constructor
 
         if (!status)
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         return o;
@@ -431,7 +431,7 @@ public sealed class ObjectConstructor : Constructor
 
         if (!o.PreventExtensions())
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         return o;

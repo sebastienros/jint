@@ -50,7 +50,7 @@ public class DefaultTypeConverter : ITypeConverter
     {
         if (!TryConvert(value, type, formatProvider, propagateException: true, out var converted, out var problemMessage))
         {
-            ExceptionHelper.ThrowError(_engine, problemMessage ?? $"Unable to convert {value} to type {type}");
+            Throw.Error(_engine, problemMessage ?? $"Unable to convert {value} to type {type}");
         }
         return converted;
     }

@@ -20,7 +20,7 @@ internal sealed class JintPrivateIdentifierExpression : JintExpression
             return privateIdentifier;
         }
 
-        ExceptionHelper.ThrowReferenceError(engine.Realm, "TODO Not found!!");
+        Throw.ReferenceError(engine.Realm, "TODO Not found!!");
         return null;
     }
 }

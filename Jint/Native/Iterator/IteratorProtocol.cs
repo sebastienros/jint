@@ -73,7 +73,7 @@ internal abstract class IteratorProtocol
         var callable = adder as ICallable;
         if (callable is null)
         {
-            ExceptionHelper.ThrowTypeError(target.Engine.Realm, "adder must be callable");
+            Throw.TypeError(target.Engine.Realm, "adder must be callable");
         }
 
         var args = target.Engine._jsValueArrayPool.RentArray(2);
@@ -94,7 +94,7 @@ internal abstract class IteratorProtocol
                 var oi = temp as ObjectInstance;
                 if (oi is null)
                 {
-                    ExceptionHelper.ThrowTypeError(target.Engine.Realm, "iterator's value must be an object");
+                    Throw.TypeError(target.Engine.Realm, "iterator's value must be an object");
                 }
 
                 var k = oi.Get(JsString.NumberZeroString);

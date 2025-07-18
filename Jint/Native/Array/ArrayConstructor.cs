@@ -59,7 +59,7 @@ public sealed class ArrayConstructor : Constructor
 
         if (items.IsNullOrUndefined())
         {
-            ExceptionHelper.ThrowTypeError(_realm, "Cannot convert undefined or null to object");
+            Throw.TypeError(_realm, "Cannot convert undefined or null to object");
         }
 
         var usingIterator = GetMethod(_realm, items, GlobalSymbolRegistry.Iterator);
@@ -338,7 +338,7 @@ public sealed class ArrayConstructor : Constructor
     {
         if (length > ArrayOperations.MaxArrayLength)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Invalid array length " + length);
+            Throw.RangeError(_realm, "Invalid array length " + length);
         }
 
         proto ??= PrototypeObject;
@@ -420,7 +420,7 @@ public sealed class ArrayConstructor : Constructor
 
         if (!c.IsConstructor)
         {
-            ExceptionHelper.ThrowTypeError(_realm, $"{c} is not a constructor");
+            Throw.TypeError(_realm, $"{c} is not a constructor");
         }
 
         return ((IConstructor) c).Construct([JsNumber.Create(length)], c);
@@ -458,7 +458,7 @@ public sealed class ArrayConstructor : Constructor
     {
         if (length < 0 || length > ArrayOperations.MaxArrayLikeLength || ((long) length) != length)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Invalid array length");
+            Throw.RangeError(_realm, "Invalid array length");
         }
     }
 }

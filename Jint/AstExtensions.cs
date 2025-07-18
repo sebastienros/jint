@@ -27,7 +27,7 @@ public static class AstExtensions
             return TypeConverter.ToPropertyKey(key);
         }
 
-        ExceptionHelper.ThrowArgumentException("Unable to extract correct key, node type: " + expression.Type);
+        Throw.ArgumentException("Unable to extract correct key, node type: " + expression.Type);
         return JsValue.Undefined;
     }
 
@@ -324,7 +324,7 @@ public static class AstExtensions
         var function = m.Value as IFunction;
         if (function is null)
         {
-            ExceptionHelper.ThrowSyntaxError(engine.Realm);
+            Throw.SyntaxError(engine.Realm);
         }
 
         var definition = new JintFunctionDefinition(function);
@@ -552,7 +552,7 @@ public static class AstExtensions
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void Throw(Realm r, PrivateIdentifier id)
         {
-            ExceptionHelper.ThrowSyntaxError(r, $"Private field '#{id.Name}' must be declared in an enclosing class");
+            Runtime.Throw.SyntaxError(r, $"Private field '#{id.Name}' must be declared in an enclosing class");
         }
     }
 }

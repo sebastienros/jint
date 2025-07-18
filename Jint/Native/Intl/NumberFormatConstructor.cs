@@ -159,12 +159,12 @@ internal sealed class NumberFormatConstructor : Constructor
         {
             if (style == "currency")
             {
-                ExceptionHelper.ThrowTypeError(_realm, "No currency found when style currency requested");
+                Throw.TypeError(_realm, "No currency found when style currency requested");
             }
         }
         else if (!IsWellFormedCurrencyCode(currency))
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Invalid currency code");
+            Throw.RangeError(_realm, "Invalid currency code");
         }
 
         var currencyDisplay = GetOption(options, "currencyDisplay", OptionType.String, new JsValue[] { "code", "symbol", "narrowSymbol", "name" }, "symbol");
@@ -175,12 +175,12 @@ internal sealed class NumberFormatConstructor : Constructor
         {
             if (style == "unit")
             {
-                ExceptionHelper.ThrowTypeError(_realm, "No unit found when style unit requested");
+                Throw.TypeError(_realm, "No unit found when style unit requested");
             }
         }
         else if (!IsWellFormedUnitIdentifier(unit))
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Invalid unit");
+            Throw.RangeError(_realm, "Invalid unit");
         }
 
         var unitDisplay = GetOption(options, "unitDisplay", OptionType.String, new JsValue[] { "short", "narrow", "long" }, "short");
@@ -327,7 +327,7 @@ internal sealed class NumberFormatConstructor : Constructor
         {
             if (defaultValue == "required")
             {
-                ExceptionHelper.ThrowRangeError(_realm, "Required value missing");
+                Throw.RangeError(_realm, "Required value missing");
             }
 
             return defaultValue;
@@ -343,7 +343,7 @@ internal sealed class NumberFormatConstructor : Constructor
                     var number = TypeConverter.ToNumber(value);
                     if (double.IsNaN(number))
                     {
-                        ExceptionHelper.ThrowRangeError(_realm, "Invalid number value");
+                        Throw.RangeError(_realm, "Invalid number value");
                     }
                     value = number;
                     break;
@@ -352,13 +352,13 @@ internal sealed class NumberFormatConstructor : Constructor
                 value = TypeConverter.ToString(value);
                 break;
             default:
-                ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(type), "Unknown type");
+                Throw.ArgumentOutOfRangeException(nameof(type), "Unknown type");
                 break;
         }
 
         if (values.Length > 0 && System.Array.IndexOf(values, value) == -1)
         {
-            ExceptionHelper.ThrowRangeError(_realm, "Value not part of list");
+            Throw.RangeError(_realm, "Value not part of list");
         }
 
         return value;

@@ -21,7 +21,7 @@ public class Host
         {
             if (_engine is null)
             {
-                ExceptionHelper.ThrowInvalidOperationException("Initialize has not been called");
+                Throw.InvalidOperationException("Initialize has not been called");
             }
             return _engine!;
         }
@@ -112,7 +112,7 @@ public class Host
     {
         if (!Engine.Options.Host.StringCompilationAllowed)
         {
-            ExceptionHelper.ThrowJavaScriptException(callerRealm.Intrinsics.TypeError, "String compilation has been disabled in engine options");
+            Throw.JavaScriptException(callerRealm.Intrinsics.TypeError, "String compilation has been disabled in engine options");
         }
     }
 

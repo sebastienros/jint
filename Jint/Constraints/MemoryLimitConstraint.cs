@@ -38,14 +38,14 @@ public sealed class MemoryLimitConstraint : Constraint
 #else
         if (_getAllocatedBytesForCurrentThread == null)
         {
-            ExceptionHelper.ThrowPlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
+            Throw.PlatformNotSupportedException("The current platform doesn't support MemoryLimit.");
         }
 
         var usage = _getAllocatedBytesForCurrentThread();
 #endif
         if (usage - _initialMemoryUsage > _memoryLimit)
         {
-            ExceptionHelper.ThrowMemoryLimitExceededException($"Script has allocated {usage - _initialMemoryUsage} but is limited to {_memoryLimit}");
+            Throw.MemoryLimitExceededException($"Script has allocated {usage - _initialMemoryUsage} but is limited to {_memoryLimit}");
         }
     }
 

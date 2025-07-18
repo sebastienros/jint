@@ -16,7 +16,7 @@ public sealed class CancellationConstraint : Constraint
     {
         if (_cancellationToken.IsCancellationRequested)
         {
-            ExceptionHelper.ThrowExecutionCanceledException();
+            Throw.ExecutionCanceledException();
         }
     }
 

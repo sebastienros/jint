@@ -138,7 +138,7 @@ internal static class PromiseOperations
 
                 break;
             default:
-                ExceptionHelper.ThrowArgumentOutOfRangeException();
+                Throw.ArgumentOutOfRangeException();
                 break;
         }
 

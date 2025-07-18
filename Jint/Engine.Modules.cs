@@ -131,7 +131,7 @@ public partial class Engine
 
                 if (cyclicModule.Status != ModuleStatus.Evaluated)
                 {
-                    ExceptionHelper.ThrowNotSupportedException($"Error while evaluating module: Module is in an invalid state: '{cyclicModule.Status}'");
+                    Throw.NotSupportedException($"Error while evaluating module: Module is in an invalid state: '{cyclicModule.Status}'");
                 }
             }
 
@@ -165,7 +165,7 @@ public partial class Engine
             // This should instead be returned and resolved in ImportModule(specifier) only so Host.ImportModuleDynamically can use this promise
             if (evaluationResult is not JsPromise promise)
             {
-                ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");
+                Throw.InvalidOperationException($"Error while evaluating module: Module evaluation did not return a promise: {evaluationResult.Type}");
             }
             else if (promise.State == PromiseState.Rejected)
             {
@@ -174,11 +174,11 @@ public partial class Engine
                     : SourceLocation.From(new Position(), new Position());
 
                 var node = AstExtensions.CreateLocationNode(location);
-                ExceptionHelper.ThrowJavaScriptException(_engine, promise.Value, node.Location);
+                Throw.JavaScriptException(_engine, promise.Value, node.Location);
             }
             else if (promise.State != PromiseState.Fulfilled)
             {
-                ExceptionHelper.ThrowInvalidOperationException($"Error while evaluating module: Module evaluation did not return a fulfilled promise: {promise.State}");
+                Throw.InvalidOperationException($"Error while evaluating module: Module evaluation did not return a fulfilled promise: {promise.State}");
             }
 
             return evaluationResult;

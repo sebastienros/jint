@@ -77,7 +77,7 @@ internal sealed class ReflectionDescriptor : PropertyDescriptor
         }
         catch (TargetInvocationException exception)
         {
-            ExceptionHelper.ThrowMeaningfulException(_engine, exception);
+            Throw.MeaningfulException(_engine, exception);
         }
     }
 }

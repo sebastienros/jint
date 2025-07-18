@@ -178,7 +178,7 @@ internal sealed class JintForInForOfStatement : JintStatement<Statement>
                 if (iteratorKind == IteratorKind.Async)
                 {
                     // nextResult = await nextResult;
-                    ExceptionHelper.ThrowNotImplementedException("await");
+                    Throw.NotImplementedException("await");
                 }
 
                 var nextValue = nextResult.Get(CommonProperties.Value);

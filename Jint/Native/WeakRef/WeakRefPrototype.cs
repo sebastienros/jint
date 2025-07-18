@@ -47,7 +47,7 @@ internal sealed class WeakRefPrototype : Prototype
             return weakRef.WeakRefDeref();
         }
 
-        ExceptionHelper.ThrowTypeError(_realm, "object must be a WeakRef");
+        Throw.TypeError(_realm, "object must be a WeakRef");
         return default;
     }
 }

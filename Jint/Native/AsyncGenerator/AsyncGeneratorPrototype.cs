@@ -80,7 +80,7 @@ internal sealed class AsyncGeneratorPrototype : ObjectInstance
         var generatorInstance = thisObj as GeneratorInstance;
         if (generatorInstance is null)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "object must be a Generator instance");
+            Runtime.Throw.TypeError(_engine.Realm, "object must be a Generator instance");
         }
 
         return generatorInstance;

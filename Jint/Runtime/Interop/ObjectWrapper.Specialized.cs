@@ -100,7 +100,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
                 var length = value.AsInteger();
                 if (length < 0)
                 {
-                    ExceptionHelper.ThrowRangeError(_engine.Realm, "Invalid array length");
+                    Throw.RangeError(_engine.Realm, "Invalid array length");
                 }
 
                 if (length == Length)
@@ -123,7 +123,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
                 return true;
             }
 
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "Invalid array length");
+            Throw.TypeError(_engine.Realm, "Invalid array length");
         }
 
         return base.Set(property, value, receiver);
@@ -272,13 +272,13 @@ internal sealed class ReadOnlyListWrapper<[DynamicallyAccessedMembers(Dynamicall
 
     protected override bool CanWrite => false;
 
-    public override void AddDefault() => ExceptionHelper.ThrowNotSupportedException();
+    public override void AddDefault() => Throw.NotSupportedException();
 
-    protected override void DoSetAt(int index, object? value) => ExceptionHelper.ThrowNotSupportedException();
+    protected override void DoSetAt(int index, object? value) => Throw.NotSupportedException();
 
-    public override void Add(JsValue value) => ExceptionHelper.ThrowNotSupportedException();
+    public override void Add(JsValue value) => Throw.NotSupportedException();
 
-    public override void RemoveAt(int index) => ExceptionHelper.ThrowNotSupportedException();
+    public override void RemoveAt(int index) => Throw.NotSupportedException();
 
-    public override void EnsureCapacity(int capacity) => ExceptionHelper.ThrowNotSupportedException();
+    public override void EnsureCapacity(int capacity) => Throw.NotSupportedException();
 }

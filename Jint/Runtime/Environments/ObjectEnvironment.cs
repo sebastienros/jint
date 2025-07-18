@@ -68,7 +68,7 @@ internal sealed class ObjectEnvironment : Environment
             if (strict)
             {
                 // data was deleted during reading of unscopable information, of course...
-                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Key);
+                Throw.ReferenceNameError(_engine.Realm, name.Key);
             }
         }
 
@@ -107,7 +107,7 @@ internal sealed class ObjectEnvironment : Environment
     /// </summary>
     internal override void CreateImmutableBinding(Key name, bool strict = true)
     {
-        ExceptionHelper.ThrowInvalidOperationException("The concrete Environment Record method CreateImmutableBinding is never used within this specification in association with Object Environment Records.");
+        Throw.InvalidOperationException("The concrete Environment Record method CreateImmutableBinding is never used within this specification in association with Object Environment Records.");
     }
 
     /// <summary>
@@ -122,7 +122,7 @@ internal sealed class ObjectEnvironment : Environment
         {
             if (strict)
             {
-                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name);
+                Throw.ReferenceNameError(_engine.Realm, name);
             }
         }
 
@@ -135,7 +135,7 @@ internal sealed class ObjectEnvironment : Environment
         {
             if (strict)
             {
-                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Key);
+                Throw.ReferenceNameError(_engine.Realm, name.Key);
             }
         }
 
@@ -148,7 +148,7 @@ internal sealed class ObjectEnvironment : Environment
         {
             if (strict)
             {
-                ExceptionHelper.ThrowReferenceNameError(_engine.Realm, name.Name);
+                Throw.ReferenceNameError(_engine.Realm, name.Name);
             }
         }
 

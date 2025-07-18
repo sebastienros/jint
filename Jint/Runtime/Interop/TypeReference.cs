@@ -193,7 +193,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
 
             if (result is null)
             {
-                ExceptionHelper.ThrowTypeError(realm, $"Could not resolve a constructor for type {referenceType} for given arguments");
+                Throw.TypeError(realm, $"Could not resolve a constructor for type {referenceType} for given arguments");
             }
 
             result.SetPrototypeOf(state.TypeReference);

@@ -25,7 +25,7 @@ public class JsArrayBuffer : ObjectInstance
     {
         if (arrayBufferMaxByteLength is > int.MaxValue)
         {
-            ExceptionHelper.ThrowRangeError(engine.Realm, "arrayBufferMaxByteLength cannot be larger than int32.MaxValue");
+            Throw.RangeError(engine.Realm, "arrayBufferMaxByteLength cannot be larger than int32.MaxValue");
         }
 
         _prototype = engine.Intrinsics.ArrayBuffer.PrototypeObject;
@@ -37,7 +37,7 @@ public class JsArrayBuffer : ObjectInstance
     {
         if (byteLength > int.MaxValue)
         {
-            ExceptionHelper.ThrowRangeError(realm, "Array buffer allocation failed");
+            Throw.RangeError(realm, "Array buffer allocation failed");
         }
 
         return new byte[byteLength];
@@ -61,7 +61,7 @@ public class JsArrayBuffer : ObjectInstance
 
         if (!SameValue(_arrayBufferDetachKey, key))
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm);
         }
 
         _arrayBufferData = null;
@@ -142,7 +142,7 @@ public class JsArrayBuffer : ObjectInstance
 
             return value;
 #else
-            ExceptionHelper.ThrowNotImplementedException("Float16/Half type is not supported in this build");
+            Throw.NotImplementedException("Float16/Half type is not supported in this build");
             return default;
 #endif
 
@@ -201,7 +201,7 @@ public class JsArrayBuffer : ObjectInstance
 
         if (arrayValue is null)
         {
-            ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(type), type.ToString());
+            Throw.ArgumentOutOfRangeException(nameof(type), type.ToString());
         }
 
         return arrayValue.Value;
@@ -243,7 +243,7 @@ public class JsArrayBuffer : ObjectInstance
 #if SUPPORTS_HALF
             rawBytes = BitConverter.GetBytes((Half) value.DoubleValue);
 #else
-            ExceptionHelper.ThrowNotImplementedException("Float16/Half type is not supported in this build");
+            Throw.NotImplementedException("Float16/Half type is not supported in this build");
             return default!;
 #endif
         }
@@ -314,7 +314,7 @@ public class JsArrayBuffer : ObjectInstance
 #endif
                     break;
                 default:
-                    ExceptionHelper.ThrowArgumentOutOfRangeException();
+                    Throw.ArgumentOutOfRangeException();
                     return null;
             }
         }
@@ -332,12 +332,12 @@ public class JsArrayBuffer : ObjectInstance
     {
         if (_arrayBufferMaxByteLength is null)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm);
+            Throw.TypeError(_engine.Realm);
         }
 
         if (newByteLength > _arrayBufferMaxByteLength)
         {
-            ExceptionHelper.ThrowRangeError(_engine.Realm);
+            Throw.RangeError(_engine.Realm);
         }
 
         var oldBlock = _arrayBufferData ?? [];
@@ -352,7 +352,7 @@ public class JsArrayBuffer : ObjectInstance
     {
         if (IsDetachedBuffer)
         {
-            ExceptionHelper.ThrowTypeError(_engine.Realm, "ArrayBuffer has been detached");
+            Throw.TypeError(_engine.Realm, "ArrayBuffer has been detached");
         }
     }
 }

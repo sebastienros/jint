@@ -84,7 +84,7 @@ public class DebugHandler
     {
         if (!preparedScript.IsValid)
         {
-            ExceptionHelper.ThrowInvalidPreparedScriptArgumentException(nameof(preparedScript));
+            Throw.InvalidPreparedScriptArgumentException(nameof(preparedScript));
         }
 
         var context = _engine._activeEvaluationContext;

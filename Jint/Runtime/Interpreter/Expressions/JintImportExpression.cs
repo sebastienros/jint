@@ -44,7 +44,7 @@ internal sealed class JintImportExpression : JintExpression
             {
                 if (!options.IsObject())
                 {
-                    ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Invalid options object");
+                    Throw.TypeError(context.Engine.Realm, "Invalid options object");
                     return JsValue.Undefined;
                 }
 
@@ -53,7 +53,7 @@ internal sealed class JintImportExpression : JintExpression
                 {
                     if (attributesObj is not ObjectInstance oi)
                     {
-                        ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Invalid options.with object");
+                        Throw.TypeError(context.Engine.Realm, "Invalid options.with object");
                         return JsValue.Undefined;
                     }
 
@@ -66,7 +66,7 @@ internal sealed class JintImportExpression : JintExpression
 
                         if (!value.IsString())
                         {
-                            ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Invalid option value " + value);
+                            Throw.TypeError(context.Engine.Realm, "Invalid option value " + value);
                             return JsValue.Undefined;
                         }
 
@@ -75,7 +75,7 @@ internal sealed class JintImportExpression : JintExpression
 
                     if (!AllImportAttributesSupported(context.Engine._host, attributes))
                     {
-                        ExceptionHelper.ThrowTypeError(context.Engine.Realm, "Unsupported import attributes detected");
+                        Throw.TypeError(context.Engine.Realm, "Unsupported import attributes detected");
                     }
 
                     attributes.Sort(static (item1, item2) => StringComparer.Ordinal.Compare(item1.Key, item2.Key));

@@ -74,7 +74,7 @@ internal sealed class WeakMapPrototype : Prototype
     {
         if (!key.CanBeHeldWeakly(_engine.GlobalSymbolRegistry))
         {
-            ExceptionHelper.ThrowTypeError(_realm);
+            Throw.TypeError(_realm);
         }
 
         return key;
@@ -106,7 +106,7 @@ internal sealed class WeakMapPrototype : Prototype
             return map;
         }
 
-        ExceptionHelper.ThrowTypeError(_realm, "object must be a WeakMap");
+        Throw.TypeError(_realm, "object must be a WeakMap");
         return default;
     }
 }

@@ -136,7 +136,7 @@ internal abstract class JintExpression
 
         if (result is null)
         {
-            ExceptionHelper.ThrowArgumentOutOfRangeException(nameof(expression), $"unsupported expression type '{expression.Type}'");
+            Throw.ArgumentOutOfRangeException(nameof(expression), $"unsupported expression type '{expression.Type}'");
         }
 
         return result;
@@ -162,7 +162,7 @@ internal abstract class JintExpression
 
             if (y == 0)
             {
-                ExceptionHelper.ThrowRangeError(context.Engine.Realm, "Division by zero");
+                Throw.RangeError(context.Engine.Realm, "Division by zero");
             }
 
             result = JsBigInt.Create(x / y);

@@ -103,7 +103,7 @@ internal static class DefaultObjectConverter
                 && t.Namespace?.StartsWith("System.Reflection", StringComparison.Ordinal) == true)
             {
                 const string Message = "Cannot access System.Reflection namespace, check Engine's interop options";
-                ExceptionHelper.ThrowInvalidOperationException(Message);
+                Throw.InvalidOperationException(Message);
             }
 
             if (t.IsEnum)
