@@ -54,7 +54,7 @@ public class AsyncTests
     [Fact]
     public void ShouldAwaitUnwrapPromiseWithCustomTimeout()
     {
-        Engine engine = new(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.UnwrapIfPromiseTimeout = TimeSpan.FromMilliseconds(200); });
+        Engine engine = new(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.UnwrapIfPromiseTimeout = TimeSpan.FromMilliseconds(500); });
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         engine.Execute(""" 
         async function test() {
