@@ -41,6 +41,29 @@ public class AsyncTests
         result = result.UnwrapIfPromise();
         Assert.Equal(AsyncTestClass.TestString, result);
     }
+    [Fact]
+    public void ShouldUnwrapPromiseWithCustomTimeout()
+    {
+        Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+        var result = engine.Evaluate("asyncTestClass.ReturnDelayedTaskAsync().then(x=>x)");
+        result = result.UnwrapIfPromise(TimeSpan.FromMilliseconds(200));
+        Assert.Equal(AsyncTestClass.TestString, result);
+    }
+
+    [Fact]
+    public void ShouldAwaitUnwrapPromiseWithCustomTimeout()
+    {
+        Engine engine = new(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.UnwrapIfPromiseTimeout = TimeSpan.FromMilliseconds(200); });
+        engine.SetValue("asyncTestClass", new AsyncTestClass());
+        engine.Execute(""" 
+        async function test() {
+            return await asyncTestClass.ReturnDelayedTaskAsync();
+        }
+        """);
+        var result = engine.Invoke("test").UnwrapIfPromise();
+        Assert.Equal(AsyncTestClass.TestString, result);
+    }
 
     [Fact]
     public void ShouldReturnedCompletedTaskConvertedToPromiseInJS()
@@ -230,7 +253,7 @@ public class AsyncTests
 
         Assert.Equal(expected, log.Select(x => x.AsString()).ToArray());
     }
-    
+
     [Fact]
     public void ShouldPromiseBeResolved()
     {
@@ -240,7 +263,7 @@ public class AsyncTests
         {
             log.Add(str);
         });
-        
+
         const string Script = """
           async function main() {
             return new Promise(function (resolve) {
@@ -268,7 +291,7 @@ public class AsyncTests
             {
                 Task.Delay(ms).ContinueWith(_ => action());
             });
-        
+
         const string Script = """
           var delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
           async function main() {

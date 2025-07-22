@@ -431,6 +431,12 @@ public class Options
         /// </summary>
         public TimeSpan RegexTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
+
+        /// <summary>
+        /// Maximum time allowed for unwrapping a Promise and getting its resolved/rejected value.
+        /// Defaults to 10 seconds.
+        /// </summary>
+        public TimeSpan UnwrapIfPromiseTimeout { get; set; } = TimeSpan.FromSeconds(10);
         /// <summary>
         /// The maximum size for JavaScript array, defaults to <see cref="uint.MaxValue"/>.
         /// </summary>
