@@ -87,7 +87,7 @@ internal sealed class DisposeCapability
                         hasAwaited = true;
                         try
                         {
-                            result = result.UnwrapIfPromise();
+                            result = result.UnwrapIfPromise(_engine.Options.Constraints.PromiseTimeout);
                         }
                         catch (JavaScriptException e)
                         {
