@@ -234,6 +234,8 @@ public class ProxyTests
         public int IntValue => 42424242; // avoid small numbers cache
         public TestClass ObjectWrapper => Instance;
 
+        public List<int> IntList { get; } = [1, 2, 3];
+
         private int x = 1;
         public int PropertySideEffect => x++;
 
@@ -455,7 +457,7 @@ public class ProxyTests
         Assert.Equal(2, TestClass.Instance.PropertySideEffect); // second call to PropertySideEffect
     }
 
-   [Fact]
+    [Fact]
     public void ToObjectReturnsProxiedToObject()
     {
         _engine
@@ -481,5 +483,43 @@ public class ProxyTests
                  const t = p.Add(5,3);  // throws System.Reflection.TargetException: 'Object does not match target type.'
              """);
 
+    }
+
+    [Fact]
+    public void ProxyIterateClrList()
+    {
+        var res = _engine
+            .SetValue("obj", TestClass.Instance)
+            .Evaluate("""
+                //const obj = {
+                //    IntList: [1, 2, 3]
+                //};
+
+                const objProxy = new Proxy(obj, {
+                  get(target, prop, receiver) {
+                    const targetValue = Reflect.get(target, prop, receiver);
+                    if (prop == 'IntList') {
+                        return new Proxy(targetValue, {
+                            get(target, prop, receiver) {
+                                return Reflect.get(target, prop, receiver);            
+                            }
+                        });
+                    }
+
+                    return targetValue;
+                  }
+                });
+
+                const arr = []
+                for (const item of objProxy.IntList)
+                {
+                    arr.push(item);
+                }
+                arr.push(objProxy.IntList.length)
+
+                return arr;
+            """);
+
+        Assert.Equal([1, 2, 3, 3], res.AsArray());
     }
 }

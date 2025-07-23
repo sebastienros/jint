@@ -464,6 +464,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     private static JsValue Iterator(JsValue thisObject, JsCallArguments arguments)
     {
+        if (thisObject is JsProxy proxy)
+            return Iterator(proxy._target, arguments);
+
         var wrapper = (ObjectWrapper) thisObject;
 
         return wrapper._typeDescriptor.IsDictionary
@@ -473,6 +476,9 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     private static JsNumber GetLength(JsValue thisObject, JsCallArguments arguments)
     {
+        if (thisObject is JsProxy proxy)
+            return GetLength(proxy._target, arguments);
+
         var wrapper = (ObjectWrapper) thisObject;
         return JsNumber.Create((int) (wrapper._typeDescriptor.LengthProperty?.GetValue(wrapper.Target) ?? 0));
     }
