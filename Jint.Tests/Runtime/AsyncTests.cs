@@ -41,6 +41,7 @@ public class AsyncTests
         result = result.UnwrapIfPromise();
         Assert.Equal(AsyncTestClass.TestString, result);
     }
+
     [Fact]
     public void ShouldUnwrapPromiseWithCustomTimeout()
     {
@@ -54,7 +55,7 @@ public class AsyncTests
     [Fact]
     public void ShouldAwaitUnwrapPromiseWithCustomTimeout()
     {
-        Engine engine = new(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.UnwrapIfPromiseTimeout = TimeSpan.FromMilliseconds(500); });
+        Engine engine = new(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(500); });
         engine.SetValue("asyncTestClass", new AsyncTestClass());
         engine.Execute(""" 
         async function test() {
