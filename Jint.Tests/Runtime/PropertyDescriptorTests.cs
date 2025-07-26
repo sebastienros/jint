@@ -189,7 +189,7 @@ public class PropertyDescriptorTests
     public void PropertyDescriptorMethod()
     {
         var pdMethod = _engine.Evaluate("Object.getOwnPropertyDescriptor(testClass, 'Method')");
-        CheckPropertyDescriptor(pdMethod, false, false, false, true, false, false);
+        CheckPropertyDescriptor(jsPropertyDescriptor: pdMethod, configurable: true, enumerable: false, writable: false, hasValue: true, hasGet: false, hasSet: false);
 
         var pd = _engine.Evaluate("testClass").AsObject().GetOwnProperty("Method");
         // use PropertyDescriptor to wrap method directly
