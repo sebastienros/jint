@@ -357,7 +357,7 @@ public class AsyncTests
             }
 
             await Task.WhenAll(tasks.Select(t => t.Task));
-            await Task.Delay(100);
+            await Task.Delay(100, TestContext.Current.CancellationToken);
         }
     }
 
