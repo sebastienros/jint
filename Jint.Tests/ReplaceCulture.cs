@@ -3,7 +3,7 @@
 
 using System.Globalization;
 using System.Reflection;
-using Xunit.Sdk;
+using Xunit.v3;
 
 namespace Jint.Tests;
 
@@ -64,7 +64,7 @@ public class ReplaceCultureAttribute : BeforeAfterTestAttribute
 #endif
     public CultureInfo UICulture { get; }
 
-    public override void Before(MethodInfo methodUnderTest)
+    public override void Before(MethodInfo methodUnderTest, IXunitTest test)
     {
         _originalCulture = CultureInfo.CurrentCulture;
         _originalUICulture = CultureInfo.CurrentUICulture;
@@ -73,20 +73,20 @@ public class ReplaceCultureAttribute : BeforeAfterTestAttribute
         System.Threading.Thread.CurrentThread.CurrentCulture = Culture;
         System.Threading.Thread.CurrentThread.CurrentUICulture = UICulture;
 #else
-            CultureInfo.CurrentCulture = Culture;
-            CultureInfo.CurrentUICulture = UICulture;
+        CultureInfo.CurrentCulture = Culture;
+        CultureInfo.CurrentUICulture = UICulture;
 #endif
 
     }
 
-    public override void After(MethodInfo methodUnderTest)
+    public override void After(MethodInfo methodUnderTest, IXunitTest test)
     {
 #if NETFRAMEWORK
         System.Threading.Thread.CurrentThread.CurrentCulture = _originalCulture;
         System.Threading.Thread.CurrentThread.CurrentUICulture = _originalUICulture;
 #else
-            CultureInfo.CurrentCulture = _originalCulture;
-            CultureInfo.CurrentUICulture = _originalUICulture;
+        CultureInfo.CurrentCulture = _originalCulture;
+        CultureInfo.CurrentUICulture = _originalUICulture;
 #endif
     }
 }

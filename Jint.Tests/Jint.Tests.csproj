@@ -7,6 +7,7 @@
     <SignAssembly>true</SignAssembly>
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);612</NoWarn>
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,7 +27,7 @@
     <PackageReference Include="MongoDB.Bson.signed" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Text.Json" Condition="'$(TargetFramework)' == 'net472'" />
-    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 

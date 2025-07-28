@@ -1,6 +1,5 @@
 using Jint.Native;
 using Jint.Runtime;
-using Xunit.Abstractions;
 
 namespace Jint.Tests.Runtime;
 
@@ -17,7 +16,7 @@ public class TypeConverterTests
             ;
     }
 
-    public static readonly IEnumerable<object[]> ConvertNumberToInt32AndUint32TestData = new TheoryData<double, int>()
+    public static readonly TheoryData<double, int> ConvertNumberToInt32AndUint32TestData = new()
     {
         { 0.0, 0 },
         { -0.0, 0 },
