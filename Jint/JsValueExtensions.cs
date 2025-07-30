@@ -1,6 +1,7 @@
 using System.Diagnostics.Contracts;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -673,23 +674,86 @@ public static class JsValueExtensions
                 Throw.PromiseRejectedException($"Timeout of {timeout} reached");
             }
 
-            switch (promise.State)
-            {
-                case PromiseState.Pending:
-                    Throw.InvalidOperationException("'UnwrapIfPromise' called before Promise was settled");
-                    return null;
-                case PromiseState.Fulfilled:
-                    return promise.Value;
-                case PromiseState.Rejected:
-                    Throw.PromiseRejectedException(promise.Value);
-                    return null;
-                default:
-                    Throw.ArgumentOutOfRangeException();
-                    return null;
-            }
+            return HandlePromiseResult(promise);
         }
 
         return value;
+    }
+
+    /// <summary>
+    /// If the value is a Promise
+    ///     1. If "Fulfilled" returns the value it was fulfilled with
+    ///     2. If "Rejected" throws "PromiseRejectedException" with the rejection reason
+    ///     3. If "Pending" throws "InvalidOperationException". Should be called only in "Settled" state
+    /// Else
+    ///     returns the value intact
+    /// </summary>
+    /// <param name="value">value to unwrap</param>
+    /// <param name="cancellationToken">cancellationToken to observe</param>
+    /// <returns>inner value if Promise the value itself otherwise</returns>
+    public static JsValue UnwrapIfPromise(this JsValue value, CancellationToken cancellationToken)
+    {
+        if (value is JsPromise promise)
+        {
+            var engine = promise.Engine;
+            var completedEvent = promise.CompletedEvent;
+
+            engine.RunAvailableContinuations();
+            completedEvent.Wait(cancellationToken);
+
+            return HandlePromiseResult(promise);
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// If the value is a Promise
+    ///     1. If "Fulfilled" returns the value it was fulfilled with
+    ///     2. If "Rejected" throws "PromiseRejectedException" with the rejection reason
+    ///     3. If "Pending" throws "InvalidOperationException". Should be called only in "Settled" state
+    /// Else
+    ///     returns the value intact
+    /// </summary>
+    /// <param name="value">value to unwrap</param>
+    /// <param name="timeout">timeout to wait</param>
+    /// <param name="cancellationToken">cancellationToken to observe</param>
+    /// <returns>inner value if Promise the value itself otherwise</returns>
+    public static JsValue UnwrapIfPromise(this JsValue value, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        if (value is JsPromise promise)
+        {
+            var engine = promise.Engine;
+            var completedEvent = promise.CompletedEvent;
+
+            engine.RunAvailableContinuations();
+            if (!completedEvent.Wait(timeout, cancellationToken))
+            {
+                Throw.PromiseRejectedException($"Timeout of {timeout} reached");
+            }
+
+            return HandlePromiseResult(promise);
+        }
+
+        return value;
+    }
+
+    private static JsValue HandlePromiseResult(JsPromise promise)
+    {
+        switch (promise.State)
+        {
+            case PromiseState.Pending:
+                Throw.InvalidOperationException("'UnwrapIfPromise' called before Promise was settled");
+                return null;
+            case PromiseState.Fulfilled:
+                return promise.Value;
+            case PromiseState.Rejected:
+                Throw.PromiseRejectedException(promise.Value);
+                return null;
+            default:
+                Throw.ArgumentOutOfRangeException();
+                return null;
+        }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
