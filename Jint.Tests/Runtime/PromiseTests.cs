@@ -25,7 +25,7 @@ public class PromiseTests
         var promise = engine.Evaluate("f();");
 
         resolveFunc(66);
-        Assert.Equal(66, promise.UnwrapIfPromise());
+        Assert.Equal(66, promise.UnwrapIfPromise(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class PromiseTests
 
         rejectFunc("oops!");
 
-        var ex = Assert.Throws<PromiseRejectedException>(() => { completion.UnwrapIfPromise(); });
+        var ex = Assert.Throws<PromiseRejectedException>(() => { completion.UnwrapIfPromise(TestContext.Current.CancellationToken); });
 
         Assert.Equal("oops!", ex.RejectedValue.AsString());
     }
@@ -78,12 +78,12 @@ public class PromiseTests
         resolve1("first");
 
         // still not finished but the promise is fulfilled
-        Assert.Equal("first", completion.UnwrapIfPromise());
+        Assert.Equal("first", completion.UnwrapIfPromise(TestContext.Current.CancellationToken));
 
         resolve2("second");
 
         // completion value hasn't changed
-        Assert.Equal("first", completion.UnwrapIfPromise());
+        Assert.Equal("first", completion.UnwrapIfPromise(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public class PromiseTests
     public void PromiseResolveViaResolver_ReturnsCorrectValue()
     {
         var engine = new Engine();
-        var res = engine.Evaluate("new Promise((resolve, reject)=>{resolve(66);});").UnwrapIfPromise();
+        var res = engine.Evaluate("new Promise((resolve, reject)=>{resolve(66);});").UnwrapIfPromise(TestContext.Current.CancellationToken);
         Assert.Equal(66, res);
     }
 
@@ -142,7 +142,7 @@ public class PromiseTests
     public void PromiseResolveViaStatic_ReturnsCorrectValue()
     {
         var engine = new Engine();
-        Assert.Equal(66, engine.Evaluate("Promise.resolve(66);").UnwrapIfPromise());
+        Assert.Equal(66, engine.Evaluate("Promise.resolve(66);").UnwrapIfPromise(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -152,7 +152,7 @@ public class PromiseTests
 
         var ex = Assert.Throws<PromiseRejectedException>(() =>
         {
-            engine.Evaluate("new Promise((resolve, reject)=>{reject('Could not connect');});").UnwrapIfPromise();
+            engine.Evaluate("new Promise((resolve, reject)=>{reject('Could not connect');});").UnwrapIfPromise(TestContext.Current.CancellationToken);
         });
 
         Assert.Equal("Could not connect", ex.RejectedValue.AsString());
@@ -165,7 +165,7 @@ public class PromiseTests
 
         var ex = Assert.Throws<PromiseRejectedException>(() =>
         {
-            engine.Evaluate("Promise.reject('Could not connect');").UnwrapIfPromise();
+            engine.Evaluate("Promise.reject('Could not connect');").UnwrapIfPromise(TestContext.Current.CancellationToken);
         });
 
         Assert.Equal("Could not connect", ex.RejectedValue.AsString());
@@ -177,7 +177,7 @@ public class PromiseTests
         var engine = new Engine();
 
         var res = engine.Evaluate(
-            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => 44).then(result => resolve(result)); });").UnwrapIfPromise();
+            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => 44).then(result => resolve(result)); });").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal(44, res);
     }
@@ -187,7 +187,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         var res = engine.Evaluate(
-            "var promise1 = new Promise((resolve, reject) => { resolve(1); }); var promise2 = promise1.then();  promise1 === promise2").UnwrapIfPromise();
+            "var promise1 = new Promise((resolve, reject) => { resolve(1); }); var promise2 = promise1.then();  promise1 === promise2").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal(false, res);
     }
@@ -197,7 +197,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         var res = engine.Evaluate(
-            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(result => resolve(result)); });").UnwrapIfPromise();
+            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(result => resolve(result)); });").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal(66, res);
     }
@@ -207,7 +207,7 @@ public class PromiseTests
     {
         var engine = new Engine();
 
-        Assert.Equal(JsValue.Undefined, engine.Evaluate("Promise.resolve(33).then(() => {});").UnwrapIfPromise());
+        Assert.Equal(JsValue.Undefined, engine.Evaluate("Promise.resolve(33).then(() => {});").UnwrapIfPromise(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -215,7 +215,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         var res = engine.Evaluate(
-            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then().then(result => resolve(result)); });").UnwrapIfPromise();
+            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then().then(result => resolve(result)); });").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal(66, res);
     }
@@ -225,7 +225,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         var res = engine.Evaluate(
-            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => {}).then(result => resolve(result)); });").UnwrapIfPromise();
+            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => {}).then(result => resolve(result)); });").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal(JsValue.Undefined, res);
     }
@@ -235,7 +235,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         var res = engine.Evaluate(
-            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => { throw 'Thrown Error'; }).catch(result => resolve(result)); });").UnwrapIfPromise();
+            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => { throw 'Thrown Error'; }).catch(result => resolve(result)); });").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal("Thrown Error", res);
     }
@@ -245,7 +245,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         var res = engine.Evaluate(
-            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => Promise.resolve(55)).then(result => resolve(result)); });").UnwrapIfPromise();
+            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => Promise.resolve(55)).then(result => resolve(result)); });").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal(55, res);
     }
@@ -255,7 +255,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         var res = engine.Evaluate(
-            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => Promise.reject('Error Message')).catch(result => resolve(result)); });").UnwrapIfPromise();
+            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).then(() => Promise.reject('Error Message')).catch(result => resolve(result)); });").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal("Error Message", res);
     }
@@ -265,7 +265,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         var res = engine.Evaluate(
-            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).catch(result => resolve(result)); });").UnwrapIfPromise();
+            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).catch(result => resolve(result)); });").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal("Could not connect", res);
     }
@@ -275,7 +275,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         var res = engine.Evaluate(
-            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).then(undefined, result => resolve(result)); });").UnwrapIfPromise();
+            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).then(undefined, result => resolve(result)); });").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal("Could not connect", res);
     }
@@ -284,7 +284,7 @@ public class PromiseTests
     public void PromiseChainedWithHandler_ResolvedAsUndefined()
     {
         var engine = new Engine();
-        Assert.Equal(JsValue.Undefined, engine.Evaluate("Promise.reject('error').catch(() => {});").UnwrapIfPromise());
+        Assert.Equal(JsValue.Undefined, engine.Evaluate("Promise.reject('error').catch(() => {});").UnwrapIfPromise(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -292,7 +292,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         var res = engine.Evaluate(
-            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).catch(ex => {}).then(result => resolve(result)); });").UnwrapIfPromise();
+            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).catch(ex => {}).then(result => resolve(result)); });").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal(JsValue.Undefined, res);
     }
@@ -302,7 +302,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         var res = engine.Evaluate(
-            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).catch().catch(result => resolve(result)); });").UnwrapIfPromise();
+            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerReject('Could not connect')}).catch().catch(result => resolve(result)); });").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal("Could not connect", res);
     }
@@ -312,7 +312,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         var res = engine.Evaluate(
-            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).finally(() => resolve(16)); });").UnwrapIfPromise();
+            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(66)}).finally(() => resolve(16)); });").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal(16, res);
     }
@@ -331,14 +331,14 @@ public class PromiseTests
     public void PromiseFinally_ResolvesWithCorrectValue()
     {
         var engine = new Engine();
-        Assert.Equal(2, engine.Evaluate("Promise.resolve(2).finally(() => {})").UnwrapIfPromise());
+        Assert.Equal(2, engine.Evaluate("Promise.resolve(2).finally(() => {})").UnwrapIfPromise(TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public void PromiseFinallyWithNoCallback_ResolvesWithCorrectValue()
     {
         var engine = new Engine();
-        Assert.Equal(2, engine.Evaluate("Promise.resolve(2).finally()").UnwrapIfPromise());
+        Assert.Equal(2, engine.Evaluate("Promise.resolve(2).finally()").UnwrapIfPromise(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -346,7 +346,7 @@ public class PromiseTests
     {
         var engine = new Engine();
 
-        Assert.Equal(2, engine.Evaluate("Promise.resolve(2).finally(() => 6).finally(() => 9);").UnwrapIfPromise());
+        Assert.Equal(2, engine.Evaluate("Promise.resolve(2).finally(() => 6).finally(() => 9);").UnwrapIfPromise(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -354,7 +354,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         var res = engine.Evaluate(
-            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(5)}).finally(() => {throw 'Could not connect';}).catch(result => resolve(result)); });").UnwrapIfPromise();
+            "new Promise((resolve, reject) => { new Promise((innerResolve, innerReject) => {innerResolve(5)}).finally(() => {throw 'Could not connect';}).catch(result => resolve(result)); });").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal("Could not connect", res);
     }
@@ -363,7 +363,7 @@ public class PromiseTests
     public void PromiseAll_BadIterable_Rejects()
     {
         var engine = new Engine();
-        Assert.Throws<PromiseRejectedException>(() => { engine.Evaluate("Promise.all();").UnwrapIfPromise(); });
+        Assert.Throws<PromiseRejectedException>(() => { engine.Evaluate("Promise.all();").UnwrapIfPromise(TestContext.Current.CancellationToken); });
     }
 
 
@@ -372,7 +372,7 @@ public class PromiseTests
     {
         var engine = new Engine();
 
-        Assert.Equal(new object[] {1d, 2d, 3d}, engine.Evaluate("Promise.all([1,2,3]);").UnwrapIfPromise().ToObject());
+        Assert.Equal(new object[] {1d, 2d, 3d}, engine.Evaluate("Promise.all([1,2,3]);").UnwrapIfPromise(TestContext.Current.CancellationToken).ToObject());
     }
 
     [Fact]
@@ -380,7 +380,7 @@ public class PromiseTests
     {
         var engine = new Engine();
         Assert.Equal(new object[] {1d, 2d, 3d},
-            engine.Evaluate("Promise.all([1,Promise.resolve(2),3]);").UnwrapIfPromise().ToObject());
+            engine.Evaluate("Promise.all([1,Promise.resolve(2),3]);").UnwrapIfPromise(TestContext.Current.CancellationToken).ToObject());
     }
 
     [Fact]
@@ -390,7 +390,7 @@ public class PromiseTests
 
         Assert.Throws<PromiseRejectedException>(() =>
         {
-            engine.Evaluate("Promise.all([1,Promise.resolve(2),3, Promise.reject('Cannot connect')]);").UnwrapIfPromise();
+            engine.Evaluate("Promise.all([1,Promise.resolve(2),3, Promise.reject('Cannot connect')]);").UnwrapIfPromise(TestContext.Current.CancellationToken);
         });
     }
 
@@ -399,7 +399,7 @@ public class PromiseTests
     {
         var engine = new Engine();
 
-        Assert.Throws<PromiseRejectedException>(() => { engine.Evaluate("Promise.race();").UnwrapIfPromise(); });
+        Assert.Throws<PromiseRejectedException>(() => { engine.Evaluate("Promise.race();").UnwrapIfPromise(TestContext.Current.CancellationToken); });
     }
 
     [Fact]
@@ -407,7 +407,7 @@ public class PromiseTests
     {
         var engine = new Engine();
 
-        Assert.Throws<PromiseRejectedException>(() => { engine.Evaluate("Promise.race({});").UnwrapIfPromise(); });
+        Assert.Throws<PromiseRejectedException>(() => { engine.Evaluate("Promise.race({});").UnwrapIfPromise(TestContext.Current.CancellationToken); });
     }
 
     [Fact]
@@ -415,7 +415,7 @@ public class PromiseTests
     {
         var engine = new Engine();
 
-        Assert.Equal(12d, engine.Evaluate("Promise.race([12,2,3]);").UnwrapIfPromise().ToObject());
+        Assert.Equal(12d, engine.Evaluate("Promise.race([12,2,3]);").UnwrapIfPromise(TestContext.Current.CancellationToken).ToObject());
     }
 
     [Fact]
@@ -423,7 +423,7 @@ public class PromiseTests
     {
         var engine = new Engine();
 
-        Assert.Equal(12d, engine.Evaluate("Promise.race([12,Promise.resolve(2),3]);").UnwrapIfPromise().ToObject());
+        Assert.Equal(12d, engine.Evaluate("Promise.race([12,Promise.resolve(2),3]);").UnwrapIfPromise(TestContext.Current.CancellationToken).ToObject());
     }
 
     [Fact]
@@ -431,14 +431,14 @@ public class PromiseTests
     {
         var engine = new Engine();
 
-        Assert.Equal(2d, engine.Evaluate("Promise.race([Promise.resolve(2),6,3]);").UnwrapIfPromise().ToObject());
+        Assert.Equal(2d, engine.Evaluate("Promise.race([Promise.resolve(2),6,3]);").UnwrapIfPromise(TestContext.Current.CancellationToken).ToObject());
     }
 
     [Fact]
     public void PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly3()
     {
         var engine = new Engine();
-        var res = engine.Evaluate("Promise.race([new Promise((resolve,reject)=>{}),Promise.resolve(55),3]);").UnwrapIfPromise();
+        var res = engine.Evaluate("Promise.race([new Promise((resolve,reject)=>{}),Promise.resolve(55),3]);").UnwrapIfPromise(TestContext.Current.CancellationToken);
 
         Assert.Equal(55d, res.ToObject());
     }
@@ -451,7 +451,7 @@ public class PromiseTests
         Assert.Throws<PromiseRejectedException>(() =>
         {
             engine.Evaluate(
-                "Promise.race([new Promise((resolve,reject)=>{}),Promise.reject('Could not connect'),3]);").UnwrapIfPromise();
+                "Promise.race([new Promise((resolve,reject)=>{}),Promise.reject('Could not connect'),3]);").UnwrapIfPromise(TestContext.Current.CancellationToken);
         });
     }
 
@@ -470,7 +470,7 @@ public class PromiseTests
             .Evaluate(@"
 const promiseArray = [clrDictionary];
 return Promise.all(promiseArray);") // Returning and array through Promise.any()
-            .UnwrapIfPromise()
+            .UnwrapIfPromise(TestContext.Current.CancellationToken)
             .ToObject();
 
         var result = (object[]) resultAsObject;

@@ -23,7 +23,7 @@ public class ShadowRealmTests
 
         // modules
         var importValue = shadowRealm.ImportValue("./modules/format-name.js", "formatName");
-        var formatName = (ObjectInstance) importValue.UnwrapIfPromise();
+        var formatName = (ObjectInstance) importValue.UnwrapIfPromise(TestContext.Current.CancellationToken);
         var result = engine.Invoke(formatName, "John", "Doe").AsString();
         Assert.Equal("John Doe", result);
     }
