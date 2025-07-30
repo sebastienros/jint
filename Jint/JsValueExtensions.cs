@@ -700,6 +700,10 @@ public static class JsValueExtensions
 
             engine.RunAvailableContinuations();
             completedEvent.Wait(cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+            {
+                Throw.PromiseRejectedException("Operation was cancelled");
+            }
 
             return HandlePromiseResult(promise);
         }
@@ -729,6 +733,11 @@ public static class JsValueExtensions
             engine.RunAvailableContinuations();
             if (!completedEvent.Wait(timeout, cancellationToken))
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    Throw.PromiseRejectedException("Operation was cancelled");
+                }
+
                 Throw.PromiseRejectedException($"Timeout of {timeout} reached");
             }
 
