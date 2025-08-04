@@ -68,7 +68,28 @@ internal sealed class JintLiteralExpression : JintExpression
             var regExpParseResult = regExpLiteral.ParseResult;
             if (regExpParseResult.Success)
             {
-                var regex = regExpLiteral.UserData as Regex ?? regExpParseResult.Regex!;
+                var regex = regExpLiteral.UserData as Regex ?? regExpParseResult.Regex;
+                if (regex is null)
+                {
+                    // Regex was not compiled during parsing, compile it now
+                    var parserOptions = context.Engine.GetActiveParserOptions();
+                    var compiledResult = Tokenizer.AdaptRegExp(
+                        regExpLiteral.RegExp.Pattern, 
+                        regExpLiteral.RegExp.Flags, 
+                        compiled: false, 
+                        parserOptions.RegexTimeout,
+                        ecmaVersion: parserOptions.EcmaVersion,
+                        experimentalESFeatures: parserOptions.ExperimentalESFeatures);
+
+                    if (!compiledResult.Success)
+                    {
+                        Throw.SyntaxError(context.Engine.Realm, $"Unsupported regular expression. {compiledResult.ConversionError!.Description}");
+                    }
+
+                    regex = compiledResult.Regex!;
+                    regExpParseResult = compiledResult;
+                }
+                
                 return context.Engine.Realm.Intrinsics.RegExp.Construct(regex, regExpLiteral.RegExp.Pattern, regExpLiteral.RegExp.Flags, regExpParseResult);
             }
 
